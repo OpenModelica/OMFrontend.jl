@@ -844,7 +844,7 @@ function mapFoldExp(subscript::Subscript, func::MapFunc, arg::ArgT) where {ArgT}
 end
 
 function foldExp(subscript::Subscript, func::FoldFunc, arg::ArgT) where {ArgT}
-   local result = begin
+  local result = begin
     @match subscript begin
       SUBSCRIPT_UNTYPED(__) => begin
         fold(subscript.exp, func, arg)

@@ -731,6 +731,11 @@ Base.show(io::IO, ::MIME"text/plain", t::Tuple{OMFrontend.Frontend.FLAT_MODEL, O
   print(io, "\nFunctions:\n", string(last(t)))
 end
 
+#= Compact REPL display for heavy NewFrontend abstract types lives here so
+   it does not clutter the main API surface. See compactShow.jl for the
+   `verboseShow!` toggle and the big-hammer Base.show overrides. =#
+include("compactShow.jl")
+
 """
 ```
 removeQuotesFromFlatModelica(flatModelicaStr::String)
