@@ -5499,7 +5499,7 @@ function applyIndexExpArray(@nospecialize(exp::Expression), @nospecialize(index:
     @match ARRAY_EXPRESSION(elements = expl) = exp
      outExp = applySubscripts(restSubscripts, arrayGet(expl, toInteger(index)))
   elseif isBindingExp(index)
-     outExp = bindingExpMap(index, (exp, restSubscripts) -> applyIndexExpArray(exp = exp, restSubscripts = restSubscripts))
+     outExp = bindingExpMap(index, ind -> applyIndexExpArray(exp, ind, restSubscripts))
   else
      outExp = makeSubscriptedExp(Cons{Subscript}(SUBSCRIPT_INDEX(index), restSubscripts), exp)
   end
