@@ -681,7 +681,7 @@ function makeAssignment(
 )::Statement
   local stmt::Statement
 
-  @assign stmt = ASSIGNMENT(lhs, rhs, ty, src)
+  @assign stmt = ALG_ASSIGNMENT(lhs, rhs, ty, src)
   return stmt
 end
 

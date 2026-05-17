@@ -1,14 +1,13 @@
-#= Include reference models =#
 include("./dynamicOverconstrainedConnectors.jl")
 import ..OCC_ReferenceModels
 
-#=
-  This test set tests some basic functionality of OCC components
-=#
+const _OCC_MSL_KEY = OMFrontend.loadBundledMSL(version = "3.2.3")
+
 macro test_pass_if_not_throws(modelName::String, modelFile::String)
   @test true == begin
     try
-      OMFrontend.flattenModelWithMSL(modelName, modelFile)
+      OMFrontend.flattenModelWithLibraries(modelName, modelFile;
+                                           libraries = [_OCC_MSL_KEY])
       true
     catch e
       @error "Test of $modelName failed" e
@@ -30,8 +29,9 @@ end
 end
 
 function test_and_pretty_print(ref, modelName, modelFile)
-  local flattenedModel = OMFrontend.flattenModelWithMSL(modelName, modelFile)
-  local res = OMFrontend.toFlatModelica(flattenedModel[1], nil)
+  local result = OMFrontend.flattenModelWithLibraries(modelName, modelFile;
+                                                      libraries = [_OCC_MSL_KEY])
+  local res = OMFrontend.toFlatModelica(result[1], nil)
   @test true == begin
     if ref == res
       true
@@ -45,7 +45,6 @@ function test_and_pretty_print(ref, modelName, modelFile)
   end
 end
 
-# #= Regression test. Tests the generated code against reference models =#
 @testset "Test if the flat Modelica model is equal to the reference models" begin
   local modelFile = "./Models/DynamicOverconstrainedConnectors.mo"
   test_and_pretty_print(OCC_ReferenceModels.ACPort, "DynamicOverconstrainedConnectors.ACPort", modelFile)

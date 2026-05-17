@@ -1994,13 +1994,8 @@ end
 
 function instFunction3(fnNode::InstNode)::InstNode
   fnNode = instantiateN1(fnNode, EMPTY_NODE())
-  #=  Set up an empty function cache to signal that this function is
-  =#
-  #=  currently being instantiatdded, so recursive functions can be handled.
-  =#
   cacheInitFunc(fnNode)
   instExpressions(fnNode)
-  ##@debug "Returning in instfunction3"
   return fnNode
 end
 

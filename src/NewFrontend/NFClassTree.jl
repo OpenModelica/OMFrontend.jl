@@ -393,8 +393,11 @@ function applyLocalComponentsWithInstComponentExpressions(tree::CLASS_TREE_INSTA
     local comp::Pointer{InstNode} = @inbounds tree.components[i]
     local arg = P_Pointer.access(comp)
     instComponentExpressions(arg)
-    #fail()
   end
+  return nothing
+end
+
+function applyLocalComponentsWithInstComponentExpressions(::CLASS_TREE_EXPANDED_TREE)
   return nothing
 end
 

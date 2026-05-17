@@ -3,34 +3,29 @@
 @testset "MSL Loading tests" begin
   @test begin
     try
-      OMFrontend.initLoadMSL(;MSL_Version = "MSL_3_2_3")
+      OMFrontend.loadBundledMSL(version = "3.2.3")
       true
     catch e
-      @error "Failed loading the Modelica Standard Library: V3.2.3" e
-      false
-    end
-  end
-  #= Try 4.0.0 =#
-  @test begin
-    try
-#      OMFrontend.initLoadMSL(;MSL_Version = "MSL_4_0_0")
-      true
-    catch e
-      @error "Failed loading the Modelica Standard Library: V4.0.0:" e
+      @error "Failed loading bundled MSL 3.2.3:" e
       false
     end
   end
 
   @test true == begin
-    res = OMFrontend.flattenModelWithMSL("ElectricalTest.SimpleCircuit", "./MSL_Use/SimpleCircuitMSL.mo")
-    res = OMFrontend.toString(first(res))
-    println(res)
+    key = OMFrontend.loadBundledMSL(version = "3.2.3")
+    res = OMFrontend.flattenModelWithLibraries("ElectricalTest.SimpleCircuit",
+                                               "./MSL_Use/SimpleCircuitMSL.mo";
+                                               libraries = [key])
+    println(OMFrontend.toString(first(res)))
     true
   end
+
   @test true == begin
-    res = OMFrontend.flattenModelWithMSL("TransmissionLine", "./MSL_Use/TransmissionLine.mo")
-    res = OMFrontend.toString(first(res))
-    println(res)
+    key = OMFrontend.loadBundledMSL(version = "3.2.3")
+    res = OMFrontend.flattenModelWithLibraries("TransmissionLine",
+                                               "./MSL_Use/TransmissionLine.mo";
+                                               libraries = [key])
+    println(OMFrontend.toString(first(res)))
     true
   end
 end

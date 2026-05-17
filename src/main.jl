@@ -91,6 +91,7 @@ include("./Util/Error.jl")
 import .P_Pointer
 const Pointer = P_Pointer.Pointer
 include("./Util/Mutable.jl")
+include("./Util/utilityMacros.jl")
 include("./Util/UnorderedMap.jl")
 import .P_UnorderedMap
 const UnorderedMap = P_UnorderedMap
