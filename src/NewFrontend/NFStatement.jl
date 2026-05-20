@@ -492,7 +492,7 @@ function foldExpList(stmt::Vector{Statement}, func::FoldFunc, arg::ArgT) where {
   return arg
 end
 
-function mapExp(stmt::Statement, func::MapFunc)::Statement
+@nospecialized function mapExp(stmt::Statement, func::MapFunc)::Statement
   stmt = begin
     local e1::Expression
     local e2::Expression
@@ -566,7 +566,7 @@ function mapExpList(stmtl::Vector{Statement}, func::MapFunc)
   return stmtl
 end
 
-function map(stmt::Statement, func::MapFn)::Statement
+@nospecialized function map(stmt::Statement, func::MapFn)::Statement
    () = begin
     @match stmt begin
       ALG_FOR(__) => begin

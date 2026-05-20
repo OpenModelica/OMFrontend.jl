@@ -156,18 +156,31 @@ contiguous Vector instead of a chain of `Cons` cells). Saves N Cons-cell
 allocations per call versus `toListReverse`.
 """
 function toVectorReverse(cref::ComponentRef; includeScope::Bool = true)::Vector{ComponentRef}
-  result = ComponentRef[]
   if !(cref isa COMPONENT_REF_CREF)
-    return result
+    return ComponentRef[]
   end
-  tmp = cref
+  #= First pass: count the depth so we can size the Vector exactly. Two cheap
+     pointer-chases beat the geometric Vector grow + reverse! cost for short
+     cref chains (typical depth 2-5), which dominate hot frontend traversals. =#
+  local n = 0
+  local tmp = cref
   while tmp isa COMPONENT_REF_CREF
     if includeScope || tmp.origin == Origin.CREF
-      push!(result, tmp)
+      n += 1
     end
     tmp = tmp.restCref
   end
-  reverse!(result)
+  local result = Vector{ComponentRef}(undef, n)
+  tmp = cref
+  local i = n
+  while tmp isa COMPONENT_REF_CREF
+    if includeScope || tmp.origin == Origin.CREF
+      @inbounds result[i] = tmp
+      i -= 1
+    end
+    tmp = tmp.restCref
+  end
+  return result
 end
 
 

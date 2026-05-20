@@ -1534,9 +1534,8 @@ function containsIterator(@nospecialize(exp::Expression), origin::ORIGIN_Type) :
 end
 
 function isIterator(@nospecialize(exp::Expression)) ::Bool
-  local isIterator::Bool
-
-   isIterator = begin
+  local _result::Bool
+   _result = begin
     @match exp begin
       CREF_EXPRESSION(__)  => begin
         isIterator(exp.cref)
@@ -1547,7 +1546,7 @@ function isIterator(@nospecialize(exp::Expression)) ::Bool
       end
     end
   end
-  isIterator
+  _result
 end
 
 function toCref(@nospecialize(exp::Expression)) ::ComponentRef
@@ -5982,7 +5981,7 @@ function setType(@nospecialize(ty::NFType), @nospecialize(exp::Expression))
     end
 
     RECORD_ELEMENT_EXPRESSION(__)  => begin
-      RECORD_ELEMENT_EXPRESSION(exp.path, ty, exp.elements)
+      RECORD_ELEMENT_EXPRESSION(exp.recordExp, exp.index, exp.fieldName, ty)
     end
 
     PARTIAL_FUNCTION_APPLICATION_EXPRESSION(__)  => begin

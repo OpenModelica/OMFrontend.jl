@@ -108,6 +108,7 @@ include("main.jl")
 #=Internal modules=#
 import .Frontend.Flags
 import .Frontend.FlagsUtil
+import .Frontend.StructuralModeJSON
 
 
 """
@@ -276,9 +277,19 @@ function exportSCodeRepresentationToFile(fileName::String, contents::List{SCode.
   close(fdesc)
 end
 
+#= Pretty-print an MSL/library cache key for user-facing log lines.
+   `"MSL_3_2_3"` becomes `"Modelica 3.2.3"`, `"Modelica_4_0_0"` becomes
+   `"Modelica 4.0.0"`. Falls back to the raw key when the pattern does not
+   match. =#
+function _displayMSLKey(key::AbstractString)::String
+  m = match(r"^(?:MSL|Modelica)[_:](\d+)[_.](\d+)[_.](\d+)$", String(key))
+  m === nothing && return String(key)
+  return "Modelica " * m.captures[1] * "." * m.captures[2] * "." * m.captures[3]
+end
+
 function initLoadMSL(;MSL_Version = "MSL:3.2.3", forceReload::Bool = false)
   Base.depwarn("`initLoadMSL` is deprecated; use `loadInstalledLibrary(\"Modelica\"; version=...)` instead.", :initLoadMSL)
-  @info "Loading MSL\n\t Version: $(MSL_Version)"
+  @info "Loading MSL\n\t Version: $(_displayMSLKey(MSL_Version))"
   MSL_Version = replace(MSL_Version, "." => "_")
   MSL_Version = replace(MSL_Version, ":" => "_")
   if forceReload
@@ -509,7 +520,7 @@ function _loadLibCache(cacheKey::String, contentHash::String)::Bool
       Serialization.deserialize(io)
     end
     LIBRARY_CACHE[cacheKey] = prog
-    @info "Library '$cacheKey' loaded from disk cache."
+    @info "Library '$(_displayMSLKey(cacheKey))' loaded from disk cache."
     return true
   catch e
     @warn "Disk cache stale or incompatible, re-parsing: $e"
@@ -1137,5 +1148,50 @@ end
 include("GUI_API.jl")
 include("cli.jl")
 include("precompilation.jl")
+
+"""
+    exportFlatModelJSON(FM; output_dir=".", base_name, hierarchy=true, flat=true,
+                       class_mapping=nothing)
+
+Export a flat model as `<base>_hierarchy.json` and/or `<base>_flat.json` in
+`output_dir`. Structural-mode components are grouped into class templates with
+parameter overrides. See `StructuralModeJSON.exportFlatModelJSON`.
+"""
+exportFlatModelJSON(args...; kwargs...) =
+  StructuralModeJSON.exportFlatModelJSON(args...; kwargs...)
+
+"""
+    exportFlatModelJSONFromFile(modelName, fileName, library = "";
+                                output_dir, base_name,
+                                hierarchy=true, flat=true, class_mapping=nothing)
+
+Parse `fileName`, instantiate `modelName` to a FlatModel, then call
+`exportFlatModelJSON`. When `library` is non-empty, it is loaded via
+`loadInstalledLibrary` and combined with the model via `flattenModelWithLibraries`
+(e.g. `library = "Modelica"`). When `library` is empty, the model is flattened
+on its own with `flattenModel`.
+"""
+function exportFlatModelJSONFromFile(modelName::AbstractString,
+                                     fileName::AbstractString,
+                                     library::AbstractString = "";
+                                     output_dir::AbstractString = ".",
+                                     base_name::AbstractString = "",
+                                     hierarchy::Bool = true,
+                                     flat::Bool = true,
+                                     class_mapping::Union{Dict{String,String}, Nothing} = nothing)
+  (fm, _funcs) = if isempty(library)
+    flattenModel(String(modelName), String(fileName))
+  else
+    local cacheKey = loadInstalledLibrary(String(library))
+    flattenModelWithLibraries(String(modelName), String(fileName);
+                              libraries = [cacheKey])
+  end
+  return StructuralModeJSON.exportFlatModelJSON(fm;
+                                                output_dir = output_dir,
+                                                base_name = base_name,
+                                                hierarchy = hierarchy,
+                                                flat = flat,
+                                                class_mapping = class_mapping)
+end
 
 end #OMFrontend

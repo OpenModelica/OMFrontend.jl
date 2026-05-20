@@ -785,22 +785,55 @@ end
 
 @nospecializeinfer function mapDims(@nospecialize(ty::M_Type), func::FuncT)
   local fn::M_Function
+  #= Short-circuit when `func` is the identity on every dimension/sub-type,
+     so callers can compare with `referenceEq` and skip downstream
+     reallocation. The previous implementation always allocated a fresh
+     TYPE_ARRAY/TYPE_TUPLE/... even when nothing changed. =#
   local retTy = @match ty begin
     TYPE_ARRAY(__) => begin
-      local tyDimensions = list(func(d) for d in ty.dimensions)
-      TYPE_ARRAY(ty.elementType, tyDimensions)
+      local changed = false
+      local newDims = nil
+      for d in ty.dimensions
+        local nd = func(d)
+        changed = changed || !referenceEq(nd, d)
+        newDims = _cons(nd, newDims)
+      end
+      if !changed
+        ty
+      else
+        TYPE_ARRAY(ty.elementType, listReverse(newDims))
+      end
     end
     TYPE_TUPLE(__) => begin
-      local tyTypes = list(mapDims(t, func) for t in ty.types)
-      TYPE_TUPLE(tyTypes, ty.names)
+      local changed = false
+      local newTypes = nil
+      for t in ty.types
+        local nt = mapDims(t, func)
+        changed = changed || !referenceEq(nt, t)
+        newTypes = _cons(nt, newTypes)
+      end
+      if !changed
+        ty
+      else
+        TYPE_TUPLE(listReverse(newTypes), ty.names)
+      end
     end
     TYPE_FUNCTION(fn = fn) => begin
-      newFn = setReturnType(mapDims(returnType(fn), func), fn)
-      TYPE_FUNCTION(newFn, ty.fnType)
+      local oldRet = returnType(fn)
+      local newRet = mapDims(oldRet, func)
+      if referenceEq(oldRet, newRet)
+        ty
+      else
+        TYPE_FUNCTION(setReturnType(newRet, fn), ty.fnType)
+      end
     end
     TYPE_METABOXED(__) => begin
-      tyTy = mapDims(ty.ty, func)
-      TYPE_METABOXED(tyTy)
+      local tyTy = mapDims(ty.ty, func)
+      if referenceEq(tyTy, ty.ty)
+        ty
+      else
+        TYPE_METABOXED(tyTy)
+      end
     end
     _ => begin
       ty

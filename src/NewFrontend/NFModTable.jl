@@ -78,45 +78,24 @@ end
 
 """  Gets a value from the tree given a key. """
 function hasKey(inTree::Tree, inKey::Key)
-  local comp::Bool = false
-  local key::Key
-  local key_comp::Int
-  local tree::Tree
-  key = begin
-    @match inTree begin
-      NODE(__) => begin
-        inTree.key
+  local cur = inTree
+  while true
+    if cur isa NODE
+      local c = keyCompare(inKey, cur.key)
+      if c == 0
+        return true
+      elseif c > 0
+        cur = cur.right
+      else
+        cur = cur.left
       end
-
-      LEAF(__) => begin
-        inTree.key
-      end
-      EMPTY(__) => begin
-        fail()
-      end
+    elseif cur isa LEAF
+      return keyCompare(inKey, cur.key) == 0
+    else
+      return false
     end
   end
-  key_comp = keyCompare(inKey, key)
-  comp = begin
-    @match (key_comp, inTree) begin
-      (0, _) => begin
-        true
-      end
-
-      (1, NODE(right = tree)) => begin
-        hasKey(tree, inKey)
-      end
-
-      (-1, NODE(left = tree)) => begin
-        hasKey(tree, inKey)
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return comp
+  return false
 end
 
 function isEmpty(tree::Tree)::Bool
@@ -212,20 +191,10 @@ function printTreeStr(inTree::Tree)
 end
 
 function referenceEqOrEmpty(t1::Tree, t2::Tree)
-  local b::Bool
-
-   b = begin
-    @match (t1, t2) begin
-      (EMPTY(__), EMPTY(__)) => begin
-        true
-      end
-
-      _ => begin
-        referenceEq(t1, t2)
-      end
-    end
+  if t1 isa EMPTY && t2 isa EMPTY
+    return true
   end
-  return b
+  return referenceEq(t1, t2)
 end
 
 """Balances a Tree"""
@@ -656,49 +625,23 @@ end
   associated with the key.
 """
 function getOpt(tree::Tree, key::Key)
-  local value::Option{Value}
-
-  local k::Key
-
-   k = begin
-    @match tree begin
-      NODE(__) => begin
-        tree.key
+  local cur = tree
+  while true
+    if cur isa NODE
+      local c = keyCompare(key, cur.key)
+      if c == 0
+        return SOME(cur.value)
+      elseif c > 0
+        cur = cur.right
+      else
+        cur = cur.left
       end
-
-      LEAF(__) => begin
-        tree.key
-      end
-
-      _ => begin
-        key
-      end
+    elseif cur isa LEAF
+      return keyCompare(key, cur.key) == 0 ? SOME(cur.value) : NONE()
+    else
+      return NONE()
     end
   end
-   value = begin
-    @match (keyCompare(key, k), tree) begin
-      (0, LEAF(__)) => begin
-        SOME(tree.value)
-      end
-
-      (0, NODE(__)) => begin
-        SOME(tree.value)
-      end
-
-      (1, NODE(__)) => begin
-        getOpt(tree.right, key)
-      end
-
-      (-1, NODE(__)) => begin
-        getOpt(tree.left, key)
-      end
-
-      _ => begin
-        NONE()
-      end
-    end
-  end
-  return value
 end
 
 """Creates a new tree from a list of key-value pairs."""

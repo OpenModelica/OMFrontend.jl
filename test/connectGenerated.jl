@@ -116,8 +116,6 @@ class ConnectInner1
   flow Real b.a.my.f;
   Real a.my.e;
   flow Real a.my.f;
-  Real global.e;
-  flow Real global.f;
 equation
   b.a.my.e = a.my.e;
   b.a.my.e = global.e;
@@ -162,8 +160,6 @@ class ConnectInner3
   flow Real b.a.my.f;
   Real a.my.e;
   flow Real a.my.f;
-  Real global.c.e;
-  flow Real global.c.f;
 equation
   b.a.my.e = a.my.e;
   b.a.my.e = global.c.e;
@@ -186,8 +182,6 @@ class Top
   Real a1.aPin.v;
   flow Real a2.aPin.i;
   Real a2.aPin.v;
-  flow Real world.i;
-  Real world.v;
 equation
   topPin.v = a2.aPin.v;
   topPin.v = world.v;
@@ -212,10 +206,6 @@ class Top
   Real a1.aPin.v;
   flow Real a2.aPin.i;
   Real a2.aPin.v;
-  flow Real world.p.i;
-  Real world.p.v;
-  flow Real world.n.i;
-  Real world.n.v;
 equation
   topPin.v = a2.aPin.v;
   topPin.v = a1.aPin.v;
@@ -240,13 +230,12 @@ class Top2
   Real a1.a.aPin.v;
   flow Real a1.a2Pin.i;
   Real a1.a2Pin.v;
-  flow Real world.i;
-  Real world.v;
 equation
   topPin.v = world.v;
   topPin.v = a1.a2Pin.v;
-  topPin.v = a1.a.aPin.v;
-  (-a1.a2Pin.i) - topPin.i - a1.a.aPin.i - world.i = 0.0;
+  (-a1.a2Pin.i) - topPin.i - world.i = 0.0;
+  a1.a.aPin.v = a1.world.v;
+  (-a1.world.i) - a1.a.aPin.i = 0.0;
   world.i = 0.0;
   topPin.i = 0.0;
   a1.world.i = 0.0;
@@ -265,8 +254,6 @@ class Top
   Real a1.aPin.v;
   flow Real a2.aPin.i;
   Real a2.aPin.v;
-  flow Real world.subWorld.pin.i;
-  Real world.subWorld.pin.v;
 equation
   topPin.v = a2.aPin.v;
   topPin.v = a1.aPin.v;
@@ -288,10 +275,6 @@ class ConnectInnerOuterArray1
   flow Real lowerLevelModel[1].c.f;
   Real lowerLevelModel[2].c.e;
   flow Real lowerLevelModel[2].c.f;
-  Real innerOuterModel.c1.e;
-  flow Real innerOuterModel.c1.f;
-  Real innerOuterModel.c2.e;
-  flow Real innerOuterModel.c2.f;
 equation
   lowerLevelModel[2].c.e = lowerLevelModel[1].c.e;
   lowerLevelModel[2].c.e = innerOuterModel.c1.e;

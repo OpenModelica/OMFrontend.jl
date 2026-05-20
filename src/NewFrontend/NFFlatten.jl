@@ -1025,14 +1025,14 @@ function subscriptBindingOpt(
 end
 
 
-function flattenBinding(
+@nospecialized function flattenBinding(
   binding::Binding,
   prefix::ComponentRef
 )::Binding
   flattenBinding(binding, prefix, false)
 end
 
-function flattenBinding(
+@nospecialized function flattenBinding(
   binding::Binding,
   prefix::ComponentRef,
   isTypeAttribute::Bool
@@ -1172,12 +1172,12 @@ function flattenBindingExp2(
   return outExp
 end
 
-function flattenExp(exp::Expression, prefix::ComponentRef)
+@nospecialized function flattenExp(exp::Expression, prefix::ComponentRef)
   exp = map(exp, (x) -> flattenExp_traverse(x, prefix))
   return exp
 end
 
-function flattenExp_traverse(exp::Expression, prefix::ComponentRef)
+@nospecialized function flattenExp_traverse(exp::Expression, prefix::ComponentRef)
   exp = begin
     @match exp begin
       CREF_EXPRESSION(__) => begin

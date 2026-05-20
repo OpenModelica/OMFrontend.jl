@@ -40,4 +40,8 @@ end
     @info "Testing Modelica.Electrical.Batteries"
     #include("batteries.jl")
   end
+  @testset "Fluid" begin
+    @info "Testing Modelica.Fluid.Examples"
+    include("fluid.jl")
+  end
 end

@@ -386,7 +386,8 @@ function lookupInner(outerNode::InstNode, scope::InstNode)
   while ! isEmpty(cur_scope)
     try
       @match ENTRY_INFO(node, isImport) = lookupElement(nameVar, getClass(cur_scope))
-      innerNode = resolveOuter(node, isImport)
+      @match false = isImport
+      innerNode = resolveOuter(node)
       @match true = isInner(innerNode)
       return innerNode
     catch e

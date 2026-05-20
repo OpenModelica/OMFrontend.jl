@@ -148,102 +148,71 @@ end
   @nospecialize(currentState::LookupState),
   node::InstNode,
 )::LookupState
-  local nextState::LookupState
-
-  @assign nextState = begin
-    local str::String
-    #=  Transitions from BEGIN.
-    =#
-    @match (elementState, currentState) begin
-      (_, LOOKUP_STATE_BEGIN(__)) => begin
-        elementState
-      end
-
-      (LOOKUP_STATE_COMP(__), LOOKUP_STATE_COMP(__)) => begin
-        LOOKUP_STATE_COMP_COMP()
-      end
-
-      (LOOKUP_STATE_FUNC(__), LOOKUP_STATE_COMP(__)) => begin
-        LOOKUP_STATE_COMP_FUNC()
-      end
-
-      (_, LOOKUP_STATE_COMP(__)) => begin
-        LOOKUP_STATE_COMP_CLASS()
-      end
-
-      (LOOKUP_STATE_COMP(__), LOOKUP_STATE_COMP_COMP(__)) => begin
-        LOOKUP_STATE_COMP_COMP()
-      end
-
-      (LOOKUP_STATE_COMP(__), LOOKUP_STATE_PACKAGE(__)) => begin
-        LOOKUP_STATE_COMP_COMP()
-      end
-
-      (_, LOOKUP_STATE_PACKAGE(__)) => begin
-        elementState
-      end
-
-      (LOOKUP_STATE_COMP(__), LOOKUP_STATE_CLASS(__)) => begin
-        LOOKUP_STATE_COMP_COMP()
-      end
-
-      (_, LOOKUP_STATE_CLASS(__)) => begin
-        elementState
-      end
-
-      (LOOKUP_STATE_COMP(__), LOOKUP_STATE_FUNC(__)) => begin
-        LOOKUP_STATE_COMP_COMP()
-      end
-
-      (_, LOOKUP_STATE_FUNC(__)) => begin
-        elementState
-      end
-
-      (LOOKUP_STATE_FUNC(__), LOOKUP_STATE_COMP_CLASS(__)) => begin
-        LOOKUP_STATE_COMP_FUNC()
-      end
-
-      (LOOKUP_STATE_CLASS(__), LOOKUP_STATE_COMP_CLASS(__)) => begin
-        LOOKUP_STATE_COMP_CLASS()
-      end
-
-      (LOOKUP_STATE_PACKAGE(__), LOOKUP_STATE_COMP_CLASS(__)) => begin
-        LOOKUP_STATE_COMP_CLASS()
-      end
-
-      (LOOKUP_STATE_FUNC(__), LOOKUP_STATE_COMP_FUNC(__)) => begin
-        LOOKUP_STATE_COMP_FUNC()
-      end
-
-      (LOOKUP_STATE_CLASS(__), LOOKUP_STATE_COMP_FUNC(__)) => begin
-        LOOKUP_STATE_COMP_CLASS()
-      end
-
-      (LOOKUP_STATE_PACKAGE(__), LOOKUP_STATE_COMP_FUNC(__)) => begin
-        LOOKUP_STATE_COMP_CLASS()
-      end
-
-      (LOOKUP_STATE_COMP(__), _) => begin
-        LOOKUP_STATE_ERROR(LOOKUP_STATE_COMP_FUNC())
-      end
-
-      (_, LOOKUP_STATE_COMP_COMP(__)) => begin
-        LOOKUP_STATE_ERROR(LOOKUP_STATE_COMP_COMP())
-      end
-
-      _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() +
-          " failed on unknown transition for element " +
-          name(node),
-          sourceInfo(),
-        )
-        fail()
-      end
+  if currentState isa LOOKUP_STATE_BEGIN
+    return elementState
+  elseif currentState isa LOOKUP_STATE_COMP
+    if elementState isa LOOKUP_STATE_COMP
+      return LOOKUP_STATE_COMP_COMP()
+    elseif elementState isa LOOKUP_STATE_FUNC
+      return LOOKUP_STATE_COMP_FUNC()
+    else
+      return LOOKUP_STATE_COMP_CLASS()
     end
+  elseif currentState isa LOOKUP_STATE_COMP_COMP
+    if elementState isa LOOKUP_STATE_COMP
+      return LOOKUP_STATE_COMP_COMP()
+    else
+      return LOOKUP_STATE_ERROR(LOOKUP_STATE_COMP_COMP())
+    end
+  elseif currentState isa LOOKUP_STATE_PACKAGE
+    if elementState isa LOOKUP_STATE_COMP
+      return LOOKUP_STATE_COMP_COMP()
+    else
+      return elementState
+    end
+  elseif currentState isa LOOKUP_STATE_CLASS
+    if elementState isa LOOKUP_STATE_COMP
+      return LOOKUP_STATE_COMP_COMP()
+    else
+      return elementState
+    end
+  elseif currentState isa LOOKUP_STATE_FUNC
+    if elementState isa LOOKUP_STATE_COMP
+      return LOOKUP_STATE_COMP_COMP()
+    else
+      return elementState
+    end
+  elseif currentState isa LOOKUP_STATE_COMP_CLASS
+    if elementState isa LOOKUP_STATE_FUNC
+      return LOOKUP_STATE_COMP_FUNC()
+    elseif elementState isa LOOKUP_STATE_CLASS
+      return LOOKUP_STATE_COMP_CLASS()
+    elseif elementState isa LOOKUP_STATE_PACKAGE
+      return LOOKUP_STATE_COMP_CLASS()
+    elseif elementState isa LOOKUP_STATE_COMP
+      return LOOKUP_STATE_ERROR(LOOKUP_STATE_COMP_FUNC())
+    end
+  elseif currentState isa LOOKUP_STATE_COMP_FUNC
+    if elementState isa LOOKUP_STATE_FUNC
+      return LOOKUP_STATE_COMP_FUNC()
+    elseif elementState isa LOOKUP_STATE_CLASS
+      return LOOKUP_STATE_COMP_CLASS()
+    elseif elementState isa LOOKUP_STATE_PACKAGE
+      return LOOKUP_STATE_COMP_CLASS()
+    elseif elementState isa LOOKUP_STATE_COMP
+      return LOOKUP_STATE_ERROR(LOOKUP_STATE_COMP_FUNC())
+    end
+  elseif elementState isa LOOKUP_STATE_COMP
+    return LOOKUP_STATE_ERROR(LOOKUP_STATE_COMP_FUNC())
   end
-  return nextState
+  Error.assertion(
+    false,
+    getInstanceName() +
+    " failed on unknown transition for element " +
+    name(node),
+    sourceInfo(),
+  )
+  fail()
 end
 
 """Returns the lookup state of a given element."""

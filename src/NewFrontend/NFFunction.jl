@@ -2435,8 +2435,7 @@ function makeAttributes(
         =#
         #=  Normal function.
         =#
-        #        @assign inline_ty = commentIsInlineFunc(cmt) TODO
-        inline_ty = DAE.NO_INLINE() #TODO tmp
+        inline_ty = commentIsInlineFunc(cmt)
         #=  In Modelica 3.2 and before, external functions with side-effects are not marked.
         =#
         @assign is_impure =
@@ -2463,6 +2462,11 @@ function makeAttributes(
 end
 
 function commentIsInlineFunc(cmt::SCode.Comment)
+  if SCodeUtil.commentHasBooleanNamedAnnotation(cmt, "LateInline")
+    return DAE.AFTER_INDEX_RED_INLINE()
+  elseif SCodeUtil.commentHasBooleanNamedAnnotation(cmt, "Inline")
+    return DAE.EARLY_INLINE()
+  end
   return DAE.NO_INLINE()
 end
 

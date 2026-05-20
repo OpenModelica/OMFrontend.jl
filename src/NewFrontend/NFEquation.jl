@@ -694,7 +694,7 @@ function mapExpBranch(branch::Equation_Branch, func::MapExpFn)::Equation_Branch
   return branch
 end
 
-function mapExp(eq::T, func::MapExpFn) where {T <: Equation}
+@nospecialized function mapExp(eq::Equation, func::MapExpFn)
   eq = begin
     local e1::Expression
     local e2::Expression

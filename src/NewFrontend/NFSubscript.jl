@@ -908,7 +908,7 @@ function mapShallowExp(subscript::Subscript, func::MapFunc)::Subscript
   return outSubscript
 end
 
-function mapExp(subscript::Subscript, func::MapFunc)::Subscript
+@nospecialized function mapExp(subscript::Subscript, func::MapFunc)::Subscript
   local outSubscript::Subscript
 
    outSubscript = begin

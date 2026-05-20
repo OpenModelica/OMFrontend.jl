@@ -3035,7 +3035,7 @@ function evalBuiltinDiagonal(@nospecialize(arg::Expression))::Expression
       end
       ARRAY_EXPRESSION(elements = elems) => begin
          n = length(elems)
-        elem_ty = typeOf(first(elems))
+        elem_ty = typeOf(Base.first(elems))
         row_ty = liftArrayLeft(elem_ty, fromInteger(n))
          zero = makeZero(elem_ty)
         local rows = Expression[]
