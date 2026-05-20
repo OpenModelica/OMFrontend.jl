@@ -1090,7 +1090,6 @@ function evaluateCallTypeDimExp(@nospecialize(exp::Expression), ptree::Parameter
   local outExp::Expression
   outExp = begin
     local node::InstNode
-    local oexp::Option{Expression}
     local e::Expression
     @match exp begin
       CREF_EXPRESSION(
@@ -1099,9 +1098,9 @@ function evaluateCallTypeDimExp(@nospecialize(exp::Expression), ptree::Parameter
           restCref = COMPONENT_REF_EMPTY(__),
         ),
       ) => begin
-        oexp = ParameterTreeImpl.getOpt(ptree, name(node))
-        if isSome(oexp)
-          @match SOME(outExp) = oexp
+        local v = ParameterTreeImpl.tryGet(ptree, name(node))
+        if v !== nothing
+          outExp = v
         end
         #=  TODO: Apply subscripts. =#
         outExp

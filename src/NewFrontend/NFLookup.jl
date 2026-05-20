@@ -899,16 +899,15 @@ function generateInner(outerNode::InstNode, topScope::InstNode)
   local innerNode::InstNode
   local cache::CachedData
   local nameStr::String
-  local inner_node_opt::Option{InstNode}
   local inner_node::InstNode
   cache = getInnerOuterCache(topScope)
    () = begin
     @match cache begin
       C_TOP_SCOPE(__)  => begin
         nameStr = name(outerNode)
-        inner_node_opt = NodeTree.getOpt(cache.addedInner, nameStr)
-        if isSome(inner_node_opt)
-          @match SOME(innerNode) = inner_node_opt
+        local v = NodeTree.tryGet(cache.addedInner, nameStr)
+        if v !== nothing
+          innerNode = v
         else
           innerNode = makeInnerNode(outerNode)
           #= Fully qualify the typespec path before reparenting.

@@ -482,7 +482,6 @@ function applyReplacementCref(
 )::Expression
   local outExp::Expression
   local cref_parts::List{ComponentRef}
-  local repl_exp::Option{Expression}
   local parent::InstNode
   local nodeVar::InstNode
   #=  Explode the cref into a list of parts in reverse order. =#
@@ -493,9 +492,9 @@ function applyReplacementCref(
     @assign outExp = exp
   else
     @assign parent = node(listHead(cref_parts))
-    @assign repl_exp = ReplTree.getOpt(repl, parent)
-    if isSome(repl_exp)
-      @match SOME(outExp) = repl_exp
+    local repl_exp = ReplTree.tryGet(repl, parent)
+    if repl_exp !== nothing
+      outExp = repl_exp
     else
       @assign outExp = exp
       return outExp

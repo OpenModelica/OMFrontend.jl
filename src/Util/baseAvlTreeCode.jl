@@ -540,6 +540,32 @@ Get on an empty tree results in failure...
 end
 
 """
+Like `getOpt` but returns the value directly on a hit and `nothing` on a
+miss. Saves the `SOME(value)` wrapper allocation that `getOpt` pays on
+every successful lookup; Julia represents `Union{Value, Nothing}` as a
+tagged pointer with no heap struct.
+"""
+function tryGet(tree::Tree, key::Key)
+  local cur = tree
+  while true
+    if cur isa NODE
+      local c = keyCompare(key, cur.key)
+      if c == 0
+        return cur.value
+      elseif c > 0
+        cur = cur.right
+      else
+        cur = cur.left
+      end
+    elseif cur isa LEAF
+      return keyCompare(key, cur.key) == 0 ? cur.value : nothing
+    else
+      return nothing
+    end
+  end
+end
+
+"""
   Fetches a value from the tree given a key, or returns NONE if no value is
   associated with the key.
 """
