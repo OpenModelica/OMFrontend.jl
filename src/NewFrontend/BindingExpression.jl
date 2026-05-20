@@ -44,17 +44,20 @@ function addBindingExpParent(@nospecialize(parent::InstNode),
   return modifiedExp
 end
 
-function mostPropagatedSubExp_traverser(@nospecialize(exp::Expression), mostPropagated::Tuple{Int, Expression})
-  local max_prop::Int
-  local exp_prop::Int
+mutable struct MaxProp
+  count::Int
+  exp::Expression
+end
+
+function mostPropagatedSubExp_traverser(@nospecialize(exp::Expression), mp::MaxProp)
   if isBindingExp(exp)
-    (max_prop, _) = mostPropagated
-    exp_prop = propagatedDimCount(exp)
-    if exp_prop > max_prop
-      mostPropagated = (exp_prop, exp)
+    local exp_prop = propagatedDimCount(exp)
+    if exp_prop > mp.count
+      mp.count = exp_prop
+      mp.exp = exp
     end
   end
-  mostPropagated
+  mp
 end
 
 """
@@ -64,12 +67,11 @@ through. Returns the first expression and -1 as the number of dimensions
 if neither expression contains any binding expressions.
 """
 function mostPropagatedSubExpBinary(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression)) ::Tuple{Expression, Int}
-  local maxPropCount::Int
-  local maxPropExp::Expression
   #=  TODO: Optimize this, there's no need to check for bindings in e.g. literal arrays. =#
-  (maxPropCount, maxPropExp) = fold(exp1, mostPropagatedSubExp_traverser, (-1, exp1))
-  (maxPropCount, maxPropExp) = fold(exp2, mostPropagatedSubExp_traverser, (maxPropCount, maxPropExp))
-  (maxPropExp, maxPropCount)
+  local mp = MaxProp(-1, exp1)
+  fold(exp1, mostPropagatedSubExp_traverser, mp)
+  fold(exp2, mostPropagatedSubExp_traverser, mp)
+  (mp.exp, mp.count)
 end
 
 """
@@ -79,11 +81,10 @@ expression itself and -1 as the number of dimensions if it doesn't contain
 any binding expressions.
 """
 function mostPropagatedSubExp(@nospecialize(exp::Expression))
-  local maxPropCount::Int
-  local maxPropExp::Expression
   #=  TODO: Optimize this, there's no need to check for bindings in e.g. literal arrays. =#
-  (maxPropCount, maxPropExp) = fold(exp, mostPropagatedSubExp_traverser, (-1, exp))
-  (maxPropExp, maxPropCount)
+  local mp = MaxProp(-1, exp)
+  fold(exp, mostPropagatedSubExp_traverser, mp)
+  (mp.exp, mp.count)
 end
 
 function bindingExpMap4(@nospecialize(exp::Expression), subs::List{<:Subscript}) ::Expression

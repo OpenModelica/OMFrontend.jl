@@ -482,6 +482,13 @@ function toFlatString(cref::ComponentRef; inFunction = false)
   local cr::ComponentRef
   local subs::List{Subscript}
   local strl::List{String} = nil
+  #= Wildcard and empty crefs have a fixed textual form and would trip the
+     `cref isa COMPONENT_REF_CREF` guard below with `sc = nothing`. =#
+  if cref isa COMPONENT_REF_WILD
+    return "_"
+  elseif cref isa COMPONENT_REF_EMPTY
+    return ""
+  end
   #= Iterator variables (loop vars like i in 'for i in ...') must not be quoted =#
   if isIterator(cref)
     return stringDelimitList(toFlatString_impl(cref, nil; inFunction = inFunction), ".")

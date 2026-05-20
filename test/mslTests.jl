@@ -44,4 +44,8 @@ end
     @info "Testing Modelica.Fluid.Examples"
     include("fluid.jl")
   end
+  @testset "Magnetic" begin
+    @info "Testing Modelica.Magnetic.FluxTubes"
+    include("magnetic.jl")
+  end
 end

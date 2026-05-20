@@ -4513,7 +4513,7 @@ function addSourceMessage(
   inMessageTokens::ErrorTypes.MessageTokens,
   inInfo::SourceInfo,
 )
-  push!(ErrorExt.SOURCE_MESSAGES, [inErrorMsg, inMessageTokens, inInfo])
+  ErrorExt.pushSourceMessage!([inErrorMsg, inMessageTokens, inInfo])
 end
 
 function addSourceMessageAsError(
