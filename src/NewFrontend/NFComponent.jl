@@ -717,7 +717,7 @@ function variability(component::Component)
 end
 
 function parallelism(component::Component)
-  local parallelism::Parallelism
+  local parallelism::ParallelismType
 
    parallelism = begin
     @match component begin

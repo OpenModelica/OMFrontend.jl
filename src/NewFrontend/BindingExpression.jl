@@ -4955,7 +4955,7 @@ end
       end
 
       PARTIAL_FUNCTION_APPLICATION_EXPRESSION(__)  => begin
-        "function " + toFlatString(exp.fn; inFunction = inFunction) + "(" + stringDelimitList(List(@do_threaded_for n + " = " + toFlatString(a; inFunction = inFunction) (a, n) (exp.args, exp.argNames)), ", ") + ")"
+        "function " + toFlatString(exp.fn; inFunction = inFunction) + "(" + stringDelimitList(list(@do_threaded_for n + " = " + toFlatString(a; inFunction = inFunction) (a, n) (exp.args, exp.argNames)), ", ") + ")"
       end
       _  => begin
         anyString(exp)

@@ -451,7 +451,7 @@ function makeDAEType(fn::M_FUNCTION, boxTypes::Bool = false)::DAE.Type
   local ty::M_Type
   local ptype::DAE.Type
   local pconst::DAE.Const
-  local ppar::DAE
+  local ppar::DAE.VarParallelism
   local pdefault::Option{DAE.Exp}
   local comp::Component
   for param in fn.inputs
