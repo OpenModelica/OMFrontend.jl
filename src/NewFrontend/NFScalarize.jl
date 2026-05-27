@@ -38,15 +38,17 @@ function scalarize(flatModel::FlatModel, name::String)::FlatModel
   for v in flatModel.variables
     scalarizeVariable(v, vars)
   end
-  @assign flatModel.variables = vars
-  @assign flatModel.equations = mapExpList(flatModel.equations, expandComplexCref)
-  @assign flatModel.equations = scalarizeEquations(flatModel.equations)
-  @assign flatModel.initialEquations = mapExpList(flatModel.initialEquations, expandComplexCref)
-  @assign flatModel.initialEquations = scalarizeEquations(flatModel.initialEquations)
-  @assign flatModel.algorithms =
-    Algorithm[scalarizeAlgorithm(a) for a in flatModel.algorithms]
-  @assign flatModel.initialAlgorithms =
-    Algorithm[scalarizeAlgorithm(a) for a in flatModel.initialAlgorithms]
+  local equations = scalarizeEquations(mapExpList(flatModel.equations, expandComplexCref))
+  local initialEquations = scalarizeEquations(mapExpList(flatModel.initialEquations, expandComplexCref))
+  local algorithms = Algorithm[scalarizeAlgorithm(a) for a in flatModel.algorithms]
+  local initialAlgorithms = Algorithm[scalarizeAlgorithm(a) for a in flatModel.initialAlgorithms]
+  @assign begin
+    flatModel.variables = vars
+    flatModel.equations = equations
+    flatModel.initialEquations = initialEquations
+    flatModel.algorithms = algorithms
+    flatModel.initialAlgorithms = initialAlgorithms
+  end
   #execStat(getInstanceName() + "(" + name + ")")
   return flatModel
 end

@@ -286,7 +286,6 @@ function flattenComponent(
             flatten(comp_node #= TODO: Or do we need some instantation specific stuff=#,
                     name(comp_node), prefix = prefixOfComponent) <| structuralSubModels
         else
-          #@debug "FLATTEN A COMPLEX COMPONENT WITH ATTRIBUTES: " c.attributes
           (vars, sections) = flattenComplexComponent(
             comp_node,
             c,
@@ -300,7 +299,6 @@ function flattenComponent(
           )
         end
       else
-        #@debug "Flatten a simple component"
         (vars, sections) = flattenSimpleComponent(
           comp_node,
           c,
@@ -339,9 +337,9 @@ function isDeletedComponent(condition::Binding, prefix::ComponentRef)::Bool
     exp = evalExp(exp, EVALTARGET_CONDITION(Binding_getInfo(cond)))
     exp = stripBindingInfo(exp)
     if arrayAllEqual(exp)
-      @assign exp = arrayFirstScalar(exp)
+      exp = arrayFirstScalar(exp)
     end
-    @assign isDeleted = begin
+    isDeleted = begin
       @match exp begin
         BOOLEAN_EXPRESSION(__) => begin
           !exp.value
@@ -374,7 +372,7 @@ function isDeletedComponent(condition::Binding, prefix::ComponentRef)::Bool
       end
     end
   else
-    @assign isDeleted = false
+    isDeleted = false
   end
   return isDeleted
 end
@@ -1764,8 +1762,10 @@ function resolveConnections(flatModel::FlatModel, name::String)::FlatModel
     conn_eql = vcat(conn_eql, flatBrokenEQL)
   end
   #=  add the equations to the flat model=#
-  @assign flatModel.equations = vcat(conn_eql, flatModel.equations)
-  @assign flatModel.variables = Variable[v for v in flatModel.variables if isPresent(v)]
+  @assign begin
+    flatModel.equations = vcat(conn_eql, flatModel.equations)
+    flatModel.variables = Variable[v for v in flatModel.variables if isPresent(v)]
+  end
   ctable = CardinalityTable.fromConnections(conns)
   #=  Evaluate any connection operators if they're used. =#
   if System.getHasStreamConnectors() || System.getUsesCardinality()
@@ -1781,14 +1781,15 @@ function evaluateConnectionOperators(
   setsArray::Vector{<:List{<:Connector}},
   ctable::CardinalityTable.Table,
 )::FlatModel
-  @assign flatModel.variables =
-    Variable[evaluateBindingConnOp(c, sets, setsArray, ctable)
-             for c in flatModel.variables]
-  @assign flatModel.equations =
-    evaluateEquationsConnOp(flatModel.equations, sets, setsArray, ctable)
-  @assign flatModel.initialEquations =
-    evaluateEquationsConnOp(flatModel.initialEquations, sets, setsArray, ctable)
-  #=  TODO: Implement evaluation for algorithm sections. =#
+  @assign begin
+    flatModel.variables =
+      Variable[evaluateBindingConnOp(c, sets, setsArray, ctable) for c in flatModel.variables]
+    flatModel.equations =
+      evaluateEquationsConnOp(flatModel.equations, sets, setsArray, ctable)
+    flatModel.initialEquations =
+      evaluateEquationsConnOp(flatModel.initialEquations, sets, setsArray, ctable)
+  end
+  #= TODO: Implement evaluation for algorithm sections. =#
   return flatModel
 end
 

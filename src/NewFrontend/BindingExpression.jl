@@ -2467,9 +2467,7 @@ end
 end
 
 @nospecializeinfer function mapFoldCall(@nospecialize(call::Call), @nospecialize(func::Function), foldArg::ArgT)  where {ArgT}
-
   local outCall::Call
-
    outCall = begin
     local args::List{Expression}
     local nargs::List{NamedArg}

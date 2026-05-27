@@ -207,9 +207,11 @@ function instClassInProgramFM2(classPath::Absyn.Path, program::SCode.Program)::T
           end
         end
         #= Add the special equations to the flat model =#
-        @assign flat_model.DOCC_equations = arrayList(doccs)
-        #= Contains the equations of the system before the virtual connection graph is calculated =#
-        @assign flat_model.unresolvedConnectEquations = arrayList(equationsWithoutDOCC)
+        @assign begin
+          flat_model.DOCC_equations = arrayList(doccs)
+          #= Contains the equations of the system before the virtual connection graph is calculated =#
+          flat_model.unresolvedConnectEquations = arrayList(equationsWithoutDOCC)
+        end
       end
       #=
       Remove the doccs equations from the set of equations in the flat model
@@ -1385,9 +1387,11 @@ function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMo
           #=  Class extends of a long class declaration. =#
            node_ty = BASE_CLASS(parent(orig_node), definition(orig_node))
            orig_node = setNodeType(node_ty, orig_node)
-          @assign rdcl_cls.elements = setClassExtends(orig_node, rdcl_cls.elements)
-          @assign rdcl_cls.modifier = merge(outerMod, rdcl_cls.modifier)
-          @assign rdcl_cls.prefixes = prefs
+          @assign begin
+            rdcl_cls.elements = setClassExtends(orig_node, rdcl_cls.elements)
+            rdcl_cls.modifier = merge(outerMod, rdcl_cls.modifier)
+            rdcl_cls.prefixes = prefs
+          end
           rdcl_cls
         end
 

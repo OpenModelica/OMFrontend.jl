@@ -79,16 +79,15 @@ function replaceConstants(
   flatModel::FlatModel,
   functions::FunctionTree,
 )::Tuple{FlatModel, FunctionTree}
-  @assign flatModel.variables =
-    Variable[replaceVariableConstants(c) for c in flatModel.variables]
-  @assign flatModel.equations =
-    mapExpList(flatModel.equations, replaceExpConstants)
-  @assign flatModel.initialEquations =
-    mapExpList(flatModel.initialEquations, replaceExpConstants)
-  @assign flatModel.algorithms =
-    P_Algorithm.Algorithm.mapExpList(flatModel.algorithms, replaceExpConstants)
-  @assign flatModel.initialAlgorithms =
-    P_Algorithm.Algorithm.mapExpList(flatModel.initialAlgorithms, replaceExpConstants)
+  @assign begin
+    flatModel.variables = Variable[replaceVariableConstants(c) for c in flatModel.variables]
+    flatModel.equations = mapExpList(flatModel.equations, replaceExpConstants)
+    flatModel.initialEquations = mapExpList(flatModel.initialEquations, replaceExpConstants)
+    flatModel.algorithms =
+      P_Algorithm.Algorithm.mapExpList(flatModel.algorithms, replaceExpConstants)
+    flatModel.initialAlgorithms =
+      P_Algorithm.Algorithm.mapExpList(flatModel.initialAlgorithms, replaceExpConstants)
+  end
   @assign functions = FunctionTree.map(functions, replaceFuncConstants)
   execStat(getInstanceName())
   return (flatModel, functions)
