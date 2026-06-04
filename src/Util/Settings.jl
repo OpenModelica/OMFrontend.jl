@@ -40,8 +40,12 @@ using ExportAll
 
 import Pkg
 
-#=The directory path. Can be modified=#
-INSTALLATION_DIRECTORY_PATH = realpath(Base.find_package("OMFrontend"))
+#=The directory path. Can be modified. `find_package` returns nothing while the
+  package precompiles itself (e.g. under --code-coverage), so fall back to the
+  source location, which resolves to the same file. =#
+INSTALLATION_DIRECTORY_PATH = let _p = Base.find_package("OMFrontend")
+  realpath(_p === nothing ? normpath(joinpath(@__DIR__, "..", "OMFrontend.jl")) : _p)
+end
 
 """Returns the version number of this release"""
 function getVersionNr() ::String 

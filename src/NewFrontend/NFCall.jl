@@ -148,47 +148,29 @@ function toDAE(attr::CallAttributes, @nospecialize(returnType::NFType))::DAE.Cal
 end
 
 function typeCast(callExp::CALL_EXPRESSION, ty::NFType)
-  local call::Call
-  local cast_ty::NFType
   @match CALL_EXPRESSION(call = call) = callExp
-   callExp = begin
-    @match call begin
-      TYPED_CALL(__) where {(isBuiltin(call.fn))} => begin
-         cast_ty = setArrayElementType(call.ty, ty)
-        begin
-          @match AbsynUtil.pathFirstIdent(name(call.fn)) begin
-            "fill" => begin
-              #=
-              For 'fill' we can type cast the first argument rather than the
-              whole array that 'fill' constructs.
-              =#
-              #callArguments = Expression[typeCast(listHead(call.arguments), ty), listRest(call.arguments)]
-              callArguments = Expression[typeCast(Base.first(call.arguments), ty), call.arguments[2:end]...]
-              callTy = cast_ty
-              call = TYPED_CALL(call.fn, callTy, call.var, callArguments, call.attributes)
-              CALL_EXPRESSION(call)
-            end
-            #=  For diagonal we can type cast the argument rather than the matrix that diagonal constructs. =#
-            "diagonal" => begin
-              callArguments[i] = typeCast(call.arguments[i], ty)
-              callTy = cast_ty
-              call = TYPED_CALL(call.fn, callTy, call.var, callArguments, call.attributes)
-              CALL_EXPRESSION(call)
-            end
+  return _typeCastCall(call, ty, callExp)
+end
 
-            _ => begin
-              CAST_EXPRESSION(cast_ty, callExp)
-            end
-          end
-        end
-      end
-
-      _ => begin
-        CAST_EXPRESSION(setArrayElementType(typeOf(call), ty), callExp)
-      end
-    end
+function _typeCastCall(call::TYPED_CALL, ty::NFType, callExp::CALL_EXPRESSION)
+  isBuiltin(call.fn) || return CAST_EXPRESSION(setArrayElementType(typeOf(call), ty), callExp)
+  local cast_ty = setArrayElementType(call.ty, ty)
+  local fn_name = AbsynUtil.pathFirstIdent(name(call.fn))
+  if fn_name == "fill"
+    return CALL_EXPRESSION(TYPED_CALL(call.fn, cast_ty, call.var,
+      Expression[typeCast(Base.first(call.arguments), ty), call.arguments[2:end]...],
+      call.attributes))
+  elseif fn_name == "diagonal"
+    return CALL_EXPRESSION(TYPED_CALL(call.fn, cast_ty, call.var,
+      Expression[typeCast(call.arguments[1], ty)],
+      call.attributes))
+  else
+    return CAST_EXPRESSION(cast_ty, callExp)
   end
-  return callExp
+end
+
+function _typeCastCall(call::Call, ty::NFType, callExp::CALL_EXPRESSION)
+  CAST_EXPRESSION(setArrayElementType(typeOf(call), ty), callExp)
 end
 
 function retype(@nospecialize(call::Call))::Call

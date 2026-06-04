@@ -119,7 +119,7 @@ function workload()
   for p in precompile_model_names
     @info "Translating: $(p)"
     try
-      Base.@trace_compile flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+      @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
     catch e
       @warn "Precompilation workload failed for $(p)" exception=(e, catch_backtrace())
     end
@@ -135,7 +135,7 @@ function workload()
   for p in precompile_model_names
     @info "Translating: $(string(precompile_prefix, ".", p))"
     try
-      Base.@trace_compile flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+      @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
     catch e
       @warn "Precompilation workload failed for $(p)" exception=(e, catch_backtrace())
     end

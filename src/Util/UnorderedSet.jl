@@ -48,6 +48,9 @@ mutable struct UnorderedSet
   eqFn::Base.Function
 end
 
+# OpenModelica's NFUnorderedSet exposes the set type as `USet`.
+const USet = UnorderedSet
+
 function new(hashFn::Base.Function, eqFn::Base.Function)
   return UnorderedSet(Dict{Any,Bool}(), hashFn, eqFn)
 end

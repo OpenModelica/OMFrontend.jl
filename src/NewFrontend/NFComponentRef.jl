@@ -435,6 +435,22 @@ function hash(cref::ComponentRef, mod::Int)::Int
   return hv
 end
 
+#= hashes the cref without subscripts. Used for non-expanded variables. =#
+function hashStrip(@nospecialize(cref::ComponentRef), mod::Int)::Int
+  local hv::Int = stringHashDjb2Mod(toStringStripImpl(cref, ""), mod)
+  return hv
+end
+
+function toStringStripImpl(cref::ComponentRef, acc::String)::String
+  return begin
+    @match cref begin
+      COMPONENT_REF_CREF(__) => toStringStripImpl(cref.restCref, acc + name(cref.node) + ".")
+      COMPONENT_REF_WILD(__) => acc + "_"
+      _ => acc
+    end
+  end
+end
+
 function listToString(crs::List{<:ComponentRef})::String
   local str::String
   str = "{" + stringDelimitList(ListUtil.map(crs, toString), ",") + "}"
@@ -611,6 +627,10 @@ function toString(cref::ComponentRef)
   return str
 end
 
+#= Without this, string()/print()/show fall back to the default show, which walks the
+   embedded InstNode tree (cached functions/statements) and can hang. =#
+Base.show(io::IO, cref::ComponentRef) = print(io, toString(cref))
+
 function toDAE_impl(
   cref::ComponentRef,
   accumCref::DAE.ComponentRef
@@ -714,6 +734,34 @@ function isEqual(cref1::ComponentRef, cref2::ComponentRef)::Bool
         name(cref1.node) == name(cref2.node) &&
         isEqualList(cref1.subscripts, cref2.subscripts) &&
         isEqual(cref1.restCref, cref2.restCref)
+      end
+
+      (COMPONENT_REF_EMPTY(__), COMPONENT_REF_EMPTY(__)) => begin
+        true
+      end
+
+      (COMPONENT_REF_WILD(__), COMPONENT_REF_WILD(__)) => begin
+        true
+      end
+      _ => begin
+        false
+      end
+    end
+  end
+  return isEqualB
+end
+
+#= strips the subscripts before comparing. Used for non-expanded variables. =#
+function isEqualStrip(@nospecialize(cref1::ComponentRef), @nospecialize(cref2::ComponentRef))::Bool
+  local isEqualB::Bool = false
+  if referenceEq(cref1, cref2)
+    return true
+  end
+  isEqualB = begin
+    @match (cref1, cref2) begin
+      (COMPONENT_REF_CREF(__), COMPONENT_REF_CREF(__)) => begin
+        name(cref1.node) == name(cref2.node) &&
+        isEqualStrip(cref1.restCref, cref2.restCref)
       end
 
       (COMPONENT_REF_EMPTY(__), COMPONENT_REF_EMPTY(__)) => begin

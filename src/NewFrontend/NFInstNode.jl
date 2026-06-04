@@ -70,6 +70,14 @@ abstract type InstNode end
 struct EMPTY_NODE <: InstNode
 end
 
+#= Backend-only extension: wraps a pointer to a backend Variable. Map/traversal
+   functions must NOT follow varPointer (it would create cyclic behaviour:
+   Var->cref->pointer->Var). Not used in the Frontend. =#
+mutable struct VAR_NODE <: InstNode
+  name::String
+  varPointer
+end
+
 mutable struct EXP_NODE <: InstNode
   exp::Expression
 end
@@ -761,6 +769,9 @@ function refEqual(node1::InstNode, node2::InstNode)
       (COMPONENT_NODE(__), COMPONENT_NODE(__))  => begin
         referenceEq(P_Pointer.access(node1.component), P_Pointer.access(node2.component))
       end
+      (VAR_NODE(__), VAR_NODE(__))  => begin
+        referenceEq(P_Pointer.access(node1.varPointer), P_Pointer.access(node2.varPointer))
+      end
       _  => begin
         false
       end
@@ -1424,6 +1435,10 @@ function getType(node::InstNode)
       COMPONENT_NODE(__)  => begin
         getType(P_Pointer.access(node.component))
       end
+
+      VAR_NODE(__)  => begin
+        P_Pointer.access(node.varPointer).ty
+      end
     end
   end
   ty
@@ -1888,6 +1903,11 @@ function rename(name::String, node::InstNode)
         node.name = name
         ()
       end
+
+      VAR_NODE(__)  => begin
+        node.name = name
+        ()
+      end
     end
   end
   node
@@ -1916,6 +1936,10 @@ function typeName(node::InstNode)
 
       NAME_NODE(__)  => begin
         "name node"
+      end
+
+      VAR_NODE(__)  => begin
+        "var node"
       end
 
       IMPLICIT_SCOPE(__)  => begin
@@ -1957,6 +1981,9 @@ function name(@nospecialize(node::InstNode))
       end
       INNER_OUTER_NODE(__)  => begin
         name(node.innerNode)
+      end
+      VAR_NODE(__)  => begin
+        node.name
       end
       REF_NODE(__)  => begin
         "REF[" + string(node.index) + "]"
