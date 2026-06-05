@@ -1297,5 +1297,21 @@ function getSizeOfData(data::T)  where {T}
   (sz, raw_sz #= The size without granule overhead =#, nonSharedStringSize #= The size that could be saved if String sharing was enabled =#)
 end
 
+# Pure-Julia stand-in for OMC's C-backed StringAllocator: a string builder over an IOBuffer.
+# The dumpers use it only to assemble a String. `destOffset` is accepted for signature
+# compatibility but ignored; every caller writes sequentially with cumulative offsets.
+mutable struct StringAllocator
+  io::IOBuffer
+end
+
+StringAllocator(::Integer = 0) = StringAllocator(IOBuffer())
+
+function stringAllocatorStringCopy(dest::StringAllocator, source::AbstractString, destOffset::Integer = 0)
+  write(dest.io, source)
+  return dest
+end
+
+stringAllocatorResult(sa::StringAllocator, @nospecialize(_template = "")) = String(take!(sa.io))
+
 @exportAll()
 end
