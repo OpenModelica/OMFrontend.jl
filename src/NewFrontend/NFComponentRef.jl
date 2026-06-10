@@ -380,6 +380,9 @@ function scalarize(cref::ComponentRef)::List{ComponentRef}
       COMPONENT_REF_CREF(ty = TYPE_ARRAY(__)) => begin
         dims = arrayDims(cref.ty)
         subs = scalarizeList(cref.subscripts, dims)
+        if listEmpty(subs)
+          return nil
+        end
         subs = ListUtil.combination(subs)
         list(setSubscripts(s, cref) for s in subs)
       end

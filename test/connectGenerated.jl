@@ -38,18 +38,18 @@ class ConnectArray1
   Real m2[2].c.e[2];
   Real m2[2].c.e[3];
 equation
-  m1[1].c.e[1] = m2[1].c.e[1];
+  m2[1].c.e[1] = m1[1].c.e[1];
   m1[1].c.e[2] = m2[1].c.e[2];
-  m1[1].c.e[3] = m2[1].c.e[3];
-  m1[2].c.e[1] = m2[2].c.e[1];
-  m1[2].c.e[2] = m2[2].c.e[2];
+  m2[1].c.e[3] = m1[1].c.e[3];
+  m2[2].c.e[1] = m1[2].c.e[1];
+  m2[2].c.e[2] = m1[2].c.e[2];
   m1[2].c.e[3] = m2[2].c.e[3];
-  m2[1].c.f[3] + m1[1].c.f[3] = 0.0;
+  m1[1].c.f[1] + m2[1].c.f[1] = 0.0;
   m2[1].c.f[2] + m1[1].c.f[2] = 0.0;
-  m2[1].c.f[1] + m1[1].c.f[1] = 0.0;
-  m1[2].c.f[3] + m2[2].c.f[3] = 0.0;
-  m1[2].c.f[2] + m2[2].c.f[2] = 0.0;
-  m1[2].c.f[1] + m2[2].c.f[1] = 0.0;
+  m1[1].c.f[3] + m2[1].c.f[3] = 0.0;
+  m2[2].c.f[1] + m1[2].c.f[1] = 0.0;
+  m2[2].c.f[2] + m1[2].c.f[2] = 0.0;
+  m2[2].c.f[3] + m1[2].c.f[3] = 0.0;
 end ConnectArray1;
 """
 
@@ -296,7 +296,9 @@ class ConnectParamArray
   parameter Real c2.e[2];
   parameter Real c2.e[3];
 equation
-  assert({c1.e[1], c1.e[2], c1.e[3]} == {c2.e[1], c2.e[2], c2.e[3]}, "Connected constants/parameters must be equal", AssertionLevel.error);
+  assert(c2.e[1] == c1.e[1], "Connected constants/parameters must be equal", AssertionLevel.error);
+  assert(c1.e[2] == c2.e[2], "Connected constants/parameters must be equal", AssertionLevel.error);
+  assert(c1.e[3] == c2.e[3], "Connected constants/parameters must be equal", AssertionLevel.error);
 end ConnectParamArray;
 """
 
