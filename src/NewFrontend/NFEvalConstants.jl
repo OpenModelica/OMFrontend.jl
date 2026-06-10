@@ -43,12 +43,13 @@ Basically this routine does constant evaluations by resolving parts of the model
 """
 function evaluate(flatModel::FlatModel)::FlatModel
   local const_var::VariabilityType = Variability.STRUCTURAL_PARAMETER
-  @assign flatModel.variables = Variable[evaluateVariable(v, const_var) for v in flatModel.variables]
-  @assign flatModel.initialEquations = evaluateEquations(flatModel.initialEquations, const_var)
-  @assign flatModel.equations = evaluateEquations(flatModel.equations, const_var)
-  @assign flatModel.algorithms = evaluateAlgorithms(flatModel.algorithms, const_var)
-  @assign flatModel.initialAlgorithms =
-    evaluateAlgorithms(flatModel.initialAlgorithms, const_var)
+  @assign begin
+    flatModel.variables = Variable[evaluateVariable(v, const_var) for v in flatModel.variables]
+    flatModel.initialEquations = evaluateEquations(flatModel.initialEquations, const_var)
+    flatModel.equations = evaluateEquations(flatModel.equations, const_var)
+    flatModel.algorithms = evaluateAlgorithms(flatModel.algorithms, const_var)
+    flatModel.initialAlgorithms = evaluateAlgorithms(flatModel.initialAlgorithms, const_var)
+  end
 #  execStat(getInstanceName())
   return flatModel
 end
@@ -338,9 +339,9 @@ function evaluateStatement(stmt::Statement, constVariability::VariabilityType)::
       end
 
       ALG_ASSERT(__) => begin
-        @assign e1 = evaluateExp(stmt.condition, constVariability)
-        @assign e2 = evaluateExp(stmt.message, constVariability)
-        @assign e3 = evaluateExp(stmt.level, constVariability)
+        e1 = evaluateExp(stmt.condition, constVariability)
+        e2 = evaluateExp(stmt.message, constVariability)
+        e3 = evaluateExp(stmt.level, constVariability)
         ALG_ASSERT(e1, e2, e3, stmt.source)
       end
 

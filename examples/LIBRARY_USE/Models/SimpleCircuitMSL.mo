@@ -1,0 +1,20 @@
+package ElectricalTest
+  import Modelica.Electrical.Analog.Basic;
+  import Modelica.Electrical.Analog.Sources;
+  model SimpleCircuit
+    Basic.Resistor R1;
+    Basic.Capacitor C;
+    Basic.Resistor R2;
+    Basic.Inductor L;
+    Basic.Ground G;
+    Sources.SineVoltage AC;
+  equation
+    connect(AC.p, R1.p);
+    connect(R1.n, C.p);
+    connect(C.n, AC.n);
+    connect(R1.p, R2.p);
+    connect(R2.n, L.p);
+    connect(L.n, C.n);
+    connect(AC.n, G.p);
+  end SimpleCircuit;
+end ElectricalTest;

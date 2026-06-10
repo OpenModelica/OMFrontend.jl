@@ -65,6 +65,18 @@ function create(data::T, ST)::Pointer{ST} where{T}
   return ptr
 end
 
+function clone(mutable::Pointer{T}) where {T}
+  return create(access(mutable))
+end
+
+function apply(mutable::Pointer{T}, func) where {T}
+  local new = func(access(mutable))
+  if !referenceEq(new, access(mutable))
+    update(mutable, new)
+  end
+  return mutable
+end
+
 
 @exportAll()
 end

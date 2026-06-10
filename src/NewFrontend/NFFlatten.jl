@@ -286,7 +286,6 @@ function flattenComponent(
             flatten(comp_node #= TODO: Or do we need some instantation specific stuff=#,
                     name(comp_node), prefix = prefixOfComponent) <| structuralSubModels
         else
-          #@debug "FLATTEN A COMPLEX COMPONENT WITH ATTRIBUTES: " c.attributes
           (vars, sections) = flattenComplexComponent(
             comp_node,
             c,
@@ -300,7 +299,6 @@ function flattenComponent(
           )
         end
       else
-        #@debug "Flatten a simple component"
         (vars, sections) = flattenSimpleComponent(
           comp_node,
           c,
@@ -339,9 +337,9 @@ function isDeletedComponent(condition::Binding, prefix::ComponentRef)::Bool
     exp = evalExp(exp, EVALTARGET_CONDITION(Binding_getInfo(cond)))
     exp = stripBindingInfo(exp)
     if arrayAllEqual(exp)
-      @assign exp = arrayFirstScalar(exp)
+      exp = arrayFirstScalar(exp)
     end
-    @assign isDeleted = begin
+    isDeleted = begin
       @match exp begin
         BOOLEAN_EXPRESSION(__) => begin
           !exp.value
@@ -374,7 +372,7 @@ function isDeletedComponent(condition::Binding, prefix::ComponentRef)::Bool
       end
     end
   else
-    @assign isDeleted = false
+    isDeleted = false
   end
   return isDeleted
 end
@@ -1025,14 +1023,14 @@ function subscriptBindingOpt(
 end
 
 
-function flattenBinding(
+@nospecialized function flattenBinding(
   binding::Binding,
   prefix::ComponentRef
 )::Binding
   flattenBinding(binding, prefix, false)
 end
 
-function flattenBinding(
+@nospecialized function flattenBinding(
   binding::Binding,
   prefix::ComponentRef,
   isTypeAttribute::Bool
@@ -1172,12 +1170,12 @@ function flattenBindingExp2(
   return outExp
 end
 
-function flattenExp(exp::Expression, prefix::ComponentRef)
+@nospecialized function flattenExp(exp::Expression, prefix::ComponentRef)
   exp = map(exp, (x) -> flattenExp_traverse(x, prefix))
   return exp
 end
 
-function flattenExp_traverse(exp::Expression, prefix::ComponentRef)
+@nospecialized function flattenExp_traverse(exp::Expression, prefix::ComponentRef)
   exp = begin
     @match exp begin
       CREF_EXPRESSION(__) => begin
@@ -1530,10 +1528,7 @@ function flattenAlgorithms(
   prefix::ComponentRef)
   local outAlgorithms::Vector{Algorithm} = Algorithm[]
   for alg in algorithms
-    @assign alg.statements = mapExpList(
-      alg.statements,
-      (x) -> flattenExp(x, prefix),
-    )
+    @assign alg.statements = flattenAlgorithmStatements(alg.statements, prefix)
     #=
       CheckModel relies on the ElementSource to know whether a certain algorithm comes from
       an array component, otherwise is will miscount the number of equations.
@@ -1544,6 +1539,181 @@ function flattenAlgorithms(
     outAlgorithms = prepend!([alg], outAlgorithms)
   end
   return outAlgorithms
+end
+
+function flattenAlgorithmStatements(
+  stmtl::Vector{Statement},
+  prefix::ComponentRef,
+)::Vector{Statement}
+  local out::Vector{Statement} = Statement[]
+  for s in stmtl
+    out = flattenAlgorithmStatement(s, prefix, out)
+  end
+  return out
+end
+
+function flattenAlgorithmStatement(
+  @nospecialize(stmt::Statement),
+  @nospecialize(prefix::ComponentRef),
+  outStatements::Vector{Statement},
+)::Vector{Statement}
+  outStatements = begin
+    @unsafematch stmt begin
+      ALG_FOR(__) => begin
+        local unrolled = tryUnrollAlgorithmForLoop(stmt, prefix)
+        if unrolled === nothing
+          push!(outStatements, mapExp(stmt, (x) -> flattenExp(x, prefix)))
+        else
+          append!(outStatements, unrolled)
+        end
+      end
+      _ => begin
+        push!(outStatements, mapExp(stmt, (x) -> flattenExp(x, prefix)))
+      end
+    end
+  end
+  return outStatements
+end
+
+const ALG_UNROLL_MAX_ITERATIONS = 16
+
+"""
+  Conservative unroller for algorithm-level for-loops. Mirrors the
+  equation-level `unrollForLoop`. Returns the unrolled statements when all of
+  the following hold:
+
+  - the for-loop has a present range that evaluates to a literal integer
+    range,
+  - the iteration count is at most `ALG_UNROLL_MAX_ITERATIONS` (avoid code
+    blowup on `for i in 1:N` with large `N`),
+  - the body does not contain `break` or `return` at any depth, which
+    would become semantically detached from any loop after unrolling.
+
+  Returns `nothing` if any condition fails; the caller then keeps the
+  for-loop intact (only flattening its inner expressions).
+
+  The body is deep-copied before each iterator substitution because
+  `mapExp` on `ALG_WHEN` / `ALG_IF` / `ALG_FOR` mutates their branch / body
+  fields in place; without the copy the second and subsequent iterations
+  would see the first iteration's substituted body.
+"""
+function tryUnrollAlgorithmForLoop(
+  forStmt::ALG_FOR,
+  prefix::ComponentRef,
+)::Union{Vector{Statement}, Nothing}
+  if !Flags.isSet(Flags.NF_SCALARIZE)
+    return nothing
+  end
+  if !isSome(forStmt.range)
+    return nothing
+  end
+  local iter::InstNode = forStmt.iterator
+  local body::Vector{Statement} = forStmt.body
+  local range::Expression = flattenExp(Util.getOption(forStmt.range), prefix)
+  if !_isIntegerLiteralRange(range)
+    return nothing
+  end
+  local rangeIter::RangeIterator = RangeIterator_fromExp(range)
+  local nIters::Int = _intRangeIterations(rangeIter)
+  if nIters < 0 || nIters > ALG_UNROLL_MAX_ITERATIONS
+    return nothing
+  end
+  if _bodyHasBreakOrReturn(body)
+    return nothing
+  end
+  local out::Vector{Statement} = Statement[]
+  local val::Expression
+  while hasNext(rangeIter)
+    (rangeIter, val) = next(rangeIter)
+    local snapshot::Vector{Statement} = deepcopy(body)
+    local substituted::Vector{Statement} = replaceIteratorList(snapshot, iter, val)
+    for s in substituted
+      push!(out, mapExp(s, (x) -> flattenExp(x, prefix)))
+    end
+  end
+  return out
+end
+
+function _isIntegerLiteralRange(@nospecialize(range::Expression))::Bool
+  return begin
+    @unsafematch range begin
+      RANGE_EXPRESSION(
+        start = INTEGER_EXPRESSION(__),
+        step = NONE(),
+        stop = INTEGER_EXPRESSION(__),
+      ) => true
+      RANGE_EXPRESSION(
+        start = INTEGER_EXPRESSION(__),
+        step = SOME(INTEGER_EXPRESSION(__)),
+        stop = INTEGER_EXPRESSION(__),
+      ) => true
+      _ => false
+    end
+  end
+end
+
+"""
+  Returns the number of iterations of an integer-typed range, or -1 if the
+  range is not an integer literal range.
+"""
+function _intRangeIterations(@nospecialize(rangeIter::RangeIterator))::Int
+  return begin
+    @unsafematch rangeIter begin
+      RANGEITERATOR_INT_RANGE(__) => begin
+        max(0, rangeIter.last - rangeIter.current + 1)
+      end
+      RANGEITERATOR_INT_STEP_RANGE(__) => begin
+        if rangeIter.stepsize == 0
+          -1
+        elseif rangeIter.stepsize > 0
+          rangeIter.last < rangeIter.current ? 0 : (rangeIter.last - rangeIter.current) ÷ rangeIter.stepsize + 1
+        else
+          rangeIter.current < rangeIter.last ? 0 : (rangeIter.current - rangeIter.last) ÷ (-rangeIter.stepsize) + 1
+        end
+      end
+      _ => -1
+    end
+  end
+end
+
+"""
+  True iff `body` contains an `ALG_BREAK` or `ALG_RETURN` at any nesting
+  depth. Unrolling those changes semantics because the break/return would
+  become lexically detached from any enclosing loop.
+"""
+function _bodyHasBreakOrReturn(body::Vector{Statement})::Bool
+  for s in body
+    if _stmtHasBreakOrReturn(s)
+      return true
+    end
+  end
+  return false
+end
+
+function _stmtHasBreakOrReturn(@nospecialize(stmt::Statement))::Bool
+  return begin
+    @unsafematch stmt begin
+      ALG_BREAK(__) => true
+      ALG_RETURN(__) => true
+      ALG_IF(__) => _branchesHaveBreakOrReturn(stmt.branches)
+      ALG_WHEN(__) => _branchesHaveBreakOrReturn(stmt.branches)
+      ALG_FOR(__) => _bodyHasBreakOrReturn(stmt.body)
+      ALG_WHILE(__) => _bodyHasBreakOrReturn(stmt.body)
+      ALG_FAILURE(__) => _bodyHasBreakOrReturn(stmt.body)
+      _ => false
+    end
+  end
+end
+
+function _branchesHaveBreakOrReturn(
+  branches::Vector{Tuple{Expression, Vector{Statement}}},
+)::Bool
+  for (_, body) in branches
+    if _bodyHasBreakOrReturn(body)
+      return true
+    end
+  end
+  return false
 end
 
 function addElementSourceArrayPrefix(
@@ -1592,8 +1762,10 @@ function resolveConnections(flatModel::FlatModel, name::String)::FlatModel
     conn_eql = vcat(conn_eql, flatBrokenEQL)
   end
   #=  add the equations to the flat model=#
-  @assign flatModel.equations = vcat(conn_eql, flatModel.equations)
-  @assign flatModel.variables = Variable[v for v in flatModel.variables if isPresent(v)]
+  @assign begin
+    flatModel.equations = vcat(conn_eql, flatModel.equations)
+    flatModel.variables = Variable[v for v in flatModel.variables if isPresent(v)]
+  end
   ctable = CardinalityTable.fromConnections(conns)
   #=  Evaluate any connection operators if they're used. =#
   if System.getHasStreamConnectors() || System.getUsesCardinality()
@@ -1609,14 +1781,15 @@ function evaluateConnectionOperators(
   setsArray::Vector{<:List{<:Connector}},
   ctable::CardinalityTable.Table,
 )::FlatModel
-  @assign flatModel.variables =
-    Variable[evaluateBindingConnOp(c, sets, setsArray, ctable)
-             for c in flatModel.variables]
-  @assign flatModel.equations =
-    evaluateEquationsConnOp(flatModel.equations, sets, setsArray, ctable)
-  @assign flatModel.initialEquations =
-    evaluateEquationsConnOp(flatModel.initialEquations, sets, setsArray, ctable)
-  #=  TODO: Implement evaluation for algorithm sections. =#
+  @assign begin
+    flatModel.variables =
+      Variable[evaluateBindingConnOp(c, sets, setsArray, ctable) for c in flatModel.variables]
+    flatModel.equations =
+      evaluateEquationsConnOp(flatModel.equations, sets, setsArray, ctable)
+    flatModel.initialEquations =
+      evaluateEquationsConnOp(flatModel.initialEquations, sets, setsArray, ctable)
+  end
+  #= TODO: Implement evaluation for algorithm sections. =#
   return flatModel
 end
 

@@ -207,9 +207,11 @@ function instClassInProgramFM2(classPath::Absyn.Path, program::SCode.Program)::T
           end
         end
         #= Add the special equations to the flat model =#
-        @assign flat_model.DOCC_equations = arrayList(doccs)
-        #= Contains the equations of the system before the virtual connection graph is calculated =#
-        @assign flat_model.unresolvedConnectEquations = arrayList(equationsWithoutDOCC)
+        @assign begin
+          flat_model.DOCC_equations = arrayList(doccs)
+          #= Contains the equations of the system before the virtual connection graph is calculated =#
+          flat_model.unresolvedConnectEquations = arrayList(equationsWithoutDOCC)
+        end
       end
       #=
       Remove the doccs equations from the set of equations in the flat model
@@ -296,11 +298,9 @@ function inlineSimpleCalls(fm::FlatModel)
   return fm
 end
 
-function instantiateN1(node::InstNode, parentNode::InstNode)
-  #@debug "Instantiating!!!! in Inst"
+function instantiateN1(node::InstNode, parentNode::InstNode, isRedeclared::Bool = false)
   node = expand(node)
-  #@debug "After expansion in inst. Instantiating in class-tree "
-  if ! isPartial(node)
+  if !isPartial(node) || isRedeclared
     node = instClass(node, MODIFIER_NOMOD(), DEFAULT_ATTR, Ref{Attributes}(DEFAULT_ATTR), true, 0, parentNode)
   end
   return node
@@ -1064,7 +1064,7 @@ end
   returned. Otherwise the node is fully instantiated, the instance is added to
   the node's cache, and the instantiated node is returned.
 """
-function instPackage(node::InstNode)::CLASS_NODE
+function instPackage(node::InstNode; isRedeclared::Bool = false)::CLASS_NODE
   local cache::CachedData
   local inst::InstNode
   local state::Int
@@ -1072,16 +1072,19 @@ function instPackage(node::InstNode)::CLASS_NODE
   if cache isa C_PACKAGE
     inst = cache.instance
     state = cache.state.x
+    if state == CACHE_STATE_INSTANTIATED || state == CACHE_STATE_PROCESSING
+      return inst
+    end
+    if isRedeclared && state == CACHE_STATE_PARTIALLY_INSTANTIATED
+      inst = instantiateN1(inst, EMPTY_NODE(), true)
+      instExpressions(inst)
+      setPackageCache(node, C_PACKAGE(inst, CACHE_STATE_INSTANTIATED))
+      return inst
+    end
     return inst
   else
     inst = node
     state = CACHE_STATE_NOT_INSTANTIATED
-  end
-  if state == CACHE_STATE_INSTANTIATED
-    return node
-  end
-  if state == CACHE_STATE_PROCESSING
-    return node
   end
     #=  Cache the package node itself first, to avoid instantiation loops if
     =#
@@ -1089,12 +1092,12 @@ function instPackage(node::InstNode)::CLASS_NODE
     =#
 
   node = setPackageCache(node, C_PACKAGE(node, CACHE_STATE_PROCESSING))
-  #=  Instantiate the node.=#
-  inst = instantiateN1(node, EMPTY_NODE()) #=Wrong function call was generated here...=#
+  inst = instantiateN1(node, EMPTY_NODE(), isRedeclared)
   node = setPackageCache(node, C_PACKAGE(inst, CACHE_STATE_PARTIALLY_INSTANTIATED))
-  #=  Cache the instantiated node and instantiate expressions in it too. =#
-  instExpressions(inst)
-  node = setPackageCache(node, C_PACKAGE(inst, CACHE_STATE_INSTANTIATED))
+  if !isPartial(inst) || isRedeclared
+    instExpressions(inst)
+    node = setPackageCache(node, C_PACKAGE(inst, CACHE_STATE_INSTANTIATED))
+  end
   node = inst
 
     #end
@@ -1384,9 +1387,11 @@ function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMo
           #=  Class extends of a long class declaration. =#
            node_ty = BASE_CLASS(parent(orig_node), definition(orig_node))
            orig_node = setNodeType(node_ty, orig_node)
-          @assign rdcl_cls.elements = setClassExtends(orig_node, rdcl_cls.elements)
-          @assign rdcl_cls.modifier = merge(outerMod, rdcl_cls.modifier)
-          @assign rdcl_cls.prefixes = prefs
+          @assign begin
+            rdcl_cls.elements = setClassExtends(orig_node, rdcl_cls.elements)
+            rdcl_cls.modifier = merge(outerMod, rdcl_cls.modifier)
+            rdcl_cls.prefixes = prefs
+          end
           rdcl_cls
         end
 
@@ -1574,7 +1579,7 @@ function instComponentDef(component::SCode.COMPONENT,
   updateComponent!(inst_comp, node)
   #=  Instantiate the type of the component. =#
   local typeSpecCond = useBinding && ! isBound(bindingVar)
-  ty_node = instTypeSpec(component.typeSpec, mod, attr,typeSpecCond, parentNode, node, component.info, instLevel, attributeRef)
+  ty_node = instTypeSpec(component.typeSpec, mod, attr, typeSpecCond, parentNode, node, component.info, instLevel, attributeRef; isRedeclared = isRedeclared)
   ty_attr = attributeRef.x
   local ty = getClass(ty_node)
   #=  Update the component's variability based on its type (e.g. Integer is discrete). =#
@@ -2047,8 +2052,9 @@ function instTypeSpec(typeSpec::Absyn.TPATH,
                       parent::InstNode,
                       info::SourceInfo,
                       instLevel::Int,
-                      attributeRef::Ref{Attributes})::CLASS_NODE
-  local node::InstNode = lookupClassName(typeSpec.path, scope, info)
+                      attributeRef::Ref{Attributes};
+                      isRedeclared::Bool = false)::CLASS_NODE
+  local node::InstNode = lookupClassName(typeSpec.path, scope, info; isRedeclared = isRedeclared)
   if instLevel >= 100
     checkRecursiveDefinition(node, parent, limitReached = true)
   end

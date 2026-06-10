@@ -70,6 +70,14 @@ abstract type InstNode end
 struct EMPTY_NODE <: InstNode
 end
 
+#= Backend-only extension: wraps a pointer to a backend Variable. Map/traversal
+   functions must NOT follow varPointer (it would create cyclic behaviour:
+   Var->cref->pointer->Var). Not used in the Frontend. =#
+mutable struct VAR_NODE <: InstNode
+  name::String
+  varPointer
+end
+
 mutable struct EXP_NODE <: InstNode
   exp::Expression
 end
@@ -761,6 +769,9 @@ function refEqual(node1::InstNode, node2::InstNode)
       (COMPONENT_NODE(__), COMPONENT_NODE(__))  => begin
         referenceEq(P_Pointer.access(node1.component), P_Pointer.access(node2.component))
       end
+      (VAR_NODE(__), VAR_NODE(__))  => begin
+        referenceEq(P_Pointer.access(node1.varPointer), P_Pointer.access(node2.varPointer))
+      end
       _  => begin
         false
       end
@@ -1028,9 +1039,15 @@ function isOnlyOuter(node::InstNode)
 end
 
 function isOuter(node::InstNode)
-  local isOuter::Bool
-
-   isOuter = begin
+  #= Locals named after the function shadowed the function itself in
+     MetaModelica lowering and broke the recursive cases: every dispatch on
+     COMPONENT_NODE / INNER_OUTER_NODE went to UndefVarError, was swallowed
+     by the @match fallthrough, and the function silently returned false.
+     `lookupInner` relied on `isInner` returning true for the user's inner
+     declaration; with the shadow it always returned false, so the
+     outer-component path generated a fresh synthetic inner with class
+     defaults instead of binding to the user's `inner Holder h(...)`. =#
+  local _result::Bool = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
         isOuter(P_Pointer.access(node.component))
@@ -1049,13 +1066,12 @@ function isOuter(node::InstNode)
       end
     end
   end
-  isOuter
+  _result
 end
 
 function isInner(node::InstNode)
-  local isInner::Bool
-
-   isInner = begin
+  #= See isOuter — same self-shadowing bug, same fix. =#
+  local _result::Bool = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
         isInner(P_Pointer.access(node.component))
@@ -1074,7 +1090,7 @@ function isInner(node::InstNode)
       end
     end
   end
-  isInner
+  _result
 end
 
 function isOutput(node::InstNode)
@@ -1418,6 +1434,10 @@ function getType(node::InstNode)
 
       COMPONENT_NODE(__)  => begin
         getType(P_Pointer.access(node.component))
+      end
+
+      VAR_NODE(__)  => begin
+        P_Pointer.access(node.varPointer).ty
       end
     end
   end
@@ -1883,6 +1903,11 @@ function rename(name::String, node::InstNode)
         node.name = name
         ()
       end
+
+      VAR_NODE(__)  => begin
+        node.name = name
+        ()
+      end
     end
   end
   node
@@ -1911,6 +1936,10 @@ function typeName(node::InstNode)
 
       NAME_NODE(__)  => begin
         "name node"
+      end
+
+      VAR_NODE(__)  => begin
+        "var node"
       end
 
       IMPLICIT_SCOPE(__)  => begin
@@ -1952,6 +1981,9 @@ function name(@nospecialize(node::InstNode))
       end
       INNER_OUTER_NODE(__)  => begin
         name(node.innerNode)
+      end
+      VAR_NODE(__)  => begin
+        node.name
       end
       REF_NODE(__)  => begin
         "REF[" + string(node.index) + "]"
@@ -2179,6 +2211,15 @@ function isDerivedClass(node::InstNode)
   isDerived
 end
 
+#= A redeclared class counts as user-defined when the class it replaced was. =#
+function isUserdefinedClassType(ty)::Bool
+  ty isa NORMAL_CLASS && return true
+  ty isa BASE_CLASS && return true
+  ty isa DERIVED_CLASS && return true
+  ty isa REDECLARED_CLASS && return isUserdefinedClassType(ty.originalType)
+  return false
+end
+
 function isUserdefinedClass(node::InstNode)
   local isUserdefined::Bool
 
@@ -2197,6 +2238,10 @@ function isUserdefinedClass(node::InstNode)
 
             DERIVED_CLASS(__)  => begin
               true
+            end
+
+            REDECLARED_CLASS(__)  => begin
+              isUserdefinedClassType(node.nodeType.originalType)
             end
 
             _  => begin

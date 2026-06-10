@@ -196,8 +196,10 @@ function handleOverconstrainedConnections(flatModel::FlatModel,
   (eql, ieql, connected, broken) = handleOverconstrainedConnections_dispatch(graph, modelNameQualified, eql, ieql)
   eql = removeBrokenConnects(eql, connected, broken)
   #= Convert the lists back to arrays =#
-  @assign flatModel.equations = eql
-  @assign flatModel.initialEquations = ieql
+  @assign begin
+    flatModel.equations = eql
+    flatModel.initialEquations = ieql
+  end
   outBroken = broken
   (flatModel, outBroken, graph)
 end

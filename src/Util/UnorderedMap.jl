@@ -48,6 +48,9 @@ mutable struct UnorderedMap
   eqFn::Base.Function
 end
 
+# OpenModelica's NFUnorderedMap exposes the map type as `Map`.
+const Map = UnorderedMap
+
 function new(hashFn::Base.Function, eqFn::Base.Function)
   return UnorderedMap(Dict{Any,Any}(), hashFn, eqFn)
 end

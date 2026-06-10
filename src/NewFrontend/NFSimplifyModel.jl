@@ -38,11 +38,13 @@ const MakeElement = Function
 const MakeFunc = Function
 
 function simplifyFlatModel(flatModel::FlatModel)::FlatModel
-  @assign flatModel.variables = simplifyVariables(flatModel.variables)
-  @assign flatModel.equations = simplifyEquations(flatModel.equations)
-  @assign flatModel.initialEquations = simplifyEquations(flatModel.initialEquations)
-  @assign flatModel.algorithms = simplifyAlgorithms(flatModel.algorithms)
-  @assign flatModel.initialAlgorithms = simplifyAlgorithms(flatModel.initialAlgorithms)
+  @assign begin
+    flatModel.variables = simplifyVariables(flatModel.variables)
+    flatModel.equations = simplifyEquations(flatModel.equations)
+    flatModel.initialEquations = simplifyEquations(flatModel.initialEquations)
+    flatModel.algorithms = simplifyAlgorithms(flatModel.algorithms)
+    flatModel.initialAlgorithms = simplifyAlgorithms(flatModel.initialAlgorithms)
+  end
 #  execStat(getInstanceName()) TODO
   return flatModel
 end

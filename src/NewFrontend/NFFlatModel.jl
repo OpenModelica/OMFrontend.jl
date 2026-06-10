@@ -214,6 +214,17 @@ function reconstructRecordInstances(variables::Vector{Variable})
          array type. Check the element type for records. =#
       local _rec_ty = isArray(parent_ty) ? arrayElementType(parent_ty) : parent_ty
       if isRecord(_rec_ty)
+        #= `reconstructRecordInstance` requires `parent_cr.node` to be a
+           `COMPONENT_NODE`. Some record references resolve via the class
+           lookup table (e.g. record constants referenced through a class
+           path), where `node(parent_cr)` yields a `CLASS_NODE`. Skip
+           reconstruction in that case and fall through to per-field emission;
+           the dump remains correct, just unbatched. =#
+        local _parentNode = node(parent_cr)
+        if !(_parentNode isa COMPONENT_NODE)
+          outVariables = push!(outVariables, var)
+          continue
+        end
         #= Count consecutive siblings sharing the same parent CREF.
            After scalarization, array record fields expand to more variables
            than the raw field count from the record type definition. =#

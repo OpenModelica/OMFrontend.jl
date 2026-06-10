@@ -35,6 +35,7 @@
 
 module ConstantsSetImpl
 import ..NFComponentRef
+import ..compare as crefCompare
 using MetaModelica
 using ExportAll
 ComponentRef = NFComponentRef
@@ -42,6 +43,9 @@ ComponentRef = NFComponentRef
 const Key = ComponentRef
 const Value = Int
 include("../Util/baseAvlTreeCode.jl")
+#= The base tree's placeholder keyCompare returns a Bool; the AVL needs the
+   three-way cref ordering or distinct keys collapse into one entry. =#
+keyCompare = (inKey1::Key, inKey2::Key) -> crefCompare(inKey1, inKey2)
 @exportAll()
 end
 
@@ -79,16 +83,15 @@ function replaceConstants(
   flatModel::FlatModel,
   functions::FunctionTree,
 )::Tuple{FlatModel, FunctionTree}
-  @assign flatModel.variables =
-    Variable[replaceVariableConstants(c) for c in flatModel.variables]
-  @assign flatModel.equations =
-    mapExpList(flatModel.equations, replaceExpConstants)
-  @assign flatModel.initialEquations =
-    mapExpList(flatModel.initialEquations, replaceExpConstants)
-  @assign flatModel.algorithms =
-    P_Algorithm.Algorithm.mapExpList(flatModel.algorithms, replaceExpConstants)
-  @assign flatModel.initialAlgorithms =
-    P_Algorithm.Algorithm.mapExpList(flatModel.initialAlgorithms, replaceExpConstants)
+  @assign begin
+    flatModel.variables = Variable[replaceVariableConstants(c) for c in flatModel.variables]
+    flatModel.equations = mapExpList(flatModel.equations, replaceExpConstants)
+    flatModel.initialEquations = mapExpList(flatModel.initialEquations, replaceExpConstants)
+    flatModel.algorithms =
+      P_Algorithm.Algorithm.mapExpList(flatModel.algorithms, replaceExpConstants)
+    flatModel.initialAlgorithms =
+      P_Algorithm.Algorithm.mapExpList(flatModel.initialAlgorithms, replaceExpConstants)
+  end
   @assign functions = FunctionTree.map(functions, replaceFuncConstants)
   execStat(getInstanceName())
   return (flatModel, functions)

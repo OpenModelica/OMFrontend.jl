@@ -1,0 +1,7 @@
+// Optional. One filename per line; controls the order child files are
+// merged into the parent package. Lines not matching an on-disk entry
+// are ignored, and any remaining entries are appended in alphabetical
+// order. Listing `Adder.mo` makes the order rule actually fire for this
+// example; OpenModelica's MSL convention uses the bare class name
+// (`Adder`) instead.
+Adder.mo

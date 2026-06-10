@@ -45,8 +45,45 @@ function registerModelicaFormatError()
   return @warn "TODO: Defined in the runtime"
 end
 
-global SOURCE_MESSAGES = []
-global CHECKPOINT_STACK = Int[]
+#= Per-task error state. Each Julia `Task` (root task, `@async`, `@spawn`)
+   gets its own message queue and checkpoint stack on first access via
+   `task_local_storage()`. Concurrent frontend invocations cannot stomp on
+   each other's queues. Use `moveMessagesToParentThread(parent::Task)` to
+   merge messages back up after a worker task finishes. =#
+
+mutable struct _ErrorState
+  sourceMessages::Vector{Any}
+  checkpointStack::Vector{Int}
+end
+_ErrorState() = _ErrorState(Any[], Int[])
+
+const _STATE_KEY = :OMFrontend_ErrorState_v1
+const _MERGE_LOCK = ReentrantLock()
+
+@inline function _state()::_ErrorState
+  td = task_local_storage()
+  st = get(td, _STATE_KEY, nothing)
+  if st === nothing
+    st = _ErrorState()
+    td[_STATE_KEY] = st
+  end
+  return st::_ErrorState
+end
+
+"""
+    pushSourceMessage!(entry)
+
+Append a source-message tuple `(message, tokens, info)` to the current task's
+queue. Called by `Error.addSourceMessage` and friends.
+"""
+@inline function pushSourceMessage!(entry)
+  push!(_state().sourceMessages, entry)
+  return nothing
+end
+
+#= Convenience read-only accessors. =#
+@inline _messages() = _state().sourceMessages
+@inline _checkpoints() = _state().checkpointStack
 
 function addSourceMessage(
   id::ErrorTypes.ErrorID,
@@ -170,7 +207,7 @@ end
 function printMessagesStr(;warningsAsErrors::Bool = false,
                           printErrors = true #= In some cases we only want to print warnings.=#)
   local buffer = IOBuffer()
-  for (m, tokens, mInfo) in SOURCE_MESSAGES
+  for (m, tokens, mInfo) in _messages()
     if printErrors == false && typeof(m.id) !== ErrorTypes.WARNING
       continue
     end
@@ -188,13 +225,12 @@ function printMessagesStr(;warningsAsErrors::Bool = false,
 end
 
 function getNumMessages()
-  local num = length(SOURCE_MESSAGES)
-  return num
+  return length(_messages())
 end
 
 function getNumErrorMessages()::Integer
   local num::Integer = 0
-  for m in SOURCE_MESSAGES
+  for m in _messages()
     if typeof(m.id) === Severity.ERROR
       num += 1
     end
@@ -204,7 +240,7 @@ end
 
 function getNumWarningMessages()::Integer
   local num::Integer = 0
-  for m in SOURCE_MESSAGES
+  for m in _messages()
     if typeof(m.id) === Severity.WARNING
       num += 1
     end
@@ -215,8 +251,9 @@ end
 """Returns all error messages and pops them from the message queue."""
 function getMessages()::List{ErrorTypes.TotalMessage}
   local res::List{ErrorTypes.TotalMessage} = nil
-  for m in SOURCE_MESSAGES
-    res = res <| pop!(SOURCE_MESSAGES)
+  local q = _messages()
+  while !isempty(q)
+    res = res <| pop!(q)
   end
   return res
 end
@@ -229,14 +266,15 @@ function getCheckpointMessages()::List{ErrorTypes.TotalMessage}
 end
 
 function clearMessages()
-  global SOURCE_MESSAGES = []
-  global CHECKPOINT_STACK = Int[]
+  local st = _state()
+  empty!(st.sourceMessages)
+  empty!(st.checkpointStack)
+  return nothing
 end
 
 """Used to rollback/delete checkpoints without considering the identifier. Used to reset the error messages after a stack overflow exception."""
 function getNumCheckpoints()::Integer
-  local n::Integer = length(CHECKPOINT_STACK)
-  return n
+  return length(_checkpoints())
 end
 
 """Used to rollback/delete checkpoints without considering the identifier. Used to reset the error messages after a stack overflow exception."""
@@ -258,7 +296,9 @@ end
   A unique identifier for this checkpoint must be provided. It is checked when doing rollback or deletion
 """
 function setCheckpoint(id::String) #= uniqe identifier for the checkpoint (up to the programmer to guarantee uniqueness) =#
-  push!(CHECKPOINT_STACK, length(SOURCE_MESSAGES))
+  local st = _state()
+  push!(st.checkpointStack, length(st.sourceMessages))
+  return nothing
 end
 
 """
@@ -267,9 +307,11 @@ removing the error messages issued since that checkpoint.
 If the checkpoint id doesn't match, the application exits with -1.
 """
 function delCheckpoint(id::String) #= unique identifier =#
-  if !isempty(CHECKPOINT_STACK)
-    pop!(CHECKPOINT_STACK)
+  local stk = _checkpoints()
+  if !isempty(stk)
+    pop!(stk)
   end
+  return nothing
 end
 
 function printErrorsNoWarning()::String
@@ -284,10 +326,12 @@ end
   The application will exit with return code -1 if this identifier does not match.
 """
 function rollBack(id::String) #= unique identifier =#
-  if !isempty(CHECKPOINT_STACK)
-    n = pop!(CHECKPOINT_STACK)
-    resize!(SOURCE_MESSAGES, n)
+  local st = _state()
+  if !isempty(st.checkpointStack)
+    n = pop!(st.checkpointStack)
+    resize!(st.sourceMessages, n)
   end
+  return nothing
 end
 
 """
@@ -329,8 +373,46 @@ function setShowErrorMessages(inShow::Bool)
   return @warn "TODO: Defined in the runtime"
 end
 
+"""
+    moveMessagesToParentThread(parent::Task)
+
+Drain the current task's error queue and append the entries to `parent`'s
+task-local error state. Used at the end of a spawned worker task to surface
+its messages on the parent. Synchronised via `_MERGE_LOCK` so two siblings
+draining into the same parent do not corrupt the parent's vector.
+"""
+function moveMessagesToParentThread(parent::Task)
+  local mine = _state()
+  isempty(mine.sourceMessages) && return nothing
+  Base.lock(_MERGE_LOCK) do
+    #= Julia's public `task_local_storage()` only addresses the current
+       task. Reach into the parent's `storage` field directly, lazily
+       creating the `IdDict` if the parent never touched its TLS. The
+       lock serialises sibling tasks draining into the same parent. =#
+    local parentTd = parent.storage
+    if parentTd === nothing
+      parentTd = IdDict{Any,Any}()
+      parent.storage = parentTd
+    end
+    local pstate = get(parentTd, _STATE_KEY, nothing)
+    if pstate === nothing
+      pstate = _ErrorState()
+      parentTd[_STATE_KEY] = pstate
+    end
+    append!(pstate.sourceMessages, mine.sourceMessages)
+  end
+  empty!(mine.sourceMessages)
+  return nothing
+end
+
+#= Backwards-compat no-arg form: assume the immediate parent is the desired
+   sink. Kept so callers that do not have a Task handle still work. =#
 function moveMessagesToParentThread()
-  return @warn "TODO: Defined in the runtime"
+  local p = current_task()
+  if p === nothing || !isdefined(p, :parent) || p.parent === nothing
+    return nothing
+  end
+  return moveMessagesToParentThread(p.parent::Task)
 end
 
 """Makes assert() and other runtime assertions print to the error buffer"""

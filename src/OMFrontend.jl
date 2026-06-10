@@ -46,15 +46,11 @@ import SCode
 import OMParser
 import PrecompileTools
 import Distributed
+import Serialization
 
 #= This file defines additional utility macros.. =#
 include("util.jl")
 
-#=
-TODO:
-  Investigate why flags have to be loaded several times.
-  both in __init__() and in main.jl
-=#
 
 #= Cache for NFModelicaBuiltin. We only use the result once! =#
 """
@@ -107,6 +103,7 @@ include("main.jl")
 #=Internal modules=#
 import .Frontend.Flags
 import .Frontend.FlagsUtil
+import .Frontend.StructuralModeJSON
 
 
 """
@@ -275,9 +272,19 @@ function exportSCodeRepresentationToFile(fileName::String, contents::List{SCode.
   close(fdesc)
 end
 
+#= Pretty-print an MSL/library cache key for user-facing log lines.
+   `"MSL_3_2_3"` becomes `"Modelica 3.2.3"`, `"Modelica_4_0_0"` becomes
+   `"Modelica 4.0.0"`. Falls back to the raw key when the pattern does not
+   match. =#
+function _displayMSLKey(key::AbstractString)::String
+  m = match(r"^(?:MSL|Modelica)[_:](\d+)[_.](\d+)[_.](\d+)$", String(key))
+  m === nothing && return String(key)
+  return "Modelica " * m.captures[1] * "." * m.captures[2] * "." * m.captures[3]
+end
+
 function initLoadMSL(;MSL_Version = "MSL:3.2.3", forceReload::Bool = false)
-  # For printing
-  @info "Loading MSL\n\t Version: $(MSL_Version)"
+  Base.depwarn("`initLoadMSL` is deprecated; use `loadInstalledLibrary(\"Modelica\"; version=...)` instead.", :initLoadMSL)
+  @info "Loading MSL\n\t Version: $(_displayMSLKey(MSL_Version))"
   MSL_Version = replace(MSL_Version, "." => "_")
   MSL_Version = replace(MSL_Version, ":" => "_")
   if forceReload
@@ -304,6 +311,7 @@ function flattenModelWithMSL(modelName::String,
                              MSL_Version = "MSL:3.2.3",
                              scalarize = true,
                              forceReload::Bool = false)
+  Base.depwarn("`flattenModelWithMSL` is deprecated; use `flattenModelWithLibraries` instead.", :flattenModelWithMSL)
   # `loadMSL` stores the cache entry under the normalized key (no `.` or `:`),
   # so we must normalize before consulting `LIBRARY_CACHE`. Otherwise the
   # haskey check always misses for the conventional `"MSL:3.2.3"` form and
@@ -337,6 +345,7 @@ function flattenModelWithMSL(modelName::String;
                              MSL_Version = "MSL:3.2.3",
                              scalarize = true,
                              forceReload::Bool = false)
+  Base.depwarn("`flattenModelWithMSL` is deprecated; use `flattenModelWithLibraries` instead.", :flattenModelWithMSL)
   # See note on the other `flattenModelWithMSL` overload: normalize the key
   # before the cache lookup so the cache is actually consulted.
   local mslKey = replace(replace(MSL_Version, "." => "_"), ":" => "_")
@@ -375,25 +384,53 @@ function loadMSL(; MSL_Version)
   MSL_Version = replace(MSL_Version, "." => "_")
   MSL_Version = replace(MSL_Version, ":" => "_")
   if ! haskey(LIBRARY_CACHE, MSL_Version)
-    #= Initialize various global variables =#
     Frontend.Global.initialize()
-    #= Find the MSL =#
     try
       @info "Loading MSL.."
       local packagePath = dirname(realpath(Base.find_package("OMFrontend")))
       local packagePath *= "/.."
       local pathToLib = packagePath * string("/lib/Modelica/", MSL_Version, ".mo")
+      local contentHash = _computeLibHash(pathToLib)
+      if _loadLibCache(MSL_Version, contentHash)
+        return LIBRARY_CACHE[MSL_Version]
+      end
       @info "Initial parsing of the MSL..."
       @time local p = parseFile(pathToLib)
-      #= Translate it to SCode =#
       local scodeMSL = OMFrontend.translateToSCode(p)
       global LIBRARY_CACHE[MSL_Version] = scodeMSL
+      _saveLibCache(MSL_Version, contentHash)
       return scodeMSL
     catch e
       @info "Failed loading the Modelica Standard Library. Valid versions are 3.2.3 and 4.0.0"
       @info "Continue instantiating the model until the next error."
     end
   end
+end
+
+"""
+    loadBundledMSL(; version = "3.2.3") -> String
+
+Load the Modelica Standard Library from the bundled `lib/Modelica/` files,
+independent of any OpenModelica installation. Returns the cache key.
+
+`version` may be given as `"3.2.3"`, `"4.0.0"`, or the already-normalised
+form `"MSL_3_2_3"`. The returned key can be passed to `flattenModelWithLibraries`
+or `instantiateSCodeToFM`.
+
+This is the loader used by the test suite so results do not depend on the
+local OpenModelica installation.
+
+# Example
+```julia
+key = OMFrontend.loadBundledMSL()
+(FM, _) = OMFrontend.flattenModelWithLibraries("My.Model", "model.mo"; libraries=[key])
+```
+"""
+function loadBundledMSL(; version::String = "3.2.3")::String
+  local norm = replace(replace(version, "." => "_"), ":" => "_")
+  local cacheKey = startswith(norm, "MSL_") ? norm : "MSL_" * norm
+  loadMSL(MSL_Version = cacheKey)
+  return cacheKey
 end
 
 """
@@ -426,6 +463,65 @@ function loadLibrary(libraryPath::String; name::Union{String, Nothing} = nothing
   LIBRARY_CACHE[cacheKey] = scodeProg
   @info "Loaded library '$cacheKey' from $libraryPath"
   return cacheKey
+end
+
+function _libCacheDir()::String
+  local dir = joinpath(homedir(), ".julia", "cache", "OMFrontend")
+  mkpath(dir)
+  return dir
+end
+
+function _computeLibHash(path::String)::String
+  local h::UInt64 = hash(string(VERSION))
+  if isfile(path)
+    local st = stat(path)
+    h = hash((path, st.mtime, st.size), h)
+  else
+    for (root, _, files) in walkdir(path)
+      for f in sort(files)
+        endswith(f, ".mo") || continue
+        local fp = joinpath(root, f)
+        local st = stat(fp)
+        h = hash((fp[length(path)+1:end], st.mtime, st.size), h)
+      end
+    end
+  end
+  return string(h, base = 16)
+end
+
+function _libCachePath(cacheKey::String, contentHash::String)::String
+  local safeName = replace(cacheKey, r"[/\\ ]" => "_")
+  return joinpath(_libCacheDir(), "$(safeName)__$(contentHash).jls")
+end
+
+function _saveLibCache(cacheKey::String, contentHash::String)
+  local path = _libCachePath(cacheKey, contentHash)
+  try
+    open(path, "w") do io
+      Serialization.serialize(io, LIBRARY_CACHE[cacheKey])
+    end
+    @info "Library '$cacheKey' cached to disk."
+  catch e
+    @warn "Could not write library cache: $e"
+    rm(path; force = true)
+  end
+end
+
+function _loadLibCache(cacheKey::String, contentHash::String)::Bool
+  local path = _libCachePath(cacheKey, contentHash)
+  isfile(path) || return false
+  try
+    local prog = open(path, "r") do io
+      Serialization.deserialize(io)
+    end
+    LIBRARY_CACHE[cacheKey] = prog
+    @info "Library '$(_displayMSLKey(cacheKey))' loaded from disk cache."
+    return true
+  catch e
+    @warn "Disk cache stale or incompatible, re-parsing: $e"
+    rm(path; force = true)
+    return false
+  end
 end
 
 """
@@ -462,12 +558,30 @@ function loadPackageDirectory(dirPath::String; name::Union{String, Nothing} = no
   if !isfile(rootFile)
     error("No package.mo found in '$dirPath'. Not a valid Modelica package directory.")
   end
+
+  #= Compute content hash for disk-cache lookup/invalidation =#
+  local contentHash = _computeLibHash(dirPath)
+
+  #= Determine cache key from root package name (needed before parsing) =#
+  #= Try disk cache first — if hit, skip all parsing =#
+  local cacheKey::String = name !== nothing ? name : ""
+  if !isempty(cacheKey) && _loadLibCache(cacheKey, contentHash)
+    return cacheKey
+  end
+
   @info "Loading directory-based package from $dirPath..."
 
   #= Step 1: Parse root package.mo =#
   local rootAbsyn = parseFile(rootFile)
   local rootSCode = translateToSCode(rootAbsyn)
   local rootClass = listHead(rootSCode)
+  local rootName = rootClass.name
+  if isempty(cacheKey)
+    cacheKey = rootName
+    if _loadLibCache(cacheKey, contentHash)
+      return cacheKey
+    end
+  end
 
   #= Step 2: Collect all child .mo files (excluding root package.mo) =#
   local childFiles = _collectMoFiles(dirPath)
@@ -486,15 +600,14 @@ function loadPackageDirectory(dirPath::String; name::Union{String, Nothing} = no
 
   #= Step 4: Insert all children into the root package tree =#
   local mergedClass = rootClass
-  local rootName = rootClass.name
   for (withinPath, child) in children
     mergedClass = _insertIntoPackage(mergedClass, child, withinPath, rootName)
   end
 
-  #= Step 5: Cache the result =#
-  local cacheKey = name !== nothing ? name : rootName
+  #= Step 5: Store in memory cache and persist to disk =#
   LIBRARY_CACHE[cacheKey] = list(mergedClass)
   @info "Loaded directory package '$cacheKey' from $dirPath ($(length(children)) classes)"
+  _saveLibCache(cacheKey, contentHash)
   return cacheKey
 end
 
@@ -613,10 +726,10 @@ function _insertIntoPackage(pkg::SCode.Element, child::SCode.Element,
     if isa(el, SCode.CLASS) && el.name == nextSegment
       local updatedSub = _insertIntoPackage(el, child, withinPath,
                                             string(currentPath, ".", nextSegment))
-      newEls = Cons(updatedSub, newEls)
+      newEls = _cons(updatedSub, newEls)
       found = true
     else
-      newEls = Cons(el, newEls)
+      newEls = _cons(el, newEls)
     end
   end
   newEls = listReverse(newEls)
@@ -642,6 +755,239 @@ function _rebuildClassWithElements(cls::SCode.Element, newEls)::SCode.Element
 end
 
 """
+    libraries(; installDir = nothing) -> Dict{String, Vector{NamedTuple}}
+
+Discover Modelica libraries available for loading. Searches two locations:
+
+1. The OpenModelica installation directory (default `~/.openmodelica/libraries/`).
+2. The bundled `lib/Modelica/` directory inside this package, excluding the
+   pre-packaged `MSL_*` single-file variants.
+
+Returns a `Dict` mapping library name to a `Vector` of `(version, path, source)`
+named tuples, where `source` is `:installed` or `:bundled`.
+
+# Example
+```julia
+avail = OMFrontend.libraries()
+# avail["Modelica"] => [(version="4.1.0", path="...", source=:installed), ...]
+```
+"""
+function libraries(; installDir::Union{String, Nothing} = nothing)
+  local result = Dict{String, Vector{@NamedTuple{version::String, path::String, source::Symbol}}}()
+  function _add!(name, version, path, source)
+    local entry = (version = version, path = path, source = source)
+    if haskey(result, name)
+      push!(result[name], entry)
+    else
+      result[name] = [entry]
+    end
+  end
+  local omDir = installDir !== nothing ? installDir :
+                joinpath(homedir(), ".openmodelica", "libraries")
+  if isdir(omDir)
+    for entry in sort(readdir(omDir))
+      local fullPath = joinpath(omDir, entry)
+      isdir(fullPath) || continue
+      isfile(joinpath(fullPath, "package.mo")) || continue
+      local spaceIdx = findfirst(isequal(' '), entry)
+      local name = spaceIdx !== nothing ? entry[1:spaceIdx-1] : entry
+      local version = spaceIdx !== nothing ? entry[spaceIdx+1:end] : ""
+      _add!(name, version, fullPath, :installed)
+    end
+  end
+  local pkgRoot = try
+    normpath(dirname(realpath(Base.find_package("OMFrontend"))) * "/..")
+  catch
+    nothing
+  end
+  if pkgRoot !== nothing
+    local bundledDir = joinpath(pkgRoot, "lib", "Modelica")
+    if isdir(bundledDir)
+      for entry in sort(readdir(bundledDir))
+        startswith(entry, "MSL_") && continue
+        local fullPath = joinpath(bundledDir, entry)
+        if isdir(fullPath) && isfile(joinpath(fullPath, "package.mo"))
+          local spaceIdx = findfirst(isequal(' '), entry)
+          local name = spaceIdx !== nothing ? entry[1:spaceIdx-1] : splitext(entry)[1]
+          local version = spaceIdx !== nothing ? entry[spaceIdx+1:end] : ""
+          _add!(name, version, fullPath, :bundled)
+        elseif isfile(fullPath) && endswith(entry, ".mo")
+          _add!(splitext(entry)[1], "", fullPath, :bundled)
+        end
+      end
+    end
+  end
+  return result
+end
+
+"""
+    _parseUsesDeps(path) -> Dict{String, String}
+
+Parse the `uses(...)` annotation from a `package.mo` file and return a
+`name => version` dict of declared library dependencies.
+`path` may be a directory (reads `package.mo` inside) or a direct `.mo` file.
+"""
+function _parseUsesDeps(path::String)::Dict{String, String}
+  local pkgMo = isdir(path) ? joinpath(path, "package.mo") : path
+  isfile(pkgMo) || return Dict{String, String}()
+  local text = read(pkgMo, String)
+  local m = match(r"uses\s*\(", text)
+  m === nothing && return Dict{String, String}()
+  local start = m.offset + length(m.match)
+  local depth = 1
+  local i = start
+  while i <= lastindex(text) && depth > 0
+    c = text[i]
+    if c == '('
+      depth += 1
+    elseif c == ')'
+      depth -= 1
+    end
+    i += 1
+  end
+  local usesContent = text[start : i - 2]
+  local deps = Dict{String, String}()
+  for dep in eachmatch(r"(\w[\w.]*)\s*\(\s*version\s*=\s*\"([^\"]+)\"", usesContent)
+    deps[dep.captures[1]] = dep.captures[2]
+  end
+  return deps
+end
+
+"""
+    loadInstalledLibrary(name; version = nothing, forceReload = false, autodeps = true) -> String
+
+Load a Modelica library discovered via `libraries`. Installed OpenModelica
+libraries are searched first, then the bundled `lib/Modelica/` directory.
+
+If `version` is omitted the first available version is used. If given, an exact
+match is tried before a prefix match (e.g. `"4.1"` matches `"4.1.0"`).
+
+When `autodeps = true` (default), the `uses(...)` annotation of the loaded
+`package.mo` is parsed and any declared dependencies that are available via
+`libraries()` are loaded automatically before returning.
+
+Returns the cache key under which the library is stored in `LIBRARY_CACHE`.
+
+# Example
+```julia
+OMFrontend.loadInstalledLibrary("Modelica"; version = "4.1.0")
+OMFrontend.loadInstalledLibrary("Buildings")   # auto-loads Modelica + ModelicaServices
+```
+"""
+function loadInstalledLibrary(name::String;
+                              version::Union{String, Nothing} = nothing,
+                              forceReload::Bool = false,
+                              autodeps::Bool = true)::String
+  local avail = libraries()
+  if !haskey(avail, name)
+    error("Library '$name' not found. Run `libraries()` to see what is available.")
+  end
+  local entries = avail[name]
+  local entry = if version === nothing
+    first(entries)
+  else
+    local exact = findfirst(e -> e.version == version, entries)
+    local idx = exact !== nothing ? exact :
+                findfirst(e -> startswith(e.version, version), entries)
+    idx === nothing &&
+      error("Library '$name' version '$version' not found. Available: $(map(e -> e.version, entries))")
+    entries[idx]
+  end
+  local cleanVer = replace(split(entry.version, "+")[1], "." => "_")
+  local cacheKey = isempty(cleanVer) ? name : string(name, "_", cleanVer)
+  if forceReload
+    delete!(LIBRARY_CACHE, cacheKey)
+  end
+  if haskey(LIBRARY_CACHE, cacheKey)
+    @info "Library '$cacheKey' already cached."
+    return cacheKey
+  end
+  if isdir(entry.path)
+    loadPackageDirectory(entry.path; name = cacheKey)
+  else
+    loadLibrary(entry.path; name = cacheKey)
+  end
+  if autodeps
+    local deps = _parseUsesDeps(entry.path)
+    local avail2 = libraries()
+    for (depName, depVer) in deps
+      if haskey(avail2, depName)
+        try
+          loadInstalledLibrary(depName; version = depVer, autodeps = true)
+        catch e
+          @warn "Could not auto-load dependency '$depName $depVer' for '$name': $e"
+        end
+      else
+        @info "Dependency '$depName $depVer' declared by '$name' is not in the discovered library list."
+      end
+    end
+  end
+  return cacheKey
+end
+
+const _LIBRARY_REGISTRY = Dict{String, @NamedTuple{url::String, tag_prefix::String, pkg_subdir::String}}(
+  "Buildings" => (
+    url        = "https://github.com/lbl-srg/modelica-buildings",
+    tag_prefix = "v",
+    pkg_subdir = "Buildings",
+  ),
+)
+
+"""
+    installLibrary(name; version, dest = nothing) -> String
+
+Download and install a Modelica library into the OpenModelica library directory
+(`~/.openmodelica/libraries/` by default, or `dest` if given).
+
+The library is shallow-cloned from its upstream git repository at the requested
+version tag, and the Modelica package subdirectory is extracted into
+`<dest>/<Name> <version>/`. After installation `libraries()` will discover it
+and `loadInstalledLibrary` can load it.
+
+`version` is required. `dest` overrides the install directory.
+
+Currently registered libraries: $(sort(collect(keys(_LIBRARY_REGISTRY)))).
+
+# Example
+```julia
+OMFrontend.installLibrary("Buildings"; version = "13.0.0")
+key = OMFrontend.loadInstalledLibrary("Buildings")
+```
+"""
+function installLibrary(name::String;
+                        version::Union{String, Nothing} = nothing,
+                        dest::Union{String, Nothing} = nothing)
+  if !haskey(_LIBRARY_REGISTRY, name)
+    error("Unknown library '$name'. Registered: $(sort(collect(keys(_LIBRARY_REGISTRY))))")
+  end
+  version === nothing && error("`version` is required for installLibrary; e.g. version=\"13.0.0\"")
+  local reg  = _LIBRARY_REGISTRY[name]
+  local installDir = dest !== nothing ? dest :
+                     joinpath(homedir(), ".openmodelica", "libraries")
+  mkpath(installDir)
+  local tag       = reg.tag_prefix * version
+  local dirName   = "$name $version"
+  local targetDir = joinpath(installDir, dirName)
+  if isdir(targetDir) && isfile(joinpath(targetDir, "package.mo"))
+    @info "Library '$dirName' already installed at $targetDir"
+    return targetDir
+  end
+  @info "Cloning $name $version from $(reg.url) (tag $tag)..."
+  local tmpDir = mktempdir()
+  try
+    run(`git clone --depth=1 --branch=$tag --single-branch $(reg.url) $tmpDir`)
+    local srcDir = isempty(reg.pkg_subdir) ? tmpDir : joinpath(tmpDir, reg.pkg_subdir)
+    isdir(srcDir) ||
+      error("Package subdirectory '$(reg.pkg_subdir)' not found in cloned repo.")
+    cp(srcDir, targetDir; force = true)
+    @info "Installed '$dirName' to $targetDir"
+  finally
+    rm(tmpDir; recursive = true, force = true)
+  end
+  return targetDir
+end
+
+"""
     flattenModelWithLibraries(modelName, fileName; libraries, MSL, MSL_Version, scalarize, forceReload)
 
 Flatten a Modelica model combining it with one or more pre-loaded libraries.
@@ -664,21 +1010,23 @@ function flattenModelWithLibraries(modelName::String,
                                    MSL_Version::String = "MSL:3.2.3",
                                    scalarize::Bool = true,
                                    forceReload::Bool = false)
-  local absynProgram = parseFile(fileName)
-  local combined = translateToSCode(absynProgram)
+  local combined = if isempty(fileName)
+    nil
+  else
+    local absynProgram = parseFile(fileName)
+    translateToSCode(absynProgram)
+  end
   for libKey in libraries
     if !haskey(LIBRARY_CACHE, libKey)
-      error("Library '$libKey' not loaded. Call OM.loadLibrary first.")
+      error("Library '$libKey' not loaded. Call loadInstalledLibrary or loadLibrary first.")
     end
     combined = listAppend(combined, LIBRARY_CACHE[libKey])
   end
   if MSL
-    local mslKey = replace(replace(MSL_Version, "." => "_"), ":" => "_")
+    local mslKey = loadBundledMSL(version = MSL_Version)
     if forceReload
       delete!(LIBRARY_CACHE, mslKey)
-    end
-    if !haskey(LIBRARY_CACHE, mslKey)
-      initLoadMSL(MSL_Version = MSL_Version)
+      mslKey = loadBundledMSL(version = MSL_Version)
     end
     combined = listAppend(combined, LIBRARY_CACHE[mslKey])
   end
@@ -795,5 +1143,50 @@ end
 include("GUI_API.jl")
 include("cli.jl")
 include("precompilation.jl")
+
+"""
+    exportFlatModelJSON(FM; output_dir=".", base_name, hierarchy=true, flat=true,
+                       class_mapping=nothing)
+
+Export a flat model as `<base>_hierarchy.json` and/or `<base>_flat.json` in
+`output_dir`. Structural-mode components are grouped into class templates with
+parameter overrides. See `StructuralModeJSON.exportFlatModelJSON`.
+"""
+exportFlatModelJSON(args...; kwargs...) =
+  StructuralModeJSON.exportFlatModelJSON(args...; kwargs...)
+
+"""
+    exportFlatModelJSONFromFile(modelName, fileName, library = "";
+                                output_dir, base_name,
+                                hierarchy=true, flat=true, class_mapping=nothing)
+
+Parse `fileName`, instantiate `modelName` to a FlatModel, then call
+`exportFlatModelJSON`. When `library` is non-empty, it is loaded via
+`loadInstalledLibrary` and combined with the model via `flattenModelWithLibraries`
+(e.g. `library = "Modelica"`). When `library` is empty, the model is flattened
+on its own with `flattenModel`.
+"""
+function exportFlatModelJSONFromFile(modelName::AbstractString,
+                                     fileName::AbstractString,
+                                     library::AbstractString = "";
+                                     output_dir::AbstractString = ".",
+                                     base_name::AbstractString = "",
+                                     hierarchy::Bool = true,
+                                     flat::Bool = true,
+                                     class_mapping::Union{Dict{String,String}, Nothing} = nothing)
+  (fm, _funcs) = if isempty(library)
+    flattenModel(String(modelName), String(fileName))
+  else
+    local cacheKey = loadInstalledLibrary(String(library))
+    flattenModelWithLibraries(String(modelName), String(fileName);
+                              libraries = [cacheKey])
+  end
+  return StructuralModeJSON.exportFlatModelJSON(fm;
+                                                output_dir = output_dir,
+                                                base_name = base_name,
+                                                hierarchy = hierarchy,
+                                                flat = flat,
+                                                class_mapping = class_mapping)
+end
 
 end #OMFrontend

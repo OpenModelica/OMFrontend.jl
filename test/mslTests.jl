@@ -1,21 +1,15 @@
-"""
-Test specific function to load the Modelica Standard Library (The MSL)
-"""
-function flattenModelInMSL_TST(modelName::String; MSL_V  = "MSL_3_2_3")
-  if !haskey(OMFrontend.LIBRARY_CACHE, MSL_V)
-    OMFrontend.initLoadMSL(MSL_Version= MSL_V)
-  end
-  local libraryAsScoded = OMFrontend.LIBRARY_CACHE[MSL_V]
-  (FM, cache) = OMFrontend.instantiateSCodeToFM(modelName, libraryAsScoded)
+function flattenModelInMSL_TST(modelName::String; MSL_V = "MSL_3_2_3")
+  local key = OMFrontend.loadBundledMSL(version = MSL_V)
+  local lib = OMFrontend.LIBRARY_CACHE[key]
+  (FM, cache) = OMFrontend.instantiateSCodeToFM(modelName, lib)
 end
 
-#= Try to load the msl=#
 @test begin
   try
-    OMFrontend.initLoadMSL(;MSL_Version="MSL_3_2_3")
+    OMFrontend.loadBundledMSL(version = "3.2.3")
     true
   catch e
-    @error "Failed loading the Modelica Standard Library:" e
+    @error "Failed loading bundled MSL 3.2.3:" e
     false
   end
 end
@@ -45,5 +39,13 @@ end
     include("analog.jl")
     @info "Testing Modelica.Electrical.Batteries"
     #include("batteries.jl")
+  end
+  @testset "Fluid" begin
+    @info "Testing Modelica.Fluid.Examples"
+    include("fluid.jl")
+  end
+  @testset "Magnetic" begin
+    @info "Testing Modelica.Magnetic.FluxTubes"
+    include("magnetic.jl")
   end
 end

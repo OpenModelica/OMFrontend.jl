@@ -482,20 +482,24 @@ function applyReplacementCref(
 )::Expression
   local outExp::Expression
   local cref_parts::List{ComponentRef}
-  local repl_exp::Option{Expression}
   local parent::InstNode
   local nodeVar::InstNode
   #=  Explode the cref into a list of parts in reverse order. =#
   @assign cref_parts = toListReverse(cref)
+  #= Leading scope qualifiers never carry replacements; the replacement tree
+     is keyed on component nodes, so start the lookup at the first CREF part. =#
+  while !listEmpty(cref_parts) && listHead(cref_parts).origin == Origin.SCOPE
+    cref_parts = listRest(cref_parts)
+  end
   #=  If the list is empty it's probably an iterator or _, which shouldn't be replaced.
   =#
   if listEmpty(cref_parts)
     @assign outExp = exp
   else
     @assign parent = node(listHead(cref_parts))
-    @assign repl_exp = ReplTree.getOpt(repl, parent)
-    if isSome(repl_exp)
-      @match SOME(outExp) = repl_exp
+    local repl_exp = ReplTree.tryGet(repl, parent)
+    if repl_exp !== nothing
+      outExp = repl_exp
     else
       @assign outExp = exp
       return outExp

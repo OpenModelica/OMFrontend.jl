@@ -247,7 +247,7 @@ function toFlatStream(stmt::Statement, indent::String, s; inFunction = false)
         IOStream_M.append(s, "return")
       end
 
-      ALG_RETURN(__) => begin
+      ALG_BREAK(__) => begin
         IOStream_M.append(s, "break")
       end
 
@@ -385,12 +385,12 @@ function toStream(stmt::Statement, indent::String, s)
         s
       end
 
-      RETURN(__) => begin
-        IOStream.append(s, "return")
+      ALG_RETURN(__) => begin
+        IOStream_M.append(s, "return")
       end
 
-      RETURN(__) => begin
-        IOStream.append(s, "break")
+      ALG_BREAK(__) => begin
+        IOStream_M.append(s, "break")
       end
 
       _ => begin
@@ -492,7 +492,7 @@ function foldExpList(stmt::Vector{Statement}, func::FoldFunc, arg::ArgT) where {
   return arg
 end
 
-function mapExp(stmt::Statement, func::MapFunc)::Statement
+@nospecialized function mapExp(stmt::Statement, func::MapFunc)::Statement
   stmt = begin
     local e1::Expression
     local e2::Expression
@@ -566,7 +566,7 @@ function mapExpList(stmtl::Vector{Statement}, func::MapFunc)
   return stmtl
 end
 
-function map(stmt::Statement, func::MapFn)::Statement
+@nospecialized function map(stmt::Statement, func::MapFn)::Statement
    () = begin
     @match stmt begin
       ALG_FOR(__) => begin
@@ -681,7 +681,7 @@ function makeAssignment(
 )::Statement
   local stmt::Statement
 
-  @assign stmt = ASSIGNMENT(lhs, rhs, ty, src)
+  @assign stmt = ALG_ASSIGNMENT(lhs, rhs, ty, src)
   return stmt
 end
 

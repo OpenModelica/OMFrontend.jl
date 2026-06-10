@@ -41,6 +41,13 @@ import ..Absyn
 import ..SCode
 import ..OMParser
 import ..translateToSCode
+import ..libraries
+import ..loadInstalledLibrary
+import ..installLibrary
+import ..loadBundledMSL
+import ..loadLibrary
+import ..loadPackageDirectory
+import ..LIBRARY_CACHE
 
 export SourceSpan,
        TextPatch,
@@ -62,7 +69,14 @@ export SourceSpan,
        setExecutionDelegates!,
        compileModel,
        simulateModel,
-       exportFlatModelica
+       exportFlatModelica,
+       libraries,
+       loadInstalledLibrary,
+       installLibrary,
+       loadBundledMSL,
+       loadLibrary,
+       loadPackageDirectory,
+       LIBRARY_CACHE
 
 const Point2D = Tuple{Float64, Float64}
 const Extent2D = Tuple{Point2D, Point2D}

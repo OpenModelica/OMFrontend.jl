@@ -86,7 +86,7 @@ function foldExp(dim::Dimension, func::FoldFunc, arg::ArgT) where {ArgT}
   return outArg
 end
 
-function mapExp(dim::Dimension, func::MapFunc)::Dimension
+@nospecialized function mapExp(dim::Dimension, func::MapFunc)::Dimension
   local outDim::Dimension
   @assign outDim = begin
     local e1::Expression

@@ -2191,6 +2191,25 @@ function pathHashMod(path::Path, mod::Integer)::Integer
   return hash
 end
 
+"""
+Hash of a path that is CONSISTENT with `pathEqual`: FULLYQUALIFIED is unwrapped (pathEqual
+ignores the qualification marker), so two pathEqual paths always hash equal. Use this with
+`pathEqual` as the (hash, eq) pair for an UnorderedMap/Set keyed on `Absyn.Path`. (The
+mod-based `pathHashMod` perturbs the accumulator for FULLYQUALIFIED and is NOT consistent
+with pathEqual.)
+"""
+function pathHash(path::Path)::Integer
+  return Int(signed(pathHashWork(path, UInt64(5381))))
+end
+
+function pathHashWork(path::Path, acc::UInt64)::UInt64
+  return @match path begin
+    FULLYQUALIFIED(p) => pathHashWork(p, acc)
+    QUALIFIED(s, p) => pathHashWork(p, hash(s, acc))
+    IDENT(s) => hash(s, acc)
+  end
+end
+
 """Hashes a path."""
 function pathHashModWork(path::Path, acc::Integer)::Integer
   local hash::Integer

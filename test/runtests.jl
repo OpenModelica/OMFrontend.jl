@@ -73,6 +73,14 @@ end
     include("frontendResultTest.jl")
   end
 
+  @testset "Algorithm-level for-loop unrolling" begin
+    include("algorithmUnrollTests.jl")
+  end
+
+  @testset "Replaceable packages" begin
+    include("replaceableTests.jl")
+  end
+
   #=
   Test components in the MSL
   If you are a user of this package please submit more tests here.

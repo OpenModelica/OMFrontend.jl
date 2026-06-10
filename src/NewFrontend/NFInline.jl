@@ -33,6 +33,37 @@
 *
 */ =#
 
+#= Tunable thresholds for the `INLINE_FUNCTIONS_COMPLEXITY_GATE` heuristic.
+   Mutable Refs so the user can override at runtime without rebuilding. =#
+const INLINE_BODY_MAX_NODES = Ref{Int}(2)
+const INLINE_POST_SUB_MAX_NODES = Ref{Int}(2)
+
+#= Per-function body info cache. Body-only stats (hasCall, node count) are
+   independent of call-site arguments, so we compute them once per
+   `M_FUNCTION` and reuse across every call site. The previous unconditional
+   per-call walk dominated flatten time on MultiBody (hundreds of call sites
+   to a small pool of distinct helpers). =#
+#= (hasCall, nodeCount) tuple cache keyed by the function's InstNode
+   objectid. Plain Tuple to dodge world-age issues on Revise-driven struct
+   shape changes; UInt key to avoid String allocation per lookup. =#
+const _INLINE_BODY_INFO_CACHE = Dict{UInt, Tuple{Bool, Int}}()
+const _INLINE_BODY_TOOMANY = (true, typemax(Int))
+
+@nospecialized function _bodyInfo(fn)::Tuple{Bool, Int}
+  local key = objectid(fn.node)
+  local cached = get(_INLINE_BODY_INFO_CACHE, key, nothing)
+  cached !== nothing && return cached
+  local body = getBody(fn)
+  if length(body) != 1
+    _INLINE_BODY_INFO_CACHE[key] = _INLINE_BODY_TOOMANY
+    return _INLINE_BODY_TOOMANY
+  end
+  local stmt = body[1]
+  local info = (_stmtHasCall(stmt), _countStmtNodes(stmt))
+  _INLINE_BODY_INFO_CACHE[key] = info
+  return info
+end
+
 """Mostly written manualy (John) to adjust certain things in N."""
 function inlineCallExp(callExp::Expression)::Expression
   local result::Expression
@@ -47,7 +78,11 @@ function inlineCallExp(callExp::Expression)::Expression
               true
             end
             DAE.EARLY_INLINE(__) where {(Flags.isSet(Flags.INLINE_FUNCTIONS))} => begin
-              true
+              if Flags.INLINE_FUNCTIONS_COMPLEXITY_GATE[]
+                _passesInlineComplexityGate(call)
+              else
+                true
+              end
             end
             _ => begin
               false
@@ -66,6 +101,65 @@ function inlineCallExp(callExp::Expression)::Expression
     end
   end
   return result
+end
+
+#= Cheap node counter for a Statement. =#
+@nospecialized function _countStmtNodes(stmt::Statement)::Int
+  local n = 0
+  mapExp(stmt, e -> begin
+    map(e, x -> begin n += 1; x end)
+    e
+  end)
+  return n
+end
+
+#= Cheap node counter for an Expression subtree. =#
+@nospecialized function _countExpNodes(e::Expression)::Int
+  local n = 0
+  map(e, x -> begin n += 1; x end)
+  return n
+end
+
+#= Returns true when the statement body contains any CALL_EXPRESSION. We use
+   this as a coarse "do not inline" signal because each nested call would
+   recursively trigger inlining on substitute, and on dense MultiBody
+   `Frames.*` chains the recursion blows up flatten time by orders of
+   magnitude. =#
+@nospecialized function _stmtHasCall(stmt::Statement)::Bool
+  local hasCall = false
+  mapExp(stmt, e -> begin
+    map(e, x -> begin
+      x isa CALL_EXPRESSION && (hasCall = true)
+      x
+    end)
+    e
+  end)
+  return hasCall
+end
+
+#= Composite gate: small bodies pass unconditionally. Larger bodies pass only
+   if the worst-case post-substitution growth stays under the budget. Bodies
+   containing further function calls are rejected outright to avoid
+   recursive inline blow-up on `Frames.*` / `Vectors.*` chains. =#
+function _passesInlineComplexityGate(call::Call)::Bool
+  @match call begin
+    TYPED_CALL(fn = fn, arguments = args) => begin
+      local info = _bodyInfo(fn)
+      info[1] && return false
+      local b = info[2]
+      b <= INLINE_BODY_MAX_NODES[] && return true
+      local maxArgSize = 0
+      for a in args
+        local s = _countExpNodes(a)
+        s > maxArgSize && (maxArgSize = s)
+      end
+      maxArgSize <= 1 && return true
+      local nInputs = listLength(fn.inputs)
+      nInputs <= 1 && (b + maxArgSize <= INLINE_POST_SUB_MAX_NODES[]) && return true
+      b + (nInputs - 1) * maxArgSize <= INLINE_POST_SUB_MAX_NODES[]
+    end
+    _ => false
+  end
 end
 
 
@@ -173,41 +267,30 @@ end
 function replaceCrefNode(exp::Expression, node::InstNode, value::Expression)::Expression
   local ty::M_Type
   local repl_ty::M_Type
-  @assign exp = begin
-    @match exp begin
-      CREF_EXPRESSION(cref = cr && COMPONENT_REF_CREF(__)) => begin
-        #= Convert cref to reversed list: innermost (base) first, outermost last.
-           For c.re stored as re -> c -> EMPTY, toListReverse gives [c, re]. =#
-        local cref_parts = toListReverse(cr)
-        local basePart = listHead(cref_parts)
-        if refEqual(node, basePart.node)
-          #= The base of the cref matches the formal parameter node.
-             Replace with actual argument value, then apply any field accesses. =#
-          local result = applySubscripts(basePart.subscripts, value)
-          local fieldParts = listRest(cref_parts)
-          for fieldCr in fieldParts
-            result = makeImmutable(result)
-            result = recordElement(name(fieldCr.node), result)
-            result = applySubscripts(fieldCr.subscripts, result)
-          end
-          result
-        else
-          exp
-        end
+  if exp isa CREF_EXPRESSION && exp.cref isa COMPONENT_REF_CREF
+    local cr = exp.cref
+    local basePart = cr
+    while basePart.restCref isa COMPONENT_REF_CREF
+      basePart = basePart.restCref
+    end
+    if refEqual(node, basePart.node)
+      local cref_parts = toListReverse(cr)
+      local result = applySubscripts(basePart.subscripts, value)
+      local fieldParts = listRest(cref_parts)
+      for fieldCr in fieldParts
+        result = makeImmutable(result)
+        result = recordElement(name(fieldCr.node), result)
+        result = applySubscripts(fieldCr.subscripts, result)
       end
-
-      _ => begin
-        exp
-      end
+      exp = result
     end
   end
-  #=  Replace expressions in dimensions too.
-  =#
   ty = typeOf(exp)
-  repl_ty =
-    mapDims(ty, (dimArg) -> replaceDimExp(dimArg, node, value))
-  if !referenceEq(ty, repl_ty)
-    exp = setType(repl_ty, exp)
+  if ty isa TYPE_ARRAY || ty isa TYPE_TUPLE || ty isa TYPE_FUNCTION || ty isa TYPE_METABOXED
+    repl_ty = mapDims(ty, (dimArg) -> replaceDimExp(dimArg, node, value))
+    if !referenceEq(ty, repl_ty)
+      exp = setType(repl_ty, exp)
+    end
   end
   return exp
 end

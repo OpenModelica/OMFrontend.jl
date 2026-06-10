@@ -451,7 +451,7 @@ function makeDAEType(fn::M_FUNCTION, boxTypes::Bool = false)::DAE.Type
   local ty::M_Type
   local ptype::DAE.Type
   local pconst::DAE.Const
-  local ppar::DAE
+  local ppar::DAE.VarParallelism
   local pdefault::Option{DAE.Exp}
   local comp::Component
   for param in fn.inputs
@@ -1994,13 +1994,8 @@ end
 
 function instFunction3(fnNode::InstNode)::InstNode
   fnNode = instantiateN1(fnNode, EMPTY_NODE())
-  #=  Set up an empty function cache to signal that this function is
-  =#
-  #=  currently being instantiatdded, so recursive functions can be handled.
-  =#
   cacheInitFunc(fnNode)
   instExpressions(fnNode)
-  ##@debug "Returning in instfunction3"
   return fnNode
 end
 
@@ -2440,8 +2435,7 @@ function makeAttributes(
         =#
         #=  Normal function.
         =#
-        #        @assign inline_ty = commentIsInlineFunc(cmt) TODO
-        inline_ty = DAE.NO_INLINE() #TODO tmp
+        inline_ty = commentIsInlineFunc(cmt)
         #=  In Modelica 3.2 and before, external functions with side-effects are not marked.
         =#
         @assign is_impure =
@@ -2468,6 +2462,11 @@ function makeAttributes(
 end
 
 function commentIsInlineFunc(cmt::SCode.Comment)
+  if SCodeUtil.commentHasBooleanNamedAnnotation(cmt, "LateInline")
+    return DAE.AFTER_INDEX_RED_INLINE()
+  elseif SCodeUtil.commentHasBooleanNamedAnnotation(cmt, "Inline")
+    return DAE.EARLY_INLINE()
+  end
   return DAE.NO_INLINE()
 end
 

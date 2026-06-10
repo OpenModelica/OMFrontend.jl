@@ -697,15 +697,17 @@ function create(mod::SCode.MOD,
   else
     parents
   end
-  local submodV = Vector{Modifier}(undef, length(mod.subModLst))
+  local n = length(mod.subModLst)
+  local submodV = Vector{Modifier}(undef, n)
+  local submodK = Vector{String}(undef, n)
   local i = 1
   local tmp = mod.subModLst::List{SCode.SubMod}
   while tmp !== nil
     @match Cons{SCode.SubMod}(m, tmp) = tmp
     submodV[i] = createSubMod(m::SCode.NAMEMOD, modScope, pars, scope)
+    submodK[i] = m.ident::String
     i += 1
   end
-  local submodK::Vector{String} = String[m.ident::String for m in mod.subModLst]
   submod_table = ModTable.fromVector(
     submodV,
     submodK,

@@ -78,42 +78,29 @@ function split(
   return connl
 end
 
-""" Splits a connector into its primitive components. Scalarize everything! """
-function split(conn::CONNECTOR)::List{Connector}
-  local connl::List{Connector}
-  @assign connl = splitImpl(conn.name, conn.ty, conn.face, conn.source, conn.cty, ScalarizeSetting.NONE)
-  return connl
-end
-
 function hash(conn::Connector, mod::Int)::Int
-  local hash::Int = hash(conn.name, mod)
-  return hash
+  return hash(conn.name, mod)
 end
 
 function toString(conn::CONNECTOR)::String
-  local str::String = toString(conn.name)
-  return str
+  return toString(conn.name)
 end
 
 
 function Base.string(conn::CONNECTOR)::String
-  local str::String = toString(conn.name)
-  return str
+  return toString(conn.name)
 end
 
 function name(conn::Connector)::ComponentRef
-  local name::ComponentRef = conn.name
-  return name
+  return conn.name
 end
 
 function isExpandable(conn::Connector)::Bool
-  local isExpandable::Bool = ConnectorType.isExpandable(conn.cty)
-  return isExpandable
+  return ConnectorType.isExpandable(conn.cty)
 end
 
 function isDeleted(conn::Connector)::Bool
-  local isDel::Bool = isDeleted(conn.name)
-  return isDel
+  return isDeleted(conn.name)
 end
 
 function setOutside(conn::Connector)::Connector
@@ -124,25 +111,15 @@ function setOutside(conn::Connector)::Connector
 end
 
 function isInside(conn::Connector)::Bool
-  local isInside::Bool
-
-  local f::FaceType = conn.face
   #=  Needed due to #4502
   =#
-
-  @assign isInside = f == Face.INSIDE
-  return isInside
+  return conn.face == Face.INSIDE
 end
 
 function isOutside(conn::Connector)::Bool
-  local isOutside::Bool
-
-  local f::FaceType = conn.face
   #=  Needed due to #4502
   =#
-
-  @assign isOutside = f == Face.OUTSIDE
-  return isOutside
+  return conn.face == Face.OUTSIDE
 end
 
 function isNodeNameEqual(conn1::Connector, conn2::Connector)::Bool
@@ -153,30 +130,23 @@ function isNodeNameEqual(conn1::Connector, conn2::Connector)::Bool
 end
 
 function isPrefix(conn1::Connector, conn2::Connector)::Bool
-  local isPrefix::Bool = isPrefix(conn1.name, conn2.name)
-  return isPrefix
+  return isPrefix(conn1.name, conn2.name)
 end
 
 function isEqual(conn1::Connector, conn2::Connector)::Bool
-  local isEqual::Bool =
-    isEqual(conn1.name, conn2.name) && conn1.face == conn2.face
-  return isEqual
+  return isEqual(conn1.name, conn2.name) && conn1.face == conn2.face
 end
 
 function variability(conn::Connector)::VariabilityType
-  local var::VariabilityType =
-    variability(component(node(conn.name)))
-  return var
+  return variability(component(node(conn.name)))
 end
 
 function Connector_getInfo(conn::Connector)::SourceInfo
-  local info::SourceInfo = conn.source.info
-  return info
+  return conn.source.info
 end
 
 function getType(conn::Connector)::M_Type
-  local ty::M_Type = conn.ty
-  return ty
+  return conn.ty
 end
 
 """Constructs a list of Connectors from a cref or an array of crefs."""
@@ -218,28 +188,21 @@ function fromFacedCref(
   face::FaceType,
   source::DAE.ElementSource,
 )::Connector
-  local conn::Connector
-
   local nodeVar::InstNode = node(cref)
   local comp::Component
   local cty::ConnectorType.TYPE
-  local res::Restriction
 
   if isComponent(nodeVar)
-    @assign comp = component(nodeVar)
-    @assign res = restriction(getClass(classInstance(comp)))
-    @assign cty = connectorType(comp)
+    comp = component(nodeVar)
+    cty = connectorType(comp)
   else
-    @assign cty = intBitOr(ConnectorType.VIRTUAL, ConnectorType.POTENTIAL)
+    cty = intBitOr(ConnectorType.VIRTUAL, ConnectorType.POTENTIAL)
   end
-  @assign conn =
-    CONNECTOR(simplifySubscripts(cref), ty, face, cty, source)
-  return conn
+  return CONNECTOR(simplifySubscripts(cref), ty, face, cty, source)
 end
 
 function fromCref(cref::ComponentRef, ty::NFType, source::DAE.ElementSource)::Connector
-  local conn::Connector = fromFacedCref(cref, ty, crefFace(cref), source)
-  return conn
+  return fromFacedCref(cref, ty, crefFace(cref), source)
 end
 
 function splitImpl2(
@@ -273,8 +236,10 @@ function splitImpl2(
 end
 
 function addSubscripts(subscripts::List{Subscript}, conn::Connector)
-  @assign conn.name = mergeSubscripts(subscripts, conn.name; applyToScope = true)
-  @assign conn.ty = subscript(conn.ty, subscripts)
+  @assign begin
+    conn.name = mergeSubscripts(subscripts, conn.name; applyToScope = true)
+    conn.ty = subscript(conn.ty, subscripts)
+  end
   return conn
 end
 
@@ -322,7 +287,7 @@ function splitImpl(
         elementType = ety && TYPE_COMPLEX(__),
       ) where {(scalarize >= ScalarizeSetting.PREFIX)} => begin
         for c in scalarizeCref(name)
-          @assign conns = splitImpl(c, ety, face, source, cty, scalarize, conns, dims)
+          conns = splitImpl(c, ety, face, source, cty, scalarize, conns, dims)
         end
         conns
       end
@@ -330,11 +295,11 @@ function splitImpl(
       TYPE_ARRAY(elementType = ety) => begin
         if scalarize == ScalarizeSetting.ALL
           for c in scalarizeCref(name)
-            @assign conns = splitImpl(c, ety, face, source, cty, scalarize, conns, dims)
+            conns = splitImpl(c, ety, face, source, cty, scalarize, conns, dims)
           end
         else
           if !isEmptyArray(ty)
-            @assign conns = splitImpl(
+            conns = splitImpl(
               name,
               ety,
               face,
@@ -364,7 +329,7 @@ end
 """
 function crefFace(cref::ComponentRef)::FaceType
   local face::FaceType
-  @assign face = begin
+  face = begin
     @match cref begin
       COMPONENT_REF_CREF(restCref = COMPONENT_REF_EMPTY(__)) => begin
         Face.OUTSIDE

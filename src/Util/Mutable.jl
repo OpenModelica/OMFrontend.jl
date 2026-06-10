@@ -33,12 +33,12 @@
 *
 */ =#
 
-mutable struct Mutable{T}
-  """data::T #=Can be anything really.."""
-  function access(m)
-    return data
-  end
-  function update(x)
-    data = x
-  end
+#= Mutable<T>: a single mutable cell. Backed by Base.Ref so it matches the
+   translator's `Mutable<T> -> Ref{T}` lowering. =#
+module Mutable
+
+create(@nospecialize(data)) = Base.Ref(data)
+access(@nospecialize(m)) = m[]
+update(@nospecialize(m), @nospecialize(data)) = (m[] = data; nothing)
+
 end

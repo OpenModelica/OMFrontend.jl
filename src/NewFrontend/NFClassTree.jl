@@ -393,8 +393,11 @@ function applyLocalComponentsWithInstComponentExpressions(tree::CLASS_TREE_INSTA
     local comp::Pointer{InstNode} = @inbounds tree.components[i]
     local arg = P_Pointer.access(comp)
     instComponentExpressions(arg)
-    #fail()
   end
+  return nothing
+end
+
+function applyLocalComponentsWithInstComponentExpressions(::CLASS_TREE_EXPANDED_TREE)
   return nothing
 end
 
@@ -1893,26 +1896,23 @@ function addInheritedElement(
   conflictFunc::LookupTree.ConflictFunc,
   tree::LookupTree.Tree,
   )
-
-    @match entry begin
-      LookupTree.CLASS(__) => begin
-        #@assign entry.index = entry.index + classOffset
-        local newEntry = LookupTree.CLASS(entry.index + classOffset)
-        tree = LookupTree.add(tree, name, newEntry, conflictFunc)
-        ()
-      end
-
-      LookupTree.COMPONENT(__) => begin
-        #@assign entry.index = entry.index + componentOffset
-        local newEntry = LookupTree.COMPONENT(entry.index + componentOffset)
-        tree = LookupTree.add(tree, name, newEntry, conflictFunc)
-        ()
-      end
-
-      _ => begin
-        ()
-      end
+  @match entry begin
+    LookupTree.CLASS(__) => begin
+      local newEntry = LookupTree.CLASS(entry.index + classOffset)
+      tree = LookupTree.add(tree, name, newEntry, conflictFunc)
+      ()
     end
+
+    LookupTree.COMPONENT(__) => begin
+      local newEntry = LookupTree.COMPONENT(entry.index + componentOffset)
+      tree = LookupTree.add(tree, name, newEntry, conflictFunc)
+      ()
+    end
+
+    _ => begin
+      ()
+    end
+  end
   #=  Ignore IMPORT, since imports aren't inherited. =#
   return tree
 end

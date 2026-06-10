@@ -72,11 +72,11 @@ function resetLookupCache()
   return nothing
 end
 
-function lookupClassName(name::Absyn.Path, scope::InstNode, info::SourceInfo, checkAccessViolations::Bool = true)
+function lookupClassName(name::Absyn.Path, scope::InstNode, info::SourceInfo, checkAccessViolations::Bool = true; isRedeclared::Bool = false)
   local node::InstNode
   local state::LookupState
   local LS_REF::Ref{LookupState}
-  if _lookupCacheEnabled()
+  if _lookupCacheEnabled() && !isRedeclared
     local key = (objectid(name), objectid(scope), checkAccessViolations)
     local cached = get(LOOKUP_CLASS_CACHE, key, nothing)
     if cached !== nothing
@@ -84,7 +84,7 @@ function lookupClassName(name::Absyn.Path, scope::InstNode, info::SourceInfo, ch
       return cached::InstNode
     end
     LS_REF = Ref{LookupState}(LOOKUP_STATE_BEGIN())
-    node = lookupNameWithError(name, scope, info, "error", LS_REF, checkAccessViolations)
+    node = lookupNameWithError(name, scope, info, "error", LS_REF, checkAccessViolations; isRedeclared = isRedeclared)
     state = LS_REF.x
     assertClass(state, node, name, info)
     LOOKUP_CLASS_CACHE[key] = node
@@ -92,7 +92,7 @@ function lookupClassName(name::Absyn.Path, scope::InstNode, info::SourceInfo, ch
     return node
   end
   LS_REF = Ref{LookupState}(LOOKUP_STATE_BEGIN())
-  node = lookupNameWithError(name, scope, info, "error", LS_REF, checkAccessViolations)
+  node = lookupNameWithError(name, scope, info, "error", LS_REF, checkAccessViolations; isRedeclared = isRedeclared)
   state = LS_REF.x
   assertClass(state, node, name, info)
   return node
@@ -386,7 +386,8 @@ function lookupInner(outerNode::InstNode, scope::InstNode)
   while ! isEmpty(cur_scope)
     try
       @match ENTRY_INFO(node, isImport) = lookupElement(nameVar, getClass(cur_scope))
-      innerNode = resolveOuter(node, isImport)
+      @match false = isImport
+      innerNode = resolveOuter(node)
       @match true = isInner(innerNode)
       return innerNode
     catch e
@@ -437,10 +438,10 @@ function lookupLocalSimpleName(n::String, scope::InstNode)
 end
 
 
-function lookupNameWithError(name::Absyn.Path, scope::InstNode, info::SourceInfo, errorType, lookupStateRef::Ref{LookupState}, checkAccessViolations::Bool = true)
+function lookupNameWithError(name::Absyn.Path, scope::InstNode, info::SourceInfo, errorType, lookupStateRef::Ref{LookupState}, checkAccessViolations::Bool = true; isRedeclared::Bool = false)
   local state::LookupState
   local node::InstNode
-  node = lookupName(name, scope, lookupStateRef, checkAccessViolations)
+  node = lookupName(name, scope, lookupStateRef, checkAccessViolations; isRedeclared = isRedeclared)
   state = lookupStateRef.x
   if node isa EMPTY_NODE
     Error.addSourceMessage(Error.LOOKUP_ERROR, list(AbsynUtil.pathString(name), scopeName(scope)), info)
@@ -450,7 +451,7 @@ function lookupNameWithError(name::Absyn.Path, scope::InstNode, info::SourceInfo
   node
 end
 
-function lookupName(name::Absyn.Path, scope::InstNode, lookupStateRef::Ref{LookupState}, checkAccessViolations::Bool)
+function lookupName(name::Absyn.Path, scope::InstNode, lookupStateRef::Ref{LookupState}, checkAccessViolations::Bool; isRedeclared::Bool = false)
   local state::LookupState
   local node::InstNode
   node = begin
@@ -461,10 +462,10 @@ function lookupName(name::Absyn.Path, scope::InstNode, lookupStateRef::Ref{Looku
       Absyn.QUALIFIED(__)  => begin
         node = lookupFirstIdent(name.name, scope, lookupStateRef)
         state = lookupStateRef.x
-        lookupLocalName(name.path, node, state, lookupStateRef, checkAccessViolations, refEqual(node, scope))
+        lookupLocalName(name.path, node, state, lookupStateRef, checkAccessViolations, refEqual(node, scope); isRedeclared = isRedeclared)
       end
       Absyn.FULLYQUALIFIED(__)  => begin
-        lookupName(name.path, topScope(scope), lookupStateRef, checkAccessViolations)
+        lookupName(name.path, topScope(scope), lookupStateRef, checkAccessViolations; isRedeclared = isRedeclared)
       end
     end
   end
@@ -520,7 +521,7 @@ end
  Looks up a path in the given scope, without continuing the search in any
  enclosing scopes if the path isn't found.
 """
-function lookupLocalName(name::Absyn.Path, node::InstNode, state::LookupState, lookupStateRef::Ref{LookupState}, checkAccessViolations::Bool = true, selfReference::Bool = false)
+function lookupLocalName(name::Absyn.Path, node::InstNode, state::LookupState, lookupStateRef::Ref{LookupState}, checkAccessViolations::Bool = true, selfReference::Bool = false; isRedeclared::Bool = false)
   local is_import::Bool
   if ! isClass(node)
     state =  LOOKUP_STATE_COMP_CLASS()
@@ -528,7 +529,7 @@ function lookupLocalName(name::Absyn.Path, node::InstNode, state::LookupState, l
     return node
   end
   if ! selfReference
-    node = instPackage(node)
+    node = instPackage(node; isRedeclared = isRedeclared)
   end
   #=  Look up the path in the scope.
   =#
@@ -553,7 +554,7 @@ function lookupLocalName(name::Absyn.Path, node::InstNode, state::LookupState, l
       else
         state = next(node, state, checkAccessViolations)
         lookupStateRef.x = state
-        node = lookupLocalName(name.path, node, state, lookupStateRef, checkAccessViolations)
+        node = lookupLocalName(name.path, node, state, lookupStateRef, checkAccessViolations; isRedeclared = isRedeclared)
       end
     end
     _  => begin
@@ -570,7 +571,7 @@ end
   Looks up a path in the given scope, without continuing the search in any
   enclosing scopes if the path isn't found.
 """
-function lookupLocalNames(name::Absyn.Path, scope::InstNode, nodes::List{InstNode}, state::LookupState, lookupStateRef::Ref{LookupState}, selfReference::Bool = false)
+function lookupLocalNames(name::Absyn.Path, scope::InstNode, nodes::List{InstNode}, state::LookupState, lookupStateRef::Ref{LookupState}, selfReference::Bool = false; isRedeclared::Bool = false)
   local node::InstNode = scope
   if ! isClass(scope)
     state = LOOKUP_STATE_COMP_CLASS()
@@ -578,7 +579,7 @@ function lookupLocalNames(name::Absyn.Path, scope::InstNode, nodes::List{InstNod
     return nodes
   end
   if ! selfReference
-    node = instPackage(node)
+    node = instPackage(node; isRedeclared = isRedeclared)
   end
   nodes = begin
     @match name begin
@@ -808,7 +809,7 @@ function lookupCrefInNode(cref::Absyn.ComponentRef #=modification-040321=#,
   scope = begin
     @match node begin
       CLASS_NODE(__)  => begin
-        instPackage(node)
+        instPackage(node; isRedeclared = false)
       end
       _  => begin
         node
@@ -898,16 +899,15 @@ function generateInner(outerNode::InstNode, topScope::InstNode)
   local innerNode::InstNode
   local cache::CachedData
   local nameStr::String
-  local inner_node_opt::Option{InstNode}
   local inner_node::InstNode
   cache = getInnerOuterCache(topScope)
    () = begin
     @match cache begin
       C_TOP_SCOPE(__)  => begin
         nameStr = name(outerNode)
-        inner_node_opt = NodeTree.getOpt(cache.addedInner, nameStr)
-        if isSome(inner_node_opt)
-          @match SOME(innerNode) = inner_node_opt
+        local v = NodeTree.tryGet(cache.addedInner, nameStr)
+        if v !== nothing
+          innerNode = v
         else
           innerNode = makeInnerNode(outerNode)
           #= Fully qualify the typespec path before reparenting.
