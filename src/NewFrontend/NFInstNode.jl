@@ -2211,6 +2211,15 @@ function isDerivedClass(node::InstNode)
   isDerived
 end
 
+#= A redeclared class counts as user-defined when the class it replaced was. =#
+function isUserdefinedClassType(ty)::Bool
+  ty isa NORMAL_CLASS && return true
+  ty isa BASE_CLASS && return true
+  ty isa DERIVED_CLASS && return true
+  ty isa REDECLARED_CLASS && return isUserdefinedClassType(ty.originalType)
+  return false
+end
+
 function isUserdefinedClass(node::InstNode)
   local isUserdefined::Bool
 
@@ -2229,6 +2238,10 @@ function isUserdefinedClass(node::InstNode)
 
             DERIVED_CLASS(__)  => begin
               true
+            end
+
+            REDECLARED_CLASS(__)  => begin
+              isUserdefinedClassType(node.nodeType.originalType)
             end
 
             _  => begin

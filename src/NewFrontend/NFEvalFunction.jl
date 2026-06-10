@@ -486,6 +486,11 @@ function applyReplacementCref(
   local nodeVar::InstNode
   #=  Explode the cref into a list of parts in reverse order. =#
   @assign cref_parts = toListReverse(cref)
+  #= Leading scope qualifiers never carry replacements; the replacement tree
+     is keyed on component nodes, so start the lookup at the first CREF part. =#
+  while !listEmpty(cref_parts) && listHead(cref_parts).origin == Origin.SCOPE
+    cref_parts = listRest(cref_parts)
+  end
   #=  If the list is empty it's probably an iterator or _, which shouldn't be replaced.
   =#
   if listEmpty(cref_parts)

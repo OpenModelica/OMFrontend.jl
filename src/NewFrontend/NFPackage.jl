@@ -35,6 +35,7 @@
 
 module ConstantsSetImpl
 import ..NFComponentRef
+import ..compare as crefCompare
 using MetaModelica
 using ExportAll
 ComponentRef = NFComponentRef
@@ -42,6 +43,9 @@ ComponentRef = NFComponentRef
 const Key = ComponentRef
 const Value = Int
 include("../Util/baseAvlTreeCode.jl")
+#= The base tree's placeholder keyCompare returns a Bool; the AVL needs the
+   three-way cref ordering or distinct keys collapse into one entry. =#
+keyCompare = (inKey1::Key, inKey2::Key) -> crefCompare(inKey1, inKey2)
 @exportAll()
 end
 

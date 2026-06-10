@@ -51,11 +51,6 @@ import Serialization
 #= This file defines additional utility macros.. =#
 include("util.jl")
 
-#=
-TODO:
-  Investigate why flags have to be loaded several times.
-  both in __init__() and in main.jl
-=#
 
 #= Cache for NFModelicaBuiltin. We only use the result once! =#
 """
