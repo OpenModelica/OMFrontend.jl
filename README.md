@@ -1,5 +1,5 @@
-[![Github Action CI](https://github.com/JKRT/OMFrontend.jl/workflows/CI/badge.svg)](https://github.com/JKRT/OMFrontend.jl/actions/workflows/ci.yml)
-[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://JKRT.github.io/OMFrontend.jl/dev/)
+[![Github Action CI](https://github.com/OpenModelica/OMFrontend.jl/workflows/CI/badge.svg)](https://github.com/OpenModelica/OMFrontend.jl/actions/workflows/ci.yml)
+[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://OpenModelica.github.io/OMFrontend.jl/dev/)
 [![License: OSMC-PL](https://img.shields.io/badge/license-OSMC--PL-lightgrey.svg)](OSMC-License.txt)
 
 # OMFrontend.jl
@@ -9,7 +9,7 @@ The package parses Modelica source, lowers it to SCode, and instantiates it
 into FlatModelica or DAE form.
 
 For the full compiler suite that builds on top of this package, see
-[OpenModelica.jl](https://github.com/JKRT/OM.jl). The API exposed here is
+[OpenModelica.jl](https://github.com/OpenModelica/OM.jl). The API exposed here is
 deliberately low-level; for higher-level use cases, prefer OM.jl.
 
 ## Library Coverage
@@ -72,7 +72,7 @@ scodeProgram  = OMFrontend.translateToSCode(absynProgram)
 
 To obtain the DAE form instead of FlatModelica, call `instantiateSCodeToDAE`
 on the SCode program returned by `translateToSCode`. See
-[DAE.jl](https://github.com/JKRT/DAE.jl) for the data structure.
+[DAE.jl](https://github.com/OpenModelica/DAE.jl) for the data structure.
 
 ### Discovering and Loading Installed Libraries
 
@@ -148,7 +148,7 @@ flat model after each compiler phase to the working directory.
 
 ### Issues, Questions, and Contributing
 
-OMFrontend.jl is a component of [OM.jl](https://github.com/JKRT/OM.jl), and
+OMFrontend.jl is a component of [OM.jl](https://github.com/OpenModelica/OM.jl), and
 the API reflects that low-level role.
 
 For questions or collaboration ideas, contact details are available on my
