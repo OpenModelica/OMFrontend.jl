@@ -7,12 +7,12 @@ CurrentModule = OMFrontend
 ## Setup
 
 OMFrontend depends on several sibling packages from the
-[OM.jl](https://github.com/JKRT/OM.jl) project. The simplest way to develop
+[OM.jl](https://github.com/OpenModelica/OM.jl) project. The simplest way to develop
 against it is to clone the umbrella repository, which carries each sibling as a
 git submodule:
 
 ```sh
-git clone --recursive https://github.com/JKRT/OM.jl
+git clone --recursive https://github.com/OpenModelica/OM.jl
 cd OM.jl/OMFrontend.jl
 julia --project -e 'import Pkg; Pkg.instantiate()'
 ```
@@ -47,7 +47,7 @@ operate on SCode rather than Absyn.
 ```
 
 The instantiation pass elaborates the chosen model, resolves modifications,
-expands inheritance, and emits a [`DAE.DAElist`](https://github.com/JKRT/DAE.jl)
+expands inheritance, and emits a [`DAE.DAElist`](https://github.com/OpenModelica/DAE.jl)
 together with the type cache used during lookup.
 
 ## Producing flat Modelica
@@ -65,4 +65,4 @@ For tooling that wants a textual, fully-flat view of the model:
   exercise a wide cross-section of the frontend; the `test/` directory in the
   source tree contains a curated subset that runs in CI.
 - For backend lowering, see
-  [OMBackend.jl](https://github.com/JKRT/OMBackend.jl).
+  [OMBackend.jl](https://github.com/OpenModelica/OMBackend.jl).

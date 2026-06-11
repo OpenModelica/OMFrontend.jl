@@ -15,10 +15,10 @@ makedocs(
     sitename = "OMFrontend.jl",
     modules = [OMFrontend, OMFrontend.GUI_API],
     authors = "John Tinnerholm <johti17@liu.se>, Martin Sjölund <martin.sjolund@liu.se>, Adrian Pop <adrian.pop@liu.se>",
-    repo = Documenter.Remotes.GitHub("JKRT", "OMFrontend.jl"),
+    repo = Documenter.Remotes.GitHub("OpenModelica", "OMFrontend.jl"),
     format = Documenter.HTML(;
         prettyurls = get(ENV, "CI", "false") == "true",
-        canonical = "https://JKRT.github.io/OMFrontend.jl",
+        canonical = "https://OpenModelica.github.io/OMFrontend.jl",
         edit_link = "master",
         assets = String[],
     ),
@@ -33,7 +33,7 @@ makedocs(
 # Only deploy from CI; local `julia --project=docs docs/make.jl` just builds.
 if get(ENV, "CI", "false") == "true"
     deploydocs(
-        repo = "github.com/JKRT/OMFrontend.jl.git",
+        repo = "github.com/OpenModelica/OMFrontend.jl.git",
         devbranch = "master",
         push_preview = true,
     )

@@ -40,11 +40,11 @@ jobs:
 
       - name: Checkout ArrayUtil.jl
         uses: actions/checkout@v4
-        with: { repository: JKRT/ArrayUtil.jl, ref: master, path: ArrayUtil.jl }
+        with: { repository: OpenModelica/ArrayUtil.jl, ref: master, path: ArrayUtil.jl }
 
       - name: Checkout DAE.jl
         uses: actions/checkout@v4
-        with: { repository: JKRT/DAE.jl, ref: master, path: DAE.jl }
+        with: { repository: OpenModelica/DAE.jl, ref: master, path: DAE.jl }
 
       - name: Checkout DoubleEnded.jl
         uses: actions/checkout@v4
@@ -56,7 +56,7 @@ jobs:
 
       - name: Checkout ListUtil.jl
         uses: actions/checkout@v4
-        with: { repository: JKRT/ListUtil.jl, ref: master, path: ListUtil.jl }
+        with: { repository: OpenModelica/ListUtil.jl, ref: master, path: ListUtil.jl }
 
       - name: Checkout MetaModelica.jl
         uses: actions/checkout@v4

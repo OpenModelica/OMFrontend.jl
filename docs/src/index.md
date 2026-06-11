@@ -6,8 +6,8 @@ CurrentModule = OMFrontend
 
 `OMFrontend` is the Julia port of the OpenModelica frontend. It parses Modelica
 source, lowers it through SCode, and produces the DAE / flat-Modelica
-representation consumed by [OMBackend.jl](https://github.com/JKRT/OMBackend.jl)
-and the wider [OM.jl](https://github.com/JKRT/OM.jl) toolchain.
+representation consumed by [OMBackend.jl](https://github.com/OpenModelica/OMBackend.jl)
+and the wider [OM.jl](https://github.com/OpenModelica/OM.jl) toolchain.
 
 ## What this package does
 
@@ -15,7 +15,7 @@ and the wider [OM.jl](https://github.com/JKRT/OM.jl) toolchain.
   and produces an [Absyn](https://github.com/OpenModelica/Absyn.jl) tree.
 * Translates the abstract syntax tree to
   [SCode](https://github.com/OpenModelica/SCode.jl).
-* Instantiates SCode into the [DAE.jl](https://github.com/JKRT/DAE.jl)
+* Instantiates SCode into the [DAE.jl](https://github.com/OpenModelica/DAE.jl)
   representation suitable for backend lowering.
 * Optionally produces flat Modelica for inspection or downstream use.
 
@@ -27,7 +27,7 @@ install the package:
 ```julia
 using Pkg
 Pkg.Registry.add("General")
-Pkg.Registry.add(Pkg.RegistrySpec(url = "https://github.com/JKRT/OpenModelicaRegistry.git"))
+Pkg.Registry.add(Pkg.RegistrySpec(url = "https://github.com/OpenModelica/OpenModelicaRegistry.git"))
 Pkg.add("OMFrontend")
 ```
 
