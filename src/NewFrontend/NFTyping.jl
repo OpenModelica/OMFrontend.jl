@@ -1062,8 +1062,8 @@ function typeComponentCondition(condition::UNTYPED_BINDING, origin::Int)::TYPED_
   @match condition begin
     UNTYPED_BINDING(bindingExp = exp) => begin
       info = Binding_getInfo(condition)
-      @match (exp, ty, var) = typeExp(exp, setFlag(origin, ORIGIN_CONDITION), info)
-      @match (exp, _, mk) = matchTypes(ty, TYPE_BOOLEAN(), exp)
+      (exp, ty, var) = typeExp(exp, setFlag(origin, ORIGIN_CONDITION), info)
+      (exp, _, mk) = matchTypes(ty, TYPE_BOOLEAN(), exp)
       if isIncompatibleMatch(mk)
         Error.addSourceMessage(
           Error.IF_CONDITION_TYPE_ERROR,
@@ -1292,8 +1292,8 @@ end
       end
       LUNARY_EXPRESSION(__) => begin
         next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
-        @match (e1, ty1, var1) = typeExp(exp.exp, next_origin, info)
-        @match (exp, ty) = checkLogicalUnaryOperation(e1, ty1, var1, exp.operator, info)
+        (e1, ty1, var1) = typeExp(exp.exp, next_origin, info)
+        (exp, ty) = checkLogicalUnaryOperation(e1, ty1, var1, exp.operator, info)
         exp, typeRef.x, variabilityTypeRef.x = exp, ty, var1; exp
       end
 
@@ -1306,7 +1306,7 @@ end
       end
 
       CALL_EXPRESSION(__) => begin
-        @match (e1, ty, var1) = typeCall(exp, origin, info)
+        (e1, ty, var1) = typeCall(exp, origin, info)
         #=
         If the call has multiple outputs and isn't alone on either side of an
         equation/algorithm, select the first output.
@@ -1330,7 +1330,7 @@ end
       MUTABLE_EXPRESSION(__) => begin
         #=  Subscripted expressions are assumed to already be typed. =#
         e1 = P_Pointer.access(exp.exp)
-        @match (e1, ty, variability) = typeExp(e1, origin, info)
+        (e1, ty, variability) = typeExp(e1, origin, info)
         exp.exp = P_Pointer.create(e1)
         exp, typeRef.x, variabilityTypeRef.x = exp, ty, variability;exp
       end
@@ -1362,8 +1362,8 @@ end
 
 function typeRelationExpression(exp::RELATION_EXPRESSION, origin::ORIGIN_Type, info::SourceInfo)
   local next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)::Int
-  @match (e1, ty1, var1) = typeExp(exp.exp1, next_origin, info)
-  @match (e2, ty2, var2) = typeExp(exp.exp2, next_origin, info)
+  (e1, ty1, var1) = typeExp(exp.exp1, next_origin, info)
+  (e2, ty2, var2) = typeExp(exp.exp2, next_origin, info)
   (exp, ty) = checkRelationOperation(
     e1,
     ty1,
@@ -1392,8 +1392,8 @@ end
   info::SourceInfo
   )
   next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
-  @match (e1, ty1, var1) = typeExp(exp.exp1, next_origin, info)
-  @match (e2, ty2, var2) = typeExp(exp.exp2, next_origin, info)
+  (e1, ty1, var1) = typeExp(exp.exp1, next_origin, info)
+  (e2, ty2, var2) = typeExp(exp.exp2, next_origin, info)
   (exp, ty) = checkBinaryOperation(
     e1,
     ty1,
@@ -1877,7 +1877,7 @@ end
           ORIGIN_CLASS
         end
       node_ty = typeComponent(cref.node, node_origin) #NOTE: Removed barrier here(!)
-      @match (subs, subs_var) =
+      (subs, subs_var) =
         typeSubscripts(cref.subscripts, node_ty, cref, origin, info)
       rest_cr = typeCref2(cref.restCref, origin, variabilityTypeRef, info, false)
       rest_var = variabilityTypeRef.x
@@ -2516,7 +2516,7 @@ end
     fail()
   end
    next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
-  @match (expl, tyl, valr) = typeExpl(elements, next_origin, info)
+  (expl, tyl, valr) = typeExpl(elements, next_origin, info)
    tupleType = TYPE_TUPLE(tyl, NONE())
    tupleExp = TUPLE_EXPRESSION(tupleType, expl)
    variability = if listEmpty(valr)

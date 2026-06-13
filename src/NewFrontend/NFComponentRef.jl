@@ -1040,7 +1040,7 @@ function applySubscripts2(subscripts::List{<:Subscript},
 end
 
 function applySubscripts(subscripts::List{<:Subscript}, cref::ComponentRef)::ComponentRef
-  @match (nil, cref) = applySubscripts2(subscripts, cref)
+  (nil, cref) = applySubscripts2(subscripts, cref)
   return cref
 end
 

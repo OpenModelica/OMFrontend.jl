@@ -802,7 +802,7 @@ function typeDerCall(@nospecialize(call::Call), origin::ORIGIN_Type, info::Sourc
     Error.addSourceMessageAndFail(Error.NO_MATCHING_FUNCTION_FOUND_NFINST, list(toString(call), "der(Real) => Real"), info)
   end
   arg = Base.first(args)
-  @match (arg, ty, variability) = typeExp(arg, origin, info)
+  (arg, ty, variability) = typeExp(arg, origin, info)
   ety = arrayElementType(ty)
   if isInteger(ety)
     ty = setArrayElementType(ty, TYPE_REAL())

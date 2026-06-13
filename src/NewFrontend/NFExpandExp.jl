@@ -1162,7 +1162,7 @@ function expandList(
   local outExpl::List{Expression} = nil
   local res::Bool
   for exp in expl
-    @match (exp, res) = expand(exp)
+    (exp, res) = expand(exp)
     expanded = res && expanded
     if !res && abortOnFailure
       outExpl = expl

@@ -823,7 +823,7 @@ function matchTypedNormalCall(@nospecialize(call::Call), origin::ORIGIN_Type, in
     Variability.CONSTANT
   end
   for (i, a) in enumerate(typed_args)
-    @match (arg_exp, _, arg_var) = a
+    (arg_exp, _, arg_var) = a
     args[i] = arg_exp
     var = variabilityMax(var, arg_var)
   end
@@ -935,7 +935,7 @@ function typeCall2(
     @match call begin
       UNTYPED_CALL(ref = cref) => begin
         if needSpecialHandling(call)
-          @match (outExp, ty, var) = typeSpecial(call, origin, info)
+          (outExp, ty, var) = typeSpecial(call, origin, info)
         else
           ty_call = typeMatchNormalCall(call, origin, info)
           ty = typeOf(ty_call)
@@ -954,11 +954,11 @@ function typeCall2(
         outExp
       end
       UNTYPED_ARRAY_CONSTRUCTOR(__) => begin
-        @match (ty_call, ty, var) = typeArrayConstructor(call, origin, info)
+        (ty_call, ty, var) = typeArrayConstructor(call, origin, info)
         CALL_EXPRESSION(ty_call)
       end
       UNTYPED_REDUCTION(__) => begin
-        @match (ty_call, ty, var) = typeReduction(call, origin, info)
+        (ty_call, ty, var) = typeReduction(call, origin, info)
         CALL_EXPRESSION(ty_call)
       end
       _ => begin
@@ -1106,7 +1106,7 @@ function buildParameterTree(
     return ptree
   end
   local args::Vector{Expression}
-  @match (fn, args) = fnArgs
+  (fn, args) = fnArgs
   local ii = 1
   for i in fn.inputs
     arg = args[ii]

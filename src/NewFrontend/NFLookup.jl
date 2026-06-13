@@ -294,7 +294,7 @@ function lookupCref(cref::Absyn.ComponentRef,
   foundCref = begin
     @match cref begin
       Absyn.CREF_IDENT(__)  => begin
-        @match (_, foundCref) = lookupSimpleCref(cref.name, cref.subscripts, scope, scopeRef, stateRef)
+        (_, foundCref) = lookupSimpleCref(cref.name, cref.subscripts, scope, scopeRef, stateRef)
         foundScope = scopeRef.x
         state = stateRef.x
         foundCref
@@ -302,7 +302,7 @@ function lookupCref(cref::Absyn.ComponentRef,
       end
 
       Absyn.CREF_QUAL(__)  => begin
-        @match (nodeVar, foundCref) = lookupSimpleCref(cref.name, cref.subscripts, scope, scopeRef, stateRef)
+        (nodeVar, foundCref) = lookupSimpleCref(cref.name, cref.subscripts, scope, scopeRef, stateRef)
         foundScope = scopeRef.x
         state = stateRef.x
         foundCref = lookupCrefInNode(cref.componentRef, nodeVar, foundCref, foundScope, state, scopeRef, stateRef)
@@ -361,7 +361,7 @@ function lookupLocalCref(cref::Absyn.ComponentRef, scope::InstNode #= The scope 
          (node, foundScope) = lookupLocalSimpleCref(cref.name, scope)
         state = nodeState(node)
         foundCref = fromAbsyn(node, cref.subscripts)
-        @match (foundCref, foundScope, state) = lookupCrefInNode(cref.componentRef, node, foundCref, foundScope, state)
+        (foundCref, foundScope, state) = lookupCrefInNode(cref.componentRef, node, foundCref, foundScope, state)
         (foundCref, foundScope, state)
       end
 

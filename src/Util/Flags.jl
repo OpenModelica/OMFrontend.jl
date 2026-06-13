@@ -122,8 +122,10 @@ end
 #= The structure which stores the flags. =#
 @Uniontype Flag begin
   @Record FLAGS begin
-    debugFlags::Array{Bool}
-    configFlags::Array{FlagData}
+    #= Concrete Vector types: these fields are read in the hottest
+       instantiation paths and an abstract field type boxes every access. =#
+    debugFlags::Vector{Bool}
+    configFlags::Vector{FlagData}
   end
 
   @Record NO_FLAGS begin
@@ -3454,31 +3456,15 @@ end
 
 """Checks if a debug flag is set."""
 function isSet(inFlag::DebugFlag)::Bool
-  local outValue::Bool
-  local debug_flags::Array{Bool}
-  local flags::Flag
-  local index::Int
-  @match DEBUG_FLAG(index = index) = inFlag
-  flags = getFlags()
-  @match FLAGS(debugFlags = debug_flags) = flags
-  outValue = arrayGet(debug_flags, index)
-  return outValue
+  local flags = getFlags()
+  flags isa FLAGS || return false
+  return flags.debugFlags[inFlag.index]
 end
 
 """Returns the value of a configuration flag."""
 function getConfigValue(inFlag::ConfigFlag)::FlagData
-  local outValue::FlagData
-
-  local config_flags::Array{FlagData}
-  local index::Int
-  local flags::Flag
-  local name::String
-
-  @match CONFIG_FLAG(name = name, index = index) = inFlag
-  @assign flags = getFlags()
-  @match FLAGS(configFlags = config_flags) = flags
-  @assign outValue = arrayGet(config_flags, index)
-  return outValue
+  local flags = getFlags()
+  return (flags::FLAGS).configFlags[inFlag.index]
 end
 
 """Returns the value of a boolean configuration flag."""
