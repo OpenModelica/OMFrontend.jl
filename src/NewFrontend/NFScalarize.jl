@@ -196,7 +196,7 @@ function expandComplexCref_traverser(exp::Expression)
       #=        necessary.
       =#
       if isComplexArray(exp.cref)
-        @match (exp, _) = expand(exp)
+        (exp, _) = expand(exp)
       end
 
     end

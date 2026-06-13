@@ -59,6 +59,10 @@
   end
 end
 
+#= Shared for scalar components; dimension typing writes by index, so an
+   empty vector is never mutated. =#
+const EMPTY_RAW_DIMS = DIMENSION_RAW_DIM[]
+
 using Absyn: Exp, Path #, Subscript
 
 function foldExpList(dims::List{Dimension}, func::FoldFunc, arg::ArgT) where {ArgT}

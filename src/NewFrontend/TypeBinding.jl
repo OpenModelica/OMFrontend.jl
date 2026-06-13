@@ -467,7 +467,7 @@ function typeBindingExp(
   local is_each::Bool
   local exp_ty::NFType
   @match BINDING_EXP(e, _, _, parents, is_each) = exp
-  @match (e, exp_ty, variability) = typeExp(e, origin, info)
+  (e, exp_ty, variability) = typeExp(e, origin, info)
   local parent_dims::Int = 0
   if !is_each
     for p in listRest(parents)

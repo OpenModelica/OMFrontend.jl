@@ -34,20 +34,27 @@
 */ =#
 
 """
-It is possible to enable execstat by passing the following command line parameters
-
-```
-ENABLE_EXECSTAT=true julia yourscript.jl
-```
+Per-phase timing gate for `@EXECSTAT`. Initialized from
+`ENV["ENABLE_EXECSTAT"]` at module load; flip at runtime via
+`OMFrontend.ENABLE_EXECSTAT[] = true / false` to avoid a Julia restart.
 """
-const ENABLE_EXECSTAT::Bool = get(ENV, "ENABLE_EXECSTAT", "false") == "true"
+const ENABLE_EXECSTAT = Ref{Bool}(get(ENV, "ENABLE_EXECSTAT", "false") == "true")
+
+"""
+    @EXECSTAT "label" expr
+
+Wraps `expr` in `@time` when `ENABLE_EXECSTAT[]` is true; otherwise the
+expression is evaluated with no instrumentation. The runtime check costs
+one boolean load and one branch per call site, so use it on coarse phase
+boundaries, not in tight inner loops.
+"""
 macro EXECSTAT(msg, expr)
-  if ENABLE_EXECSTAT
-    return quote
+  return quote
+    if $(ENABLE_EXECSTAT)[]
       @time $(esc(msg)) __result = $(esc(expr))
       __result
+    else
+      $(esc(expr))
     end
-  else
-    return esc(expr)
   end
 end

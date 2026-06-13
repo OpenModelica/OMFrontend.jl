@@ -2022,7 +2022,7 @@ function matchExpressions2(
       end
 
       TYPE_ARRAY(__) => begin
-        @match (e1, e2, cty, mk) = matchArrayExpressions(exp1, type1, exp2, type2, allowUnknown)
+        (e1, e2, cty, mk) = matchArrayExpressions(exp1, type1, exp2, type2, allowUnknown)
         cty
       end
 
@@ -2046,18 +2046,18 @@ function matchExpressions2(
       TYPE_COMPLEX(__) => begin
         #=  TODO: This needs more work to handle e.g. type casting of complex expressions.
         =#
-        @match (e1, cty, mk) = matchComplexTypes(type1, type2, exp1, allowUnknown)
+        (e1, cty, mk) = matchComplexTypes(type1, type2, exp1, allowUnknown)
         e2 = exp2
         cty
       end
 
       TYPE_METABOXED(__) => begin
-        @match (e1, e2, cty, mk) = matchBoxedExpressions(exp1, type1, exp2, type2, allowUnknown)
+        (e1, e2, cty, mk) = matchBoxedExpressions(exp1, type1, exp2, type2, allowUnknown)
         cty
       end
 
       TYPE_FUNCTION(__) => begin
-        @match (e1, cty, mk) = matchFunctionTypes(type1, type2, exp1, allowUnknown)
+        (e1, cty, mk) = matchFunctionTypes(type1, type2, exp1, allowUnknown)
         e2 = exp2
         cty
       end
@@ -2982,7 +2982,7 @@ function matchArrayDimsRef(
   local cDims::List{Dimension} = nil
   for dim1 in dims1V
     @match Cons{Dimension}(dim2, rest_dims2) = rest_dims2
-    @match (dim1, compat) = matchDimensions(dim1, dim2, allowUnknown)
+    (dim1, compat) = matchDimensions(dim1, dim2, allowUnknown)
     if !compat
       matchKind = MatchKind.NOT_COMPATIBLE
       break

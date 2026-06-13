@@ -168,8 +168,8 @@ function add(entry::HashEntry, hashTable::HashTable)::HashTable
   local indices::HashNode
 
    (key, _) = entry
-  @match (hashvec, varr, bsize, fntpl) = hashTable
-  @match (hashFunc, keyEqual, _, _) = fntpl
+  (hashvec, varr, bsize, fntpl) = hashTable
+  (hashFunc, keyEqual, _, _) = fntpl
   @assign hash_idx = hashFunc(key, bsize) + 1
   @assign indices = hashvec[hash_idx]
   for i in indices

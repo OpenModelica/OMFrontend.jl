@@ -1123,7 +1123,7 @@ function matchFunction(
   local slot_matched::Bool
   (out_args, slot_matched) = fillArgs(args, named_args, func, info)
   if slot_matched
-    @match (out_args, matchKind) = matchArgs(func, out_args, info, vectorize)
+    (out_args, matchKind) = matchArgs(func, out_args, info, vectorize)
   end
   return (out_args, matchKind)
 end
@@ -2157,7 +2157,7 @@ function lookupFunction(
   functionPath = AbsynUtil.crefToPath(functionName)
   #=  Make sure the name is a path.
   =#
-  @match (functionRef, found_scope) = lookupFunctionName(functionName, scope, info)
+  (functionRef, found_scope) = lookupFunctionName(functionName, scope, info)
   #=  If we found a function class we include the root in the prefix, but if we
   =#
   #=  instead found a component (i.e. a functional parameter) we don't.

@@ -910,7 +910,7 @@ function instClassDef(cls::PARTIAL_BUILTIN,
       instExternalObjectStructors(cls.ty, parentArg)
     end
     PARTIAL_BUILTIN(ty = ty, restriction = res)  => begin
-      @match (node, _, _, _) = instantiate(node, parentArg)
+      (node, _, _, _) = instantiate(node, parentArg)
       updateComponentType(parentArg, node)
       cls_tree = classTree(getClass(node))
       mod = fromElement(definition(node), list(node), parent(node))
@@ -933,7 +933,7 @@ function instClassDef(cls::EXPANDED_DERIVED,
                       parentArg::InstNode,
                       instLevel::Int,
                       attributeRef::Ref{Attributes})::CLASS_NODE
-  @match (node, par,_ , _) = instantiate(node, parentArg)
+  (node, par,_ , _) = instantiate(node, parentArg)
   node = setNodeType(DERIVED_CLASS(nodeType(node)), node)
   @match EXPANDED_DERIVED(baseClass = base_node) = getClass(node)
   #=  Merge outer modifiers and attributes.
@@ -1542,7 +1542,8 @@ function instComponentDef(component::SCode.COMPONENT,
   mod = merge(outerMod, mod)
   mod = addParent(node, mod)
   checkOuterComponentMod(mod, component, node)
-  local dims = DIMENSION_RAW_DIM[DIMENSION_RAW_DIM(d) for d in component.attributes.arrayDims]
+  local dims = listEmpty(component.attributes.arrayDims) ? EMPTY_RAW_DIMS :
+               DIMENSION_RAW_DIM[DIMENSION_RAW_DIM(d) for d in component.attributes.arrayDims]
   bindingVar = if useBinding
     binding(mod)
   else
@@ -1724,48 +1725,29 @@ end
   It uses ´DEFAULT_ATTR´ or some special modifier depending on the component prefix.
 """
 function instComponentAttributes(compAttr::SCode.Attributes, compPrefs)::Attributes
-  local attributes::Attributes
-  local cty
-  local par::ParallelismType
-  local var::VariabilityType
-  local dir::DirectionType
-  local io
-  local fin::Bool
-  local redecl::Bool
-  local repl
-  attributes = begin
-    @match (compAttr, compPrefs) begin
-      #= Check if we want to use the default attributes=#
-      (SCode.ATTR(connectorType = SCode.POTENTIAL(__),
-                  parallelism = SCode.NON_PARALLEL(__),
-                  variability = SCode.VAR(__),
-                  direction = Absyn.BIDIR(__),
-                  isField = false,
-                  mode = false),
-       SCode.PREFIXES(redeclarePrefix = SCode.NOT_REDECLARE(__),
-                      finalPrefix = SCode.NOT_FINAL(__),
-                      innerOuter = Absyn.NOT_INNER_OUTER(__),
-                      replaceablePrefix = SCode.NOT_REPLACEABLE(__))
-       ) => begin
-         #@debug "Structural mode value: " structuralMode
-         DEFAULT_ATTR
-      end
-      _  => begin
-        cty = fromSCode(compAttr.connectorType)
-        par = parallelismFromSCode(compAttr.parallelism)
-        var = variabilityFromSCode(compAttr.variability)
-        dir = directionFromSCode(compAttr.direction)
-        io = innerOuterFromSCode(compPrefs.innerOuter)
-        fin = SCodeUtil.finalBool(compPrefs.finalPrefix)
-        redecl = SCodeUtil.redeclareBool(compPrefs.redeclarePrefix)
-        repl = NOT_REPLACEABLE()
-        structuralMode = compAttr.mode
-        #@debug "Structural mode value: " structuralMode
-        ATTRIBUTES(cty, par, var, dir, io, fin, redecl, repl, structuralMode)
-      end
-    end
+  #= Plain field tests: matching on a constructed (attr, prefs) tuple costs
+     an allocation and pattern machinery per component, and the default case
+     dominates. =#
+  if compAttr.connectorType isa SCode.POTENTIAL &&
+     compAttr.parallelism isa SCode.NON_PARALLEL &&
+     compAttr.variability isa SCode.VAR &&
+     compAttr.direction isa Absyn.BIDIR &&
+     compAttr.isField === false &&
+     compAttr.mode === false &&
+     compPrefs.redeclarePrefix isa SCode.NOT_REDECLARE &&
+     compPrefs.finalPrefix isa SCode.NOT_FINAL &&
+     compPrefs.innerOuter isa Absyn.NOT_INNER_OUTER &&
+     compPrefs.replaceablePrefix isa SCode.NOT_REPLACEABLE
+    return DEFAULT_ATTR
   end
-  attributes
+  local cty = fromSCode(compAttr.connectorType)
+  local par = parallelismFromSCode(compAttr.parallelism)
+  local var = variabilityFromSCode(compAttr.variability)
+  local dir = directionFromSCode(compAttr.direction)
+  local io = innerOuterFromSCode(compPrefs.innerOuter)
+  local fin = SCodeUtil.finalBool(compPrefs.finalPrefix)
+  local redecl = SCodeUtil.redeclareBool(compPrefs.redeclarePrefix)
+  return ATTRIBUTES(cty, par, var, dir, io, fin, redecl, NOT_REPLACEABLE(), compAttr.mode)
 end
 
 function mergeComponentAttributes(outerAttr::Attributes, innerAttr::Attributes, node::InstNode, parentRestriction::Restriction) ::Attributes
@@ -2887,27 +2869,27 @@ function instSections2(parts::SCode.ClassDef, scope::InstNode, sections::Section
     local ext_decl::SCode.ExternalDecl
     local origin::ORIGIN_Type
     local iorigin::ORIGIN_Type
-    @match (parts, sections) begin
-      (_, SECTIONS_EXTERNAL(__))  => begin
-        Error.addSourceMessage(Error.MULTIPLE_SECTIONS_IN_FUNCTION, list(name(scope)), info(scope))
-        fail()
+    #= Plain conditionals instead of matching on a constructed tuple; the
+       non-PARTS case keeps its MatchFailure via the single-record match. =#
+    if sections isa SECTIONS_EXTERNAL
+      Error.addSourceMessage(Error.MULTIPLE_SECTIONS_IN_FUNCTION, list(name(scope)), info(scope))
+      fail()
+    end
+    @match SCode.PARTS(__) = parts
+    if isSome(parts.externalDecl)
+      instExternalDecl(Util.getOption(parts.externalDecl), scope)
+    else
+      origin = if isFunction
+        ORIGIN_FUNCTION
+      else
+        ORIGIN_CLASS
       end
-      (SCode.PARTS(externalDecl = SOME(ext_decl)), _)  => begin
-        instExternalDecl(ext_decl, scope)
-      end
-      (SCode.PARTS(__), _)  => begin
-        origin = if isFunction
-          ORIGIN_FUNCTION
-        else
-          ORIGIN_CLASS
-        end
-        iorigin = setFlag(origin, ORIGIN_INITIAL)
-        eq = instEquations(parts.normalEquationLst, scope, origin)
-        ieq = instEquations(parts.initialEquationLst, scope, iorigin)
-        alg = instAlgorithmSections(parts.normalAlgorithmLst, scope, origin)
-        ialg = instAlgorithmSections(parts.initialAlgorithmLst, scope, iorigin)
-        join(new(eq, ieq, alg, ialg), sections)
-      end
+      iorigin = setFlag(origin, ORIGIN_INITIAL)
+      eq = instEquations(parts.normalEquationLst, scope, origin)
+      ieq = instEquations(parts.initialEquationLst, scope, iorigin)
+      alg = instAlgorithmSections(parts.normalAlgorithmLst, scope, origin)
+      ialg = instAlgorithmSections(parts.initialAlgorithmLst, scope, iorigin)
+      join(new(eq, ieq, alg, ialg), sections)
     end
   end
   sections

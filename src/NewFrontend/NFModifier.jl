@@ -331,21 +331,17 @@ function isEmpty(mod::Modifier)
 end
 
 function merge(outerMod::Modifier, innerMod::Modifier, name::String = "")
+  #= One of the modifiers is NOMOD, return the other. Checked before the
+     @match: matching on (a, b) allocates the tuple it destructures, and the
+     no-modifier case dominates instantiation. =#
+  outerMod isa MODIFIER_NOMOD && return innerMod
+  innerMod isa MODIFIER_NOMOD && return outerMod
   local mergedMod::Modifier
 
   mergedMod = begin
     local submods::ModTable.Tree
     local binding::Binding
-    #=  One of the modifiers is NOMOD, return the other. =#
     @match (outerMod, innerMod) begin
-      (MODIFIER_NOMOD(__), _) => begin
-        innerMod
-      end
-
-      (_, MODIFIER_NOMOD(__)) => begin
-        outerMod
-      end
-
       (MODIFIER_MODIFIER(__), MODIFIER_MODIFIER(__)) => begin
         #=  Two modifiers, merge bindings and submodifiers. =#
         checkFinalOverride(innerMod.finalPrefix, outerMod, innerMod.info)
@@ -698,22 +694,26 @@ function create(mod::SCode.MOD,
     parents
   end
   local n = length(mod.subModLst)
-  local submodV = Vector{Modifier}(undef, n)
-  local submodK = Vector{String}(undef, n)
-  local i = 1
-  local tmp = mod.subModLst::List{SCode.SubMod}
-  while tmp !== nil
-    @match Cons{SCode.SubMod}(m, tmp) = tmp
-    submodV[i] = createSubMod(m::SCode.NAMEMOD, modScope, pars, scope)
-    submodK[i] = m.ident::String
-    i += 1
+  if n == 0
+    submod_table = ModTable.EMPTY()
+  else
+    local submodV = Vector{Modifier}(undef, n)
+    local submodK = Vector{String}(undef, n)
+    local i = 1
+    local tmp = mod.subModLst::List{SCode.SubMod}
+    while tmp !== nil
+      @match Cons{SCode.SubMod}(m, tmp) = tmp
+      submodV[i] = createSubMod(m::SCode.NAMEMOD, modScope, pars, scope)
+      submodK[i] = m.ident::String
+      i += 1
+    end
+    submod_table = ModTable.fromVector(
+      submodV,
+      submodK,
+      modScope,
+      nil
+    )
   end
-  submod_table = ModTable.fromVector(
-    submodV,
-    submodK,
-    modScope,
-    nil
-  )
   MODIFIER_MODIFIER(name, mod.finalPrefix, mod.eachPrefix, binding, submod_table, mod.info)
 end
 

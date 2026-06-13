@@ -321,7 +321,7 @@ function expandList(
   local sub::Subscript
   for s in subscripts
     @match Cons{Dimension}(dim, rest_dims) = rest_dims
-    @match (sub, _) = expand(s, dim)
+    (sub, _) = expand(s, dim)
     outSubscripts = Cons{Subscript}(sub, outSubscripts)
   end
   for d in rest_dims
