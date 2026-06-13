@@ -1,1 +1,2 @@
 *.mo linguist-language=Modelica
+lib/Modelica/** linguist-vendored
