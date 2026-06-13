@@ -843,6 +843,23 @@ function instClass(node::InstNode, modifier::Modifier, attributes::Attributes, a
     Error.addSourceMessage(Error.MISSING_REDECLARE_IN_CLASS_MOD, list(name(node)), Binding_getInfo(binding(outer_mod)))
     fail()
   end
+  #= Instance cache for default (empty-modifier) atomic scalar builtins. Their
+     instantiated form is immutable (all attributes unmodified, so never mutated
+     downstream) and context-free, so identical occurrences reuse one instance.
+     Result is independent of `attributes` (only stored via attributeRef) and
+     `parent` (re-bound via updateComponentType). Cheap key: the def objectid. =#
+  if CACHE_INST[] && cls isa PARTIAL_BUILTIN && !(cls.restriction isa RESTRICTION_EXTERNAL_OBJECT) && isEmpty(modifier)
+    local k = objectid(definition(node))
+    local hit = get(INST_CACHE, k, nothing)
+    if hit !== nothing
+      updateComponentType(parent, hit)
+      attributeRef.x = attributes
+      return hit::CLASS_NODE
+    end
+    local result = instClassDef(cls, modifier, attributes, useBinding, node, parent, instLevel, attributeRef)::CLASS_NODE
+    INST_CACHE[k] = result
+    return result
+  end
   return instClassDef(cls, modifier, attributes, useBinding, node, parent, instLevel, attributeRef)::CLASS_NODE
   finally
     INST_CLASS_DEPTH[] -= 1
@@ -2134,6 +2151,13 @@ const INST_EXPR_DEPTH = Ref(0)
 const INST_EXPR_DEPTH_LIMIT = 100
 const INST_CLASS_DEPTH = Ref(0)
 const INST_CLASS_DEPTH_LIMIT = 100
+# Instance-result cache for default (empty-modifier) atomic scalar builtins.
+# Cheap key: the class-definition objectid (no string building). Reuses the
+# instantiated class across the many identical default-scalar occurrences,
+# skipping their instClass work. Enabled by default (OMFRONTEND_CACHE_INST=false
+# to disable); cleared per flatten.
+const CACHE_INST = Base.RefValue{Bool}(get(ENV, "OMFRONTEND_CACHE_INST", "true") == "true")
+const INST_CACHE = Dict{UInt64, InstNode}()
 
 #= Diagnostic counters for detecting exponential blowup (monotonically increasing) =#
 const INST_CLASS_TOTAL_CALLS = Ref(0)
@@ -2152,6 +2176,7 @@ function resetInstDiagnostics()
   empty!(CLASS_PTR_WRITERS)
   empty!(COMPONENT_PTR_WRITERS)
   empty!(FROZEN_ATTR_NODES)
+  empty!(INST_CACHE)
   resetLookupCache()
 end
 
