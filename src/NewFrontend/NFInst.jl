@@ -2138,6 +2138,8 @@ function resetInstDiagnostics()
   INST_EXPR_DEPTH[] = 0
   empty!(CLASS_PTR_WRITES)
   empty!(COMPONENT_PTR_WRITES)
+  empty!(CLASS_PTR_WRITERS)
+  empty!(COMPONENT_PTR_WRITERS)
   resetLookupCache()
 end
 
@@ -2187,6 +2189,21 @@ function dumpInstDiagnostics(modelName::String; topN::Int = 20)
           classMulti, " written more than once, max ", classMax, " writes on a single pointer")
   println("    component pointers  : ", length(compWrites), " unique, ", compTotal, " writes total, ",
           compMulti, " written more than once, max ", compMax, " writes on a single pointer")
+  # Aliasing audit: distinct node identities per Ref cell. >1 == genuine multi-writer alias.
+  local classWriters = Base.collect(values(CLASS_PTR_WRITERS))
+  local compWriters  = Base.collect(values(COMPONENT_PTR_WRITERS))
+  local classAliased = count(s -> length(s) > 1, classWriters)
+  local compAliased  = count(s -> length(s) > 1, compWriters)
+  local classMaxW    = isempty(classWriters) ? 0 : maximum(length, classWriters)
+  local compMaxW     = isempty(compWriters)  ? 0 : maximum(length, compWriters)
+  println("  Aliasing audit (distinct node identities per Ref):")
+  println("    class Refs           : ", classAliased, " shared by >1 node (max ", classMaxW, " nodes on one Ref)")
+  println("    component Refs        : ", compAliased, " shared by >1 node (max ", compMaxW, " nodes on one Ref)")
+  if classAliased == 0 && compAliased == 0
+    println("    => NO multi-writer Refs. Approach A (inline payload) is safe wholesale.")
+  else
+    println("    => MULTI-WRITER Refs EXIST. Approach A needs a hybrid carve-out for shared cells.")
+  end
   local lookupHits = LOOKUP_CLASS_HITS[]
   local lookupMisses = LOOKUP_CLASS_MISSES[]
   local lookupTotal = lookupHits + lookupMisses
