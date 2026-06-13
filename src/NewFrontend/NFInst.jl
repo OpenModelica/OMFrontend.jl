@@ -1250,7 +1250,10 @@ function applyModifier(modifier::Modifier, cls::ClassTree, clsName::String) ::Cl
           for node_ptr in node_ptrs
             node = resolveOuter(P_Pointer.access(node_ptr))
             if isComponent(node)
-              componentApply(node, mergeModifier, mod)
+              local n2 = componentApply(node, mergeModifier, mod)
+              if n2 !== node
+                P_Pointer.update(node_ptr, n2)
+              end
             else
               if isOnlyOuter(node)
                 Error.addSourceMessage(Error.OUTER_ELEMENT_MOD, list(toString(mod, false), name(mod)), info(mod))
@@ -2140,6 +2143,7 @@ function resetInstDiagnostics()
   empty!(COMPONENT_PTR_WRITES)
   empty!(CLASS_PTR_WRITERS)
   empty!(COMPONENT_PTR_WRITERS)
+  empty!(FROZEN_ATTR_NODES)
   resetLookupCache()
 end
 

@@ -1068,8 +1068,15 @@ function instantiate(
       for c in old_comps
           @match c begin
             COMPONENT_NODE(__) => begin
-              #=  Set the component's parent and create a unique instance for it. =#
-              node = setParentAndReplaceComponent(instance, c)
+              #=  Set the component's parent and create a unique instance for it.
+                  Immutable TYPE_ATTRIBUTE nodes are shared (reused + frozen)
+                  instead of copied; mutators copy-on-write. =#
+              node = if SHARE_ATTRS[] && c.component isa TYPE_ATTRIBUTE
+                push!(FROZEN_ATTR_NODES, c)
+                c
+              else
+                setParentAndReplaceComponent(instance, c)
+              end
               #=
               If the component is outer, link it with the corresponding inner component.
               =#
