@@ -1413,10 +1413,6 @@ end
 function componentApply(node::T, func::Function, arg::ArgT)::T  where {T <: InstNode, ArgT}
   @match node begin
     COMPONENT_NODE(__)  => begin
-      if _profileEnabled() && node.component isa TYPE_ATTRIBUTE
-        TYPE_ATTR_MUTATIONS[] += 1
-        push!(TYPE_ATTR_MUTATED_NODES, node)
-      end
       if isFrozen(node)
         return thawCopy(node, func(arg::ArgT, node.component))
       end
@@ -1586,14 +1582,10 @@ Combined setParent + replaceComponent in a single allocation: returns a new
 COMPONENT_NODE with `parent` set, carrying the existing component value.
 """
 @inline function setParentAndReplaceComponent(parent::InstNode, node::COMPONENT_NODE{String, Int8})::COMPONENT_NODE{String, VisibilityType}
-  # Step A validation (flagged): keep the template parent for TYPE_ATTRIBUTE
-  # nodes to test whether their parent is load-bearing. Still allocates a fresh
-  # per-instance node, so mutation safety is unchanged.
-  local p = (SHARE_ATTRS[] && node.component isa TYPE_ATTRIBUTE) ? node.parent : parent
   newComponent(node.name,
                node.visibility,
                node.component,
-               p,
+               parent,
                node.nodeType)
 end
 
@@ -1616,15 +1608,13 @@ const COMPONENT_PTR_WRITES = Dict{UInt64, Tuple{String, Int}}()
 const COMPONENT_PTR_WRITERS = Dict{UInt64, Base.IdSet{Any}}()
 const CLASS_PTR_WRITERS = Dict{UInt64, Base.IdSet{Any}}()
 
-# Measurement scaffolding: per-instance component-node allocations tallied by
-# payload kind, to size the immutable-template sharing opportunity. Gated by
-# OMFRONTEND_INST_PROFILE; experimental branch only.
-const COMPONENT_KIND_ALLOC = Dict{Symbol, Int}()
-# Flag for the TYPE_ATTRIBUTE-node sharing experiment (default OFF).
-const SHARE_ATTRS = Base.RefValue{Bool}(false)
-# Shared (frozen) attribute template nodes: reused across instances instead of
-# copied. Mutators copy-on-write a frozen node; the caller writes the fresh node
-# back into its container. Cleared per flatten in resetInstDiagnostics.
+# Share immutable, unmodified TYPE_ATTRIBUTE template nodes across instances
+# instead of copying them per instance. Enabled by default; disable with
+# OMFRONTEND_SHARE_ATTRS=false. Only attributes with no instance modifier are
+# shared (their payload is never mutated). A copy-on-write guard in the mutators
+# protects against any unexpected mutation of a shared node.
+const SHARE_ATTRS = Base.RefValue{Bool}(get(ENV, "OMFRONTEND_SHARE_ATTRS", "true") == "true")
+# Shared (frozen) attribute template nodes; cleared per flatten in resetInstDiagnostics.
 const FROZEN_ATTR_NODES = Base.IdSet{Any}()
 
 @inline isFrozen(node) = SHARE_ATTRS[] && node in FROZEN_ATTR_NODES
@@ -1633,10 +1623,6 @@ const FROZEN_ATTR_NODES = Base.IdSet{Any}()
 @inline function thawCopy(node::COMPONENT_NODE, comp::Component)
   COMPONENT_NODE{String, Int8}(node.name, node.visibility, comp, node.parent, node.nodeType)
 end
-# How many mutations land on a TYPE_ATTRIBUTE-payload node (the fraction copy-on-write
-# must protect). Counts mutations, plus the set of distinct mutated node identities.
-const TYPE_ATTR_MUTATIONS = Base.RefValue{Int}(0)
-const TYPE_ATTR_MUTATED_NODES = Base.IdSet{Any}()
 
 function _profileEnabled()
   return get(ENV, "OMFRONTEND_INST_PROFILE", "false") == "true"
@@ -1652,10 +1638,6 @@ function updateComponent!(component::Component, node::InstNode)
           local prev = get(COMPONENT_PTR_WRITES, k, (nm, 0))
           COMPONENT_PTR_WRITES[k] = (prev[1], prev[2] + 1)
           push!(get!(COMPONENT_PTR_WRITERS, k, Base.IdSet{Any}()), node)
-          if node.component isa TYPE_ATTRIBUTE
-            TYPE_ATTR_MUTATIONS[] += 1
-            push!(TYPE_ATTR_MUTATED_NODES, node)
-          end
         end
         if isFrozen(node)
           thawCopy(node, component)
@@ -2401,10 +2383,6 @@ function newComponent(name::String,
                       component::Component,
                       parent::InstNode,
                       nodeType::InstNodeType)::COMPONENT_NODE{String, VisibilityType}
-  if _profileEnabled()
-    local kc = nameof(typeof(component))
-    COMPONENT_KIND_ALLOC[kc] = get(COMPONENT_KIND_ALLOC, kc, 0) + 1
-  end
   COMPONENT_NODE{String, Int8}(name, visibility, component, parent, nodeType)
 end
 

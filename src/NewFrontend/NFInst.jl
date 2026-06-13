@@ -910,7 +910,15 @@ function instClassDef(cls::PARTIAL_BUILTIN,
       instExternalObjectStructors(cls.ty, parentArg)
     end
     PARTIAL_BUILTIN(ty = ty, restriction = res)  => begin
-      (node, _, _, _) = instantiate(node, parentArg)
+      local sharedExcept = if SHARE_ATTRS[]
+        local s = Set{String}()
+        for m in toList(outerMod); push!(s, name(m)); end
+        for m in toList(cls.modifier); push!(s, name(m)); end
+        s
+      else
+        nothing
+      end
+      (node, _, _, _) = instantiate(node, parentArg; sharedExcept)
       updateComponentType(parentArg, node)
       cls_tree = classTree(getClass(node))
       mod = fromElement(definition(node), list(node), parent(node))
