@@ -68,7 +68,7 @@ function expandHeap(sz::AbstractFloat)::Bool #= To avoid the 32-bit signed limit
   return success
 end
 
-function setFreeSpaceDivisor(divisor::Integer = 3)
+function setFreeSpaceDivisor(divisor::Int = 3)
   return @error "TODO: Defined in the runtime"
 end
 
@@ -91,16 +91,16 @@ end
 @Uniontype ProfStats begin
   @Record PROFSTATS begin
 
-    heapsize_full::Integer
-    free_bytes_full::Integer
-    unmapped_bytes::Integer
-    bytes_allocd_since_gc::Integer
-    allocd_bytes_before_gc::Integer
-    non_gc_bytes::Integer
-    gc_no::Integer
-    markers_m1::Integer
-    bytes_reclaimed_since_gc::Integer
-    reclaimed_bytes_before_gc::Integer
+    heapsize_full::Int
+    free_bytes_full::Int
+    unmapped_bytes::Int
+    bytes_allocd_since_gc::Int
+    allocd_bytes_before_gc::Int
+    non_gc_bytes::Int
+    gc_no::Int
+    markers_m1::Int
+    bytes_reclaimed_since_gc::Int
+    reclaimed_bytes_before_gc::Int
   end
 end
 
@@ -157,16 +157,16 @@ end
 function getProfStats()::ProfStats
   local stats::ProfStats
 
-  local heapsize_full::Integer
-  local free_bytes_full::Integer
-  local unmapped_bytes::Integer
-  local bytes_allocd_since_gc::Integer
-  local allocd_bytes_before_gc::Integer
-  local non_gc_bytes::Integer
-  local gc_no::Integer
-  local markers_m1::Integer
-  local bytes_reclaimed_since_gc::Integer
-  local reclaimed_bytes_before_gc::Integer
+  local heapsize_full::Int
+  local free_bytes_full::Int
+  local unmapped_bytes::Int
+  local bytes_allocd_since_gc::Int
+  local allocd_bytes_before_gc::Int
+  local non_gc_bytes::Int
+  local gc_no::Int
+  local markers_m1::Int
+  local bytes_reclaimed_since_gc::Int
+  local reclaimed_bytes_before_gc::Int
 
   """Inner, dummy function to preserve the full integer sizes"""
   function GC_get_prof_stats_modelica()::Tuple{

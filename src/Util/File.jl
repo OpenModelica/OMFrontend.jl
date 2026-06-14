@@ -69,7 +69,7 @@ function write(file::FileHandler, data::String)
   return @error "TODO: Defined in the runtime"
 end
 
-function writeInt(file::FileHandler, data::Integer, format::String = "%d")
+function writeInt(file::FileHandler, data::Int, format::String = "%d")
   return @error "TODO: Defined in the runtime"
 end
 
@@ -96,15 +96,15 @@ Whence = (() -> begin #= Enumeration =#
   () -> (Set; Current; End)  #= SEEK_END 0=end of file =#
 end)()
 
-function seek(file::FileHandler, offset::Integer, whence::Whence = Whence.Set)::Bool
+function seek(file::FileHandler, offset::Int, whence::Whence = Whence.Set)::Bool
   local success::Bool
 
   @error "TODO: Defined in the runtime"
   return success
 end
 
-function tell(file::FileHandler)::Integer
-  local pos::Integer
+function tell(file::FileHandler)::Int
+  local pos::Int
 
   @error "TODO: Defined in the runtime"
   return pos
@@ -137,7 +137,7 @@ function releaseReference(file::FileHandler)
   return @error "TODO: Defined in the runtime"
 end
 
-function writeSpace(file::FileHandler, n::Integer)
+function writeSpace(file::FileHandler, n::Int)
   return for i = 1:n
     FileHandler.write(file, " ")
   end

@@ -57,13 +57,13 @@ end
 
 @Uniontype IOStreamData begin
   @Record FILE_DATA begin
-    data::Integer
+    data::Int
   end
   @Record LIST_DATA begin
     data::List{String}
   end
   @Record BUFFER_DATA begin
-    data::Integer
+    data::Int
   end
   #= johti17 =#
   @Record JULIA_BUFFER_DATA begin
@@ -78,9 +78,9 @@ struct IOSTREAM
 end
 
 
-const stdInput = 0::Integer
-const stdOutput = 1::Integer
-const stdError = 2::Integer
+const stdInput = 0::Int
+const stdOutput = 1::Int
+const stdError = 2::Int
 const emptyStreamOfTypeList =
   IOSTREAM("emptyStreamOfTypeList", LIST(), LIST_DATA(nil))::IOSTREAM
 
@@ -92,8 +92,8 @@ function create(streamName::String, streamType::IOStreamType)::IOSTREAM
   local outStream::IOSTREAM
   outStream = begin
     local fileName::String
-    local fileID::Integer
-    local bufferID::Integer
+    local fileID::Int
+    local bufferID::Int
     @match (streamName, streamType) begin
       (_, FILE(fileName)) => begin
         @assign fileID = IOStreamExt.createFile(fileName)
@@ -122,8 +122,8 @@ function append(inStream::IOSTREAM, inString::String)::IOSTREAM
   local outStream::IOSTREAM
   outStream = begin
     local listData::List{String}
-    local fileID::Integer
-    local bufferID::Integer
+    local fileID::Int
+    local bufferID::Int
     local fStream::IOSTREAM
     local lStream::IOSTREAM
     local bStream::IOSTREAM
@@ -164,8 +164,8 @@ function close(inStream::IOSTREAM)::IOSTREAM
   local outStream::IOSTREAM
   @assign outStream = begin
     local listData::List{String}
-    local fileID::Integer
-    local bufferID::Integer
+    local fileID::Int
+    local bufferID::Int
     local fStream::IOSTREAM
     local lStream::IOSTREAM
     local bStream::IOSTREAM
@@ -187,8 +187,8 @@ end
 function delete(inStream::IOSTREAM)
   return @assign _ = begin
     local listData::List{String}
-    local fileID::Integer
-    local bufferID::Integer
+    local fileID::Int
+    local bufferID::Int
     local fStream::IOSTREAM
     local lStream::IOSTREAM
     local bStream::IOSTREAM
@@ -217,8 +217,8 @@ function clear(inStream::IOSTREAM)::IOSTREAM
   local outStream::IOSTREAM
   @assign outStream = begin
     local listData::List{String}
-    local fileID::Integer
-    local bufferID::Integer
+    local fileID::Int
+    local bufferID::Int
     local fStream::IOSTREAM
     local lStream::IOSTREAM
     local bStream::IOSTREAM
@@ -245,8 +245,8 @@ end
 function string(inStream::IOSTREAM)::String
   local string = begin
     local listData::List{String}
-    local fileID::Integer
-    local bufferID::Integer
+    local fileID::Int
+    local bufferID::Int
     local fStream::IOSTREAM
     local lStream::IOSTREAM
     local bStream::IOSTREAM
@@ -277,11 +277,11 @@ end
   to the standard output (1) or standard error (2).
   Use IOStream.stdOutput, IOStream.stdError constants
 """
-function print(inStream::IOSTREAM, whereToPrint::Integer)
+function print(inStream::IOSTREAM, whereToPrint::Int)
   return @assign _ = begin
     local listData::List{String}
-    local fileID::Integer
-    local bufferID::Integer
+    local fileID::Int
+    local bufferID::Int
     local fStream::IOSTREAM
     local lStream::IOSTREAM
     local bStream::IOSTREAM

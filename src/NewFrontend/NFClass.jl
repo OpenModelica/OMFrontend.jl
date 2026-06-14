@@ -95,7 +95,7 @@ end
 mutable struct PARTIAL_CLASS <: Class
   elements::ClassTree
   modifier::Modifier
-  prefixes
+  prefixes::Prefixes
 end
 
 struct NOT_INSTANTIATED <: Class

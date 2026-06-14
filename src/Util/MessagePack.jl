@@ -70,8 +70,8 @@ function writeFile(sbuffer::SimpleBuffer, file::String)
   return @error "TODO: Defined in the runtime"
 end
 
-function position(sbuffer::SimpleBuffer)::Integer
-  local position::Integer
+function position(sbuffer::SimpleBuffer)::Int
+  local position::Int
 
   @error "TODO: Defined in the runtime"
   return position
@@ -102,7 +102,7 @@ function double(packer::Packer, dbl::AbstractFloat)::Bool
   return result
 end
 
-function integer(packer::Packer, i::Integer)::Bool
+function integer(packer::Packer, i::Int)::Bool
   local result::Bool
 
   @error "TODO: Defined in the runtime"
@@ -134,14 +134,14 @@ function bool(packer::Packer, bool::Bool)::Bool
   return result
 end
 
-function sequence(packer::Packer, len::Integer)::Bool
+function sequence(packer::Packer, len::Int)::Bool
   local result::Bool
 
   @error "TODO: Defined in the runtime"
   return result
 end
 
-function map(packer::Packer, len::Integer)::Bool
+function map(packer::Packer, len::Int)::Bool
   local result::Bool
 
   @error "TODO: Defined in the runtime"
@@ -185,8 +185,8 @@ function destructor(deserializer::Deserializer)
 end
 end
 
-function next(deserializer::Deserializer, offset::Integer)::Tuple{Bool, Integer}
-  local newoffset::Integer
+function next(deserializer::Deserializer, offset::Int)::Tuple{Bool, Integer}
+  local newoffset::Int
   local success::Bool
 
   @error "TODO: Defined in the runtime"
@@ -196,35 +196,35 @@ end
 function toStream(
   deserializer::Deserializer,
   ss::Utilities.Stream.Stream,
-  offset::Integer,
+  offset::Int,
 )::Tuple{Integer, Bool}
   local success::Bool
-  local newoffset::Integer
+  local newoffset::Int
 
   @error "TODO: Defined in the runtime"
   return (newoffset, success)
 end
 
-function integer(deserializer::Deserializer, offset::Integer)::Tuple{Integer, Integer, Bool}
+function integer(deserializer::Deserializer, offset::Int)::Tuple{Integer, Integer, Bool}
   local success::Bool
-  local newoffset::Integer
-  local res::Integer
+  local newoffset::Int
+  local res::Int
 
   @error "TODO: Defined in the runtime"
   return (res, newoffset, success)
 end
 
-function string(deserializer::Deserializer, offset::Integer)::Tuple{String, Integer, Bool}
+function string(deserializer::Deserializer, offset::Int)::Tuple{String, Integer, Bool}
   local success::Bool
-  local newoffset::Integer
+  local newoffset::Int
   local res::String
 
   @error "TODO: Defined in the runtime"
   return (res, newoffset, success)
 end
 
-function get_integer(deserializer::Deserializer)::Integer
-  local res::Integer
+function get_integer(deserializer::Deserializer)::Int
+  local res::Int
 
   @error "TODO: Defined in the runtime"
   return res
@@ -281,7 +281,7 @@ function deserializeFileToFile(
   local deserializer::Unpack.Deserializer = Unpack.Deserializer(inBinaryFile)
   local ss::Stream.Stream = Stream.Stream(outTextFile)
   local success::Bool = true
-  local offset::Integer = 0
+  local offset::Int = 0
 
   return while success
     @assign (offset, success) = Unpack.toStream(deserializer, ss, offset)

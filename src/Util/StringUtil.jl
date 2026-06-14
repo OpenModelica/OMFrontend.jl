@@ -42,11 +42,11 @@ import ..System
 
 using MetaModelica.Dangerous: listReverseInPlace, stringGetNoBoundsChecking
 
-const NO_POS = 0::Integer
-const CHAR_NEWLINE = 10::Integer
-const CHAR_SPACE = 32::Integer
-const CHAR_DASH = 45::Integer
-const CHAR_DOT = 46::Integer
+const NO_POS = 0::Int
+const CHAR_NEWLINE = 10::Int
+const CHAR_SPACE = 32::Int
+const CHAR_DASH = 45::Int
+const CHAR_DOT = 46::Int
 
 """
   Searches for a given character in the given string, returning the index of
@@ -56,15 +56,15 @@ const CHAR_DOT = 46::Integer
 """
 function findChar(
   inString::String,
-  inChar::Integer,
-  inStartPos::Integer = 1,
-  inEndPos::Integer = 0,
-)::Integer
-  local outIndex::Integer = NO_POS
+  inChar::Int,
+  inStartPos::Int = 1,
+  inEndPos::Int = 0,
+)::Int
+  local outIndex::Int = NO_POS
 
-  local len::Integer = stringLength(inString)
-  local start_pos::Integer
-  local end_pos::Integer
+  local len::Int = stringLength(inString)
+  local start_pos::Int
+  local end_pos::Int
 
   @assign start_pos = max(inStartPos, 1)
   @assign end_pos = if inEndPos > 0
@@ -89,15 +89,15 @@ end
 """
 function rfindChar(
   inString::String,
-  inChar::Integer,
-  inStartPos::Integer = 0,
-  inEndPos::Integer = 1,
-)::Integer
-  local outIndex::Integer = NO_POS
+  inChar::Int,
+  inStartPos::Int = 0,
+  inEndPos::Int = 1,
+)::Int
+  local outIndex::Int = NO_POS
 
-  local len::Integer = stringLength(inString)
-  local start_pos::Integer
-  local end_pos::Integer
+  local len::Int = stringLength(inString)
+  local start_pos::Int
+  local end_pos::Int
 
   @assign start_pos = if inStartPos > 0
     min(inStartPos, len)
@@ -123,15 +123,15 @@ end
 """
 function findCharNot(
   inString::String,
-  inChar::Integer,
-  inStartPos::Integer = 1,
-  inEndPos::Integer = 0,
-)::Integer
-  local outIndex::Integer = NO_POS
+  inChar::Int,
+  inStartPos::Int = 1,
+  inEndPos::Int = 0,
+)::Int
+  local outIndex::Int = NO_POS
 
-  local len::Integer = stringLength(inString)
-  local start_pos::Integer
-  local end_pos::Integer
+  local len::Int = stringLength(inString)
+  local start_pos::Int
+  local end_pos::Int
 
   @assign start_pos = max(inStartPos, 1)
   @assign end_pos = if inEndPos > 0
@@ -157,15 +157,15 @@ end
 """
 function rfindCharNot(
   inString::String,
-  inChar::Integer,
-  inStartPos::Integer = 0,
-  inEndPos::Integer = 1,
-)::Integer
-  local outIndex::Integer = NO_POS
+  inChar::Int,
+  inStartPos::Int = 0,
+  inEndPos::Int = 1,
+)::Int
+  local outIndex::Int = NO_POS
 
-  local len::Integer = stringLength(inString)
-  local start_pos::Integer
-  local end_pos::Integer
+  local len::Int = stringLength(inString)
+  local start_pos::Int
+  local end_pos::Int
 
   @assign start_pos = if inStartPos > 0
     min(inStartPos, len)
@@ -186,7 +186,7 @@ end
   Returns true if the given character represented by it's ASCII decimal number
   is an alphabetic character.
 """
-function isAlpha(inChar::Integer)::Bool
+function isAlpha(inChar::Int)::Bool
   local outIsAlpha::Bool = inChar >= 65 && inChar <= 90 || inChar >= 97 && inChar <= 122
   return outIsAlpha
 end
@@ -215,20 +215,20 @@ end
 """
 function wordWrap(
   inString::String,
-  inWrapLength::Integer,
+  inWrapLength::Int,
   inDelimiter::String = "",
   inRaggedness::AbstractFloat = 0.3,
 )::List{String}
   local outStrings::List{String} = nil
 
-  local start_pos::Integer = 1
-  local end_pos::Integer = inWrapLength
-  local line_len::Integer
-  local pos::Integer
-  local next_char::Integer
-  local char::Integer
-  local gap_size::Integer
-  local next_gap_size::Integer
+  local start_pos::Int = 1
+  local end_pos::Int = inWrapLength
+  local line_len::Int
+  local pos::Int
+  local next_char::Int
+  local char::Int
+  local gap_size::Int
+  local next_gap_size::Int
   local str::String
   local delim::String = ""
   local lines::List{String}
@@ -329,10 +329,10 @@ function wordWrap(
 end
 
 """Repeat str n times"""
-function repeat(str::String, n::Integer)::String
+function repeat(str::String, n::Int)::String
   local res::String = ""
 
-  local len::Integer = stringLength(str)
+  local len::Int = stringLength(str)
   local ext::System.StringAllocator = System.StringAllocator(len * n)
 
   for i = 0:(n - 1)
@@ -351,7 +351,7 @@ end
 function equalIgnoreSpace(s1::String, s2::String)::Bool
   local b::Bool
 
-  local j::Integer = 1
+  local j::Int = 1
 
   @assign b = true
   for i = 1:stringLength(s1)
@@ -380,7 +380,7 @@ end
 
 function bytesToReadableUnit(
   bytes::AbstractFloat,
-  significantDigits::Integer = 4,
+  significantDigits::Int = 4,
   maxSizeInUnit::AbstractFloat = 500,
 )::String #= If it is 1000, we print up to 1000GB before changing to X TB =#
   local str::String
@@ -404,8 +404,8 @@ function bytesToReadableUnit(
   return str
 end
 
-function stringHashDjb2Work(str::String, hash::Integer = 5381)::Integer
-  local ohash::Integer = hash
+function stringHashDjb2Work(str::String, hash::Int = 5381)::Int
+  local ohash::Int = hash
 
   for i = 1:stringLength(str)
     @assign ohash = ohash * 31 + MetaModelica.Dangerous.stringGetNoBoundsChecking(str, i)
@@ -437,7 +437,7 @@ function stringAppend9(
     stringLength(str8) +
     stringLength(str9),
   )
-  local c::Integer = 0
+  local c::Int = 0
 
   System.stringAllocatorStringCopy(sb, str1, c)
   @assign c = c + stringLength(str1)

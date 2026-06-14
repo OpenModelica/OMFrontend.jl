@@ -67,8 +67,8 @@ HashTableCrefFunctionsType = Tuple
 
 HashTable = Tuple
 
-function myHash(inTy::DAE.Type, hashMod::Integer)::Integer
-  local hash::Integer
+function myHash(inTy::DAE.Type, hashMod::Int)::Int
+  local hash::Int
 
   local str::String
   local tt::DAE.Type
@@ -101,7 +101,7 @@ end
   Returns an empty HashTable.
   Using the bucketsize size.
 """
-function emptyHashTableSized(size::Integer)::HashTable
+function emptyHashTableSized(size::Int)::HashTable
   local hashTable::HashTable
 
   @assign hashTable = BaseHashTable.emptyHashTableWork(

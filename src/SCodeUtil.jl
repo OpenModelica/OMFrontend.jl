@@ -291,11 +291,11 @@ function isConstant(inVariability::SCode.Variability)::Bool
 end
 
 """Counts the number of ClassParts of a Class."""
-function countParts(inClass::SCode.Element)::Integer
-  local outInteger::Integer
+function countParts(inClass::SCode.Element)::Int
+  local outInteger::Int
 
   @assign outInteger = begin
-    local res::Integer
+    local res::Int
     local elts::List{SCode.Element}
     @matchcontinue inClass begin
       SCode.CLASS(classDef = SCode.PARTS(elementLst = elts)) => begin

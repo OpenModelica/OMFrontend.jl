@@ -68,22 +68,22 @@ const Value = List
 const ValueArray = Tuple
 
 
-const lowBucketSize = 257::Integer
+const lowBucketSize = 257::Int
 
-const avgBucketSize = 2053::Integer
+const avgBucketSize = 2053::Int
 
-const bigBucketSize = 4013::Integer
+const bigBucketSize = 4013::Int
 
-const biggerBucketSize = 25343::Integer
+const biggerBucketSize = 25343::Int
 
-const hugeBucketSize = 536870879::Integer #= 2^29 - 33 is prime :) =#
+const hugeBucketSize = 536870879::Int #= 2^29 - 33 is prime :) =#
 
-const defaultBucketSize = avgBucketSize::Integer
+const defaultBucketSize = avgBucketSize::Int
 
 
 """calculate the values array size based on the bucket size"""
-function bucketToValuesSize(szBucket::Integer)::Integer
-  local szArr::Integer
+function bucketToValuesSize(szBucket::Int)::Int
+  local szArr::Int
 
   @assign szArr = realInt(realMul(intReal(szBucket), 0.6))
   #=  intDiv(szBucket, 10);
@@ -91,14 +91,14 @@ function bucketToValuesSize(szBucket::Integer)::Integer
   return szArr
 end
 
-function emptyHashTableWork(szBucket::Integer, fntpl::FuncsTuple)::HashTable
+function emptyHashTableWork(szBucket::Int, fntpl::FuncsTuple)::HashTable
   local hashTable::HashTable
 
   local arr::Array{List{Tuple{Key, Integer}}}
   local lst::List{Option{Tuple{Key, Value}}}
   local emptyarr::Array{Option{Tuple{Key, Value}}}
 
-  local szArr::Integer
+  local szArr::Int
 
   if szBucket < 1
     # Error.addInternalError(
@@ -123,10 +123,10 @@ function add(entry::HashEntry, hashTable::HashTable)::HashTable
 
   local hashvec::HashVector
   local varr::ValueArray
-  local bsize::Integer
-  local hash_idx::Integer
-  local arr_idx::Integer
-  local new_pos::Integer
+  local bsize::Int
+  local hash_idx::Int
+  local arr_idx::Int
+  local new_pos::Int
   local fntpl::FuncsTuple
   local hashFunc::FuncHash
   local keyEqual::FuncEq
@@ -190,10 +190,10 @@ function addNoUpdCheck(entry::HashEntry, hashTable::HashTable)::HashTable
   local outHashTable::HashTable
 
   @assign outHashTable = begin
-    local indx::Integer
-    local newpos::Integer
-    local n::Integer
-    local bsize::Integer
+    local indx::Int
+    local newpos::Int
+    local n::Int
+    local bsize::Int
     local varr::ValueArray
     local indexes::HashNode
     local hashvec::HashVector
@@ -226,9 +226,9 @@ end
 function addUnique(entry::HashEntry, hashTable::HashTable)::HashTable
   local outHashTable::HashTable
 
-  local indx::Integer
-  local newpos::Integer
-  local bsize::Integer
+  local indx::Int
+  local newpos::Int
+  local bsize::Int
   local varr::ValueArray
   local indexes::HashNode
   local hashvec::HashVector
@@ -255,7 +255,7 @@ end
 """
 function update(entry::HashEntry, hashTable::HashTable)
   local varr::ValueArray
-  local index::Integer
+  local index::Int
   local key::Key
 
    (key, _) = entry
@@ -272,7 +272,7 @@ end
   more compact, it will still contain a lot of incices information.
 """
 function delete(key::Key, hashTable::HashTable)
-  local indx::Integer
+  local indx::Int
   local varr::ValueArray
 
   @assign indx = hasKeyIndex(key, hashTable)
@@ -313,7 +313,7 @@ end
 function get(key::Key, hashTable::HashTable)::Value
   local value::Value
 
-  local i::Integer
+  local i::Int
   local varr::ValueArray
 
   @assign i = hasKeyIndex(key, hashTable)
@@ -324,11 +324,11 @@ function get(key::Key, hashTable::HashTable)::Value
 end
 
 """help function to get and hasKey"""
-function hasKeyIndex(key::Key, hashTable::HashTable)::Integer
-  local indx::Integer
+function hasKeyIndex(key::Key, hashTable::HashTable)::Int
+  local indx::Int
 
-  local hashindx::Integer
-  local bsize::Integer
+  local hashindx::Int
+  local bsize::Int
   local indexes::HashNode
   local hashvec::HashVector
   local keyEqual::FuncEq
@@ -342,8 +342,8 @@ function hasKeyIndex(key::Key, hashTable::HashTable)::Integer
 end
 
 """Helper function to get"""
-function hasKeyIndex2(key::Key, keyIndices::HashNode, keyEqual::FuncEq)::Integer
-  local index::Integer #= Returns -1 on failure =#
+function hasKeyIndex2(key::Key, keyIndices::HashNode, keyEqual::FuncEq)::Int
+  local index::Int #= Returns -1 on failure =#
 
   local key2::Key
 
@@ -380,11 +380,11 @@ function debugDump(ht::HashTable)
   local printValue::FuncValString
   local k::Key
   local v::Value
-  local n::Integer
-  local size::Integer
-  local i::Integer
-  local j::Integer
-  local szBucket::Integer
+  local n::Int
+  local size::Int
+  local i::Int
+  local j::Int
+  local szBucket::Int
   local arr::Array{Option{HashEntry}}
   local he::HashEntry
   local hashVector::Array{HashNode}
@@ -505,8 +505,8 @@ function valueArrayListReversed(valueArray::ValueArray)::List{HashEntry}
 end
 
 """Returns the number of elements inserted into the table"""
-function hashTableCurrentSize(hashTable::HashTable)::Integer
-  local sz::Integer
+function hashTableCurrentSize(hashTable::HashTable)::Int
+  local sz::Int
 
   local va::ValueArray
 
@@ -516,8 +516,8 @@ function hashTableCurrentSize(hashTable::HashTable)::Integer
 end
 
 """Returns the number of elements in the ValueArray"""
-function valueArrayLength(valueArray::ValueArray)::Integer
-  local sz::Integer
+function valueArrayLength(valueArray::ValueArray)::Int
+  local sz::Int
 
    (sz, _, _) = valueArray
   return sz
@@ -528,14 +528,14 @@ end
   by factor 1.4
 """
 function valueArrayAdd(valueArray::ValueArray, entry::HashEntry)::Tuple{ValueArray, Integer}
-  local newpos::Integer
+  local newpos::Int
   local outValueArray::ValueArray
 
    (outValueArray, newpos) = begin
-    local n::Integer
-    local size::Integer
-    local expandsize::Integer
-    local newsize::Integer
+    local n::Int
+    local size::Int
+    local expandsize::Int
+    local newsize::Int
     local arr::Array{Option{HashEntry}}
     local rsize::AbstractFloat
     local rexpandsize::AbstractFloat
@@ -574,13 +574,13 @@ function valueArrayAdd(valueArray::ValueArray, entry::HashEntry)::Tuple{ValueArr
 end
 
 """Set the n:th variable in the ValueArray to value."""
-function valueArraySet(valueArray::ValueArray, pos::Integer, entry::HashEntry)::ValueArray
+function valueArraySet(valueArray::ValueArray, pos::Int, entry::HashEntry)::ValueArray
   local outValueArray::ValueArray
 
   @assign outValueArray = begin
     local arr::Array{Option{HashEntry}}
-    local n::Integer
-    local size::Integer
+    local n::Int
+    local size::Int
     @matchcontinue (valueArray, pos, entry) begin
       ((n, size, arr), _, _) => begin
         @match true = pos <= size
@@ -607,9 +607,9 @@ function valueArraySet(valueArray::ValueArray, pos::Integer, entry::HashEntry)::
 end
 
 """Clears the n:th variable in the ValueArray (set to NONE())."""
-function valueArrayClear(valueArray::ValueArray, pos::Integer)
+function valueArrayClear(valueArray::ValueArray, pos::Int)
   local arr::Array{Option{HashEntry}}
-  local size::Integer
+  local size::Int
 
    (_, size, arr) = valueArray
   @match true = pos <= size
@@ -619,12 +619,12 @@ function valueArrayClear(valueArray::ValueArray, pos::Integer)
 end
 
 """Retrieve the n:th Value from ValueArray, index from 1..n."""
-function getValueArray(valueArray::ValueArray, pos::Integer)::Tuple{Key, Value}
+function getValueArray(valueArray::ValueArray, pos::Int)::Tuple{Key, Value}
   local value::Value
   local key::Key
 
   local arr::Array{Option{HashEntry}}
-  local n::Integer
+  local n::Int
 
    (n, _, arr) = valueArray
   @match true = pos <= n
@@ -635,13 +635,13 @@ function getValueArray(valueArray::ValueArray, pos::Integer)::Tuple{Key, Value}
 end
 
 """Checks if the given index exists in the value array"""
-function valueArrayKeyIndexExists(valueArray::ValueArray, pos::Integer)::Bool
+function valueArrayKeyIndexExists(valueArray::ValueArray, pos::Int)::Bool
   local b::Bool
 
   @assign b = begin
     local k::Key
     local v::Value
-    local n::Integer
+    local n::Int
     local arr::Array{Option{HashEntry}}
     @match (valueArray, pos) begin
       (_, -1) => begin
@@ -665,10 +665,10 @@ function copy(inHashTable::HashTable)::HashTable
   local outCopy::HashTable
 
   local hv::HashVector
-  local bs::Integer
-  local sz::Integer
-  local vs::Integer
-  local ve::Integer
+  local bs::Int
+  local sz::Int
+  local vs::Int
+  local ve::Int
   local ft::FuncsTuple
   local vae::Array{Option{HashEntry}}
 
@@ -683,11 +683,11 @@ end
 function clear(ht::HashTable)::HashTable
 
   local hv::HashVector
-  local bs::Integer
-  local sz::Integer
-  local vs::Integer
-  local ve::Integer
-  local hash_idx::Integer
+  local bs::Int
+  local sz::Int
+  local vs::Int
+  local ve::Int
+  local hash_idx::Int
   local ft::FuncsTuple
   local hashFunc::FuncHash
   local key::Key
@@ -717,11 +717,11 @@ end
 """Clears a HashTable that has not been properly stored, but was known to never delete an element (making the values sequential SOME() for as long as there are elements). NOTE: Does not handle arrays that were expanded?"""
 function clearAssumeNoDelete(ht::HashTable)
   local hv::HashVector
-  local bs::Integer
-  local sz::Integer
-  local vs::Integer
-  local ve::Integer
-  local hash_idx::Integer
+  local bs::Int
+  local sz::Int
+  local vs::Int
+  local ve::Int
+  local hash_idx::Int
   local ft::FuncsTuple
   local hashFunc::FuncHash
   local key::Key

@@ -43,7 +43,7 @@ import Frontend.FMI
 function initializeFMIImport(
   inFileName::String,
   inWorkingDirectory::String,
-  inFMILogLevel::Integer,
+  inFMILogLevel::Int,
   inInputConnectors::Bool,
   inOutputConnectors::Bool,
   inIsModelDescriptionImport::Bool = false,

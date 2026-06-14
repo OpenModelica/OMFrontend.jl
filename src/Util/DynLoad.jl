@@ -48,14 +48,14 @@ import Frontend.StackOverflow
   of values.
 """
 function executeFunction(
-  handle::Integer,
+  handle::Int,
   values::List{<:Values.Value},
   debug::Bool,
 )::Values.Value
   local outVal::Values.Value
 
   function executeFunction_internal(
-    handle::Integer,
+    handle::Int,
     values::List{<:Values.Value},
     debug::Bool,
   )::Values.Value

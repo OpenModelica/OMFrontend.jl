@@ -152,7 +152,7 @@ end
 
 """Checks that the flags listed in allDebugFlags have sequential and unique indices."""
 function checkDebugFlags()
-  local index::Integer = 0
+  local index::Int = 0
   local err_str::String
 
   for flag in allDebugFlags
@@ -173,7 +173,7 @@ end
 
 """Checks that the flags listed in allConfigFlags have sequential and unique indices."""
 function checkConfigFlags()
-  local index::Integer = 0
+  local index::Int = 0
   local err_str::String
 
   for flag in allConfigFlags
@@ -244,7 +244,7 @@ function updateDebugFlagArray(inFlags::Array{<:Bool}, inValue::Bool, inFlag::Fla
   local outOldValue::Bool
   local outFlags::Array{Bool}
 
-  local index::Integer
+  local index::Int
 
   @match Flags.DEBUG_FLAG(index = index) = inFlag
   outOldValue = arrayGet(inFlags, index)
@@ -256,7 +256,7 @@ end
 function updateConfigFlagArray(inFlags::Array{<:Flags.FlagData}, inValue::Flags.FlagData, inFlag::Flags.ConfigFlag) ::Array{Flags.FlagData}
   local outFlags::Array{Flags.FlagData}
 
-  local index::Integer
+  local index::Int
 
   @match Flags.CONFIG_FLAG(index = index) = inFlag
   outFlags = arrayUpdate(inFlags, index, inValue)
@@ -272,7 +272,7 @@ end
 function readArgs(inArgs::List{<:String}) ::List{String}
   local outArgs::List{String} = nil
   local flags::Flags.Flag
-  #local numError::Integer
+  #local numError::Int
   local arg::String
   local rest_args::List{String} = inArgs
 
@@ -307,7 +307,7 @@ function readArg(inArg::String, inFlags::Flags.Flag) ::Bool
   local outConsumed::Bool
 
   local flagtype::String
-  local len::Integer
+  local len::Int
 
   flagtype = stringGetStringChar(inArg, 1)
   len = stringLength(inArg)
@@ -398,8 +398,8 @@ function configFlagEq(inFlag1::Flags.ConfigFlag, inFlag2::Flags.ConfigFlag) ::Bo
   local eq::Bool
 
   eq = begin
-    local index1::Integer
-    local index2::Integer
+    local index1::Int
+    local index2::Int
     @match (inFlag1, inFlag2) begin
       (Flags.CONFIG_FLAG(index = index1), Flags.CONFIG_FLAG(index = index2))  => begin
         index1 == index2
@@ -598,7 +598,7 @@ function stringFlagData(inValues::List{<:String}, inExpectedType::Flags.FlagData
 
   outValue = begin
     local b::Bool
-    local i::Integer
+    local i::Int
     local ilst::List{Integer}
     local s::String
     local et::String
@@ -731,7 +731,7 @@ function printActualTypeStr(inType::List{<:String}) ::String
 
   outTypeStr = begin
     local s::String
-    local i::Integer
+    local i::Int
     @matchcontinue inType begin
       nil()  => begin
         "nothing"
@@ -778,8 +778,8 @@ end
 function configFlagsIsEqualIndex(inFlag1::Flags.ConfigFlag, inFlag2::Flags.ConfigFlag) ::Bool
   local outEqualIndex::Bool
 
-  local index1::Integer
-  local index2::Integer
+  local index1::Int
+  local index2::Int
 
   @match Flags.CONFIG_FLAG(index = index1) = inFlag1
   @match Flags.CONFIG_FLAG(index = index2) = inFlag2
@@ -922,7 +922,7 @@ function setConfigBool(inFlag::Flags.ConfigFlag, inValue::Bool)
 end
 
 """Sets the value of an integer configuration flag."""
-function setConfigInt(inFlag::Flags.ConfigFlag, inValue::Integer)
+function setConfigInt(inFlag::Flags.ConfigFlag, inValue::Int)
   setConfigValue(inFlag, Flags.INT_FLAG(inValue))
 end
 
@@ -942,7 +942,7 @@ function setConfigStringList(inFlag::Flags.ConfigFlag, inValue::List{<:String})
 end
 
 """Sets the value of an enumeration configuration flag."""
-function setConfigEnum(inFlag::Flags.ConfigFlag, inValue::Integer)
+function setConfigEnum(inFlag::Flags.ConfigFlag, inValue::Int)
   local valid_values::List{Tuple{String, Integer}}
 
   @match Flags.CONFIG_FLAG(defaultValue = Flags.ENUM_FLAG(validValues = valid_values)) = inFlag
@@ -1418,7 +1418,7 @@ function defaultFlagSphinx(flag::Flags.FlagData) ::String
   local str::String
 
   str = begin
-    local i::Integer
+    local i::Int
     @match flag begin
       Flags.BOOL_FLAG(__)  => begin
         System.gettext("Boolean (default") + " ``" + boolString(flag.data) + "``)."
@@ -1499,7 +1499,7 @@ end
 function sphinxMathMode(s::String) ::String
   local o::String = s
 
-  local i::Integer
+  local i::Int
   local strs::List{String}
   local s1::String
   local s2::String
@@ -1516,7 +1516,7 @@ end
 function removeSphinxMathMode(s::String) ::String
   local o::String = s
 
-  local i::Integer
+  local i::Int
   local strs::List{String}
   local s1::String
   local s2::String

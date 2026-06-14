@@ -59,7 +59,7 @@ end
 function stripAddresses(inSymbol::String)::String
   local outSymbol::String
 
-  local n::Integer
+  local n::Int
   local strs::List{String}
   local so::String
   local fun::String
@@ -99,8 +99,8 @@ function triggerStackOverflow()
 end
 
 function generateReadableMessage(
-  numFrames::Integer = 1000,
-  numSkip::Integer = 4,
+  numFrames::Int = 1000,
+  numSkip::Int = 4,
   delimiter::String = "\\n",
 )::String
   local str::String
@@ -121,8 +121,8 @@ function readableStacktraceMessages()::List{String}
   local symbols::List{String} = nil
 
   local prev::String = ""
-  local n::Integer = 1
-  local prevN::Integer = 1
+  local n::Int = 1
+  local prevN::Int = 1
 
   if Testsuite.isRunning()
     @assign symbols = list("[bt] [Symbols are not generated when running the test suite]")
@@ -163,7 +163,7 @@ function getStacktraceMessages()::List{String}
   return symbols
 end
 
-function setStacktraceMessages(numSkip::Integer, numFrames::Integer)
+function setStacktraceMessages(numSkip::Int, numFrames::Int)
   return @error "TODO: Defined in the runtime"
 end
 

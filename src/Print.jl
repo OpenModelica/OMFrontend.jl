@@ -39,14 +39,14 @@ using MetaModelica
 using ExportAll
 
 """saves and clears content of buffer and return a handle to the saved buffer so it can be restored by restorBuf later on"""
-function saveAndClearBuf()::Integer
-  local handle::Integer
+function saveAndClearBuf()::Int
+  local handle::Int
 
   @error "TODO: Defined in the runtime"
   return handle
 end
 
-function restoreBuf(handle::Integer)
+function restoreBuf(handle::Int)
   @error "TODO: Defined in the runtime"
 end
 
@@ -92,15 +92,15 @@ function writeBufConvertLines(filename::String)
 end
 
 """Gets the actual length of the filled space in the print buffer."""
-function getBufLength()::Integer
-  local outBufFilledLength::Integer
+function getBufLength()::Int
+  local outBufFilledLength::Int
 
   @error "TODO: Defined in the runtime"
   return outBufFilledLength
 end
 
 """Prints the given number of spaces to the print buffer."""
-function printBufSpace(inNumOfSpaces::Integer)
+function printBufSpace(inNumOfSpaces::Int)
   @error "TODO: Defined in the runtime"
 end
 

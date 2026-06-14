@@ -38,25 +38,25 @@ module Socket
 using MetaModelica
 using ExportAll
 
-function waitforconnect(inInteger::Integer)::Integer
-  local outInteger::Integer
+function waitforconnect(inInteger::Int)::Int
+  local outInteger::Int
 
   @error "TODO: Defined in the runtime"
   return outInteger
 end
 
-function handlerequest(inInteger::Integer)::String
+function handlerequest(inInteger::Int)::String
   local outString::String
 
   @error "TODO: Defined in the runtime"
   return outString
 end
 
-function sendreply(inInteger::Integer, inString::String)
+function sendreply(inInteger::Int, inString::String)
   return @error "TODO: Defined in the runtime"
 end
 
-function close(inInteger::Integer)
+function close(inInteger::Int)
   return @error "TODO: Defined in the runtime"
 end
 

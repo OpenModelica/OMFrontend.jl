@@ -70,8 +70,8 @@ HashTableCrefFunctionsType = Tuple
 HashTable = Tuple
 
 """Calculates a hash value for Key"""
-function hashFunc(cr::Key, mod::Integer)::Integer
-  local res::Integer
+function hashFunc(cr::Key, mod::Int)::Int
+  local res::Int
 
   local crstr::String
 
@@ -95,7 +95,7 @@ end
   Returns an empty HashTable.
   Using the bucketsize size.
 """
-function emptyHashTableSized(size::Integer)::HashTable
+function emptyHashTableSized(size::Int)::HashTable
   local hashTable::HashTable
 
   @assign hashTable = BaseHashTable.emptyHashTableWork(

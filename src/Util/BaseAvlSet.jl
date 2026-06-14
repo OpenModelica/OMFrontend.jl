@@ -49,7 +49,7 @@ Key = Integer
 @Uniontype Tree begin
   @Record NODE begin
     key::Key #= The key of the node. =#
-    height::Integer #= Height of tree, used for balancing =#
+    height::Int #= Height of tree, used for balancing =#
     left::Tree #= Left subtree. =#
     right::Tree #= Right subtree. =#
   end

@@ -842,40 +842,23 @@ end
 function transferSubscripts(srcCref::ComponentRef, dstCref::ComponentRef)::ComponentRef
   local cref::ComponentRef
 
-  cref = begin
-    @match (srcCref, dstCref) begin
-      (COMPONENT_REF_EMPTY(__), _) => begin
-        dstCref
-      end
-
-      (_, COMPONENT_REF_EMPTY(__)) => begin
-        dstCref
-      end
-
-      (_, COMPONENT_REF_CREF(origin = Origin.ITERATOR)) => begin
-        dstCref
-      end
-
-      (COMPONENT_REF_CREF(__), COMPONENT_REF_CREF(origin = Origin.CREF)) => begin
-        local restCref = transferSubscripts(srcCref, dstCref.restCref)
-        dstCref = COMPONENT_REF_CREF(dstCref.node, dstCref.subscripts, dstCref.ty, dstCref.origin, restCref)
-      end
-
-      (COMPONENT_REF_CREF(__), COMPONENT_REF_CREF(__)) where {(refEqual(srcCref.node, dstCref.node))} =>
-        begin
-          cref = transferSubscripts(srcCref.restCref, dstCref.restCref)
-          COMPONENT_REF_CREF(dstCref.node, srcCref.subscripts, dstCref.ty, dstCref.origin, cref)
-        end
-
-      (COMPONENT_REF_CREF(__), COMPONENT_REF_CREF(__)) => begin
-        transferSubscripts(srcCref.restCref, dstCref)
-      end
-
-      _ => begin
-        Error.assertion(false, string("Transfer of subscripts between ", string(toString(srcCref), " and ", toString(dstCref), " failed ")), sourceInfo())
-        fail()
-      end
-    end
+  cref = if srcCref isa COMPONENT_REF_EMPTY
+    dstCref
+  elseif dstCref isa COMPONENT_REF_EMPTY
+    dstCref
+  elseif dstCref isa COMPONENT_REF_CREF && dstCref.origin == Origin.ITERATOR
+    dstCref
+  elseif srcCref isa COMPONENT_REF_CREF && dstCref isa COMPONENT_REF_CREF && dstCref.origin == Origin.CREF
+    local restCref = transferSubscripts(srcCref, dstCref.restCref)
+    COMPONENT_REF_CREF(dstCref.node, dstCref.subscripts, dstCref.ty, dstCref.origin, restCref)
+  elseif srcCref isa COMPONENT_REF_CREF && dstCref isa COMPONENT_REF_CREF && refEqual(srcCref.node, dstCref.node)
+    local rc = transferSubscripts(srcCref.restCref, dstCref.restCref)
+    COMPONENT_REF_CREF(dstCref.node, srcCref.subscripts, dstCref.ty, dstCref.origin, rc)
+  elseif srcCref isa COMPONENT_REF_CREF && dstCref isa COMPONENT_REF_CREF
+    transferSubscripts(srcCref.restCref, dstCref)
+  else
+    Error.assertion(false, string("Transfer of subscripts between ", string(toString(srcCref), " and ", toString(dstCref), " failed ")), sourceInfo())
+    fail()
   end
   return cref
 end
@@ -1178,7 +1161,7 @@ appendCref!(cref::COMPONENT_REF_EMPTY, restCref::ComponentRef) = restCref
 
 function appendCref!(cref::COMPONENT_REF_CREF, restCref::ComponentRef)
   local restCrefTmp = appendCref!(cref.restCref, restCref)
-  cref.restCref = restCrefTmp
+  @assign cref.restCref = restCrefTmp
   return cref
 end
 
@@ -1462,8 +1445,8 @@ function expandSplitSubscripts(cref::ComponentRef)
   () = begin
     @match cref begin
       CREF(origin = Origin.CREF)  => begin
-        cref.subscripts = expandSplitIndices(cref.subscripts, nil)
-        cref.restCref = expandSplitSubscripts(cref.restCref)
+        @assign cref.subscripts = expandSplitIndices(cref.subscripts, nil)
+        @assign cref.restCref = expandSplitSubscripts(cref.restCref)
         ()
       end
 

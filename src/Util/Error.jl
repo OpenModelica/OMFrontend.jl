@@ -4399,7 +4399,7 @@ const DUPLICATE_VARIABLE_ERROR =
 const dummyInfo = SOURCEINFO("", false, 0, 0, 0, 0, 0.0)::SourceInfo
 
 function clearCurrentComponent()
-  function dummy(str::String, i::Integer)::String
+  function dummy(str::String, i::Int)::String
 
     return str
   end
@@ -4452,10 +4452,10 @@ end
 function getCurrentComponent()
   local filename::String = ""
   local read_only::Bool = false
-  local sline::Integer = 0
-  local scol::Integer = 0
-  local eline::Integer = 0
-  local ecol::Integer = 0
+  local sline::Int = 0
+  local scol::Int = 0
+  local eline::Int = 0
+  local ecol::Int = 0
   local str::String
 
   local tpl::Option{Tuple{Array{T}, Array{String}, Array{SourceInfo}, Array{prefixToStr}}}
@@ -4692,16 +4692,16 @@ function clearMessages()
 end
 
 """Returns the number of messages in the message queue"""
-function getNumMessages()::Integer
-  local num::Integer
+function getNumMessages()::Int
+  local num::Int
 
   @assign num = ErrorExt.getNumMessages()
   return num
 end
 
 """Returns the number of messages with severity 'Error' in the message queue"""
-function getNumErrorMessages()::Integer
-  local num::Integer
+function getNumErrorMessages()::Int
+  local num::Int
   num = ErrorExt.getNumErrorMessages()
   return num
 end

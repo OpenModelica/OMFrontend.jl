@@ -1820,8 +1820,8 @@ function typeSpecEqual(a::TypeSpec, b::TypeSpec)::Bool
     local lst2::List{TypeSpec}
     local i1::Ident
     local i2::Ident
-    local pos1::Integer
-    local pos2::Integer
+    local pos1::Int
+    local pos2::Int
     #=  first try full equality
     =#
     @matchcontinue (a, b) begin
@@ -1945,9 +1945,9 @@ function pathString(
   local s::String
   local p1::Path
   local p2::Path
-  local count::Integer = 0
-  local len::Integer = 0
-  local dlen::Integer = stringLength(delimiter)
+  local count::Int = 0
+  local len::Int = 0
+  local dlen::Int = stringLength(delimiter)
   local b::Bool
 
   #=  First, calculate the length of the string to be generated
@@ -1999,15 +1999,15 @@ I rewrote this to not use the string allocator - John
 """
 function pathStringWork(
   inPath::Path,
-  len::Integer,
+  len::Int,
   delimiter::String,
-  dlen::Integer,
+  dlen::Int,
   reverse::Bool,
 )::String
   local s::String = ""
   local p::Path = inPath
   local b::Bool = true
-  local count::Integer = 0
+  local count::Int = 0
   #=  Allocate a string of the exact required length
   =#
   local sb = IOBuffer() #System.StringAllocator = System.StringAllocator(len)
@@ -2071,8 +2071,8 @@ function pathStringDefault(path::Path)::String
   return s
 end
 
-function classNameCompare(c1::Class, c2::Class)::Integer
-  local o::Integer
+function classNameCompare(c1::Class, c2::Class)::Int
+  local o::Int
 
   @assign o = stringCompare(c1.name, c2.name)
   return o
@@ -2085,8 +2085,8 @@ function classNameGreater(c1::Class, c2::Class)::Bool
   return b
 end
 
-function pathCompare(ip1::Path, ip2::Path)::Integer
-  local o::Integer
+function pathCompare(ip1::Path, ip2::Path)::Int
+  local o::Int
 
   @assign o = begin
     local p1::Path
@@ -2132,8 +2132,8 @@ function pathCompare(ip1::Path, ip2::Path)::Integer
   return o
 end
 
-function pathCompareNoQual(ip1::Path, ip2::Path)::Integer
-  local o::Integer
+function pathCompareNoQual(ip1::Path, ip2::Path)::Int
+  local o::Int
 
   @assign o = begin
     local p1::Path
@@ -2176,8 +2176,8 @@ function pathCompareNoQual(ip1::Path, ip2::Path)::Integer
 end
 
 """Hashes a path."""
-function pathHashMod(path::Path, mod::Integer)::Integer
-  local hash::Integer
+function pathHashMod(path::Path, mod::Int)::Int
+  local hash::Int
 
   #=  hash := valueHashMod(path,mod);
   =#
@@ -2198,7 +2198,7 @@ ignores the qualification marker), so two pathEqual paths always hash equal. Use
 mod-based `pathHashMod` perturbs the accumulator for FULLYQUALIFIED and is NOT consistent
 with pathEqual.)
 """
-function pathHash(path::Path)::Integer
+function pathHash(path::Path)::Int
   return Int(signed(pathHashWork(path, UInt64(5381))))
 end
 
@@ -2211,14 +2211,14 @@ function pathHashWork(path::Path, acc::UInt64)::UInt64
 end
 
 """Hashes a path."""
-function pathHashModWork(path::Path, acc::Integer)::Integer
-  local hash::Integer
+function pathHashModWork(path::Path, acc::Int)::Int
+  local hash::Int
 
   @assign hash = begin
     local p::Path
     local s::String
-    local i::Integer
-    local i2::Integer
+    local i::Int
+    local i2::Int
     @match (path, acc) begin
       (FULLYQUALIFIED(p), _) => begin
         pathHashModWork(p, acc * 31 + 46)
@@ -4603,7 +4603,7 @@ function expEqual(exp1::Exp, exp2::Exp)::Bool
     local b::Bool
     local x::Exp
     local y::Exp
-    local i::Integer
+    local i::Int
     local r::String
     #=  real vs. integer
     =#
@@ -4745,8 +4745,8 @@ function iteratorIndexedCrefsEqual(
 
   local cr1::ComponentRef
   local cr2::ComponentRef
-  local idx1::Integer
-  local idx2::Integer
+  local idx1::Int
+  local idx2::Int
 
   @assign (cr1, idx1) = inCref1
   @assign (cr2, idx2) = inCref2
@@ -4773,7 +4773,7 @@ function getIteratorIndexedCrefs(
 
   @assign outCrefs = begin
     local subs::List{Subscript}
-    local idx::Integer
+    local idx::Int
     local name::String
     local id::String
     local cref::ComponentRef
@@ -7663,8 +7663,8 @@ function isInvariantExpNoTraverse(e::Absyn.Exp, b::Bool)::Tuple{Absyn.Exp, Bool}
 end
 
 """Returns the number of parts a path consists of, e.g. A.B.C gives 3."""
-function pathPartCount(path::Path, partsAccum::Integer = 0)::Integer
-  local parts::Integer
+function pathPartCount(path::Path, partsAccum::Int = 0)::Int
+  local parts::Int
 
   @assign parts = begin
     @match path begin

@@ -3796,8 +3796,8 @@ function mapCref!(cref::COMPONENT_REF_CREF, @nospecialize(func::Function)) ::Com
     tmp = Subscript[mapExp(s, func) for s in cref.subscripts]
     subs = arrayList(tmp)
     rest = cref.restCref
-    cref.restCref = rest
-    cref.subscripts = subs
+    @assign cref.restCref = rest
+    @assign cref.subscripts = subs
     cref = rest
   end
   return outCref

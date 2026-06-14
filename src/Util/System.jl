@@ -74,24 +74,24 @@ end
   We fix negative values to -1 and positive to +1 so
   we can pattern match on them directly in MetaModelica!
 """
-function strcmp(inString1::String, inString2::String) ::Integer
-  local outInteger::Integer
+function strcmp(inString1::String, inString2::String) ::Int
+  local outInteger::Int
 
   @error "TODO: Defined in the runtime"
   outInteger
 end
 
 """Like strcmp, but also takes offset and lengths of the strings in order to avoid building them through substring"""
-function strcmp_offset(string1::String, offset1::Integer, length1::Integer, string2::String, offset2::Integer, length2::Integer) ::Integer
-  local outInteger::Integer
+function strcmp_offset(string1::String, offset1::Int, length1::Int, string2::String, offset2::Int, length2::Int) ::Int
+  local outInteger::Int
 
   @error "TODO: Defined in the runtime"
   outInteger
 end
 
 """locates substring searchStr in str. If succeeds return position (starting from 0), otherwise return -1"""
-function stringFind(str::String, searchStr::String) ::Integer
-  local outInteger::Integer
+function stringFind(str::String, searchStr::String) ::Int
+  local outInteger::Int
 
   @error "TODO: Defined in the runtime"
   outInteger
@@ -116,16 +116,16 @@ end
   => {\\\" ipsum dolor \\\",\\\"ipsum\\\",\\\"dolor\\\"}
   This means if you have n groups, you want maxMatches=n+1
 """
-function regex(str::String, re::String, maxMatches::Integer #= The maximum number of matches that will be returned =#, extended::Bool = false #= Use POSIX extended or regular syntax =#, ignoreCase::Bool = false) ::Tuple{Integer, List{String}}
+function regex(str::String, re::String, maxMatches::Int #= The maximum number of matches that will be returned =#, extended::Bool = false #= Use POSIX extended or regular syntax =#, ignoreCase::Bool = false) ::Tuple{Integer, List{String}}
   local strs::List{String} #= This list has length = maxMatches. Substrings that did not match are filled with the empty string =#
-  local numMatches::Integer #= 0 means no match, else returns a number 1..maxMatches (1 if maxMatches<0) =#
+  local numMatches::Int #= 0 means no match, else returns a number 1..maxMatches (1 if maxMatches<0) =#
 
   @error "TODO: Defined in the runtime"
   (numMatches #= 0 means no match, else returns a number 1..maxMatches (1 if maxMatches<0) =#, strs #= This list has length = maxMatches. Substrings that did not match are filled with the empty string =#)
 end
 
-function strncmp(inString1::String, inString2::String, len::Integer) ::Integer
-  local outInteger::Integer
+function strncmp(inString1::String, inString2::String, len::Int) ::Int
+  local outInteger::Int
 
   @error "TODO: Defined in the runtime"
   outInteger
@@ -238,25 +238,25 @@ function getLDFlags() ::String
   outString
 end
 
-function loadLibrary(inLib::String, inPrintDebug::Bool) ::Integer
-  local outLibHandle::Integer
+function loadLibrary(inLib::String, inPrintDebug::Bool) ::Int
+  local outLibHandle::Int
 
   @error "TODO: Defined in the runtime"
   outLibHandle
 end
 
-function lookupFunction(inLibHandle::Integer, inFunc::String) ::Integer
-  local outFuncHandle::Integer
+function lookupFunction(inLibHandle::Int, inFunc::String) ::Int
+  local outFuncHandle::Int
 
   @error "TODO: Defined in the runtime"
   outFuncHandle
 end
 
-function freeFunction(inFuncHandle::Integer, inPrintDebug::Bool)
+function freeFunction(inFuncHandle::Int, inPrintDebug::Bool)
   @error "TODO: Defined in the runtime"
 end
 
-function freeLibrary(inLibHandle::Integer, inPrintDebug::Bool)
+function freeLibrary(inLibHandle::Int, inPrintDebug::Bool)
   @error "TODO: Defined in the runtime"
 end
 
@@ -277,8 +277,8 @@ function readFile(inString::String) ::String
   outString
 end
 
-function systemCall(command::String, outFile::String = "" #= empty file means no redirection unless it is part of the command =#) ::Integer
-  local outInteger::Integer
+function systemCall(command::String, outFile::String = "" #= empty file means no redirection unless it is part of the command =#) ::Int
+  local outInteger::Int
 
   @error "TODO: Defined in the runtime"
   outInteger
@@ -286,22 +286,22 @@ end
 
 """Run the command and return the stdout as a string"""
 function popen(command::String) ::Tuple{String, Integer}
-  local status::Integer
+  local status::Int
   local contents::String
 
   @error "TODO: Defined in the runtime"
   (contents, status)
 end
 
-function systemCallParallel(inStrings::List{<:String}, numThreads::Integer) ::List{Integer}
+function systemCallParallel(inStrings::List{<:String}, numThreads::Int) ::List{Integer}
   local outIntegers::List{Integer}
 
   @error "TODO: Defined in the runtime"
   outIntegers
 end
 
-function spawnCall(path::String #= The absolute path to the executable =#, str::String #= The list of arguments with executable =#) ::Integer
-  local outInteger::Integer
+function spawnCall(path::String #= The absolute path to the executable =#, str::String #= The list of arguments with executable =#) ::Int
+  local outInteger::Int
 
   @error "TODO: Defined in the runtime"
   outInteger
@@ -318,8 +318,8 @@ function plotCallBack(externalWindow::Bool, filename::String, title::String, gri
   @error "TODO: Defined in the runtime"
 end
 
-function cd(inString::String) ::Integer
-  local outInteger::Integer
+function cd(inString::String) ::Int
+  local outInteger::Int
 
   @error "TODO: Defined in the runtime"
   outInteger
@@ -354,8 +354,8 @@ function readEnv(inString::String) ::String
   outString
 end
 
-function setEnv(varName::String, value::String, overwrite::Bool #= is always true on Windows, so recommended to always call it using true =#) ::Integer
-  local outInteger::Integer
+function setEnv(varName::String, value::String, overwrite::Bool #= is always true on Windows, so recommended to always call it using true =#) ::Int
+  local outInteger::Int
 
   @error "TODO: Defined in the runtime"
   outInteger
@@ -406,8 +406,8 @@ function regularFileExists(inString::String) ::Bool
 end
 
 """Removes a file, returns 0 if suceeds, implemented using remove() in stdio.h"""
-function removeFile(fileName::String) ::Integer
-  local res::Integer
+function removeFile(fileName::String) ::Int
+  local res::Int
 
   @error "TODO: Defined in the runtime"
   res
@@ -501,12 +501,12 @@ end
   since the Epoch (00:00:00 UTC, January 1, 1970).
 """
 function getCurrentDateTime() ::Tuple{Integer, Integer, Integer, Integer, Integer, Integer}
-  local year::Integer
-  local mon::Integer
-  local mday::Integer
-  local hour::Integer
-  local min::Integer
-  local sec::Integer
+  local year::Int
+  local mon::Int
+  local mday::Int
+  local hour::Int
+  local min::Int
+  local sec::Int
 
   @error "TODO: Defined in the runtime"
   (sec, min, hour, mday, mon, year)
@@ -640,8 +640,8 @@ function getHasInnerOuterDefinitions() ::Bool
 end
 
 """returns a tick that can be reset"""
-function tmpTick() ::Integer
-  local tickNo::Integer
+function tmpTick() ::Int
+  local tickNo::Int
 
   @assign tickNo = tmpTickIndex(index = 0)
   tickNo
@@ -650,7 +650,7 @@ end
 """
 Resets the tick so it restarts on start
 """
-function tmpTickReset(start::Integer)
+function tmpTickReset(start::Int)
   setGlobalRoot(Global.tmpTickIndex, start)
 end
 
@@ -667,25 +667,25 @@ end
   returns a tick that can be reset and reserves N values in it.
   TODO: remove me when bootstrapped (default argument index=0)
 """
-function tmpTickIndexReserve(index::Integer, reserve::Integer #= current tick + reserve =#) ::Integer
-  local tickNo::Integer = getGlobalRoot(index)
+function tmpTickIndexReserve(index::Int, reserve::Int #= current tick + reserve =#) ::Int
+  local tickNo::Int = getGlobalRoot(index)
   setGlobalRoot(index, tickNo + reserve)
   return tickNo
 end
 
 """resets the tick so it restarts on start. TODO: remove me when bootstrapped (default argument index=0)"""
-function tmpTickResetIndex(start::Integer, index::Integer)
+function tmpTickResetIndex(start::Int, index::Int)
   setGlobalRoot(index, start)
 end
 
 """sets the index, like tmpTickResetIndex, but does not reset the maximum counter"""
-function tmpTickSetIndex(start::Integer, index::Integer)
+function tmpTickSetIndex(start::Int, index::Int)
   setGlobalRoot(index, start)
 end
 
 """returns the max tick since the last reset"""
-function tmpTickMaximum(index::Integer) ::Integer
-  local maxIndex::Integer = getGlobalRoot(index)
+function tmpTickMaximum(index::Int) ::Int
+  local maxIndex::Int = getGlobalRoot(index)
   return maxIndex
 end
 
@@ -701,8 +701,8 @@ function userIsRoot() ::Bool
   isRoot
 end
 
-function getuid() ::Integer
-  local uid::Integer
+function getuid() ::Int
+  local uid::Int
 
   @error "TODO: Defined in the runtime"
   uid
@@ -712,7 +712,7 @@ end
   Tock returns the time since the last tock; undefined if tick was never called.
   The clock index is 0-31. The function fails if the number is out of range.
 """
-function realtimeTick(clockIndex::Integer)
+function realtimeTick(clockIndex::Int)
   @error "TODO: Defined in the runtime"
 end
 
@@ -720,7 +720,7 @@ end
   Tock returns the time since the last tock, undefined if tick was never called.
   The clock index is 0-31. The function fails if the number is out of range.
 """
-function realtimeTock(clockIndex::Integer) ::AbstractFloat
+function realtimeTock(clockIndex::Int) ::AbstractFloat
   local outTime::AbstractFloat
 
   @error "TODO: Defined in the runtime"
@@ -731,7 +731,7 @@ end
   Clears the timer.
   The clock index is 0-31. The function fails if the number is out of range.
 """
-function realtimeClear(clockIndex::Integer)
+function realtimeClear(clockIndex::Int)
   @error "TODO: Defined in the runtime"
 end
 
@@ -739,8 +739,8 @@ end
   Returns the number of ticks since last clear.
   The clock index is 0-31. The function fails if the number is out of range.
 """
-function realtimeNtick(clockIndex::Integer) ::Integer
-  local n::Integer
+function realtimeNtick(clockIndex::Int) ::Int
+  local n::Int
 
   @error "TODO: Defined in the runtime"
   n
@@ -845,8 +845,8 @@ end
   stop2) index 1
   stop1) index 0
 """
-function getTimerStackIndex() ::Integer
-  local stackIndex::Integer
+function getTimerStackIndex() ::Int
+  local stackIndex::Int
 
   @error "TODO: Defined in the runtime"
   stackIndex
@@ -906,8 +906,8 @@ end
   Calculates the C string length of the input, if the input was used as a string
   literal in C. For example unescapedStringLength('\\\"')=1, unescapedStringLength('ab')=2.
 """
-function unescapedStringLength(unescapedString::String) ::Integer
-  local length::Integer
+function unescapedStringLength(unescapedString::String) ::Int
+  local length::Int
 
   @error "TODO: Defined in the runtime"
   length
@@ -927,8 +927,8 @@ function unquoteIdentifier(str::String) ::String
 end
 
 """Returns the maximum integer that can be represent using this version of the compiler"""
-function intMaxLit() ::Integer
-  local outInt::Integer
+function intMaxLit() ::Int
+  local outInt::Int
 
   @error "TODO: Defined in the runtime"
   outInt
@@ -1024,7 +1024,7 @@ end
   singular, so the solution could not be computed.
 """
 function dgesv(A::List{<:List{<:AbstractFloat}}, B::List{<:AbstractFloat}) ::Tuple{List{AbstractFloat}, Integer}
-  local info::Integer
+  local info::Int
   local X::List{AbstractFloat}
 
   @error "TODO: Defined in the runtime"
@@ -1033,14 +1033,14 @@ end
 
 """lpsolve55"""
 function lpsolve55(A::List{<:List{<:AbstractFloat}}, B::List{<:AbstractFloat}, intIndices::List{<:Integer}) ::Tuple{List{AbstractFloat}, Integer}
-  local info::Integer
+  local info::Int
   local X::List{AbstractFloat}
 
   @error "TODO: Defined in the runtime"
   (X, info)
 end
 
-function reopenStandardStream(_stream::Integer #= stdin,stdout,stderr =#, filename::String) ::Bool
+function reopenStandardStream(_stream::Int #= stdin,stdout,stderr =#, filename::String) ::Bool
   local success::Bool
 
   @error "TODO: Defined in the runtime"
@@ -1062,7 +1062,7 @@ end
 #= /* Print errors */ =#
 
 """sprintf format string that takes one double as argument"""
-function snprintff(format::String, maxlen::Integer, val::AbstractFloat) ::String
+function snprintff(format::String, maxlen::Int, val::AbstractFloat) ::String
   local buf = zeros(UInt8, maxlen)
   local n = ccall(:snprintf, Cint, (Ptr{UInt8}, Csize_t, Cstring, Cdouble), buf, maxlen, format, val)
   return unsafe_string(pointer(buf), min(n, maxlen - 1))
@@ -1095,24 +1095,24 @@ end
   Returns a integer value in the interval (0,n].
   The number of possible values is n, the maximum value n-1.
 """
-function intRand(n::Integer) ::Integer
-  local i::Integer
+function intRand(n::Int) ::Int
+  local i::Int
 
   @assign i = integer(realRand() * n)
   i
 end
 
 """Returns a value in the interval [0,n)"""
-function intRandom(n::Integer) ::Integer
-  local ret::Integer
+function intRandom(n::Int) ::Int
+  local ret::Int
 
   @assign ret = intMod(intRandom0(), n)
   ret
 end
 
 """Returns a value in the intervals [0,RAND_MAX) using the C method rand()."""
-function intRandom0() ::Integer
-  local ret::Integer
+function intRandom0() ::Int
+  local ret::Int
 
   @error "TODO: Defined in the runtime"
   ret
@@ -1138,8 +1138,8 @@ function anyStringCode(any::Any) ::String
   str
 end
 
-function numBits() ::Integer
-  local n::Integer
+function numBits() ::Int
+  local n::Int
 
   @error "TODO: Defined in the runtime"
   n
@@ -1159,8 +1159,8 @@ function getSimulationHelpText(detailed::Bool = false, sphinx::Bool = false) ::S
   text
 end
 
-function getTerminalWidth() ::Integer
-  local width::Integer
+function getTerminalWidth() ::Int
+  local width::Int
 
   @error "TODO: Defined in the runtime"
   width
@@ -1187,8 +1187,8 @@ function rename(source::String, dest::String) ::Bool
   result
 end
 
-function numProcessors() ::Integer
-  local result::Integer
+function numProcessors() ::Int
+  local result::Int
 
   @error "TODO: Defined in the runtime"
   result
@@ -1198,7 +1198,7 @@ end
   Takes a list of inputs and produces a list of Boolean (true if the function call was successful).
   The function is called by not using forks (experimental version using threads because fork doesn't play nice). Only returns if all functions return.
 """
-function launchParallelTasks(numThreads::Integer, inData::List{TI}, func::ForkFunction)  where {TI}
+function launchParallelTasks(numThreads::Int, inData::List{TI}, func::ForkFunction)  where {TI}
   local result::List{TO}
 
   @error "TODO: Defined in the runtime"
@@ -1206,7 +1206,7 @@ function launchParallelTasks(numThreads::Integer, inData::List{TI}, func::ForkFu
 end
 
 """Exits the compiler at this point with the given exit status."""
-function exit(status::Integer)
+function exit(status::Int)
   @error "TODO: Defined in the runtime"
 end
 
@@ -1243,8 +1243,8 @@ function stat(filename::String) ::Tuple{Bool, AbstractFloat, AbstractFloat}
   (success, st_size, st_mtime)
 end
 
-function alarm(seconds::Integer) ::Integer
-  local previousAlarm::Integer
+function alarm(seconds::Int) ::Int
+  local previousAlarm::Int
 
   @error "TODO: Defined in the runtime"
   previousAlarm
@@ -1304,9 +1304,9 @@ mutable struct StringAllocator
   io::IOBuffer
 end
 
-StringAllocator(::Integer = 0) = StringAllocator(IOBuffer())
+StringAllocator(::Int = 0) = StringAllocator(IOBuffer())
 
-function stringAllocatorStringCopy(dest::StringAllocator, source::AbstractString, destOffset::Integer = 0)
+function stringAllocatorStringCopy(dest::StringAllocator, source::AbstractString, destOffset::Int = 0)
   write(dest.io, source)
   return dest
 end

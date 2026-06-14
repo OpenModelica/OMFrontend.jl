@@ -1848,9 +1848,9 @@ end
   @match cref begin
     COMPONENT_REF_CREF(origin = Origin.SCOPE) => begin
       local crefTy = getType(cref.node)
-      #cref = COMPONENT_REF_CREF(cref.node, cref.subscripts, crefTy, cref.origin, cref.restCref)
-      cref.ty = crefTy
+      @assign cref.ty = crefTy
       variabilityTypeRef.x = Variability.CONSTANT
+      cref
     end
 
     COMPONENT_REF_CREF(node = COMPONENT_NODE(__)) => begin
@@ -1882,9 +1882,9 @@ end
       rest_cr = typeCref2(cref.restCref, origin, variabilityTypeRef, info, false)
       rest_var = variabilityTypeRef.x
       subsVariability = variabilityMax(subs_var, rest_var)
-      cref.subscripts = subs
-      cref.ty = node_ty
-      cref.restCref = rest_cr
+      @assign cref.subscripts = subs
+      @assign cref.ty = node_ty
+      @assign cref.restCref = rest_cr
       variabilityTypeRef.x = subsVariability
       cref
     end
@@ -1896,16 +1896,15 @@ end
       fn = fns[1]
       local crefTy = TYPE_FUNCTION(fn, FunctionType.FUNCTION_REFERENCE)
       local crefRestCref = typeCref2(cref.restCref, origin, info, false)
-      #cref = COMPONENT_REF_CREF(cref.node, cref.subscripts, crefTy, cref.origin, crefRestCref)
-      cref.ty = crefTy
-      cref.restCref = crefRestCref
+      @assign cref.ty = crefTy
+      @assign cref.restCref = crefRestCref
       variabilityTypeRef.x = Variability.CONTINUOUS
       cref
     end
 
     COMPONENT_REF_CREF(node = CLASS_NODE(__)) => begin
       local crefTy = getType(cref.node)
-      cref.ty = crefTy # COMPONENT_REF_CREF(cref.node, cref.subscripts, crefTy, cref.origin, cref.restCref)
+      @assign cref.ty = crefTy
       variabilityTypeRef.x = Variability.CONSTANT
       cref
     end

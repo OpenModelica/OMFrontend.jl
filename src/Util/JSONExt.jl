@@ -49,7 +49,7 @@ function serialize(any::T, filter::List{String}) where {T}
   local name::String
   local components::List{String}
   local lst::List{String}
-  local no::Integer = 1
+  local no::Int = 1
 
   if isInteger(any)
     @assign s = intString(getInteger(any))
@@ -205,7 +205,7 @@ function getRecordNamesHelper(any::T) where {T}
   return nameAndComponentsNames
 end
 
-function getRecordComponent(iany::TIN, offset::Integer) where {TIN, TOUT}
+function getRecordComponent(iany::TIN, offset::Int) where {TIN, TOUT}
   local oany::TOUT
 
   @error "TODO: Defined in the runtime"
@@ -213,7 +213,7 @@ function getRecordComponent(iany::TIN, offset::Integer) where {TIN, TOUT}
 end
 
 function getInteger(a::T) where {T}
-  local i::Integer
+  local i::Int
 
   @error "TODO: Defined in the runtime"
   return i
@@ -241,7 +241,7 @@ function getSome(a::TIN) where {TIN, TOUT}
 end
 
 function getTupleSize(any::T) where {T}
-  local sz::Integer
+  local sz::Int
 
   @error "TODO: Defined in the runtime"
   return sz
@@ -254,7 +254,7 @@ function getList(iany::TIN) where {TIN, TOUT}
   return oany
 end
 
-function getListElement(iany::TIN, offset::Integer) where {TIN, TOUT}
+function getListElement(iany::TIN, offset::Int) where {TIN, TOUT}
   local oany::TOUT
 
   @error "TODO: Defined in the runtime"

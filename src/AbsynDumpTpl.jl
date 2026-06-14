@@ -386,7 +386,7 @@ function lm_18(
     local txt::Tpl.Text
     local rest::List{Absyn.ClassPart}
     local a_options::Dump.DumpOptions
-    local x_idx::Integer
+    local x_idx::Int
     local i_class__part::Absyn.ClassPart
     @match (in_txt, in_items, in_a_options) begin
       (txt, nil(), _) => begin
@@ -496,7 +496,7 @@ function lm_22(
     local txt::Tpl.Text
     local rest::List{Absyn.ClassPart}
     local a_options::Dump.DumpOptions
-    local x_idx::Integer
+    local x_idx::Int
     local i_class__part::Absyn.ClassPart
     @match (in_txt, in_items, in_a_options) begin
       (txt, nil(), _) => begin
@@ -1350,7 +1350,7 @@ function dumpRestriction(in_txt::Tpl.Text, in_a_restriction::Absyn.Restriction):
   return out_txt
 end
 
-function fun_41(in_txt::Tpl.Text, in_a_idx::Integer)::Tpl.Text
+function fun_41(in_txt::Tpl.Text, in_a_idx::Int)::Tpl.Text
   local out_txt::Tpl.Text
 
   @assign out_txt = begin
@@ -1716,14 +1716,14 @@ end
 function dumpClassPart(
   in_txt::Tpl.Text,
   in_a_class__part::Absyn.ClassPart,
-  in_a_idx::Integer,
+  in_a_idx::Int,
   in_a_options::Dump.DumpOptions,
 )::Tpl.Text
   local out_txt::Tpl.Text
 
   @assign out_txt = begin
     local txt::Tpl.Text
-    local a_idx::Integer
+    local a_idx::Int
     local a_options::Dump.DumpOptions
     local i_externalDecl::Absyn.ExternalDecl
     local i_annotation__::Option{Absyn.Annotation}
@@ -2480,10 +2480,10 @@ function dumpInfo(in_txt::Tpl.Text, in_a_info::SourceInfo)::Tpl.Text
 
   @assign out_txt = begin
     local txt::Tpl.Text
-    local i_columnNumberEnd::Integer
-    local i_lineNumberEnd::Integer
-    local i_columnNumberStart::Integer
-    local i_lineNumberStart::Integer
+    local i_columnNumberEnd::Int
+    local i_lineNumberEnd::Int
+    local i_columnNumberStart::Int
+    local i_lineNumberStart::Int
     local i_fileName::String
     local i_isReadOnly::Bool
     local l_rm__str::Tpl.Text
@@ -5130,7 +5130,7 @@ function dumpExp(in_txt::Tpl.Text, in_a_exp::Absyn.Exp)::Tpl.Text
     local i_value_2::Bool
     local i_componentRef::Absyn.ComponentRef
     local i_value_1::String
-    local i_value::Integer
+    local i_value::Int
     local l_list__str::Tpl.Text
     local l_rest__str::Tpl.Text
     local l_head__str::Tpl.Text
