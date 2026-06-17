@@ -381,7 +381,7 @@ end
 =#
 #=  mistakes it for the builtin size).
 =#
-@ExtendedFunction length size()
+length(inVector::Vector)::Int = size(inVector)
 
 """Returns true if the Vector is empty, otherwise false."""
 function isEmpty(inVector::Vector)::Bool
