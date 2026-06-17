@@ -54,7 +54,7 @@ import ListUtil
   @Record INFO begin
 
     fmiVersion::String
-    fmiType::Integer
+    fmiType::Int
     fmiModelName::String
     fmiModelIdentifier::String
     fmiGuid::String
@@ -73,8 +73,8 @@ end
     name::String
     description::String
     quantity::String
-    min::Integer
-    max::Integer
+    min::Int
+    max::Int
     items::List{EnumerationItem}
   end
 end
@@ -99,7 +99,7 @@ end
 @Uniontype ModelVariables begin
   @Record REALVARIABLE begin
 
-    instance::Integer
+    instance::Int
     name::String
     description::String
     baseType::String
@@ -109,33 +109,33 @@ end
     startValue::AbstractFloat
     isFixed::Bool
     valueReference::AbstractFloat
-    x1Placement::Integer
-    x2Placement::Integer
-    y1Placement::Integer
-    y2Placement::Integer
+    x1Placement::Int
+    x2Placement::Int
+    y1Placement::Int
+    y2Placement::Int
   end
 
   @Record INTEGERVARIABLE begin
 
-    instance::Integer
+    instance::Int
     name::String
     description::String
     baseType::String
     variability::String
     causality::String
     hasStartValue::Bool
-    startValue::Integer
+    startValue::Int
     isFixed::Bool
     valueReference::AbstractFloat
-    x1Placement::Integer
-    x2Placement::Integer
-    y1Placement::Integer
-    y2Placement::Integer
+    x1Placement::Int
+    x2Placement::Int
+    y1Placement::Int
+    y2Placement::Int
   end
 
   @Record BOOLEANVARIABLE begin
 
-    instance::Integer
+    instance::Int
     name::String
     description::String
     baseType::String
@@ -145,15 +145,15 @@ end
     startValue::Bool
     isFixed::Bool
     valueReference::AbstractFloat
-    x1Placement::Integer
-    x2Placement::Integer
-    y1Placement::Integer
-    y2Placement::Integer
+    x1Placement::Int
+    x2Placement::Int
+    y1Placement::Int
+    y2Placement::Int
   end
 
   @Record STRINGVARIABLE begin
 
-    instance::Integer
+    instance::Int
     name::String
     description::String
     baseType::String
@@ -163,28 +163,28 @@ end
     startValue::String
     isFixed::Bool
     valueReference::AbstractFloat
-    x1Placement::Integer
-    x2Placement::Integer
-    y1Placement::Integer
-    y2Placement::Integer
+    x1Placement::Int
+    x2Placement::Int
+    y1Placement::Int
+    y2Placement::Int
   end
 
   @Record ENUMERATIONVARIABLE begin
 
-    instance::Integer
+    instance::Int
     name::String
     description::String
     baseType::String
     variability::String
     causality::String
     hasStartValue::Bool
-    startValue::Integer
+    startValue::Int
     isFixed::Bool
     valueReference::AbstractFloat
-    x1Placement::Integer
-    x2Placement::Integer
-    y1Placement::Integer
-    y2Placement::Integer
+    x1Placement::Int
+    x2Placement::Int
+    y1Placement::Int
+    y2Placement::Int
   end
 end
 
@@ -194,7 +194,7 @@ end
     platform::String
     fmuFileName::String
     fmuWorkingDirectory::String
-    fmiLogLevel::Integer
+    fmiLogLevel::Int
     fmiDebugOutput::Bool
     fmiContext::Option{Integer}
     fmiInstance::Option{Integer}

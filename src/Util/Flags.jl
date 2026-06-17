@@ -103,7 +103,7 @@ end
 
   @Record ENUM_FLAG begin
 
-    data::Integer
+    data::Int
     validValues::List{Tuple{String, Integer}} #= The valid values of the enum. =#
   end
 end
@@ -146,15 +146,15 @@ end
 #=  Change this to a proper enum when we have support for them.
 =#
 
-const MODELICA = 1::Integer
+const MODELICA = 1::Int
 
-const METAMODELICA = 2::Integer
+const METAMODELICA = 2::Int
 
-const PARMODELICA = 3::Integer
+const PARMODELICA = 3::Int
 
-const OPTIMICA = 4::Integer
+const OPTIMICA = 4::Int
 
-const PDEMODELICA = 5::Integer
+const PDEMODELICA = 5::Int
 
 const collapseArrayExpressionsText =
   Gettext.gettext("Simplifies {x[1],x[2],x[3]} → x for arrays of whole variable references (simplifies code generation).")::Gettext.TranslatableContent
@@ -3516,8 +3516,8 @@ function getConfigStringList(inFlag::ConfigFlag)::List{String}
 end
 
 """Returns the value of an enumeration configuration flag."""
-function getConfigEnum(inFlag::ConfigFlag)::Integer
-  local outValue::Integer
+function getConfigEnum(inFlag::ConfigFlag)::Int
+  local outValue::Int
 
   @match ENUM_FLAG(data = outValue) = getConfigValue(inFlag)
   return outValue

@@ -633,7 +633,7 @@ function applyReplacementsExp(
 end
 
 """create an array of n empty replacements"""
-function emptyReplacementsArray(n::Integer)::Array{VariableReplacements}
+function emptyReplacementsArray(n::Int)::Array{VariableReplacements}
   local repl::Array{VariableReplacements}
 
   @assign repl = listArray(emptyReplacementsArray2(n))
@@ -641,7 +641,7 @@ function emptyReplacementsArray(n::Integer)::Array{VariableReplacements}
 end
 
 """help function"""
-function emptyReplacementsArray2(n::Integer)::List{VariableReplacements}
+function emptyReplacementsArray2(n::Int)::List{VariableReplacements}
   local replLst::List{VariableReplacements}
 
   @assign replLst = begin
@@ -687,7 +687,7 @@ function emptyReplacements()::VariableReplacements
 end
 
 """Returns an empty set of replacement rules, giving a size of hashtables to allocate"""
-function emptyReplacementsSized(size::Integer)::VariableReplacements
+function emptyReplacementsSized(size::Int)::VariableReplacements
   local outVariableReplacements::VariableReplacements
 
   @assign outVariableReplacements = begin
@@ -748,7 +748,7 @@ function replaceEquationsStmts(
     local iterIsArray::Bool
     local el::DAE.Else
     local el_1::DAE.Else
-    local ix::Integer
+    local ix::Int
     @matchcontinue (inAlgorithmStatementLst, repl, condExpFunc) begin
       (nil(), _, _) => begin
         (nil, false)
@@ -986,7 +986,7 @@ function dumpReplacements(inVariableReplacements::VariableReplacements)
   return @assign _ = begin
     local str::String
     local len_str::String
-    local len::Integer
+    local len::Int
     local ht::HashTable2.HashTable
     local tplLst::List{Tuple{DAE.ComponentRef, DAE.Exp}}
     @match inVariableReplacements begin
@@ -1025,7 +1025,7 @@ function dumpReplacementsStr(inVariableReplacements::VariableReplacements)::Stri
     local str::String
     local len_str::String
     local s1::String
-    local len::Integer
+    local len::Int
     local ht::HashTable2.HashTable
     local tplLst::List{Tuple{DAE.ComponentRef, DAE.Exp}}
     @match inVariableReplacements begin
@@ -1576,7 +1576,7 @@ function replaceExpRepeated(
   e::DAE.Exp,
   repl::VariableReplacements,
   func::Option{<:VisitFunc},
-  maxIter::Integer,
+  maxIter::Int,
 )::DAE.Exp #= max iterations =#
   local outExp::DAE.Exp
 
@@ -1589,8 +1589,8 @@ function replaceExpRepeated2(
   e::DAE.Exp,
   repl::VariableReplacements,
   func::Option{<:VisitFunc},
-  maxIter::Integer,
-  i::Integer,
+  maxIter::Int,
+  i::Int,
   equal::Bool,
 )::DAE.Exp
   local outExp::DAE.Exp

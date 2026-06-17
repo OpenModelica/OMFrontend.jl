@@ -935,7 +935,8 @@ end
 function instantiate(
   clsNode::CLASS_NODE,
   instance::InstNode,
-  scope::InstNode = EMPTY_NODE(),
+  scope::InstNode = EMPTY_NODE();
+  sharedExcept::Union{Nothing, Set{String}} = nothing,
   )::Tuple{CLASS_NODE, InstNode, Int, Int} #where {CLS_NODE}
   local compCount::Int = 0
   local classCount::Int = 0
@@ -1068,8 +1069,15 @@ function instantiate(
       for c in old_comps
           @match c begin
             COMPONENT_NODE(__) => begin
-              #=  Set the component's parent and create a unique instance for it. =#
-              node = setParentAndReplaceComponent(instance, c)
+              #=  Set the component's parent and create a unique instance for it.
+                  Immutable TYPE_ATTRIBUTE nodes are shared (reused + frozen)
+                  instead of copied; mutators copy-on-write. =#
+              node = if SHARE_ATTRS[] && sharedExcept !== nothing && c.component isa TYPE_ATTRIBUTE && !(c.name in sharedExcept)
+                push!(FROZEN_ATTR_NODES, c)
+                c
+              else
+                setParentAndReplaceComponent(instance, c)
+              end
               #=
               If the component is outer, link it with the corresponding inner component.
               =#
@@ -1129,7 +1137,13 @@ function instantiate(
         end
         old_comps = arrayCopy(old_comps)
         for i = 1:arrayLength(old_comps)
-          old_comps[i] = setParentAndReplaceComponent(instance, old_comps[i])
+          local oc = old_comps[i]
+          old_comps[i] = if SHARE_ATTRS[] && sharedExcept !== nothing && oc isa COMPONENT_NODE && oc.component isa TYPE_ATTRIBUTE && !(oc.name in sharedExcept)
+            push!(FROZEN_ATTR_NODES, oc)
+            oc
+          else
+            setParentAndReplaceComponent(instance, oc)
+          end
         end
         tree = CLASS_TREE_FLAT_TREE(tree.tree, tree.classes, old_comps, tree.imports, tree.duplicates)
         cls = PARTIAL_BUILTIN(cls.ty, tree, cls.modifier, cls.prefixes, cls.restriction)

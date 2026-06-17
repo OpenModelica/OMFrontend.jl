@@ -66,8 +66,8 @@ import Frontend.MetaModelica.Dangerous
 
     root::Node #= The tree containing the elements. =#
     tail::Array{Node} #= The last added elements. =#
-    size::Integer #= The number of elements in the Vector. =#
-    shift::Integer #= Height of the tree * 5. =#
+    size::Int #= The number of elements in the Vector. =#
+    shift::Int #= Height of the tree * 5. =#
   end
 end
 
@@ -111,8 +111,8 @@ function add(inVector::Vector, inValue::T)::Vector
     local nodes::Array{Node}
     local root::Node
     local tail_node::Node
-    local sz::Integer
-    local shift::Integer
+    local sz::Int
+    local shift::Int
     #=  Space left in the tail, insert the value in the tail.
     =#
     @match outVector begin
@@ -146,11 +146,11 @@ function addList(inVector::Vector, inList::List{<:T})::Vector
 
   local tail::Array{Node}
   local root::Node
-  local sz::Integer
-  local shift::Integer
-  local tail_len::Integer
-  local list_len::Integer
-  local rest_len::Integer
+  local sz::Int
+  local shift::Int
+  local tail_len::Int
+  local list_len::Int
+  local rest_len::Int
   local rest::List{T} = inList
   local node_lst::List{Node}
   local e::T
@@ -211,10 +211,10 @@ function addList(inVector::Vector, inList::List{<:T})::Vector
 end
 
 """Returns the element at the given index. Fails if the index is out of bounds."""
-function get(inVector::Vector, inIndex::Integer)::T
+function get(inVector::Vector, inIndex::Int)::T
   local outValue::T
 
-  local tail_off::Integer = tailOffset(length(inVector))
+  local tail_off::Int = tailOffset(length(inVector))
   local nodes::Array{Node}
 
   if inIndex <= tail_off
@@ -235,11 +235,11 @@ end
   Sets the element at the given index to the given value. Fails if the index is
   out of bounds.
 """
-function set(inVector::Vector, inIndex::Integer, inValue::T)::Vector
+function set(inVector::Vector, inIndex::Int, inValue::T)::Vector
   local outVector::Vector = inVector
 
   @assign outVector = begin
-    local tail_off::Integer
+    local tail_off::Int
     @match outVector begin
       VECTOR(__) => begin
         @match true = inIndex > 0 && inIndex <= outVector.size
@@ -281,8 +281,8 @@ function pop(inVector::Vector)::Vector
     local tail::Array{Node}
     local nodes::Array{Node}
     local root::Node
-    local sz::Integer
-    local shift::Integer
+    local sz::Int
+    local shift::Int
     #=  Fail if the Vector is empty.
     =#
     @match outVector begin
@@ -370,8 +370,8 @@ function fold(inVector::Vector, inFunc::FoldFunc, inStartValue::FT) where {FT}
 end
 
 """Returns the number of elements in the Vector."""
-function size(inVector::Vector)::Integer
-  local outSize::Integer
+function size(inVector::Vector)::Int
+  local outSize::Int
 
   @match VECTOR(size = outSize) = inVector
   return outSize
@@ -381,13 +381,13 @@ end
 =#
 #=  mistakes it for the builtin size).
 =#
-@ExtendedFunction length size()
+length(inVector::Vector)::Int = size(inVector)
 
 """Returns true if the Vector is empty, otherwise false."""
 function isEmpty(inVector::Vector)::Bool
   local outIsEmpty::Bool
 
-  local sz::Integer
+  local sz::Int
 
   @match VECTOR(size = sz) = inVector
   @assign outIsEmpty = sz == 0
@@ -426,8 +426,8 @@ end
 function printDebug(inVector::Vector)
   local root::Node
   local tail::Array{Node}
-  local sz::Integer
-  local shift::Integer
+  local sz::Int
+  local shift::Int
 
   @match VECTOR(root, tail, sz, shift) = inVector
   print("PVector(size = " + intString(sz) + ", shift = " + intString(shift) + "):\\n")
@@ -466,11 +466,11 @@ function printDebugNode(inNode::Node, inIndent::String)
 end
 
 """Helper function to set."""
-function nodeSet(inNode::Node, inIndex::Integer, inValue::Node, inLevel::Integer)::Node
+function nodeSet(inNode::Node, inIndex::Int, inValue::Node, inLevel::Int)::Node
   local outNode::Node
 
   local children::Array{Node}
-  local idx::Integer
+  local idx::Int
 
   @match NODE(children = children) = inNode
   @assign children = arrayCopy(children)
@@ -492,7 +492,7 @@ end
 function tailAdd(inTail::Array{<:Node}, inNode::Node)::Array{Node}
   local outTail::Array{Node}
 
-  local new_len::Integer = arrayLength(inTail) + 1
+  local new_len::Int = arrayLength(inTail) + 1
 
   @assign outTail = MetaModelica.Dangerous.arrayCreateNoInit(new_len, EMPTY())
   for i = 1:(new_len - 1)
@@ -506,10 +506,10 @@ end
 function pushTail(
   inRoot::Node,
   inTail::Array{<:Node},
-  inSize::Integer,
-  inShift::Integer,
+  inSize::Int,
+  inShift::Int,
 )::Tuple{Node, Integer}
-  local outShift::Integer
+  local outShift::Int
   local outRoot::Node
 
   local tail_node::Node = NODE(inTail)
@@ -537,11 +537,11 @@ function pushTail(
 end
 
 """Helper function to pushTail. Does the actual pushing."""
-function pushTail2(inNode::Node, inLevel::Integer, inSize::Integer, inTail::Node)::Node
+function pushTail2(inNode::Node, inLevel::Int, inSize::Int, inTail::Node)::Node
   local outNode::Node
 
   @assign outNode = begin
-    local idx::Integer
+    local idx::Int
     local children::Array{Node}
     local node::Node
     #=  A node, push the tail into it.
@@ -573,7 +573,7 @@ end
 function tailPop(inTail::Array{<:Node})::Array{Node}
   local outTail::Array{Node}
 
-  local new_len::Integer = arrayLength(inTail) - 1
+  local new_len::Int = arrayLength(inTail) - 1
 
   @assign outTail = MetaModelica.Dangerous.arrayCreateNoInit(new_len, EMPTY())
   for i = 1:new_len
@@ -583,10 +583,10 @@ function tailPop(inTail::Array{<:Node})::Array{Node}
 end
 
 """Removes the last tail added to the given node."""
-function popTail(inNode::Node, inLevel::Integer, inSize::Integer)::Node
+function popTail(inNode::Node, inLevel::Int, inSize::Int)::Node
   local outNode::Node
 
-  local idx::Integer
+  local idx::Int
   local children::Array{Node}
   local child::Node
 
@@ -624,12 +624,12 @@ function popTail(inNode::Node, inLevel::Integer, inSize::Integer)::Node
 end
 
 """Returns the parent to the node with the given index."""
-function nodeParent(inVector::Vector, inIndex::Integer)::Node
+function nodeParent(inVector::Vector, inIndex::Int)::Node
   local outNode::Node
 
   local node::Node
   local children::Array{Node}
-  local shift::Integer
+  local shift::Int
 
   @match VECTOR(root = outNode, shift = shift) = inVector
   for level = shift:(-5):1
@@ -643,8 +643,8 @@ end
   Returns the tail offset, i.e. the number of elements in the vector - the
   number of elements in the tail.
 """
-function tailOffset(inSize::Integer)::Integer
-  local outOffset::Integer = if inSize < 32
+function tailOffset(inSize::Int)::Int
+  local outOffset::Int = if inSize < 32
     0
   else
     intBitLShift(intBitRShift(inSize - 1, 5), 5)
@@ -665,7 +665,7 @@ function liftNode(inNode::Node)::Node
 end
 
 """Creates a new path of a given length with the given node as leaf."""
-function newPath(inNode::Node, inLevel::Integer)::Node
+function newPath(inNode::Node, inLevel::Int)::Node
   local outNode::Node
 
   @assign outNode = if inLevel > 0

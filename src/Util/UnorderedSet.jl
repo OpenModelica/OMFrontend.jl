@@ -55,7 +55,7 @@ function new(hashFn::Base.Function, eqFn::Base.Function)
   return UnorderedSet(Dict{Any,Bool}(), hashFn, eqFn)
 end
 
-function new(hashFn::Base.Function, eqFn::Base.Function, _bucketCount::Integer)
+function new(hashFn::Base.Function, eqFn::Base.Function, _bucketCount::Int)
   return UnorderedSet(Dict{Any,Bool}(), hashFn, eqFn)
 end
 
@@ -107,7 +107,7 @@ function first(s::UnorderedSet)
   return Base.first(Base.keys(s.data))
 end
 
-function size(s::UnorderedSet)::Integer
+function size(s::UnorderedSet)::Int
   return length(s.data)
 end
 

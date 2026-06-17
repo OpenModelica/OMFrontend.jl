@@ -78,15 +78,15 @@ module Config
           outBoolean
         end
 
-        function noProc() ::Integer
-              local outInteger::Integer
+        function noProc() ::Int
+              local outInteger::Int
 
               @assign outInteger = noProcWork(Flags.getConfigInt(Flags.NUM_PROC))
           outInteger
         end
 
-        function noProcWork(inProc::Integer) ::Integer
-              local outInteger::Integer
+        function noProcWork(inProc::Int) ::Int
+              local outInteger::Int
 
               @assign outInteger = begin
                 @match inProc begin
@@ -168,8 +168,8 @@ module Config
           booleans. This way more extensions can be added easily.
           usage: omc [-g=Modelica|MetaModelica|ParModelica|Optimica], default to 'Modelica'.
         """
-        function acceptedGrammar() ::Integer
-              local outGrammer::Integer
+        function acceptedGrammar() ::Int
+              local outGrammer::Int
 
               @assign outGrammer = Flags.getConfigEnum(Flags.GRAMMAR)
           outGrammer
@@ -262,28 +262,28 @@ module Config
           Returns the vectorization limit that is used to determine how large an array
           can be before it no longer is expanded by Static.crefVectorize.
         """
-        function vectorizationLimit() ::Integer
-              local limit::Integer
+        function vectorizationLimit() ::Int
+              local limit::Int
 
               @assign limit = Flags.getConfigInt(Flags.VECTORIZATION_LIMIT)
           limit
         end
 
         """Sets the vectorization limit, see vectorizationLimit above."""
-        function setVectorizationLimit(limit::Integer)
+        function setVectorizationLimit(limit::Int)
               FlagsUtil.setConfigInt(Flags.VECTORIZATION_LIMIT, limit)
         end
 
         """Returns the id for the default OpenCL device to be used."""
-        function getDefaultOpenCLDevice() ::Integer
-              local defdevid::Integer
+        function getDefaultOpenCLDevice() ::Int
+              local defdevid::Int
 
               @assign defdevid = Flags.getConfigInt(Flags.DEFAULT_OPENCL_DEVICE)
           defdevid
         end
 
         """Sets the default OpenCL device to be used."""
-        function setDefaultOpenCLDevice(defdevid::Integer)
+        function setDefaultOpenCLDevice(defdevid::Int)
               FlagsUtil.setConfigInt(Flags.DEFAULT_OPENCL_DEVICE, defdevid)
         end
 
@@ -402,14 +402,14 @@ module Config
               FlagsUtil.setConfigString(Flags.INDEX_REDUCTION_METHOD, inString)
         end
 
-        function getCheapMatchingAlgorithm() ::Integer
-              local outInteger::Integer
+        function getCheapMatchingAlgorithm() ::Int
+              local outInteger::Int
 
               @assign outInteger = Flags.getConfigInt(Flags.CHEAPMATCHING_ALGORITHM)
           outInteger
         end
 
-        function setCheapMatchingAlgorithm(inInteger::Integer)
+        function setCheapMatchingAlgorithm(inInteger::Int)
               FlagsUtil.setConfigInt(Flags.CHEAPMATCHING_ALGORITHM, inInteger)
         end
 
@@ -489,16 +489,16 @@ module Config
           outRes
         end
 
-        function languageStandardInt(inStandard::LanguageStandard) ::Integer
-              local outValue::Integer
+        function languageStandardInt(inStandard::LanguageStandard) ::Int
+              local outValue::Int
 
-              local lookup::Integer[LanguageStandard] = Array(10, 20, 30, 31, 32, 33, 1000)
+              local lookup::Int[LanguageStandard] = Array(10, 20, 30, 31, 32, 33, 1000)
 
               @assign outValue = lookup[inStandard]
           outValue
         end
 
-        function intLanguageStandard(inValue::Integer) ::LanguageStandard
+        function intLanguageStandard(inValue::Int) ::LanguageStandard
               local outStandard::LanguageStandard
 
               @assign outStandard = begin

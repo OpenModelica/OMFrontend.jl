@@ -61,7 +61,7 @@ function readVariables(
   return vars
 end
 
-function readDataset(filename::String, vars::List{<:String}, dimsize::Integer)::Values.Value
+function readDataset(filename::String, vars::List{<:String}, dimsize::Int)::Values.Value
   local val::Values.Value
 
   local rvals::List{List{AbstractFloat}}
@@ -71,7 +71,7 @@ function readDataset(filename::String, vars::List{<:String}, dimsize::Integer)::
   function readDataset_work(
     filename::String,
     vars::List{<:String},
-    dimsize::Integer,
+    dimsize::Int,
   )::List{List{AbstractFloat}}
     local outMatrix::List{List{AbstractFloat}}
 
@@ -86,8 +86,8 @@ function readDataset(filename::String, vars::List{<:String}, dimsize::Integer)::
   return val
 end
 
-function readSimulationResultSize(filename::String)::Integer
-  local size::Integer
+function readSimulationResultSize(filename::String)::Int
+  local size::Int
 
   @error "TODO: Defined in the runtime"
   return size
@@ -161,7 +161,7 @@ function filterSimulationResults(
   inFile::String,
   outFile::String,
   vars::List{<:String},
-  numberOfIntervals::Integer = 0,
+  numberOfIntervals::Int = 0,
   removeDescription::Bool,
 )::Bool
   local result::Bool

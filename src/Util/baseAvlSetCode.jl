@@ -61,7 +61,7 @@ function add(inTree::Tree, inKey::Key)::Tree
 
   tree = begin
     local key::Key
-    local key_comp::Integer
+    local key_comp::Int
     local outTree::Tree
     #=  Empty tree.
     =#
@@ -124,7 +124,7 @@ function hasKey(inTree::Tree, inKey::Key)::Bool
   local comp::Bool = false
 
   local key::Key
-  local key_comp::Integer
+  local key_comp::Int
   local tree::Tree
 
   @assign key = begin
@@ -325,7 +325,7 @@ function intersection(tree1::Tree, tree2::Tree)::Tree
   local keylist2::List{Key}
   local k1::Key
   local k2::Key
-  local key_comp::Integer
+  local key_comp::Int
 
   if isEmpty(tree1)
     @assign rest2 = tree2
@@ -402,9 +402,9 @@ end
 function balance(inTree::Tree)
   local outTree::Tree = inTree
   outTree = begin
-    local lh::Integer
-    local rh::Integer
-    local diff::Integer
+    local lh::Int
+    local rh::Int
+    local diff::Int
     local child::Tree
     local balanced_tree::Tree
     @match outTree begin
@@ -448,8 +448,8 @@ function balance(inTree::Tree)
   return outTree
 end
 
-function height(inNode::Tree)::Integer
-  local outHeight::Integer
+function height(inNode::Tree)::Int
+  local outHeight::Int
   @assign outHeight = begin
     @match inNode begin
       NODE(__) => begin
@@ -466,8 +466,8 @@ function height(inNode::Tree)::Integer
   return outHeight
 end
 
-function calculateBalance(inNode::Tree)::Integer
-  local outBalance::Integer
+function calculateBalance(inNode::Tree)::Int
+  local outBalance::Int
 
   outBalance = begin
     @match inNode begin

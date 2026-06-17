@@ -83,12 +83,12 @@ function diff(
 ) where {T}
   local out::List{Tuple{Diff, List{T}}}
 
-  local start1::Integer
-  local end1::Integer
-  local start2::Integer
-  local end2::Integer
-  local len1::Integer
-  local len2::Integer
+  local start1::Int
+  local end1::Int
+  local start2::Int
+  local end2::Int
+  local len1::Int
+  local len2::Int
   local arr1::Array{T}
   local arr2::Array{T}
 
@@ -115,21 +115,21 @@ function diffSeq(
   equals::FunEquals,
   isWhitespace::FunWhitespace,
   toString::ToString,
-  inStart1::Integer,
-  inEnd1::Integer,
-  inStart2::Integer,
-  inEnd2::Integer,
+  inStart1::Int,
+  inEnd1::Int,
+  inStart2::Int,
+  inEnd2::Int,
   inPrefixes::List{Tuple{Diff, List{T}}} = nil,
   inSuffixes::List{Tuple{Diff, List{T}}} = nil,
 ) where {T}
   local out::List{Tuple{Diff, List{T}}}
 
-  local start1::Integer = inStart1
-  local end1::Integer = inEnd1
-  local start2::Integer = inStart2
-  local end2::Integer = inEnd2
-  local len1::Integer
-  local len2::Integer
+  local start1::Int = inStart1
+  local end1::Int = inEnd1
+  local start2::Int = inStart2
+  local end2::Int = inEnd2
+  local len1::Int
+  local len2::Int
   local prefixes::List{Tuple{Diff, List{T}}} = inPrefixes
   local suffixes::List{Tuple{Diff, List{T}}} = inSuffixes
 
@@ -270,15 +270,15 @@ function onlyAdditions(
   equals::FunEquals,
   isWhitespace::FunWhitespace,
   toString::ToString,
-  start1::Integer,
-  end1::Integer,
-  start2::Integer,
-  end2::Integer,
+  start1::Int,
+  end1::Int,
+  start2::Int,
+  end2::Int,
 ) where {T}
   local out::List{Tuple{Diff, List{T}}}
 
-  local x::Integer = 0
-  local y::Integer = 0
+  local x::Int = 0
+  local y::Int = 0
   local d::Diff = Diff.Equal
   local lst::List{T} = nil
 
@@ -339,15 +339,15 @@ function onlyRemovals(
   equals::FunEquals,
   isWhitespace::FunWhitespace,
   toString::ToString,
-  start1::Integer,
-  end1::Integer,
-  start2::Integer,
-  end2::Integer,
+  start1::Int,
+  end1::Int,
+  start2::Int,
+  end2::Int,
 ) where {T}
   local out::List{Tuple{Diff, List{T}}}
 
-  local x::Integer = 0
-  local y::Integer = 0
+  local x::Int = 0
+  local y::Int = 0
   local d::Diff = Diff.Equal
   local lst::List{T} = nil
 
@@ -406,20 +406,20 @@ function myersGreedyDiff(
   arr1::Array{T},
   arr2::Array{T},
   equals::FunEquals,
-  start1::Integer,
-  end1::Integer,
-  start2::Integer,
-  end2::Integer,
+  start1::Int,
+  end1::Int,
+  start2::Int,
+  end2::Int,
 ) where {T}
   local out::List{Tuple{Diff, List{T}}}
 
-  local len1::Integer
-  local len2::Integer
-  local maxIter::Integer
-  local sz::Integer
-  local middle::Integer
-  local x::Integer
-  local y::Integer
+  local len1::Int
+  local len2::Int
+  local maxIter::Int
+  local sz::Int
+  local middle::Int
+  local x::Int
+  local y::Int
   local V::Array{Integer}
   local paths::Array{List{Tuple{Integer, Integer}}}
   local prevPath::List{Tuple{Integer, Integer}}
@@ -470,16 +470,16 @@ end
 function myersGreedyPathToDiff(
   arr1::Array{T},
   arr2::Array{T},
-  start1::Integer,
-  start2::Integer,
+  start1::Int,
+  start2::Int,
   paths::List{Tuple{Integer, Integer}},
 ) where {T}
   local out::List{Tuple{Diff, List{T}}} = nil
 
-  local x1::Integer
-  local x2::Integer
-  local y1::Integer
-  local y2::Integer
+  local x1::Int
+  local x2::Int
+  local y1::Int
+  local y2::Int
   local d1::Diff = Diff.Equal
   local d2::Diff = Diff.Equal
   local lst::List{T} = nil
@@ -531,16 +531,16 @@ end
 
 function trimCommonPrefix(
   arr1::Array{T},
-  inStart1::Integer,
-  end1::Integer,
+  inStart1::Int,
+  end1::Int,
   arr2::Array{T},
-  inStart2::Integer,
-  end2::Integer,
+  inStart2::Int,
+  end2::Int,
   equals::FunEquals,
   acc::List{Tuple{Diff, List{T}}},
 ) where {T}
-  local start1::Integer = inStart1
-  local start2::Integer = inStart2
+  local start1::Int = inStart1
+  local start2::Int = inStart2
   local prefixes::List{Tuple{Diff, List{T}}} = acc
 
   local lst::List{T} = nil
@@ -562,16 +562,16 @@ end
 
 function trimCommonSuffix(
   arr1::Array{T},
-  start1::Integer,
-  inEnd1::Integer,
+  start1::Int,
+  inEnd1::Int,
   arr2::Array{T},
-  start2::Integer,
-  inEnd2::Integer,
+  start2::Int,
+  inEnd2::Int,
   equals::FunEquals,
   acc::List{Tuple{Diff, List{T}}},
 ) where {T}
-  local end1::Integer = inEnd1
-  local end2::Integer = inEnd2
+  local end1::Int = inEnd1
+  local end2::Int = inEnd2
   local suffixes::List{Tuple{Diff, List{T}}} = acc
 
   local lst::List{T} = nil

@@ -49,7 +49,7 @@ function keyStr(key)
   return key
 end
 
-include("../Util/baseAvlTreeCode.jl")
+include("../Util/baseDictTreeCode.jl")
 addConflictDefault = addConflictReplace
 compFunc(inKey1::Key, inKey2::Key) = begin
   #Should it default to ==== instead since types are in many cases immutable?

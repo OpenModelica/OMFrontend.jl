@@ -40,18 +40,18 @@ using ExportAll
 
 import Frontend.Values
 
-function newStream(streamName::String, host::String, port::Integer, debug::Bool)
+function newStream(streamName::String, host::String, port::Int, debug::Bool)
   return @error "TODO: Defined in the runtime"
 end
 
-function addNode(streamName::String, sourceId::String, timeId::Integer, nodeId::String)
+function addNode(streamName::String, sourceId::String, timeId::Int, nodeId::String)
   return @error "TODO: Defined in the runtime"
 end
 
 function addEdge(
   streamName::String,
   sourceId::String,
-  timeId::Integer,
+  timeId::Int,
   nodeIdSource::String,
   nodeIdTarget::String,
   directed::Bool,
@@ -62,7 +62,7 @@ end
 function addNodeAttribute(
   streamName::String,
   sourceId::String,
-  timeId::Integer,
+  timeId::Int,
   nodeId::String,
   attributeName::String,
   attributeValue::Values.Value,
@@ -73,7 +73,7 @@ end
 function changeNodeAttribute(
   streamName::String,
   sourceId::String,
-  timeId::Integer,
+  timeId::Int,
   nodeId::String,
   attributeName::String,
   attributeValueOld::Values.Value,
@@ -85,7 +85,7 @@ end
 function addEdgeAttribute(
   streamName::String,
   sourceId::String,
-  timeId::Integer,
+  timeId::Int,
   nodeIdSource::String,
   nodeIdTarget::String,
   attributeName::String,
@@ -97,7 +97,7 @@ end
 function changeEdgeAttribute(
   streamName::String,
   sourceId::String,
-  timeId::Integer,
+  timeId::Int,
   nodeIdSource::String,
   nodeIdTarget::String,
   attributeName::String,
@@ -110,7 +110,7 @@ end
 function addGraphAttribute(
   streamName::String,
   sourceId::String,
-  timeId::Integer,
+  timeId::Int,
   attributeName::String,
   attributeValue::Values.Value,
 )
@@ -120,7 +120,7 @@ end
 function changeGraphAttribute(
   streamName::String,
   sourceId::String,
-  timeId::Integer,
+  timeId::Int,
   attributeName::String,
   attributeValueOld::Values.Value,
   attributeValueNew::Values.Value,

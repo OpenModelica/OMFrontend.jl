@@ -48,7 +48,7 @@ import PrecompileTools
 import Distributed
 import Serialization
 
-#= This file defines additional utility macros.. =#
+#= This file defines additional utility macros. =#
 include("util.jl")
 
 

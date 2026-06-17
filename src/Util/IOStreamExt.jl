@@ -38,67 +38,67 @@ module IOStreamExt
 using MetaModelica
 using ExportAll
 
-function createFile(fileName::String)::Integer
-  local fileID::Integer
+function createFile(fileName::String)::Int
+  local fileID::Int
 
   @error "TODO: Defined in the runtime"
   return fileID
 end
 
-function closeFile(fileID::Integer)
+function closeFile(fileID::Int)
   return @error "TODO: Defined in the runtime"
 end
 
-function deleteFile(fileID::Integer)
+function deleteFile(fileID::Int)
   return @error "TODO: Defined in the runtime"
 end
 
-function clearFile(fileID::Integer)
+function clearFile(fileID::Int)
   return @error "TODO: Defined in the runtime"
 end
 
-function appendFile(fileID::Integer, inString::String)
+function appendFile(fileID::Int, inString::String)
   return @error "TODO: Defined in the runtime"
 end
 
-function readFile(fileID::Integer)::String
+function readFile(fileID::Int)::String
   local outString::String
 
   @error "TODO: Defined in the runtime"
   return outString
 end
 
-function printFile(fileID::Integer, whereToPrint::Integer) #= stdout:1, stderr:2 =#
+function printFile(fileID::Int, whereToPrint::Int) #= stdout:1, stderr:2 =#
   return @error "TODO: Defined in the runtime"
 end
 
-function createBuffer()::Integer
-  local bufferID::Integer
+function createBuffer()::Int
+  local bufferID::Int
 
   @error "TODO: Defined in the runtime"
   return bufferID
 end
 
-function appendBuffer(bufferID::Integer, inString::String)
+function appendBuffer(bufferID::Int, inString::String)
   return @error "TODO: Defined in the runtime"
 end
 
-function deleteBuffer(bufferID::Integer)
+function deleteBuffer(bufferID::Int)
   return @error "TODO: Defined in the runtime"
 end
 
-function clearBuffer(bufferID::Integer)
+function clearBuffer(bufferID::Int)
   return @error "TODO: Defined in the runtime"
 end
 
-function readBuffer(bufferID::Integer)::String
+function readBuffer(bufferID::Int)::String
   local outString::String
 
   @error "TODO: Defined in the runtime"
   return outString
 end
 
-function printBuffer(bufferID::Integer, whereToPrint::Integer) #= stdout:1, stderr:2 =#
+function printBuffer(bufferID::Int, whereToPrint::Int) #= stdout:1, stderr:2 =#
   return @error "TODO: Defined in the runtime"
 end
 
@@ -117,7 +117,7 @@ function appendReversedList(inStringLst::List{<:String})::String
   outSting = String(take!(buffer))
 end
 
-function printReversedList(inStringLst::List{<:String}, whereToPrint::Integer) #= stdout:1, stderr:2 =#
+function printReversedList(inStringLst::List{<:String}, whereToPrint::Int) #= stdout:1, stderr:2 =#
   return @error "TODO: Defined in the runtime"
 end
 

@@ -41,13 +41,13 @@ using ExportAll
 function dgeev(
   inJOBVL::String,
   inJOBVR::String,
-  inN::Integer,
+  inN::Int,
   inA::List{<:List{<:AbstractFloat}},
-  inLDA::Integer,
-  inLDVL::Integer,
-  inLDVR::Integer,
+  inLDA::Int,
+  inLDVL::Int,
+  inLDVR::Int,
   inWORK::List{<:AbstractFloat},
-  inLWORK::Integer,
+  inLWORK::Int,
 )::Tuple{
   List{List{AbstractFloat}},
   List{AbstractFloat},
@@ -57,7 +57,7 @@ function dgeev(
   List{AbstractFloat},
   Integer,
 }
-  local outINFO::Integer
+  local outINFO::Int
   local outWORK::List{AbstractFloat}
   local outVR::List{List{AbstractFloat}}
   local outVL::List{List{AbstractFloat}}
@@ -72,15 +72,15 @@ end
 function dgegv(
   inJOBVL::String,
   inJOBVR::String,
-  inN::Integer,
+  inN::Int,
   inA::List{<:List{<:AbstractFloat}},
-  inLDA::Integer,
+  inLDA::Int,
   inB::List{<:List{<:AbstractFloat}},
-  inLDB::Integer,
-  inLDVL::Integer,
-  inLDVR::Integer,
+  inLDB::Int,
+  inLDVL::Int,
+  inLDVR::Int,
   inWORK::List{<:AbstractFloat},
-  inLWORK::Integer,
+  inLWORK::Int,
 )::Tuple{
   List{AbstractFloat},
   List{AbstractFloat},
@@ -90,7 +90,7 @@ function dgegv(
   List{AbstractFloat},
   Integer,
 }
-  local outINFO::Integer
+  local outINFO::Int
   local outWORK::List{AbstractFloat}
   local outVR::List{List{AbstractFloat}}
   local outVL::List{List{AbstractFloat}}
@@ -104,17 +104,17 @@ end
 
 function dgels(
   inTRANS::String,
-  inM::Integer,
-  inN::Integer,
-  inNRHS::Integer,
+  inM::Int,
+  inN::Int,
+  inNRHS::Int,
   inA::List{<:List{<:AbstractFloat}},
-  inLDA::Integer,
+  inLDA::Int,
   inB::List{<:List{<:AbstractFloat}},
-  inLDB::Integer,
+  inLDB::Int,
   inWORK::List{<:AbstractFloat},
-  inLWORK::Integer,
+  inLWORK::Int,
 )::Tuple{List{List{AbstractFloat}}, List{List{AbstractFloat}}, List{AbstractFloat}, Integer}
-  local outINFO::Integer
+  local outINFO::Int
   local outWORK::List{AbstractFloat}
   local outB::List{List{AbstractFloat}}
   local outA::List{List{AbstractFloat}}
@@ -124,13 +124,13 @@ function dgels(
 end
 
 function dgelsx(
-  inM::Integer,
-  inN::Integer,
-  inNRHS::Integer,
+  inM::Int,
+  inN::Int,
+  inNRHS::Int,
   inA::List{<:List{<:AbstractFloat}},
-  inLDA::Integer,
+  inLDA::Int,
   inB::List{<:List{<:AbstractFloat}},
-  inLDB::Integer,
+  inLDB::Int,
   inJPVT::List{<:Integer},
   inRCOND::AbstractFloat,
   inWORK::List{<:AbstractFloat},
@@ -141,8 +141,8 @@ function dgelsx(
   Integer,
   Integer,
 }
-  local outINFO::Integer
-  local outRANK::Integer
+  local outINFO::Int
+  local outRANK::Int
   local outJPVT::List{Integer}
   local outB::List{List{AbstractFloat}}
   local outA::List{List{AbstractFloat}}
@@ -152,17 +152,17 @@ function dgelsx(
 end
 
 function dgelsy(
-  inM::Integer,
-  inN::Integer,
-  inNRHS::Integer,
+  inM::Int,
+  inN::Int,
+  inNRHS::Int,
   inA::List{<:List{<:AbstractFloat}},
-  inLDA::Integer,
+  inLDA::Int,
   inB::List{<:List{<:AbstractFloat}},
-  inLDB::Integer,
+  inLDB::Int,
   inJPVT::List{<:Integer},
   inRCOND::AbstractFloat,
   inWORK::List{<:AbstractFloat},
-  inLWORK::Integer,
+  inLWORK::Int,
 )::Tuple{
   List{List{AbstractFloat}},
   List{List{AbstractFloat}},
@@ -171,9 +171,9 @@ function dgelsy(
   List{AbstractFloat},
   Integer,
 }
-  local outINFO::Integer
+  local outINFO::Int
   local outWORK::List{AbstractFloat}
-  local outRANK::Integer
+  local outRANK::Int
   local outJPVT::List{Integer}
   local outB::List{List{AbstractFloat}}
   local outA::List{List{AbstractFloat}}
@@ -183,14 +183,14 @@ function dgelsy(
 end
 
 function dgesv(
-  inN::Integer,
-  inNRHS::Integer,
+  inN::Int,
+  inNRHS::Int,
   inA::List{<:List{<:AbstractFloat}},
-  inLDA::Integer,
+  inLDA::Int,
   inB::List{<:List{<:AbstractFloat}},
-  inLDB::Integer,
+  inLDB::Int,
 )::Tuple{List{List{AbstractFloat}}, List{Integer}, List{List{AbstractFloat}}, Integer}
-  local outINFO::Integer
+  local outINFO::Int
   local outB::List{List{AbstractFloat}}
   local outIPIV::List{Integer}
   local outA::List{List{AbstractFloat}}
@@ -200,17 +200,17 @@ function dgesv(
 end
 
 function dgglse(
-  inM::Integer,
-  inN::Integer,
-  inP::Integer,
+  inM::Int,
+  inN::Int,
+  inP::Int,
   inA::List{<:List{<:AbstractFloat}},
-  inLDA::Integer,
+  inLDA::Int,
   inB::List{<:List{<:AbstractFloat}},
-  inLDB::Integer,
+  inLDB::Int,
   inC::List{<:AbstractFloat},
   inD::List{<:AbstractFloat},
   inWORK::List{<:AbstractFloat},
-  inLWORK::Integer,
+  inLWORK::Int,
 )::Tuple{
   List{List{AbstractFloat}},
   List{List{AbstractFloat}},
@@ -220,7 +220,7 @@ function dgglse(
   List{AbstractFloat},
   Integer,
 }
-  local outINFO::Integer
+  local outINFO::Int
   local outWORK::List{AbstractFloat}
   local outX::List{AbstractFloat}
   local outD::List{AbstractFloat}
@@ -233,13 +233,13 @@ function dgglse(
 end
 
 function dgtsv(
-  inN::Integer,
-  inNRHS::Integer,
+  inN::Int,
+  inNRHS::Int,
   inDL::List{<:AbstractFloat},
   inD::List{<:AbstractFloat},
   inDU::List{<:AbstractFloat},
   inB::List{<:List{<:AbstractFloat}},
-  inLDB::Integer,
+  inLDB::Int,
 )::Tuple{
   List{AbstractFloat},
   List{AbstractFloat},
@@ -247,7 +247,7 @@ function dgtsv(
   List{List{AbstractFloat}},
   Integer,
 }
-  local outINFO::Integer
+  local outINFO::Int
   local outB::List{List{AbstractFloat}}
   local outDU::List{AbstractFloat}
   local outD::List{AbstractFloat}
@@ -258,16 +258,16 @@ function dgtsv(
 end
 
 function dgbsv(
-  inN::Integer,
-  inKL::Integer,
-  inKU::Integer,
-  inNRHS::Integer,
+  inN::Int,
+  inKL::Int,
+  inKU::Int,
+  inNRHS::Int,
   inAB::List{<:List{<:AbstractFloat}},
-  inLDAB::Integer,
+  inLDAB::Int,
   inB::List{<:List{<:AbstractFloat}},
-  inLDB::Integer,
+  inLDB::Int,
 )::Tuple{List{List{AbstractFloat}}, List{Integer}, List{List{AbstractFloat}}, Integer}
-  local outINFO::Integer
+  local outINFO::Int
   local outB::List{List{AbstractFloat}}
   local outIPIV::List{Integer}
   local outAB::List{List{AbstractFloat}}
@@ -279,14 +279,14 @@ end
 function dgesvd(
   inJOBU::String,
   inJOBVT::String,
-  inM::Integer,
-  inN::Integer,
+  inM::Int,
+  inN::Int,
   inA::List{<:List{<:AbstractFloat}},
-  inLDA::Integer,
-  inLDU::Integer,
-  inLDVT::Integer,
+  inLDA::Int,
+  inLDU::Int,
+  inLDVT::Int,
   inWORK::List{<:AbstractFloat},
-  inLWORK::Integer,
+  inLWORK::Int,
 )::Tuple{
   List{List{AbstractFloat}},
   List{AbstractFloat},
@@ -295,7 +295,7 @@ function dgesvd(
   List{AbstractFloat},
   Integer,
 }
-  local outINFO::Integer
+  local outINFO::Int
   local outWORK::List{AbstractFloat}
   local outVT::List{List{AbstractFloat}}
   local outU::List{List{AbstractFloat}}
@@ -307,12 +307,12 @@ function dgesvd(
 end
 
 function dgetrf(
-  inM::Integer,
-  inN::Integer,
+  inM::Int,
+  inN::Int,
   inA::List{<:List{<:AbstractFloat}},
-  inLDA::Integer,
+  inLDA::Int,
 )::Tuple{List{List{AbstractFloat}}, List{Integer}, Integer}
-  local outINFO::Integer
+  local outINFO::Int
   local outIPIV::List{Integer}
   local outA::List{List{AbstractFloat}}
 
@@ -322,15 +322,15 @@ end
 
 function dgetrs(
   inTRANS::String,
-  inN::Integer,
-  inNRHS::Integer,
+  inN::Int,
+  inNRHS::Int,
   inA::List{<:List{<:AbstractFloat}},
-  inLDA::Integer,
+  inLDA::Int,
   inIPIV::List{<:Integer},
   inB::List{<:List{<:AbstractFloat}},
-  inLDB::Integer,
+  inLDB::Int,
 )::Tuple{List{List{AbstractFloat}}, Integer}
-  local outINFO::Integer
+  local outINFO::Int
   local outB::List{List{AbstractFloat}}
 
   @error "TODO: Defined in the runtime"
@@ -338,14 +338,14 @@ function dgetrs(
 end
 
 function dgetri(
-  inN::Integer,
+  inN::Int,
   inA::List{<:List{<:AbstractFloat}},
-  inLDA::Integer,
+  inLDA::Int,
   inIPIV::List{<:Integer},
   inWORK::List{<:AbstractFloat},
-  inLWORK::Integer,
+  inLWORK::Int,
 )::Tuple{List{List{AbstractFloat}}, List{AbstractFloat}, Integer}
-  local outINFO::Integer
+  local outINFO::Int
   local outWORK::List{AbstractFloat}
   local outA::List{List{AbstractFloat}}
 
@@ -354,14 +354,14 @@ function dgetri(
 end
 
 function dgeqpf(
-  inM::Integer,
-  inN::Integer,
+  inM::Int,
+  inN::Int,
   inA::List{<:List{<:AbstractFloat}},
-  inLDA::Integer,
+  inLDA::Int,
   inJPVT::List{<:Integer},
   inWORK::List{<:AbstractFloat},
 )::Tuple{List{List{AbstractFloat}}, List{Integer}, List{AbstractFloat}, Integer}
-  local outINFO::Integer
+  local outINFO::Int
   local outTAU::List{AbstractFloat}
   local outJPVT::List{Integer}
   local outA::List{List{AbstractFloat}}
@@ -371,16 +371,16 @@ function dgeqpf(
 end
 
 function dorgqr(
-  inM::Integer,
-  inN::Integer,
-  inK::Integer,
+  inM::Int,
+  inN::Int,
+  inK::Int,
   inA::List{<:List{<:AbstractFloat}},
-  inLDA::Integer,
+  inLDA::Int,
   inTAU::List{<:AbstractFloat},
   inWORK::List{<:AbstractFloat},
-  inLWORK::Integer,
+  inLWORK::Int,
 )::Tuple{List{List{AbstractFloat}}, List{AbstractFloat}, Integer}
-  local outINFO::Integer
+  local outINFO::Int
   local outWORK::List{AbstractFloat}
   local outA::List{List{AbstractFloat}}
 

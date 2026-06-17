@@ -38,43 +38,43 @@ module ClockIndexes
 using MetaModelica
 using ExportAll
 
-const RT_CLOCK_SIMULATE_TOTAL = 8::Integer
+const RT_CLOCK_SIMULATE_TOTAL = 8::Int
 
-const RT_CLOCK_SIMULATE_SIMULATION = 9::Integer
+const RT_CLOCK_SIMULATE_SIMULATION = 9::Int
 
-const RT_CLOCK_BUILD_MODEL = 10::Integer
+const RT_CLOCK_BUILD_MODEL = 10::Int
 
-const RT_CLOCK_EXECSTAT = 11::Integer
+const RT_CLOCK_EXECSTAT = 11::Int
 
-const RT_CLOCK_EXECSTAT_CUMULATIVE = 12::Integer
+const RT_CLOCK_EXECSTAT_CUMULATIVE = 12::Int
 
-const RT_CLOCK_FRONTEND = 13::Integer
+const RT_CLOCK_FRONTEND = 13::Int
 
-const RT_CLOCK_BACKEND = 14::Integer
+const RT_CLOCK_BACKEND = 14::Int
 
-const RT_CLOCK_SIMCODE = 15::Integer
+const RT_CLOCK_SIMCODE = 15::Int
 
-const RT_CLOCK_LINEARIZE = 16::Integer
+const RT_CLOCK_LINEARIZE = 16::Int
 
-const RT_CLOCK_TEMPLATES = 17::Integer
+const RT_CLOCK_TEMPLATES = 17::Int
 
-const RT_CLOCK_UNCERTAINTIES = 18::Integer
+const RT_CLOCK_UNCERTAINTIES = 18::Int
 
-const RT_PROFILER0 = 19::Integer
+const RT_PROFILER0 = 19::Int
 
-const RT_PROFILER1 = 20::Integer
+const RT_PROFILER1 = 20::Int
 
-const RT_PROFILER2 = 21::Integer
+const RT_PROFILER2 = 21::Int
 
-const RT_CLOCK_EXECSTAT_JACOBIANS = 22::Integer
+const RT_CLOCK_EXECSTAT_JACOBIANS = 22::Int
 
-const RT_CLOCK_USER_RESERVED = 23::Integer
+const RT_CLOCK_USER_RESERVED = 23::Int
 
-const RT_CLOCK_EXECSTAT_HPCOM_MODULES = 24::Integer
+const RT_CLOCK_EXECSTAT_HPCOM_MODULES = 24::Int
 
-const RT_CLOCK_SHOW_STATEMENT = 25::Integer
+const RT_CLOCK_SHOW_STATEMENT = 25::Int
 
-const RT_CLOCK_FINST = 26::Integer
+const RT_CLOCK_FINST = 26::Int
 
 const buildModelClocks =
   list(

@@ -89,10 +89,10 @@ function addSourceMessage(
   id::ErrorTypes.ErrorID,
   msg_type::ErrorTypes.MessageType,
   msg_severity::ErrorTypes.Severity,
-  sline::Integer,
-  scol::Integer,
-  eline::Integer,
-  ecol::Integer,
+  sline::Int,
+  scol::Int,
+  eline::Int,
+  ecol::Int,
   read_only::Bool,
   filename::String,
   msg::String,
@@ -173,10 +173,10 @@ function infoStr(info::SourceInfo)::String
   @assign str = begin
     local filename::String
     local info_str::String
-    local line_start::Integer
-    local line_end::Integer
-    local col_start::Integer
-    local col_end::Integer
+    local line_start::Int
+    local line_end::Int
+    local col_start::Int
+    local col_end::Int
     @match info begin
       SOURCEINFO(
         fileName = filename,
@@ -228,8 +228,8 @@ function getNumMessages()
   return length(_messages())
 end
 
-function getNumErrorMessages()::Integer
-  local num::Integer = 0
+function getNumErrorMessages()::Int
+  local num::Int = 0
   for m in _messages()
     if typeof(m.id) === Severity.ERROR
       num += 1
@@ -238,8 +238,8 @@ function getNumErrorMessages()::Integer
   return num
 end
 
-function getNumWarningMessages()::Integer
-  local num::Integer = 0
+function getNumWarningMessages()::Int
+  local num::Int = 0
   for m in _messages()
     if typeof(m.id) === Severity.WARNING
       num += 1
@@ -273,19 +273,19 @@ function clearMessages()
 end
 
 """Used to rollback/delete checkpoints without considering the identifier. Used to reset the error messages after a stack overflow exception."""
-function getNumCheckpoints()::Integer
+function getNumCheckpoints()::Int
   return length(_checkpoints())
 end
 
 """Used to rollback/delete checkpoints without considering the identifier. Used to reset the error messages after a stack overflow exception."""
-function rollbackNumCheckpoints(n::Integer)
+function rollbackNumCheckpoints(n::Int)
   for _ in 1:n
     rollBack("")
   end
 end
 
 """Used to rollback/delete checkpoints without considering the identifier. Used to reset the error messages after a stack overflow exception."""
-function deleteNumCheckpoints(n::Integer)
+function deleteNumCheckpoints(n::Int)
   for _ in 1:n
     delCheckpoint("")
   end

@@ -359,7 +359,7 @@ function toSubMod(fnDer::FunctionDerivative) ::SCode.SubMod
   local mod::SCode.Mod
   local orderMod::SCode.SubMod
   local subMods::List{SCode.SubMod}
-  local order::Integer
+  local order::Int
   local info::SourceInfo
   info = InstNode_info(fnDer.derivedFn)
   @match INTEGER_EXPRESSION(order) = fnDer.order

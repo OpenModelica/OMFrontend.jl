@@ -94,7 +94,7 @@ function dumpElements2(
 
   local ret_2::Util.StatefulBoolean
   local ret_1::Util.StatefulBoolean
-  local ret_0::Integer
+  local ret_0::Int
 
   @assign ret_0 = listLength(a_elements)
   @assign ret_1 = Util.makeStatefulBoolean(false)
@@ -269,7 +269,7 @@ function lm_19(
   in_txt::Tpl.Text,
   in_items::List{<:SCode.Element},
   in_a_indent::Bool,
-  in_a_numElements::Integer,
+  in_a_numElements::Int,
   in_a_inPublicSection::Array{<:Bool},
   in_a_options::SCodeDump.SCodeDumpOptions,
   in_a_prevSpacing::Array{<:Bool},
@@ -280,11 +280,11 @@ function lm_19(
     local txt::Tpl.Text
     local rest::List{SCode.Element}
     local a_indent::Bool
-    local a_numElements::Integer
+    local a_numElements::Int
     local a_inPublicSection::Array{Bool}
     local a_options::SCodeDump.SCodeDumpOptions
     local a_prevSpacing::Array{Bool}
-    local x_i1::Integer
+    local x_i1::Int
     local i_el::SCode.Element
     local ret_10::Bool
     local ret_9::Bool
@@ -353,7 +353,7 @@ end
 function dumpElements3(
   txt::Tpl.Text,
   a_elements::List{<:SCode.Element},
-  a_numElements::Integer,
+  a_numElements::Int,
   a_prevSpacing::Array{<:Bool},
   a_indent::Bool,
   a_inPublicSection::Array{<:Bool},

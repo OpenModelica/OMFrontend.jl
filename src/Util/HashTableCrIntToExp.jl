@@ -72,8 +72,8 @@ HashTableCrefFunctionsType = Tuple
 HashTable = Tuple
 
 """Calculates a hash value for Key"""
-function hashFunc(tpl::Key, mod::Integer)::Integer
-  local res::Integer
+function hashFunc(tpl::Key, mod::Int)::Int
+  local res::Int
 
   @assign res = intMod(
     intAbs(ComponentReference.hashComponentRef(Util.tuple21(tpl)) + Util.tuple22(tpl)),
@@ -88,8 +88,8 @@ function keyEqual(tpl1::Key, tpl2::Key)::Bool
   @assign res = begin
     local cr1::DAE.ComponentRef
     local cr2::DAE.ComponentRef
-    local i1::Integer
-    local i2::Integer
+    local i1::Int
+    local i2::Int
     @matchcontinue (tpl1, tpl2) begin
       ((cr1, i1), (cr2, i2)) => begin
         @match true = intEq(i1, i2) #= int compare is less expensive =#
@@ -129,7 +129,7 @@ end
   Returns an empty HashTable.
   Using the bucketsize size.
 """
-function emptyHashTableSized(size::Integer)::HashTable
+function emptyHashTableSized(size::Int)::HashTable
   local hashTable::HashTable
 
   @assign hashTable = BaseHashTable.emptyHashTableWork(

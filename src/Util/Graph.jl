@@ -470,9 +470,9 @@ function findIndexofNodeInGraph(
   inNode::NodeType,
   inGraph::List{<:Tuple{<:NodeType, List{<:NodeType}}},
   inEqualFunc::EqualFunc,
-  inIndex::Integer,
-)::Integer
-  local outIndex::Integer
+  inIndex::Int,
+)::Int
+  local outIndex::Int
 
   @assign outIndex = begin
     local node::NodeType
@@ -713,8 +713,8 @@ function partialDistance2color(
     local nodes::List{NodeType}
     local forbiddenColor::Array{Option{List{NodeType}}}
     local colored::Array{Integer}
-    local color::Integer
-    local index::Integer
+    local color::Int
+    local index::Int
     @matchcontinue (
       toColorNodes,
       inforbiddenColor,
@@ -848,7 +848,7 @@ function addForbiddenColors(
   return outForbiddenColor
 end
 
-function getArrayElem(inIndex::Integer, inArray::Array{<:Type_a})::Type_a
+function getArrayElem(inIndex::Int, inArray::Array{<:Type_a})::Type_a
   local outElem::Type_a
 
   @assign outElem = arrayGet(inArray, inIndex)
@@ -856,7 +856,7 @@ function getArrayElem(inIndex::Integer, inArray::Array{<:Type_a})::Type_a
 end
 
 function arrayUpdateListAppend(
-  inIndex::Integer,
+  inIndex::Int,
   inArray::Array{<:Option{<:List{<:NodeType}}},
   inNode::Option{<:List{<:NodeType}},
 )
@@ -882,7 +882,7 @@ function arrayUpdateListAppend(
   end
 end
 
-function arrayElemetGtZero(inIndex::Integer, inArray::Array{<:Integer})::Bool
+function arrayElemetGtZero(inIndex::Int, inArray::Array{<:Integer})::Bool
   local outBoolean::Bool
 
   @assign outBoolean = intGt(arrayGet(inArray, inIndex), 0)
@@ -892,16 +892,16 @@ end
 function arrayFindMinColorIndex(
   inForbiddenColor::Array{<:Option{<:List{<:NodeType}}},
   inNode::NodeType,
-  inIndex::Integer,
-  inmaxIndex::Integer,
+  inIndex::Int,
+  inmaxIndex::Int,
   inEqualFunc::EqualFunc,
   inPrintFunc::PrintFunc,
-)::Integer
-  local outColor::Integer
+)::Int
+  local outColor::Int
 
   @assign outColor = begin
     local nodes::List{NodeType}
-    local index::Integer
+    local index::Int
     @matchcontinue (inForbiddenColor, inNode, inIndex, inmaxIndex, inEqualFunc, inPrintFunc) begin
       (_, _, _, _, _, _) => begin
         @match NONE() = arrayGet(inForbiddenColor, inIndex)
@@ -979,7 +979,7 @@ end
 """
 function printGraphInt(inGraph::List{<:Tuple{<:Integer, List{<:Integer}}})
   return @assign _ = begin
-    local node::Integer
+    local node::Int
     local edges::List{Integer}
     local strEdges::List{String}
     local restGraph::List{Tuple{Integer, List{Integer}}}
@@ -1034,14 +1034,14 @@ end
 function allReachableNodesInt(
   intmpstorage::Tuple{<:List{<:Integer}, List{<:Integer}},
   inGraph::Array{<:Tuple{<:Integer, List{<:Integer}}},
-  inMaxGraphNode::Integer,
-  inMaxNodexIndex::Integer,
+  inMaxGraphNode::Int,
+  inMaxNodexIndex::Int,
 )::List{Integer}
   local reachableNodes::List{Integer}
 
   @assign reachableNodes = begin
     local tmpstorage::Tuple{List{Integer}, List{Integer}}
-    local node::Integer
+    local node::Int
     local edges::List{Integer}
     local M::List{Integer}
     local L::List{Integer}
@@ -1100,11 +1100,11 @@ function partialDistance2colorInt(
   inGraph::Array{<:Tuple{<:Integer, List{<:Integer}}},
   inColored::Array{<:Integer},
 )
-  local node::Integer
-  local color::Integer
+  local node::Int
+  local color::Int
   local nodes::List{Integer}
   local forbiddenColor::Array{Integer}
-  local color::Integer
+  local color::Int
   local restGraph::List{Tuple{Integer, List{Integer}}}
 
   return try
@@ -1124,7 +1124,7 @@ function partialDistance2colorInt(
 end
 
 function addForbiddenColorsInt(
-  inNode::Integer,
+  inNode::Int,
   nodes::List{<:Integer},
   inColored::Array{<:Integer},
   forbiddenColor::Array{<:Integer},
@@ -1151,9 +1151,9 @@ function updateForbiddenColorArrayInt(
   inIndexes::List{<:Integer},
   inColored::Array{<:Integer},
   inForbiddenColor::Array{<:Integer},
-  inNode::Integer,
+  inNode::Int,
 )
-  local colorIndex::Integer
+  local colorIndex::Int
 
   return for index in inIndexes
     @assign colorIndex = arrayGet(inColored, index)
@@ -1165,9 +1165,9 @@ end
 
 function arrayFindMinColorIndexInt(
   inForbiddenColor::Array{<:Integer},
-  inNode::Integer,
-)::Integer
-  local outColor::Integer = 1
+  inNode::Int,
+)::Int
+  local outColor::Int = 1
 
   while true
     if arrayGet(inForbiddenColor, outColor) != inNode

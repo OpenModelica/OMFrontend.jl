@@ -84,7 +84,7 @@ end
   Returns an empty HashTable.
   Using the bucketsize size.
 """
-function emptyHashTableSized(size::Integer)::HashTable
+function emptyHashTableSized(size::Int)::HashTable
   local hashTable::HashTable
 
   @assign hashTable = BaseHashTable.emptyHashTableWork(
@@ -101,8 +101,8 @@ function emptyHashTableSized(size::Integer)::HashTable
   return hashTable
 end
 
-function calcHashValue(cr::DAE.ComponentRef, imod::Integer)::Integer
-  local value::Integer
+function calcHashValue(cr::DAE.ComponentRef, imod::Int)::Int
+  local value::Int
 
   @assign value = stringHashDjb2Mod(ComponentReference.printComponentRefStr(cr), imod)
   return value

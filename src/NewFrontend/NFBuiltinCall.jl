@@ -1536,11 +1536,11 @@ end
 
 """
 Author: johti17
-Extension: Types a structural transistion.
-A structural transistion have three arguments
-1. Our current state. That is the model from which we make the transistion.
-2. Our next state. That is the model we transistion to.
-3. A condition. That is the when event at which the transistion occurs.
+Extension: Types a structural transition.
+A structural transition have three arguments
+1. Our current state. That is the model from which we make the transition.
+2. Our next state. That is the model we transition to.
+3. A condition. That is the when event at which the transition occurs.
 """
 function typeStructuralTransition(@nospecialize(call::Call), origin::ORIGIN_Type, info::SourceInfo)
   @match UNTYPED_CALL(fn_ref, args, namedArgs) = call

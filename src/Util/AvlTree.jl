@@ -82,7 +82,7 @@ module AvlTree
               @Record NODE begin
 
                       item #= Val =#::Item{Key, Val}
-                      height #= height of tree, used for balancing =#::Integer
+                      height #= height of tree, used for balancing =#::Int
                       left #= left subtree =#::Node{Key, Val}
                       right #= right subtree =#::Node{Key, Val}
               end
@@ -178,7 +178,7 @@ module AvlTree
           outVal2StrFunc
         end
 
-        function newLeafNode(inItem::Item{<:Key, Val}, height::Integer) ::Node{Key, Val}
+        function newLeafNode(inItem::Item{<:Key, Val}, height::Int) ::Node{Key, Val}
               local outNode::Node{Key, Val}
 
               @assign outNode = NODE(inItem, 1, NO_NODE(), NO_NODE())
@@ -231,7 +231,7 @@ module AvlTree
                   local item::Item{Key, Val}
                   local keyCompareFunc::FuncTypeKeyCompare
                   local n::Node{Key, Val}
-                  local order::Integer
+                  local order::Int
                   local str::String
                    #=  empty node
                    =#
@@ -265,7 +265,7 @@ module AvlTree
         end
 
         """Helper function to addNode."""
-        function addNode_dispatch(inTree::Tree{<:Key, Val} #= sent down so we can use the update check function =#, inNode::Node{<:Key, Val}, inKeyComp::Integer, inKey::Key, inVal::Val) ::Node{Key, Val}
+        function addNode_dispatch(inTree::Tree{<:Key, Val} #= sent down so we can use the update check function =#, inNode::Node{<:Key, Val}, inKeyComp::Int, inKey::Key, inVal::Val) ::Node{Key, Val}
               local outNode::Node{Key, Val}
 
               @assign outNode = begin
@@ -274,7 +274,7 @@ module AvlTree
                   local l::Node{Key, Val}
                   local r::Node{Key, Val}
                   local n::Node{Key, Val}
-                  local h::Integer
+                  local h::Int
                   local i::Item{Key, Val}
                   local updateCheckFunc::FuncTypeItemUpdateCheck
                    #=  replacements of nodes is allowed! no update check function
@@ -352,7 +352,7 @@ module AvlTree
 
               local rkey::Key
               local keyCompareFunc::FuncTypeKeyCompare
-              local order::Integer
+              local order::Int
 
               @match NODE(item = ITEM(key = rkey)) = inNode
               @assign keyCompareFunc = getKeyCompareFunc(inTree)
@@ -362,7 +362,7 @@ module AvlTree
         end
 
         """Helper function to getNode."""
-        function getNode_dispatch(inTree::Tree{<:Key, Val}, inNode::Node{<:Key, Val}, inKeyComp::Integer, inKey::Key) ::Val
+        function getNode_dispatch(inTree::Tree{<:Key, Val}, inNode::Node{<:Key, Val}, inKeyComp::Int, inKey::Key) ::Val
               local outVal::Val
 
               @assign outVal = begin
@@ -409,7 +409,7 @@ module AvlTree
                   local vf::Option{FuncTypeValToStr}
                   local uf::Option{FuncTypeItemUpdateCheck}
                   local node::Node{Key, Val}
-                  local order::Integer
+                  local order::Int
                   local n::String
                   local str::String
                 @match (inTree, inKey, inVal) begin
@@ -438,7 +438,7 @@ module AvlTree
                   local val::Val
                   local keyCompareFunc::FuncTypeKeyCompare
                   local n::Node{Key, Val}
-                  local order::Integer
+                  local order::Int
                 @match (inTree, inNode, inKey, inVal) begin
                   (TREE(keyCompareFunc = keyCompareFunc), NODE(item = ITEM(key = rkey)), key, val)  => begin
                       @assign order = keyCompareFunc(key, rkey)
@@ -451,7 +451,7 @@ module AvlTree
         end
 
         """Helper function to replaceNode."""
-        function replaceNode_dispatch(inTree::Tree{<:Key, Val} #= send down for comparison function =#, inNode::Node{<:Key, Val}, inKeyComp::Integer, inKey::Key, inVal::Val) ::Node{Key, Val}
+        function replaceNode_dispatch(inTree::Tree{<:Key, Val} #= send down for comparison function =#, inNode::Node{<:Key, Val}, inKeyComp::Int, inKey::Key, inVal::Val) ::Node{Key, Val}
               local outNode::Node{Key, Val}
 
               @assign outNode = begin
@@ -461,7 +461,7 @@ module AvlTree
                   local l::Node{Key, Val}
                   local r::Node{Key, Val}
                   local n::Node{Key, Val}
-                  local h::Integer
+                  local h::Int
                   local i::Item{Key, Val}
                    #=  replace this node.
                    =#
@@ -512,7 +512,7 @@ module AvlTree
         function balance(inNode::Node{<:Key, Val}) ::Node{Key, Val}
               local outNode::Node{Key, Val}
 
-              local d::Integer
+              local d::Int
 
               @assign d = differenceInHeight(inNode)
               @assign outNode = doBalance(d, inNode)
@@ -520,7 +520,7 @@ module AvlTree
         end
 
         """Performs balance if difference is > 1 or < -1"""
-        function doBalance(difference::Integer, inNode::Node{<:Key, Val}) ::Node{Key, Val}
+        function doBalance(difference::Int, inNode::Node{<:Key, Val}) ::Node{Key, Val}
               local outNode::Node{Key, Val}
 
               @assign outNode = begin
@@ -626,7 +626,7 @@ module AvlTree
 
               local item::Item{Key, Val}
               local l::Node{Key, Val}
-              local height::Integer
+              local height::Int
 
               @match NODE(item, height, l, _) = node
               @assign outNode = NODE(item, height, l, right)
@@ -639,7 +639,7 @@ module AvlTree
 
               local item::Item{Key, Val}
               local r::Node{Key, Val}
-              local height::Integer
+              local height::Int
 
               @match NODE(item, height, _, r) = node
               @assign outNode = NODE(item, height, left, r)
@@ -710,8 +710,8 @@ module AvlTree
           help function to balance, calculates the difference in height between left
           and right child
         """
-        function differenceInHeight(node::Node{<:Key, Val}) ::Integer
-              local diff::Integer
+        function differenceInHeight(node::Node{<:Key, Val}) ::Int
+              local diff::Int
 
               local l::Node{Key, Val}
               local r::Node{Key, Val}
@@ -729,9 +729,9 @@ module AvlTree
               local r::Node{Key, Val}
               local i::Item{Key, Val}
               local val::Val
-              local hl::Integer
-              local hr::Integer
-              local height::Integer
+              local hl::Int
+              local hr::Int
+              local height::Int
 
               @match NODE(item = (@match ITEM() = i), left = l, right = r) = inNode
               @assign hl = getHeight(l)
@@ -742,8 +742,8 @@ module AvlTree
         end
 
         """Retrieve the height of a node"""
-        function getHeight(bt::Node{<:Key, Val}) ::Integer
-              local height::Integer
+        function getHeight(bt::Node{<:Key, Val}) ::Int
+              local height::Int
 
               @assign height = begin
                 @match bt begin
@@ -1002,7 +1002,7 @@ module AvlTree
                   local item::Item{Key, Val}
                   local keyCompareFunc::FuncTypeKeyCompare
                   local n::Node{Key, Val}
-                  local order::Integer
+                  local order::Int
                   local str::String
                    #=  empty node
                    =#
@@ -1039,7 +1039,7 @@ module AvlTree
         end
 
         """Helper function to addNode."""
-        function addNodeUnique_dispatch(inTree::Tree{<:Key, Val} #= sent down so we can use the update check function =#, inNode::Node{<:Key, Val}, inKeyComp::Integer, inKey::Key, inVal::Val) ::Tuple{Node{Key, Val}, Item{Key, Val}}
+        function addNodeUnique_dispatch(inTree::Tree{<:Key, Val} #= sent down so we can use the update check function =#, inNode::Node{<:Key, Val}, inKeyComp::Int, inKey::Key, inVal::Val) ::Tuple{Node{Key, Val}, Item{Key, Val}}
               local outItem::Item{Key, Val}
               local outNode::Node{Key, Val}
 
@@ -1049,7 +1049,7 @@ module AvlTree
                   local l::Node{Key, Val}
                   local r::Node{Key, Val}
                   local n::Node{Key, Val}
-                  local h::Integer
+                  local h::Int
                   local i::Item{Key, Val}
                   local it::Item{Key, Val}
                   local updateCheckFunc::FuncTypeItemUpdateCheck

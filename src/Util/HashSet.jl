@@ -78,7 +78,7 @@ end
   Returns an empty HashSet.
   Using the bucketsize size
 """
-function emptyHashSetSized(size::Integer)::HashSet
+function emptyHashSetSized(size::Int)::HashSet
   local hashSet::HashSet
 
   @assign hashSet = BaseHashSet.emptyHashSetWork(

@@ -55,7 +55,7 @@ function new(hashFn::Base.Function, eqFn::Base.Function)
   return UnorderedMap(Dict{Any,Any}(), hashFn, eqFn)
 end
 
-function new(hashFn::Base.Function, eqFn::Base.Function, _bucketCount::Integer)
+function new(hashFn::Base.Function, eqFn::Base.Function, _bucketCount::Int)
   return UnorderedMap(Dict{Any,Any}(), hashFn, eqFn)
 end
 
@@ -126,15 +126,15 @@ function firstKey(m::UnorderedMap)
   return Base.first(Base.keys(m.data))
 end
 
-function keyAt(m::UnorderedMap, index::Integer)
+function keyAt(m::UnorderedMap, index::Int)
   return collect(Base.keys(m.data))[index]
 end
 
-function valueAt(m::UnorderedMap, index::Integer)
+function valueAt(m::UnorderedMap, index::Int)
   return collect(Base.values(m.data))[index]
 end
 
-function size(m::UnorderedMap)::Integer
+function size(m::UnorderedMap)::Int
   return length(m.data)
 end
 

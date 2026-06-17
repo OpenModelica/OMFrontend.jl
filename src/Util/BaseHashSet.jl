@@ -84,17 +84,17 @@ import ArrayUtil
 #=  should be.
 =#
 
-const lowBucketSize = 257::Integer
+const lowBucketSize = 257::Int
 
-const avgBucketSize = 2053::Integer
+const avgBucketSize = 2053::Int
 
-const bigBucketSize = 4013::Integer
+const bigBucketSize = 4013::Int
 
-const biggerBucketSize = 25343::Integer
+const biggerBucketSize = 25343::Int
 
-const hugeBucketSize = 536870879::Integer #= 2^29 - 33 is prime :) =#
+const hugeBucketSize = 536870879::Int #= 2^29 - 33 is prime :) =#
 
-const defaultBucketSize = avgBucketSize::Integer
+const defaultBucketSize = avgBucketSize::Int
 
 const Key = Any
 const HashSet = Tuple
@@ -103,8 +103,8 @@ const ValueArray = Tuple
 const FuncsTuple = Tuple
 
 """calculate the values array size based on the bucket size"""
-function bucketToValuesSize(szBucket::Integer)::Integer
-  local szArr::Integer
+function bucketToValuesSize(szBucket::Int)::Int
+  local szArr::Int
 
   @assign szArr = realInt(realMul(intReal(szBucket), 0.6))
   #=  intDiv(szBucket, 10);
@@ -112,14 +112,14 @@ function bucketToValuesSize(szBucket::Integer)::Integer
   return szArr
 end
 
-function emptyHashSetWork(szBucket::Integer, fntpl::FuncsTuple)::HashSet
+function emptyHashSetWork(szBucket::Int, fntpl::FuncsTuple)::HashSet
   local hashSet::HashSet
 
   local arr::Array{List{Tuple{Key, Integer}}}
   local lst::List{Option{Key}}
   local emptyarr::Array{Option{Key}}
 
-  local szArr::Integer
+  local szArr::Int
 
   @assign arr = arrayCreate(szBucket, nil)
   @assign szArr = bucketToValuesSize(szBucket)
@@ -136,11 +136,11 @@ function add(entry::Key, hashSet::HashSet)::HashSet
   local outHashSet::HashSet
 
   @assign outHashSet = begin
-    local hval::Integer
-    local indx::Integer
-    local newpos::Integer
-    local n::Integer
-    local bsize::Integer
+    local hval::Int
+    local indx::Int
+    local newpos::Int
+    local n::Int
+    local bsize::Int
     local varr::Tuple{Integer, Integer, Array{Option{Key}}}
     local indexes::List{Tuple{Key, Integer}}
     local hashvec::Array{List{Tuple{Key, Integer}}}
@@ -194,13 +194,13 @@ function addNoUpdCheck(entry::Key, hashSet::HashSet)::HashSet
   local outHashSet::HashSet
 
   @assign outHashSet = begin
-    local hval::Integer
-    local indx::Integer
-    local newpos::Integer
-    local n::Integer
-    local n_1::Integer
-    local bsize::Integer
-    local indx_1::Integer
+    local hval::Int
+    local indx::Int
+    local newpos::Int
+    local n::Int
+    local n_1::Int
+    local bsize::Int
+    local indx_1::Int
     local varr_1::Tuple{Integer, Integer, Array{Option{Key}}}
     local varr::Tuple{Integer, Integer, Array{Option{Key}}}
     local indexes::List{Tuple{Key, Integer}}
@@ -237,13 +237,13 @@ function addUnique(key::Key, hashSet::HashSet)::HashSet
   local outHashSet::HashSet
 
   @assign outHashSet = begin
-    local hval::Integer
-    local indx::Integer
-    local newpos::Integer
-    local n::Integer
-    local n_1::Integer
-    local bsize::Integer
-    local indx_1::Integer
+    local hval::Int
+    local indx::Int
+    local newpos::Int
+    local n::Int
+    local n_1::Int
+    local bsize::Int
+    local indx_1::Int
     local varr_1::Tuple{Integer, Integer, Array{Option{Key}}}
     local varr::Tuple{Integer, Integer, Array{Option{Key}}}
     local indexes::List{Tuple{Key, Integer}}
@@ -281,10 +281,10 @@ function delete(key::Key, hashSet::HashSet)::HashSet
   local outHashSet::HashSet
 
   @assign outHashSet = begin
-    local indx::Integer
-    local n::Integer
-    local bsize::Integer
-    local indx_1::Integer
+    local indx::Int
+    local n::Int
+    local bsize::Int
+    local indx_1::Int
     local varr_1::Tuple{Integer, Integer, Array{Option{Key}}}
     local varr::Tuple{Integer, Integer, Array{Option{Key}}}
     local hashvec::Array{List{Tuple{Key, Integer}}}
@@ -351,12 +351,12 @@ end
 
 """help function to get"""
 function get1(key::Key, hashSet::HashSet)::Tuple{Option{Key}, Integer}
-  local indx::Integer
+  local indx::Int
   local okey::Option{Key}
   (okey, indx) = begin
-    local hashindx::Integer
-    local bsize::Integer
-    local n::Integer
+    local hashindx::Int
+    local bsize::Int
+    local n::Int
     local indexes::List{Tuple{Key, Integer}}
     local hashvec::Array{List{Tuple{Key, Integer}}}
     local varr::ValueArray
@@ -388,7 +388,7 @@ function get2(
   keyEqual::FuncEq,
 )::Tuple{Integer, Bool}
   local found::Bool = true
-  local index::Integer = 0
+  local index::Int = 0
   local key2::Key
   for t in keyIndices
     (key2, index) = t
@@ -433,7 +433,7 @@ function valueArrayList(inValueArray::ValueArray)::List{Key}
   local outList::List{Key} = nil
 
   local arr::Array{Option{Key}}
-  local size::Integer
+  local size::Int
   local e::Key
 
   @assign (size, _, arr) = inValueArray
@@ -448,8 +448,8 @@ function valueArrayList(inValueArray::ValueArray)::List{Key}
 end
 
 """Returns the number of elements inserted into the table"""
-function currentSize(hashSet::HashSet)::Integer
-  local sz::Integer
+function currentSize(hashSet::HashSet)::Int
+  local sz::Int
 
   local va::ValueArray
 
@@ -459,8 +459,8 @@ function currentSize(hashSet::HashSet)::Integer
 end
 
 """Returns the number of elements in the ValueArray"""
-function valueArrayLength(valueArray::ValueArray)::Integer
-  local sz::Integer
+function valueArrayLength(valueArray::ValueArray)::Int
+  local sz::Int
 
   @assign (sz, _, _) = valueArray
   return sz
@@ -474,12 +474,12 @@ function valueArrayAdd(valueArray::ValueArray, entry::Key)::ValueArray
   local outValueArray::ValueArray
 
   @assign outValueArray = begin
-    local n_1::Integer
-    local n::Integer
-    local size::Integer
-    local expandsize::Integer
-    local expandsize_1::Integer
-    local newsize::Integer
+    local n_1::Int
+    local n::Int
+    local size::Int
+    local expandsize::Int
+    local expandsize_1::Int
+    local newsize::Int
     local arr_1::Array{Option{Key}}
     local arr::Array{Option{Key}}
     local arr_2::Array{Option{Key}}
@@ -520,14 +520,14 @@ function valueArrayAdd(valueArray::ValueArray, entry::Key)::ValueArray
 end
 
 """Set the n:th variable in the ValueArray to value."""
-function valueArraySetnth(valueArray::ValueArray, pos::Integer, entry::Key)::ValueArray
+function valueArraySetnth(valueArray::ValueArray, pos::Int, entry::Key)::ValueArray
   local outValueArray::ValueArray
 
   @assign outValueArray = begin
     local arr_1::Array{Option{Key}}
     local arr::Array{Option{Key}}
-    local n::Integer
-    local size::Integer
+    local n::Int
+    local size::Int
     @matchcontinue (valueArray, pos, entry) begin
       ((n, size, arr), _, _) => begin
         if ! (pos < size)
@@ -547,14 +547,14 @@ function valueArraySetnth(valueArray::ValueArray, pos::Integer, entry::Key)::Val
 end
 
 """Clears the n:th variable in the ValueArray (set to NONE())."""
-function valueArrayClearnth(valueArray::ValueArray, pos::Integer)::ValueArray
+function valueArrayClearnth(valueArray::ValueArray, pos::Int)::ValueArray
   local outValueArray::ValueArray
 
   @assign outValueArray = begin
     local arr_1::Array{Option{Key}}
     local arr::Array{Option{Key}}
-    local n::Integer
-    local size::Integer
+    local n::Int
+    local size::Int
     @matchcontinue (valueArray, pos) begin
       ((n, size, arr), _) => begin
         if !pos < size
@@ -574,12 +574,12 @@ function valueArrayClearnth(valueArray::ValueArray, pos::Integer)::ValueArray
 end
 
 """Retrieve the n:th Value from ValueArray, index from 0..n-1."""
-function valueArrayNth(valueArray::ValueArray, pos::Integer)::Key
+function valueArrayNth(valueArray::ValueArray, pos::Int)::Key
   local key::Key
 
   @assign key = begin
     local k::Key
-    local n::Integer
+    local n::Int
     local arr::Array{Option{Key}}
     @match (valueArray, pos) begin
       ((n, _, arr), _) => begin
@@ -597,12 +597,12 @@ function valueArrayNth(valueArray::ValueArray, pos::Integer)::Key
 end
 
 """Retrieve the n:th Value from ValueArray, index from 0..n-1."""
-function valueArrayNthT(valueArray::ValueArray, pos::Integer)::Option{Key}
+function valueArrayNthT(valueArray::ValueArray, pos::Int)::Option{Key}
   local key::Option{Key}
 
   @assign key = begin
     local k::Key
-    local n::Integer
+    local n::Int
     local arr::Array{Option{Key}}
     @match (valueArray, pos) begin
       ((n, _, arr), _) => begin

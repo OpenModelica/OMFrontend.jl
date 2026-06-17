@@ -843,6 +843,23 @@ function instClass(node::InstNode, modifier::Modifier, attributes::Attributes, a
     Error.addSourceMessage(Error.MISSING_REDECLARE_IN_CLASS_MOD, list(name(node)), Binding_getInfo(binding(outer_mod)))
     fail()
   end
+  #= Instance cache for default (empty-modifier) atomic scalar builtins. Their
+     instantiated form is immutable (all attributes unmodified, so never mutated
+     downstream) and context-free, so identical occurrences reuse one instance.
+     Result is independent of `attributes` (only stored via attributeRef) and
+     `parent` (re-bound via updateComponentType). Cheap key: the def objectid. =#
+  if CACHE_INST[] && cls isa PARTIAL_BUILTIN && !(cls.restriction isa RESTRICTION_EXTERNAL_OBJECT) && isEmpty(modifier)
+    local k = objectid(definition(node))
+    local hit = get(INST_CACHE, k, nothing)
+    if hit !== nothing
+      updateComponentType(parent, hit)
+      attributeRef.x = attributes
+      return hit::CLASS_NODE
+    end
+    local result = instClassDef(cls, modifier, attributes, useBinding, node, parent, instLevel, attributeRef)::CLASS_NODE
+    INST_CACHE[k] = result
+    return result
+  end
   return instClassDef(cls, modifier, attributes, useBinding, node, parent, instLevel, attributeRef)::CLASS_NODE
   finally
     INST_CLASS_DEPTH[] -= 1
@@ -910,7 +927,15 @@ function instClassDef(cls::PARTIAL_BUILTIN,
       instExternalObjectStructors(cls.ty, parentArg)
     end
     PARTIAL_BUILTIN(ty = ty, restriction = res)  => begin
-      (node, _, _, _) = instantiate(node, parentArg)
+      local sharedExcept = if SHARE_ATTRS[]
+        local s = Set{String}()
+        for m in toList(outerMod); push!(s, name(m)); end
+        for m in toList(cls.modifier); push!(s, name(m)); end
+        s
+      else
+        nothing
+      end
+      (node, _, _, _) = instantiate(node, parentArg; sharedExcept)
       updateComponentType(parentArg, node)
       cls_tree = classTree(getClass(node))
       mod = fromElement(definition(node), list(node), parent(node))
@@ -1250,7 +1275,10 @@ function applyModifier(modifier::Modifier, cls::ClassTree, clsName::String) ::Cl
           for node_ptr in node_ptrs
             node = resolveOuter(P_Pointer.access(node_ptr))
             if isComponent(node)
-              componentApply(node, mergeModifier, mod)
+              local n2 = componentApply(node, mergeModifier, mod)
+              if n2 !== node
+                P_Pointer.update(node_ptr, n2)
+              end
             else
               if isOnlyOuter(node)
                 Error.addSourceMessage(Error.OUTER_ELEMENT_MOD, list(toString(mod, false), name(mod)), info(mod))
@@ -2123,6 +2151,13 @@ const INST_EXPR_DEPTH = Ref(0)
 const INST_EXPR_DEPTH_LIMIT = 100
 const INST_CLASS_DEPTH = Ref(0)
 const INST_CLASS_DEPTH_LIMIT = 100
+# Instance-result cache for default (empty-modifier) atomic scalar builtins.
+# Cheap key: the class-definition objectid (no string building). Reuses the
+# instantiated class across the many identical default-scalar occurrences,
+# skipping their instClass work. Enabled by default (OMFRONTEND_CACHE_INST=false
+# to disable); cleared per flatten.
+const CACHE_INST = Base.RefValue{Bool}(get(ENV, "OMFRONTEND_CACHE_INST", "true") == "true")
+const INST_CACHE = Dict{UInt64, InstNode}()
 
 #= Diagnostic counters for detecting exponential blowup (monotonically increasing) =#
 const INST_CLASS_TOTAL_CALLS = Ref(0)
@@ -2138,6 +2173,10 @@ function resetInstDiagnostics()
   INST_EXPR_DEPTH[] = 0
   empty!(CLASS_PTR_WRITES)
   empty!(COMPONENT_PTR_WRITES)
+  empty!(CLASS_PTR_WRITERS)
+  empty!(COMPONENT_PTR_WRITERS)
+  empty!(FROZEN_ATTR_NODES)
+  empty!(INST_CACHE)
   resetLookupCache()
 end
 
@@ -2187,6 +2226,21 @@ function dumpInstDiagnostics(modelName::String; topN::Int = 20)
           classMulti, " written more than once, max ", classMax, " writes on a single pointer")
   println("    component pointers  : ", length(compWrites), " unique, ", compTotal, " writes total, ",
           compMulti, " written more than once, max ", compMax, " writes on a single pointer")
+  # Aliasing audit: distinct node identities per Ref cell. >1 == genuine multi-writer alias.
+  local classWriters = Base.collect(values(CLASS_PTR_WRITERS))
+  local compWriters  = Base.collect(values(COMPONENT_PTR_WRITERS))
+  local classAliased = count(s -> length(s) > 1, classWriters)
+  local compAliased  = count(s -> length(s) > 1, compWriters)
+  local classMaxW    = isempty(classWriters) ? 0 : maximum(length, classWriters)
+  local compMaxW     = isempty(compWriters)  ? 0 : maximum(length, compWriters)
+  println("  Aliasing audit (distinct node identities per Ref):")
+  println("    class Refs           : ", classAliased, " shared by >1 node (max ", classMaxW, " nodes on one Ref)")
+  println("    component Refs        : ", compAliased, " shared by >1 node (max ", compMaxW, " nodes on one Ref)")
+  if classAliased == 0 && compAliased == 0
+    println("    => NO multi-writer Refs. Approach A (inline payload) is safe wholesale.")
+  else
+    println("    => MULTI-WRITER Refs EXIST. Approach A needs a hybrid carve-out for shared cells.")
+  end
   local lookupHits = LOOKUP_CLASS_HITS[]
   local lookupMisses = LOOKUP_CLASS_MISSES[]
   local lookupTotal = lookupHits + lookupMisses

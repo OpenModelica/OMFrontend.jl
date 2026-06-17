@@ -107,11 +107,11 @@ const LINEWIDTH_STANDARD = 2.0::AbstractFloat
 
 const LINEWIDTH_BOLD = 4.0::AbstractFloat
 
-const FONTSIZE_STANDARD = 12::Integer
+const FONTSIZE_STANDARD = 12::Int
 
-const FONTSIZE_BIG = 20::Integer
+const FONTSIZE_BIG = 20::Int
 
-const FONTSIZE_SMALL = 8::Integer
+const FONTSIZE_SMALL = 8::Int
 
 const BORDERWIDTH_STANDARD = 1.0::AbstractFloat
 
@@ -127,15 +127,15 @@ const BORDERWIDTH_BOLD = 4.0::AbstractFloat
   @Record GRAPHINFO begin
 
     graphs::List{Graph}
-    graphCount::Integer
+    graphCount::Int
     #= number of graphs in the graphs list
     =#
     nodes::List{Node}
-    nodeCount::Integer
+    nodeCount::Int
     #= number of nodes in the nodes list
     =#
     edges::List{Edge}
-    edgeCount::Integer
+    edgeCount::Int
     #= number of edges in the edge list
     =#
     attributes::List{Attribute}
@@ -187,7 +187,7 @@ end
   @Record GROUPNODE begin
 
     id::String
-    internalGraphIdx::Integer
+    internalGraphIdx::Int
     isFolded::Bool
     header::String
   end
@@ -214,7 +214,7 @@ end
 @Uniontype Attribute begin
   @Record ATTRIBUTE begin
 
-    attIdx::Integer
+    attIdx::Int
     defaultValue::String
     name::String
     attType::AttributeType
@@ -246,7 +246,7 @@ end
 
     text::String
     backgroundColor::Option{String}
-    fontSize::Integer
+    fontSize::Int
   end
 end
 
@@ -402,15 +402,15 @@ function addGraph(
 
   local tmpGraph::Graph
   local graphs::List{Graph}
-  local graphCount::Integer
+  local graphCount::Int
   #= number of graphs in the graphs list
   =#
   local nodes::List{Node}
-  local nodeCount::Integer
+  local nodeCount::Int
   #= number of nodes in the nodes list
   =#
   local edges::List{Edge}
-  local edgeCount::Integer
+  local edgeCount::Int
   #= number of edges in the edge list
   =#
   local attributes::List{Attribute}
@@ -458,7 +458,7 @@ function addNode(
   shapeType::ShapeType,
   optDesc::Option{<:String},
   attValues::List{<:Tuple{<:Integer, String}},
-  iGraphIdx::Integer,
+  iGraphIdx::Int,
   iGraphInfo::GraphInfo,
 )::Tuple{GraphInfo, Tuple{Node, Integer}}
   local oNode::Tuple{Node, Integer}
@@ -468,15 +468,15 @@ function addNode(
   #= values of graphinfo
   =#
   local graphs::List{Graph}
-  local graphCount::Integer
+  local graphCount::Int
   #= number of graphs in the graphs list
   =#
   local nodes::List{Node}
-  local nodeCount::Integer
+  local nodeCount::Int
   #= number of nodes in the nodes list
   =#
   local edges::List{Edge}
-  local edgeCount::Integer
+  local edgeCount::Int
   #= number of edges in the edge list
   =#
   local attributes::List{Attribute}
@@ -531,7 +531,7 @@ end
 """
 function addGroupNode(
   id::String,
-  iGraphIdx::Integer,
+  iGraphIdx::Int,
   isFolded::Bool,
   iHeader::String,
   iGraphInfo::GraphInfo,
@@ -545,15 +545,15 @@ function addGroupNode(
   #= values of graphinfo
   =#
   local graphs::List{Graph}
-  local graphCount::Integer
+  local graphCount::Int
   #= number of graphs in the graphs list
   =#
   local nodes::List{Node}
-  local nodeCount::Integer
+  local nodeCount::Int
   #= number of nodes in the nodes list
   =#
   local edges::List{Edge}
-  local edgeCount::Integer
+  local edgeCount::Int
   #= number of edges in the edge list
   =#
   local attributes::List{Attribute}
@@ -565,7 +565,7 @@ function addGroupNode(
   local newGraph::Graph
   local gid::String
   local directed::Bool
-  local newGraphIdx::Integer
+  local newGraphIdx::Int
   local nodeIdc::List{Integer}
   local attValues::List{Tuple{Integer, String}}
   #= values of custom attributes (see GRAPHINFO definition). <attributeIndex,attributeValue>
@@ -646,15 +646,15 @@ function addEdge(
   #= values of graphinfo
   =#
   local graphs::List{Graph}
-  local graphCount::Integer
+  local graphCount::Int
   #= number of graphs in the graphs list
   =#
   local nodes::List{Node}
-  local nodeCount::Integer
+  local nodeCount::Int
   #= number of nodes in the nodes list
   =#
   local edges::List{Edge}
-  local edgeCount::Integer
+  local edgeCount::Int
   #= number of edges in the edge list
   =#
   local attributes::List{Attribute}
@@ -707,19 +707,19 @@ function addAttribute(
   local oGraphInfo::GraphInfo
 
   local tmpAttribute::Attribute
-  local attIdx::Integer
+  local attIdx::Int
   #= values of graphinfo
   =#
   local graphs::List{Graph}
-  local graphCount::Integer
+  local graphCount::Int
   #= number of graphs in the graphs list
   =#
   local nodes::List{Node}
-  local nodeCount::Integer
+  local nodeCount::Int
   #= number of nodes in the nodes list
   =#
   local edges::List{Edge}
-  local edgeCount::Integer
+  local edgeCount::Int
   #= number of edges in the edge list
   =#
   local attributes::List{Attribute}
@@ -761,7 +761,7 @@ end
 """
 function addGraphAttributeValue(
   iValue::Tuple{<:Integer, String},
-  iGraphIdx::Integer,
+  iGraphIdx::Int,
   iGraphInfo::GraphInfo,
 )::GraphInfo
   local oGraphInfo::GraphInfo
@@ -769,15 +769,15 @@ function addGraphAttributeValue(
   #= values of graphinfo
   =#
   local graphs::List{Graph}
-  local graphCount::Integer
+  local graphCount::Int
   #= number of graphs in the graphs list
   =#
   local nodes::List{Node}
-  local nodeCount::Integer
+  local nodeCount::Int
   #= number of nodes in the nodes list
   =#
   local edges::List{Edge}
-  local edgeCount::Integer
+  local edgeCount::Int
   #= number of edges in the edge list
   =#
   local attributes::List{Attribute}
@@ -788,7 +788,7 @@ function addGraphAttributeValue(
   local iGraph::Graph
   local gid::String
   local directed::Bool
-  local newGraphIdx::Integer
+  local newGraphIdx::Int
   local nodeIdc::List{Integer}
   local attValues::List{Tuple{Integer, String}}
   #= values of custom attributes (see GRAPHINFO definition). <attributeIndex,attributeValue>
@@ -895,7 +895,7 @@ function getAttributeByNameAndTargetTail(
   local oAttribute::Option{Tuple{Attribute, Integer}}
 
   local rest::List{Attribute}
-  local attIdx::Integer
+  local attIdx::Int
   local name::String
   local head::Attribute
   local attTarget::AttributeTarget
@@ -930,8 +930,8 @@ end
 function compareAttributeTargets(iTarget1::AttributeTarget, iTarget2::AttributeTarget)::Bool
   local oEqual::Bool
 
-  local tarInt1::Integer
-  local tarInt2::Integer
+  local tarInt1::Int
+  local tarInt2::Int
 
   @assign tarInt1 = compareAttributeTarget0(iTarget1)
   @assign tarInt2 = compareAttributeTarget0(iTarget2)
@@ -939,8 +939,8 @@ function compareAttributeTargets(iTarget1::AttributeTarget, iTarget2::AttributeT
   return oEqual
 end
 
-function compareAttributeTarget0(iTarget::AttributeTarget)::Integer
-  local oCodec::Integer
+function compareAttributeTarget0(iTarget::AttributeTarget)::Int
+  local oCodec::Int
 
   @assign oCodec = begin
     @match iTarget begin
@@ -989,16 +989,16 @@ function convertToGraphInfoArr(iGraphInfo::GraphInfo)::GraphInfo
   =#
   local graphs::List{Graph}
   local graphsArr::Array{Graph}
-  local graphCount::Integer
+  local graphCount::Int
   #= number of graphs in the graphs list
   =#
   local nodes::List{Node}
   local nodesArr::Array{Node}
-  local nodeCount::Integer
+  local nodeCount::Int
   #= number of nodes in the nodes list
   =#
   local edges::List{Edge}
-  local edgeCount::Integer
+  local edgeCount::Int
   #= number of edges in the edge list
   =#
   local attributes::List{Attribute}
@@ -1032,15 +1032,15 @@ end
 """-------------------------"""
 function printGraphInfo(iGraphInfo::GraphInfo)
   local graphs::List{Graph}
-  local graphCount::Integer
+  local graphCount::Int
   #= number of graphs in the graphs list
   =#
   local nodes::List{Node}
-  local nodeCount::Integer
+  local nodeCount::Int
   #= number of nodes in the nodes list
   =#
   local edges::List{Edge}
-  local edgeCount::Integer
+  local edgeCount::Int
   #= number of edges in the edge list
   =#
   local attributes::List{Attribute}

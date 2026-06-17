@@ -812,11 +812,11 @@ function vectorizeEquation(
               COMPONENT_NODE(
                 "i",
                 prefix_node.visibility,
-                P_Pointer.create(ITERATOR_COMPONENT(
+                ITERATOR_COMPONENT(
                   TYPE_INTEGER(),
                   Variability.IMPLICITLY_DISCRETE,
-                  Component_info(P_Pointer.access(prefix_node.component)),
-                )),
+                  Component_info(prefix_node.component),
+                ),
                 prefix_node.parent,
                 NORMAL_COMP(),
               )
@@ -880,11 +880,11 @@ function vectorizeAlgorithm(
               COMPONENT_NODE(
                 "i",
                 prefix_node.visibility,
-                P_Pointer.create(ITERATOR_COMPONENT(
+                ITERATOR_COMPONENT(
                   TYPE_INTEGER(),
                   Variability.IMPLICITLY_DISCRETE,
-                  info(P_Pointer.access(prefix_node.component)),
-                )),
+                  info(prefix_node.component),
+                ),
                 prefix_node.parent,
                 NORMAL_COMP(),
               )
