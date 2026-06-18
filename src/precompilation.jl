@@ -40,6 +40,7 @@ using PrecompileTools
   The functionality of this file is called during the precompilation phase.
 """
 function workload()
+  Sys.iswindows() && return
   @info "Precompiling builtin libraries..."
   @info "NOTE: This version of OMFrontend only supports Julia versions greater than 1.10"
   if ! haskey(NFModelicaBuiltinCache, "NFModelicaBuiltin")
