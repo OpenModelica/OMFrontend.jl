@@ -34,9 +34,11 @@ jobs:
       matrix:
         # Listing every combination explicitly keeps the matrix predictable.
         include:
+          # Coverage is only collected/uploaded on one runner.
           - os: ubuntu-latest
             arch: x64
             version: '1.12'
+            coverage: true
           - os: windows-latest
             arch: x64
             version: '1.12'
@@ -180,19 +182,22 @@ jobs:
         # most expensive part of the build. Test is already in [deps] so
         # no [extras] merging is needed.
         # --code-coverage=user emits .cov files next to user source for the
-        # downstream julia-processcoverage step.
+        # downstream julia-processcoverage step. Only enabled on the coverage
+        # runner; the others run tests without the coverage overhead.
         shell: bash
         working-directory: OMFrontend.jl
         run: |
-          julia --color=yes --code-coverage=user --project=. -e '
+          julia --color=yes ${{ matrix.coverage && '--code-coverage=user' || '' }} --project=. -e '
             include("test/runtests.jl")
           '
 
       - uses: julia-actions/julia-processcoverage@v1
+        if: matrix.coverage
         with:
           directories: OMFrontend.jl/src
 
       - name: Upload coverage to Codecov
+        if: matrix.coverage
         uses: codecov/codecov-action@v4
         with:
           files: lcov.info
