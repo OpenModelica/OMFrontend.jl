@@ -31,6 +31,17 @@ jobs:
         with:
           path: OMFrontend.jl
 
+      # The docs step does `Pkg.develop(path = OMFrontend.jl)`, which makes Pkg
+      # inspect the package git tree. The test-only `test/3rdParty/Buildings`
+      # submodule is not fetched (submodules: false) and is not needed for docs,
+      # but its presence makes LibGit2 fail with "cannot get submodules without
+      # a working tree". Drop the reference so develop operates on a clean tree.
+      - name: Drop test-only submodule (not needed for docs)
+        shell: bash
+        run: |
+          rm -f OMFrontend.jl/.gitmodules
+          rm -rf OMFrontend.jl/test/3rdParty/Buildings
+
       # OMFrontend.jl/Project.toml uses [sources] to point at sibling working
       # copies. We mirror the CI workflow and lay the siblings out alongside the
       # main checkout.
@@ -132,8 +143,13 @@ jobs:
               "../OMRuntimeExternalC.jl",
               "../SCode.jl",
             ]
-            Pkg.develop([Pkg.PackageSpec(path = p) for p in siblings])
-            Pkg.develop(Pkg.PackageSpec(path = pwd()))
+            # Develop OMFrontend together with the siblings in a single call.
+            # Developing the siblings first re-resolves the docs environment
+            # while OMFrontend is still a registry/git dependency, which makes
+            # Pkg clone it from GitHub and fail on its test submodule.
+            specs = [Pkg.PackageSpec(path = p) for p in siblings]
+            push!(specs, Pkg.PackageSpec(path = pwd()))
+            Pkg.develop(specs)
             Pkg.instantiate()
           '
 
