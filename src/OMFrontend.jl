@@ -142,12 +142,14 @@ end
   <component>.<component_1>.<component_2>...
 """
 function instantiateSCodeToFM(elementToInstantiate::String,
-                              inProgram::SCode.Program; scalarize = true)
+                              inProgram::SCode.Program; scalarize = true,
+                              separateIndexReduction = false)
   # initialize globals
   Frontend.Global.initialize()
   # make sure we have all the flags loaded!
   #  Frontend.Flags.new(Flags.emptyFlags)
   Frontend.FlagsUtil.set(Frontend.Flags.NF_SCALARIZE, scalarize)
+  Frontend.FlagsUtil.set(Frontend.Flags.NF_SEPARATE_INDEX_REDUCTION, separateIndexReduction)
   local builtinSCode = NFModelicaBuiltinCache["NFModelicaBuiltin"]
   local program = listReverse(listAppend(builtinSCode, inProgram))
   local path = Frontend.AbsynUtil.stringPath(elementToInstantiate)
@@ -364,10 +366,12 @@ end
 
 Returns the flat representation of a modelica model along with the functions used and define by the model.
 """
-function flattenModel(modelName::String, fileName::String; scalarize = true)
+function flattenModel(modelName::String, fileName::String; scalarize = true,
+                      separateIndexReduction = false)
   local absynProgram = parseFile(fileName)
   local sCodeProgram = translateToSCode(absynProgram)
-  (FM, cache) = instantiateSCodeToFM(modelName, sCodeProgram; scalarize = scalarize)
+  (FM, cache) = instantiateSCodeToFM(modelName, sCodeProgram; scalarize = scalarize,
+                                     separateIndexReduction = separateIndexReduction)
 end
 
 """
@@ -1009,6 +1013,7 @@ function flattenModelWithLibraries(modelName::String,
                                    MSL::Bool = false,
                                    MSL_Version::String = "MSL:3.2.3",
                                    scalarize::Bool = true,
+                                   separateIndexReduction::Bool = false,
                                    forceReload::Bool = false)
   local combined = if isempty(fileName)
     nil
@@ -1030,7 +1035,8 @@ function flattenModelWithLibraries(modelName::String,
     end
     combined = listAppend(combined, LIBRARY_CACHE[mslKey])
   end
-  (FM, cache) = instantiateSCodeToFM(modelName, combined; scalarize = scalarize)
+  (FM, cache) = instantiateSCodeToFM(modelName, combined; scalarize = scalarize,
+                                     separateIndexReduction = separateIndexReduction)
 end
 
 
@@ -1058,6 +1064,31 @@ Disables staged dumping of the flat  model between different compiler phases.
 function disableDumpDebug()
   status = FlagsUtil.disableDebug(Flags.NF_DUMP_FLAT)
   @info "Disabled Flags.NF_DUMP_FLAT. Old status was $(status)"
+end
+
+"""
+```
+enableSeparateIndexReduction()
+```
+Flatten each top-level component into its own structural submodel
+(`FLAT_MODEL.structuralSubmodels`) so the backend can run index reduction
+separately per component. Equivalent to passing `separateIndexReduction = true`
+to `flattenModel`/`instantiateSCodeToFM`. Disable with `disableSeparateIndexReduction()`.
+"""
+function enableSeparateIndexReduction()
+  status = FlagsUtil.enableDebug(Flags.NF_SEPARATE_INDEX_REDUCTION)
+  @info "Enabled Flags.NF_SEPARATE_INDEX_REDUCTION. Old status was $(status)"
+end
+
+"""
+```
+disableSeparateIndexReduction()
+```
+Restore the default whole-model flattening (top-level components are inlined).
+"""
+function disableSeparateIndexReduction()
+  status = FlagsUtil.disableDebug(Flags.NF_SEPARATE_INDEX_REDUCTION)
+  @info "Disabled Flags.NF_SEPARATE_INDEX_REDUCTION. Old status was $(status)"
 end
 
 Base.show(io::IO, ::MIME"text/plain", fm::OMFrontend.Frontend.FLAT_MODEL) = begin
@@ -1145,35 +1176,37 @@ include("cli.jl")
 include("precompilation.jl")
 
 """
-    exportFlatModelJSON(FM; output_dir=".", base_name, hierarchy=true, flat=true,
-                       class_mapping=nothing)
+    exportJSON(FM; output_dir=".", base_name, hierarchy=true, flat=true,
+               class_mapping=nothing)
 
-Export a flat model as `<base>_hierarchy.json` and/or `<base>_flat.json` in
+Export an already-flattened model `FM` (a `FLAT_MODEL` or the `(fm, funcs)` tuple
+from `flattenModel`) as `<base>_hierarchy.json` and/or `<base>_flat.json` in
 `output_dir`. Structural-mode components are grouped into class templates with
-parameter overrides. See `StructuralModeJSON.exportFlatModelJSON`.
+parameter overrides. See `StructuralModeJSON.exportJSON`.
 """
-exportFlatModelJSON(args...; kwargs...) =
-  StructuralModeJSON.exportFlatModelJSON(args...; kwargs...)
+exportJSON(fmOrTuple; kwargs...) =
+  StructuralModeJSON.exportJSON(fmOrTuple; kwargs...)
 
 """
-    exportFlatModelJSONFromFile(modelName, fileName, library = "";
-                                output_dir, base_name,
-                                hierarchy=true, flat=true, class_mapping=nothing)
+    exportJSON(modelName, fileName, library = "";
+               output_dir, base_name,
+               hierarchy=true, flat=true, class_mapping=nothing, atd=false)
 
-Parse `fileName`, instantiate `modelName` to a FlatModel, then call
-`exportFlatModelJSON`. When `library` is non-empty, it is loaded via
-`loadInstalledLibrary` and combined with the model via `flattenModelWithLibraries`
-(e.g. `library = "Modelica"`). When `library` is empty, the model is flattened
-on its own with `flattenModel`.
+Parse `fileName`, instantiate `modelName` to a FlatModel, then export it as JSON.
+When `library` is non-empty, it is loaded via `loadInstalledLibrary` and combined
+with the model via `flattenModelWithLibraries` (e.g. `library = "Modelica"`). When
+`library` is empty, the model is flattened on its own with `flattenModel`. Pass
+`atd=true` to also write the `<base>.atd` schema.
 """
-function exportFlatModelJSONFromFile(modelName::AbstractString,
-                                     fileName::AbstractString,
-                                     library::AbstractString = "";
-                                     output_dir::AbstractString = ".",
-                                     base_name::AbstractString = "",
-                                     hierarchy::Bool = true,
-                                     flat::Bool = true,
-                                     class_mapping::Union{Dict{String,String}, Nothing} = nothing)
+function exportJSON(modelName::AbstractString,
+                    fileName::AbstractString,
+                    library::AbstractString = "";
+                    output_dir::AbstractString = ".",
+                    base_name::AbstractString = "",
+                    hierarchy::Bool = true,
+                    flat::Bool = true,
+                    class_mapping::Union{Dict{String,String}, Nothing} = nothing,
+                    atd::Bool = false)
   (fm, _funcs) = if isempty(library)
     flattenModel(String(modelName), String(fileName))
   else
@@ -1181,12 +1214,22 @@ function exportFlatModelJSONFromFile(modelName::AbstractString,
     flattenModelWithLibraries(String(modelName), String(fileName);
                               libraries = [cacheKey])
   end
-  return StructuralModeJSON.exportFlatModelJSON(fm;
-                                                output_dir = output_dir,
-                                                base_name = base_name,
-                                                hierarchy = hierarchy,
-                                                flat = flat,
-                                                class_mapping = class_mapping)
+  return StructuralModeJSON.exportJSON(fm;
+                                       output_dir = output_dir,
+                                       base_name = base_name,
+                                       hierarchy = hierarchy,
+                                       flat = flat,
+                                       class_mapping = class_mapping,
+                                       atd = atd)
 end
+
+"""
+    exportATD(; output_dir=".", base_name="structural_mode_json")
+
+Write the canonical OCaml ATD schema for the exported JSON to
+`<output_dir>/<base_name>.atd` and return the path. The schema is
+model-independent. See `StructuralModeJSON.exportATD`.
+"""
+exportATD(; kwargs...) = StructuralModeJSON.exportATD(; kwargs...)
 
 end #OMFrontend

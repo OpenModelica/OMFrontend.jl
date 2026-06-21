@@ -19,14 +19,11 @@ end
   @test occursin("h_start", s)
 end
 
-@testset "Replaceable partial function called via partial default (Buildings/PartialMedium pattern)" begin
-  # UsePartialDefault calls P.compute where P is still the partial default.
-  # This is invalid Modelica; the frontend should reject it gracefully.
-  # With the CLASS_TREE_EXPANDED_TREE no-op fix the crash (MethodError) is
-  # gone -- the error is now a controlled assertion. The @test_broken tracks
-  # that full redeclaration-context propagation (Fix #2) is still outstanding.
-  @test_broken begin
-    (fm, _) = _flattenFM_replaceable("UsePartialDefault", _REPL_PKG_FILE)
-    true
-  end
+@testset "Replaceable partial function called via partial default is rejected (OMC parity)" begin
+  # UsePartialDefault calls P.compute where P is left at its partial default
+  # (AbstractFnPkg2) and never redeclared, so compute is a partial function.
+  # This is invalid Modelica; OMC rejects it with "P is partial, name lookup
+  # is not allowed in partial classes." The frontend must reject it too.
+  @test_throws MetaModelica.MetaModelicaGeneralException _flattenFM_replaceable(
+    "UsePartialDefault", _REPL_PKG_FILE)
 end

@@ -816,6 +816,14 @@ function lookupCrefInNode(cref::Absyn.ComponentRef #=modification-040321=#,
       end
     end
   end
+  #= Reject name lookup inside a still-partial class/package (OMC parity:
+     "%s is partial, name lookup is not allowed in partial classes"). A
+     redeclared package resolves to its concrete target here, so this only
+     fires for a genuinely-unredeclared partial default. =#
+  if node isa CLASS_NODE && isPartial(scope)
+    Error.addSourceMessageAndFail(
+      Error.LOOKUP_IN_PARTIAL_CLASS, list(scopeName(scope)), sourceInfo())
+  end
   name = AbsynUtil.crefFirstIdent(cref)
   cls = getClass(scope)
   @match ENTRY_INFO(n, is_import) = lookupElement(name, cls)

@@ -631,9 +631,126 @@ end
 
 # === Public API ===
 
+#= Canonical OCaml ATD schema for the exported JSON. Single source of truth;
+   docs/structural_mode_json.atd is generated from this. =#
+const ATD_SCHEMA = """
+(* ATD type definitions for flat Modelica model JSON export.
+   These types define the schema for both the hierarchy and flat model JSON
+   produced by `OMFrontend.exportJSON`. *)
+
+(* -- Shared types -- *)
+
+type variability = [
+  | Parameter
+  | Continuous
+]
+
+type visibility = [
+  | Public
+  | Protected
+]
+
+type variable = {
+  name: string;
+  type_name <json name="type">: string;
+  variability: variability;
+  visibility: visibility;
+  highest_differentiation_order: int;
+  ?default_value <json name="default">: string option;
+  ?attributes: string option;
+}
+
+type equation = {
+  id: string;
+  equation: string;
+  differentiation_order: int;
+  variables_used: string list;
+}
+
+(* -- Hierarchy JSON -- *)
+
+type structural_class_summary = {
+  name: string;
+  highest_differentiation_order: int;
+  highest_differentiation_order_variables: string list;
+}
+
+type structural_component = {
+  name: string;
+  type_name <json name="type">: string;
+  n_variables: int;
+  n_parameters: int;
+  n_equations: int;
+}
+
+type hierarchy = {
+  model: string;
+  structural_classes: structural_class_summary list;
+  structural_components: structural_component list;
+  coupling_equations: string list;
+  ~top_level_variables: string list;
+}
+
+(* -- Flat model JSON -- *)
+
+type structural_class = {
+  name: string;
+  highest_differentiation_order: int;
+  highest_differentiation_order_variables: string list;
+  variables: variable list;
+  equations: equation list;
+}
+
+type parameter_override = {
+  parameter: string;
+  value: string;
+}
+
+type component = {
+  name: string;
+  class_name <json name="class">: string;
+  ~parameter_overrides: parameter_override list;
+}
+
+type top_level_section = {
+  ~variables: variable list;
+  ~equations: equation list;
+}
+
+type var_equation_mapping = {
+  variable: string;
+  equation_ids: string list;
+}
+
+type flat_model = {
+  model: string;
+  structural_classes: structural_class list;
+  components: component list;
+  top_level: top_level_section;
+  variable_to_equations: var_equation_mapping list;
+}
 """
-    exportFlatModelJSON(FM; output_dir=".", base_name, hierarchy=true, flat=true,
-                       class_mapping=nothing) -> NamedTuple
+
+"""
+    exportATD(; output_dir=".", base_name="structural_mode_json") -> String
+
+Write the canonical OCaml ATD schema (`ATD_SCHEMA`) for the exported JSON to
+`<output_dir>/<base_name>.atd` and return the written path. The schema is
+model-independent.
+"""
+function exportATD(; output_dir::AbstractString = ".",
+                     base_name::AbstractString = "structural_mode_json")
+  mkpath(output_dir)
+  path = joinpath(output_dir, base_name * ".atd")
+  open(path, "w") do io
+    write(io, ATD_SCHEMA)
+  end
+  return path
+end
+
+"""
+    exportJSON(FM; output_dir=".", base_name, hierarchy=true, flat=true,
+               class_mapping=nothing, atd=false) -> NamedTuple
 
 Walk a FlatModel and write `<base_name>_hierarchy.json` and/or `<base_name>_flat.json`.
 Structural-mode components (in `FM.structuralSubmodels`) are deduplicated into
@@ -643,15 +760,17 @@ class templates with per-instance parameter overrides.
 to class name (e.g. `Dict("p1" => "Pendulum")`). When not provided, the class
 name defaults to the uppercase-first form of the first instance in each fingerprint group.
 
-Returns a `NamedTuple{(:hierarchy_path, :flat_path)}`. Either entry is the
-written file path, or `nothing` when the corresponding keyword was `false`.
+Returns a `NamedTuple{(:hierarchy_path, :flat_path, :atd_path)}`. Each entry is the
+written file path, or `nothing` when the corresponding keyword was `false`. Pass
+`atd=true` to also write `<base_name>.atd` (the schema in `ATD_SCHEMA`).
 """
-function exportFlatModelJSON(fmOrTuple;
+function exportJSON(fmOrTuple;
                              output_dir::AbstractString = ".",
                              base_name::AbstractString = "",
                              hierarchy::Bool = true,
                              flat::Bool = true,
-                             class_mapping::Union{Dict{String,String}, Nothing} = nothing)
+                             class_mapping::Union{Dict{String,String}, Nothing} = nothing,
+                             atd::Bool = false)
   fm = fmOrTuple isa Frontend.FLAT_MODEL ? fmOrTuple : first(fmOrTuple)
   isempty(base_name) && (base_name = fm.name)
   mkpath(output_dir)
@@ -659,6 +778,7 @@ function exportFlatModelJSON(fmOrTuple;
   mapping = _buildClassMapping(submodels, class_mapping)
   hierPath = nothing
   flatPath = nothing
+  atdPath = nothing
   if hierarchy
     h = _buildHierarchy(fm, submodels, mapping)
     hierPath = joinpath(output_dir, base_name * "_hierarchy.json")
@@ -673,7 +793,10 @@ function exportFlatModelJSON(fmOrTuple;
       JSON.print(io, _toDict(f), 2)
     end
   end
-  return (hierarchy_path = hierPath, flat_path = flatPath)
+  if atd
+    atdPath = exportATD(output_dir = output_dir, base_name = base_name)
+  end
+  return (hierarchy_path = hierPath, flat_path = flatPath, atd_path = atdPath)
 end
 
 end # module StructuralModeJSON
