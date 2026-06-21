@@ -286,7 +286,7 @@ function flattenComponent(
            every top-level component. The flag is gated on isTopLevel so it
            does not cascade into a submodel's own internals. =#
         if c.attributes.isStructuralMode == true ||
-           (isTopLevel && Flags.isSet(Flags.NF_SEPARATE_INDEX_REDUCTION))
+           (isTopLevel && Flags.isSet(Flags.NF_SEPARATE_INSTANTIATION))
           #@debug "FLATTEN A COMPLEX STRUCTURAL COMPONENT"
           #=
             Since this component is structural we do not flatten it.

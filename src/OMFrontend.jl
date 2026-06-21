@@ -143,13 +143,13 @@ end
 """
 function instantiateSCodeToFM(elementToInstantiate::String,
                               inProgram::SCode.Program; scalarize = true,
-                              separateIndexReduction = false)
+                              separateInstantiation = false)
   # initialize globals
   Frontend.Global.initialize()
   # make sure we have all the flags loaded!
   #  Frontend.Flags.new(Flags.emptyFlags)
   Frontend.FlagsUtil.set(Frontend.Flags.NF_SCALARIZE, scalarize)
-  Frontend.FlagsUtil.set(Frontend.Flags.NF_SEPARATE_INDEX_REDUCTION, separateIndexReduction)
+  Frontend.FlagsUtil.set(Frontend.Flags.NF_SEPARATE_INSTANTIATION, separateInstantiation)
   local builtinSCode = NFModelicaBuiltinCache["NFModelicaBuiltin"]
   local program = listReverse(listAppend(builtinSCode, inProgram))
   local path = Frontend.AbsynUtil.stringPath(elementToInstantiate)
@@ -367,11 +367,11 @@ end
 Returns the flat representation of a modelica model along with the functions used and define by the model.
 """
 function flattenModel(modelName::String, fileName::String; scalarize = true,
-                      separateIndexReduction = false)
+                      separateInstantiation = false)
   local absynProgram = parseFile(fileName)
   local sCodeProgram = translateToSCode(absynProgram)
   (FM, cache) = instantiateSCodeToFM(modelName, sCodeProgram; scalarize = scalarize,
-                                     separateIndexReduction = separateIndexReduction)
+                                     separateInstantiation = separateInstantiation)
 end
 
 """
@@ -1013,7 +1013,7 @@ function flattenModelWithLibraries(modelName::String,
                                    MSL::Bool = false,
                                    MSL_Version::String = "MSL:3.2.3",
                                    scalarize::Bool = true,
-                                   separateIndexReduction::Bool = false,
+                                   separateInstantiation::Bool = false,
                                    forceReload::Bool = false)
   local combined = if isempty(fileName)
     nil
@@ -1036,7 +1036,7 @@ function flattenModelWithLibraries(modelName::String,
     combined = listAppend(combined, LIBRARY_CACHE[mslKey])
   end
   (FM, cache) = instantiateSCodeToFM(modelName, combined; scalarize = scalarize,
-                                     separateIndexReduction = separateIndexReduction)
+                                     separateInstantiation = separateInstantiation)
 end
 
 
@@ -1068,27 +1068,27 @@ end
 
 """
 ```
-enableSeparateIndexReduction()
+enableSeparateInstantiation()
 ```
 Flatten each top-level component into its own structural submodel
 (`FLAT_MODEL.structuralSubmodels`) so the backend can run index reduction
-separately per component. Equivalent to passing `separateIndexReduction = true`
-to `flattenModel`/`instantiateSCodeToFM`. Disable with `disableSeparateIndexReduction()`.
+separately per component. Equivalent to passing `separateInstantiation = true`
+to `flattenModel`/`instantiateSCodeToFM`. Disable with `disableSeparateInstantiation()`.
 """
-function enableSeparateIndexReduction()
-  status = FlagsUtil.enableDebug(Flags.NF_SEPARATE_INDEX_REDUCTION)
-  @info "Enabled Flags.NF_SEPARATE_INDEX_REDUCTION. Old status was $(status)"
+function enableSeparateInstantiation()
+  status = FlagsUtil.enableDebug(Flags.NF_SEPARATE_INSTANTIATION)
+  @info "Enabled Flags.NF_SEPARATE_INSTANTIATION. Old status was $(status)"
 end
 
 """
 ```
-disableSeparateIndexReduction()
+disableSeparateInstantiation()
 ```
 Restore the default whole-model flattening (top-level components are inlined).
 """
-function disableSeparateIndexReduction()
-  status = FlagsUtil.disableDebug(Flags.NF_SEPARATE_INDEX_REDUCTION)
-  @info "Disabled Flags.NF_SEPARATE_INDEX_REDUCTION. Old status was $(status)"
+function disableSeparateInstantiation()
+  status = FlagsUtil.disableDebug(Flags.NF_SEPARATE_INSTANTIATION)
+  @info "Disabled Flags.NF_SEPARATE_INSTANTIATION. Old status was $(status)"
 end
 
 Base.show(io::IO, ::MIME"text/plain", fm::OMFrontend.Frontend.FLAT_MODEL) = begin

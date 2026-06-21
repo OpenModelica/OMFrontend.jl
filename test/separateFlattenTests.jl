@@ -1,7 +1,7 @@
 #=
-  Separate-index-reduction flatten tests.
+  Separate-instantiation flatten tests.
 
-  With `separateIndexReduction` off, a normal assembly model is fully inlined.
+  With `separateInstantiation` off, a normal assembly model is fully inlined.
   With it on, each top-level component is kept as its own entry in
   `structuralSubmodels` (reusing the structural-mode storage) so the backend can
   run index reduction per component. The flag is set per flatten call, so it
@@ -18,7 +18,7 @@ end
 
 @testset "flag on: each top-level component split out" begin
   (fm, _) = OMFrontend.flattenModel("CoupledPenduli", _SEP_MODEL_FILE;
-                                    separateIndexReduction = true)
+                                    separateInstantiation = true)
   @test _sepNSub(fm) == 3
   names = Set(sm.name for sm in fm.structuralSubmodels)
   @test names == Set(["tb", "p1", "p2"])

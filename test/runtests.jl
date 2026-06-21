@@ -85,7 +85,7 @@ end
     include("jsonExportTests.jl")
   end
 
-  @testset "Separate-index-reduction flatten" begin
+  @testset "Separate instantiation" begin
     include("separateFlattenTests.jl")
   end
 

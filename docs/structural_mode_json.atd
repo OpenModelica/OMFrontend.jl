@@ -1,0 +1,95 @@
+(* ATD type definitions for flat Modelica model JSON export.
+   These types define the schema for both the hierarchy and flat model JSON
+   produced by `OMFrontend.exportJSON`. *)
+
+(* -- Shared types -- *)
+
+type variability = [
+  | Parameter
+  | Continuous
+]
+
+type visibility = [
+  | Public
+  | Protected
+]
+
+type variable = {
+  name: string;
+  type_name <json name="type">: string;
+  variability: variability;
+  visibility: visibility;
+  highest_differentiation_order: int;
+  ?default_value <json name="default">: string option;
+  ?attributes: string option;
+}
+
+type equation = {
+  id: string;
+  equation: string;
+  differentiation_order: int;
+  variables_used: string list;
+}
+
+(* -- Hierarchy JSON -- *)
+
+type structural_class_summary = {
+  name: string;
+  highest_differentiation_order: int;
+  highest_differentiation_order_variables: string list;
+}
+
+type structural_component = {
+  name: string;
+  type_name <json name="type">: string;
+  n_variables: int;
+  n_parameters: int;
+  n_equations: int;
+}
+
+type hierarchy = {
+  model: string;
+  structural_classes: structural_class_summary list;
+  structural_components: structural_component list;
+  coupling_equations: string list;
+  ~top_level_variables: string list;
+}
+
+(* -- Flat model JSON -- *)
+
+type structural_class = {
+  name: string;
+  highest_differentiation_order: int;
+  highest_differentiation_order_variables: string list;
+  variables: variable list;
+  equations: equation list;
+}
+
+type parameter_override = {
+  parameter: string;
+  value: string;
+}
+
+type component = {
+  name: string;
+  class_name <json name="class">: string;
+  ~parameter_overrides: parameter_override list;
+}
+
+type top_level_section = {
+  ~variables: variable list;
+  ~equations: equation list;
+}
+
+type var_equation_mapping = {
+  variable: string;
+  equation_ids: string list;
+}
+
+type flat_model = {
+  model: string;
+  structural_classes: structural_class list;
+  components: component list;
+  top_level: top_level_section;
+  variable_to_equations: var_equation_mapping list;
+}
