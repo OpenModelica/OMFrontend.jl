@@ -1446,6 +1446,13 @@ const NF_PARALLEL =
     false,
     Gettext.gettext("Opt-in parallelism for OMFrontend phases beyond Absyn-to-SCode (e.g. future parallel instantiation). The Absyn-to-SCode parallel branch is proven safe and runs unconditionally based on `Threads.nthreads()`; this flag does not control it. Reserved for opt-in branches whose correctness is not yet proven. Default off."),
   )::DebugFlag
+const NF_SEPARATE_INSTANTIATION =
+  DEBUG_FLAG(
+    186,
+    "nfSeparateInstantiation",
+    false,
+    Gettext.gettext("Flatten each top-level component into its own structural submodel so index reduction can run separately per component. Default off."),
+  )::DebugFlag
 #= Runtime-toggleable complexity gate for the user-`Inline=true` path. Skips
    inlining when the body (or worst-case post-substitution form) exceeds the
    tunable thresholds in `NFInline`. Default on. Flip via

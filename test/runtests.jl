@@ -81,6 +81,14 @@ end
     include("replaceableTests.jl")
   end
 
+  @testset "JSON exporter" begin
+    include("jsonExportTests.jl")
+  end
+
+  @testset "Separate instantiation" begin
+    include("separateFlattenTests.jl")
+  end
+
   #=
   Test components in the MSL
   If you are a user of this package please submit more tests here.

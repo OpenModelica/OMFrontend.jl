@@ -64,7 +64,7 @@ const NFFunctionTree = FunctionTreeImpl
 
 import .FunctionTree
 
-function flatten(classInst::InstNode, name::String; prefix = COMPONENT_REF_EMPTY())
+function flatten(classInst::InstNode, name::String; prefix = COMPONENT_REF_EMPTY(), isTopLevel::Bool = true)
   local flatModel::FlatModel
   local sections::Sections
   local vars::Vector{Variable}
@@ -85,6 +85,7 @@ function flatten(classInst::InstNode, name::String; prefix = COMPONENT_REF_EMPTY
     Variable[],
     sections,
     structuralSubmodels,
+    isTopLevel = isTopLevel,
   )
   flatModel = begin
     @match sections begin
@@ -148,6 +149,8 @@ function flattenClass(
   #= Extension. Models that are a structural part of a flat model and should not be merged.=#
   structuralSubModels::List{FLAT_MODEL},
   #= End extension =#
+  ;
+  isTopLevel::Bool = false,
   )
   #@info "CALLING flattenClass"
   local comps::Vector{InstNode}
@@ -178,7 +181,8 @@ function flattenClass(
                   SOME(listHead(bindings)),
                   vars,
                   sections,
-                  structuralSubModels
+                  structuralSubModels,
+                  isTopLevel = isTopLevel,
                 )
                 bindings = listRest(bindings)
               end
@@ -187,7 +191,8 @@ function flattenClass(
                 #@info "Calling flatten component" toString(c)
                 (vars, sections, structuralSubModels) =
                   flattenComponent(c, prefix, visibility, binding,
-                                   vars, sections, structuralSubModels)
+                                   vars, sections, structuralSubModels,
+                                   isTopLevel = isTopLevel)
               end
             end
           else
@@ -195,7 +200,8 @@ function flattenClass(
               #@info "Calling flatten component" toString(c)
               (vars, sections, structuralSubModels) =
                 flattenComponent(c, prefix, visibility, NONE(),
-                                 vars, sections, structuralSubModels)
+                                 vars, sections, structuralSubModels,
+                                 isTopLevel = isTopLevel)
             end
           end
           sections = flattenSections(cls.sections, prefix, sections)
@@ -210,7 +216,8 @@ function flattenClass(
           binding,
           vars,
           sections,
-          structuralSubModels
+          structuralSubModels,
+          isTopLevel = isTopLevel,
         )
         ()
       end
@@ -243,7 +250,8 @@ function flattenComponent(
   vars::Vector{Variable},
   sections::Sections,
   #= Passed from the top level class. =#
-  structuralSubModels::List{FLAT_MODEL}
+  structuralSubModels::List{FLAT_MODEL};
+  isTopLevel::Bool = false,
   )
   #@info "FLATTEN COMPONENT: " * toString(inComponent)
   local comp_node::InstNode
@@ -273,7 +281,12 @@ function flattenComponent(
       end
       if isComplexComponent(ty)
         #= A complex component such as a model or a class =#
-        if c.attributes.isStructuralMode == true
+        #= Keep the component as a separate submodel when it is declared
+           `structuralmode`, or when the separate-index-reduction flag splits
+           every top-level component. The flag is gated on isTopLevel so it
+           does not cascade into a submodel's own internals. =#
+        if c.attributes.isStructuralMode == true ||
+           (isTopLevel && Flags.isSet(Flags.NF_SEPARATE_INSTANTIATION))
           #@debug "FLATTEN A COMPLEX STRUCTURAL COMPONENT"
           #=
             Since this component is structural we do not flatten it.
@@ -284,7 +297,7 @@ function flattenComponent(
           local prefixOfComponent = fromNode(comp_node, ty)
           structuralSubModels =
             flatten(comp_node #= TODO: Or do we need some instantation specific stuff=#,
-                    name(comp_node), prefix = prefixOfComponent) <| structuralSubModels
+                    name(comp_node), prefix = prefixOfComponent, isTopLevel = false) <| structuralSubModels
         else
           (vars, sections) = flattenComplexComponent(
             comp_node,
