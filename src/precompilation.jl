@@ -181,7 +181,14 @@ function workload()
 end
 
 PrecompileTools.@compile_workload begin
-  workload()
+  #= When building inside OM, OM's own @compile_workload re-exercises the frontend and is the
+     bake that PERSISTS (OM is the leaf package); this intermediate-package workload is then
+     redundant AND invalidated by later loads. Set OMFRONTEND_NO_PRECOMPILE_WORKLOAD=1 to skip
+     it in the OM build (mirrors OMBACKEND_NO_PRECOMPILE_WORKLOAD). Standalone OMFrontend
+     precompiles (no env var) still run it. =#
+  if get(ENV, "OMFRONTEND_NO_PRECOMPILE_WORKLOAD", "") == ""
+    workload()
+  end
 end
 
 # @recompile_invalidations begin

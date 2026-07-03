@@ -651,7 +651,8 @@ end
 Resets the tick so it restarts on start
 """
 function tmpTickReset(start::Int)
-  setGlobalRoot(Global.tmpTickIndex, start)
+  #= same slot as tmpTick's tmpTickIndex(index = 0) =#
+  setGlobalRoot(0, start)
 end
 
 """

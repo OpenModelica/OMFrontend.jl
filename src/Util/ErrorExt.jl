@@ -258,10 +258,21 @@ function getMessages()::List{ErrorTypes.TotalMessage}
   return res
 end
 
-"""Returns all error messages since the last checkpoint and pops them from the message queue."""
+"""Returns the messages added since the last checkpoint and POPS them from the
+message queue (the checkpoint mark itself stays on the stack).
+Entries are stored as `[message, tokens, info]`; token substitution is deferred
+to print time, so the tokens list is not preserved in the TotalMessage."""
 function getCheckpointMessages()::List{ErrorTypes.TotalMessage}
   local res::List{ErrorTypes.TotalMessage} = nil
-  @warn "TODO: getCheckpointMessages not defined in the runtime"
+  local st = _state()
+  local mark = isempty(st.checkpointStack) ? 0 : st.checkpointStack[end]
+  for i in (mark + 1):length(st.sourceMessages)
+    local e = st.sourceMessages[i]
+    if e isa AbstractVector && length(e) >= 3
+      res = ErrorTypes.TOTALMESSAGE(e[1], e[3]) <| res
+    end
+  end
+  resize!(st.sourceMessages, min(mark, length(st.sourceMessages)))
   return res
 end
 

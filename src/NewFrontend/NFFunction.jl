@@ -499,7 +499,7 @@ function toDAE(fn::M_FUNCTION, def::DAE.FunctionDefinition)::DAE.Function
   @assign par = false
   #=  TODO: Use the actual partial prefix.
   =#
-  @assign impr = fn.attributes.isImpure
+  @assign impr = fn.attributes.purity == DAE.IMPURE
   @assign ity = fn.attributes.inline
   @assign ty = makeDAEType(fn)
   @assign unused_inputs = analyseUnusedParameters(fn)
@@ -573,12 +573,12 @@ function isFunctionPointer(fn::M_FUNCTION)::Bool
 end
 
 function isOMImpure(fn::M_FUNCTION)::Bool
-  local isImpure::Bool = !fn.attributes.isOpenModelicaPure
+  local isImpure::Bool = fn.attributes.purity == DAE.IMPURE
   return isImpure
 end
 
 function isImpure(fn::M_FUNCTION)::Bool
-  local impure::Bool = fn.attributes.isImpure
+  local impure::Bool = fn.attributes.purity == DAE.IMPURE
   return impure
 end
 

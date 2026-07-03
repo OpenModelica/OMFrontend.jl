@@ -828,11 +828,11 @@ function getOption(inOption::Option{T}) where {T}
 end
 
 """Returns an option value if SOME, otherwise the default"""
-function getOptionOrDefault(inOption::Option{T}, inDefault::T) where {T}
-  local outValue::T
+function getOptionOrDefault(inOption::Option, inDefault)
+  local outValue
 
    outValue = begin
-    local value::T
+    local value
     @match inOption begin
       SOME(value) => begin
         value
@@ -1566,9 +1566,9 @@ function stringNotEqual(str1::String, str2::String)::Bool
   return b
 end
 
-function swap(cond::Bool, in1::T, in2::T) where {T}
-  local out2::T
-  local out1::T
+function swap(cond::Bool, in1, in2)
+  local out2
+  local out1
 
    (out1, out2) = begin
     @match cond begin

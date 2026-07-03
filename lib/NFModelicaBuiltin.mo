@@ -383,18 +383,18 @@ function max
 </html>"));
 end max;
 
-function sum<ArrayType, ScalarBasicType> "Sum of all array elements"
-  input ArrayType a;
-  output ScalarBasicType s;
+function sum<__Array, __Scalar> "Sum of all array elements"
+  input __Array a;
+  output __Scalar s;
   external "builtin";
   annotation(__OpenModelica_builtin=true, Documentation(info="<html>
   See <a href=\"modelica://ModelicaReference.Operators.'sum()'\">sum()</a>
 </html>"));
 end sum;
 
-function product<ArrayType, ScalarBasicType> "Product of all array elements"
-  input ArrayType a;
-  output ScalarBasicType s;  external "builtin";
+function product<__Array, __Scalar> "Product of all array elements"
+  input __Array a;
+  output __Scalar s;  external "builtin";
   annotation(__OpenModelica_builtin=true, Documentation(info="<html>
   See <a href=\"modelica://ModelicaReference.Operators.'product()'\">product()</a>
 </html>"));
@@ -442,8 +442,8 @@ function diagonal<T> "Returns a diagonal matrix"
 </html>"));
 end diagonal;
 
-function cardinality "Number of connectors in connection"
-  input Real c;
+function cardinality<__Connector> "Number of connectors in connection"
+  input __Connector c;
   parameter output Integer numOccurances;
   external "builtin";
   annotation(__OpenModelica_builtin=true, Documentation(info="<html>
