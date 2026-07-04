@@ -146,7 +146,7 @@ end
   Function could used with List.sort to sort a
   List as list< tuple<Integer, Type_a> > by first argument.
 """
-function compareTupleIntGt(inTplA::Tuple{Integer, T}, inTplB::Tuple{Integer, T}) where {T}
+function compareTupleIntGt(inTplA::Tuple, inTplB::Tuple)
   local res::Bool
 
   local a::Int
@@ -162,7 +162,7 @@ end
   Function could used with List.sort to sort a
   List as list< tuple<Integer, Type_a> > by first argument.
 """
-function compareTupleIntLt(inTplA::Tuple{Integer, T}, inTplB::Tuple{Integer, T}) where {T}
+function compareTupleIntLt(inTplA::Tuple, inTplB::Tuple)
   local res::Bool
 
   local a::Int
