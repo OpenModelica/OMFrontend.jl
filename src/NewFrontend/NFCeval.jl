@@ -282,7 +282,16 @@ end
       end
 
       MUTABLE_EXPRESSION(__) => begin
-         exp1 = evalExp_impl(P_Pointer.access(exp.exp), target)
+        #= A mutable cell holds a local/output variable's binding. Evaluate it
+           once and write the value back, so repeated references to the same
+           local (common in functions whose locals form a dependency DAG, e.g.
+           MultiBody Frames.from_nxy) do not re-evaluate the whole binding tree.
+           Algorithm assignments overwrite the cell, invalidating the cache. =#
+        local cur = P_Pointer.access(exp.exp)
+        exp1 = evalExp_impl(cur, target)
+        if !referenceEq(exp1, cur)
+          P_Pointer.update(exp.exp, exp1)
+        end
         exp1
       end
 
