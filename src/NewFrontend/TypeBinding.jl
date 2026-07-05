@@ -180,7 +180,7 @@ function typeComponentBindingRef2(
     else
       c.condition
     end
-    c.condition = cCond
+    @assign c.condition = cCond
 
     #= Check if the condition evaluates to false (component is disabled). =#
     local componentDisabled = false
@@ -213,14 +213,14 @@ function typeComponentBindingRef2(
     end
     attrs = c.attributes
     if comp_var != attrs.variability
-      attrs.variability = comp_var
-      c.attributes = attrs
+      @assign attrs.variability = comp_var
+      @assign c.attributes = attrs
     end
     #str2 = toString(binding)
     #@debug "Typed binding 2: $str2"
     #        ErrorExt.delCheckpoint(getInstanceName()) TODO
 
-    c.binding = typedBinding
+    @assign c.binding = typedBinding
     updateComponent!(c, node)
     if typeChildren
       typeBindingsRefs(c.classInst, inComponent, origin, tyRef, varRef)
@@ -231,14 +231,15 @@ function typeComponentBindingRef2(
   checkBindingEach(c.binding)
   if isTyped(c.binding)
     cBinding = matchBinding(c.binding, c.ty, name(inComponent), node)
-    c.binding = cBinding
+    @assign c.binding = cBinding
   end
 
   if isBound(c.condition)
     local cCond = typeComponentCondition(c.condition, origin)
-    c.condition = cCond
-    updateComponent!(c, node)
+    @assign c.condition = cCond
   end
+  #= c is immutable now: install the (possibly) rebuilt component once. =#
+  updateComponent!(c, node)
   if typeChildren
     typeBindingsRefs(c.classInst, inComponent, origin, tyRef, varRef)
   end
@@ -258,7 +259,7 @@ function typeComponentBindingRef2(
     return nothing
   end
   local mod = typeTypeAttribute(c.modifier, c.ty, parent(inComponent), origin)
-  c.modifier = mod #TYPE_ATTRIBUTE(c.ty, mod)
+  @assign c.modifier = mod
   updateComponent!(c, node)
   return nothing
 end
@@ -302,7 +303,7 @@ function typeComponentBinding2(
     return
   else
     local mod = typeTypeAttribute(c.modifier, c.ty, parent(inComponent), origin)
-    c.modifier = mod #TYPE_ATTRIBUTE(c.ty, mod)
+    @assign c.modifier = mod #TYPE_ATTRIBUTE(c.ty, mod)
     updateComponent!(c, node)
     return
   end
@@ -329,11 +330,12 @@ function typeComponentBinding2(
   checkBindingEach(c.binding)
   local binding = typeBinding(c.binding, setFlag(origin, ORIGIN_BINDING))
   local comp_var = checkComponentBindingVariability(nameStr, c, binding, origin)
+  local attrs = c.attributes
   if comp_var != attrs.variability
-    attrs.variability = comp_var
-    c.attributes = attrs
+    @assign attrs.variability = comp_var
+    @assign c.attributes = attrs
   end
-  c.binding = binding
+  @assign c.binding = binding
   updateComponent!(c, node)
   return
 end
@@ -385,7 +387,7 @@ function typeComponentBinding2(
     attrs = c.attributes
     if comp_var != attrs.variability
       attrs.variability = comp_var
-      c.attributes = attrs
+      @assign c.attributes = attrs
     end
     #str2 = toString(binding)
     #@debug "Typed binding 2: $str2"
@@ -396,8 +398,10 @@ function typeComponentBinding2(
     else
       c.condition
     end
-    c.condition =  cCond
-    c.binding = typedBinding
+    @assign begin
+      c.condition =  cCond
+      c.binding = typedBinding
+    end
     updateComponent!(c, node)
     if typeChildren
       typeBindings(c.classInst, inComponent, origin)
@@ -406,16 +410,17 @@ function typeComponentBinding2(
   end
   #=  Second case: A component without a binding, or with a binding that's already been typed. =#
   checkBindingEach(c.binding)
-  if isTyped(c.binding)
+  if isTyped(c.binding) #TODO. The two assigns here can be unified.
     cBinding = matchBinding(c.binding, c.ty, name(inComponent), node)
-    c.binding = cBinding
+    @assign c.binding = cBinding
   end
 
   if isBound(c.condition)
     local cCond = typeComponentCondition(c.condition, origin)
-    c.condition = cCond
-    updateComponent!(c, node)
+    @assign c.condition = cCond
   end
+  #= c is immutable now: install the (possibly) rebuilt component once. =#
+  updateComponent!(c, node)
   if typeChildren
     typeBindings(c.classInst, inComponent, origin)
   end
@@ -537,13 +542,8 @@ end
 
 """
 Updates and mutates a given binding exp.
+NOTE: Creates a new BIINDING_EXP
 """
 function updateBindingExp!(bindingExp::BINDING_EXP, exp, expType, bindingType, parents, isEach)::BINDING_EXP
-  #= Mutate binding exp=#
-  # bindingExp.exp = exp
-  # bindingExp.expType = expType
-  # bindingExp.bindingType = bindingType
-  # bindingExp.parents = parents
-  # bindingExp.isEach = isEach
-  return BINDING_EXP(exp, expType, bindingType, parents, isEach)#bindingExp
+  return BINDING_EXP(exp, expType, bindingType, parents, isEach)
 end

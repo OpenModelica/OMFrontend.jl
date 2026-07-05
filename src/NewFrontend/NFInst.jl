@@ -307,9 +307,7 @@ function instantiateN1(node::InstNode, parentNode::InstNode, isRedeclared::Bool 
 end
 
 function instantiateN1(node::InstNode)
-  #@debug "Instantiating!!!! in Inst"
   node = expand(node)
-  #@debug "After expansion in inst. Instantiating in class-tree "
   node = instClass(node, MODIFIER_NOMOD(), DEFAULT_ATTR, Ref{Attributes}(DEFAULT_ATTR), true, 0, EMPTY_NODE())
   return node
 end
@@ -2498,23 +2496,27 @@ function instComponentExpressions(componentArg::InstNode)::Nothing
   local dims::Vector{Dimension}
   @match c begin
     UNTYPED_COMPONENT(dimensions = dims, instantiated = false) where c.binding isa UNBOUND  => begin
-      c.binding = instBinding(c.binding)::UNBOUND
-      c.condition = instBinding(c.condition)
+      @assign begin
+        c.binding = instBinding(c.binding)::UNBOUND
+        c.condition = instBinding(c.condition)
+      end
       instExpressions(c.classInst, node)
       for i in 1:arrayLength(dims)
         @inbounds dims[i] = instDimension(dims[i], parent(node), c.info)
       end
-      #=  This is to avoid instantiating the same component multiple times,
+      #=
+      This is to avoid instantiating the same component multiple times,
+      which can otherwise happen with duplicate components at this stage.
       =#
-      #=  which can otherwise happen with duplicate components at this stage.
-      =#
-      c.instantiated = true
+      @assign c.instantiated = true
       updateComponent!(c, node)
     end
 
     UNTYPED_COMPONENT(dimensions = dims, instantiated = false) => begin
-      c.binding = instBinding(c.binding)
-      c.condition = instBinding(c.condition)
+      @assign begin
+        c.binding = instBinding(c.binding)
+        c.condition = instBinding(c.condition)
+      end
       instExpressions(c.classInst, node)
       for i in 1:arrayLength(dims)
         @inbounds dims[i] = instDimension(dims[i], parent(node), c.info)
@@ -2523,7 +2525,7 @@ function instComponentExpressions(componentArg::InstNode)::Nothing
       =#
       #=  which can otherwise happen with duplicate components at this stage.
       =#
-      c.instantiated = true
+      @assign c.instantiated = true
       updateComponent!(c, node)
       nothing
     end
@@ -2541,7 +2543,7 @@ function instComponentExpressions(componentArg::InstNode)::Nothing
     end
 
     TYPE_ATTRIBUTE(__)  => begin
-      c.modifier = instBuiltinAttribute(c.modifier, componentArg)
+      @assign c.modifier = instBuiltinAttribute(c.modifier, componentArg)
       updateComponent!(c, node)
       nothing
     end

@@ -84,14 +84,14 @@ struct ITERATOR_COMPONENT{T0 <: M_Type, T1 <: VariabilityType, T2 <: SourceInfo}
   info::T2
 end
 
-mutable struct TYPE_ATTRIBUTE{T0 <: M_Type, T1 <: Modifier} <: Component
+struct TYPE_ATTRIBUTE{T0 <: M_Type, T1 <: Modifier} <: Component
   ty::T0
   modifier::T1
 end
 
-mutable struct TYPED_COMPONENT{T0 <: InstNode,
-                               T4 <: Attributes,
-                               T5 <: SourceInfo} <: Component
+struct TYPED_COMPONENT{T0 <: InstNode,
+                       T4 <: Attributes,
+                       T5 <: SourceInfo} <: Component
   classInst::T0
   ty::M_Type
   binding::Binding
@@ -102,7 +102,7 @@ mutable struct TYPED_COMPONENT{T0 <: InstNode,
   info::T5
 end
 
-mutable struct UNTYPED_COMPONENT <: Component
+struct UNTYPED_COMPONENT <: Component
   classInst::InstNode
   dimensions::Vector{Dimension}
   binding::Binding
@@ -113,13 +113,12 @@ mutable struct UNTYPED_COMPONENT <: Component
   info::SourceInfo
 end
 
-mutable struct COMPONENT_DEF <: Component
+struct COMPONENT_DEF <: Component
   definition::SCode.Element
   modifier::Modifier
 end
 
-struct EMPTY_COMPONENT <: Component
-end
+struct EMPTY_COMPONENT <: Component end
 
 const DEFAULT_ATTR =
   IMMUTABLE_ATTRIBUTES(
@@ -334,7 +333,7 @@ function setDimensions(dims::List{<:Dimension}, component::Component)
    () = begin
     @match component begin
       UNTYPED_COMPONENT(__) => begin
-         component.dimensions = listArray(dims)
+         @assign component.dimensions = listArray(dims)
         ()
       end
       TYPED_COMPONENT(__) => begin
@@ -503,13 +502,13 @@ function setConnectorType(cty::ConnectorType.TYPE, component::Component)
     local attr::Attributes
     @match component begin
       UNTYPED_COMPONENT(attributes = attr) => begin
-         attr.connectorType = cty
-         component.attributes = attr
+         @assign attr.connectorType = cty
+         @assign component.attributes = attr
         ()
       end
       TYPED_COMPONENT(attributes = attr) => begin
-         attr.connectorType = cty
-         component.attributes = attr
+         @assign attr.connectorType = cty
+         @assign component.attributes = attr
         ()
       end
       _ => begin
@@ -659,7 +658,6 @@ function setVariability(variability::VariabilityType, component::Component)
                                     attr.isRedeclare,
                                     attr.isReplaceable,
                                     attr.isStructuralMode)
-      component.attributes = localAttri
       if component isa UNTYPED_COMPONENT
         component = UNTYPED_COMPONENT(component.classInst,
                                       component.dimensions,
@@ -749,14 +747,14 @@ function makeInput(component::Component)
    () = begin
     @match component begin
       UNTYPED_COMPONENT(attributes = attr) => begin
-         attr.direction = Direction.INPUT
-         component.attributes = attr
+         @assign attr.direction = Direction.INPUT
+         @assign component.attributes = attr
         ()
       end
 
       TYPED_COMPONENT(attributes = attr) => begin
-         attr.direction = Direction.INPUT
-         component.attributes = attr
+         @assign attr.direction = Direction.INPUT
+         @assign component.attributes = attr
         ()
       end
 
@@ -857,7 +855,7 @@ end
 function setBinding(@nospecialize(binding::Binding), @nospecialize(component::Component))
   @match component begin
     UNTYPED_COMPONENT(__) => begin
-      component.binding = binding
+      @assign component.binding = binding
       ()
     end
     TYPED_COMPONENT(__) => begin
@@ -866,7 +864,7 @@ function setBinding(@nospecialize(binding::Binding), @nospecialize(component::Co
       ()
     end
     TYPE_ATTRIBUTE(__) => begin
-      component.modifier = setBinding(binding, component.modifier)
+      @assign component.modifier = setBinding(binding, component.modifier)
       ()
     end
   end
@@ -927,12 +925,12 @@ function setAttributes(attr, component::Component)
    () = begin
     @match component begin
       UNTYPED_COMPONENT(__) => begin
-         component.attributes = attr
+         @assign component.attributes = attr
         ()
       end
 
       TYPED_COMPONENT(__) => begin
-         component.attributes = attr
+         @assign component.attributes = attr
         ()
       end
     end
@@ -960,11 +958,11 @@ function unliftType(component::Component)
     local ty::M_Type
     @match component begin
       TYPED_COMPONENT(ty = TYPE_ARRAY(elementType = ty)) => begin
-         component.ty = ty
+         @assign component.ty = ty
         ()
       end
       ITERATOR(ty = TYPE_ARRAY(elementType = ty)) => begin
-         component.ty = ty
+         @assign component.ty = ty
         ()
       end
       _ => begin
@@ -1020,12 +1018,12 @@ function setType(@nospecialize(ty::M_Type), component::Component)
       end
 
       TYPED_COMPONENT(__) => begin
-        component.ty = ty
+        @assign component.ty = ty
         component
       end
 
       ITERATOR(__) => begin
-         component.ty = ty
+         @assign component.ty = ty
         component
       end
     end
@@ -1082,7 +1080,7 @@ end
 
 function setModifier(@nospecialize(modifier::Modifier), @nospecialize(component::Component))
   if component isa COMPONENT_DEF || component isa TYPED_ATTRIBUTE
-    component.modifier = modifier
+    @assign component.modifier = modifier
   end
   return component
 end
@@ -1108,12 +1106,12 @@ end
 function setClassInstance(classInst::InstNode, component::Component)
   @match component begin
     UNTYPED_COMPONENT(__) => begin
-      component.classInst = classInst
+      @assign component.classInst = classInst
       ()
     end
 
     TYPED_COMPONENT(__) => begin
-      component.classInst = classInst
+      @assign component.classInst = classInst
       ()
     end
   end
