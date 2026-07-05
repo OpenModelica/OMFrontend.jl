@@ -33,37 +33,52 @@
 *
 */ =#
 
-@UniontypeDecl InstNodeType
 @UniontypeDecl InstNode
 
-@Uniontype InstNodeType begin
-  @Record NORMAL_CLASS begin
-  end
-  @Record BASE_CLASS begin
-    parent::InstNode
-    definition #= The extends clause definition. =#::SCode.Element
-  end
-  @Record DERIVED_CLASS begin
-    ty::InstNodeType
-  end
-  @Record BUILTIN_CLASS begin
-  end
-  @Record TOP_SCOPE begin
-  end
-  @Record ROOT_CLASS begin
-    parent #= The parent of the class, e.g. when instantiating a function
-    in a component where the component is the parent. =#::InstNode
-  end
-  @Record NORMAL_COMP begin
-  end
-  @Record REDECLARED_COMP begin
-    parent #= The parent of the replaced component =#::InstNode
-  end
-  @Record REDECLARED_CLASS begin
-    parent::InstNode
-    originalType::InstNodeType
-  end
+#= InstNodeType as a single concrete tagged struct (hand-written; the variants are
+   field-disjoint so @CUniontype does not apply). Keeps the old constructor names
+   and field names, so construction / @match / field access are unchanged; nullary
+   variants are interned singletons. =#
+@enum InstNodeTypeTag::UInt8 INTY_NORMAL_CLASS INTY_BASE_CLASS INTY_DERIVED_CLASS INTY_BUILTIN_CLASS INTY_TOP_SCOPE INTY_ROOT_CLASS INTY_NORMAL_COMP INTY_REDECLARED_COMP INTY_REDECLARED_CLASS
+
+struct InstNodeType
+  tag::InstNodeTypeTag
+  parent::Union{InstNode,Nothing}
+  definition::Union{SCode.Element,Nothing}
+  ty::Union{InstNodeType,Nothing}
+  originalType::Union{InstNodeType,Nothing}
 end
+
+# Nullary variants: interned singletons.
+const _INTY_NORMAL_CLASS = InstNodeType(INTY_NORMAL_CLASS, nothing, nothing, nothing, nothing)
+const _INTY_BUILTIN_CLASS = InstNodeType(INTY_BUILTIN_CLASS, nothing, nothing, nothing, nothing)
+const _INTY_TOP_SCOPE = InstNodeType(INTY_TOP_SCOPE, nothing, nothing, nothing, nothing)
+const _INTY_NORMAL_COMP = InstNodeType(INTY_NORMAL_COMP, nothing, nothing, nothing, nothing)
+NORMAL_CLASS()  = _INTY_NORMAL_CLASS
+BUILTIN_CLASS() = _INTY_BUILTIN_CLASS
+TOP_SCOPE()     = _INTY_TOP_SCOPE
+NORMAL_COMP()   = _INTY_NORMAL_COMP
+
+# Data-carrying constructors (positional, matching the old record fields).
+BASE_CLASS(parent, definition) = InstNodeType(INTY_BASE_CLASS, parent, definition, nothing, nothing)
+DERIVED_CLASS(ty) = InstNodeType(INTY_DERIVED_CLASS, nothing, nothing, ty, nothing)
+ROOT_CLASS(parent) = InstNodeType(INTY_ROOT_CLASS, parent, nothing, nothing, nothing)
+REDECLARED_COMP(parent) = InstNodeType(INTY_REDECLARED_COMP, parent, nothing, nothing, nothing)
+REDECLARED_CLASS(parent, originalType) = InstNodeType(INTY_REDECLARED_CLASS, parent, nothing, nothing, originalType)
+
+# @match / isvariant support.
+MetaModelica.compacted_tag_info(::typeof(NORMAL_CLASS))     = (InstNodeType, :tag, INTY_NORMAL_CLASS, ())
+MetaModelica.compacted_tag_info(::typeof(BUILTIN_CLASS))    = (InstNodeType, :tag, INTY_BUILTIN_CLASS, ())
+MetaModelica.compacted_tag_info(::typeof(TOP_SCOPE))        = (InstNodeType, :tag, INTY_TOP_SCOPE, ())
+MetaModelica.compacted_tag_info(::typeof(NORMAL_COMP))      = (InstNodeType, :tag, INTY_NORMAL_COMP, ())
+MetaModelica.compacted_tag_info(::typeof(BASE_CLASS))       = (InstNodeType, :tag, INTY_BASE_CLASS, (:parent, :definition))
+MetaModelica.compacted_tag_info(::typeof(DERIVED_CLASS))    = (InstNodeType, :tag, INTY_DERIVED_CLASS, (:ty,))
+MetaModelica.compacted_tag_info(::typeof(ROOT_CLASS))       = (InstNodeType, :tag, INTY_ROOT_CLASS, (:parent,))
+MetaModelica.compacted_tag_info(::typeof(REDECLARED_COMP))  = (InstNodeType, :tag, INTY_REDECLARED_COMP, (:parent,))
+MetaModelica.compacted_tag_info(::typeof(REDECLARED_CLASS)) = (InstNodeType, :tag, INTY_REDECLARED_CLASS, (:parent, :originalType))
+
+# One concrete struct -> discriminate by tag (see NFType.jl valueConstructor note).
+MetaModelica.valueConstructor(v::InstNodeType) = Int(v.tag)
 
 abstract type InstNode end
 
@@ -1542,7 +1557,7 @@ function setNodeType(@nospecialize(nodeType::InstNodeType),
                                 node.parent,
                                 nodeType)
   elseif node isa CLASS_NODE
-    local newCls = nodeType isa DERIVED_CLASS ? _clsShareRef!(node) : node.cls
+    local newCls = isvariant(nodeType, DERIVED_CLASS) ? _clsShareRef!(node) : node.cls
     tmp = CLASS_NODE(node.name,
                                   node.definition,
                                   node.visibility,
@@ -2274,10 +2289,10 @@ end
 
 #= A redeclared class counts as user-defined when the class it replaced was. =#
 function isUserdefinedClassType(ty)::Bool
-  ty isa NORMAL_CLASS && return true
-  ty isa BASE_CLASS && return true
-  ty isa DERIVED_CLASS && return true
-  ty isa REDECLARED_CLASS && return isUserdefinedClassType(ty.originalType)
+  isvariant(ty, NORMAL_CLASS) && return true
+  isvariant(ty, BASE_CLASS) && return true
+  isvariant(ty, DERIVED_CLASS) && return true
+  isvariant(ty, REDECLARED_CLASS) && return isUserdefinedClassType(ty.originalType)
   return false
 end
 

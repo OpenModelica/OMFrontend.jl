@@ -50,7 +50,6 @@
 @UniontypeDecl FunctionMatchKind
 @UniontypeDecl Functionargs
 @UniontypeDecl InstNode
-@UniontypeDecl InstNodeType
 @UniontypeDecl LookupState
 @UniontypeDecl LookupStateName
 @UniontypeDecl M_Function
