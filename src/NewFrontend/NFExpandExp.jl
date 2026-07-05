@@ -99,7 +99,7 @@ function expandGeneric(@nospecialize(exp::Expression))::Tuple{Expression, Bool}
   return (outExp, expanded)
 end
 
-function expandCast(@nospecialize(exp::Expression), @nospecialize(ty::M_Type))::Tuple{Expression, Bool}
+function expandCast(@nospecialize(exp::Expression), ty::M_Type)::Tuple{Expression, Bool}
   local expanded::Bool
   local outExp::Expression
 

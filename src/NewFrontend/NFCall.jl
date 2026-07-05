@@ -133,7 +133,7 @@ end
 
 @UniontypeDecl CallAttributes
 
-function toDAE(attr::CallAttributes, @nospecialize(returnType::NFType))::DAE.CallAttributes
+function toDAE(attr::CallAttributes, returnType::NFType)::DAE.CallAttributes
   local fattr::DAE.CallAttributes
    fattr = DAE.CALL_ATTR(
      toDAE(returnType),
@@ -533,7 +533,7 @@ nameStr = AbsynUtil.pathString(name(call.fn))
   return str
 end
 
-function toRecordExpression(@nospecialize(call::Call), @nospecialize(ty::NFType))::Expression
+function toRecordExpression(@nospecialize(call::Call), ty::NFType)::Expression
   local exp::Expression
    exp = begin
     @match call begin
@@ -771,7 +771,7 @@ function variability(@nospecialize(call::Call))::VariabilityType
   return var
 end
 
-function setType(@nospecialize(call::Call), @nospecialize(ty::NFType))
+function setType(@nospecialize(call::Call), ty::NFType)
   local callWithNewType = if call isa TYPED_CALL
     TYPED_CALL(call.fn, ty, call.var, call.arguments, call.attributes)
   elseif call isa TYPED_ARRAY_CONSTRUCTOR

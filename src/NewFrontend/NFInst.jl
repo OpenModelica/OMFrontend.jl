@@ -1057,7 +1057,7 @@ function updateClassConnectorType(res::Restriction, attrs::Attributes) ::Attribu
 end
 
 """Instantiates the constructor and destructor for an ExternalObject class."""
-function instExternalObjectStructors(@nospecialize(ty::M_Type), parentNode::InstNode)
+function instExternalObjectStructors(ty::M_Type, parentNode::InstNode)
   local constructor::InstNode
   local destructor::InstNode
   local par::InstNode

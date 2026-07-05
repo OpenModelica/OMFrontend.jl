@@ -441,7 +441,7 @@ function restriction(cls::Class)::Restriction
   return res
 end
 
-function setType(@nospecialize(ty::M_Type), @nospecialize(cls::Class))
+function setType(ty::M_Type, @nospecialize(cls::Class))
    () = begin
     @match cls begin
       PARTIAL_BUILTIN(__) => begin

@@ -955,7 +955,7 @@ function splitRecordArrayExp(@nospecialize(exp::Expression))::Expression
   return exp
 end
 
-function evalTypename(@nospecialize(ty::M_Type), @nospecialize(originExp::Expression), target::EvalTarget)::Expression
+function evalTypename(ty::M_Type, @nospecialize(originExp::Expression), target::EvalTarget)::Expression
   local exp::Expression
 
   #=  Only expand the typename into an array if it's used as a range, and keep
@@ -2423,7 +2423,7 @@ function evalIfExp2(@nospecialize(ifExp::Expression), target::EvalTarget)::Expre
   return result
 end
 
-function evalCast(@nospecialize(castExp::Expression), @nospecialize(castTy::M_Type))::Expression
+function evalCast(@nospecialize(castExp::Expression), castTy::M_Type)::Expression
   local exp::Expression
 
    exp = typeCast(castExp, castTy)
@@ -3345,7 +3345,7 @@ function evalBuiltinMatrix(@nospecialize(arg::Expression))::Expression
   return result
 end
 
-function evalBuiltinMatrix2(@nospecialize(arg::Expression), @nospecialize(ty::M_Type))::Expression
+function evalBuiltinMatrix2(@nospecialize(arg::Expression), ty::M_Type)::Expression
   local result::Expression
 
    result = begin

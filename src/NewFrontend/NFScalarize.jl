@@ -611,7 +611,7 @@ For RECORD_EXPRESSION: extracts the i-th element
 function expandRecordFieldExp(
   @nospecialize(exp::Expression),
   fieldNode::InstNode,
-  @nospecialize(field_ty::M_Type),
+  field_ty::M_Type,
   fieldIndex::Int,
 )::Expression
   @match exp begin

@@ -896,7 +896,7 @@ end
   return ifExp
 end
 
-@nospecializeinfer function simplifyCast(@nospecialize(exp::Expression), @nospecialize(ty::NFType))
+@nospecializeinfer function simplifyCast(@nospecialize(exp::Expression), ty::NFType)
   local castExp::Expression
   castExp = begin
     local ety::NFType

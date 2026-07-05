@@ -630,7 +630,7 @@ function typeBuiltinStringCall(@nospecialize(call::Call), origin::ORIGIN_Type, i
   (callExp, ty, var)
 end
 
-function typeOverloadedStringCall(@nospecialize(overloadedType::M_Type), args::List{<:TypedArg}, namedArgs::List{<:TypedNamedArg}, @nospecialize(call::Call), origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeOverloadedStringCall(overloadedType::M_Type, args::List{<:TypedArg}, namedArgs::List{<:TypedNamedArg}, @nospecialize(call::Call), origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
   local var::VariabilityType = Variability.CONSTANT
   local outType::M_Type
   local callExp::Expression
@@ -1069,7 +1069,7 @@ function typeFillCall(@nospecialize(call::Call), origin::ORIGIN_Type, info::Sour
 end
 
 function typeFillCall2(fnRef::ComponentRef,
-                       @nospecialize(fillType::M_Type),
+                       fillType::M_Type,
                        @nospecialize(fillArg::Expression),
                        dimensionArgs::Vector{Expression},
                        origin::ORIGIN_Type, info::SourceInfo)::Tuple{Expression, M_Type, VariabilityType}
@@ -1808,7 +1808,7 @@ end
 """
   This function checks the arguments to connectors
 """
-function checkConnectionsArgument(@nospecialize(arg::Expression), @nospecialize(ty::M_Type), fnRef::ComponentRef, argIndex::Int, info::SourceInfo)
+function checkConnectionsArgument(@nospecialize(arg::Expression), ty::M_Type, fnRef::ComponentRef, argIndex::Int, info::SourceInfo)
    () = begin
     local ty2::M_Type
     local node::InstNode

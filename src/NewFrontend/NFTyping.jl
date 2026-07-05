@@ -3992,7 +3992,7 @@ end
 
 function typeOperatorArg(
   @nospecialize(arg::Expression),
-  @nospecialize(expectedType::NFType),
+  expectedType::NFType,
   @nospecialize(origin::ORIGIN_Type),
   operatorName::String,
   argName::String,

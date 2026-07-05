@@ -274,7 +274,7 @@ function isBindingExp(@nospecialize(exp::Expression)) ::Bool
   isBindingExp
 end
 
-function nthEnumLiteral(@nospecialize(ty::M_Type), n::Int) ::Expression
+function nthEnumLiteral(ty::M_Type, n::Int) ::Expression
   local exp::Expression
   exp = ENUM_LITERAL_EXPRESSION(ty, nthEnumLiteral(ty, n), n)
   exp
@@ -496,7 +496,7 @@ function recordElement(elementName::String, @nospecialize(recordExp::Expression)
   outExp
 end
 
-function tupleElement(@nospecialize(exp::Expression), @nospecialize(ty::M_Type), index::Int) ::Expression
+function tupleElement(@nospecialize(exp::Expression), ty::M_Type, index::Int) ::Expression
   local tupleElem::Expression
   tupleElem = begin
     local ety::M_Type
@@ -820,7 +820,7 @@ function promote2(@nospecialize(exp::Expression), isArray::Bool, dims::Int, type
   outExp
 end
 
-function promote(@nospecialize(e::Expression), @nospecialize(ty::M_Type), n::Int) ::Tuple{Expression, M_Type}
+function promote(@nospecialize(e::Expression), ty::M_Type, n::Int) ::Tuple{Expression, M_Type}
   local dims::List{Dimension}
   local ety::M_Type
   local tys::List{M_Type} = nil
@@ -846,7 +846,7 @@ function promote(@nospecialize(e::Expression), @nospecialize(ty::M_Type), n::Int
   (e, ty)
 end
 
-function promoteRef(@nospecialize(e::Expression), @nospecialize(ty::M_Type), n::Int, tyRef::Ref{NFType})::Expression
+function promoteRef(@nospecialize(e::Expression), ty::M_Type, n::Int, tyRef::Ref{NFType})::Expression
   local dims::List{Dimension}
   local ety::M_Type
   local tys::List{M_Type} = nil
@@ -873,7 +873,7 @@ function promoteRef(@nospecialize(e::Expression), @nospecialize(ty::M_Type), n::
   e
 end
 
-function makeIdentityMatrix(n::Int, @nospecialize(elementType::M_Type)) ::Expression
+function makeIdentityMatrix(n::Int, elementType::M_Type) ::Expression
   local matrix::Expression
 
   local zero::Expression
@@ -1093,7 +1093,7 @@ function box(@nospecialize(exp::Expression)) ::Expression
   boxedExp
 end
 
-function makeMinValue(@nospecialize(ty::M_Type)) ::Expression
+function makeMinValue(ty::M_Type) ::Expression
   local exp::Expression
 
    exp = begin
@@ -1122,7 +1122,7 @@ function makeMinValue(@nospecialize(ty::M_Type)) ::Expression
   exp
 end
 
-function makeMaxValue(@nospecialize(ty::M_Type)) ::Expression
+function makeMaxValue(ty::M_Type) ::Expression
   local exp::Expression
 
    exp = begin
@@ -1151,7 +1151,7 @@ function makeMaxValue(@nospecialize(ty::M_Type)) ::Expression
   exp
 end
 
-function makeOne(@nospecialize(ty::M_Type)) ::Expression
+function makeOne(ty::M_Type) ::Expression
   local zeroExp::Expression
 
    zeroExp = begin
@@ -1185,7 +1185,7 @@ function makeOperatorRecordZero(recordNode::InstNode) ::Expression
   zeroExp
 end
 
-function makeZero(@nospecialize(ty::M_Type)) ::Expression
+function makeZero(ty::M_Type) ::Expression
   local zeroExp::Expression
 
    zeroExp = begin
@@ -1257,7 +1257,7 @@ end
   Creates an array with the given type, filling it with the given scalar
   expression.
 """
-function fillType(@nospecialize(ty::M_Type), @nospecialize(fillExp::Expression)) ::Expression
+function fillType(ty::M_Type, @nospecialize(fillExp::Expression)) ::Expression
   local exp::Expression = fillExp
   local dims::List{Dimension} = arrayDims(ty)
   local expl::Vector{Expression}
@@ -4278,7 +4278,7 @@ end
   dimCount
 end
 
-function toDAEValueRecord(@nospecialize(ty::M_Type), path::Absyn.Path, args::List{<:Expression}) ::Values.Value
+function toDAEValueRecord(ty::M_Type, path::Absyn.Path, args::List{<:Expression}) ::Values.Value
   local value::Values.Value
 
   local field_names::List{String} = nil
@@ -4360,11 +4360,11 @@ function toDAEValueOpt(exp::Option{<:Expression}) ::Option{Values.Value}
   value
 end
 
-function toDAERecord(@nospecialize(ty::M_Type), path::Absyn.Path, args::Vector{<:Expression}) ::DAE.Exp
+function toDAERecord(ty::M_Type, path::Absyn.Path, args::Vector{<:Expression}) ::DAE.Exp
   toDAERecord(ty, path, list(args...))
 end
 
-function toDAERecord(@nospecialize(ty::M_Type), path::Absyn.Path, args::List{<:Expression}) ::DAE.Exp
+function toDAERecord(ty::M_Type, path::Absyn.Path, args::List{<:Expression}) ::DAE.Exp
   local exp::DAE.Exp
 
   local field_names::List{String} = nil
@@ -5164,7 +5164,7 @@ function toInteger(@nospecialize(exp::Expression)) ::Int
   i
 end
 
-function makeEnumLiterals(@nospecialize(enumType::M_Type)) ::List{Expression}
+function makeEnumLiterals(enumType::M_Type) ::List{Expression}
   local literals::List{Expression}
 
   local lits::List{String}
@@ -5174,7 +5174,7 @@ function makeEnumLiterals(@nospecialize(enumType::M_Type)) ::List{Expression}
   literals
 end
 
-function makeEnumLiteral(@nospecialize(enumType::M_Type), index::Int) ::Expression
+function makeEnumLiteral(enumType::M_Type, index::Int) ::Expression
   local literal::Expression
 
   local literals::List{String}
@@ -5184,13 +5184,13 @@ function makeEnumLiteral(@nospecialize(enumType::M_Type), index::Int) ::Expressi
   literal
 end
 
-function arrayFromList(inExps::List{<:Expression}, @nospecialize(elemTy::M_Type), inDims::List{<:Dimension}) ::Expression
+function arrayFromList(inExps::List{<:Expression}, elemTy::M_Type, inDims::List{<:Dimension}) ::Expression
   local outExp::Expression
   outExp = arrayFromList_impl(inExps, elemTy, listReverse(inDims))
   outExp
 end
 
-function arrayFromList_impl(inExps::List{<:Expression}, @nospecialize(elemTy::M_Type), inDims::List{<:Dimension}) ::Expression
+function arrayFromList_impl(inExps::List{<:Expression}, elemTy::M_Type, inDims::List{<:Dimension}) ::Expression
   local outExp::Expression
   local ldim::Dimension
   local restdims::List{Dimension}
@@ -5221,7 +5221,7 @@ end
 """
 Same as arrayFromList but for ```Vector{Expression}```
 """
-function arrayFromVector(inExps::Vector{Expression}, @nospecialize(elemTy::M_Type), inDims::List{Dimension})::Expression
+function arrayFromVector(inExps::Vector{Expression}, elemTy::M_Type, inDims::List{Dimension})::Expression
   local outExp::Expression
   outExp = arrayFromVectorImpl(inExps, elemTy, listReverse(inDims))
 end
@@ -5568,7 +5568,7 @@ function applySubscriptArray(inSubscript::Subscript, @nospecialize(exp::Expressi
   outExp
 end
 
-function applyIndexSubscriptTypename(@nospecialize(ty::M_Type), index::Subscript) ::Expression
+function applyIndexSubscriptTypename(ty::M_Type, index::Subscript) ::Expression
   local subscriptedExp::Expression
 
   local idx_exp::Expression
@@ -5598,7 +5598,7 @@ function applyIndexSubscriptTypename(@nospecialize(ty::M_Type), index::Subscript
   subscriptedExp
 end
 
-function applySubscriptTypename(subscript::Subscript, @nospecialize(ty::M_Type)) ::Expression
+function applySubscriptTypename(subscript::Subscript, ty::M_Type) ::Expression
   local outExp::Expression
   local sub::Subscript
   local index::Int
@@ -5696,11 +5696,11 @@ end
 
 """
 ```
-makeRecord(recordName::Absyn.Path, @nospecialize(recordType::M_Type), fields::List{Expression})
+makeRecord(recordName::Absyn.Path, recordType::M_Type, fields::List{Expression})
 ```
   Creates a record expression.
 """
-function makeRecord(recordName::Absyn.Path, @nospecialize(recordType::M_Type), fields::Vector{Expression})
+function makeRecord(recordName::Absyn.Path, recordType::M_Type, fields::Vector{Expression})
   local exp::Expression
   exp = RECORD_EXPRESSION(recordName, recordType, fields)
   exp
@@ -5756,7 +5756,7 @@ function makeIntegerArray(values::List{Int})
   exp
 end
 
-function makeEmptyArray(@nospecialize(ty::M_Type))
+function makeEmptyArray(ty::M_Type)
   local outExp::Expression
    outExp = ARRAY_EXPRESSION(ty, nil, true)
   outExp
@@ -5837,7 +5837,7 @@ end
    The function does not check that the cast is valid, and expressions that
    can't be converted outright will be wrapped as a CAST expression.
  """
- function typeCast(@nospecialize(exp::Expression), @nospecialize(ty::NFType)) ::Expression
+ function typeCast(@nospecialize(exp::Expression), ty::NFType) ::Expression
    local t::NFType
    local t2::NFType
    local ety::NFType
@@ -5917,12 +5917,12 @@ end
    exp
  end
 
-function typeCastOpt(exp::Option{<:Expression}, @nospecialize(ty::M_Type)) ::Option{Expression}
+function typeCastOpt(exp::Option{<:Expression}, ty::M_Type) ::Option{Expression}
   local outExp::Option{Expression} = Util.applyOption(exp, (e) -> typeCast(e, ty))
   outExp
 end
 
-function setType(@nospecialize(ty::NFType), @nospecialize(exp::Expression))
+function setType(ty::NFType, @nospecialize(exp::Expression))
   retExp = @match exp begin
     ENUM_LITERAL_EXPRESSION(__)  => begin
       ENUM_LITERAL_EXPRESSION(ty, exp.name, exp.index)

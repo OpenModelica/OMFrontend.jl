@@ -1288,7 +1288,7 @@ function makeIterator(node::InstNode, ty::NFType)::ComponentRef
   return cref
 end
 
-function fromBuiltin(node::InstNode, @nospecialize(ty::M_Type))::ComponentRef
+function fromBuiltin(node::InstNode, ty::M_Type)::ComponentRef
   local cref::ComponentRef = COMPONENT_REF_CREF(node, nil, ty, Origin.SCOPE, COMPONENT_REF_EMPTY())
   return cref
 end
@@ -1347,7 +1347,7 @@ end
 
 function prefixCref(
   node::InstNode,
-  @nospecialize(ty::M_Type),
+  ty::M_Type,
   subs::List{<:Subscript},
   restCref::ComponentRef,
   )::ComponentRef
