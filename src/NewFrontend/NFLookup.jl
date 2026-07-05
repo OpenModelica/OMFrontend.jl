@@ -429,7 +429,7 @@ end
 function lookupLocalSimpleName(n::String, scope::InstNode)
   local isImport::Bool = false
   local node::InstNode
-  if scope isa EMPTY_NODE
+  if isvariant(scope, EMPTY_NODE)
     throw("Lookup Error: Attempted to lookup '$n'. However, it was not found in the given scope.")
   end
   entryInfo = @match ENTRY_INFO(node, isImport) = lookupElement(n, getClass(scope))
@@ -443,7 +443,7 @@ function lookupNameWithError(name::Absyn.Path, scope::InstNode, info::SourceInfo
   local node::InstNode
   node = lookupName(name, scope, lookupStateRef, checkAccessViolations; isRedeclared = isRedeclared)
   state = lookupStateRef.x
-  if node isa EMPTY_NODE
+  if isvariant(node, EMPTY_NODE)
     Error.addSourceMessage(Error.LOOKUP_ERROR, list(AbsynUtil.pathString(name), scopeName(scope)), info)
     #@error "Lookup error for path: $(AbsynUtil.pathString(name)) in the scope $(scopeName(scope))"
     fail()
@@ -649,7 +649,7 @@ function lookupSimpleCref(crefName::String,
       @match foundScope begin
         IMPLICIT_SCOPE(__)  => begin
           node = lookupIteratorNoFail(crefName, foundScope.locals)
-          if node isa EMPTY_NODE
+          if isvariant(node, EMPTY_NODE)
             foundScope = parentScope(foundScope)
             continue
           end
@@ -820,14 +820,14 @@ function lookupCrefInNode(cref::Absyn.ComponentRef #=modification-040321=#,
      "%s is partial, name lookup is not allowed in partial classes"). A
      redeclared package resolves to its concrete target here, so this only
      fires for a genuinely-unredeclared partial default. =#
-  if node isa CLASS_NODE && isPartial(scope)
+  if isvariant(node, CLASS_NODE) && isPartial(scope)
     Error.addSourceMessageAndFail(
       Error.LOOKUP_IN_PARTIAL_CLASS, list(scopeName(scope)), sourceInfo())
   end
   name = AbsynUtil.crefFirstIdent(cref)
   cls = getClass(scope)
   @match ENTRY_INFO(n, is_import) = lookupElement(name, cls)
-  if n isa EMPTY_NODE
+  if isvariant(n, EMPTY_NODE)
     local wasComponent = isComponent(node)
     if !wasComponent
       fail()

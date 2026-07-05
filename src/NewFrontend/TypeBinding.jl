@@ -159,8 +159,8 @@ function typeComponentBindingRef(inComponent::InstNode,
 end
 
 function typeComponentBindingRef2(
-  inComponent::Union{INNER_OUTER_NODE,COMPONENT_NODE{String, Int8}},
-  node::COMPONENT_NODE{String, Int8},
+  inComponent::InstNode,
+  node::InstNode,
   c::TYPED_COMPONENT,
   origin::ORIGIN_Type,
   typeChildren::Bool,
@@ -359,8 +359,8 @@ typeComponentBindingRef2(
 ) = nothing
 
 function typeComponentBinding2(
-  inComponent::Union{INNER_OUTER_NODE,COMPONENT_NODE},
-  node::COMPONENT_NODE{String, Int8},
+  inComponent::InstNode,
+  node::InstNode,
   c::TYPED_COMPONENT,
   origin::ORIGIN_Type,
   typeChildren::Bool,

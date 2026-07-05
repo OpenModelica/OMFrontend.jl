@@ -221,7 +221,7 @@ function reconstructRecordInstances(variables::Vector{Variable})
            reconstruction in that case and fall through to per-field emission;
            the dump remains correct, just unbatched. =#
         local _parentNode = node(parent_cr)
-        if !(_parentNode isa COMPONENT_NODE)
+        if !(isvariant(_parentNode, COMPONENT_NODE))
           outVariables = push!(outVariables, var)
           continue
         end

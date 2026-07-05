@@ -1452,7 +1452,7 @@ Returns true if a component ref refers to a model.
 """
 function isModel(cref::ComponentRef)
   res = @match cref begin
-    COMPONENT_REF_CREF(node,_,_,_,_) where{node isa COMPONENT_NODE || node isa CLASS_NODE} => begin
+    COMPONENT_REF_CREF(node,_,_,_,_) where{isvariant(node, COMPONENT_NODE) || isvariant(node, CLASS_NODE)} => begin
       println(typeof(node))
       local cls = getClass(node)
       local restriction = restriction(cls)

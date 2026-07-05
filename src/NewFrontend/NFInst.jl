@@ -110,9 +110,9 @@ The main work is done here. The function dumpFlatModel will dump the flat model 
 if the Flags.NF_DUMP_FLAT flag is set to true.
 """
 function instClassInProgramFM2(classPath::Absyn.Path, program::SCode.Program)::Tuple
-  local top::CLASS_NODE
-  local cls::CLASS_NODE
-  local inst_cls::CLASS_NODE
+  local top::InstNode
+  local cls::InstNode
+  local inst_cls::InstNode
   local name::String
   local flat_model::FlatModel
   local funcs::FunctionTree
@@ -805,7 +805,7 @@ function instDerivedAttributes(scodeAttr::SCode.Attributes) ::Attributes
   attributes
 end
 
-function instClass(node::InstNode, modifier::Modifier, attributes::Attributes, attributeRef::Ref{Attributes}, useBinding::Bool = false, instLevel::Int = 0, parent = EMPTY_NODE())::CLASS_NODE
+function instClass(node::InstNode, modifier::Modifier, attributes::Attributes, attributeRef::Ref{Attributes}, useBinding::Bool = false, instLevel::Int = 0, parent = EMPTY_NODE())::InstNode
   #= Runaway backstops. Depth uses `instLevel` (a per-call-stack parameter, so
      thread-safe by construction). Total-calls is a process-wide backstop kept as
      an atomic so it is safe under parallel instantiation. =#
@@ -852,13 +852,13 @@ function instClass(node::InstNode, modifier::Modifier, attributes::Attributes, a
     if hit !== nothing
       updateComponentType(parent, hit)
       attributeRef.x = attributes
-      return hit::CLASS_NODE
+      return hit::InstNode
     end
-    local result = instClassDef(cls, modifier, attributes, useBinding, node, parent, instLevel, attributeRef)::CLASS_NODE
+    local result = instClassDef(cls, modifier, attributes, useBinding, node, parent, instLevel, attributeRef)::InstNode
     INST_CACHE[k] = result
     return result
   end
-  return instClassDef(cls, modifier, attributes, useBinding, node, parent, instLevel, attributeRef)::CLASS_NODE
+  return instClassDef(cls, modifier, attributes, useBinding, node, parent, instLevel, attributeRef)::InstNode
 end
 
 """On failure call the generic function."""
@@ -874,7 +874,7 @@ function instClassDef(cls::INSTANCED_CLASS,
                       node::InstNode,
                       parentArg::InstNode,
                       instLevel::Int,
-                      attributeRef::Ref{Attributes})::CLASS_NODE
+                      attributeRef::Ref{Attributes})::InstNode
   local par::InstNode
   local base_node::InstNode
   local inst_cls::Class
@@ -910,10 +910,10 @@ function instClassDef(cls::PARTIAL_BUILTIN,
                       outerMod::Modifier,
                       attributes::Attributes,
                       useBinding::Bool,
-                      node::CLASS_NODE,
+                      node::InstNode,
                       parentArg::InstNode,
                       instLevel::Int,
-                      attributeRef::Ref{Attributes})::CLASS_NODE
+                      attributeRef::Ref{Attributes})::InstNode
   @match cls begin
     PARTIAL_BUILTIN(restriction = RESTRICTION_EXTERNAL_OBJECT(__))  => begin
       inst_cls = INSTANCED_BUILTIN(cls.ty, cls.elements, cls.restriction)
@@ -952,7 +952,7 @@ function instClassDef(cls::EXPANDED_DERIVED,
                       node::InstNode,
                       parentArg::InstNode,
                       instLevel::Int,
-                      attributeRef::Ref{Attributes})::CLASS_NODE
+                      attributeRef::Ref{Attributes})::InstNode
   (node, par,_ , _) = instantiate(node, parentArg)
   node = setNodeType(DERIVED_CLASS(nodeType(node)), node)
   @match EXPANDED_DERIVED(baseClass = base_node) = getClass(node)
@@ -985,10 +985,10 @@ function instClassDef(cls::EXPANDED_CLASS,
                       outerMod::Modifier,
                       attributes::Attributes,
                       useBinding::Bool,
-                      node::CLASS_NODE,
+                      node::InstNode,
                       parentArg::InstNode,
                       instLevel::Int,
-                      attributeRef::Ref{Attributes})::CLASS_NODE
+                      attributeRef::Ref{Attributes})::InstNode
   local par::InstNode
   local base_node::InstNode
   local inst_cls::Class
@@ -1005,7 +1005,7 @@ function instClassDef(cls::EXPANDED_CLASS,
   if isBaseClass(node)
     par = parentArg
   else
-    @match (node::CLASS_NODE, par, _, _) = instantiate(node::CLASS_NODE, parentArg)
+    @match (node::InstNode, par, _, _) = instantiate(node::InstNode, parentArg)
   end
   updateComponentType(parentArg, node)
   attributes = updateClassConnectorType(res, attributes)
@@ -1084,7 +1084,7 @@ end
   returned. Otherwise the node is fully instantiated, the instance is added to
   the node's cache, and the instantiated node is returned.
 """
-function instPackage(node::InstNode; isRedeclared::Bool = false)::CLASS_NODE
+function instPackage(node::InstNode; isRedeclared::Bool = false)::InstNode
   local cache::CachedData
   local inst::InstNode
   local state::Int
@@ -1177,12 +1177,12 @@ const ExtendsVisibilityType = Int
 
 
 
-function instExtends(node::CLASS_NODE,
+function instExtends(node::InstNode,
                                attributes::Attributes,
                                useBinding::Bool,
                                visibility::ExtendsVisibilityType,
                                instLevel::Int,
-                               attributeRef::Ref{Attributes})::CLASS_NODE
+                               attributeRef::Ref{Attributes})::InstNode
   local cls::Class
   local inst_cls::Class
   local cls_tree::ClassTree
@@ -1213,7 +1213,7 @@ function instExtends(node::CLASS_NODE,
       if vis == ExtendsVisibility.PUBLIC && isProtectedBaseClass(node)
         vis = ExtendsVisibility.DERIVED_PROTECTED
       end
-      @assign cls.baseClass = instExtends(cls.baseClass, attributes, useBinding, vis, instLevel, attributeRef)::CLASS_NODE
+      @assign cls.baseClass = instExtends(cls.baseClass, attributes, useBinding, vis, instLevel, attributeRef)::InstNode
       node = updateClass(cls, node)
     end
     PARTIAL_BUILTIN(__)  => begin
@@ -1492,7 +1492,7 @@ function instComponent(node::InstNode,
                        originalAttr = NONE())::Nothing
   local comp::Component
   local def::SCode.COMPONENT
-  local comp_node::COMPONENT_NODE{String, Int8}
+  local comp_node::InstNode
   local rdcl_node::InstNode
   local outer_mod::Modifier
   local cc_mod::Modifier = innerMod
@@ -1529,7 +1529,7 @@ function instComponent(node::InstNode,
                      cc_mod,
                      attributes,
                      useBinding,
-                     comp_node::COMPONENT_NODE,
+                     comp_node::InstNode,
                      parentNode,
                      instLevel,
                      attributeRef,
@@ -1543,7 +1543,7 @@ function instComponentDef(component::SCode.COMPONENT,
                           innerMod::Modifier,
                           attributes::Attributes,
                           useBinding::Bool,
-                          node::COMPONENT_NODE,
+                          node::InstNode,
                           parentNode::InstNode,
                           instLevel::Int,
                           attributeRef::Ref{Attributes},
@@ -1556,7 +1556,7 @@ function instComponentDef(component::SCode.COMPONENT,
   local bindingVar::Binding
   local attr::Attributes
   local ty_attr::Attributes
-  local ty_node::CLASS_NODE
+  local ty_node::InstNode
   local res::Restriction
   decl_mod = fromElement(component, nil, parentNode)
   cc_mod = instConstrainingMod(component, parentNode)
@@ -2058,7 +2058,7 @@ function instTypeSpec(typeSpec::Absyn.TPATH,
                       info::SourceInfo,
                       instLevel::Int,
                       attributeRef::Ref{Attributes};
-                      isRedeclared::Bool = false)::CLASS_NODE
+                      isRedeclared::Bool = false)::InstNode
   local node::InstNode = lookupClassName(typeSpec.path, scope, info; isRedeclared = isRedeclared)
   if instLevel >= 100
     checkRecursiveDefinition(node, parent, limitReached = true)
@@ -3277,7 +3277,7 @@ function updateImplicitVariabilityCls(cls::Class, evalAllParams::Bool)::Nothing
     local len = length(components)
     local i = 1
     while i ≤ len
-      local c::COMPONENT_NODE{String, Int8} = resolveOuter(components[i])
+      local c::InstNode = resolveOuter(components[i])
       updateImplicitVariabilityComp(c, evalAllParams::Bool)::Nothing
       i += 1
     end
@@ -3294,7 +3294,7 @@ function updateImplicitVariabilityCls(cls::Class, evalAllParams::Bool)::Nothing
     local len = length(components)
     local i = 1
     while i ≤ len
-      local c::COMPONENT_NODE{String, Int8} = resolveOuter(components[i])
+      local c::InstNode = resolveOuter(components[i])
       updateImplicitVariabilityComp(c, evalAllParams)::Nothing
       i += 1
     end
@@ -3304,12 +3304,11 @@ function updateImplicitVariabilityCls(cls::Class, evalAllParams::Bool)::Nothing
   end
 end
 
-function updateImplicitVariabilityComp(co::INNER_OUTER_NODE, evalAllParams::Bool)::Nothing
-  local node::InstNode = resolveOuter(co)
-  updateImplicitVariabilityComp(node, evalAllParams::Bool)::Nothing
-end
-
-function updateImplicitVariabilityComp(node::COMPONENT_NODE{String, Int8}, evalAllParams::Bool)::Nothing
+function updateImplicitVariabilityComp(node::InstNode, evalAllParams::Bool)::Nothing
+  if isvariant(node, INNER_OUTER_NODE)
+    local resolved::InstNode = resolveOuter(node)
+    return updateImplicitVariabilityComp(resolved, evalAllParams)::Nothing
+  end
   local c::Component = component(node)
   local bnd::Binding
   local condition::Binding

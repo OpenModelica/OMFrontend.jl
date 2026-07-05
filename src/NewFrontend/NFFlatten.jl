@@ -937,7 +937,7 @@ function makeIterators(prefix::ComponentRef,
   #Locals
   local iter_comp::Component
   local prefix_node::InstNode
-  local iter::COMPONENT_NODE
+  local iter::InstNode
   local range::Expression
   local index = 1
   local sub::Subscript

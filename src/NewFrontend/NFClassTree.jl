@@ -176,7 +176,7 @@ function getRedeclaredNode(name::String, tree::ClassTree)::InstNode
     @match SOME(node) = entry.node
   else
     entry = resolveEntry(entry.entry, tree)
-    if entry isa EMPTY_NODE
+    if isvariant(entry, EMPTY_NODE)
       Error.assertion(false, getInstanceName() + " failed on " + name, sourceInfo())
     end
     node = entry.node
@@ -354,11 +354,11 @@ function applyLocalComponents(tree::CLASS_TREE_INSTANTIATED_TREE,
                               instLevel::Int,
                               attributeRef::Ref{Attributes})::Nothing
   local components = tree.localComponents
-  local componentNodes = COMPONENT_NODE{String, Int8}[]
-  local componentInnerOuterNodes = INNER_OUTER_NODE[]
+  local componentNodes = InstNode[]
+  local componentInnerOuterNodes = InstNode[]
   for i in tree.localComponents
     local arg = P_Pointer.access(@inbounds tree.components[i]::Pointer{InstNode})
-    if arg isa COMPONENT_NODE
+    if isvariant(arg, COMPONENT_NODE)
       push!(componentNodes, arg)
     else
       push!(componentInnerOuterNodes, arg)
@@ -374,7 +374,7 @@ function applyLocalComponents(tree::CLASS_TREE_INSTANTIATED_TREE,
 
   for arg in componentNodes
     instComponent(
-      arg::COMPONENT_NODE{String, Int8},
+      arg::InstNode,
       attributes,
       MODIFIER_NOMOD(),
       useBinding::Bool,
@@ -386,7 +386,7 @@ function applyLocalComponents(tree::CLASS_TREE_INSTANTIATED_TREE,
 
   for arg in componentInnerOuterNodes
     instComponent(
-      arg::INNER_OUTER_NODE,
+      arg::InstNode,
       attributes,
       MODIFIER_NOMOD(),
       useBinding,
@@ -491,20 +491,11 @@ function mapExtendsWithExtendsNode(tree::ClassTree, extendsNode::InstNode)
 end
 
 
-function mapExtends(tree::CLASS_TREE_INSTANTIATED_TREE, parent::CLASS_NODE)
+function mapExtends(tree::CLASS_TREE_INSTANTIATED_TREE, parent::InstNode)
   local exts::Vector{InstNode} = getExtends(tree::CLASS_TREE_INSTANTIATED_TREE)
   for i in 1:length(exts)
-    @inbounds res = exts[i]::CLASS_NODE
-    @inbounds exts[i] = modifyExtends(res::CLASS_NODE, parent)::CLASS_NODE
-  end
-  return
-end
-
-function mapExtends(tree::CLASS_TREE_INSTANTIATED_TREE, parent::COMPONENT_NODE{String, Int8})
-  local exts::Vector{InstNode} = getExtends(tree::CLASS_TREE_INSTANTIATED_TREE)
-  for i in 1:length(exts)
-    @inbounds res = exts[i]::CLASS_NODE
-    @inbounds exts[i] = modifyExtends(res::CLASS_NODE, parent)::CLASS_NODE
+    @inbounds res = exts[i]
+    @inbounds exts[i] = modifyExtends(res, parent)
   end
   return
 end
@@ -512,13 +503,13 @@ end
 function mapExtends(tree::ClassTree, attributes::Attributes, useBinding::Bool, visibility, instLevel::Int, attributeRef::Ref{Attributes})::Nothing
   local exts::Vector{InstNode} = getExtends(tree)
   for i in 1:length(exts)
-    local res = @inbounds exts[i]::CLASS_NODE
-    @inbounds exts[i] = instExtends(res::CLASS_NODE,
+    local res = @inbounds exts[i]::InstNode
+    @inbounds exts[i] = instExtends(res::InstNode,
                                     attributes,
                                     useBinding,
                                     ExtendsVisibility.PUBLIC,
                                     instLevel + 1,
-                                    attributeRef)::CLASS_NODE
+                                    attributeRef)::InstNode
   end
   return nothing
 end
@@ -944,11 +935,11 @@ end
   function to mean that the instance should be set to the cloned clsNode.
 """
 function instantiate(
-  clsNode::CLASS_NODE,
+  clsNode::InstNode,
   instance::InstNode,
   scope::InstNode = EMPTY_NODE();
   sharedExcept::Union{Nothing, Set{String}} = nothing,
-  )::Tuple{CLASS_NODE, InstNode, Int, Int} #where {CLS_NODE}
+  )::Tuple{InstNode, InstNode, Int, Int} #where {CLS_NODE}
   local compCount::Int = 0
   local classCount::Int = 0
   local cls::Class
@@ -1149,7 +1140,7 @@ function instantiate(
         old_comps = arrayCopy(old_comps)
         for i = 1:arrayLength(old_comps)
           local oc = old_comps[i]
-          old_comps[i] = if SHARE_ATTRS[] && sharedExcept !== nothing && oc isa COMPONENT_NODE && oc.component isa TYPE_ATTRIBUTE && !(oc.name in sharedExcept)
+          old_comps[i] = if SHARE_ATTRS[] && sharedExcept !== nothing && isvariant(oc, COMPONENT_NODE) && oc.component isa TYPE_ATTRIBUTE && !(oc.name in sharedExcept)
             push!(FROZEN_ATTR_NODES, oc)
             oc
           else

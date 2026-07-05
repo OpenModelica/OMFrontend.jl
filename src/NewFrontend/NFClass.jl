@@ -200,7 +200,7 @@ function hasOperator(name::String, cls::Class)::Bool
   local op_cls::Class
   if isOperatorRecord(restriction(cls))
     op_node = lookupElementNode(name, cls)
-    if op_node isa EMPTY_NODE
+    if isvariant(op_node, EMPTY_NODE)
       hasOperator = false
     else
       hasOperator = SCodeUtil.isOperator(definition(op_node))
