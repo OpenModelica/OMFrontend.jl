@@ -40,75 +40,95 @@ struct FunctionTypeStruct
 end
 const FunctionType = FunctionTypeStruct(1, 2, 3)
 
-abstract type NFType end
+#= NFType as a single concrete tagged struct (hand-written compacted union).
+   The 17 former variants collapse into one immutable `NFType` + a tag enum, so
+   `::NFType`/`::M_Type`-annotated fields and args across the frontend are CONCRETE
+   (the recursive spine `ty`/`elementType`/`subscriptedTy`/`subs`/`types` is
+   `NFType`, not an abstract union) -- the typing-inference win. Nullary types are
+   shared singletons (zero alloc). The old `TYPE_*` constructors and `@match
+   TYPE_*(...)` patterns keep working via the constructor functions + the
+   `MetaModelica.compacted_tag_info` registrations below; `x isa TYPE_*` becomes
+   `isvariant(x, TYPE_*)`. =#
+#= The NFTypeTag enum and the NFType struct are defined at the forward-declaration
+   site (FrontendInterfaces/NFInterfaces.jl) so they are available to files loaded
+   before this one. Constructors, singletons, @match registrations and methods
+   follow here. =#
 
-struct TYPE_SUBSCRIPTED  <: NFType
-  name::String
-  ty::M_Type
-  subs::List{M_Type}
-  subscriptedTy::M_Type
-end
+#= NFType is one concrete struct, so the generic valueConstructor (hash of the
+   runtime type) is identical for every variant. Discriminate by the tag instead,
+   so variant-mismatch guards (e.g. array-vs-scalar cast routing in NFTypeCheck)
+   keep working. =#
+MetaModelica.valueConstructor(@nospecialize(value::NFType)) = Int(value.tag)
 
-struct TYPE_ANY  <: NFType
-end
+#= Base "all-empty" builder for the nullary/scalar tags. =#
+@inline _nftype(tag::NFTypeTag) =
+  NFType(tag, nothing, nothing, nil, nothing, nothing, 0, nothing, nothing,
+         nil, NONE(), nothing, nil, nothing, nil)
 
-struct TYPE_POLYMORPHIC  <: NFType
-  name::String
-end
+# Nullary types are interned singletons.
+const _TYPE_INTEGER        = _nftype(NFT_INTEGER)
+const _TYPE_REAL           = _nftype(NFT_REAL)
+const _TYPE_STRING         = _nftype(NFT_STRING)
+const _TYPE_BOOLEAN        = _nftype(NFT_BOOLEAN)
+const _TYPE_CLOCK          = _nftype(NFT_CLOCK)
+const _TYPE_UNKNOWN        = _nftype(NFT_UNKNOWN)
+const _TYPE_ANY            = _nftype(NFT_ANY)
+const _TYPE_NORETCALL      = _nftype(NFT_NORETCALL)
+const _TYPE_ENUMERATION_ANY = _nftype(NFT_ENUMERATION_ANY)
+TYPE_INTEGER()        = _TYPE_INTEGER
+TYPE_REAL()           = _TYPE_REAL
+TYPE_STRING()         = _TYPE_STRING
+TYPE_BOOLEAN()        = _TYPE_BOOLEAN
+TYPE_CLOCK()          = _TYPE_CLOCK
+TYPE_UNKNOWN()        = _TYPE_UNKNOWN
+TYPE_ANY()            = _TYPE_ANY
+TYPE_NORETCALL()      = _TYPE_NORETCALL
+TYPE_ENUMERATION_ANY() = _TYPE_ENUMERATION_ANY
 
-struct TYPE_METABOXED  <: NFType
-  ty::M_Type
-end
+# Data-carrying constructors (positional, matching the old record fields).
+TYPE_SUBSCRIPTED(name, ty, subs, subscriptedTy) =
+  NFType(NFT_SUBSCRIPTED, name, ty, subs, subscriptedTy, nothing, 0, nothing, nothing,
+         nil, NONE(), nothing, nil, nothing, nil)
+TYPE_POLYMORPHIC(name) =
+  NFType(NFT_POLYMORPHIC, name, nothing, nil, nothing, nothing, 0, nothing, nothing,
+         nil, NONE(), nothing, nil, nothing, nil)
+TYPE_METABOXED(ty) =
+  NFType(NFT_METABOXED, nothing, ty, nil, nothing, nothing, 0, nothing, nothing,
+         nil, NONE(), nothing, nil, nothing, nil)
+TYPE_FUNCTION(fn, fnType) =
+  NFType(NFT_FUNCTION, nothing, nothing, nil, nothing, fn, fnType, nothing, nothing,
+         nil, NONE(), nothing, nil, nothing, nil)
+TYPE_COMPLEX(cls, complexTy) =
+  NFType(NFT_COMPLEX, nothing, nothing, nil, nothing, nothing, 0, cls, complexTy,
+         nil, NONE(), nothing, nil, nothing, nil)
+TYPE_TUPLE(types, names) =
+  NFType(NFT_TUPLE, nothing, nothing, nil, nothing, nothing, 0, nothing, nothing,
+         types, names, nothing, nil, nothing, nil)
+TYPE_ARRAY(elementType, dimensions) =
+  NFType(NFT_ARRAY, nothing, nothing, nil, nothing, nothing, 0, nothing, nothing,
+         nil, NONE(), elementType, dimensions, nothing, nil)
+TYPE_ENUMERATION(typePath, literals) =
+  NFType(NFT_ENUMERATION, nothing, nothing, nil, nothing, nothing, 0, nothing, nothing,
+         nil, NONE(), nothing, nil, typePath, literals)
 
-mutable struct TYPE_FUNCTION  <: NFType
-  fn::M_Function
-  #= Specified by the function type struct. =#
-  fnType::Int
-end
-
-struct TYPE_COMPLEX  <: NFType
-  cls::InstNode
-  complexTy::ComplexType
-end
-
-struct TYPE_UNKNOWN  <: NFType
-end
-
-struct TYPE_NORETCALL  <: NFType
-end
-
-struct TYPE_TUPLE  <: NFType
-  types::List{M_Type}
-  names::Option{List{String}}
-end
-
-mutable struct TYPE_ARRAY  <: NFType
-  elementType::M_Type
-  dimensions::List{Dimension}
-end
-
-struct TYPE_ENUMERATION_ANY  <: NFType
-end
-
-mutable struct TYPE_ENUMERATION  <: NFType
-  typePath::Absyn.Path
-  literals::List{String}
-end
-
-struct TYPE_CLOCK  <: NFType
-end
-
-struct TYPE_BOOLEAN  <: NFType
-end
-
-struct TYPE_STRING  <: NFType
-end
-
-struct TYPE_REAL  <: NFType
-end
-
-struct TYPE_INTEGER  <: NFType
-end
+# @match / isvariant support: register each constructor's tag + field order.
+MetaModelica.compacted_tag_info(::typeof(TYPE_INTEGER))        = (NFType, :tag, NFT_INTEGER, ())
+MetaModelica.compacted_tag_info(::typeof(TYPE_REAL))           = (NFType, :tag, NFT_REAL, ())
+MetaModelica.compacted_tag_info(::typeof(TYPE_STRING))         = (NFType, :tag, NFT_STRING, ())
+MetaModelica.compacted_tag_info(::typeof(TYPE_BOOLEAN))        = (NFType, :tag, NFT_BOOLEAN, ())
+MetaModelica.compacted_tag_info(::typeof(TYPE_CLOCK))          = (NFType, :tag, NFT_CLOCK, ())
+MetaModelica.compacted_tag_info(::typeof(TYPE_UNKNOWN))        = (NFType, :tag, NFT_UNKNOWN, ())
+MetaModelica.compacted_tag_info(::typeof(TYPE_ANY))            = (NFType, :tag, NFT_ANY, ())
+MetaModelica.compacted_tag_info(::typeof(TYPE_NORETCALL))      = (NFType, :tag, NFT_NORETCALL, ())
+MetaModelica.compacted_tag_info(::typeof(TYPE_ENUMERATION_ANY)) = (NFType, :tag, NFT_ENUMERATION_ANY, ())
+MetaModelica.compacted_tag_info(::typeof(TYPE_SUBSCRIPTED)) = (NFType, :tag, NFT_SUBSCRIPTED, (:name, :ty, :subs, :subscriptedTy))
+MetaModelica.compacted_tag_info(::typeof(TYPE_POLYMORPHIC))  = (NFType, :tag, NFT_POLYMORPHIC, (:name,))
+MetaModelica.compacted_tag_info(::typeof(TYPE_METABOXED))    = (NFType, :tag, NFT_METABOXED, (:ty,))
+MetaModelica.compacted_tag_info(::typeof(TYPE_FUNCTION))     = (NFType, :tag, NFT_FUNCTION, (:fn, :fnType))
+MetaModelica.compacted_tag_info(::typeof(TYPE_COMPLEX))      = (NFType, :tag, NFT_COMPLEX, (:cls, :complexTy))
+MetaModelica.compacted_tag_info(::typeof(TYPE_TUPLE))        = (NFType, :tag, NFT_TUPLE, (:types, :names))
+MetaModelica.compacted_tag_info(::typeof(TYPE_ARRAY))        = (NFType, :tag, NFT_ARRAY, (:elementType, :dimensions))
+MetaModelica.compacted_tag_info(::typeof(TYPE_ENUMERATION))  = (NFType, :tag, NFT_ENUMERATION, (:typePath, :literals))
 
 function subscriptedTypeName(@nospecialize(expType::M_Type), subscriptTypes::List{<:M_Type})::String
   local str::String
@@ -1650,7 +1670,7 @@ end
   Adds an array dimension to a type on the left side, e.g.
   listArrayLeft(Real[2, 3], [4]) => Real[4, 2, 3].
 """
-function liftArrayLeft(@nospecialize(ty::M_Type), dim::Dimension)::TYPE_ARRAY
+function liftArrayLeft(@nospecialize(ty::M_Type), dim::Dimension)::NFType
   @match ty begin
     TYPE_ARRAY(__) => begin
       return TYPE_ARRAY(ty.elementType, Cons{Dimension}(dim, ty.dimensions))

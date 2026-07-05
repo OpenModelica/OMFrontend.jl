@@ -244,7 +244,7 @@ function convertVarAttributes(
   is_final =
     compAttrs.isFinal || compAttrs.variability == Variability.STRUCTURAL_PARAMETER
   #= Real types require SOME(VAR_ATTR_REAL(...)) for backend initialization =#
-  if isempty(attrs) && !is_final && !isa(arrayElementType(ty), TYPE_REAL)
+  if isempty(attrs) && !is_final && !isvariant(arrayElementType(ty), TYPE_REAL)
     attributes = NONE()
     return attributes
   end

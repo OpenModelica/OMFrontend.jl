@@ -2899,7 +2899,7 @@ function matchArrayTypes(
   arrayType2::NFType,
   expression::Expression,
   allowUnknown::Bool,
-)::Tuple{Expression, TYPE_ARRAY, Int}
+)::Tuple{Expression, NFType, Int}
   local matchKind::MatchKindType
   local compatibleType::NFType
 
@@ -3002,7 +3002,7 @@ function matchArrayDims(
   ty::NFType,
   matchKind::MatchKindType,
   allowUnknown::Bool,
-)::Tuple{TYPE_ARRAY, Int}
+)::Tuple{NFType, Int}
   local rest_dims2::List{Dimension} = dims2
   local dim2::Dimension
   local compat::Bool

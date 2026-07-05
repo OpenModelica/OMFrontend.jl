@@ -4858,7 +4858,7 @@ end
         #= Use scopePath from the type's class node to get a consistent short path,
            avoiding the root model prefix that may appear in exp.path due to
            instFunctionRef caching order (toPath includes root, scopePath does not). =#
-        local recordPath = if exp.ty isa TYPE_COMPLEX && exp.ty.cls isa CLASS_NODE
+        local recordPath = if isvariant(exp.ty, TYPE_COMPLEX) && exp.ty.cls isa CLASS_NODE
           scopePath(exp.ty.cls)
         else
           exp.path

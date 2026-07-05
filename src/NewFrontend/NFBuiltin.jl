@@ -740,12 +740,12 @@ const ASSERTIONLEVEL_TYPE =
   TYPE_ENUMERATION(Absyn.IDENT("AssertionLevel"),
                    list("warning", "error"))
 
-const ASSERTIONLEVEL_WARNING::ENUM_LITERAL_EXPRESSION =
-  ENUM_LITERAL_EXPRESSION{TYPE_ENUMERATION, String, Int}(ASSERTIONLEVEL_TYPE
+const ASSERTIONLEVEL_WARNING =
+  ENUM_LITERAL_EXPRESSION(ASSERTIONLEVEL_TYPE
                                                          ,"warning"
                                                          ,1)
-const ASSERTIONLEVEL_ERROR::ENUM_LITERAL_EXPRESSION =
-  ENUM_LITERAL_EXPRESSION{TYPE_ENUMERATION, String, Int}(ASSERTIONLEVEL_TYPE
+const ASSERTIONLEVEL_ERROR =
+  ENUM_LITERAL_EXPRESSION(ASSERTIONLEVEL_TYPE
                                                          , "error"
                                                          , 2)
 

@@ -333,7 +333,7 @@ function makeCatExp(n::Int,
   for (i,arg) in enumerate(args)
     ty = tys2[i]
     dimsLst = Cons{List{Dimension}}(arrayDims(ty), dimsLst)
-    if resTy isa TYPE_UNKNOWN
+    if isvariant(resTy, TYPE_UNKNOWN)
       resTy = arrayElementType(ty)
     else
        (_, _, ty1, mk) = matchExpressions(INT_EXPR_ZERO, arrayElementType(ty), INT_EXPR_ZERO, resTy)
@@ -389,7 +389,7 @@ function makeCatExp(n::Int,
   tys2 = tys3
   for (i,arg) in enumerate(args2)
     ty = tys2[i]
-    if resTy isa TYPE_UNKNOWN
+    if isvariant(resTy, TYPE_UNKNOWN)
       resTy = ty
     else
       (_, _, ty1, mk) = matchExpressions(INT_EXPR_ZERO, ty, INT_EXPR_ZERO, resTy)
@@ -485,7 +485,7 @@ function makeCatExpRef(n::Int,
   for (i,arg) in enumerate(args)
     ty = tys2[i]
     dimsLst = Cons{List{Dimension}}(arrayDims(ty), dimsLst)
-    if resTy isa TYPE_UNKNOWN
+    if isvariant(resTy, TYPE_UNKNOWN)
       resTy = arrayElementType(ty)
     else
        (_, _, ty1, mk) = matchExpressions(INT_EXPR_ZERO, arrayElementType(ty), INT_EXPR_ZERO, resTy)
@@ -537,7 +537,7 @@ function makeCatExpRef(n::Int,
   tys2 = tys3
   for (i,arg) in enumerate(args2)
     ty = tys2[i]
-    if resTy isa TYPE_UNKNOWN
+    if isvariant(resTy, TYPE_UNKNOWN)
       resTy = ty
     else
       (_, _, ty1, mk) = matchExpressions(INT_EXPR_ZERO, ty, INT_EXPR_ZERO, resTy)

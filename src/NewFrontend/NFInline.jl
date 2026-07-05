@@ -286,7 +286,7 @@ function replaceCrefNode(exp::Expression, node::InstNode, value::Expression)::Ex
     end
   end
   ty = typeOf(exp)
-  if ty isa TYPE_ARRAY || ty isa TYPE_TUPLE || ty isa TYPE_FUNCTION || ty isa TYPE_METABOXED
+  if isvariant(ty, TYPE_ARRAY) || isvariant(ty, TYPE_TUPLE) || isvariant(ty, TYPE_FUNCTION) || isvariant(ty, TYPE_METABOXED)
     repl_ty = mapDims(ty, (dimArg) -> replaceDimExp(dimArg, node, value))
     if !referenceEq(ty, repl_ty)
       exp = setType(repl_ty, exp)
@@ -343,5 +343,5 @@ function getOutputExp(stmt::Statement, outputNode::InstNode, call::Call)::Expres
 end
 
 function isSimpleType(ty)
-  return ty isa TYPE_INTEGER || ty isa TYPE_REAL || ty isa TYPE_STRING || ty isa TYPE_REAL
+  return isvariant(ty, TYPE_INTEGER) || isvariant(ty, TYPE_REAL) || isvariant(ty, TYPE_STRING) || isvariant(ty, TYPE_REAL)
 end

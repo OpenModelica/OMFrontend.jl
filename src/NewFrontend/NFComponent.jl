@@ -1177,7 +1177,7 @@ end
 function newEnum(@nospecialize(enumType::M_Type), literalName::String, literalIndex::Int)
   local component::Component
   component =
-    ENUM_LITERAL_COMPONENT{ENUM_LITERAL_EXPRESSION}(ENUM_LITERAL_EXPRESSION{TYPE_ENUMERATION, String, Int64}(enumType,
+    ENUM_LITERAL_COMPONENT{ENUM_LITERAL_EXPRESSION}(ENUM_LITERAL_EXPRESSION(enumType,
                                                                                                              literalName,
                                                                                                              literalIndex))
   return component

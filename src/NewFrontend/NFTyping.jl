@@ -3680,7 +3680,7 @@ end
         end
          e1 = typeOperatorArg(
           st.message,
-          TYPE_STRING,
+          TYPE_STRING(),
           origin,
           "terminate",
           "message",

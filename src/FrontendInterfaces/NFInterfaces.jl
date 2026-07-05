@@ -78,7 +78,29 @@
 @UniontypeDecl NFSections
 @UniontypeDecl NFStatement
 @UniontypeDecl NFSubscript
-@UniontypeDecl NFType
+#= NFType is a single concrete tagged struct (see NFType.jl for constructors /
+   @match registrations / methods). Defined here at the forward-declaration site
+   so `::NFType`/`::M_Type`-annotated fields in files loaded before NFType.jl are
+   concrete. Uses the raw interface type names (aliases like ComplexType/Dimension
+   are not bound yet at this point). =#
+@enum NFTypeTag::UInt8 NFT_INTEGER NFT_REAL NFT_STRING NFT_BOOLEAN NFT_CLOCK NFT_UNKNOWN NFT_ANY NFT_NORETCALL NFT_ENUMERATION_ANY NFT_ARRAY NFT_TUPLE NFT_COMPLEX NFT_FUNCTION NFT_ENUMERATION NFT_METABOXED NFT_POLYMORPHIC NFT_SUBSCRIPTED
+struct NFType
+  tag::NFTypeTag
+  name::Union{String,Nothing}
+  ty::Union{NFType,Nothing}
+  subs::List{NFType}
+  subscriptedTy::Union{NFType,Nothing}
+  fn::Union{M_Function,Nothing}
+  fnType::Int
+  cls::Union{InstNode,Nothing}
+  complexTy::Union{NFComplexType,Nothing}
+  types::List{NFType}
+  names::Option{List{String}}
+  elementType::Union{NFType,Nothing}
+  dimensions::List{NFDimension}
+  typePath::Union{Absyn.Path,Nothing}
+  literals::List{String}
+end
 @UniontypeDecl NFVariable
 @UniontypeDecl NFVerifyModel
 @UniontypeDecl Prefixes
