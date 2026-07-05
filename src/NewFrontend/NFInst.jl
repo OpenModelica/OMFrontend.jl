@@ -1213,7 +1213,7 @@ function instExtends(node::CLASS_NODE,
       if vis == ExtendsVisibility.PUBLIC && isProtectedBaseClass(node)
         vis = ExtendsVisibility.DERIVED_PROTECTED
       end
-      cls.baseClass = instExtends(cls.baseClass, attributes, useBinding, vis, instLevel, attributeRef)::CLASS_NODE
+      @assign cls.baseClass = instExtends(cls.baseClass, attributes, useBinding, vis, instLevel, attributeRef)::CLASS_NODE
       node = updateClass(cls, node)
     end
     PARTIAL_BUILTIN(__)  => begin

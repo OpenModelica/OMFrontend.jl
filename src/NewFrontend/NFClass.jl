@@ -55,20 +55,20 @@ struct TYPED_DERIVED{T0 <: NFType, T1 <: InstNode, T2 <: Restriction} <: Class
   restriction::T2
 end
 
-mutable struct INSTANCED_BUILTIN <: Class
+struct INSTANCED_BUILTIN <: Class
   ty::NFType
   elements::ClassTree
   restriction::Restriction
 end
 
-mutable struct INSTANCED_CLASS <: Class
+struct INSTANCED_CLASS <: Class
   ty::NFType
   elements::ClassTree
   sections::Sections
   restriction::Restriction
 end
 
-mutable struct EXPANDED_DERIVED <: Class
+struct EXPANDED_DERIVED <: Class
   baseClass::InstNode
   modifier::Modifier
   dims::Vector{Dimension}
@@ -77,14 +77,14 @@ mutable struct EXPANDED_DERIVED <: Class
   restriction::Restriction
 end
 
-mutable struct EXPANDED_CLASS <: Class
+struct EXPANDED_CLASS <: Class
   elements::ClassTree
   modifier::Modifier
   prefixes::Prefixes
   restriction::Restriction
 end
 
-mutable struct PARTIAL_BUILTIN <: Class
+struct PARTIAL_BUILTIN <: Class
   ty::NFType
   elements::ClassTree
   modifier::Modifier
@@ -92,7 +92,7 @@ mutable struct PARTIAL_BUILTIN <: Class
   restriction::Restriction
 end
 
-mutable struct PARTIAL_CLASS <: Class
+struct PARTIAL_CLASS <: Class
   elements::ClassTree
   modifier::Modifier
   prefixes::Prefixes
@@ -274,12 +274,12 @@ end
 function setPrefixes(prefs::Prefixes, cls::Class)
   @match cls begin
     EXPANDED_CLASS(__) => begin
-      cls.prefixes = prefs
+      @assign cls.prefixes = prefs
       ()
     end
 
     EXPANDED_DERIVED(__) => begin
-      cls.prefixes = prefs
+      @assign cls.prefixes = prefs
       ()
     end
   end
@@ -376,27 +376,27 @@ function setRestriction(res::Restriction, cls::Class)::Class
     @match cls begin
       EXPANDED_CLASS(__) => begin
         #=  PARTIAL_BUILTIN is only used for predefined builtin types and not needed here. =#
-        cls.restriction = res
+        @assign cls.restriction = res
         ()
       end
 
       EXPANDED_DERIVED(__) => begin
-        cls.restriction = res
+        @assign cls.restriction = res
         ()
       end
 
       INSTANCED_CLASS(__) => begin
-        cls.restriction = res
+        @assign cls.restriction = res
         ()
       end
 
       INSTANCED_BUILTIN(__) => begin
-        cls.restriction = res
+        @assign cls.restriction = res
         ()
       end
 
       TYPED_DERIVED(__) => begin
-        cls.restriction = res
+        @assign cls.restriction = res
         ()
       end
     end
@@ -445,7 +445,7 @@ function setType(@nospecialize(ty::M_Type), @nospecialize(cls::Class))
    () = begin
     @match cls begin
       PARTIAL_BUILTIN(__) => begin
-        cls.ty = ty
+        @assign cls.ty = ty
         ()
       end
 
@@ -455,17 +455,17 @@ function setType(@nospecialize(ty::M_Type), @nospecialize(cls::Class))
       end
 
       INSTANCED_CLASS(__) => begin
-        cls.ty = ty
+        @assign cls.ty = ty
         ()
       end
 
       INSTANCED_BUILTIN(__) => begin
-        cls.ty = ty
+        @assign cls.ty = ty
         ()
       end
 
       TYPED_DERIVED(__) => begin
-        cls.ty = ty
+        @assign cls.ty = ty
         ()
       end
 
@@ -647,22 +647,22 @@ function setModifier(@nospecialize(modifier::Modifier),
    () = begin
     @match cls begin
       PARTIAL_CLASS(__) => begin
-        cls.modifier = modifier
+        @assign cls.modifier = modifier
         ()
       end
 
       EXPANDED_CLASS(__) => begin
-        cls.modifier = modifier
+        @assign cls.modifier = modifier
         ()
       end
 
       EXPANDED_DERIVED(__) => begin
-        cls.modifier = modifier
+        @assign cls.modifier = modifier
         ()
       end
 
       PARTIAL_BUILTIN(__) => begin
-        cls.modifier = modifier
+        @assign cls.modifier = modifier
         ()
       end
       _ => begin

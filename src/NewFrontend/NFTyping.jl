@@ -298,7 +298,7 @@ end
         restriction = RESTRICTION_CONNECTOR(isExpandable = is_expandable),
       ) => begin
         ty = TYPE_COMPLEX(clsNode, makeConnectorType(cls.elements, is_expandable))
-        cls.ty = ty
+        @assign cls.ty = ty
         updateClass(cls, clsNode)
         ty
       end
@@ -310,7 +310,7 @@ end
         ),
       ) => begin
         ty = TYPE_COMPLEX(ty_node, makeRecordType(node))
-        cls.ty = ty
+        @assign cls.ty = ty
         updateClass(cls, clsNode)
         ty
       end
@@ -321,7 +321,7 @@ end
         #=  A long class declaration of a type extending from a type has the type of the base class.
         =#
         ty = typeClassType(node, componentBinding, origin, instanceNode)
-        cls.ty = ty
+        @assign cls.ty = ty
         updateClass(cls, clsNode)
         ty
       end
@@ -342,7 +342,7 @@ end
           fail()
         end
          ty = TYPE_FUNCTION(fn, FunctionType.FUNCTIONAL_PARAMETER)
-        cls.ty = ty
+        @assign cls.ty = ty
         updateClass(cls, clsNode)
         ty
       end
