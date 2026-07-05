@@ -133,7 +133,6 @@ function instClassInProgramFM2(classPath::Absyn.Path, program::SCode.Program)::T
   cls = setNodeType(ROOT_CLASS(EMPTY_NODE()), cls)
   #=  Initialize the storage for automatically generated inner elements. =#
   top = setInnerOuterCache(top, C_TOP_SCOPE(NodeTree.new(), cls))
-  INST_CLASS_DEPTH[] = 0
   @EXECSTAT "instantiate" inst_cls = instantiateN1(cls, EMPTY_NODE())
   ExecStat.execStat("Instantiation")
   insertGeneratedInners(inst_cls, top)
@@ -807,30 +806,31 @@ function instDerivedAttributes(scodeAttr::SCode.Attributes) ::Attributes
 end
 
 function instClass(node::InstNode, modifier::Modifier, attributes::Attributes, attributeRef::Ref{Attributes}, useBinding::Bool = false, instLevel::Int = 0, parent = EMPTY_NODE())::CLASS_NODE
-  INST_CLASS_DEPTH[] += 1
-  INST_CLASS_TOTAL_CALLS[] += 1
-  if INST_CLASS_TOTAL_CALLS[] > INST_CLASS_TOTAL_CALLS_LIMIT
+  #= Runaway backstops. Depth uses `instLevel` (a per-call-stack parameter, so
+     thread-safe by construction). Total-calls is a process-wide backstop kept as
+     an atomic so it is safe under parallel instantiation. =#
+  local totalCalls = Threads.atomic_add!(INST_CLASS_TOTAL_CALLS, 1) + 1
+  if totalCalls > INST_CLASS_TOTAL_CALLS_LIMIT
     nodeName = try name(node) catch; "<unknown>" end
     parentName = try name(parent) catch; "<unknown>" end
     top3 = sort(Base.collect(REINSTANTIATION_CLASSES), by=last, rev=true)[1:min(5, length(REINSTANTIATION_CLASSES))]
-    @warn "instClass total call limit reached" total=INST_CLASS_TOTAL_CALLS[] reinstantiations=REINSTANTIATION_COUNT[] top_classes=top3
+    @warn "instClass total call limit reached" total=totalCalls reinstantiations=REINSTANTIATION_COUNT[] top_classes=top3
     Error.addSourceMessage(
       Error.INST_RECURSION_LIMIT_REACHED,
-      list("instClass total calls > $(INST_CLASS_TOTAL_CALLS_LIMIT) (depth=$(INST_CLASS_DEPTH[]), reinstantiations=$(REINSTANTIATION_COUNT[])): node=$(nodeName), parent=$(parentName)"),
+      list("instClass total calls > $(INST_CLASS_TOTAL_CALLS_LIMIT) (instLevel=$(instLevel), reinstantiations=$(REINSTANTIATION_COUNT[])): node=$(nodeName), parent=$(parentName)"),
       InstNode_info(node))
     fail()
   end
-  if INST_CLASS_DEPTH[] > INST_CLASS_DEPTH_LIMIT
+  if instLevel > INST_CLASS_DEPTH_LIMIT
     nodeName = try name(node) catch; "<unknown>" end
     parentName = try name(parent) catch; "<unknown>" end
-    @warn "instClass recursion limit reached (depth=$(INST_CLASS_DEPTH[])): node=$(nodeName), parent=$(parentName)"
+    @warn "instClass recursion limit reached (instLevel=$(instLevel)): node=$(nodeName), parent=$(parentName)"
     Error.addSourceMessage(
       Error.INST_RECURSION_LIMIT_REACHED,
-      list("instClass depth > $(INST_CLASS_DEPTH_LIMIT): node=$(nodeName), parent=$(parentName)"),
+      list("instClass instLevel > $(INST_CLASS_DEPTH_LIMIT): node=$(nodeName), parent=$(parentName)"),
       InstNode_info(node))
     fail()
   end
-  try
   local cls::Class
   local outer_mod::Modifier
    cls = getClass(node)
@@ -859,9 +859,6 @@ function instClass(node::InstNode, modifier::Modifier, attributes::Attributes, a
     return result
   end
   return instClassDef(cls, modifier, attributes, useBinding, node, parent, instLevel, attributeRef)::CLASS_NODE
-  finally
-    INST_CLASS_DEPTH[] -= 1
-  end
 end
 
 """On failure call the generic function."""
@@ -888,12 +885,12 @@ function instClassDef(cls::INSTANCED_CLASS,
   local ty::M_Type
   local attrs::Attributes
   #= Track re-instantiation for diagnostics =#
-  REINSTANTIATION_COUNT[] += 1
+  local reinstCount = Threads.atomic_add!(REINSTANTIATION_COUNT, 1) + 1
   cn = try name(node) catch; "?" end
   REINSTANTIATION_CLASSES[cn] = get(REINSTANTIATION_CLASSES, cn, 0) + 1
-  if REINSTANTIATION_COUNT[] % 5000 == 0
+  if reinstCount % 5000 == 0
     top5 = sort(Base.collect(REINSTANTIATION_CLASSES), by=last, rev=true)[1:min(5, length(REINSTANTIATION_CLASSES))]
-    @warn "Re-instantiation count: $(REINSTANTIATION_COUNT[]) (total instClass calls: $(INST_CLASS_TOTAL_CALLS[]))" top_classes=top5
+    @warn "Re-instantiation count: $(reinstCount) (total instClass calls: $(INST_CLASS_TOTAL_CALLS[]))" top_classes=top5
   end
   #=  If a class has an instance of a encapsulating class, then the encapsulating
   =#
@@ -2147,7 +2144,6 @@ const BUILTIN_PREFIX = "__OpenModelica_builtinType"
 
 const INST_EXPR_DEPTH = Ref(0)
 const INST_EXPR_DEPTH_LIMIT = 100
-const INST_CLASS_DEPTH = Ref(0)
 const INST_CLASS_DEPTH_LIMIT = 100
 # Instance-result cache for default (empty-modifier) atomic scalar builtins.
 # Cheap key: the class-definition objectid (no string building). Reuses the
@@ -2157,17 +2153,17 @@ const INST_CLASS_DEPTH_LIMIT = 100
 const CACHE_INST = Base.RefValue{Bool}(get(ENV, "OMFRONTEND_CACHE_INST", "true") == "true")
 const INST_CACHE = Dict{UInt64, InstNode}()
 
-#= Diagnostic counters for detecting exponential blowup (monotonically increasing) =#
-const INST_CLASS_TOTAL_CALLS = Ref(0)
+#= Runaway backstops. Atomic so they are safe to bump from parallel instantiation
+   workers; the depth guard uses the per-stack `instLevel` parameter instead. =#
+const INST_CLASS_TOTAL_CALLS = Threads.Atomic{Int}(0)
 const INST_CLASS_TOTAL_CALLS_LIMIT = 200_000
-const REINSTANTIATION_COUNT = Ref(0)
+const REINSTANTIATION_COUNT = Threads.Atomic{Int}(0)
 const REINSTANTIATION_CLASSES = Dict{String, Int}()
 
 function resetInstDiagnostics()
-  INST_CLASS_TOTAL_CALLS[] = 0
-  REINSTANTIATION_COUNT[] = 0
+  Threads.atomic_xchg!(INST_CLASS_TOTAL_CALLS, 0)
+  Threads.atomic_xchg!(REINSTANTIATION_COUNT, 0)
   empty!(REINSTANTIATION_CLASSES)
-  INST_CLASS_DEPTH[] = 0
   INST_EXPR_DEPTH[] = 0
   empty!(CLASS_PTR_WRITES)
   empty!(COMPONENT_PTR_WRITES)
