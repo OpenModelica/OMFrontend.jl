@@ -1042,7 +1042,7 @@ end
  Returns the function(s) referenced by the given cref, and types them if
  they are not already typed.
 """
-function typeRefCache(@nospecialize(functionRef::ComponentRef))::Vector{M_FUNCTION}
+function typeRefCache(functionRef::ComponentRef)::Vector{M_FUNCTION}
   local functions::Vector{M_FUNCTION}
   functions = begin
     @match functionRef begin

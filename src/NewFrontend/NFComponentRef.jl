@@ -42,27 +42,15 @@ end
 
 const Origin::ORIGIN_STRUCT = ORIGIN_STRUCT(1,2,3)
 
-abstract type NFComponentRef end
+#= Compacted so the recursive restCref spine is concretely typed
+   (NFComponentRefData) for inference-friendly cref traversal. =#
+@CUniontype NFComponentRef begin
+  COMPONENT_REF_WILD()
+  COMPONENT_REF_EMPTY()
+  COMPONENT_REF_CREF(node::InstNode, subscripts::List{Subscript}, ty::NFType, origin::Int, restCref::NFComponentRef)
+end
 
 const ComponentRef = NFComponentRef
-
-struct COMPONENT_REF_WILD <: NFComponentRef end
-
-struct COMPONENT_REF_EMPTY <: NFComponentRef end
-
-struct COMPONENT_REF_STRING{T0 <: String,
-                            T1 <: ComponentRef} <: NFComponentRef
-  name::T0
-  restCref::T1
-end
-
-mutable struct COMPONENT_REF_CREF <: NFComponentRef
-  node::InstNode
-  subscripts::List{Subscript}
-  ty::NFType #= The type of the node, without taking subscripts into account. =#
-  origin::Int
-  restCref::ComponentRef
-end
 
 function isComplexArray2(cref::ComponentRef)::Bool
   local complexArray::Bool
@@ -134,11 +122,11 @@ toListReverse(
 @author:johti17
 """
 function toListReverse(
-  cref::COMPONENT_REF_CREF,
+  cref::ComponentRef,
   accum::List{<:ComponentRef} = nil;
   includeScope::Bool = true)
   local tmp = cref
-  while tmp isa COMPONENT_REF_CREF
+  while isvariant(tmp, COMPONENT_REF_CREF)
     if includeScope || tmp.origin == Origin.CREF
       accum = Cons{ComponentRef}(tmp, accum)
     end
@@ -146,7 +134,6 @@ function toListReverse(
   end
   return accum
 end
-toListReverse(cref::ComponentRef, accum::List{<:ComponentRef} = nil) = accum
 
 """
 Vector-returning sibling of `toListReverse`. Walks the cref chain via
@@ -156,7 +143,7 @@ contiguous Vector instead of a chain of `Cons` cells). Saves N Cons-cell
 allocations per call versus `toListReverse`.
 """
 function toVectorReverse(cref::ComponentRef; includeScope::Bool = true)::Vector{ComponentRef}
-  if !(cref isa COMPONENT_REF_CREF)
+  if !(isvariant(cref, COMPONENT_REF_CREF))
     return ComponentRef[]
   end
   #= First pass: count the depth so we can size the Vector exactly. Two cheap
@@ -164,7 +151,7 @@ function toVectorReverse(cref::ComponentRef; includeScope::Bool = true)::Vector{
      cref chains (typical depth 2-5), which dominate hot frontend traversals. =#
   local n = 0
   local tmp = cref
-  while tmp isa COMPONENT_REF_CREF
+  while isvariant(tmp, COMPONENT_REF_CREF)
     if includeScope || tmp.origin == Origin.CREF
       n += 1
     end
@@ -173,7 +160,7 @@ function toVectorReverse(cref::ComponentRef; includeScope::Bool = true)::Vector{
   local result = Vector{ComponentRef}(undef, n)
   tmp = cref
   local i = n
-  while tmp isa COMPONENT_REF_CREF
+  while isvariant(tmp, COMPONENT_REF_CREF)
     if includeScope || tmp.origin == Origin.CREF
       @inbounds result[i] = tmp
       i -= 1
@@ -193,11 +180,11 @@ Hence if the component reference is A.B.C.it will return A.
 @author: johti17
 """
 function getOriginCref(cref::ComponentRef)
-  if !(cref isa COMPONENT_REF_CREF)
+  if !(isvariant(cref, COMPONENT_REF_CREF))
     return cref
   end
-  local current::COMPONENT_REF_CREF = cref
-  while current.restCref isa COMPONENT_REF_CREF
+  local current::ComponentRef = cref
+  while isvariant(current.restCref, COMPONENT_REF_CREF)
     current = current.restCref
   end
   return current
@@ -278,17 +265,24 @@ end
 function simplifySubscripts(cref::ComponentRef; trim = false)::ComponentRef
   cref = begin
     local subs::List{Subscript}
+    local rest::ComponentRef
     @match cref begin
       COMPONENT_REF_CREF(subscripts, Origin.CREF) where listEmpty(subscripts) => begin
-        COMPONENT_REF_CREF(cref.node,
-                           cref.subscripts,
-                           cref.ty,
-                           cref.origin,
-                           simplifySubscripts(cref.restCref, trim = trim))
+        rest = simplifySubscripts(cref.restCref, trim = trim)
+        if referenceEq(rest, cref.restCref)
+          cref
+        else
+          COMPONENT_REF_CREF(cref.node, cref.subscripts, cref.ty, cref.origin, rest)
+        end
       end
       COMPONENT_REF_CREF(origin = Origin.CREF) => begin
-        subs =  simplifyList(cref.subscripts, arrayDims(cref.ty))
-        COMPONENT_REF_CREF(cref.node, subs, cref.ty, cref.origin, simplifySubscripts(cref.restCref, trim = trim))
+        subs = simplifyList(cref.subscripts, arrayDims(cref.ty))
+        rest = simplifySubscripts(cref.restCref, trim = trim)
+        if referenceEq(subs, cref.subscripts) && referenceEq(rest, cref.restCref)
+          cref
+        else
+          COMPONENT_REF_CREF(cref.node, subs, cref.ty, cref.origin, rest)
+        end
       end
       _ => begin
         cref
@@ -439,7 +433,7 @@ function hash(cref::ComponentRef, mod::Int)::Int
 end
 
 #= hashes the cref without subscripts. Used for non-expanded variables. =#
-function hashStrip(@nospecialize(cref::ComponentRef), mod::Int)::Int
+function hashStrip(cref::ComponentRef, mod::Int)::Int
   local hv::Int = stringHashDjb2Mod(toStringStripImpl(cref, ""), mod)
   return hv
 end
@@ -481,9 +475,6 @@ function toFlatString_impl(cref::ComponentRef, strl::List{<:String}; inFunction 
       COMPONENT_REF_WILD(__) => begin
         _cons("_", strl)
       end
-      COMPONENT_REF_STRING(__) => begin
-        toFlatString_impl(cref.restCref, _cons(cref.name, strl); inFunction = inFunction)
-      end
       _ => begin
         strl
       end
@@ -502,10 +493,10 @@ function toFlatString(cref::ComponentRef; inFunction = false)
   local subs::List{Subscript}
   local strl::List{String} = nil
   #= Wildcard and empty crefs have a fixed textual form and would trip the
-     `cref isa COMPONENT_REF_CREF` guard below with `sc = nothing`. =#
-  if cref isa COMPONENT_REF_WILD
+     `isvariant(cref, COMPONENT_REF_CREF)` guard below with `sc = nothing`. =#
+  if isvariant(cref, COMPONENT_REF_WILD)
     return "_"
-  elseif cref isa COMPONENT_REF_EMPTY
+  elseif isvariant(cref, COMPONENT_REF_EMPTY)
     return ""
   end
   #= Iterator variables (loop vars like i in 'for i in ...') must not be quoted =#
@@ -528,7 +519,7 @@ function toFlatString(cref::ComponentRef; inFunction = false)
   Special Case. If we scalarize, we do not want to quote in the same way.
   Otherwise we will refer to components that do not exist in the flat model.
   =#
-  local sc = if cref isa COMPONENT_REF_CREF
+  local sc = if isvariant(cref, COMPONENT_REF_CREF)
     local crOrigin = getOriginCref(cref)
     local parentCref = cref.restCref
     local _ptyp = getComponentType(parentCref)
@@ -585,10 +576,6 @@ function toString_impl(cref::ComponentRef, strl::List{String})
 
       COMPONENT_REF_WILD(__) => begin
         Cons{String}("_", strl)
-      end
-
-      COMPONENT_REF_STRING(__) => begin
-        toString_impl(cref.restCref, Cons{String}(cref.name, strl))
       end
 
       _ => begin
@@ -682,9 +669,6 @@ function toDAE(cref::ComponentRef)::DAE.ComponentRef
 
       COMPONENT_REF_WILD(__) => begin
         DAE.WILD()
-      end
-      COMPONENT_REF_STRING(__) => begin
-        DAE.CREF_IDENT(cref.name, DAE.T_UNKNOWN(), nil)
       end
     end
   end
@@ -842,19 +826,19 @@ end
 function transferSubscripts(srcCref::ComponentRef, dstCref::ComponentRef)::ComponentRef
   local cref::ComponentRef
 
-  cref = if srcCref isa COMPONENT_REF_EMPTY
+  cref = if isvariant(srcCref, COMPONENT_REF_EMPTY)
     dstCref
-  elseif dstCref isa COMPONENT_REF_EMPTY
+  elseif isvariant(dstCref, COMPONENT_REF_EMPTY)
     dstCref
-  elseif dstCref isa COMPONENT_REF_CREF && dstCref.origin == Origin.ITERATOR
+  elseif isvariant(dstCref, COMPONENT_REF_CREF) && dstCref.origin == Origin.ITERATOR
     dstCref
-  elseif srcCref isa COMPONENT_REF_CREF && dstCref isa COMPONENT_REF_CREF && dstCref.origin == Origin.CREF
+  elseif isvariant(srcCref, COMPONENT_REF_CREF) && isvariant(dstCref, COMPONENT_REF_CREF) && dstCref.origin == Origin.CREF
     local restCref = transferSubscripts(srcCref, dstCref.restCref)
     COMPONENT_REF_CREF(dstCref.node, dstCref.subscripts, dstCref.ty, dstCref.origin, restCref)
-  elseif srcCref isa COMPONENT_REF_CREF && dstCref isa COMPONENT_REF_CREF && refEqual(srcCref.node, dstCref.node)
+  elseif isvariant(srcCref, COMPONENT_REF_CREF) && isvariant(dstCref, COMPONENT_REF_CREF) && refEqual(srcCref.node, dstCref.node)
     local rc = transferSubscripts(srcCref.restCref, dstCref.restCref)
     COMPONENT_REF_CREF(dstCref.node, srcCref.subscripts, dstCref.ty, dstCref.origin, rc)
-  elseif srcCref isa COMPONENT_REF_CREF && dstCref isa COMPONENT_REF_CREF
+  elseif isvariant(srcCref, COMPONENT_REF_CREF) && isvariant(dstCref, COMPONENT_REF_CREF)
     transferSubscripts(srcCref.restCref, dstCref)
   else
     Error.assertion(false, string("Transfer of subscripts between ", string(toString(srcCref), " and ", toString(dstCref), " failed ")), sourceInfo())
@@ -918,7 +902,7 @@ function setSubscriptsList(
     local rest_subs::List{List{Subscript}}
     local rest_cref::ComponentRef
   @match subscripts begin
-    Cons{Subscript}(subs, rest_subs) where {cref isa COMPONENT_REF_CREF} => begin
+    Cons{Subscript}(subs, rest_subs) where {isvariant(cref, COMPONENT_REF_CREF)} => begin
       rest_cref = setSubscriptsList(rest_subs, cref.restCref)
       return COMPONENT_REF_CREF(cref.node, subs, cref.ty, cref.origin, rest_cref)
     end
@@ -956,8 +940,8 @@ function setSubscriptsListV(subscripts::Vector{Vector{Subscript}}
 end
 
 
-function setSubscripts(subscripts::List{<:Subscript}, @nospecialize(cref::ComponentRef))
-  if cref isa COMPONENT_REF_CREF
+function setSubscripts(subscripts::List{<:Subscript}, cref::ComponentRef)
+  if isvariant(cref, COMPONENT_REF_CREF)
     return COMPONENT_REF_CREF(cref.node, subscripts, cref.ty, cref.origin, cref.restCref)
   else
     return cref
@@ -1157,9 +1141,10 @@ function append(cref::ComponentRef, restCref::ComponentRef)
   return cref
 end
 
-appendCref!(cref::COMPONENT_REF_EMPTY, restCref::ComponentRef) = restCref
-
-function appendCref!(cref::COMPONENT_REF_CREF, restCref::ComponentRef)
+function appendCref!(cref::ComponentRef, restCref::ComponentRef)
+  if !isvariant(cref, COMPONENT_REF_CREF)
+    return restCref
+  end
   local restCrefTmp = appendCref!(cref.restCref, restCref)
   @assign cref.restCref = restCrefTmp
   return cref
@@ -1189,7 +1174,7 @@ function firstNonScope(cref::ComponentRef)::ComponentRef
   return first
 end
 
-function rest(cref::COMPONENT_REF_CREF)
+function rest(cref::ComponentRef)
   local restCref = cref.restCref
   return restCref
 end
@@ -1210,7 +1195,7 @@ function firstName(cref::ComponentRef)::String
 end
 
 function updateNodeType(cref::ComponentRef)
-  local crefRet = if cref isa COMPONENT_REF_CREF && isComponent(cref.node)
+  local crefRet = if isvariant(cref, COMPONENT_REF_CREF) && isComponent(cref.node)
     crefTy = getType(cref.node)
     COMPONENT_REF_CREF(cref.node, cref.subscripts, crefTy, cref.origin, cref.restCref)
   else
@@ -1409,7 +1394,7 @@ function hasSplitSubscripts(cref::ComponentRef)
   end
 end
 
-function mapSubscripts(@nospecialize(cref::ComponentRef), func::Function)
+function mapSubscripts(cref::ComponentRef, func::Function)
   res = @match cref begin
     COMPONENT_REF_CREF(__) => begin
       if !listEmpty(cref.subscripts)

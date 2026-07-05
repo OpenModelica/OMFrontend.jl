@@ -1466,7 +1466,7 @@ function reductionFoldExpression(
       @match AbsynUtil.pathFirstIdent(name(reductionFn)) begin
         "sum" => begin
           @match TYPE_COMPLEX(cls = op_node) = reductionType
-          @match ENTRY_INFO(op_node, _) = lookupElement("'+'", getClass(op_node))
+          op_node = lookupElementNode("'+'", getClass(op_node))
           instFunctionNode(op_node)
           fns = typeNodeCache(op_node)
           fn = fns[1]

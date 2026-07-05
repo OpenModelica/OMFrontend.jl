@@ -243,8 +243,7 @@ end
   @assign fieldType = begin
     @match recordType begin
       TYPE_COMPLEX(__) => begin
-        entryInfo = lookupElement(name, getClass(recordType.cls))
-        getType(entryInfo.node)
+        getType(lookupElementNode(name, getClass(recordType.cls)))
       end
 
       TYPE_ARRAY(__) => begin

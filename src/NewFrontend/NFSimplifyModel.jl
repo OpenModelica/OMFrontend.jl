@@ -38,6 +38,9 @@ const MakeElement = Function
 const MakeFunc = Function
 
 function simplifyFlatModel(flatModel::FlatModel)::FlatModel
+  #= Per-model cache so identical constant folds (e.g. the orientation matrices
+     of symmetric MultiBody bodies) are evaluated once, not once per binding. =#
+  empty!(CONST_FOLD_CACHE)
   @assign begin
     flatModel.variables = simplifyVariables(flatModel.variables)
     flatModel.equations = simplifyEquations(flatModel.equations)
@@ -58,14 +61,20 @@ end
 
 function simplifyVariable(var::Variable)::Variable
   varBinding = simplifyBinding(var.binding)
-  varTypeAttributes = simplifyTypeAttributes(var.typeAttributes)
-  VARIABLE(
+  #= simplifyTypeAttributes mutates the vector in place (same object), so the
+     only field that can change identity is the binding. Reuse var unchanged
+     when the binding did not simplify, to avoid rebuilding every VARIABLE. =#
+  simplifyTypeAttributes(var.typeAttributes)
+  if referenceEq(varBinding, var.binding)
+    return var
+  end
+  return VARIABLE(
     var.name,
     var.ty,
     varBinding,
     var.visibility,
     var.attributes,
-    varTypeAttributes,
+    var.typeAttributes,
     var.comment,
     var.info
   )

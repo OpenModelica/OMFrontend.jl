@@ -1622,7 +1622,7 @@ function typeCrefDim(
   ))
 end
 
-function typeCrefDim2(@nospecialize(cref::ComponentRef),
+function typeCrefDim2(cref::ComponentRef,
                       @nospecialize(dimIndex::Int),
                       @nospecialize(origin::ORIGIN_Type),
                       @nospecialize(info::SourceInfo))::Tuple{Dimension, TypingError}
@@ -1745,7 +1745,7 @@ function nthDimensionBoundsChecked(
 end
 
 @nospecializeinfer function typeCrefExp(
-  @nospecialize(cref::ComponentRef),
+  cref::ComponentRef,
   o::ORIGIN_Type,
   info::SourceInfo,
   typeRef::Ref{NFType},
@@ -1793,7 +1793,7 @@ will be updated as we traverse the tree structure and can be utilized by the cal
 retrieve information about the variability type of the node and the subscripts of the component reference.
 """
 @nospecializeinfer function typeCref(
-  @nospecialize(cref::ComponentRef),
+  cref::ComponentRef,
   origin::ORIGIN_Type,
   info::SourceInfo,
   typeRef::Ref{NFType},
@@ -1819,23 +1819,16 @@ retrieve information about the variability type of the node and the subscripts o
 end
 
 @nospecializeinfer function typeCref2(
-  @nospecialize(cref::ComponentRef),
+  cref::ComponentRef,
   origin::ORIGIN_Type,
   variabilityTypeRef::Ref{VariabilityType},
   info::SourceInfo,
   firstPart::Bool = true,
-  )
-  variabilityTypeRef.x = Variability.CONSTANT
-  cref
-end
-
-@nospecializeinfer function typeCref2(
-  @nospecialize(cref::COMPONENT_REF_CREF),
-  origin::ORIGIN_Type,
-  variabilityTypeRef::Ref{VariabilityType},
-  info::SourceInfo,
-  firstPart::Bool = true,
-  )::COMPONENT_REF_CREF
+  )::ComponentRef
+  if !isvariant(cref, COMPONENT_REF_CREF)
+    variabilityTypeRef.x = Variability.CONSTANT
+    return cref
+  end
   local subsVariability::VariabilityType
 
   local rest_cr::ComponentRef
@@ -1976,7 +1969,7 @@ end
 @nospecializeinfer function typeSubscript(
   @nospecialize(subscript::Subscript),
   @nospecialize(dimension::Dimension),
-  @nospecialize(cref::ComponentRef),
+  cref::ComponentRef,
   index::Int,
   origin::ORIGIN_Type,
   info::SourceInfo,

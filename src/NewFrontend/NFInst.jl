@@ -649,7 +649,7 @@ function expandExternalObject(clsTree::ClassTree, node::InstNode) ::InstNode
   #=  possible to call the constructor or destructor explicitly.
   =#
   c = PARTIAL_BUILTIN(TYPE_COMPLEX(node, eo_ty),
-                      deepcopy(EMPTY_FLAT_CLASS_TREE),
+                      newEmptyFlatClassTree(),
                       MODIFIER_NOMOD(),
                       DEFAULT_PREFIXES,
                       RESTRICTION_EXTERNAL_OBJECT())
@@ -1252,7 +1252,7 @@ function applyModifier(modifier::Modifier, cls::ClassTree, clsName::String) ::Cl
       CLASS_TREE_FLAT_TREE(__)  => begin
         for mod in mods
           try
-            @match ENTRY_INFO(node, _) = lookupElement(name(mod), cls)
+            node = lookupElementNode(name(mod), cls)
           catch e
             #Error.addSourceMessage(Error.MISSING_MODIFIED_ELEMENT, list(name(mod), clsName), Mofifier_info(mod))
             @error "Missing modified element!. Error was $(e)"
@@ -2844,9 +2844,10 @@ function checkUnsubscriptableCref(cref::ComponentRef, info::SourceInfo)
   end
 end
 
-instCrefSubscripts(cref::ComponentRef, scope::InstNode, info::SourceInfo) = cref
-
-function instCrefSubscripts(cref::COMPONENT_REF_CREF, scope::InstNode, info::SourceInfo) ::ComponentRef
+function instCrefSubscripts(cref::ComponentRef, scope::InstNode, info::SourceInfo) ::ComponentRef
+  if !isvariant(cref, COMPONENT_REF_CREF)
+    return cref
+  end
   local rest_cr::ComponentRef
   if ! listEmpty(cref.subscripts)
     local crefSubscripts = list(instSubscript(s, scope, info) for s in cref.subscripts)

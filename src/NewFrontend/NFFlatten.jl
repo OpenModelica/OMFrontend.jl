@@ -1103,7 +1103,7 @@ end
 
 function flattenBindingExp(
   @nospecialize(exp::Expression),
-  @nospecialize(prefix::ComponentRef),
+  prefix::ComponentRef,
   isTypeAttribute::Bool = false
 )::Expression
   local outExp::Expression
@@ -1143,7 +1143,7 @@ Optimize this function
 """
 function flattenBindingExp2(
   @nospecialize(exp::Expression),
-  @nospecialize(prefix::ComponentRef),
+  prefix::ComponentRef,
   parents::List{InstNode},
 )::Expression
   local outExp::Expression = exp
@@ -1245,7 +1245,7 @@ end
 
 function flattenEquation(
   @nospecialize(eq::Equation),
-  @nospecialize(prefix::ComponentRef),
+  prefix::ComponentRef,
   inEquations::Vector{Equation},
   )
   equations = begin
@@ -1431,7 +1431,7 @@ end
 
 function flattenEqBranch(
   @nospecialize(branch::Equation_Branch),
-  @nospecialize(prefix::ComponentRef),
+  prefix::ComponentRef,
 )::Equation_Branch
   local exp::Expression
   local eql::Vector{Equation}
@@ -1567,7 +1567,7 @@ end
 
 function flattenAlgorithmStatement(
   @nospecialize(stmt::Statement),
-  @nospecialize(prefix::ComponentRef),
+  prefix::ComponentRef,
   outStatements::Vector{Statement},
 )::Vector{Statement}
   outStatements = begin

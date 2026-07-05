@@ -95,6 +95,16 @@ const EMPTY_FLAT_CLASS_TREE::CLASS_TREE_FLAT_TREE =
     DuplicateTree.EMPTY(),
   )
 
+#= Fresh empty trees. The fields are just empty arrays + empty subtrees, so a
+   plain constructor call is equivalent to deepcopy'ing the shared constant but
+   avoids deepcopy walking the whole object graph. =#
+newEmptyClassTree()::CLASS_TREE_PARTIAL_TREE =
+  CLASS_TREE_PARTIAL_TREE(LookupTree.EMPTY(), listArray(nil), listArray(nil),
+                          listArray(nil), listArray(nil), DuplicateTree.EMPTY())
+newEmptyFlatClassTree()::CLASS_TREE_FLAT_TREE =
+  CLASS_TREE_FLAT_TREE(LookupTree.EMPTY(), listArray(nil), listArray(nil),
+                       listArray(nil), DuplicateTree.EMPTY())
+
 function isEmptyTree(tree::ClassTree)
   if typeof(tree) isa CLASS_TREE_EMPTY_TREE
     return true
@@ -575,7 +585,7 @@ function lookupElementsPtr(name::String, tree::ClassTree)::List{Pointer{InstNode
   =#
   try
     local duplicates = getDuplicates(tree)
-    if duplicates isa DuplicateTree.EMPTY
+    if DuplicateTree.isEmpty(duplicates)
       elements = list(lookupElementPtr(name, tree))
       return elements
     else
@@ -829,7 +839,9 @@ end
 """
 replaceDuplicates(tree::ClassTree) = tree
 function replaceDuplicates(tree::CLASS_TREE_INSTANTIATED_TREE)
-  @match tree begin
+  #= DuplicateTree.map is functional; the rebuilt tree carries the resolved
+     entries, so it must be returned rather than relying on in-place mutation. =#
+  return @match tree begin
     CLASS_TREE_INSTANTIATED_TREE(__) where {(!DuplicateTree.isEmpty(tree.duplicates))} => begin
       local treeDuplicates = DuplicateTree.map(tree.duplicates, (name, entry) -> replaceDuplicates2(name, entry, tree))
       CLASS_TREE_INSTANTIATED_TREE(tree.tree, tree.classes, tree.components, tree.localComponents, tree.exts, tree.imports, treeDuplicates)
@@ -838,7 +850,6 @@ function replaceDuplicates(tree::CLASS_TREE_INSTANTIATED_TREE)
       tree
     end
   end
-  return tree
 end
 
 function mapRedeclareChains(tree::ClassTree, func::FuncT)
@@ -900,7 +911,7 @@ function clone(tree::ClassTree)::ClassTree
 end
 
 function fromRecordConstructor(fields::List{<:InstNode}, out::InstNode)::ClassTree
-  local tree::ClassTree = deepcopy(EMPTY_CLASS_TREE)
+  local tree::ClassTree = newEmptyClassTree()
 
   local ltree::LookupTree.Tree = LookupTree.new()
   local i::Int = 1
@@ -2189,6 +2200,37 @@ function resolveEntry(entry::LookupTree.Entry, tree::ClassTree)
   end
   return ENTRY_INFO(element, isImported)
 end
+
+"""Resolves a lookup tree entry to an inst node, dropping the import flag."""
+function resolveEntryNode(entry::LookupTree.Entry, tree::ClassTree)::InstNode
+  return @match entry begin
+    LookupTree.CLASS(__) => begin
+      resolveClass(entry.index, tree)
+    end
+    LookupTree.COMPONENT(__) => begin
+      resolveComponent(entry.index, tree)
+    end
+    LookupTree.IMPORT(__) => begin
+      resolveImport(entry.index, tree)
+    end
+    _ => begin
+      EMPTY_NODE()
+    end
+  end
+end
+
+"""  Node-only sibling of `lookupElement`: returns the resolved node directly,
+     without the `ENTRY_INFO` wrapper, for callers that ignore the import flag. """
+function lookupElementNode(name::String, classTree::ClassTree)::InstNode
+  local lTree = lookupTree(classTree)
+  local entry = LookupTree.get(lTree, name)
+  if entry == LookupTree.FAILURE
+    return EMPTY_NODE()
+  end
+  return resolveEntryNode(entry, classTree)
+end
+
+lookupElementNode(name::String, classTree::CLASS_TREE_EMPTY_TREE)::InstNode = EMPTY_NODE()
 
 function addDuplicateConflict(
   newEntry::DuplicateTree.Entry,

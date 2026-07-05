@@ -177,9 +177,12 @@ include("./NewFrontend/NFInstNode.jl")
 include("./NewFrontend/NFSections.jl")
 include("./NewFrontend/NFRecord.jl")
 include("./NewFrontend/NFOperatorOverloading.jl")
+#= NFComponentRef uses @CUniontype; its compacted_tag_info registration must be
+   evaluated before any file whose @match patterns destructure crefs (NFCeval
+   is the first), so @match compiles the tag-dispatch path, not the record path. =#
+include("./NewFrontend/NFComponentRef.jl")
 include("./NewFrontend/NFCeval.jl")
 include("./NewFrontend/NFDimension.jl")
-include("./NewFrontend/NFComponentRef.jl")
 include("./NewFrontend/NFBinding.jl")
 include("./NewFrontend/NFTyping.jl")
 

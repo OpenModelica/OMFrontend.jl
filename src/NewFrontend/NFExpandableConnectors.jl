@@ -471,14 +471,14 @@ function augmentExpandableConnector(
   for c in expandableSet
     elem_name = name(c)
     nodeElem = node(elem_name)
-    @match ENTRY_INFO(comp_node, isImport) = lookupElement(name(nodeElem), cls_tree)
+    comp_node = lookupElementNode(name(nodeElem), cls_tree)
     if isEmpty(comp_node)
       nodes = _cons(nodeElem, nodes)
       ty = c.ty
       elem_name = prefixCref(nodeElem, ty, nil, exp_name)
       vars = createVirtualVariables(elem_name, ty, Connector_getInfo(c), vars)
     else
-      @match ENTRY_INFO(comp_node, _) = lookupElement(name(nodeElem), cls_tree)
+      comp_node = lookupElementNode(name(nodeElem), cls_tree)
       comp_node = resolveInner(comp_node)
       if isComponent(comp_node)
         markComponentPresent(comp_node)

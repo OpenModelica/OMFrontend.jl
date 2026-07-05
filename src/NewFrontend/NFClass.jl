@@ -199,7 +199,7 @@ function hasOperator(name::String, cls::Class)::Bool
   local op_node::InstNode
   local op_cls::Class
   if isOperatorRecord(restriction(cls))
-    @match ENTRY_INFO(op_node, _) = lookupElement(name, cls)
+    op_node = lookupElementNode(name, cls)
     if op_node isa EMPTY_NODE
       hasOperator = false
     else
@@ -309,8 +309,8 @@ end
 
 function isOverdetermined(cls::Class)::Bool
   local isOverdetermined::Bool
-  local res = lookupElement("equalityConstraint", cls)
-  if res.node !== EMPTY_NODE()
+  local resNode = lookupElementNode("equalityConstraint", cls)
+  if resNode !== EMPTY_NODE()
     System.setHasOverconstrainedConnectors(true)
     isOverdetermined = true
   else
@@ -820,7 +820,7 @@ function lookupAttributeBinding(name::String, cls::Class)::Binding
   local binding::Binding
   local attr_node::InstNode
   try
-    @match ENTRY_INFO(attr_node, isImport) = lookupElement(name, classTree(cls))
+    attr_node = lookupElementNode(name, classTree(cls))
     binding = getBinding(component(attr_node))
   catch
     binding = EMPTY_BINDING
@@ -846,6 +846,9 @@ function lookupElement(name::String, cls::Class)
   local entryInfo = lookupElement(name, classTree(cls))
   return entryInfo
 end
+
+"""Node-only sibling of `lookupElement`, dropping the import flag."""
+lookupElementNode(name::String, cls::Class)::InstNode = lookupElementNode(name, classTree(cls))
 
 function setSections(sections::Sections, cls::Class)::Class
   cls = begin

@@ -267,10 +267,10 @@ end
 function replaceCrefNode(exp::Expression, node::InstNode, value::Expression)::Expression
   local ty::M_Type
   local repl_ty::M_Type
-  if exp isa CREF_EXPRESSION && exp.cref isa COMPONENT_REF_CREF
+  if exp isa CREF_EXPRESSION && isvariant(exp.cref, COMPONENT_REF_CREF)
     local cr = exp.cref
     local basePart = cr
-    while basePart.restCref isa COMPONENT_REF_CREF
+    while isvariant(basePart.restCref, COMPONENT_REF_CREF)
       basePart = basePart.restCref
     end
     if refEqual(node, basePart.node)

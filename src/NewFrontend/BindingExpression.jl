@@ -1176,7 +1176,7 @@ function makeOperatorRecordZero(recordNode::InstNode) ::Expression
   local zeroExp::Expression
   local op_node::InstNode
   local fn::M_FUNCTION
-  @match ENTRY_INFO(op_node, _) = lookupElement("'0'", getClass(recordNode))
+  op_node = lookupElementNode("'0'", getClass(recordNode))
   instFunctionNode(op_node)
   fns = typeNodeCache(op_node)
   fn = fns[1]
@@ -3778,21 +3778,20 @@ function mapCref(cref::ComponentRef, @nospecialize(func::Function)) ::ComponentR
   outCref
 end
 
-function mapCref!(cref::ComponentRef, @nospecialize(func::Function)) ::ComponentRef
-  return cref
-end
-
 """
 @author johti17
 """
-function mapCref!(cref::COMPONENT_REF_CREF, @nospecialize(func::Function)) ::ComponentRef
+function mapCref!(cref::ComponentRef, @nospecialize(func::Function)) ::ComponentRef
+  if !isvariant(cref, COMPONENT_REF_CREF)
+    return cref
+  end
   local outCref::ComponentRef = cref
   local subs::List{Subscript}
   local rest::ComponentRef
   if cref.origin == Origin.CREF
     return cref
   end
-  while !(cref isa COMPONENT_REF_CREF) && cref.restCref.origin != Origin.CREF
+  while !isvariant(cref, COMPONENT_REF_CREF) && cref.restCref.origin != Origin.CREF
     tmp = Subscript[mapExp(s, func) for s in cref.subscripts]
     subs = arrayList(tmp)
     rest = cref.restCref
@@ -5259,7 +5258,7 @@ end
   newExp = begin
     local node::InstNode
     @match exp begin
-      CREF_EXPRESSION(cref = COMPONENT_REF_CREF(node = node))  where {exp.cref isa COMPONENT_REF_CREF && isSimple(exp.cref)} => begin
+      CREF_EXPRESSION(cref = COMPONENT_REF_CREF(node = node))  where {isvariant(exp.cref, COMPONENT_REF_CREF) && isSimple(exp.cref)} => begin
         if nameEqual(iterator, node)
           iteratorValue
         else

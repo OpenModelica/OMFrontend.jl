@@ -454,7 +454,7 @@ function evalExpPartialRef(
   return outExp
 end
 
-function evalCref(@nospecialize(cref::ComponentRef),
+function evalCref(cref::ComponentRef,
                   defaultExp::Expression,
                   target::EvalTarget;
                   evalSubscripts::Bool = true)
@@ -731,7 +731,7 @@ function evalComponentStartBinding(
   #=  Look up \"start\" in the class. =#
   #@info "Checking start in the class"
   try
-    @match ENTRY_INFO(start_node, isImport) = lookupElement("start", getClass(node))
+    start_node = lookupElementNode("start", getClass(node))
   catch e
     @debug "lookupElement(start) not found in class"
     return outExp
