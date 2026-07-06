@@ -155,6 +155,11 @@ include("./NewFrontend/NFType.jl")
 include("./NewFrontend/NFComplexType.jl")
 include("./NewFrontend/NFPrefixes.jl")
 include("./NewFrontend/NFComponent.jl")
+include("./NewFrontend/NFImport.jl")
+include("./NewFrontend/LookupTree.jl")
+include("./NewFrontend/DuplicateTree.jl")
+include("./NewFrontend/JLookupTree.jl")
+include("./NewFrontend/NFClassTree.jl")
 include("./NewFrontend/NFEquation.jl")
 
 #= Declare the signature for a M_Function early.. =#
@@ -219,16 +224,10 @@ include("./NewFrontend/NFConvertDAE.jl")
 
 include("./NewFrontend/NFRestriction.jl")
 
-include("./NewFrontend/NFImport.jl")
 
 
 
-#= Add the trees =#
-include("./NewFrontend/LookupTree.jl")
-include("./NewFrontend/DuplicateTree.jl")
-include("./NewFrontend/JLookupTree.jl")
 
-include("./NewFrontend/NFClassTree.jl")
 
 include("./NewFrontend/NFLookup.jl")
 

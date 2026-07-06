@@ -1206,8 +1206,8 @@ function instExtends(node::InstNode,
         end
       end
       noMod = MODIFIER_NOMOD()
-      mapExtends(cls_tree::CLASS_TREE_INSTANTIATED_TREE, attributes, useBinding, vis, instLevel, attributeRef)
-      applyLocalComponents(cls_tree::CLASS_TREE_INSTANTIATED_TREE, attributes, useBinding::Bool, instLevel::Int, attributeRef)
+      mapExtends(cls_tree, attributes, useBinding, vis, instLevel, attributeRef)
+      applyLocalComponents(cls_tree, attributes, useBinding::Bool, instLevel::Int, attributeRef)
     end
     EXPANDED_DERIVED(__)  => begin
       if vis == ExtendsVisibility.PUBLIC && isProtectedBaseClass(node)
@@ -3272,7 +3272,7 @@ function updateImplicitVariability(node::InstNode, evalAllParams::Bool)::Nothing
 end
 
 function updateImplicitVariabilityCls(cls::Class, evalAllParams::Bool)::Nothing
-  if cls isa INSTANCED_CLASS && cls.elements isa CLASS_TREE_FLAT_TREE
+  if cls isa INSTANCED_CLASS && isvariant(cls.elements, CLASS_TREE_FLAT_TREE)
     local components = cls.elements.components::Vector{InstNode}
     local len = length(components)
     local i = 1
@@ -3289,7 +3289,7 @@ function updateImplicitVariabilityCls(cls::Class, evalAllParams::Bool)::Nothing
     end
     updateImplicitVariability(cls.baseClass, evalAllParams)::Nothing
     return nothing
-  elseif cls isa INSTANCED_BUILTIN && cls.elements isa CLASS_TREE_FLAT_TREE
+  elseif cls isa INSTANCED_BUILTIN && isvariant(cls.elements, CLASS_TREE_FLAT_TREE)
     local components = cls.elements.components
     local len = length(components)
     local i = 1
