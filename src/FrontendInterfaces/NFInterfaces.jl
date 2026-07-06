@@ -94,29 +94,32 @@
 struct InstNodeType
   tag::InstNodeTypeTag
   parent::Any
-  definition::Any
+  definition::Union{SCode.Element,Nothing}
   ty::Union{InstNodeType,Nothing}
   originalType::Union{InstNodeType,Nothing}
 end
 
 @enum InstNodeTag::UInt8 IN_EMPTY IN_VAR IN_EXP IN_IMPLICIT_SCOPE IN_NAME IN_REF IN_INNER_OUTER IN_COMPONENT IN_CLASS
+#= Immutable identity/structure fields are const (compiler-enforced); the
+   payload fields updated in place stay mutable: name, component, nodeType,
+   definition, cls. =#
 mutable struct InstNode
-  tag::InstNodeTag
+  const tag::InstNodeTag
   name::Union{String,Nothing}
-  varPointer::Any
-  exp::Any
-  parentScope::Union{InstNode,Nothing}
-  locals::Union{Vector{InstNode},Nothing}
-  index::Int
-  innerNode::Union{InstNode,Nothing}
-  outerNode::Union{InstNode,Nothing}
-  visibility::Int8
+  const varPointer::Union{Base.RefValue,Nothing}
+  const exp::Union{NFExpression,Nothing}
+  const parentScope::Union{InstNode,Nothing}
+  const locals::Union{Vector{InstNode},Nothing}
+  const index::Int
+  const innerNode::Union{InstNode,Nothing}
+  const outerNode::Union{InstNode,Nothing}
+  const visibility::Int8
   component::Union{Component,Nothing}
-  parent::Union{InstNode,Nothing}
+  const parent::Union{InstNode,Nothing}
   nodeType::Union{InstNodeType,Nothing}
-  definition::Any
-  cls::Any
-  caches::Any
+  definition::Union{SCode.Element,Nothing}
+  cls::Union{Class,Pointer{Class},Nothing}
+  const caches::Union{Vector{CachedData},Nothing}
 end
 
 #= Constructors, singletons, @match (compacted_tag_info) registrations,

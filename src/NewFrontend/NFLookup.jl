@@ -926,7 +926,7 @@ function generateInner(outerNode::InstNode, topScope::InstNode)
           try
             local origScope = parent(outerNode)
             local comp = component(innerNode)
-            if comp isa COMPONENT_DEF
+            if isvariant(comp, COMPONENT_DEF)
               local def = comp.definition
               if def isa SCode.COMPONENT && def.typeSpec isa Absyn.TPATH
                 local resolvedNode = lookupClassName(def.typeSpec.path, origScope, def.info, false)

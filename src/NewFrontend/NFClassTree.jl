@@ -1074,7 +1074,7 @@ function instantiate(
               #=  Set the component's parent and create a unique instance for it.
                   Immutable TYPE_ATTRIBUTE nodes are shared (reused + frozen)
                   instead of copied; mutators copy-on-write. =#
-              node = if SHARE_ATTRS[] && sharedExcept !== nothing && c.component isa TYPE_ATTRIBUTE && !(c.name in sharedExcept)
+              node = if SHARE_ATTRS[] && sharedExcept !== nothing && isvariant(c.component, TYPE_ATTRIBUTE) && !(c.name in sharedExcept)
                 push!(FROZEN_ATTR_NODES, c)
                 c
               else
@@ -1140,7 +1140,7 @@ function instantiate(
         old_comps = arrayCopy(old_comps)
         for i = 1:arrayLength(old_comps)
           local oc = old_comps[i]
-          old_comps[i] = if SHARE_ATTRS[] && sharedExcept !== nothing && isvariant(oc, COMPONENT_NODE) && oc.component isa TYPE_ATTRIBUTE && !(oc.name in sharedExcept)
+          old_comps[i] = if SHARE_ATTRS[] && sharedExcept !== nothing && isvariant(oc, COMPONENT_NODE) && isvariant(oc.component, TYPE_ATTRIBUTE) && !(oc.name in sharedExcept)
             push!(FROZEN_ATTR_NODES, oc)
             oc
           else

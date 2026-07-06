@@ -68,57 +68,64 @@ struct IMMUTABLE_ATTRIBUTES <: Attributes
   isStructuralMode::Bool
 end
 
+#= Component is an abstract supertype with a SINGLE concrete tagged struct
+   (ComponentImpl). Keeping the abstract type lets `::Component` fields (e.g.
+   InstNode.component) forward-reference it without the NFType<->InstNode<->Component
+   concrete cycle, while collapsing the 8 old variants into one concrete struct so
+   the compiler devirtualizes `::Component` (one subtype) and @match tag-dispatches.
+   Variants are field-disjoint, so this is hand-written (as with InstNode/NFType). =#
 abstract type Component end
 
-struct DELETED_COMPONENT{T0 <: Component} <: Component
-  component::T0
-end
+@enum ComponentTag::UInt8 CT_EMPTY CT_DELETED CT_ENUM_LITERAL CT_ITERATOR CT_TYPE_ATTRIBUTE CT_TYPED CT_UNTYPED CT_DEF
 
-struct ENUM_LITERAL_COMPONENT{T0 <: Expression} <: Component
-  literal::T0
-end
-
-struct ITERATOR_COMPONENT{T0 <: M_Type, T1 <: VariabilityType, T2 <: SourceInfo} <: Component
-  ty::T0
-  variability::T1
-  info::T2
-end
-
-struct TYPE_ATTRIBUTE{T0 <: M_Type, T1 <: Modifier} <: Component
-  ty::T0
-  modifier::T1
-end
-
-struct TYPED_COMPONENT{T0 <: InstNode,
-                       T4 <: Attributes,
-                       T5 <: SourceInfo} <: Component
-  classInst::T0
-  ty::M_Type
-  binding::Binding
-  condition::Binding
-  attributes::T4
-  ann::Option{Modifier} #= the annotation from SCode.Comment as a modifier =#
-  comment::Option{SCode.Comment}
-  info::T5
-end
-
-struct UNTYPED_COMPONENT <: Component
-  classInst::InstNode
-  dimensions::Vector{Dimension}
-  binding::Binding
-  condition::Binding
-  attributes::Attributes
-  comment::Option{SCode.Comment}
+struct ComponentImpl <: Component
+  tag::ComponentTag
+  component::Union{Component,Nothing}
+  literal::Union{Expression,Nothing}
+  ty::Union{M_Type,Nothing}
+  variability::Int8
+  info::Union{SourceInfo,Nothing}
+  modifier::Union{Modifier,Nothing}
+  classInst::Union{InstNode,Nothing}
+  binding::Union{Binding,Nothing}
+  condition::Union{Binding,Nothing}
+  attributes::Union{Attributes,Nothing}
+  ann::Union{Option{Modifier},Nothing}
+  comment::Union{Option{SCode.Comment},Nothing}
+  dimensions::Union{Vector{Dimension},Nothing}
   instantiated::Bool
-  info::SourceInfo
+  definition::Union{SCode.Element,Nothing}
 end
 
-struct COMPONENT_DEF <: Component
-  definition::SCode.Element
-  modifier::Modifier
-end
+@inline _comp(tag::ComponentTag; component=nothing, literal=nothing, ty=nothing,
+  variability::Int8=Int8(0), info=nothing, modifier=nothing, classInst=nothing,
+  binding=nothing, condition=nothing, attributes=nothing, ann=nothing,
+  comment=nothing, dimensions=nothing, instantiated::Bool=false, definition=nothing) =
+  ComponentImpl(tag, component, literal, ty, variability, info, modifier, classInst,
+    binding, condition, attributes, ann, comment, dimensions, instantiated, definition)
 
-struct EMPTY_COMPONENT <: Component end
+EMPTY_COMPONENT() = _comp(CT_EMPTY)
+DELETED_COMPONENT(component) = _comp(CT_DELETED; component)
+ENUM_LITERAL_COMPONENT(literal) = _comp(CT_ENUM_LITERAL; literal)
+ITERATOR_COMPONENT(ty, variability, info) = _comp(CT_ITERATOR; ty, variability=Int8(variability), info)
+TYPE_ATTRIBUTE(ty, modifier) = _comp(CT_TYPE_ATTRIBUTE; ty, modifier)
+TYPED_COMPONENT(classInst, ty, binding, condition, attributes, ann, comment, info) =
+  _comp(CT_TYPED; classInst, ty, binding, condition, attributes, ann, comment, info)
+UNTYPED_COMPONENT(classInst, dimensions, binding, condition, attributes, comment, instantiated, info) =
+  _comp(CT_UNTYPED; classInst, dimensions, binding, condition, attributes, comment, instantiated, info)
+COMPONENT_DEF(definition, modifier) = _comp(CT_DEF; definition, modifier)
+
+# @match / isvariant support: one concrete struct discriminated by tag.
+MetaModelica.compacted_tag_info(::typeof(EMPTY_COMPONENT))        = (ComponentImpl, :tag, CT_EMPTY, ())
+MetaModelica.compacted_tag_info(::typeof(DELETED_COMPONENT))      = (ComponentImpl, :tag, CT_DELETED, (:component,))
+MetaModelica.compacted_tag_info(::typeof(ENUM_LITERAL_COMPONENT)) = (ComponentImpl, :tag, CT_ENUM_LITERAL, (:literal,))
+MetaModelica.compacted_tag_info(::typeof(ITERATOR_COMPONENT))     = (ComponentImpl, :tag, CT_ITERATOR, (:ty, :variability, :info))
+MetaModelica.compacted_tag_info(::typeof(TYPE_ATTRIBUTE))         = (ComponentImpl, :tag, CT_TYPE_ATTRIBUTE, (:ty, :modifier))
+MetaModelica.compacted_tag_info(::typeof(TYPED_COMPONENT))        = (ComponentImpl, :tag, CT_TYPED, (:classInst, :ty, :binding, :condition, :attributes, :ann, :comment, :info))
+MetaModelica.compacted_tag_info(::typeof(UNTYPED_COMPONENT))      = (ComponentImpl, :tag, CT_UNTYPED, (:classInst, :dimensions, :binding, :condition, :attributes, :comment, :instantiated, :info))
+MetaModelica.compacted_tag_info(::typeof(COMPONENT_DEF))          = (ComponentImpl, :tag, CT_DEF, (:definition, :modifier))
+
+MetaModelica.valueConstructor(v::ComponentImpl) = Int(v.tag)
 
 const DEFAULT_ATTR =
   IMMUTABLE_ATTRIBUTES(
@@ -658,7 +665,7 @@ function setVariability(variability::VariabilityType, component::Component)
                                     attr.isRedeclare,
                                     attr.isReplaceable,
                                     attr.isStructuralMode)
-      if component isa UNTYPED_COMPONENT
+      if isvariant(component, UNTYPED_COMPONENT)
         component = UNTYPED_COMPONENT(component.classInst,
                                       component.dimensions,
                                       component.binding,
@@ -1068,9 +1075,9 @@ end
   TODO Clean up the dbg prints here.
 Note that we need to clone a new object by using @assign here...
 """
-function mergeModifier(modifier::Modifier, component::Union{COMPONENT_DEF, TYPE_ATTRIBUTE})
+function mergeModifier(modifier::Modifier, component::Component)
   local mod = merge(modifier, component.modifier)
-  local modifiedComponent = if component isa COMPONENT_DEF
+  local modifiedComponent = if isvariant(component, COMPONENT_DEF)
     COMPONENT_DEF(component.definition, mod)
   else
     TYPE_ATTRIBUTE(component.ty, mod)
@@ -1079,7 +1086,7 @@ function mergeModifier(modifier::Modifier, component::Union{COMPONENT_DEF, TYPE_
 end
 
 function setModifier(@nospecialize(modifier::Modifier), @nospecialize(component::Component))
-  if component isa COMPONENT_DEF || component isa TYPED_ATTRIBUTE
+  if isvariant(component, COMPONENT_DEF) || isvariant(component, TYPE_ATTRIBUTE)
     @assign component.modifier = modifier
   end
   return component
@@ -1161,8 +1168,7 @@ function Component_info(component::Component)
   return info
 end
 
-isDefinition(component::COMPONENT_DEF) = true
-isDefinition(component::Component) = false
+isDefinition(component::Component) = isvariant(component, COMPONENT_DEF)
 
 function definition(component::Component)
   local def::SCode.Element
@@ -1177,9 +1183,7 @@ end
 function newEnum(enumType::M_Type, literalName::String, literalIndex::Int)
   local component::Component
   component =
-    ENUM_LITERAL_COMPONENT{ENUM_LITERAL_EXPRESSION}(ENUM_LITERAL_EXPRESSION(enumType,
-                                                                                                             literalName,
-                                                                                                             literalIndex))
+    ENUM_LITERAL_COMPONENT(ENUM_LITERAL_EXPRESSION(enumType, literalName, literalIndex))
   return component
 end
 

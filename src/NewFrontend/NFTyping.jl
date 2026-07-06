@@ -566,7 +566,7 @@ end
   @nospecialize(iterator::Any),
   @nospecialize(range::RANGE_EXPRESSION),
   @nospecialize(origin::ORIGIN_Type),
-  @nospecialize(c::ITERATOR_COMPONENT),
+  @nospecialize(c::Component),
   structural,
   )::Tuple{Expression, NFType, VariabilityType}
   @nospecialize

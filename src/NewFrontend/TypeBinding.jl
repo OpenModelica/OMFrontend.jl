@@ -158,10 +158,10 @@ function typeComponentBindingRef(inComponent::InstNode,
   return nothing
 end
 
-function typeComponentBindingRef2(
+function typeComponentBindingRef2_typed(
   inComponent::InstNode,
   node::InstNode,
-  c::TYPED_COMPONENT,
+  c::Component,
   origin::ORIGIN_Type,
   typeChildren::Bool,
   tyRef::Ref{NFType},
@@ -247,10 +247,10 @@ function typeComponentBindingRef2(
 end
 
 
-function typeComponentBindingRef2(
+function typeComponentBindingRef2_typeAttr(
   inComponent::InstNode,
   node::InstNode,
-  c::TYPE_ATTRIBUTE,
+  c::Component,
   origin::ORIGIN_Type,
   typeChildren::Bool,
   tyRef::Ref{NFType},
@@ -292,10 +292,10 @@ end
   return nothing
 end
 
-function typeComponentBinding2(
+function typeComponentBinding2_typeAttr(
   inComponent::InstNode,
   node::InstNode,
-  c::TYPE_ATTRIBUTE,
+  c::Component,
   origin::ORIGIN_Type,
   typeChildren::Bool,
   )
@@ -309,10 +309,10 @@ function typeComponentBinding2(
   end
 end
 
-function typeComponentBinding2(
+function typeComponentBinding2_untyped(
   inComponent::InstNode,
   node::InstNode,
-  c::UNTYPED_COMPONENT,
+  c::Component,
   origin::ORIGIN_Type,
   typeChildren::Bool,
   )
@@ -340,28 +340,34 @@ function typeComponentBinding2(
   return
 end
 
-typeComponentBinding2(
-  inComponent::InstNode,
-  node::InstNode,
-  c::ENUM_LITERAL_COMPONENT,
-  origin::ORIGIN_Type,
-  typeChildren::Bool,
-) = nothing
+#= Tag-branching dispatchers (variants collapsed into one ComponentImpl struct). =#
+function typeComponentBinding2(inComponent::InstNode, node::InstNode, c::Component,
+                               origin::ORIGIN_Type, typeChildren::Bool)
+  if isvariant(c, TYPE_ATTRIBUTE)
+    typeComponentBinding2_typeAttr(inComponent, node, c, origin, typeChildren)
+  elseif isvariant(c, UNTYPED_COMPONENT)
+    typeComponentBinding2_untyped(inComponent, node, c, origin, typeChildren)
+  elseif isvariant(c, TYPED_COMPONENT)
+    typeComponentBinding2_typed(inComponent, node, c, origin, typeChildren)
+  end
+  return nothing
+end
 
-typeComponentBindingRef2(
-  inComponent::InstNode,
-  node::InstNode,
-  c::ENUM_LITERAL_COMPONENT,
-  origin::ORIGIN_Type,
-  typeChildren::Bool,
-  tyRef::Ref{NFType},
-  varRef::Ref{VariabilityType}
-) = nothing
+function typeComponentBindingRef2(inComponent::InstNode, node::InstNode, c::Component,
+                                  origin::ORIGIN_Type, typeChildren::Bool,
+                                  tyRef::Ref{NFType}, varRef::Ref{VariabilityType})
+  if isvariant(c, TYPED_COMPONENT)
+    typeComponentBindingRef2_typed(inComponent, node, c, origin, typeChildren, tyRef, varRef)
+  elseif isvariant(c, TYPE_ATTRIBUTE)
+    typeComponentBindingRef2_typeAttr(inComponent, node, c, origin, typeChildren, tyRef, varRef)
+  end
+  return nothing
+end
 
-function typeComponentBinding2(
+function typeComponentBinding2_typed(
   inComponent::InstNode,
   node::InstNode,
-  c::TYPED_COMPONENT,
+  c::Component,
   origin::ORIGIN_Type,
   typeChildren::Bool,
   )::Nothing
