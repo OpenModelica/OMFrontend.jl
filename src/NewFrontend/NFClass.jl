@@ -619,7 +619,7 @@ function isIdentical(cls1::Class, cls2::Class)::Bool
   return identical
 end
 
-function mergeModifier(@nospecialize(modifier::Modifier), @nospecialize(cls::Class))
+function mergeModifier(modifier::Modifier, @nospecialize(cls::Class))
   local mod
   local resClass = @match cls begin
     PARTIAL_CLASS(__) => begin
@@ -642,7 +642,7 @@ function mergeModifier(@nospecialize(modifier::Modifier), @nospecialize(cls::Cla
   return resClass
 end
 
-function setModifier(@nospecialize(modifier::Modifier),
+function setModifier(modifier::Modifier,
                      @nospecialize(cls::Class))
    () = begin
     @match cls begin

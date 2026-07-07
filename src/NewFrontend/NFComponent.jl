@@ -859,7 +859,7 @@ function hasBinding(comp::Component, parent::InstNode = EMPTY_NODE())
   return b
 end
 
-function setBinding(@nospecialize(binding::Binding), @nospecialize(component::Component))
+function setBinding(binding::Binding, @nospecialize(component::Component))
   @match component begin
     UNTYPED_COMPONENT(__) => begin
       @assign component.binding = binding
@@ -1085,7 +1085,7 @@ function mergeModifier(modifier::Modifier, component::Component)
   return modifiedComponent
 end
 
-function setModifier(@nospecialize(modifier::Modifier), @nospecialize(component::Component))
+function setModifier(modifier::Modifier, @nospecialize(component::Component))
   if isvariant(component, COMPONENT_DEF) || isvariant(component, TYPE_ATTRIBUTE)
     @assign component.modifier = modifier
   end

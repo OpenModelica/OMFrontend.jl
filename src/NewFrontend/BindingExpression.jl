@@ -6799,7 +6799,7 @@ end
 #= Forward declarations for uniontypes until Julia adds support for mutual recursion =#
 @UniontypeDecl Binding
 
-@nospecializeinfer function containsExp(@nospecialize(binding::Binding), predFn::Function)
+@nospecializeinfer function containsExp(binding::Binding, predFn::Function)
   local res::Bool
 
    res = begin
@@ -6828,7 +6828,7 @@ end
   return res
 end
 
-@nospecializeinfer function foldExp(@nospecialize(binding::Binding), foldFn::Function, arg::ArgT) where {ArgT}
+@nospecializeinfer function foldExp(binding::Binding, foldFn::Function, arg::ArgT) where {ArgT}
   arg = begin
     @match binding begin
       UNTYPED_BINDING(__) => begin
@@ -6855,7 +6855,7 @@ end
   return arg
 end
 
-@nospecializeinfer function mapExpShallow(@nospecialize(binding::Binding), mapFn::Function)
+@nospecializeinfer function mapExpShallow(binding::Binding, mapFn::Function)
   local e1::Expression
   local e2::Expression
   () = begin
@@ -6900,7 +6900,7 @@ end
   return binding
 end
 
-@nospecializeinfer function mapExp(@nospecialize(binding::Binding), mapFn::Function)
+@nospecializeinfer function mapExp(binding::Binding, mapFn::Function)
   local e1::Expression
   local e2::Expression
   local res = @match binding begin
@@ -6952,7 +6952,7 @@ end
   return res
 end
 
-@nospecializeinfer function toDAEExp(@nospecialize(binding::Binding))
+@nospecializeinfer function toDAEExp(binding::Binding)
   local bindingExp::Option{DAE.Exp}
 
    bindingExp = begin
@@ -6994,7 +6994,7 @@ function makeDAEBinding(@nospecialize(exp::Expression), var::VariabilityType)
   return binding
 end
 
-@nospecializeinfer function toDAE(@nospecialize(binding::Binding))
+@nospecializeinfer function toDAE(binding::Binding)
   local outBinding::DAE.Binding
 
    outBinding = begin
@@ -7029,7 +7029,7 @@ end
   return outBinding
 end
 
-@nospecializeinfer function isEqual(@nospecialize(binding1::Binding), @nospecialize(binding2::Binding))
+@nospecializeinfer function isEqual(binding1::Binding, binding2::Binding)
   local equal::Bool
    equal = begin
     @match (binding1, binding2) begin
@@ -7055,7 +7055,7 @@ end
   return equal
 end
 
-@nospecializeinfer function toFlatString(@nospecialize(binding::Binding), prefix::String = ""; inFunction = false)
+@nospecializeinfer function toFlatString(binding::Binding, prefix::String = ""; inFunction = false)
   local string::String
    string = begin
     @match binding begin
@@ -7090,7 +7090,7 @@ end
   return string
 end
 
-@nospecializeinfer function toString(@nospecialize(binding::Binding), prefix::String = "")
+@nospecializeinfer function toString(binding::Binding, prefix::String = "")
   local string::String
 
    string = begin
@@ -7130,7 +7130,7 @@ end
 
 """ #= Returns the number of dimensions that the binding was propagated through to
      get to the element it belongs to. =#"""
-@nospecializeinfer function propagatedDimCount(@nospecialize(binding::Binding))
+@nospecializeinfer function propagatedDimCount(binding::Binding)
   local count::Int
 
    count = begin
@@ -7151,7 +7151,7 @@ end
   return count
 end
 
-@nospecializeinfer function isClassBinding(@nospecialize(binding::Binding))
+@nospecializeinfer function isClassBinding(binding::Binding)
   local pars::List{InstNode} = parents(binding)
   while pars !== nil
     @match Cons{InstNode}(parent, pars) = pars
@@ -7164,16 +7164,16 @@ end
 
 function addParent(parent::InstNode,
                    binding::Binding)
-  if ! (binding isa UNBOUND || binding isa RAW_BINDING)
+  if ! (isvariant(binding, UNBOUND) || isvariant(binding, RAW_BINDING))
     return binding
   end
 
   local parentLst = Cons{InstNode}(parent, binding.parents)
-  local newBinding = if binding isa UNBOUND
+  local newBinding = if isvariant(binding, UNBOUND)
     UNBOUND(parentLst,
             binding.isEach,
             binding.info)
-  elseif binding isa RAW_BINDING
+  elseif isvariant(binding, RAW_BINDING)
     #binding.parents = parentLst
     RAW_BINDING(binding.bindingExp,
                 binding.scope,
@@ -7187,12 +7187,12 @@ function addParent(parent::InstNode,
 end
 
 
-@nospecializeinfer function parentCount(@nospecialize(binding::Binding))
+@nospecializeinfer function parentCount(binding::Binding)
   local count::Int = length(parents(binding))
   return count
 end
 
-function parents(@nospecialize(binding::Binding))
+function parents(binding::Binding)
   local parents::Union{Vector{InstNode}, List{InstNode}}
   parents = begin
     @match binding begin
@@ -7221,7 +7221,7 @@ function parents(@nospecialize(binding::Binding))
   return parents
 end
 
-@nospecializeinfer function isTyped(@nospecialize(binding::Binding))
+@nospecializeinfer function isTyped(binding::Binding)
   local isTyped::Bool
 
    isTyped = begin
@@ -7238,7 +7238,7 @@ end
   return isTyped
 end
 
-@nospecializeinfer function isEach(@nospecialize(binding::Binding))
+@nospecializeinfer function isEach(binding::Binding)
   local isEach::Bool
 
    isEach = begin
@@ -7267,7 +7267,7 @@ end
   return isEach
 end
 
-function getType(@nospecialize(binding::Binding))
+function getType(binding::Binding)
   local ty::NFType
    ty = begin
     @match binding begin
@@ -7302,7 +7302,7 @@ function getType(@nospecialize(binding::Binding))
   return ty
 end
 
-@nospecializeinfer function Binding_getInfo(@nospecialize(binding::Binding))
+@nospecializeinfer function Binding_getInfo(binding::Binding)
   local info::SourceInfo
 
    info = begin
@@ -7331,7 +7331,7 @@ end
   return info
 end
 
-@nospecializeinfer function variability(@nospecialize(binding::Binding))
+@nospecializeinfer function variability(binding::Binding)
   local var::VariabilityType
 
    var = begin
@@ -7353,7 +7353,7 @@ end
   return var
 end
 
-@nospecializeinfer function recordFieldBinding(fieldNode::InstNode, @nospecialize(recordBinding::Binding))
+@nospecializeinfer function recordFieldBinding(fieldNode::InstNode, recordBinding::Binding)
   local fieldBinding::Binding = recordBinding
   local exp::Expression
   local ty::M_Type

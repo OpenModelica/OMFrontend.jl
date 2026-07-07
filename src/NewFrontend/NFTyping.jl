@@ -280,7 +280,7 @@ end
 
 @nospecializeinfer function typeClassType(
   @nospecialize(clsNode::InstNode),
-  @nospecialize(componentBinding::Binding),
+  componentBinding::Binding,
   origin::ORIGIN_Type,
   @nospecialize(instanceNode::InstNode),
   )::NFType
@@ -1028,7 +1028,7 @@ function checkComponentBindingVariability(
   return var
 end
 
-@nospecializeinfer function checkBindingEach(@nospecialize(binding::Binding))
+@nospecializeinfer function checkBindingEach(binding::Binding)
   local parentBindings
   if isEach(binding)
     parentBindings = listRest(parents(binding))
@@ -1048,17 +1048,17 @@ end
 """
 If the condition already is typed we return it.
 """
-function typeComponentCondition(condition::TYPED_BINDING, origin::Int)::TYPED_BINDING
-  return condition
-end
+function typeComponentCondition(condition::Binding, origin::Int)::Binding
+  if isvariant(condition, TYPED_BINDING)
+    return condition
+  end
 
-function typeComponentCondition(condition::UNTYPED_BINDING, origin::Int)::TYPED_BINDING
   local exp::Expression
   local ty::NFType
   local var::VariabilityType
   local info::SOURCEINFO
   local mk::MatchKindType
-  local outCondition::TYPED_BINDING
+  local outCondition::Binding
   @match condition begin
     UNTYPED_BINDING(bindingExp = exp) => begin
       info = Binding_getInfo(condition)
@@ -1090,6 +1090,10 @@ function typeComponentCondition(condition::UNTYPED_BINDING, origin::Int)::TYPED_
         false,
         info,
       )
+    end
+
+    _ => begin
+      outCondition = condition
     end
   end
   return outCondition
@@ -1157,14 +1161,7 @@ function typeTypeAttribute(
           fail()
         end
         attributeBinding = binding
-        attribute.binding = attributeBinding # MODIFIER_MODIFIER(
-        #   attribute.name,
-        #   attribute.finalPrefix,
-        #   attribute.eachPrefix,
-        #   attributeBinding,
-        #   attribute.subModifiers,
-        #   attribute.info,
-        # )
+        @assign attribute.binding = attributeBinding
         finalAttribute = attribute
       end
       #=  Check the variability. All builtin attributes have parameter variability.

@@ -2453,17 +2453,18 @@ function instRecordConstructor(node::InstNode)
 end
 
 
-function instBuiltinAttribute(attribute::MODIFIER_REDECLARE, node::InstNode)
-  #=  Redeclaration of builtin attributes is not allowed. =#
-  Error.addSourceMessage(Error.INVALID_REDECLARE_IN_BASIC_TYPE, list(name(attribute)), Modifier_info(attribute))
-  fail()
-end
-
 function instBuiltinAttribute(attribute::Modifier, node::InstNode)
+  if isvariant(attribute, MODIFIER_REDECLARE)
+    #=  Redeclaration of builtin attributes is not allowed. =#
+    Error.addSourceMessage(Error.INVALID_REDECLARE_IN_BASIC_TYPE, list(name(attribute)), Modifier_info(attribute))
+    fail()
+  elseif isvariant(attribute, MODIFIER_MODIFIER)
+    return instBuiltinAttributeModifier(attribute, node)
+  end
   return attribute
 end
 
-function instBuiltinAttribute(attribute::MODIFIER_MODIFIER, node::InstNode)
+function instBuiltinAttributeModifier(attribute::Modifier, node::InstNode)
   # strMod1 = toString(attribute, true)
   #@debug ">instBuiltinAttribute($strMod1)"
   local bindingVar = attribute.binding
@@ -2471,15 +2472,7 @@ function instBuiltinAttribute(attribute::MODIFIER_MODIFIER, node::InstNode)
   local bv = addParent(node, bindingVar)
   attributeBinding = instBinding(bv)
   outAttr = attribute
-  outAttr.binding = attributeBinding
-  # MODIFIER_MODIFIER(
-  #   attribute.name,
-  #   attribute.finalPrefix,
-  #   attribute.eachPrefix,
-  #   attributeBinding,
-  #   attribute.subModifiers,
-  #   attribute.info,
-  #
+  @assign outAttr.binding = attributeBinding
 
   #strMod2 = toString(attribute, true)
   #@debug "<instBuiltinAttribute($strMod2)"
@@ -2491,9 +2484,9 @@ function instComponentExpressions(componentArg::InstNode)::Nothing
   local c::Component = component(node)
   local dims::Vector{Dimension}
   @match c begin
-    UNTYPED_COMPONENT(dimensions = dims, instantiated = false) where c.binding isa UNBOUND  => begin
+    UNTYPED_COMPONENT(dimensions = dims, instantiated = false) where isvariant(c.binding, UNBOUND)  => begin
       @assign begin
-        c.binding = instBinding(c.binding)::UNBOUND
+        c.binding = instBinding(c.binding)
         c.condition = instBinding(c.condition)
       end
       instExpressions(c.classInst, node)

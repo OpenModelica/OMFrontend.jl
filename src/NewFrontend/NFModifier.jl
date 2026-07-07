@@ -37,30 +37,38 @@ include("NFModTable.jl")
 
 abstract type Modifier end
 
-struct MODIFIER_NOMOD <: Modifier end
+@enum ModifierTag::UInt8 MT_NOMOD MT_REDECLARE MT_MODIFIER
 
-mutable struct MODIFIER_REDECLARE{  T0 <: SCode.Final,
-                            T1 <: SCode.Each,
-                            T2 <: InstNode,
-                            T3 <: Modifier} <: Modifier
-  finalPrefix::T0
-  eachPrefix::T1
-  element::T2
-  mod::T3
+struct ModifierImpl <: Modifier
+  tag::ModifierTag
+  name::Union{String,Nothing}
+  finalPrefix::Union{SCode.Final,Nothing}
+  eachPrefix::Union{SCode.Each,Nothing}
+  binding::Union{Binding,Nothing}
+  subModifiers::Union{ModTable.Tree,Nothing}
+  info::Union{SourceInfo,Nothing}
+  element::Union{InstNode,Nothing}
+  mod::Union{Modifier,Nothing}
 end
 
-mutable struct MODIFIER_MODIFIER{ T0 <: String,
-                          T1 <: SCode.Final,
-                          T2 <: SCode.Each,
-                          T4 <: ModTable.Tree,
-                          T5 <: SOURCEINFO} <: Modifier
-  name::T0
-  finalPrefix::T1
-  eachPrefix::T2
-  binding#::Binding
-  subModifiers::T4
-  info::T5
-end
+@inline _modifier(tag::ModifierTag; name=nothing, finalPrefix=nothing,
+  eachPrefix=nothing, binding=nothing, subModifiers=nothing, info=nothing,
+  element=nothing, mod=nothing) =
+  ModifierImpl(tag, name, finalPrefix, eachPrefix, binding, subModifiers, info,
+    element, mod)
+
+const MODIFIER_NOMOD_SINGLETON = _modifier(MT_NOMOD)
+MODIFIER_NOMOD() = MODIFIER_NOMOD_SINGLETON
+MODIFIER_REDECLARE(finalPrefix, eachPrefix, element, mod) =
+  _modifier(MT_REDECLARE; finalPrefix, eachPrefix, element, mod)
+MODIFIER_MODIFIER(name, finalPrefix, eachPrefix, binding, subModifiers, info) =
+  _modifier(MT_MODIFIER; name, finalPrefix, eachPrefix, binding, subModifiers, info)
+
+MetaModelica.compacted_tag_info(::typeof(MODIFIER_NOMOD)) = (ModifierImpl, :tag, MT_NOMOD, ())
+MetaModelica.compacted_tag_info(::typeof(MODIFIER_REDECLARE)) = (ModifierImpl, :tag, MT_REDECLARE, (:finalPrefix, :eachPrefix, :element, :mod))
+MetaModelica.compacted_tag_info(::typeof(MODIFIER_MODIFIER)) = (ModifierImpl, :tag, MT_MODIFIER, (:name, :finalPrefix, :eachPrefix, :binding, :subModifiers, :info))
+
+MetaModelica.valueConstructor(v::ModifierImpl) = Int(v.tag)
 
 
 #= Structure that represents where a modifier comes from. =#
@@ -76,7 +84,7 @@ end
   end
 end
 
-const EMPTY_MOD = MODIFIER_NOMOD()
+const EMPTY_MOD = MODIFIER_NOMOD_SINGLETON
 
 function toString(scope::ModifierScope)
   local string::String
@@ -334,8 +342,8 @@ function merge(outerMod::Modifier, innerMod::Modifier, name::String = "")
   #= One of the modifiers is NOMOD, return the other. Checked before the
      @match: matching on (a, b) allocates the tuple it destructures, and the
      no-modifier case dominates instantiation. =#
-  outerMod isa MODIFIER_NOMOD && return innerMod
-  innerMod isa MODIFIER_NOMOD && return outerMod
+  isvariant(outerMod, MODIFIER_NOMOD) && return innerMod
+  isvariant(innerMod, MODIFIER_NOMOD) && return outerMod
   local mergedMod::Modifier
 
   mergedMod = begin
@@ -390,7 +398,7 @@ function merge(outerMod::Modifier, innerMod::Modifier, name::String = "")
   return mergedMod
 end
 
-function setBinding(binding::Binding, mod::MODIFIER_MODIFIER)
+function setBinding(binding::Binding, mod::Modifier)
   # local modifier = MODIFIER_MODIFIER(
   #       mod.name,
   #       mod.finalPrefix,
@@ -399,9 +407,10 @@ function setBinding(binding::Binding, mod::MODIFIER_MODIFIER)
   #       mod.subModifiers,
   #       mod.info,
   # )
-  mod.binding = binding
-  modifier = mod
-  return modifier
+  if isvariant(mod, MODIFIER_MODIFIER)
+    @assign mod.binding = binding
+  end
+  return mod
 end
 
 function binding(modifier::Modifier)
@@ -514,8 +523,7 @@ function addParent(parentNode::InstNode, mod::Modifier)
     @match mod begin
       MODIFIER_MODIFIER(binding = binding) => begin
         modBinding = addParent(parentNode, binding)
-        #lmod = MODIFIER_MODIFIER(mod.name, mod.finalPrefix, mod.eachPrefix, modBinding, mod.subModifiers, mod.info)
-        mod.binding = modBinding
+        @assign mod.binding = modBinding
         lmod = mod
         map(lmod, @closure (x, y) -> addParent_work(x, parentNode, y))
       end
@@ -664,7 +672,7 @@ function create(mod::SCode.REDECL,
                 name::String,
                 modScope::ModifierScope,
                 parents::List{<:InstNode},
-                scope::InstNode)::MODIFIER_REDECLARE
+                scope::InstNode)::Modifier
   local elem = mod.element
   node = new(elem, scope)
   if isClass(node)
@@ -677,7 +685,7 @@ function create(mod::SCode.MOD,
                 name::String,
                 modScope::ModifierScope,
                 parents::List{<:InstNode},
-                scope::InstNode)::MODIFIER_MODIFIER
+                scope::InstNode)::Modifier
   local submodV::Vector{Modifier}
   local submod_table::ModTable.Tree
   local binding::Binding
@@ -728,7 +736,7 @@ function mergeLocal(
   name::String = "",
   scope::ModifierScope = nothing,
   prefix::Vector{String} = String[],
-  )::MODIFIER_MODIFIER
+  )::Modifier
   local mod::Modifier
   local comp_name::String
 

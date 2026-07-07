@@ -167,10 +167,10 @@ function typeComponentBindingRef2_typed(
   tyRef::Ref{NFType},
   varRef::Ref{VariabilityType}
   )::Nothing
-  local binding::UNTYPED_BINDING
+  local binding::Binding
   local nameStr::String
   local comp_var::VariabilityType
-  if c.binding isa UNTYPED_BINDING
+  if isvariant(c.binding, UNTYPED_BINDING)
     nameStr = inComponent.name
     binding = c.binding
 
@@ -199,11 +199,11 @@ function typeComponentBindingRef2_typed(
     #ErrorExt.setCheckpoint(getInstanceName())
     checkBindingEach(c.binding)
     local originFlag = setFlag(origin, ORIGIN_BINDING)
-    local typedBinding::TYPED_BINDING = typeBinding(binding, originFlag, tyRef, varRef)::TYPED_BINDING
+    local typedBinding::Binding = typeBinding(binding, originFlag, tyRef, varRef)
     handleBindingError(binding)
     #if !(Config.getGraphicsExpMode() && stringEq(nameStr, "graphics")) TODO
     if !componentDisabled
-      typedBinding = matchBinding(typedBinding, c.ty, nameStr, node)::TYPED_BINDING
+      typedBinding = matchBinding(typedBinding, c.ty, nameStr, node)
       handleBindingError(typedBinding)
     end
     #end
@@ -255,7 +255,7 @@ function typeComponentBindingRef2_typeAttr(
   typeChildren::Bool,
   tyRef::Ref{NFType},
   varRef::Ref{VariabilityType})
-  if c.modifier isa MODIFIER_NOMOD
+  if isvariant(c.modifier, MODIFIER_NOMOD)
     return nothing
   end
   local mod = typeTypeAttribute(c.modifier, c.ty, parent(inComponent), origin)
@@ -265,7 +265,7 @@ function typeComponentBindingRef2_typeAttr(
 end
 
 function handleBindingError(binding)
-  if binding isa BINDING_ERROR
+  if isvariant(binding, BINDING_ERROR)
     if isBound(c.condition)
       binding = INVALID_BINDING(binding, ErrorExt.getCheckpointMessages())
     else
@@ -299,7 +299,7 @@ function typeComponentBinding2_typeAttr(
   origin::ORIGIN_Type,
   typeChildren::Bool,
   )
-  if c.modifier isa MODIFIER_NOMOD
+  if isvariant(c.modifier, MODIFIER_NOMOD)
     return
   else
     local mod = typeTypeAttribute(c.modifier, c.ty, parent(inComponent), origin)
@@ -316,7 +316,7 @@ function typeComponentBinding2_untyped(
   origin::ORIGIN_Type,
   typeChildren::Bool,
   )
-  if ! (c.binding isa UNTYPED_BINDING)
+  if ! isvariant(c.binding, UNTYPED_BINDING)
     return
   end
   #=  An untyped component with a binding. This might happen when typing a
@@ -371,19 +371,19 @@ function typeComponentBinding2_typed(
   origin::ORIGIN_Type,
   typeChildren::Bool,
   )::Nothing
-  local binding::UNTYPED_BINDING
+  local binding::Binding
   local nameStr::String
   local comp_var::VariabilityType
-  if c.binding isa UNTYPED_BINDING
+  if isvariant(c.binding, UNTYPED_BINDING)
     nameStr = inComponent.name
     binding = c.binding
     #ErrorExt.setCheckpoint(getInstanceName())
     checkBindingEach(c.binding)
     local originFlag = setFlag(origin, ORIGIN_BINDING)
-    local typedBinding::TYPED_BINDING = typeBinding(binding, originFlag)::TYPED_BINDING
+    local typedBinding::Binding = typeBinding(binding, originFlag)
     handleBindingError(binding)
     #if !(Config.getGraphicsExpMode() && stringEq(nameStr, "graphics")) TODO
-    typedBinding = matchBinding(typedBinding, c.ty, nameStr, node)::TYPED_BINDING
+    typedBinding = matchBinding(typedBinding, c.ty, nameStr, node)
     handleBindingError(typedBinding)
     #end
     comp_var = checkComponentBindingVariability(nameStr, c, typedBinding, origin)
@@ -433,19 +433,24 @@ function typeComponentBinding2_typed(
   return nothing
 end
 
-typeBinding(binding::UNBOUND, origin::Int) = binding
-typeBinding(binding::TYPED_BINDING, origin::Int) = binding
-typeBinding(binding, origin) = BINDING_ERROR()
-function typeBinding(inBinding::UNTYPED_BINDING, origin::Int,
+function typeBinding(inBinding::Binding, origin::Int,
                      tyRef::Ref{NFType} = Ref{NFType}(TYPE_UNKNOWN()),
-                     varRef::Ref{VariabilityType} = Ref{VariabilityType}(Variability.CONSTANT))::TYPED_BINDING
+                     varRef::Ref{VariabilityType} = Ref{VariabilityType}(Variability.CONSTANT))::Binding
   local exp::Expression
   local ty::NFType
   local var::VariabilityType
   local info::SourceInfo
   local each_ty::Int
-  local binding::TYPED_BINDING
+  local binding::Binding
   @match inBinding begin
+    UNBOUND(__) => begin
+      binding = inBinding
+    end
+
+    TYPED_BINDING(__) => begin
+      binding = inBinding
+    end
+
     UNTYPED_BINDING(bindingExp = exp) => begin
       info = Binding_getInfo(inBinding)
       exp = typeExp2(exp, origin, info, tyRef, varRef)
@@ -459,6 +464,10 @@ function typeBinding(inBinding::UNTYPED_BINDING, origin::Int,
         each_ty = EachType.NOT_EACH::Int
       end
       binding = TYPED_BINDING(exp, ty, var, each_ty, false, false, inBinding.info)
+    end
+
+    _ => begin
+      binding = BINDING_ERROR()
     end
   end
   return binding
