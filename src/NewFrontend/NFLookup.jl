@@ -904,6 +904,13 @@ end
   generated inner element if one has already been generated.
 """
 function generateInner(outerNode::InstNode, topScope::InstNode)
+  #= Serialized: check-then-create-then-add on the shared top-scope cache. =#
+  return lock(_INST_SHARED_LOCK) do
+    generateInner2(outerNode, topScope)
+  end
+end
+
+function generateInner2(outerNode::InstNode, topScope::InstNode)
   local innerNode::InstNode
   local cache::CachedData
   local nameStr::String

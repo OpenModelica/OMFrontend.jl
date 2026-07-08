@@ -311,10 +311,25 @@ function instantiateN1(node::InstNode)
   return node
 end
 
+#= Fully expanded means the shell AND the elements: expansion publishes an
+   EXPANDED_CLASS shell before its tree is finished, so a concurrent reader
+   must not trust the shell alone. =#
+function _expandDone(c::Class)::Bool
+  (c isa NOT_INSTANTIATED || c isa PARTIAL_CLASS) && return false
+  c isa EXPANDED_CLASS && isvariant(c.elements, CLASS_TREE_PARTIAL_TREE) && return false
+  return true
+end
+
 function expand(node::InstNode) ::InstNode
-  node = partialInstClass(node)
-  node = expandClass(node)
-  node
+  #= Fast path: already expanded. First-touch expansion is serialized because it
+     writes the shared class cell with intermediate states visible to readers;
+     taking the lock also waits out an expansion running on another thread. =#
+  if _expandDone(getClass(node))
+    return node
+  end
+  return lock(_INST_SHARED_LOCK) do
+    expandClass(partialInstClass(node))
+  end
 end
 
 """Creates an instance node from the given list of top-level classes."""
@@ -848,14 +863,15 @@ function instClass(node::InstNode, modifier::Modifier, attributes::Attributes, a
      `parent` (re-bound via updateComponentType). Cheap key: the def objectid. =#
   if CACHE_INST[] && cls isa PARTIAL_BUILTIN && !(cls.restriction isa RESTRICTION_EXTERNAL_OBJECT) && isEmpty(modifier)
     local k = objectid(definition(node))
-    local hit = get(INST_CACHE, k, nothing)
+    local hit = lock(() -> get(INST_CACHE, k, nothing), _INST_SHARED_LOCK)
     if hit !== nothing
       updateComponentType(parent, hit)
       attributeRef.x = attributes
       return hit::InstNode
     end
+    #= A concurrent miss instantiates twice; last write wins, both are valid. =#
     local result = instClassDef(cls, modifier, attributes, useBinding, node, parent, instLevel, attributeRef)::InstNode
-    INST_CACHE[k] = result
+    lock(() -> INST_CACHE[k] = result, _INST_SHARED_LOCK)
     return result
   end
   return instClassDef(cls, modifier, attributes, useBinding, node, parent, instLevel, attributeRef)::InstNode
@@ -1084,7 +1100,15 @@ end
   returned. Otherwise the node is fully instantiated, the instance is added to
   the node's cache, and the instantiated node is returned.
 """
+#= Serialized: the package cache is a state machine mutated in place on the
+   (shared) package node; concurrent transitions would tear it. =#
 function instPackage(node::InstNode; isRedeclared::Bool = false)::InstNode
+  return lock(_INST_SHARED_LOCK) do
+    instPackage2(node; isRedeclared = isRedeclared)
+  end
+end
+
+function instPackage2(node::InstNode; isRedeclared::Bool = false)::InstNode
   local cache::CachedData
   local inst::InstNode
   local state::Int
@@ -2157,6 +2181,23 @@ const INST_CLASS_DEPTH_LIMIT = 100
 # to disable); cleared per flatten.
 const CACHE_INST = Base.RefValue{Bool}(get(ENV, "OMFRONTEND_CACHE_INST", "true") == "true")
 const INST_CACHE = Dict{UInt64, InstNode}()
+
+#= Parallel sibling instantiation (OMFRONTEND_PARALLEL_INST=true to enable).
+   One lock guards every mutation of state shared across sibling workers:
+   INST_CACHE, the package-cache state machine, and first-touch class
+   expansion. A single reentrant lock keeps the lock order trivially safe. =#
+const PARALLEL_INST = Base.RefValue{Bool}(get(ENV, "OMFRONTEND_PARALLEL_INST", "false") == "true")
+const PARALLEL_INST_THRESHOLD = 4
+const _INST_SHARED_LOCK = ReentrantLock()
+
+#= No fan-out while this task holds the shared lock (e.g. inside instPackage):
+   spawned siblings would block on the parent's lock while the parent waits for
+   them, deadlocking. `locked_by` is the ReentrantLock owner field. =#
+_holdsInstSharedLock() = _INST_SHARED_LOCK.locked_by === current_task()
+
+parallelInstEnabled(n::Int) =
+  PARALLEL_INST[] && Threads.nthreads() >= 2 && n >= PARALLEL_INST_THRESHOLD &&
+  !_holdsInstSharedLock()
 
 #= Runaway backstops. Atomic so they are safe to bump from parallel instantiation
    workers; the depth guard uses the per-stack `instLevel` parameter instead. =#

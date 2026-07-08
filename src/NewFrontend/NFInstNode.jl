@@ -641,20 +641,18 @@ function checkIdentical(node1::InstNode, node2::InstNode)
   if referenceEq(n1, n2)
     return
   end
-   () = begin
-    @matchcontinue (n1, n2) begin
-      (CLASS_NODE(__), CLASS_NODE(__)) where (isIdentical(getClass(n1), getClass(n2)))  => begin
-        ()
-      end
-      (COMPONENT_NODE(__), COMPONENT_NODE(__)) where (isIdentical(component(n1), component(n2)))  => begin
-        ()
-      end
-      _  => begin
-        Error.addMultiSourceMessage(Error.DUPLICATE_ELEMENTS_NOT_IDENTICAL, list(toString(n1), toString(n2)), list(InstNode_info(n1), InstNode_info(n2)))
-        fail()
-      end
-    end
+  local identical::Bool = if isvariant(n1, CLASS_NODE) && isvariant(n2, CLASS_NODE)
+    isIdentical(getClass(n1), getClass(n2))
+  elseif isvariant(n1, COMPONENT_NODE) && isvariant(n2, COMPONENT_NODE)
+    isIdentical(component(n1), component(n2))
+  else
+    false
   end
+  if !identical
+    Error.addMultiSourceMessage(Error.DUPLICATE_ELEMENTS_NOT_IDENTICAL, list(toString(n1), toString(n2)), list(InstNode_info(n1), InstNode_info(n2)))
+    fail()
+  end
+  return
 end
 
 function isSame(node1::InstNode, node2::InstNode)
@@ -1341,6 +1339,7 @@ function componentApply(node::T, func::Function, arg::ArgT)::T  where {T <: Inst
   end
   node
 end
+
 
 function classApply(node::InstNode, func::FuncType, arg::ArgT)  where {ArgT}
   node = @match node begin

@@ -456,10 +456,10 @@ function isIdentical(comp1::Component, comp2::Component)
             getClass(comp1.classInst),
             getClass(comp2.classInst),
           )
-            return
+            return false
           end
           if !isEqual(comp1.binding, comp2.binding)
-            return
+            return false
           end
           true
         end

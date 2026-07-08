@@ -383,39 +383,51 @@ function applyLocalComponents_inst(tree::ClassTree,
                               useBinding::Bool,
                               instLevel::Int,
                               attributeRef::Ref{Attributes})::Nothing
-  local components = tree.localComponents
-  local componentNodes = InstNode[]
-  local componentInnerOuterNodes = InstNode[]
+  #= Collect the plain components, bailing out on an already-instantiated one
+     (instantiation loop check). Inner/outer components go to the pass below. =#
+  local plainIndices = Int[]
   for i in tree.localComponents
     local arg = P_Pointer.access(@inbounds tree.components[i]::Pointer{InstNode})
-    if isvariant(arg, COMPONENT_NODE)
-      push!(componentNodes, arg)
-    else
-      push!(componentInnerOuterNodes, arg)
-    end
-  end
-  for arg in componentNodes
-    comp = component(arg)
+    isvariant(arg, COMPONENT_NODE) || continue
+    local comp = component(arg)
     if ! isDefinition(comp)
       checkRecursiveDefinition(classInstance(comp), arg, false)
       return
     end
+    push!(plainIndices, i)
   end
 
-  for i in tree.localComponents
-    local ptr = @inbounds tree.components[i]::Pointer{InstNode}
-    local arg = P_Pointer.access(ptr)
-    isvariant(arg, COMPONENT_NODE) || continue
-    local node = instComponent(
-      arg::InstNode,
-      attributes,
-      MODIFIER_NOMOD(),
-      useBinding::Bool,
-      instLevel::Int,
-      attributeRef,
-      NONE()
-    )::InstNode
-    referenceEq(node, arg) || P_Pointer.update(ptr, node)
+  #= Sibling fan-out. Each worker gets its own attribute out-cell: attributeRef
+     is write-then-read scratch within one instComponent call, never carried
+     between siblings. =#
+  if parallelInstEnabled(length(plainIndices))
+    local parentTok = get(task_local_storage(), :OMF_ROOT, 0)::Int
+    @sync for i in plainIndices
+      local tok = parentTok == 0 ? i : parentTok
+      Threads.@spawn begin
+        task_local_storage(:OMF_ROOT, tok)
+        local ptr = @inbounds tree.components[i]::Pointer{InstNode}
+        local arg = P_Pointer.access(ptr)
+        local node = instComponent(arg, attributes, MODIFIER_NOMOD(), useBinding,
+                                   instLevel, Ref{Attributes}(attributeRef.x), NONE())::InstNode
+        referenceEq(node, arg) || P_Pointer.update(ptr, node)
+      end
+    end
+  else
+    for i in plainIndices
+      local ptr = @inbounds tree.components[i]::Pointer{InstNode}
+      local arg = P_Pointer.access(ptr)
+      local node = instComponent(
+        arg::InstNode,
+        attributes,
+        MODIFIER_NOMOD(),
+        useBinding::Bool,
+        instLevel::Int,
+        attributeRef,
+        NONE()
+      )::InstNode
+      referenceEq(node, arg) || P_Pointer.update(ptr, node)
+    end
   end
 
   for i in tree.localComponents
@@ -1111,7 +1123,7 @@ function instantiate(
               #=  Set the component's parent and create a unique instance for it.
                   Immutable TYPE_ATTRIBUTE nodes are shared instead of copied;
                   mutators rebuild component nodes. =#
-              node = if SHARE_ATTRS[] && sharedExcept !== nothing && isvariant(_compVal(c), TYPE_ATTRIBUTE) && !(c.name in sharedExcept)
+              node = if SHARE_ATTRS[] && !PARALLEL_INST[] && sharedExcept !== nothing && isvariant(_compVal(c), TYPE_ATTRIBUTE) && !(c.name in sharedExcept)
                 c
               else
                 setParentAndReplaceComponent(instance, c)
@@ -1176,7 +1188,7 @@ function instantiate(
         old_comps = arrayCopy(old_comps)
         for i = 1:arrayLength(old_comps)
           local oc = old_comps[i]
-          old_comps[i] = if SHARE_ATTRS[] && sharedExcept !== nothing && isvariant(oc, COMPONENT_NODE) && isvariant(_compVal(oc), TYPE_ATTRIBUTE) && !(oc.name in sharedExcept)
+          old_comps[i] = if SHARE_ATTRS[] && !PARALLEL_INST[] && sharedExcept !== nothing && isvariant(oc, COMPONENT_NODE) && isvariant(_compVal(oc), TYPE_ATTRIBUTE) && !(oc.name in sharedExcept)
             oc
           else
             setParentAndReplaceComponent(instance, oc)
@@ -1624,14 +1636,17 @@ function linkInnerOuter(outerNode::InstNode, scope::InstNode)::InstNode
   return innerOuterNode
 end
 
+#= The children vectors below belong to the duplicates tree that is SHARED by
+   every instance of the class (ClassTree.instantiate reuses `dups`). Entry
+   resolution is per instance, so it must rebuild entries and vectors
+   functionally; in-place map! would leak one instance's resolved nodes into
+   every other instance. =#
 function replaceDuplicates4(
   entry::DuplicateTree.DUPLICATE_TREE_ENTRY,
   node::InstNode,
   )
-  local replacedEntry = DuplicateTree.DUPLICATE_TREE_ENTRY(entry.entry, SOME(node), entry.children, entry.ty)
-  local f = @closure c -> replaceDuplicates4(c, node)
-  map!(f, replacedEntry.children, replacedEntry.children)
-  return replacedEntry
+  local children = DuplicateTree.DUPLICATE_TREE_ENTRY[replaceDuplicates4(c, node) for c in entry.children]
+  return DuplicateTree.DUPLICATE_TREE_ENTRY(entry.entry, SOME(node), children, entry.ty)
 end
 
 function replaceDuplicates3(
@@ -1643,12 +1658,9 @@ function replaceDuplicates3(
   local node::InstNode
   node_ptr = resolveEntryPtr(entry.entry, tree)
   node = P_Pointer.access(node_ptr)
-  local replacedEntry = DuplicateTree.DUPLICATE_TREE_ENTRY(entry.entry, SOME(node), entry.children, entry.ty)
   P_Pointer.update(node_ptr, kept)
-  local f = @closure c -> replaceDuplicates3(c, kept, tree)
-  #@assign entry.children = DuplicateTree.Entry[replaceDuplicates3(c, kept, tree) for c in entry.children]
-  map!(f, replacedEntry.children, replacedEntry.children)
-  return replacedEntry
+  local children = DuplicateTree.DUPLICATE_TREE_ENTRY[replaceDuplicates3(c, kept, tree) for c in entry.children]
+  return DuplicateTree.DUPLICATE_TREE_ENTRY(entry.entry, SOME(node), children, entry.ty)
 end
 
 function replaceDuplicates2(
@@ -1658,17 +1670,14 @@ function replaceDuplicates2(
 )::DuplicateTree.Entry
   local kept
   local node_ptr::Pointer{InstNode}
-  local kept_entry::DuplicateTree.Entry
   node_ptr = resolveEntryPtr(entry.entry, tree)
     if entry.ty == DuplicateTree.EntryType.REDECLARE
         kept = P_Pointer.access(resolveEntryPtr(entry.entry, tree))
         entry = replaceDuplicates4(entry, kept)
     elseif entry.ty == DuplicateTree.EntryType.DUPLICATE
         kept = P_Pointer.access(node_ptr)
-        local replacedEntry = DuplicateTree.DUPLICATE_TREE_ENTRY(entry.entry, SOME(kept), entry.children, entry.ty)
-        entry = replacedEntry
-        local f = @closure c -> replaceDuplicates3(c, kept, tree)
-        map!(f, entry.children, entry.children)
+        local children = DuplicateTree.DUPLICATE_TREE_ENTRY[replaceDuplicates3(c, kept, tree) for c in entry.children]
+        entry = DuplicateTree.DUPLICATE_TREE_ENTRY(entry.entry, SOME(kept), children, entry.ty)
     end
   return entry
 end
