@@ -863,15 +863,19 @@ function instClass(node::InstNode, modifier::Modifier, attributes::Attributes, a
      `parent` (re-bound via updateComponentType). Cheap key: the def objectid. =#
   if CACHE_INST[] && cls isa PARTIAL_BUILTIN && !(cls.restriction isa RESTRICTION_EXTERNAL_OBJECT) && isEmpty(modifier)
     local k = objectid(definition(node))
-    local hit = lock(() -> get(INST_CACHE, k, nothing), _INST_SHARED_LOCK)
+    #= Lock-free read of the persistent-map snapshot; this is the hot path. =#
+    local hit = get(@atomic(INST_CACHE.dict), k, nothing)
     if hit !== nothing
       updateComponentType(parent, hit)
       attributeRef.x = attributes
       return hit::InstNode
     end
-    #= A concurrent miss instantiates twice; last write wins, both are valid. =#
+    #= A concurrent miss instantiates twice; last write wins, both are valid.
+       The lock only orders inserts so none are lost. =#
     local result = instClassDef(cls, modifier, attributes, useBinding, node, parent, instLevel, attributeRef)::InstNode
-    lock(() -> INST_CACHE[k] = result, _INST_SHARED_LOCK)
+    lock(_INST_SHARED_LOCK) do
+      @atomic INST_CACHE.dict = Base.PersistentDict(@atomic(INST_CACHE.dict), k => result)
+    end
     return result
   end
   return instClassDef(cls, modifier, attributes, useBinding, node, parent, instLevel, attributeRef)::InstNode
@@ -1101,8 +1105,15 @@ end
   the node's cache, and the instantiated node is returned.
 """
 #= Serialized: the package cache is a state machine mutated in place on the
-   (shared) package node; concurrent transitions would tear it. =#
+   (shared) package node; concurrent transitions would tear it. Fully
+   instantiated is terminal, so that hit is served without the lock. =#
 function instPackage(node::InstNode; isRedeclared::Bool = false)::InstNode
+  if !isRedeclared
+    local cache = getPackageCache(node)
+    if cache isa C_PACKAGE && cache.state.x == CACHE_STATE_INSTANTIATED
+      return cache.instance
+    end
+  end
   return lock(_INST_SHARED_LOCK) do
     instPackage2(node; isRedeclared = isRedeclared)
   end
@@ -2180,7 +2191,12 @@ const INST_CLASS_DEPTH_LIMIT = 100
 # skipping their instClass work. Enabled by default (OMFRONTEND_CACHE_INST=false
 # to disable); cleared per flatten.
 const CACHE_INST = Base.RefValue{Bool}(get(ENV, "OMFRONTEND_CACHE_INST", "true") == "true")
-const INST_CACHE = Dict{UInt64, InstNode}()
+#= Readers take a lock-free snapshot of the persistent map; inserts replace it
+   copy-on-write under _INST_SHARED_LOCK. =#
+mutable struct InstCache
+  @atomic dict::Base.PersistentDict{UInt64, InstNode}
+end
+const INST_CACHE = InstCache(Base.PersistentDict{UInt64, InstNode}())
 
 #= Parallel sibling instantiation (OMFRONTEND_PARALLEL_INST=true to enable).
    One lock guards every mutation of state shared across sibling workers:
@@ -2215,7 +2231,7 @@ function resetInstDiagnostics()
   empty!(COMPONENT_PTR_WRITES)
   empty!(CLASS_PTR_WRITERS)
   empty!(COMPONENT_PTR_WRITERS)
-  empty!(INST_CACHE)
+  @atomic INST_CACHE.dict = Base.PersistentDict{UInt64, InstNode}()
   resetLookupCache()
 end
 
