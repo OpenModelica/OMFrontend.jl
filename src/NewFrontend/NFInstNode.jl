@@ -291,7 +291,7 @@ function copyInstancePtr(srcNode::InstNode,
       withComponent(dstNode, srcNode.component)
     end
     CLASS_NODE(__) where isvariant(dstNode, CLASS_NODE) => begin
-      withClassPayload(dstNode, _clsShareRef!(srcNode))
+      withClassPayload(dstNode, _clsRef(srcNode))
     end
     _ => begin
       dstNode
@@ -1439,7 +1439,7 @@ function setNodeType(@nospecialize(nodeType::InstNodeType),
                                 node.parent,
                                 nodeType)
   elseif isvariant(node, CLASS_NODE)
-    local newCls = isvariant(nodeType, DERIVED_CLASS) ? _clsShareRef!(node) : node.cls
+    local newCls = isvariant(nodeType, DERIVED_CLASS) ? _clsRef(node) : node.cls
     tmp = CLASS_NODE(node.name,
                                   node.definition,
                                   node.visibility,

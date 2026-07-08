@@ -102,9 +102,9 @@ struct InstNodeType
 end
 
 @enum InstNodeTag::UInt8 IN_EMPTY IN_VAR IN_EXP IN_IMPLICIT_SCOPE IN_NAME IN_REF IN_INNER_OUTER IN_COMPONENT IN_CLASS
-#= Immutable identity/structure fields are const (compiler-enforced); the
-   payload fields updated in place stay mutable: name, component, nodeType,
-   definition, cls. =#
+#= Immutable identity/structure fields are const (compiler-enforced). Payload
+   updates are being migrated to functional node rebuilds; CLASS_NODE.cls is
+   boxed by the constructor so derived/base aliases share only the class cell. =#
 mutable struct InstNode
   const tag::InstNodeTag
   name::Union{String,Nothing}
@@ -183,9 +183,12 @@ COMPONENT_NODE(name, visibility, component, parent, nodeType) =
            Int8(visibility), component, parent, nodeType, nothing, nothing, nothing)
 COMPONENT_NODE(name, visibility, component::Pointer{Component}, parent, nodeType) =
   COMPONENT_NODE(name, visibility, P_Pointer.access(component), parent, nodeType)
+@inline _clsPayload(cls::Pointer{Class}) = cls
+@inline _clsPayload(cls::Class) = Pointer{Class}(cls)
+@inline _clsPayload(cls::Nothing) = nothing
 CLASS_NODE(name, definition, visibility, cls, caches, parentScope, nodeType) =
   InstNode(IN_CLASS, name, nothing, nothing, parentScope, nothing, 0, nothing, nothing,
-           Int8(visibility), nothing, nothing, nodeType, definition, cls, caches)
+           Int8(visibility), nothing, nothing, nodeType, definition, _clsPayload(cls), caches)
 
 # @match / isvariant support.
 MetaModelica.compacted_tag_info(::typeof(EMPTY_NODE))       = (InstNode, :tag, IN_EMPTY, ())
@@ -245,28 +248,23 @@ MetaModelica.compacted_tag_info(::typeof(DIMENSION_RAW_DIM)) = (DimensionImpl, :
 
 MetaModelica.valueConstructor(v::DimensionImpl) = Int(v.tag)
 
-# Box-on-share hybrid for CLASS_NODE.cls: node.cls holds the Class inlined
-# (single owner) or a Pointer{Class} (shared derived/base sites) so a mutation
-# through one view is seen through the other.
+# Boxed CLASS_NODE.cls payload. The node itself is rebuilt functionally while
+# shared derived/base class views still observe updates through the class cell.
 @inline _clsVal(node) = (local c = node.cls; c isa Pointer{Class} ? c.x : c)
 @inline function _clsSet!(node, v::Class)
   local c = node.cls
   if c isa Pointer{Class}
     c.x = v
-  else
-    node.cls = v
   end
   return node
 end
-# Ensure node.cls is a shared Ref (box if currently inlined); return the Ref.
-@inline function _clsShareRef!(node)
+# Return the class cell used for derived/base sharing.
+@inline function _clsRef(node)
   local c = node.cls
   if c isa Pointer{Class}
     return c
   else
-    local r = Pointer{Class}(c)
-    node.cls = r
-    return r
+    return Pointer{Class}(c)
   end
 end
 
