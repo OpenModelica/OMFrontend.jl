@@ -1243,7 +1243,7 @@ end
 """
 function liftArray(dim::Dimension, @nospecialize(exp::Expression)) ::Tuple{Expression, M_Type}
   local arrayType::M_Type = typeOf(exp)
-  local expl::Vector{Expression} = Vector[]
+  local expl::Vector{Expression} = Expression[]
   for i in 1:size(dim)
     #expl = _cons(exp, expl)
     push!(expl, exp)
@@ -1621,7 +1621,7 @@ end
   exp
 end
 
-@nospecializeinfer function callContainsShallow(@nospecialize(call::Call), func::ContainsPred) ::Bool
+@nospecializeinfer function callContainsShallow(call::Call, func::ContainsPred) ::Bool
   local res::Bool
   res = begin
     local e::Expression
@@ -1814,7 +1814,7 @@ function containsShallow(@nospecialize(exp::Expression), func::ContainsPred) ::B
   res
 end
 
-@nospecializeinfer function callContains(@nospecialize(call::Call), func::ContainsPred) ::Bool
+@nospecializeinfer function callContains(call::Call, func::ContainsPred) ::Bool
   local res::Bool
 
    res = begin
@@ -2064,7 +2064,7 @@ end
   (outIters, arg)
 end
 
-@nospecializeinfer function mapFoldCallShallow(@nospecialize(call::Call), @nospecialize(func::Function), foldArg::ArgT)  where {ArgT}
+@nospecializeinfer function mapFoldCallShallow(call::Call, @nospecialize(func::Function), foldArg::ArgT)  where {ArgT}
   local outCall::Call
   outCall = begin
     local args::Vector{Expression}
@@ -2466,7 +2466,7 @@ end
   (outIters, arg)
 end
 
-@nospecializeinfer function mapFoldCall(@nospecialize(call::Call), @nospecialize(func::Function), foldArg::ArgT)  where {ArgT}
+@nospecializeinfer function mapFoldCall(call::Call, @nospecialize(func::Function), foldArg::ArgT)  where {ArgT}
   local outCall::Call
    outCall = begin
     local args::List{Expression}
@@ -2841,7 +2841,7 @@ function applyCref(cref::ComponentRef, func::ApplyFunc)
   end
 end
 
-@nospecializeinfer function applyCall(@nospecialize(call::Call), func::ApplyFunc)::Nothing
+@nospecializeinfer function applyCall(call::Call, func::ApplyFunc)::Nothing
     local e::Expression
     @match call begin
       UNTYPED_CALL(__)  => begin
@@ -3044,7 +3044,7 @@ function foldCref(cref::ComponentRef, func::FoldFunc, arg::ArgT)  where {ArgT}
   arg
 end
 
-@nospecializeinfer function foldCall(@nospecialize(call::Call), func::FoldFunc, foldArg::ArgT) where {ArgT}
+@nospecializeinfer function foldCall(call::Call, func::FoldFunc, foldArg::ArgT) where {ArgT}
   () = begin
     local e::Expression
     @match call begin
@@ -3331,7 +3331,7 @@ end
   outIters
 end
 
-@nospecializeinfer function mapCallShallow(@nospecialize(call::Call), @nospecialize(func::Function))
+@nospecializeinfer function mapCallShallow(call::Call, @nospecialize(func::Function))
   local outCall::Call
   outCall = begin
     local args::Vector{Expression}
@@ -3835,7 +3835,7 @@ function mapCallIterators(iters::List{<:Tuple{<:InstNode, Expression}}, @nospeci
   outIters
 end
 
-@nospecializeinfer function mapCall(@nospecialize(call::Call), @nospecialize(func::Function)) ::Call
+@nospecializeinfer function mapCall(call::Call, @nospecialize(func::Function)) ::Call
   local outCall::Call
   outCall = begin
     local args::Vector{Expression}
@@ -5330,7 +5330,7 @@ function applySubscriptIf(subscript::Subscript, @nospecialize(exp::Expression), 
   outExp
 end
 
-function applyIndexSubscriptArrayConstructor(@nospecialize(call::Call), index::Subscript) ::Expression
+function applyIndexSubscriptArrayConstructor(call::Call, index::Subscript) ::Expression
   local subscriptedExp::Expression
 
   local ty::M_Type
@@ -5350,7 +5350,7 @@ function applyIndexSubscriptArrayConstructor(@nospecialize(call::Call), index::S
   subscriptedExp
 end
 
-function applySubscriptArrayConstructor(subscript::Subscript, @nospecialize(call::Call), restSubscripts::List{<:Subscript}) ::Expression
+function applySubscriptArrayConstructor(subscript::Subscript, call::Call, restSubscripts::List{<:Subscript}) ::Expression
   local outExp::Expression
 
   if isIndex(subscript) && listEmpty(restSubscripts)
@@ -6795,9 +6795,6 @@ function compare(ck1::ClockKind, ck2::ClockKind) ::Int
   end
   comp
 end
-
-#= Forward declarations for uniontypes until Julia adds support for mutual recursion =#
-@UniontypeDecl Binding
 
 @nospecializeinfer function containsExp(binding::Binding, predFn::Function)
   local res::Bool

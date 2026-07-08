@@ -397,11 +397,12 @@ function deleteComponent(compNode::InstNode)
   #=  @adrpo: don't delete the inner/outer node, it doesn't work!
   =#
   if isInnerOuterNode(compNode)
-    return
+    return compNode
   end
   @assign comp = component(compNode)
-  updateComponent!(DELETED_COMPONENT(comp), compNode)
-  return deleteClassComponents(classInstance(comp))
+  compNode = updateComponent!(DELETED_COMPONENT(comp), compNode)
+  deleteClassComponents(classInstance(comp))
+  return compNode
 end
 
 function deleteClassComponents(clsNode::InstNode)
@@ -413,8 +414,12 @@ function deleteClassComponents(clsNode::InstNode)
       INSTANCED_CLASS(
         elements = CLASS_TREE_FLAT_TREE(components = comps),
       ) where {(!isType(cls.restriction))} => begin
-        for c in comps
-          deleteComponent(c)
+        for i in eachindex(comps)
+          local c = @inbounds comps[i]
+          local node = deleteComponent(c)
+          if node !== c
+            @inbounds comps[i] = node
+          end
         end
         ()
       end
@@ -1316,8 +1321,8 @@ function flattenIfEquation(
   equations::Vector{Equation},
 )
   local branch::Equation_Branch
-  local branches::Vector{Equation_Branch}
-  local bl::Vector{Equation_Branch} = Equation_Branch[]
+  local branches::Vector{EquationBranch}
+  local bl::Vector{EquationBranch} = EquationBranch[]
   local cond::Expression
   local eql::Vector{Equation} = Equation[]
   local var::VariabilityType
@@ -1358,7 +1363,7 @@ function flattenIfEquation(
           #=  Conditions in an if-equation that contains connects must be possible to evaluate. =#
           if isTrue(cond)           #=  The condition is true and the branch will thus always be selected =#
             #=  if reached, so we can discard the remaining branches.          =#
-            branches = Equation_Branch[]
+            branches = EquationBranch[]
             if isempty(bl) #= If we haven't collected any other branches yet, replace the if-equation with this branch.=#
               equations = vcat(eql, equations)
             else
@@ -1446,7 +1451,7 @@ end
 """
  Unrolls an equational for-loop.
 """
-function unrollForLoop(forLoop::EQUATION_FOR, prefix::ComponentRef, equations::Vector{Equation})
+function unrollForLoop(forLoop::Equation, prefix::ComponentRef, equations::Vector{Equation})
   local iter::InstNode
   local body::Vector{Equation}
   local unrolled_body::Vector{Equation}
@@ -1611,7 +1616,7 @@ const ALG_UNROLL_MAX_ITERATIONS = 16
   would see the first iteration's substituted body.
 """
 function tryUnrollAlgorithmForLoop(
-  forStmt::ALG_FOR,
+  forStmt::Statement,
   prefix::ComponentRef,
 )::Union{Vector{Statement}, Nothing}
   if !Flags.isSet(Flags.NF_SCALARIZE)

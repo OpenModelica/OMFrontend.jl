@@ -135,7 +135,7 @@ function simplifyDimension(dim::Dimension)::Dimension
   return outDim
 end
 
-function simplifyEquations(eql::Vector{<:Equation})
+function simplifyEquations(eql::Vector{Equation})
   local outEql::Vector{Equation} = Equation[]
   for eq in eql
     outEql = simplifyEquation(eq, outEql)
@@ -195,7 +195,7 @@ function simplifyEquation(@nospecialize(eq::Equation), equations::Vector{Equatio
       end
 
       EQUATION_WHEN(__) => begin
-        @assign eq.branches = Equation_Branch[simplifyBranch(b) for b in eq.branches]
+        @assign eq.branches = EquationBranch[simplifyBranch(b) for b in eq.branches]
         push!(equations, eq)
       end
 
@@ -230,7 +230,7 @@ function simplifyEquation(@nospecialize(eq::Equation), equations::Vector{Equatio
   return equations
 end
 
-function simplifyEqualityEquation(eq::EQUATION_EQUALITY, equations::Vector{Equation})
+function simplifyEqualityEquation(eq::Equation, equations::Vector{Equation})
   local lhs::Expression
   local rhs::Expression
   local ty::M_Type
@@ -453,14 +453,14 @@ function removeEmptyFunctionArguments(@nospecialize(exp::Expression), isArg = fa
 end
 
 function simplifyIfEqBranches(
-  branches::Vector{Equation_Branch},
+  branches::Vector{<:Equation_Branch},
   src::DAE.ElementSource,
   elements::Vector{Equation},
 )::Vector{Equation}
   local cond::Expression
   local body::Vector{Equation}
   local var::VariabilityType
-  local accum::Vector{Equation_Branch} = Equation_Branch[]
+  local accum::Vector{EquationBranch} = EquationBranch[]
   for branch in branches
     accum = begin
       @match branch begin
@@ -564,9 +564,9 @@ function simplifyFunction(func::M_Function)
   local cls::Class
   local fn_body::Algorithm
   local sections::Sections
-  return if !isSimplified(func)
+  if !isSimplified(func)
     markSimplified(func)
-    mapExp(func, simplify, false)
+    func = mapExp(func, simplify, false)
     cls = getClass(func.node)
     () = begin
       @match cls begin
@@ -577,7 +577,7 @@ function simplifyFunction(func::M_Function)
                 @assign fn_body.statements = simplifyStatements(fn_body.statements)
                 @assign sections.algorithms = [fn_body]
                 @assign cls.sections = sections
-                updateClass(cls, func.node)
+                @assign func.node = updateClass(cls, func.node)
                 ()
               end
 
@@ -599,4 +599,5 @@ function simplifyFunction(func::M_Function)
       end
     end
   end
+  return func
 end

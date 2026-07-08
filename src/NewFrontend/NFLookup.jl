@@ -934,9 +934,7 @@ function generateInner(outerNode::InstNode, topScope::InstNode)
                 def = SCode.COMPONENT(def.name, def.prefixes, def.attributes,
                   Absyn.TPATH(qualPath, def.typeSpec.arrayDim),
                   def.modifications, def.comment, def.condition, def.info)
-                #= Use updateComponent! (mutates pointer in place) instead of
-                   replaceComponent (creates new node, does not mutate). =#
-                updateComponent!(COMPONENT_DEF(def, comp.modifier), innerNode)
+                innerNode = updateComponent!(COMPONENT_DEF(def, comp.modifier), innerNode)
               end
             end
           catch e
@@ -973,8 +971,7 @@ function makeInnerNode(nodeArg::InstNode)
       CLASS_NODE(definition = def && SCode.CLASS(prefixes = prefs))  => begin
         @assign prefs.innerOuter = Absyn.INNER()
         @assign def.prefixes = prefs
-        nodeArg.definition = def
-        nodeArg
+        setDefinition(def, nodeArg)
       end
       COMPONENT_NODE(__)  => begin
         comp = component(nodeArg)

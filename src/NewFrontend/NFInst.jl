@@ -177,9 +177,9 @@ function instClassInProgramFM2(classPath::Absyn.Path, program::SCode.Program)::T
       =#
       initialEqMapping = evalInitialEqMapping(flat_model.initialEquations)
       for eq in doccs
-        @assert eq isa EQUATION_IF
+        @assert isvariant(eq, EQUATION_IF)
         for br in eq.branches
-          @assert br isa EQUATION_BRANCH
+          @assert isvariant(br, EQUATION_BRANCH)
           tst = evaluateExp(br.condition, Variability.DISCRETE)
           tst = Variable_fromCref(toCref(tst))
           local varAsStr = toString(tst.name)
@@ -1033,7 +1033,7 @@ function instClassDef(cls::EXPANDED_CLASS,
   #=  Remove duplicate elements. =#
   cls_tree = replaceDuplicates(cls_tree)
   checkDuplicates(cls_tree)
-  updateClass(setClassTree(cls_tree, inst_cls), node)
+  node = updateClass(setClassTree(cls_tree, inst_cls), node)
   #= Update the attributes=#
   attributeRef.x = attributes
   return node
@@ -1253,7 +1253,10 @@ function applyModifier(modifier::Modifier, cls::ClassTree, clsName::String) ::Cl
             @error "Missing modified element!. Error was $(e)"
             fail()
           end
-          componentApply(node, mergeModifier, mod)
+          local new_node = componentApply(node, mergeModifier, mod)
+          if new_node !== node
+            cls = replaceElementNode(name(mod), new_node, cls)
+          end
         end
         ()
       end
@@ -1521,7 +1524,7 @@ function instComponent(node::InstNode,
       cc_mod = create(cc_smod, nameStr, SCOPE_COMPONENT(nameStr), nil, parentNode)
     end
     outer_mod = merge(getModifier(rdcl_node), outer_mod)
-    setModifier(outer_mod, rdcl_node)
+    rdcl_node = setModifier(outer_mod, rdcl_node)
     redeclareComponent(rdcl_node, node, MODIFIER_NOMOD(), cc_mod, attributes, node, instLevel, attributeRef)
   else
     instComponentDef(def::SCode.COMPONENT,
@@ -1566,7 +1569,7 @@ function instComponentDef(component::SCode.COMPONENT,
   mod = addParent(node, mod)
   checkOuterComponentMod(mod, component, node)
   local dims = listEmpty(component.attributes.arrayDims) ? EMPTY_RAW_DIMS :
-               DIMENSION_RAW_DIM[DIMENSION_RAW_DIM(d) for d in component.attributes.arrayDims]
+               Dimension[DIMENSION_RAW_DIM(d) for d in component.attributes.arrayDims]
   bindingVar = if useBinding
     binding(mod)
   else
@@ -1600,7 +1603,7 @@ function instComponentDef(component::SCode.COMPONENT,
                                       SOME(component.comment),
                                       false,
                                       component.info)
-  updateComponent!(inst_comp, node)
+  node = updateComponent!(inst_comp, node)
   #=  Instantiate the type of the component. =#
   local typeSpecCond = useBinding && ! isBound(bindingVar)
   ty_node = instTypeSpec(component.typeSpec, mod, attr, typeSpecCond, parentNode, node, component.info, instLevel, attributeRef; isRedeclared = isRedeclared)
@@ -1612,7 +1615,7 @@ function instComponentDef(component::SCode.COMPONENT,
   res = restriction(getClass(ty_node))
   ty_attr = updateComponentConnectorType(ty_attr, res, isRedeclared, node)
   if ! referenceEq(attr, ty_attr)
-    componentApply(node, setAttributes, ty_attr)
+    node = componentApply(node, setAttributes, ty_attr)
   end
   nothing
 end
@@ -1729,7 +1732,7 @@ function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, out
       end
     end
   end
-  updateComponent!(new_comp, redeclaredNode)
+  redeclaredNode = updateComponent!(new_comp, redeclaredNode)
 end
 
 """
@@ -2169,7 +2172,6 @@ function resetInstDiagnostics()
   empty!(COMPONENT_PTR_WRITES)
   empty!(CLASS_PTR_WRITERS)
   empty!(COMPONENT_PTR_WRITERS)
-  empty!(FROZEN_ATTR_NODES)
   empty!(INST_CACHE)
   resetLookupCache()
 end
@@ -2311,7 +2313,7 @@ function instExpressions(node::InstNode,
       end
       cls_tree = flatten(cls_tree)
       inst_cls = INSTANCED_CLASS(ty, cls_tree, SECTIONS_EMPTY(), cls.restriction)
-      updateClass(inst_cls, node)
+      node = updateClass(inst_cls, node)
       ()
     end
 
@@ -2328,13 +2330,13 @@ function instExpressions(node::InstNode,
       =#
       local elements = flatten(cls_tree)
       cls = EXPANDED_CLASS(elements, cls.modifier, cls.prefixes, cls.restriction)
-      updateClass(cls, node)
+      node = updateClass(cls, node)
       #=  Instantiate local equation/algorithm sections.
       =#
       sections = instSections(node, scope, sections, isFunction(cls.restriction))
       ty = makeComplexType(cls.restriction, node, cls)
       inst_cls = INSTANCED_CLASS(ty, cls.elements, sections, cls.restriction)
-      updateClass(inst_cls, node)
+      node = updateClass(inst_cls, node)
       instComplexType(ty)
       ()
     end
@@ -2498,7 +2500,7 @@ function instComponentExpressions(componentArg::InstNode)::Nothing
       which can otherwise happen with duplicate components at this stage.
       =#
       @assign c.instantiated = true
-      updateComponent!(c, node)
+      node = updateComponent!(c, node)
     end
 
     UNTYPED_COMPONENT(dimensions = dims, instantiated = false) => begin
@@ -2515,7 +2517,7 @@ function instComponentExpressions(componentArg::InstNode)::Nothing
       #=  which can otherwise happen with duplicate components at this stage.
       =#
       @assign c.instantiated = true
-      updateComponent!(c, node)
+      node = updateComponent!(c, node)
       nothing
     end
 
@@ -2533,7 +2535,7 @@ function instComponentExpressions(componentArg::InstNode)::Nothing
 
     TYPE_ATTRIBUTE(__)  => begin
       @assign c.modifier = instBuiltinAttribute(c.modifier, componentArg)
-      updateComponent!(c, node)
+      node = updateComponent!(c, node)
       nothing
     end
     _  => begin
@@ -3029,7 +3031,7 @@ function instEEquation(@nospecialize(scodeEq::SCode.EEquation), @nospecialize(sc
     local oexp::Option{Expression}
     local expl::List{Expression}
     local eql::Vector{Equation}
-    local branches::Vector{Equation_Branch}
+    local branches::Vector{EquationBranch}
     local info::SourceInfo
     local for_scope::InstNode
     local iter::InstNode
@@ -3068,7 +3070,7 @@ function instEEquation(@nospecialize(scodeEq::SCode.EEquation), @nospecialize(sc
         #=  Instantiate each branch and pair it up with a condition.
         =#
         next_origin = setFlag(origin, ORIGIN_IF)
-        branches = Equation_Branch[]
+        branches = EquationBranch[]
         for branch in scodeEq.thenBranch
           eql = instEEquations(branch, scope, next_origin)
           @match Cons{Expression}(exp1, expl) = expl
@@ -3094,7 +3096,7 @@ function instEEquation(@nospecialize(scodeEq::SCode.EEquation), @nospecialize(sc
         next_origin = setFlag(origin, ORIGIN_WHEN)
         exp1 = instExp(scodeEq.condition, scope, info)
         eql = instEEquations(scodeEq.eEquationLst, scope, next_origin)
-        branches = Equation_Branch[makeBranch(exp1, eql)]
+        branches = EquationBranch[makeBranch(exp1, eql)]
         for branch in scodeEq.elseBranches
           exp1 = instExp(Util.tuple21(branch), scope, info)
           eql = instEEquations(Util.tuple22(branch), scope, next_origin)
@@ -3254,7 +3256,7 @@ function insertGeneratedInners(node::InstNode, topScope::InstNode)
     base_node = lastBaseClass(node)
     cls = getClass(base_node)
     cls_tree = appendComponentsToInstTree(inner_comps, classTree(cls))
-    updateClass(setClassTree(cls_tree, cls), base_node)
+    base_node = updateClass(setClassTree(cls_tree, cls), base_node)
   end
 end
 
@@ -3532,7 +3534,7 @@ function markStructuralParamsComp(component::Component, node::InstNode)::Nothing
   local comp::Component
   local binding::Option{Expression}
   comp = setVariability(Variability.STRUCTURAL_PARAMETER, component)
-  updateComponent!(comp, node)
+  node = updateComponent!(comp, node)
   binding = untypedExp(getBinding(comp))
   if isSome(binding)
     markStructuralParamsExp(Util.getOption(binding))
@@ -3651,7 +3653,7 @@ function markImplicitWhenExp_traverser(@nospecialize(exp::Expression))
           comp = component(node)
           if variability(comp) == Variability.CONTINUOUS
             comp = setVariability(Variability.IMPLICITLY_DISCRETE, comp)
-            updateComponent!(comp, node)
+            node = updateComponent!(comp, node)
           end
         end
         ()

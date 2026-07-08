@@ -428,9 +428,9 @@ function markComponentPresent(node::InstNode)
   if isPotentiallyPresent(cty)
     cty = setPresent(cty)
     comp = setConnectorType(cty, comp)
-    updateComponent!(comp, node)
+    node = updateComponent!(comp, node)
   end
-  return
+  return node
 end
 
 function augmentExpandableConnector(
@@ -481,7 +481,8 @@ function augmentExpandableConnector(
       comp_node = lookupElementNode(name(nodeElem), cls_tree)
       comp_node = resolveInner(comp_node)
       if isComponent(comp_node)
-        markComponentPresent(comp_node)
+        comp_node = markComponentPresent(comp_node)
+        cls_tree = replaceElementNode(name(nodeElem), comp_node, cls_tree)
       else
         Error.addInternalError(
           getInstanceName() + " got non-component element",
@@ -510,8 +511,8 @@ function augmentExpandableConnector(
   ty = TYPE_COMPLEX(cls_node, complex_ty)
   ty = liftArrayLeftList(ty, arrayDims(getType(exp_node))) #Change from pstream
   cls = setType(ty, cls)
-  updateClass(cls, cls_node)
-  componentApply(exp_node, setType, ty)
+  cls_node = updateClass(cls, cls_node)
+  exp_node = componentApply(exp_node, setType, ty)
   return vars
 end
 

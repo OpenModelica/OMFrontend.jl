@@ -509,7 +509,7 @@ function evalComponentBinding(
   else
     ORIGIN_CLASS
    end
-  typeComponentBinding(node, exp_origin, false)
+  node = typeComponentBinding(node, exp_origin, false)
   comp = component(node)
   binding = getBinding(comp)
   parent_cr = rest(cref)
@@ -557,7 +557,7 @@ function evalComponentBinding(
           @assign binding.bindingExp = exp
           @assign binding.evaluated = true
           comp = setBinding(binding, comp)
-          updateComponent!(comp, node)
+          node = updateComponent!(comp, node)
         end
         (exp, true)
       end
@@ -767,7 +767,7 @@ function evalComponentStartBinding(
         if !referenceEq(exp, binding.bindingExp)
           binding.bindingExp = exp
           start_comp = setBinding(binding, start_comp)
-          updateComponent!(start_comp, start_node)
+          start_node = updateComponent!(start_comp, start_node)
         end
         SOME(exp)
       end
@@ -777,7 +777,7 @@ function evalComponentStartBinding(
         if !referenceEq(exp, binding.bindingExp)
           binding.bindingExp = exp
           start_comp = setBinding(binding, start_comp)
-          updateComponent!(start_comp, start_node)
+          start_node = updateComponent!(start_comp, start_node)
         end
         SOME(exp)
       end
@@ -835,7 +835,7 @@ function makeComponentBinding(
           BINDING_EXP(exp, exp_ty, exp_ty, list(node), true)
         binding = CEVAL_BINDING(exp)
         if !hasSubscripts(cref)
-          updateComponent!(setBinding(binding, component), node)
+          node = updateComponent!(setBinding(binding, component), node)
         end
         binding
       end
@@ -858,7 +858,7 @@ function makeComponentBinding(
           BINDING_EXP(exp, exp_ty, exp_ty, list(node), true)
         binding = CEVAL_BINDING(exp)
         if !hasSubscripts(cref)
-          updateComponent!(setBinding(binding, component), node)
+          node = updateComponent!(setBinding(binding, component), node)
         end
         binding
       end
@@ -892,7 +892,7 @@ function makeRecordFieldBindingFromParent(
   #@match true = isRecord(arrayElementType(parent_ty))
   #= NEW =#
   parent = node(parent_cr)
-  typeComponentBinding(parent, ORIGIN_CLASS, #= typeChildren =# false);
+  parent = typeComponentBinding(parent, ORIGIN_CLASS, #= typeChildren =# false)
   comp = component(parent)
   binding = getBinding(comp)
   subs = getSubscripts(parent_cr)
@@ -2447,7 +2447,7 @@ function evalCast(@nospecialize(castExp::Expression), castTy::M_Type)::Expressio
   return exp
 end
 
-@nospecializeinfer function evalCall(@nospecialize(call::Call), target::EvalTarget)::Expression
+@nospecializeinfer function evalCall(call::Call, target::EvalTarget)::Expression
   local exp::Expression
   local c::Call = call
   # @info "evalCall..."

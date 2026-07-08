@@ -119,7 +119,7 @@ function instDefaultConstructor(
   #=  Make a record constructor class and create a node for the constructor. =#
   ctor_cls = makeRecordConstructor(all_params, out_rec)
   ctor_node = replaceClass(ctor_cls, ctor_node)
-  classApply(ctor_node, setType, TYPE_COMPLEX(ctor_node, COMPLEX_CLASS()))
+  ctor_node = classApply(ctor_node, setType, TYPE_COMPLEX(ctor_node, COMPLEX_CLASS()))
   #=  Create the constructor function and add it to the function cache. =#
   attr = DAE.FUNCTION_ATTRIBUTES_DEFAULT
   status = P_Pointer.create(FunctionStatus.INITIAL)

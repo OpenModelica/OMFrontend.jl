@@ -904,7 +904,7 @@ end
 
 function evaluateFor(
   iterator::InstNode,
-  range::Option{Expression},
+  range::Option,
   forBody::Vector{Statement},
   source::DAE.ElementSource,
 )::FlowControlType

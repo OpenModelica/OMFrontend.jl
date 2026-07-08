@@ -799,7 +799,7 @@ function expandBuiltinGeneric2(
   return exp
 end
 
-function expandBuiltinGeneric(@nospecialize(call::Call))::Tuple{Expression, Bool}
+function expandBuiltinGeneric(call::Call)::Tuple{Expression, Bool}
   local expanded::Bool = true
   local outExp::Expression
   local fn::M_Function
@@ -927,7 +927,7 @@ function expand(
   return (outExp, expanded)
 end
 
-@nospecializeinfer function expandCall(@nospecialize(call::Call), @nospecialize(exp::Expression))::Tuple{Expression, Bool}
+@nospecializeinfer function expandCall(call::Call, @nospecialize(exp::Expression))::Tuple{Expression, Bool}
   local expanded::Bool
   local outExp::Expression
   (outExp, expanded) = begin

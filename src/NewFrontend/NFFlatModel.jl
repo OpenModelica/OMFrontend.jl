@@ -941,7 +941,7 @@ end
 """
 function recompilationDirectiveExists(@nospecialize(eqs::Vector{Equation}))::Bool
   local hasCallDirective = containsList(eqs, (eq) -> containsCallNamed(eq, "recompilation") || containsCallNamed(eq, "agentic_recompilation"))
-  local hasReconfigure = any(eq -> isa(eq, EQUATION_RECONFIGURE), eqs)
+  local hasReconfigure = any(eq -> isvariant(eq, EQUATION_RECONFIGURE), eqs)
   return hasCallDirective || hasReconfigure
 end
 
@@ -994,7 +994,7 @@ function containsDOCC(@nospecialize(eq::Equation))::Vector{Equation}
   @match eq begin
     EQUATION_IF(__) => begin
       for branch in eq.branches
-        if branch isa EQUATION_BRANCH
+        if isvariant(branch, EQUATION_BRANCH)
           if branchDirectiveExists(branch.body)
             push!(doccs, eq)
           end

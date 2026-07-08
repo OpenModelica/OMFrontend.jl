@@ -325,26 +325,42 @@ end
 function applyComponents(tree::ClassTree, func::Function)::Nothing
   @match tree begin
     CLASS_TREE_PARTIAL_TREE(__) => begin
-      for c in tree.components
-        func(c)
+      for i in eachindex(tree.components)
+        local c = @inbounds tree.components[i]
+        local node = func(c)
+        if node isa InstNode && node !== c
+          @inbounds tree.components[i] = node
+        end
       end
     end
 
     CLASS_TREE_EXPANDED_TREE(__) => begin
-      for c in tree.components
-        func(c)
+      for i in eachindex(tree.components)
+        local c = @inbounds tree.components[i]
+        local node = func(c)
+        if node isa InstNode && node !== c
+          @inbounds tree.components[i] = node
+        end
       end
     end
 
     CLASS_TREE_INSTANTIATED_TREE(__) => begin
-      for c in tree.components
-        func(P_Pointer.access(c))
+      for ptr in tree.components
+        local c = P_Pointer.access(ptr)
+        local node = func(c)
+        if node isa InstNode && node !== c
+          P_Pointer.update(ptr, node)
+        end
       end
     end
 
     CLASS_TREE_FLAT_TREE(__) => begin
-      for c in tree.components
-        func(c)
+      for i in eachindex(tree.components)
+        local c = @inbounds tree.components[i]
+        local node = func(c)
+        if node isa InstNode && node !== c
+          @inbounds tree.components[i] = node
+        end
       end
     end
 
@@ -1074,10 +1090,9 @@ function instantiate(
           @match c begin
             COMPONENT_NODE(__) => begin
               #=  Set the component's parent and create a unique instance for it.
-                  Immutable TYPE_ATTRIBUTE nodes are shared (reused + frozen)
-                  instead of copied; mutators copy-on-write. =#
+                  Immutable TYPE_ATTRIBUTE nodes are shared instead of copied;
+                  mutators rebuild component nodes. =#
               node = if SHARE_ATTRS[] && sharedExcept !== nothing && isvariant(c.component, TYPE_ATTRIBUTE) && !(c.name in sharedExcept)
-                push!(FROZEN_ATTR_NODES, c)
                 c
               else
                 setParentAndReplaceComponent(instance, c)
@@ -1143,7 +1158,6 @@ function instantiate(
         for i = 1:arrayLength(old_comps)
           local oc = old_comps[i]
           old_comps[i] = if SHARE_ATTRS[] && sharedExcept !== nothing && isvariant(oc, COMPONENT_NODE) && isvariant(oc.component, TYPE_ATTRIBUTE) && !(oc.name in sharedExcept)
-            push!(FROZEN_ATTR_NODES, oc)
             oc
           else
             setParentAndReplaceComponent(instance, oc)
@@ -1162,7 +1176,7 @@ function instantiate(
       fail()
     end
   end
-  updateClass(cls, clsNode)
+  clsNode = updateClass(cls, clsNode)
   return (clsNode, instance, classCount, compCount)
 end
 
@@ -2123,6 +2137,40 @@ function resolveComponent(index::Int, tree::ClassTree)::InstNode
     end
   end
   return element
+end
+
+function replaceEntryNode(entry::LookupTree.Entry,
+                          node::InstNode,
+                          tree::ClassTree)::ClassTree
+  @match entry begin
+    LookupTree.CLASS(__) => begin
+      if isvariant(tree, CLASS_TREE_INSTANTIATED_TREE)
+        P_Pointer.update(tree.classes[entry.index], node)
+      else
+        tree.classes[entry.index] = node
+      end
+    end
+    LookupTree.COMPONENT(__) => begin
+      if isvariant(tree, CLASS_TREE_INSTANTIATED_TREE)
+        P_Pointer.update(tree.components[entry.index], node)
+      else
+        tree.components[entry.index] = node
+      end
+    end
+    _ => begin
+    end
+  end
+  return tree
+end
+
+function replaceElementNode(name::String,
+                            node::InstNode,
+                            tree::ClassTree)::ClassTree
+  local entry = LookupTree.get(lookupTree(tree), name)
+  if entry == LookupTree.FAILURE
+    return tree
+  end
+  return replaceEntryNode(entry, node, tree)
 end
 
 

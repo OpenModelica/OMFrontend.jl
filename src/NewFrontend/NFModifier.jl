@@ -33,44 +33,6 @@
 *
 */ =#
 
-include("NFModTable.jl")
-
-abstract type Modifier end
-
-@enum ModifierTag::UInt8 MT_NOMOD MT_REDECLARE MT_MODIFIER
-
-struct ModifierImpl <: Modifier
-  tag::ModifierTag
-  name::Union{String,Nothing}
-  finalPrefix::Union{SCode.Final,Nothing}
-  eachPrefix::Union{SCode.Each,Nothing}
-  binding::Union{Binding,Nothing}
-  subModifiers::Union{ModTable.Tree,Nothing}
-  info::Union{SourceInfo,Nothing}
-  element::Union{InstNode,Nothing}
-  mod::Union{Modifier,Nothing}
-end
-
-@inline _modifier(tag::ModifierTag; name=nothing, finalPrefix=nothing,
-  eachPrefix=nothing, binding=nothing, subModifiers=nothing, info=nothing,
-  element=nothing, mod=nothing) =
-  ModifierImpl(tag, name, finalPrefix, eachPrefix, binding, subModifiers, info,
-    element, mod)
-
-const MODIFIER_NOMOD_SINGLETON = _modifier(MT_NOMOD)
-MODIFIER_NOMOD() = MODIFIER_NOMOD_SINGLETON
-MODIFIER_REDECLARE(finalPrefix, eachPrefix, element, mod) =
-  _modifier(MT_REDECLARE; finalPrefix, eachPrefix, element, mod)
-MODIFIER_MODIFIER(name, finalPrefix, eachPrefix, binding, subModifiers, info) =
-  _modifier(MT_MODIFIER; name, finalPrefix, eachPrefix, binding, subModifiers, info)
-
-MetaModelica.compacted_tag_info(::typeof(MODIFIER_NOMOD)) = (ModifierImpl, :tag, MT_NOMOD, ())
-MetaModelica.compacted_tag_info(::typeof(MODIFIER_REDECLARE)) = (ModifierImpl, :tag, MT_REDECLARE, (:finalPrefix, :eachPrefix, :element, :mod))
-MetaModelica.compacted_tag_info(::typeof(MODIFIER_MODIFIER)) = (ModifierImpl, :tag, MT_MODIFIER, (:name, :finalPrefix, :eachPrefix, :binding, :subModifiers, :info))
-
-MetaModelica.valueConstructor(v::ModifierImpl) = Int(v.tag)
-
-
 #= Structure that represents where a modifier comes from. =#
 @Uniontype ModifierScope begin
   @Record SCOPE_EXTENDS begin
@@ -299,7 +261,7 @@ function toVector!(mod::Modifier)
   # println("....")
   modV = @match mod begin
     MODIFIER_MODIFIER(__) where mod.subModifiers !== nothing => begin
-      ModTable.vectorValues!(mod.subModifiers)
+      ModTable.vectorValues!(mod.subModifiers, Modifier[])
     end
     _ => begin
       TMP_MOD

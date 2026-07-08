@@ -176,7 +176,7 @@ function typeClass(cls::InstNode, name::String)
   local varRef = Ref{VariabilityType}(Variability.CONSTANT)
   typeBindingsRefs(cls, cls, ORIGIN_CLASS, tyRef, varRef)
 #  execStat("NFTyping.typeBindings(" + name + ")")
-  typeClassSections(cls, ORIGIN_CLASS)
+  cls = typeClassSections(cls, ORIGIN_CLASS)
   #execStat("NFTyping.typeClassSections(" + name + ")")
   return
 end
@@ -229,7 +229,7 @@ function typeComponents(cls::InstNode, origin::ORIGIN_Type)::Nothing
       typeComponents(c.baseClass, origin)
       c2 = getClass(c.baseClass)
       c2 = setRestriction(c.restriction, c2)
-      updateClass(c2, cls)
+      cls = updateClass(c2, cls)
     end
 
     INSTANCED_BUILTIN(
@@ -299,7 +299,7 @@ end
       ) => begin
         ty = TYPE_COMPLEX(clsNode, makeConnectorType(cls.elements, is_expandable))
         @assign cls.ty = ty
-        updateClass(cls, clsNode)
+        clsNode = updateClass(cls, clsNode)
         ty
       end
 
@@ -311,7 +311,7 @@ end
       ) => begin
         ty = TYPE_COMPLEX(ty_node, makeRecordType(node))
         @assign cls.ty = ty
-        updateClass(cls, clsNode)
+        clsNode = updateClass(cls, clsNode)
         ty
       end
 
@@ -322,7 +322,7 @@ end
         =#
         ty = typeClassType(node, componentBinding, origin, instanceNode)
         @assign cls.ty = ty
-        updateClass(cls, clsNode)
+        clsNode = updateClass(cls, clsNode)
         ty
       end
 
@@ -343,7 +343,7 @@ end
         end
          ty = TYPE_FUNCTION(fn, FunctionType.FUNCTIONAL_PARAMETER)
         @assign cls.ty = ty
-        updateClass(cls, clsNode)
+        clsNode = updateClass(cls, clsNode)
         ty
       end
 
@@ -356,7 +356,7 @@ end
         ty = typeClassType(cls.baseClass, componentBinding, origin, instanceNode)
         ty = liftArrayLeftList(ty, arrayList(cls.dims))
         ty_cls = TYPED_DERIVED(ty, cls.baseClass, cls.restriction)
-        updateClass(ty_cls, clsNode)
+        clsNode = updateClass(ty_cls, clsNode)
         ty
       end
 
@@ -480,7 +480,7 @@ function typeComponent(inComponent::InstNode, origin::ORIGIN_Type)::NFType
         #=  Construct the type of the component and update the node with it. =#
          ty = typeClassType(c.classInst, c.binding, origin, inComponent)
          ty = liftArrayLeftList(ty, arrayList(c.dimensions))
-        updateComponent!(setType(ty, c), node)
+        node = updateComponent!(setType(ty, c), node)
         #=  Check that flow/stream variables are Real. =#
         checkComponentStreamAttribute(c.attributes.connectorType, ty, inComponent)
         #=  Type the component's children. =#
@@ -590,7 +590,7 @@ end
   end
   #=  The type of the iterator is the element type of the range expression.=#
   c = ITERATOR_COMPONENT(arrayElementType(ty), var, info)
-  updateComponent!(c, iterator)
+  iterator = updateComponent!(c, iterator)
   (outRange, ty, var) = (exp, ty, var)
   return (outRange, ty, var)
 end
@@ -867,7 +867,7 @@ end
 
 
 @nospecializeinfer function typeDimensionUntyped(@nospecialize(dimensions::Vector{Dimension}),
-                              @nospecialize(dimension::DIMENSION_UNTYPED),
+                              @nospecialize(dimension::Dimension),
                               @nospecialize(index::Int),
                               @nospecialize(component::InstNode),
                               @nospecialize(origin::ORIGIN_Type),
@@ -967,7 +967,7 @@ function getRecordElementBinding(componentVar::InstNode)::Tuple{Binding, Int}
     else
        binding = typeBinding(parent_binding, ORIGIN_CLASS)
       if !referenceEq(parent_binding, binding)
-        componentApply(parent, setBinding, binding)
+        parent = componentApply(parent, setBinding, binding)
       end
     end
      parentDims = parentDims + dimensionCount(comp)
@@ -2833,7 +2833,7 @@ function evaluateCondition(
   return condBool
 end
 
-function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)
+function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)::InstNode
   local cls::Class
   local typed_cls::Class
   local components::Vector{InstNode}
@@ -2893,10 +2893,14 @@ function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)
           end
         end
          typed_cls = setSections(sections, cls)
-        for c in components
-          typeComponentSections(resolveOuter(c), originArg)
+        for i in eachindex(components)
+          local c = @inbounds components[i]
+          local node = typeComponentSections(c, originArg)
+          if node !== c
+            @inbounds components[i] = node
+          end
         end
-        updateClass(typed_cls, classNode)
+        classNode = updateClass(typed_cls, classNode)
         ()
       end
 
@@ -2905,7 +2909,11 @@ function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)
       end
 
       TYPED_DERIVED(__) => begin
-        typeClassSections(cls.baseClass, originArg)
+        local baseClass = typeClassSections(cls.baseClass, originArg)
+        if baseClass !== cls.baseClass
+          @assign cls.baseClass = baseClass
+          classNode = updateClass(cls, classNode)
+        end
         ()
       end
 
@@ -2919,10 +2927,10 @@ function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)
       end
     end
    end
-  return
+  return classNode
 end
 
-function typeFunctionSections(classNode::InstNode, origin::ORIGIN_Type)
+function typeFunctionSections(classNode::InstNode, origin::ORIGIN_Type)::InstNode
   local cls::Class
   local typed_cls::Class
   local sections::Sections
@@ -2977,7 +2985,7 @@ function typeFunctionSections(classNode::InstNode, origin::ORIGIN_Type)
             SECTIONS_EXTERNAL(__) => begin
               r = makeDefaultExternalCall(sections, classNode)
               if r == SECTIONS_EMPTY()
-                return
+                return classNode
               end
               r
             end
@@ -2987,12 +2995,16 @@ function typeFunctionSections(classNode::InstNode, origin::ORIGIN_Type)
           end
         end
          typed_cls = setSections(sections, cls)
-        updateClass(typed_cls, classNode)
+        classNode = updateClass(typed_cls, classNode)
         ()
       end
 
       TYPED_DERIVED(__) => begin
-        typeFunctionSections(cls.baseClass, origin)
+        local baseClass = typeFunctionSections(cls.baseClass, origin)
+        if baseClass !== cls.baseClass
+          @assign cls.baseClass = baseClass
+          classNode = updateClass(cls, classNode)
+        end
         ()
       end
 
@@ -3006,6 +3018,7 @@ function typeFunctionSections(classNode::InstNode, origin::ORIGIN_Type)
       end
     end
   end
+  return classNode
 end
 
 @nospecializeinfer function typeExternalArg(@nospecialize(arg::Expression), info::SourceInfo, node::InstNode)::Expression
@@ -3153,14 +3166,20 @@ function makeDefaultExternalCall(extDecl::Sections, fnNode::InstNode)::Sections
   return extDecl
 end
 
-function typeComponentSections(c::InstNode, origin::ORIGIN_Type)
+function typeComponentSections(c::InstNode, origin::ORIGIN_Type)::InstNode
   local comp::Component
 
-   comp = component(c)
-  return  () = begin
+  local node = resolveOuter(c)
+  local is_self = referenceEq(node, c)
+  comp = component(node)
+  () = begin
     @match comp begin
       TYPED_COMPONENT(__) => begin
-        typeClassSections(comp.classInst, origin)
+        local classInst = typeClassSections(comp.classInst, origin)
+        if classInst !== comp.classInst
+          @assign comp.classInst = classInst
+          node = updateComponent!(comp, node)
+        end
         ()
       end
 
@@ -3174,6 +3193,7 @@ function typeComponentSections(c::InstNode, origin::ORIGIN_Type)
       end
     end
   end
+  return is_self ? node : c
 end
 
 @nospecializeinfer function typeEquation(@nospecialize(eq::Equation), origin::ORIGIN_Type)::Equation
@@ -3297,7 +3317,7 @@ end
   return eq
 end
 
-function typeEquationAssert(eq::EQUATION_ASSERT, origin::ORIGIN_Type)
+function typeEquationAssert(eq::Equation, origin::ORIGIN_Type)
   info = sourceInfo() #TODO: DAE.emptyElementSource
   next_origin = setFlag(origin, ORIGIN_ASSERT)
   e1 = typeOperatorArg(
@@ -3335,7 +3355,7 @@ end
   @nospecialize(rhsConn::Expression),
   origin::ORIGIN_Type,
   source::DAE.ElementSource,
-)::EQUATION_CONNECT
+)::Equation
   local connEq::Equation
 
   local lhs::Expression
@@ -3721,7 +3741,7 @@ end
   @nospecialize(rhsExp::Expression),
   origin::ORIGIN_Type,
   source::DAE.ElementSource,
-  )::EQUATION_EQUALITY
+  )::Equation
   local eq::Equation
   local info::SourceInfo = sourceInfo()
   local e1::Expression
@@ -3806,17 +3826,17 @@ end
 end
 
 @nospecializeinfer function typeIfEquation(
-  @nospecialize(branches::Vector{Equation_Branch}),
+  @nospecialize(branches::Vector{<:Equation_Branch}),
   origin::ORIGIN_Type,
   source::DAE.ElementSource,
-)::EQUATION_IF
+)::Equation
   local ifEq::Equation
   local cond::Expression
   local eql::Vector{Equation}
   local accum_var::VariabilityType = Variability.CONSTANT
   local var::VariabilityType
-  local bl::Vector{Equation_Branch} = Equation_Branch[]
-  local bl2::Vector{Equation_Branch} = Equation_Branch[]
+  local bl::Vector{EquationBranch} = EquationBranch[]
+  local bl2::Vector{EquationBranch} = EquationBranch[]
   local next_origin::ORIGIN_Type = setFlag(origin, ORIGIN_IF)
   local cond_origin::ORIGIN_Type = setFlag(next_origin, ORIGIN_CONDITION)
   #=  Type the conditions of all the branches. =#
@@ -3882,7 +3902,7 @@ end
   =#
   if !Flags.isSet(Flags.NF_SCALARIZE)
     bl = bl2
-    bl2 = Equation_Branch[]
+    bl2 = EquationBranch[]
     for b in bl
        bl2 = begin
         @match b begin
@@ -3943,13 +3963,13 @@ end
 end
 
 @nospecializeinfer function typeWhenEquation(
-  @nospecialize(branches::Vector{Equation_Branch}),
+  @nospecialize(branches::Vector{<:Equation_Branch}),
   origin::ORIGIN_Type,
   source::DAE.ElementSource,
-)::EQUATION_WHEN
+)::Equation
   local whenEq::Equation
   local next_origin::ORIGIN_Type = setFlag(origin, ORIGIN_WHEN)
-  local accum_branches::Vector{Equation_Branch} = Equation_Branch[]
+  local accum_branches::Vector{EquationBranch} = EquationBranch[]
   local cond::Expression
   local body::Vector{Equation}
   local ty::NFType

@@ -53,7 +53,10 @@ function typeBindings2(cls::InstNode,
       local len = length(components)
       for i in 1:len
         local c = @inbounds components[i]
-        typeComponentBinding(c, origin, true)
+        local node = typeComponentBinding(c, origin, true)
+        if node !== c
+          @inbounds components[i] = node
+        end
       end
       return nothing
     end
@@ -62,7 +65,11 @@ function typeBindings2(cls::InstNode,
       local components = cls_tree.components::Vector{InstNode}
       local len = length(components)
       for i in 1:len
-        typeComponentBinding(components[i], origin)
+        local c = @inbounds components[i]
+        local node = typeComponentBinding(c, origin)
+        if node !== c
+          @inbounds components[i] = node
+        end
       end
       return nothing
     end
@@ -104,7 +111,10 @@ function typeBindingsRefs(cls::InstNode,
       local len = length(components)
       for i in 1:len
         local c = @inbounds components[i]
-        typeComponentBindingRef(c, origin, true, tyRef, varRef)
+        local node = typeComponentBindingRef(c, origin, true, tyRef, varRef)
+        if node !== c
+          @inbounds components[i] = node
+        end
       end
       return nothing
     end
@@ -113,7 +123,11 @@ function typeBindingsRefs(cls::InstNode,
       local components = cls_tree.components::Vector{InstNode}
       local len = length(components)
       for i in 1:len
-        typeComponentBindingRef(components[i], origin, tyRef, varRef)
+        local c = @inbounds components[i]
+        local node = typeComponentBindingRef(c, origin, tyRef, varRef)
+        if node !== c
+          @inbounds components[i] = node
+        end
       end
       return nothing
     end
@@ -143,9 +157,10 @@ function typeComponentBindingRef(inComponent::InstNode,
                                  tyRef::Ref{NFType},
                                  varRef::Ref{VariabilityType})
   local n = resolveOuter(inComponent)
+  local is_self = referenceEq(n, inComponent)
   local c = component(n)
-  typeComponentBindingRef2(inComponent, n, c, origin, typeChildren, tyRef, varRef)
-  return nothing
+  n = typeComponentBindingRef2(inComponent, n, c, origin, typeChildren, tyRef, varRef)
+  return is_self ? n : inComponent
 end
 
 function typeComponentBindingRef(inComponent::InstNode,
@@ -153,9 +168,10 @@ function typeComponentBindingRef(inComponent::InstNode,
                                  tyRef::Ref{NFType},
                                  varRef::Ref{VariabilityType})
   local n = resolveOuter(inComponent)
+  local is_self = referenceEq(n, inComponent)
   local c = component(n)
-  typeComponentBindingRef2(inComponent, n, c, origin, false, tyRef, varRef)
-  return nothing
+  n = typeComponentBindingRef2(inComponent, n, c, origin, false, tyRef, varRef)
+  return is_self ? n : inComponent
 end
 
 function typeComponentBindingRef2_typed(
@@ -166,7 +182,7 @@ function typeComponentBindingRef2_typed(
   typeChildren::Bool,
   tyRef::Ref{NFType},
   varRef::Ref{VariabilityType}
-  )::Nothing
+  )::InstNode
   local binding::Binding
   local nameStr::String
   local comp_var::VariabilityType
@@ -221,11 +237,11 @@ function typeComponentBindingRef2_typed(
     #        ErrorExt.delCheckpoint(getInstanceName()) TODO
 
     @assign c.binding = typedBinding
-    updateComponent!(c, node)
+    node = updateComponent!(c, node)
     if typeChildren
       typeBindingsRefs(c.classInst, inComponent, origin, tyRef, varRef)
     end
-    return nothing
+    return node
   end
   #=  Second case: A component without a binding, or with a binding that's already been typed. =#
   checkBindingEach(c.binding)
@@ -239,11 +255,11 @@ function typeComponentBindingRef2_typed(
     @assign c.condition = cCond
   end
   #= c is immutable now: install the (possibly) rebuilt component once. =#
-  updateComponent!(c, node)
+  node = updateComponent!(c, node)
   if typeChildren
     typeBindingsRefs(c.classInst, inComponent, origin, tyRef, varRef)
   end
-  return nothing
+  return node
 end
 
 
@@ -256,12 +272,11 @@ function typeComponentBindingRef2_typeAttr(
   tyRef::Ref{NFType},
   varRef::Ref{VariabilityType})
   if isvariant(c.modifier, MODIFIER_NOMOD)
-    return nothing
+    return node
   end
   local mod = typeTypeAttribute(c.modifier, c.ty, parent(inComponent), origin)
   @assign c.modifier = mod
-  updateComponent!(c, node)
-  return nothing
+  return updateComponent!(c, node)
 end
 
 function handleBindingError(binding)
@@ -278,18 +293,20 @@ end
 
 @noinline function typeComponentBinding(inComponent::InstNode, origin::ORIGIN_Type)
   local n = resolveOuter(inComponent)
+  local is_self = referenceEq(n, inComponent)
   local c = component(n)
-  typeComponentBinding2(inComponent, n, c, origin, true)
-  return nothing
+  n = typeComponentBinding2(inComponent, n, c, origin, true)
+  return is_self ? n : inComponent
 end
 
 @noinline  function typeComponentBinding(inComponent::InstNode,
                                          origin::ORIGIN_Type,
                                          typeChildren::Bool)
   local n = resolveOuter(inComponent)
+  local is_self = referenceEq(n, inComponent)
   local c = component(n)
-  typeComponentBinding2(inComponent, n, c, origin, typeChildren)
-  return nothing
+  n = typeComponentBinding2(inComponent, n, c, origin, typeChildren)
+  return is_self ? n : inComponent
 end
 
 function typeComponentBinding2_typeAttr(
@@ -300,12 +317,11 @@ function typeComponentBinding2_typeAttr(
   typeChildren::Bool,
   )
   if isvariant(c.modifier, MODIFIER_NOMOD)
-    return
+    return node
   else
     local mod = typeTypeAttribute(c.modifier, c.ty, parent(inComponent), origin)
     @assign c.modifier = mod #TYPE_ATTRIBUTE(c.ty, mod)
-    updateComponent!(c, node)
-    return
+    return updateComponent!(c, node)
   end
 end
 
@@ -317,7 +333,7 @@ function typeComponentBinding2_untyped(
   typeChildren::Bool,
   )
   if ! isvariant(c.binding, UNTYPED_BINDING)
-    return
+    return node
   end
   #=  An untyped component with a binding. This might happen when typing a
   =#
@@ -336,32 +352,31 @@ function typeComponentBinding2_untyped(
     @assign c.attributes = attrs
   end
   @assign c.binding = binding
-  updateComponent!(c, node)
-  return
+  return updateComponent!(c, node)
 end
 
 #= Tag-branching dispatchers (variants collapsed into one ComponentImpl struct). =#
 function typeComponentBinding2(inComponent::InstNode, node::InstNode, c::Component,
                                origin::ORIGIN_Type, typeChildren::Bool)
   if isvariant(c, TYPE_ATTRIBUTE)
-    typeComponentBinding2_typeAttr(inComponent, node, c, origin, typeChildren)
+    return typeComponentBinding2_typeAttr(inComponent, node, c, origin, typeChildren)
   elseif isvariant(c, UNTYPED_COMPONENT)
-    typeComponentBinding2_untyped(inComponent, node, c, origin, typeChildren)
+    return typeComponentBinding2_untyped(inComponent, node, c, origin, typeChildren)
   elseif isvariant(c, TYPED_COMPONENT)
-    typeComponentBinding2_typed(inComponent, node, c, origin, typeChildren)
+    return typeComponentBinding2_typed(inComponent, node, c, origin, typeChildren)
   end
-  return nothing
+  return node
 end
 
 function typeComponentBindingRef2(inComponent::InstNode, node::InstNode, c::Component,
                                   origin::ORIGIN_Type, typeChildren::Bool,
                                   tyRef::Ref{NFType}, varRef::Ref{VariabilityType})
   if isvariant(c, TYPED_COMPONENT)
-    typeComponentBindingRef2_typed(inComponent, node, c, origin, typeChildren, tyRef, varRef)
+    return typeComponentBindingRef2_typed(inComponent, node, c, origin, typeChildren, tyRef, varRef)
   elseif isvariant(c, TYPE_ATTRIBUTE)
-    typeComponentBindingRef2_typeAttr(inComponent, node, c, origin, typeChildren, tyRef, varRef)
+    return typeComponentBindingRef2_typeAttr(inComponent, node, c, origin, typeChildren, tyRef, varRef)
   end
-  return nothing
+  return node
 end
 
 function typeComponentBinding2_typed(
@@ -370,7 +385,7 @@ function typeComponentBinding2_typed(
   c::Component,
   origin::ORIGIN_Type,
   typeChildren::Bool,
-  )::Nothing
+  )::InstNode
   local binding::Binding
   local nameStr::String
   local comp_var::VariabilityType
@@ -408,11 +423,11 @@ function typeComponentBinding2_typed(
       c.condition =  cCond
       c.binding = typedBinding
     end
-    updateComponent!(c, node)
+    node = updateComponent!(c, node)
     if typeChildren
       typeBindings(c.classInst, inComponent, origin)
     end
-    return nothing
+    return node
   end
   #=  Second case: A component without a binding, or with a binding that's already been typed. =#
   checkBindingEach(c.binding)
@@ -426,11 +441,11 @@ function typeComponentBinding2_typed(
     @assign c.condition = cCond
   end
   #= c is immutable now: install the (possibly) rebuilt component once. =#
-  updateComponent!(c, node)
+  node = updateComponent!(c, node)
   if typeChildren
     typeBindings(c.classInst, inComponent, origin)
   end
-  return nothing
+  return node
 end
 
 function typeBinding(inBinding::Binding, origin::Int,

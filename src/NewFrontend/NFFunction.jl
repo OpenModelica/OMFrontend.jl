@@ -33,10 +33,6 @@
 *
 */ =#
 
-const NamedArg = Tuple{String,B} where {B <: Expression}
-const TypedArg = Tuple{A,B,C} where {A,B,C}
-const TypedNamedArg = Tuple{String, ExpT, TypeT, VariabilityT} where {ExpT <: Expression, TypeT <: M_Type, VariabilityT <: Int}
-
 @Uniontype MatchedFunction begin
   @Record MATCHED_FUNC begin
     func::M_FUNCTION
@@ -373,9 +369,10 @@ function mapExpParameter(node::InstNode, mapFn::MapFunc)
       end
     end
   end
-  return if dirty
-    updateComponent!(comp, node)
+  if dirty
+    node = updateComponent!(comp, node)
   end
+  return node
 end
 
 function mapExp(
@@ -400,7 +397,7 @@ function mapExp(
   if mapBody
     sections = mapExp(getSections(cls), mapFn)
     cls = setSections(sections, cls)
-    updateClass(cls, fn.node)
+    @assign fn.node = updateClass(cls, fn.node)
   end
   return fn
 end
@@ -935,20 +932,30 @@ function boxFunctionParameter(compNode::InstNode)
   return updateComponent!(comp, compNode)
 end
 
+function mapFunctionNodes(nodes::List{InstNode}, func::FuncT)::List{InstNode} where {FuncT}
+  local accum::List{InstNode} = nil
+  local changed::Bool = false
+  local new_node::InstNode
+
+  for node in nodes
+    new_node = func(node)
+    changed = changed || new_node !== node
+    accum = _cons(new_node, accum)
+  end
+
+  return changed ? listReverseInPlace(accum) : nodes
+end
+
 """
   Types the body of a function, along with any bindings of local variables
   and outputs.
 """
 function typeFunctionBody(fn::M_FUNCTION)::M_FUNCTION
   #=  Type the bindings of the outputs and local variables. =#
-  for c in fn.outputs
-    typeComponentBinding(c, ORIGIN_FUNCTION)
-  end
-  for c in fn.locals
-    typeComponentBinding(c, ORIGIN_FUNCTION)
-  end
+  @assign fn.outputs = mapFunctionNodes(fn.outputs, (c) -> typeComponentBinding(c, ORIGIN_FUNCTION))
+  @assign fn.locals = mapFunctionNodes(fn.locals, (c) -> typeComponentBinding(c, ORIGIN_FUNCTION))
   #=  Type the algorithm section of the function, if it has one. =#
-  typeFunctionSections(fn.node, ORIGIN_FUNCTION)
+  @assign fn.node = typeFunctionSections(fn.node, ORIGIN_FUNCTION)
   #=  Type any derivatives of the function.
   =#
   for fn_der in fn.derivatives
@@ -969,10 +976,9 @@ function typeFunctionSignature(fn::M_FUNCTION)
         classTree(getClass(node)),
         boxFunctionParameter,
       )
+      @assign fn.inputs = mapFunctionNodes(fn.inputs, boxFunctionParameter)
     end
-    for c in fn.inputs
-      typeComponentBinding(c, ORIGIN_FUNCTION)
-    end
+    @assign fn.inputs = mapFunctionNodes(fn.inputs, (c) -> typeComponentBinding(c, ORIGIN_FUNCTION))
     fnSlots = makeSlots(fn.inputs)
     checkParamTypes(fn)
     fnReturnType = makeReturnType(fn)

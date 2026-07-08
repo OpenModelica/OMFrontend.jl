@@ -352,7 +352,7 @@ end
    This is special since it forces the iterator replacements.
    It differs from the normal unroll procedure in that it replaces all \$1 call with the correct value.
 """
-function unrollFlowForLoop(forLoop::EQUATION_FOR,
+function unrollFlowForLoop(forLoop::Equation,
                            prefix::ComponentRef,
                            equations::Vector{Equation})
   local iter::InstNode

@@ -33,35 +33,9 @@
 *
 */ =#
 
-@UniontypeDecl NFDimension
-@Uniontype NFDimension begin
-  @Record DIMENSION_UNKNOWN begin
-  end
-  @Record DIMENSION_EXP begin
-    exp::Expression
-    var::VariabilityType
-  end
-  @Record DIMENSION_ENUM begin
-    enumType
-  end
-  @Record DIMENSION_BOOLEAN begin
-  end
-  @Record DIMENSION_INTEGER begin
-    size::Int
-    var::VariabilityType
-  end
-  @Record DIMENSION_UNTYPED begin
-    dimension::Expression
-    isProcessing::Bool
-  end
-  @Record DIMENSION_RAW_DIM begin
-    dim::Absyn.Subscript
-  end
-end
-
 #= Shared for scalar components; dimension typing writes by index, so an
    empty vector is never mutated. =#
-const EMPTY_RAW_DIMS = DIMENSION_RAW_DIM[]
+const EMPTY_RAW_DIMS = Dimension[]
 
 using Absyn: Exp, Path #, Subscript
 

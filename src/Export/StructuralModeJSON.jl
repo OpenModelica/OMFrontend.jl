@@ -135,22 +135,22 @@ _pathLastName(p::Absyn.QUALIFIED) = _pathLastName(p.path)
 _pathLastName(p::Absyn.FULLYQUALIFIED) = _pathLastName(p.path)
 
 function _callName(call)
-  if call isa Frontend.TYPED_CALL
+  if Frontend.isvariant(call, Frontend.TYPED_CALL)
     return _pathLastName(call.fn.path)
-  elseif call isa Frontend.UNTYPED_CALL
+  elseif Frontend.isvariant(call, Frontend.UNTYPED_CALL)
     return _crefName(call.ref)
-  elseif call isa Frontend.ARG_TYPED_CALL
+  elseif Frontend.isvariant(call, Frontend.ARG_TYPED_CALL)
     return _crefName(call.ref)
   end
   return ""
 end
 
 function _callArgs(call)
-  if call isa Frontend.TYPED_CALL
+  if Frontend.isvariant(call, Frontend.TYPED_CALL)
     return call.arguments
-  elseif call isa Frontend.UNTYPED_CALL
+  elseif Frontend.isvariant(call, Frontend.UNTYPED_CALL)
     return call.arguments
-  elseif call isa Frontend.ARG_TYPED_CALL
+  elseif Frontend.isvariant(call, Frontend.ARG_TYPED_CALL)
     return [a[1] for a in call.arguments]
   end
   return Any[]
@@ -212,9 +212,9 @@ end
 
 """Yield (lhs, rhs) Expressions for an equation if it is a simple equality form."""
 function _equalityExpressions(eq)
-  if eq isa Frontend.EQUATION_EQUALITY
+  if Frontend.isvariant(eq, Frontend.EQUATION_EQUALITY)
     return (eq.lhs, eq.rhs)
-  elseif eq isa Frontend.EQUATION_ARRAY_EQUALITY
+  elseif Frontend.isvariant(eq, Frontend.EQUATION_ARRAY_EQUALITY)
     return (eq.lhs, eq.rhs)
   end
   return nothing
@@ -256,7 +256,7 @@ function _eqCrefs(eq)::Vector{String}
         end
       end
     end
-  elseif eq isa Frontend.EQUATION_CREF_EQUALITY
+  elseif Frontend.isvariant(eq, Frontend.EQUATION_CREF_EQUALITY)
     add(_crefName(eq.lhs))
     add(_crefName(eq.rhs))
   end

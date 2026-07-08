@@ -136,7 +136,7 @@ function toFlatStream(cls::Class, clsNode::InstNode, s)
             compComp = component(comp)
             if compComp.attributes.direction != Direction.NONE
               @assign compComp.attributes.direction = Direction.NONE
-              updateComponent!(compComp, comp)
+              comp = updateComponent!(compComp, comp)
             end
           end
           s = IOStream_M.append(s, "  ")
@@ -450,7 +450,7 @@ function setType(ty::M_Type, @nospecialize(cls::Class))
       end
 
       EXPANDED_DERIVED(__) => begin
-        classApply(cls.baseClass, setType, ty)
+        @assign cls.baseClass = classApply(cls.baseClass, setType, ty)
         ()
       end
 

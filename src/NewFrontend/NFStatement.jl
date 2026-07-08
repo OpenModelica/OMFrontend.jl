@@ -33,75 +33,6 @@
 *
 */ =#
 
-@UniontypeDecl NFStatement
-@Uniontype NFStatement begin
-  @Record ALG_FAILURE begin
-    body::Vector{Statement}
-    source::DAE.ElementSource
-  end
-
-  @Record ALG_BREAK begin
-    source::DAE.ElementSource
-  end
-
-  @Record ALG_RETURN begin
-    source::DAE.ElementSource
-  end
-
-  @Record ALG_WHILE begin
-    condition::Expression
-    body::Vector{Statement}
-    source::DAE.ElementSource
-  end
-
-  @Record ALG_NORETCALL begin
-    exp::Expression
-    source::DAE.ElementSource
-  end
-
-  @Record ALG_TERMINATE begin
-    message::Expression #= The message to display if the terminate triggers. =#
-    source::DAE.ElementSource
-  end
-
-  @Record ALG_ASSERT begin
-    condition::Expression #= The assert condition. =#
-    message::Expression #= The message to display if the assert fails. =#
-    level::Expression
-    source::DAE.ElementSource
-  end
-
-  @Record ALG_WHEN begin
-    branches::Vector{Tuple{Expression, Vector{Statement}}} #= List of branches, where each branch is a tuple of a condition and a body. =#
-    source::DAE.ElementSource
-  end
-
-  @Record ALG_IF begin
-    branches::Vector{Tuple{Expression, Vector{Statement}}} #= List of branches, where each branch is a tuple of a condition and a body. =#
-    source::DAE.ElementSource
-  end
-
-  @Record ALG_FOR begin
-    iterator::InstNode
-    range::Option{Expression}
-    body::Vector{Statement} #= The body of the for loop. =#
-    source::DAE.ElementSource
-  end
-
-  @Record ALG_FUNCTION_ARRAY_INIT begin
-    name::String
-    ty::M_Type
-    source::DAE.ElementSource
-  end
-
-  @Record ALG_ASSIGNMENT begin
-    lhs::Expression #= The asignee =#
-    rhs::Expression #= The expression =#
-    ty::NFType
-    source::DAE.ElementSource
-  end
-end
-
 function isMultiLine(stmt::Statement)::Bool
   local multiLine::Bool
   multiLine = begin
@@ -582,7 +513,7 @@ end
         ()
       end
       ALG_WHEN(__) => begin
-        @assign stmt.branches = Statement[
+        @assign stmt.branches = Tuple{Expression, Vector{Statement}}[
           (Util.tuple21(b), [map(s, func) for s in Util.tuple22(b)])
           for b in stmt.branches
         ]

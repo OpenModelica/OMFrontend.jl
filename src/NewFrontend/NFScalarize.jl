@@ -218,7 +218,7 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
   #= Expand record-typed equations to field-level equations.
      For CREF = CREF: expand both sides to their record fields.
      For CREF = CALL (function returning record): keep as record-level. =#
-  if eq isa EQUATION_EQUALITY && isComplex(eq.ty)
+  if isvariant(eq, EQUATION_EQUALITY) && isComplex(eq.ty)
     local rec_lhs = eq.lhs
     local rec_rhs = eq.rhs
     local lhs_expandable = rec_lhs isa CREF_EXPRESSION || rec_lhs isa RECORD_EXPRESSION
@@ -249,7 +249,7 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
   end
   #= Pre-process: try to expand EQUATION_ARRAY_EQUALITY with TYPED_ARRAY_CONSTRUCTOR
      before the @match block, since Revise cannot update @match cases. =#
-  if eq isa EQUATION_ARRAY_EQUALITY
+  if isvariant(eq, EQUATION_ARRAY_EQUALITY)
     local _expanded = tryExpandArrayEqualityToScalar(eq)
     if _expanded !== nothing
       for _eq in _expanded
@@ -365,7 +365,7 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
 
         end
 
-      EQUATION_ARRAY_EQUALITY(CREF_EXPRESSION(__), CALL_EXPRESSION(call), TYPE_ARRAY(__))  where {call isa TYPED_ARRAY_CONSTRUCTOR}=> begin
+      EQUATION_ARRAY_EQUALITY(CREF_EXPRESSION(__), CALL_EXPRESSION(call), TYPE_ARRAY(__))  where {isvariant(call, TYPED_ARRAY_CONSTRUCTOR)}=> begin
         local newExp = tryEvalExp(eq.rhs)
         local aeq = EQUATION_ARRAY_EQUALITY(eq.lhs, newExp, eq.ty, eq.source)
         push!(equations, aeq)
@@ -421,11 +421,11 @@ Add the scalarized if equation to the list of equations unless we don't
 have any branches left.
 """
 function scalarizeIfEquation(
-  branches::Vector{Equation_Branch},
+  branches::Vector{<:Equation_Branch},
   source::DAE.ElementSource,
   equations::Vector{Equation},
 )
-  local bl::Vector{Equation_Branch} = Equation_Branch[]
+  local bl::Vector{EquationBranch} = EquationBranch[]
   local cond::Expression
   local body::Vector{Equation}
   local var::VariabilityType
@@ -443,11 +443,11 @@ function scalarizeIfEquation(
 end
 
 function scalarizeWhenEquation(
-  branches::Vector{Equation_Branch},
+  branches::Vector{<:Equation_Branch},
   source::DAE.ElementSource,
   equations::Vector{Equation},
   )
-  local bl::Vector{Equation_Branch} = Equation_Branch[]
+  local bl::Vector{EquationBranch} = EquationBranch[]
   local cond::Expression
   local body::Vector{Equation}
   local var::VariabilityType
@@ -642,17 +642,17 @@ function tryExpandArrayEqualityToScalar(eq::Equation)
   local wrapper_op = nothing
   local wrapper_scalar = nothing
   local wrapper_is_lhs = false
-  if rhs_exp isa CALL_EXPRESSION && rhs_exp.call isa TYPED_ARRAY_CONSTRUCTOR
+  if rhs_exp isa CALL_EXPRESSION && isvariant(rhs_exp.call, TYPED_ARRAY_CONSTRUCTOR)
     constructor = rhs_exp.call
   elseif rhs_exp isa BINARY_EXPRESSION
     local e1 = rhs_exp.exp1
     local e2 = rhs_exp.exp2
-    if e1 isa CALL_EXPRESSION && e1.call isa TYPED_ARRAY_CONSTRUCTOR
+    if e1 isa CALL_EXPRESSION && isvariant(e1.call, TYPED_ARRAY_CONSTRUCTOR)
       constructor = e1.call
       wrapper_op = rhs_exp.operator
       wrapper_scalar = e2
       wrapper_is_lhs = false
-    elseif e2 isa CALL_EXPRESSION && e2.call isa TYPED_ARRAY_CONSTRUCTOR
+    elseif e2 isa CALL_EXPRESSION && isvariant(e2.call, TYPED_ARRAY_CONSTRUCTOR)
       constructor = e2.call
       wrapper_op = rhs_exp.operator
       wrapper_scalar = e1

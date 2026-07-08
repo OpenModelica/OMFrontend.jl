@@ -35,13 +35,13 @@
 
 module ModTable
 
-import ..Modifier
+import ..NFModifier
 using MetaModelica
 using ExportAll
 using ..Frontend
 
 const Key = String
-const Value = Modifier
+const Value = NFModifier
 #= Modelica extend clause =#
 
 const keyCompare = (inKey1::String, inKey2::String) -> begin
@@ -528,7 +528,7 @@ end
 """  Adds a list of key-value pairs to the tree. """
 function addList(
   tree::Tree,
-  inValues::List{<:Tuple{<:Key, Value}},
+  inValues::List{<:Tuple{<:Key, <:Value}},
   conflictFunc::Function = addConflictDefault,
 )::Tree #= Used to resolve conflicts. =#
 
@@ -600,7 +600,7 @@ end
 
 """Creates a new tree from a list of key-value pairs."""
 function fromList(
-  inValues::List{<:Tuple{<:Key, Value}},
+  inValues::List{<:Tuple{<:Key, <:Value}},
   conflictFunc::Function = addConflictDefault,
 )::Tree #= Used to resolve conflicts. =#
   local tree::Tree = EMPTY()
@@ -617,7 +617,7 @@ end
 
 
 function fromVector(
-  inValues::Vector{Tuple{Key, Value}},
+  inValues::Vector{<:Tuple{Key, <:Value}},
   conflictFunc::Function = addConflictDefault,
   )::Tree #= Used to resolve conflicts. =#
   local tree::Tree = EMPTY()
@@ -631,7 +631,7 @@ function fromVector(
 end
 
 function fromVector(
-  inValues::Vector{Value},
+  inValues::Vector{<:Value},
   inKeys::Vector{Key},
   scope,
   prefix
@@ -678,7 +678,7 @@ end
 """
 function toVector!(
   inTree::Tree,
-  vec::Vector{Tuple{Key, Value}} = Tuple{Key, Value}[],
+  vec::Vector{<:Tuple{Key, <:Value}} = Tuple{Key, Value}[],
   )#::List{Tuple{Key, Value}}
   vec = begin
     local key::Key

@@ -237,6 +237,48 @@ function isRecord(@nospecialize(node::InstNode))
   isRec
 end
 
+@inline function withComponent(node::InstNode, component::Component)::InstNode
+  COMPONENT_NODE(node.name, node.visibility, component, node.parent, node.nodeType)
+end
+
+@inline function withClassPayload(node::InstNode, cls)::InstNode
+  CLASS_NODE(node.name, node.definition, node.visibility, cls,
+             node.caches, node.parentScope, node.nodeType)
+end
+
+@inline function withDefinition(node::InstNode, definition::SCode.Element)::InstNode
+  CLASS_NODE(node.name, definition, node.visibility, node.cls,
+             node.caches, node.parentScope, node.nodeType)
+end
+
+@inline function withVisibility(node::InstNode, visibility::VisibilityType)::InstNode
+  if isvariant(node, CLASS_NODE)
+    return CLASS_NODE(node.name, node.definition, visibility, node.cls,
+                      node.caches, node.parentScope, node.nodeType)
+  elseif isvariant(node, COMPONENT_NODE)
+    return COMPONENT_NODE(node.name, visibility, node.component,
+                          node.parent, node.nodeType)
+  else
+    return node
+  end
+end
+
+@inline function withName(newName::String, node::InstNode)::InstNode
+  if isvariant(node, CLASS_NODE)
+    return CLASS_NODE(newName, node.definition, node.visibility, node.cls,
+                      node.caches, node.parentScope, node.nodeType)
+  elseif isvariant(node, COMPONENT_NODE)
+    return COMPONENT_NODE(newName, node.visibility, node.component,
+                          node.parent, node.nodeType)
+  elseif isvariant(node, VAR_NODE)
+    return VAR_NODE(newName, node.varPointer)
+  elseif isvariant(node, NAME_NODE)
+    return NAME_NODE(newName)
+  else
+    return node
+  end
+end
+
 """
   Copies the instance payload of the src node to the destination node.
   For components the value is copied into the destination's own slot; for
@@ -244,12 +286,15 @@ end
 """
 function copyInstancePtr(srcNode::InstNode,
                          dstNode::InstNode)
-  @match srcNode begin
+  dstNode = @match srcNode begin
     COMPONENT_NODE(__) where isvariant(dstNode, COMPONENT_NODE)  => begin
-      dstNode.component = srcNode.component
+      withComponent(dstNode, srcNode.component)
     end
     CLASS_NODE(__) where isvariant(dstNode, CLASS_NODE) => begin
-      dstNode.cls = _clsShareRef!(srcNode)
+      withClassPayload(dstNode, _clsShareRef!(srcNode))
+    end
+    _ => begin
+      dstNode
     end
   end
   dstNode
@@ -343,7 +388,7 @@ function toFullDAEType(clsNode::InstNode)
               state = toDAE(restriction(cls), scopePath(clsNode, includeRoot = true))
               vars = makeTypeVars(clsNode)
               outType = DAE.T_COMPLEX(state, vars, NONE())
-              _clsSet!(clsNode, DAE_TYPE(outType))
+              clsNode = updateClass(DAE_TYPE(outType), clsNode)
               outType
             end
           end
@@ -394,46 +439,30 @@ function toPartialDAEType(clsNode::InstNode)
 end
 
 function setModifier(mod::Modifier, node::InstNode)
-
-
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        _clsSet!(node, setModifier(mod, _clsVal(node)))
-        ()
-      end
-
-      COMPONENT_NODE(__)  => begin
-        node.component = mergeModifier(mod, node.component)
-        ()
-      end
-
-      _  => begin
-        ()
-      end
+  node = @match node begin
+    CLASS_NODE(__)  => begin
+      updateClass(setModifier(mod, _clsVal(node)), node)
+    end
+    COMPONENT_NODE(__)  => begin
+      updateComponent!(mergeModifier(mod, node.component), node)
+    end
+    _  => begin
+      node
     end
   end
   node
 end
 
 function mergeModifier(mod::Modifier, node::InstNode)
-
-
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        _clsSet!(node, mergeModifier(mod, _clsVal(node)))
-        ()
-      end
-
-      COMPONENT_NODE(__) => begin
-        node.component = mergeModifier(mod, node.component)
-        ()
-      end
-
-      _  => begin
-        ()
-      end
+  node = @match node begin
+    CLASS_NODE(__)  => begin
+      updateClass(mergeModifier(mod, _clsVal(node)), node)
+    end
+    COMPONENT_NODE(__) => begin
+      updateComponent!(mergeModifier(mod, node.component), node)
+    end
+    _  => begin
+      node
     end
   end
   node
@@ -452,32 +481,24 @@ function getModifier(node::InstNode)
 end
 
 function protectComponent(comp::InstNode)
-   () = begin
-    @match comp begin
-      COMPONENT_NODE(visibility = Visibility.PUBLIC)  => begin
-        comp.visibility = Visibility.PROTECTED
-        ()
-      end
-
-      _  => begin
-        ()
-      end
+  comp = @match comp begin
+    COMPONENT_NODE(visibility = Visibility.PUBLIC)  => begin
+      withVisibility(comp, Visibility.PROTECTED)
+    end
+    _  => begin
+      comp
     end
   end
   comp
 end
 
 function protectClass(cls::InstNode)
-   () = begin
-    @match cls begin
-      CLASS_NODE(visibility = Visibility.PUBLIC)  => begin
-        cls.visibility = Visibility.PROTECTED
-        ()
-      end
-
-      _  => begin
-        ()
-      end
+  cls = @match cls begin
+    CLASS_NODE(visibility = Visibility.PUBLIC)  => begin
+      withVisibility(cls, Visibility.PROTECTED)
+    end
+    _  => begin
+      cls
     end
   end
   cls
@@ -1316,22 +1337,19 @@ end
 function componentApply(node::T, func::Function, arg::ArgT)::T  where {T <: InstNode, ArgT}
   @match node begin
     COMPONENT_NODE(__)  => begin
-      if isFrozen(node)
-        return thawCopy(node, func(arg::ArgT, node.component))
-      end
-      node.component = func(arg::ArgT, node.component)
+      node = updateComponent!(func(arg::ArgT, node.component), node)
     end
   end
   node
 end
 
 function classApply(node::InstNode, func::FuncType, arg::ArgT)  where {ArgT}
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        _clsSet!(node, func(arg, _clsVal(node)))
-        ()
-      end
+  node = @match node begin
+    CLASS_NODE(__)  => begin
+      updateClass(func(arg, _clsVal(node)), node)
+    end
+    _ => begin
+      node
     end
   end
   node
@@ -1387,12 +1405,12 @@ function InstNode_info(node::InstNode)
 end
 
 function setDefinition(definition::SCode.Element, node::InstNode)
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        node.definition = definition
-        ()
-      end
+  node = @match node begin
+    CLASS_NODE(__)  => begin
+      withDefinition(node, definition)
+    end
+    _ => begin
+      node
     end
   end
   node
@@ -1454,8 +1472,7 @@ end
 """TODO: Investigate how to integrate these..."""
 function replaceClass(cls::Class, node::InstNode)
   if isvariant(node, CLASS_NODE)
-    return CLASS_NODE(node.name, node.definition, node.visibility, cls,
-                      node.caches, node.parentScope, node.nodeType)
+    return withClassPayload(node, cls)
   end
   return node
 end
@@ -1465,12 +1482,7 @@ end
 Creates a new component node holding the supplied component value.
 """
 function replaceComponent(component::Component, node::InstNode)::InstNode
-  node = newComponent(node.name,
-                      node.visibility,
-                      component,
-                      node.parent,
-                      node.nodeType)
-  return node
+  return withComponent(node, component)
 end
 
 """
@@ -1507,18 +1519,8 @@ const CLASS_PTR_WRITERS = Dict{UInt64, Base.IdSet{Any}}()
 # Share immutable, unmodified TYPE_ATTRIBUTE template nodes across instances
 # instead of copying them per instance. Enabled by default; disable with
 # OMFRONTEND_SHARE_ATTRS=false. Only attributes with no instance modifier are
-# shared (their payload is never mutated). A copy-on-write guard in the mutators
-# protects against any unexpected mutation of a shared node.
+# shared. Mutators rebuild component nodes instead of modifying them in place.
 const SHARE_ATTRS = Base.RefValue{Bool}(get(ENV, "OMFRONTEND_SHARE_ATTRS", "true") == "true")
-# Shared (frozen) attribute template nodes; cleared per flatten in resetInstDiagnostics.
-const FROZEN_ATTR_NODES = Base.IdSet{Any}()
-
-@inline isFrozen(node) = SHARE_ATTRS[] && node in FROZEN_ATTR_NODES
-
-# Fresh, unfrozen per-instance copy of a frozen node carrying `comp` as payload.
-@inline function thawCopy(node::InstNode, comp::Component)
-  COMPONENT_NODE(node.name, node.visibility, comp, node.parent, node.nodeType)
-end
 
 function _profileEnabled()
   return get(ENV, "OMFRONTEND_INST_PROFILE", "false") == "true"
@@ -1535,12 +1537,7 @@ function updateComponent!(component::Component, node::InstNode)
           COMPONENT_PTR_WRITES[k] = (prev[1], prev[2] + 1)
           push!(get!(COMPONENT_PTR_WRITERS, k, Base.IdSet{Any}()), node)
         end
-        if isFrozen(node)
-          thawCopy(node, component)
-        else
-          node.component = component
-          node
-        end
+        withComponent(node, component)
       end
     end
   end
@@ -1570,8 +1567,12 @@ function updateClass(cls::Class, node::InstNode)
           CLASS_PTR_WRITES[k] = (prev[1], prev[2] + 1)
           push!(get!(CLASS_PTR_WRITERS, k, Base.IdSet{Any}()), node)
         end
-        _clsSet!(node, cls)
-        node
+        if node.cls isa Pointer{Class}
+          _clsSet!(node, cls)
+          node
+        else
+          withClassPayload(node, cls)
+        end
       end
     end
   end
@@ -1803,25 +1804,7 @@ function parent(node::InstNode)
 end
 
 function rename(name::String, node::InstNode)
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        node.name = name
-        ()
-      end
-
-      COMPONENT_NODE(__)  => begin
-        node.name = name
-        ()
-      end
-
-      VAR_NODE(__)  => begin
-        node.name = name
-        ()
-      end
-    end
-  end
-  node
+  withName(name, node)
 end
 
 """Returns the type of node the given node is as a string."""
@@ -2237,20 +2220,6 @@ function newComponent(definition::SCode.Element, parent::InstNode = EMPTY_NODE()
    node = COMPONENT_NODE(name, visibilityFromSCode(vis), new(definition), parent, NORMAL_COMP())
   node
 end
-
-"""
-  Constructor to create a new component by via the component buffer.
-"""
-function newComponentC(name::String, visibility::VisibilityType, component::Component, parent::InstNode, nodeType::InstNodeType)
-  local r = Frontend.MemoryUtil.getNewComponent()::InstNode
-  r.component = component
-  r.name = name
-  r.visibility = visibility
-  r.parent = parent
-  r.nodeType = nodeType
-  return r
-end
-
 
 function newComponent(name::String,
                       visibility::VisibilityType,
