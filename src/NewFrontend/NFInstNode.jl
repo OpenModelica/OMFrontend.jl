@@ -173,7 +173,7 @@ function hasBinding(@nospecialize(node::InstNode))
   hb = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        hasBinding(node.component) || hasBinding(derivedParent(node))
+        hasBinding(_compVal(node)) || hasBinding(derivedParent(node))
       end
       _  => begin
         false
@@ -209,7 +209,7 @@ function isModel(node::InstNode)
         isModel(restriction(_clsVal(node)))
       end
       COMPONENT_NODE(__)  => begin
-        isModel(classInstance(node.component))
+        isModel(classInstance(_compVal(node)))
       end
       _  => begin
         false
@@ -230,14 +230,14 @@ function isRecord(@nospecialize(node::InstNode))
         isRecord(restriction(_clsVal(node)))
       end
       COMPONENT_NODE(__)  => begin
-        isRecord(classInstance(node.component))
+        isRecord(classInstance(_compVal(node)))
       end
     end
   end
   isRec
 end
 
-@inline function withComponent(node::InstNode, component::Component)::InstNode
+@inline function withComponent(node::InstNode, component::Union{Component,Pointer{Component}})::InstNode
   COMPONENT_NODE(node.name, node.visibility, component, node.parent, node.nodeType)
 end
 
@@ -280,15 +280,15 @@ end
 end
 
 """
-  Copies the instance payload of the src node to the destination node.
-  For components the value is copied into the destination's own slot; for
-  classes the `cls` cell is shared (derived/base class aliasing).
+  Shares the instance payload cell of the src node with the destination node,
+  so updates through either node are observed by both (component and class
+  aliasing, e.g. redeclare and derived/base classes).
 """
 function copyInstancePtr(srcNode::InstNode,
                          dstNode::InstNode)
   dstNode = @match srcNode begin
     COMPONENT_NODE(__) where isvariant(dstNode, COMPONENT_NODE)  => begin
-      withComponent(dstNode, srcNode.component)
+      withComponent(dstNode, _compRef(srcNode))
     end
     CLASS_NODE(__) where isvariant(dstNode, CLASS_NODE) => begin
       withClassPayload(dstNode, _clsRef(srcNode))
@@ -444,7 +444,7 @@ function setModifier(mod::Modifier, node::InstNode)
       updateClass(setModifier(mod, _clsVal(node)), node)
     end
     COMPONENT_NODE(__)  => begin
-      updateComponent!(mergeModifier(mod, node.component), node)
+      updateComponent!(mergeModifier(mod, _compVal(node)), node)
     end
     _  => begin
       node
@@ -459,7 +459,7 @@ function mergeModifier(mod::Modifier, node::InstNode)
       updateClass(mergeModifier(mod, _clsVal(node)), node)
     end
     COMPONENT_NODE(__) => begin
-      updateComponent!(mergeModifier(mod, node.component), node)
+      updateComponent!(mergeModifier(mod, _compVal(node)), node)
     end
     _  => begin
       node
@@ -474,7 +474,7 @@ function getModifier(node::InstNode)
   mod = if isvariant(node, CLASS_NODE)
     getModifier(_clsVal(node))
   elseif isvariant(node, COMPONENT_NODE)
-    getModifier(node.component)
+    getModifier(_compVal(node))
   else
     MODIFIER_NOMOD()
   end
@@ -573,7 +573,7 @@ function isRedeclare(node::InstNode)
       end
 
       COMPONENT_NODE(__)  => begin
-        isRedeclare(node.component)
+        isRedeclare(_compVal(node))
       end
 
       _  => begin
@@ -603,7 +603,7 @@ function toFlatString(node::InstNode; inFunction = false)
    name = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        toFlatString(node.name, node.component; inFunction = inFunction)
+        toFlatString(node.name, _compVal(node); inFunction = inFunction)
       end
       CLASS_NODE(__)  => begin
         toFlatString(_clsVal(node), node)
@@ -621,7 +621,7 @@ function toString(node::InstNode)
    n = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        toString(node.name, node.component)
+        toString(node.name, _compVal(node))
       end
       CLASS_NODE(__)  => begin
         #SCodeDump.unparseElementStr(node.definition)
@@ -679,11 +679,10 @@ function nameEqual(node1::InstNode, node2::InstNode)
 end
 
 function refCompare(node1::InstNode, node2::InstNode)
-  #= InstNode is a single mutable struct, so compare by node identity: stable and
-     unique per node (its payload pointer is not, since payloads get replaced). =#
-  node1 === node2 && return 0
-  local t1 = objectid(node1)
-  local t2 = objectid(node2)
+  #= Order by payload-cell identity: O(1), stable across node shell rebuilds,
+     and equal exactly when two shells alias the same instance cell. =#
+  local t1 = _refId(node1)
+  local t2 = _refId(node2)
   return Int(t1 < t2 ? -1 : (t1 > t2))
 end
 
@@ -696,10 +695,10 @@ function refEqual(node1::InstNode, node2::InstNode)
   refEqualIs = begin
     @match (node1, node2) begin
       (CLASS_NODE(__), CLASS_NODE(__))  => begin
-        referenceEq(_clsVal(node1), _clsVal(node2))
+        _clsRef(node1) === _clsRef(node2)
       end
       (COMPONENT_NODE(__), COMPONENT_NODE(__))  => begin
-        referenceEq(node1.component, node2.component)
+        _compRef(node1) === _compRef(node2)
       end
       (VAR_NODE(__), VAR_NODE(__))  => begin
         referenceEq(P_Pointer.access(node1.varPointer), P_Pointer.access(node2.varPointer))
@@ -950,7 +949,7 @@ function isOnlyOuter(node::InstNode)
    isOuter = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        isOnlyOuter(node.component)
+        isOnlyOuter(_compVal(node))
       end
 
       CLASS_NODE(__)  => begin
@@ -981,7 +980,7 @@ function isOuter(node::InstNode)
   local _result::Bool = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        isOuter(node.component)
+        isOuter(_compVal(node))
       end
 
       CLASS_NODE(__)  => begin
@@ -1005,7 +1004,7 @@ function isInner(node::InstNode)
   local _result::Bool = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        isInner(node.component)
+        isInner(_compVal(node))
       end
 
       CLASS_NODE(__)  => begin
@@ -1030,7 +1029,7 @@ function isOutput(node::InstNode)
    isOutput = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        isOutput(node.component)
+        isOutput(_compVal(node))
       end
 
       _  => begin
@@ -1047,7 +1046,7 @@ function isInput(node::InstNode)
    isInput = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        isInput(node.component)
+        isInput(_compVal(node))
       end
 
       _  => begin
@@ -1337,7 +1336,7 @@ end
 function componentApply(node::T, func::Function, arg::ArgT)::T  where {T <: InstNode, ArgT}
   @match node begin
     COMPONENT_NODE(__)  => begin
-      node = updateComponent!(func(arg::ArgT, node.component), node)
+      node = updateComponent!(func(arg::ArgT, _compVal(node)), node)
     end
   end
   node
@@ -1364,7 +1363,7 @@ function getType(node::InstNode)
       end
 
       COMPONENT_NODE(__)  => begin
-        getType(node.component)
+        getType(_compVal(node))
       end
 
       VAR_NODE(__)  => begin
@@ -1390,7 +1389,7 @@ function InstNode_info(node::InstNode)
       end
 
       COMPONENT_NODE(__)  => begin
-        Component_info(node.component)
+        Component_info(_compVal(node))
       end
 
       COMPONENT_NODE(__)  => begin
@@ -1421,7 +1420,7 @@ function definition(node::InstNode)
   def = if isvariant(node, CLASS_NODE)
     node.definition
   elseif isvariant(node, COMPONENT_NODE)
-    definition(node.component)
+    definition(_compVal(node))
   else
     fail()
   end
@@ -1487,12 +1486,13 @@ end
 
 """
 Combined setParent + replaceComponent in a single allocation: returns a new
-COMPONENT_NODE with `parent` set, carrying the existing component value.
+COMPONENT_NODE with `parent` set and a fresh payload cell holding the current
+component value (a unique instance, not an alias of `node`).
 """
 @inline function setParentAndReplaceComponent(parent::InstNode, node::InstNode)::InstNode
   newComponent(node.name,
                node.visibility,
-               node.component,
+               _compVal(node),
                parent,
                node.nodeType)
 end
@@ -1537,7 +1537,7 @@ function updateComponent!(component::Component, node::InstNode)
           COMPONENT_PTR_WRITES[k] = (prev[1], prev[2] + 1)
           push!(get!(COMPONENT_PTR_WRITERS, k, Base.IdSet{Any}()), node)
         end
-        withComponent(node, component)
+        _compSet!(node, component)
       end
     end
   end
@@ -1549,7 +1549,7 @@ function component(node::InstNode)
    component = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        node.component
+        _compVal(node)
       end
     end
   end
@@ -1598,7 +1598,7 @@ function getDerivedClass(node::InstNode)
    cls =  if isvariant(cls, CLASS_NODE)
      getClass(getDerivedNode(node))
    else
-     getClass(getDerivedNode(classInstance(node.component)))
+     getClass(getDerivedNode(classInstance(_compVal(node))))
    end
 end
 
@@ -1606,7 +1606,9 @@ function getClass(node::InstNode)
   cls = if isvariant(node, CLASS_NODE)
     _clsVal(node)
   elseif  isvariant(node, COMPONENT_NODE)
-    getClass(classInstance(node.component))
+    getClass(classInstance(_compVal(node)))
+  elseif isvariant(node, INNER_OUTER_NODE)
+    getClass(node.innerNode)
   else
     return node#fail()
   end
@@ -1636,7 +1638,7 @@ function setParent(@nospecialize(parent::InstNode), node::InstNode)::InstNode
                       node.caches, parent, node.nodeType)
   elseif isvariant(node, COMPONENT_NODE)
     parent !== node.parent &&
-      (node = newComponent(node.name, node.visibility, node.component, parent, node.nodeType))
+      (node = COMPONENT_NODE(node.name, node.visibility, node.component, parent, node.nodeType))
     return node
   else
     return IMPLICIT_SCOPE(parent, node.locals)
@@ -1678,7 +1680,7 @@ function classScope(node::InstNode)
    scope = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        classInstance(node.component)
+        classInstance(_compVal(node))
       end
       _  => begin
         node
@@ -1705,7 +1707,7 @@ function parentScope(@nospecialize(node::InstNode))
       end
 
       COMPONENT_NODE(__)  => begin
-        parentScope(classInstance(node.component))
+        parentScope(classInstance(_compVal(node)))
       end
 
       IMPLICIT_SCOPE(__)  => begin
@@ -2025,7 +2027,7 @@ function isReplaceable(node::InstNode)
   repl = @match node begin
     CLASS_NODE(__) => SCodeUtil.isElementReplaceable(node.definition)
     COMPONENT_NODE(__) => begin
-      local comp = node.component
+      local comp = _compVal(node)
       isDefinition(comp) && SCodeUtil.isElementReplaceable(definition(comp))
     end
     _ => false

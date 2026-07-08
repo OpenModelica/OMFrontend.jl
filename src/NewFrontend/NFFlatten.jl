@@ -833,7 +833,7 @@ function vectorizeEquation(
                 ITERATOR_COMPONENT(
                   TYPE_INTEGER(),
                   Variability.IMPLICITLY_DISCRETE,
-                  Component_info(prefix_node.component),
+                  Component_info(_compVal(prefix_node)),
                 ),
                 prefix_node.parent,
                 NORMAL_COMP(),
@@ -901,7 +901,7 @@ function vectorizeAlgorithm(
                 ITERATOR_COMPONENT(
                   TYPE_INTEGER(),
                   Variability.IMPLICITLY_DISCRETE,
-                  info(prefix_node.component),
+                  info(_compVal(prefix_node)),
                 ),
                 prefix_node.parent,
                 NORMAL_COMP(),

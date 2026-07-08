@@ -170,7 +170,7 @@ function typeClass(cls::InstNode, name::String)
   TYPE_COMPONENT_DEPTH[] = 0
   TYPE_COMPONENT_MAX_DEPTH[] = 0
   typeClassType(cls, EMPTY_BINDING, ORIGIN_CLASS, cls)
-  typeComponents(cls, ORIGIN_CLASS)
+  cls = typeComponents(cls, ORIGIN_CLASS)
   #  execStat("NFtypeComponents(" + name + ")")
   local tyRef = Ref{NFType}(TYPE_UNKNOWN())
   local varRef = Ref{VariabilityType}(Variability.CONSTANT)
@@ -181,7 +181,7 @@ function typeClass(cls::InstNode, name::String)
   return
 end
 
-function typeComponents(cls::InstNode, origin::ORIGIN_Type)::Nothing
+function typeComponents(cls::InstNode, origin::ORIGIN_Type)::InstNode
   local c::Class = getClass(cls)
   local c2::Class
   local cls_tree::ClassTree
@@ -193,8 +193,12 @@ function typeComponents(cls::InstNode, origin::ORIGIN_Type)::Nothing
     end
 
     INSTANCED_CLASS(elements = cls_tree && CLASS_TREE_FLAT_TREE(__)) => begin
-      for c in cls_tree.components
-        typeComponent(c, origin)
+      for i in eachindex(cls_tree.components)
+        local compNode = @inbounds cls_tree.components[i]
+        local node, _ = typeComponentNode(compNode, origin)
+        if node !== compNode
+          @inbounds cls_tree.components[i] = node
+        end
       end
       @match c.ty begin
         TYPE_COMPLEX(complexTy = COMPLEX_RECORD(constructor = con)) => begin
@@ -220,13 +224,20 @@ function typeComponents(cls::InstNode, origin::ORIGIN_Type)::Nothing
       =#
       #=  need to preserve the dimensions.
       =#
-      typeComponents(c.baseClass, origin)
+      local baseClass = typeComponents(c.baseClass, origin)
+      if baseClass !== c.baseClass
+        @assign c.baseClass = baseClass
+        cls = updateClass(c, cls)
+      end
     end
 
     TYPED_DERIVED(__) => begin
       #=  Derived types without dimensions can be collapsed.
       =#
-      typeComponents(c.baseClass, origin)
+      local baseClass = typeComponents(c.baseClass, origin)
+      if baseClass !== c.baseClass
+        @assign c.baseClass = baseClass
+      end
       c2 = getClass(c.baseClass)
       c2 = setRestriction(c.restriction, c2)
       cls = updateClass(c2, cls)
@@ -253,7 +264,7 @@ function typeComponents(cls::InstNode, origin::ORIGIN_Type)::Nothing
       fail()
     end
   end
-  return nothing
+  return cls
 end
 
 function typeStructor(node::InstNode)
@@ -452,6 +463,11 @@ function makeRecordType(constructor::InstNode)::ComplexType
 end
 
 function typeComponent(inComponent::InstNode, origin::ORIGIN_Type)::NFType
+  _, ty = typeComponentNode(inComponent, origin)
+  return ty
+end
+
+function typeComponentNode(inComponent::InstNode, origin::ORIGIN_Type)::Tuple{InstNode,NFType}
   TYPE_COMPONENT_DEPTH[] += 1
   local currentDepth = TYPE_COMPONENT_DEPTH[]
   if currentDepth > TYPE_COMPONENT_MAX_DEPTH[]
@@ -484,7 +500,12 @@ function typeComponent(inComponent::InstNode, origin::ORIGIN_Type)::NFType
         #=  Check that flow/stream variables are Real. =#
         checkComponentStreamAttribute(c.attributes.connectorType, ty, inComponent)
         #=  Type the component's children. =#
-        typeComponents(c.classInst, origin)
+        local classInst = typeComponents(c.classInst, origin)
+        if classInst !== c.classInst
+          local c2 = component(node)
+          @assign c2.classInst = classInst
+          node = updateComponent!(c2, node)
+        end
         ty
       end
       #=  A component that has already been typed, skip it. =#
@@ -506,7 +527,7 @@ function typeComponent(inComponent::InstNode, origin::ORIGIN_Type)::NFType
       end
     end
   end
-  return ty
+  return (isvariant(inComponent, INNER_OUTER_NODE) ? INNER_OUTER_NODE(inComponent.innerNode, node) : node, ty)
   finally
     TYPE_COMPONENT_DEPTH[] -= 1
   end
@@ -3186,14 +3207,14 @@ function typeComponentSections(c::InstNode, origin::ORIGIN_Type)::InstNode
       _ => begin
         Error.assertion(
           false,
-          getInstanceName() + " got uninstantiated component " + name(component),
+          getInstanceName() + " got uninstantiated component " + name(node),
           sourceInfo(),
         )
         fail()
       end
     end
   end
-  return is_self ? node : c
+  return is_self ? node : INNER_OUTER_NODE(c.innerNode, node)
 end
 
 @nospecializeinfer function typeEquation(@nospecialize(eq::Equation), origin::ORIGIN_Type)::Equation

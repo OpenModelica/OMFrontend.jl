@@ -902,7 +902,7 @@ function instClassDef(cls::INSTANCED_CLASS,
   node = setNodeType(NORMAL_CLASS(), node)
   node = expand(node)
   node = instClass(node, outerMod, attributes, attributeRef, useBinding, instLevel, parentArg)
-  updateComponentType(parentArg, node)
+  parentArg = updateComponentType(parentArg, node)
   return node
 end
 
@@ -918,7 +918,7 @@ function instClassDef(cls::PARTIAL_BUILTIN,
     PARTIAL_BUILTIN(restriction = RESTRICTION_EXTERNAL_OBJECT(__))  => begin
       inst_cls = INSTANCED_BUILTIN(cls.ty, cls.elements, cls.restriction)
       node = replaceClass(inst_cls, node)
-      updateComponentType(parentArg, node)
+      parentArg = updateComponentType(parentArg, node)
       instExternalObjectStructors(cls.ty, parentArg)
     end
     PARTIAL_BUILTIN(ty = ty, restriction = res)  => begin
@@ -931,7 +931,7 @@ function instClassDef(cls::PARTIAL_BUILTIN,
         nothing
       end
       (node, _, _, _) = instantiate(node, parentArg; sharedExcept)
-      updateComponentType(parentArg, node)
+      parentArg = updateComponentType(parentArg, node)
       cls_tree = classTree(getClass(node))
       mod = fromElement(definition(node), list(node), parent(node))
       outer_mod = merge(outerMod, addParent(node, cls.modifier))
@@ -977,7 +977,7 @@ function instClassDef(cls::EXPANDED_DERIVED,
                          cls.restriction)
   #=  Update the parentArg's type with the new class instance. =#
   node = updateClass(cls, node)
-  updateComponentType(parentArg, node)
+  parentArg = updateComponentType(parentArg, node)
   return node
 end
 
@@ -1007,7 +1007,7 @@ function instClassDef(cls::EXPANDED_CLASS,
   else
     @match (node::InstNode, par, _, _) = instantiate(node::InstNode, parentArg)
   end
-  updateComponentType(parentArg, node)
+  parentArg = updateComponentType(parentArg, node)
   attributes = updateClassConnectorType(res, attributes)
   inst_cls = getClass(node)
   cls_tree = inst_cls.elements
@@ -1363,8 +1363,9 @@ function redeclareComponentElement(redeclareComp::Pointer{InstNode}, replaceable
   local repl_node::InstNode
   rdcl_node = P_Pointer.access(redeclareComp)
   repl_node = P_Pointer.access(replaceableComp)
-  instComponent(repl_node, DEFAULT_ATTR, MODIFIER_NOMOD(), true, instLevel, Ref{Attributes}(DEFAULT_ATTR))
-  redeclareComponent(rdcl_node, repl_node, MODIFIER_NOMOD(), MODIFIER_NOMOD(), DEFAULT_ATTR, rdcl_node, instLevel)
+  repl_node = instComponent(repl_node, DEFAULT_ATTR, MODIFIER_NOMOD(), true, instLevel, Ref{Attributes}(DEFAULT_ATTR))
+  P_Pointer.update(replaceableComp, repl_node)
+  rdcl_node = redeclareComponent(rdcl_node, repl_node, MODIFIER_NOMOD(), MODIFIER_NOMOD(), DEFAULT_ATTR, rdcl_node, instLevel)
    outComp = P_Pointer.create(rdcl_node)
   outComp
 end
@@ -1492,7 +1493,7 @@ function instComponent(node::InstNode,
                        useBinding::Bool,
                        instLevel::Int,
                        attributeRef::Ref{Attributes},
-                       originalAttr = NONE())::Nothing
+                       originalAttr = NONE())::InstNode
   local comp::Component
   local def::SCode.COMPONENT
   local comp_node::InstNode
@@ -1508,15 +1509,15 @@ function instComponent(node::InstNode,
   #=  Skip already instantiated components. =#
   if ! isDefinition(comp)
     checkRecursiveDefinition(classInstance(comp), comp_node, false)
-    return
+    return node
   end
   #=  An already instantiated component might be due to an instantiation loop, check it. =#
   @match COMPONENT_DEF(definition = def, modifier = outer_mod) = comp
   if isRedeclare(outer_mod)
     checkOuterComponentMod(outer_mod, def, comp_node)
-    instComponentDef(def::SCode.COMPONENT, MODIFIER_NOMOD(), MODIFIER_NOMOD(),
+    comp_node = instComponentDef(def::SCode.COMPONENT, MODIFIER_NOMOD(), MODIFIER_NOMOD(),
                      DEFAULT_ATTR, useBinding, comp_node, parentNode,
-                     instLevel, attributeRef, originalAttr, #=isRedeclared =# true)::Nothing
+                     instLevel, attributeRef, originalAttr, #=isRedeclared =# true)::InstNode
     @match MODIFIER_REDECLARE(element = rdcl_node, mod = outer_mod) = outer_mod
     cc_smod = SCodeUtil.getConstrainingMod(def)
     if ! SCodeUtil.isEmptyMod(cc_smod)
@@ -1525,9 +1526,9 @@ function instComponent(node::InstNode,
     end
     outer_mod = merge(getModifier(rdcl_node), outer_mod)
     rdcl_node = setModifier(outer_mod, rdcl_node)
-    redeclareComponent(rdcl_node, node, MODIFIER_NOMOD(), cc_mod, attributes, node, instLevel, attributeRef)
+    comp_node = redeclareComponent(rdcl_node, node, MODIFIER_NOMOD(), cc_mod, attributes, node, instLevel, attributeRef)
   else
-    instComponentDef(def::SCode.COMPONENT,
+    comp_node = instComponentDef(def::SCode.COMPONENT,
                      outer_mod,
                      cc_mod,
                      attributes,
@@ -1536,9 +1537,9 @@ function instComponent(node::InstNode,
                      parentNode,
                      instLevel,
                      attributeRef,
-                     originalAttr)::Nothing
+                     originalAttr)::InstNode
   end
-  return nothing
+  return isvariant(node, INNER_OUTER_NODE) ? INNER_OUTER_NODE(node.innerNode, comp_node) : comp_node
 end
 
 function instComponentDef(component::SCode.COMPONENT,
@@ -1551,7 +1552,7 @@ function instComponentDef(component::SCode.COMPONENT,
                           instLevel::Int,
                           attributeRef::Ref{Attributes},
                           originalAttr = NONE(),
-                          isRedeclared::Bool = false)::Nothing
+                          isRedeclared::Bool = false)::InstNode
   local decl_mod::Modifier
   local mod::Modifier
   local cc_mod::Modifier
@@ -1607,6 +1608,7 @@ function instComponentDef(component::SCode.COMPONENT,
   #=  Instantiate the type of the component. =#
   local typeSpecCond = useBinding && ! isBound(bindingVar)
   ty_node = instTypeSpec(component.typeSpec, mod, attr, typeSpecCond, parentNode, node, component.info, instLevel, attributeRef; isRedeclared = isRedeclared)
+  node = updateComponentType(node, ty_node)
   ty_attr = attributeRef.x
   local ty = getClass(ty_node)
   #=  Update the component's variability based on its type (e.g. Integer is discrete). =#
@@ -1617,7 +1619,7 @@ function instComponentDef(component::SCode.COMPONENT,
   if ! referenceEq(attr, ty_attr)
     node = componentApply(node, setAttributes, ty_attr)
   end
-  nothing
+  node
 end
 
 function instConstrainingMod(element::SCode.Element, parent::InstNode) ::Modifier
@@ -1688,7 +1690,7 @@ function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, out
   rdcl_node = setNodeType(rdcl_type, redeclareNode)
   rdcl_node = copyInstancePtr(originalNode, rdcl_node)
   rdcl_node = updateComponent!(component(redeclareNode), rdcl_node)
-  instComponent(rdcl_node, outerAttr, constrainingMod, true, instLevel, attributeRef, SOME(getAttributes(orig_comp)))
+  rdcl_node = instComponent(rdcl_node, outerAttr, constrainingMod, true, instLevel, attributeRef, SOME(getAttributes(orig_comp)))
   rdcl_comp = component(rdcl_node)
   new_comp = begin
     @match (orig_comp, rdcl_comp) begin
@@ -2355,8 +2357,8 @@ function instExpressions(node::InstNode,
     end
 
     INSTANCED_BUILTIN(elements = CLASS_TREE_FLAT_TREE(components = local_comps))  => begin
-      for comp in local_comps
-        instComponentExpressions(comp)
+      for i in eachindex(local_comps)
+        local_comps[i] = instComponentExpressions(local_comps[i])
       end
       ()
     end
@@ -2481,7 +2483,7 @@ function instBuiltinAttributeModifier(attribute::Modifier, node::InstNode)
   return outAttr
 end
 
-function instComponentExpressions(componentArg::InstNode)::Nothing
+function instComponentExpressions(componentArg::InstNode)::InstNode
   local node::InstNode = resolveOuter(componentArg)
   local c::Component = component(node)
   local dims::Vector{Dimension}
@@ -2544,7 +2546,7 @@ function instComponentExpressions(componentArg::InstNode)::Nothing
       fail()
     end
   end
-  return nothing
+  return isvariant(componentArg, INNER_OUTER_NODE) ? INNER_OUTER_NODE(componentArg.innerNode, node) : node
 end
 
 function instBinding(bindingVar::Binding)
@@ -3243,7 +3245,7 @@ function insertGeneratedInners(node::InstNode, topScope::InstNode)
     (name, n) = e
     Error.addSourceMessage(Error.MISSING_INNER_ADDED, list(typeName(n), name), InstNode_info(n))
     if isComponent(n)
-      instComponent(n, DEFAULT_ATTR, MODIFIER_NOMOD(), true, 0, Ref{Attributes}(DEFAULT_ATTR))
+      n = instComponent(n, DEFAULT_ATTR, MODIFIER_NOMOD(), true, 0, Ref{Attributes}(DEFAULT_ATTR))
       try
         local absynStr::Absyn.STRING = SCodeUtil.getElementNamedAnnotation(definition(classScope(n)), "missingInnerMessage")
         Error.addSourceMessage(Error.MISSING_INNER_MESSAGE, list(System.unescapedString(str)), InstNode_info(n))

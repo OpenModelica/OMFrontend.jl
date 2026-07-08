@@ -402,8 +402,11 @@ function applyLocalComponents_inst(tree::ClassTree,
     end
   end
 
-  for arg in componentNodes
-    instComponent(
+  for i in tree.localComponents
+    local ptr = @inbounds tree.components[i]::Pointer{InstNode}
+    local arg = P_Pointer.access(ptr)
+    isvariant(arg, COMPONENT_NODE) || continue
+    local node = instComponent(
       arg::InstNode,
       attributes,
       MODIFIER_NOMOD(),
@@ -411,11 +414,15 @@ function applyLocalComponents_inst(tree::ClassTree,
       instLevel::Int,
       attributeRef,
       NONE()
-    )::Nothing
+    )::InstNode
+    referenceEq(node, arg) || P_Pointer.update(ptr, node)
   end
 
-  for arg in componentInnerOuterNodes
-    instComponent(
+  for i in tree.localComponents
+    local ptr = @inbounds tree.components[i]::Pointer{InstNode}
+    local arg = P_Pointer.access(ptr)
+    isvariant(arg, COMPONENT_NODE) && continue
+    local node = instComponent(
       arg::InstNode,
       attributes,
       MODIFIER_NOMOD(),
@@ -423,7 +430,8 @@ function applyLocalComponents_inst(tree::ClassTree,
       instLevel,
       attributeRef,
       NONE()
-    )::Nothing
+    )::InstNode
+    referenceEq(node, arg) || P_Pointer.update(ptr, node)
   end
   return nothing
 end
@@ -433,7 +441,8 @@ function applyLocalComponentsWithInstComponentExpressions(tree::ClassTree)
   for i in tree.localComponents
     local comp::Pointer{InstNode} = @inbounds tree.components[i]
     local arg = P_Pointer.access(comp)
-    instComponentExpressions(arg)
+    local node = instComponentExpressions(arg)
+    referenceEq(node, arg) || P_Pointer.update(comp, node)
   end
   return nothing
 end
@@ -446,16 +455,26 @@ function applyLocalComponents_partial(tree::ClassTree,
                                         instLevel::Int,
                                         attributeRef::Ref{Attributes}
                                         )
-  for c in tree.components
-    instComponent(
-      c,
+  local components = tree.components
+  for i in eachindex(components)
+    local c = @inbounds components[i]
+    local arg = c isa Pointer{InstNode} ? P_Pointer.access(c) : c
+    local node = instComponent(
+      arg,
       attributes,
       MODIFIER_NOMOD(),
       useBinding,
       instLevel,
-      NONE(),
-      attributeRef
-    ) #func(c)
+      attributeRef,
+      NONE()
+    )
+    if !referenceEq(node, arg)
+      if c isa Pointer{InstNode}
+        P_Pointer.update(c, node)
+      else
+        @inbounds components[i] = node
+      end
+    end
   end
   return nothing
 end
@@ -1092,7 +1111,7 @@ function instantiate(
               #=  Set the component's parent and create a unique instance for it.
                   Immutable TYPE_ATTRIBUTE nodes are shared instead of copied;
                   mutators rebuild component nodes. =#
-              node = if SHARE_ATTRS[] && sharedExcept !== nothing && isvariant(c.component, TYPE_ATTRIBUTE) && !(c.name in sharedExcept)
+              node = if SHARE_ATTRS[] && sharedExcept !== nothing && isvariant(_compVal(c), TYPE_ATTRIBUTE) && !(c.name in sharedExcept)
                 c
               else
                 setParentAndReplaceComponent(instance, c)
@@ -1157,7 +1176,7 @@ function instantiate(
         old_comps = arrayCopy(old_comps)
         for i = 1:arrayLength(old_comps)
           local oc = old_comps[i]
-          old_comps[i] = if SHARE_ATTRS[] && sharedExcept !== nothing && isvariant(oc, COMPONENT_NODE) && isvariant(oc.component, TYPE_ATTRIBUTE) && !(oc.name in sharedExcept)
+          old_comps[i] = if SHARE_ATTRS[] && sharedExcept !== nothing && isvariant(oc, COMPONENT_NODE) && isvariant(_compVal(oc), TYPE_ATTRIBUTE) && !(oc.name in sharedExcept)
             oc
           else
             setParentAndReplaceComponent(instance, oc)

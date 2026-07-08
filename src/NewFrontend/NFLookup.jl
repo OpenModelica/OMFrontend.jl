@@ -77,7 +77,7 @@ function lookupClassName(name::Absyn.Path, scope::InstNode, info::SourceInfo, ch
   local state::LookupState
   local LS_REF::Ref{LookupState}
   if _lookupCacheEnabled() && !isRedeclared
-    local key = (objectid(name), objectid(scope), checkAccessViolations)
+    local key = (objectid(name), _refId(scope), checkAccessViolations)
     local cached = get(LOOKUP_CLASS_CACHE, key, nothing)
     if cached !== nothing
       LOOKUP_CLASS_HITS[] += 1

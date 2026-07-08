@@ -43,14 +43,14 @@ const INLINE_POST_SUB_MAX_NODES = Ref{Int}(2)
    `M_FUNCTION` and reuse across every call site. The previous unconditional
    per-call walk dominated flatten time on MultiBody (hundreds of call sites
    to a small pool of distinct helpers). =#
-#= (hasCall, nodeCount) tuple cache keyed by the function's InstNode
-   objectid. Plain Tuple to dodge world-age issues on Revise-driven struct
-   shape changes; UInt key to avoid String allocation per lookup. =#
+#= (hasCall, nodeCount) tuple cache keyed by the function node's payload-cell
+   identity (_refId). Plain Tuple to dodge world-age issues on Revise-driven
+   struct shape changes; UInt key to avoid String allocation per lookup. =#
 const _INLINE_BODY_INFO_CACHE = Dict{UInt, Tuple{Bool, Int}}()
 const _INLINE_BODY_TOOMANY = (true, typemax(Int))
 
 @nospecialized function _bodyInfo(fn)::Tuple{Bool, Int}
-  local key = objectid(fn.node)
+  local key = _refId(fn.node)
   local cached = get(_INLINE_BODY_INFO_CACHE, key, nothing)
   cached !== nothing && return cached
   local body = getBody(fn)

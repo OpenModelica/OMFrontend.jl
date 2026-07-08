@@ -102,26 +102,26 @@ struct InstNodeType
 end
 
 @enum InstNodeTag::UInt8 IN_EMPTY IN_VAR IN_EXP IN_IMPLICIT_SCOPE IN_NAME IN_REF IN_INNER_OUTER IN_COMPONENT IN_CLASS
-#= Immutable identity/structure fields are const (compiler-enforced). Payload
-   updates are being migrated to functional node rebuilds; CLASS_NODE.cls is
-   boxed by the constructor so derived/base aliases share only the class cell. =#
-mutable struct InstNode
-  const tag::InstNodeTag
+#= InstNode is immutable: updates rebuild the node shell. Mutable payload cells
+   (CLASS_NODE.cls, COMPONENT_NODE.component, VAR_NODE.varPointer) are shared
+   across shell rebuilds so every alias observes payload updates. =#
+struct InstNode
+  tag::InstNodeTag
   name::Union{String,Nothing}
-  const varPointer::Union{Base.RefValue,Nothing}
-  const exp::Union{NFExpression,Nothing}
-  const parentScope::Union{InstNode,Nothing}
-  const locals::Union{Vector{InstNode},Nothing}
-  const index::Int
-  const innerNode::Union{InstNode,Nothing}
-  const outerNode::Union{InstNode,Nothing}
-  const visibility::Int8
-  component::Union{Component,Nothing}
-  const parent::Union{InstNode,Nothing}
+  varPointer::Union{Base.RefValue,Nothing}
+  exp::Union{NFExpression,Nothing}
+  parentScope::Union{InstNode,Nothing}
+  locals::Union{Vector{InstNode},Nothing}
+  index::Int
+  innerNode::Union{InstNode,Nothing}
+  outerNode::Union{InstNode,Nothing}
+  visibility::Int8
+  component::Union{Component,Pointer{Component},Nothing}
+  parent::Union{InstNode,Nothing}
   nodeType::Union{InstNodeType,Nothing}
   definition::Union{SCode.Element,Nothing}
   cls::Union{Class,Pointer{Class},Nothing}
-  const caches::Union{Vector{CachedData},Nothing}
+  caches::Union{Vector{CachedData},Nothing}
 end
 
 #= Constructors, singletons, @match (compacted_tag_info) registrations,
@@ -178,11 +178,12 @@ NAME_NODE(name) = _innode(IN_NAME; name=name)
 REF_NODE(index) = _innode(IN_REF; index=index)
 INNER_OUTER_NODE(innerNode, outerNode) = _innode(IN_INNER_OUTER; innerNode=innerNode, outerNode=outerNode)
 # Hot paths: positional (avoid keyword overhead).
+@inline _compPayload(component::Pointer{Component}) = component
+@inline _compPayload(component::Component) = Pointer{Component}(component)
+@inline _compPayload(::Nothing) = nothing
 COMPONENT_NODE(name, visibility, component, parent, nodeType) =
   InstNode(IN_COMPONENT, name, nothing, nothing, nothing, nothing, 0, nothing, nothing,
-           Int8(visibility), component, parent, nodeType, nothing, nothing, nothing)
-COMPONENT_NODE(name, visibility, component::Pointer{Component}, parent, nodeType) =
-  COMPONENT_NODE(name, visibility, P_Pointer.access(component), parent, nodeType)
+           Int8(visibility), _compPayload(component), parent, nodeType, nothing, nothing, nothing)
 @inline _clsPayload(cls::Pointer{Class}) = cls
 @inline _clsPayload(cls::Class) = Pointer{Class}(cls)
 @inline _clsPayload(cls::Nothing) = nothing
@@ -202,6 +203,16 @@ MetaModelica.compacted_tag_info(::typeof(COMPONENT_NODE))   = (InstNode, :tag, I
 MetaModelica.compacted_tag_info(::typeof(CLASS_NODE))       = (InstNode, :tag, IN_CLASS, (:name, :definition, :visibility, :cls, :caches, :parentScope, :nodeType))
 
 MetaModelica.valueConstructor(v::InstNode) = Int(v.tag)
+
+#= Compact show: default field-recursive show would walk the whole node graph
+   (cyclic through the payload cells) and never terminate. =#
+function Base.show(io::IO, node::InstNode)
+  print(io, "InstNode(", node.tag)
+  if node.name isa String
+    print(io, ", \"", node.name, "\"")
+  end
+  print(io, ")")
+end
 
 # P_Pointer.create/createImmutable pick the pointer's type parameter via
 # supertype(T); for the concrete InstNode that is Any, which breaks
@@ -266,6 +277,38 @@ end
   else
     return Pointer{Class}(c)
   end
+end
+
+# Boxed COMPONENT_NODE.component payload; same cell-sharing scheme as cls.
+@inline _compVal(node) = (local c = node.component; c isa Pointer{Component} ? c.x : c)
+@inline function _compSet!(node, v::Component)
+  local c = node.component
+  if c isa Pointer{Component}
+    c.x = v
+  end
+  return node
+end
+# Return the component cell used for instance-pointer sharing.
+@inline function _compRef(node)
+  local c = node.component
+  if c isa Pointer{Component}
+    return c
+  else
+    return Pointer{Component}(c)
+  end
+end
+
+#= O(1) stable node identity: the payload cell pointer. Never objectid an
+   InstNode directly; that content-hashes the whole reachable immutable graph
+   (parent chains, SCode definitions). =#
+@inline function _refId(node)::UInt
+  local c = node.component
+  c isa Pointer{Component} && return objectid(c)
+  local k = node.cls
+  k isa Pointer{Class} && return objectid(k)
+  local v = node.varPointer
+  v isa Base.RefValue && return objectid(v)
+  return objectid(node)
 end
 
 @enum NFTypeTag::UInt8 NFT_INTEGER NFT_REAL NFT_STRING NFT_BOOLEAN NFT_CLOCK NFT_UNKNOWN NFT_ANY NFT_NORETCALL NFT_ENUMERATION_ANY NFT_ARRAY NFT_TUPLE NFT_COMPLEX NFT_FUNCTION NFT_ENUMERATION NFT_METABOXED NFT_POLYMORPHIC NFT_SUBSCRIPTED
