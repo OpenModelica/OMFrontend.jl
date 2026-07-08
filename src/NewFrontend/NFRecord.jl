@@ -98,7 +98,7 @@ function instDefaultConstructor(
     ctor_node = replaceClass(NOT_INSTANTIATED(), node)
   end
   #= Backported from the original code. =#
-  setNodeType(ROOT_CLASS(parent(node)), ctor_node)
+  ctor_node = setNodeType(ROOT_CLASS(parent(node)), ctor_node)
   #= End=#
   ctor_node = instantiateN1(ctor_node) #, parent(ctor_node))
   instExpressions(ctor_node)
