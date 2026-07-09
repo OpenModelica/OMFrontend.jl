@@ -4533,7 +4533,9 @@ end
       end
 
       SUBSCRIPTED_EXP_EXPRESSION(__)  => begin
-        DAE.ASUB(toDAE(exp.exp), list(toDAEExp(s) for s in exp.subscripts))
+        #= DAE.ASUB.sub is List{Subscript}; toDAE(::Subscript) yields DAE.INDEX/
+           SLICE/WHOLEDIM (toDAEExp would give a bare Exp). =#
+        DAE.ASUB(toDAE(exp.exp), list(toDAE(s) for s in exp.subscripts))
       end
 
       TUPLE_ELEMENT_EXPRESSION(__)  => begin
