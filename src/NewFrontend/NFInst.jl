@@ -2200,11 +2200,11 @@ mutable struct InstCache
 end
 const INST_CACHE = InstCache(Base.PersistentDict{UInt64, InstNode}())
 
-#= Parallel sibling instantiation (OMFRONTEND_PARALLEL_INST=true to enable).
+#= Parallel sibling instantiation (on by default; OMFRONTEND_PARALLEL_INST=false to disable).
    One lock guards every mutation of state shared across sibling workers:
    INST_CACHE, the package-cache state machine, and first-touch class
    expansion. A single reentrant lock keeps the lock order trivially safe. =#
-const PARALLEL_INST = Base.RefValue{Bool}(get(ENV, "OMFRONTEND_PARALLEL_INST", "false") == "true")
+const PARALLEL_INST = Base.RefValue{Bool}(get(ENV, "OMFRONTEND_PARALLEL_INST", "true") == "true")
 const PARALLEL_INST_THRESHOLD = 4
 const _INST_SHARED_LOCK = ReentrantLock()
 

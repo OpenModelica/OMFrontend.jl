@@ -94,7 +94,7 @@ function __init__()
   Frontend.FlagsUtil.loadFlags()
   #= Const Refs bake their precompile-time value; env-derived flags must be
      re-read at load time. =#
-  Frontend.PARALLEL_INST[] = get(ENV, "OMFRONTEND_PARALLEL_INST", "false") == "true"
+  Frontend.PARALLEL_INST[] = get(ENV, "OMFRONTEND_PARALLEL_INST", "true") == "true"
   Frontend.CACHE_INST[] = get(ENV, "OMFRONTEND_CACHE_INST", "true") == "true"
   ENABLE_EXECSTAT[] = get(ENV, "ENABLE_EXECSTAT", "false") == "true"
   builtinSCode = NFModelicaBuiltinCache["NFModelicaBuiltin"]
