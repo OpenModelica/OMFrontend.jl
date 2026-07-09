@@ -1087,3 +1087,31 @@ Warm-REPL caveat reconfirmed the hard way: after many Revise cycles the
 process degrades ~4x globally; perf numbers must come from fresh processes.
 Battery power also skews absolute wall times — allocation counts are the
 stable metric.
+
+## Equality-constraint equations: generate lazily for broken edges only (2026-07-09, Fable)
+
+The overconstrained collection loop generated (typed!) the equalityConstraint
+replacement equations EAGERLY for every overconstrained connection — EngineV6:
+229 generations at ~3 ms each (two typeExp calls per generation), while only
+the handful of edges the spanning tree breaks ever need them. Measured split
+before the fix: crefs walk 0.03 s, generation 0.75 s.
+
+Fix (`src/NewFrontend/NFOCConnectionGraph.jl`,
+`handleOverconstrainedConnections`): every edge gets a fresh EMPTY equation
+vector; the generation inputs are remembered in an
+`IdDict{Vector{Equation}, inputs}` keyed by that vector's identity; after
+`findResultGraph` returns the broken edges, the vectors of broken edges are
+filled in place via `append!`. Consumers (`removeBrokenConnects`, the
+flatBrokenEQL collection in NFFlatten, ConnectionSets.isBroken) read the
+crefs or read the vector after the fill, so semantics are unchanged — the
+reference-comparing overconstrained tests pass.
+
+Also added per-class caches for the equalityConstraint/fill function
+lookup+instantiation (`_EQ_CONSTRAINT_FN_CACHE`/`_FILL_FN_CACHE`, reset next
+to the System flags). Measured effect was nil while generation was eager
+(lookup was never the cost — measure before caching!), but they bound the
+per-broken-edge cost now.
+
+EngineV6 fresh process (battery): rc:overconstrained 1.35 s -> 0.27 s,
+allocations 1.38 M -> 72 k. resolveConnections is now ~0.9 s on battery with
+oc:evalOperators (0.21 s, generic-traversal floor) the largest piece.

@@ -128,12 +128,18 @@ function handleOverconstrainedConnections(flatModel::FlatModel,
   local source::DAE.ElementSource
   @assign origin = intBitOr(ORIGIN_EQUATION, ORIGIN_CONNECT)
   #=  Go over all equations, connect, Connection.branch =#
-  for conn in conns.connections
+  #= The equality-constraint equations are only needed for the edges the
+     spanning tree BREAKS (a handful), but each generation types two calls.
+     Attach an empty vector to every edge, remember the inputs keyed by that
+     vector's identity, and generate lazily for the broken edges below. =#
+  local pendingGen = IdDict{Vector{Equation}, Tuple{ComponentRef, NFType, ComponentRef, NFType, DAE.ElementSource}}()
+  @EXECSTAT "    oc:collectGraph" for conn in conns.connections
     @match CONNECTION(lhs = c1, rhs = c2) = conn
     lhs_crefs = getOverconstrainedCrefs(c1)
     rhs_crefs = getOverconstrainedCrefs(c2)
     if ! listEmpty(lhs_crefs)
-      eqlBroken = generateEqualityConstraintEquation(c1.name, c1.ty, c2.name, c2.ty, origin, c1.source)
+      eqlBroken = Equation[]
+      pendingGen[eqlBroken] = (c1.name, c1.ty, c2.name, c2.ty, c1.source)
       graph = ListUtil.threadFold(lhs_crefs, rhs_crefs,
                                   (x, y, z) -> addConnection(x, y, eqlBroken, print_trace, z), graph)
     end
@@ -194,6 +200,15 @@ function handleOverconstrainedConnections(flatModel::FlatModel,
   eql = eql
   ieql = flatModel.initialEquations
   @EXECSTAT "    oc:dispatch" (eql, ieql, connected, broken) = handleOverconstrainedConnections_dispatch(graph, modelNameQualified, eql, ieql)
+  #= Fill in the equality-constraint equations for the edges that broke. =#
+  for edge in broken
+    local edgeEql = edge[3]
+    local genArgs = Base.get(pendingGen, edgeEql, nothing)
+    if genArgs !== nothing && isempty(edgeEql)
+      append!(edgeEql, generateEqualityConstraintEquation(
+        genArgs[1], genArgs[2], genArgs[3], genArgs[4], origin, genArgs[5]))
+    end
+  end
   @EXECSTAT "    oc:removeBroken" eql = removeBrokenConnects(eql, connected, broken)
   #= Convert the lists back to arrays =#
   @assign begin
@@ -202,6 +217,19 @@ function handleOverconstrainedConnections(flatModel::FlatModel,
   end
   outBroken = broken
   (flatModel, outBroken, graph)
+end
+
+#= Per-translation caches for the function refs used in generated
+   equalityConstraint equations. Lookup + instantiation only depend on the
+   connector class (equalityConstraint) or the top scope (fill), not on the
+   individual connection. =#
+const _EQ_CONSTRAINT_FN_CACHE = Dict{UInt64, Tuple{ComponentRef, InstNode}}()
+const _FILL_FN_CACHE = Dict{UInt64, Tuple{ComponentRef, InstNode}}()
+
+function resetConnectionGraphCaches()
+  empty!(_EQ_CONSTRAINT_FN_CACHE)
+  empty!(_FILL_FN_CACHE)
+  return nothing
 end
 
 function generateEqualityConstraintEquation(clhs::ComponentRef,
@@ -262,12 +290,20 @@ function generateEqualityConstraintEquation(clhs::ComponentRef,
             rhsArr = Base.first(stripSubscripts(rhs))
             ty1 = getComponentType(lhsArr)
             ty2 = getComponentType(rhsArr)
-            fcref_rhs = lookupFunctionSimple("equalityConstraint", classScope(node(lhs)))
-            (fcref_rhs, fn_node_rhs, _) = instFunctionRef(fcref_rhs, AbsynUtil.dummyInfo)
+            local eqScope = classScope(node(lhs))
+            (fcref_rhs, fn_node_rhs) = get!(_EQ_CONSTRAINT_FN_CACHE, _refId(eqScope)) do
+              local fc = lookupFunctionSimple("equalityConstraint", eqScope)
+              local (fc2, fn2, _) = instFunctionRef(fc, AbsynUtil.dummyInfo)
+              (fc2, fn2)
+            end
             expRHS = CALL_EXPRESSION(UNTYPED_CALL(fcref_rhs, Expression[CREF_EXPRESSION(ty1, lhsArr), CREF_EXPRESSION(ty2, rhsArr)], Expression[], fn_node_rhs))
             (expRHS, ty, var) = typeExp(expRHS, origin, AbsynUtil.dummyInfo #=ElementSource_getInfo(source)=#)
-            fcref_lhs = lookupFunctionSimple("fill", topScope(node(clhs)))
-            (fcref_lhs, fn_node_lhs, _) = instFunctionRef(fcref_lhs, AbsynUtil.dummyInfo #= ElementSource_getInfo(source)=#)
+            local fillScope = topScope(node(clhs))
+            (fcref_lhs, fn_node_lhs) = get!(_FILL_FN_CACHE, _refId(fillScope)) do
+              local fc = lookupFunctionSimple("fill", fillScope)
+              local (fc2, fn2, _) = instFunctionRef(fc, AbsynUtil.dummyInfo)
+              (fc2, fn2)
+            end
             local argLst = _cons(REAL_EXPRESSION(0.0), ListUtil.map(arrayDims(ty), sizeExp))
             expLHS = CALL_EXPRESSION(UNTYPED_CALL(fcref_lhs, listArray(argLst), Expression[], fn_node_lhs))
             (expLHS, ty, var) = typeExp(expLHS, origin, AbsynUtil.dummyInfo#=ElementSource_getInfo(source)=#)

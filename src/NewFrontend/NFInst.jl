@@ -285,6 +285,7 @@ function setSettingForInst()
   System.setHasOverconstrainedConnectors(false)
   System.setHasStreamConnectors(false)
   System.setUsesConnectionsOperators(false)
+  resetConnectionGraphCaches()
 end
 
 """
