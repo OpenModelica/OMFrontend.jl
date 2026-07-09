@@ -423,4 +423,17 @@ equation
 end ElectricalComponentTest_SimpleCircuit;
 "
 
+#= Expandable connector with a virtual element (bus.x). Regression test for the
+   flat-tree self-append hang and the identity-set dedupe hang. =#
+const ExpandableBus="class ExpandableBus
+  Real bus.x;
+  output Real src.y;
+  input Real sink.u;
+equation
+  sink.u = src.y;
+  sink.u = bus.x;
+  src.y = time;
+end ExpandableBus;
+"
+
 end

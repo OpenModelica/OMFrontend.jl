@@ -369,7 +369,6 @@ function makeVirtualConnector(
   normal_cref = normalConnector.name
   ty = normalConnector.ty
   #=  TODO: Update the virtual connector with the created node. =#
-  println("Heloo")
   nodeV = node(normal_cref)
   nodeV = clone(nodeV)
   nodeV = rename(firstName(virtual_cref), nodeV)
@@ -398,22 +397,24 @@ function elaborateExpandableSet(
   set::List{<:Connector},
   vars::List{<:Variable},
 )::List{Variable}
-  #throw("Not implemented/checked")
-  local exp_set::ExpandableSet.HashSet
   local exp_conns::List{Connector} = nil
-  local exp_set_lst::List{Connector}
-  local expandableSetCustom = IdSet{Connector}()
-  #exp_set = ExpandableSet.emptySet(Util.nextPrime(listLength(set)))
+  local exp_set_lst::List{Connector} = nil
+  #= Deduplicate undeclared elements by node name (isNodeNameEqual semantics).
+     Identity-based sets are unusable here: objectid of the deeply immutable
+     connector would content-hash the reachable instance graph. =#
+  local seenNames = Set{String}()
   for c in set
     if isExpandable(c.cty)
       exp_conns = _cons(c, exp_conns)
     elseif isUndeclared(c.cty)
-      #exp_set = BaseHashSet.add(c, exp_set)
-      push!(expandableSetCustom, c)
+      local elemName = name(node(c.name))
+      if !(elemName in seenNames)
+        push!(seenNames, elemName)
+        exp_set_lst = _cons(c, exp_set_lst)
+      end
       markComponentPresent(node(name(c)))
     end
   end
-  exp_set_lst = arrayList(Base.collect(expandableSetCustom)) #BaseHashSet.hashSetList(exp_set)
   for ec in exp_conns
     vars = augmentExpandableConnector(ec, exp_set_lst, vars)
   end

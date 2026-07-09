@@ -28,4 +28,13 @@
     println(OMFrontend.toString(first(res)))
     true
   end
+
+  #= Expandable-connector buses at scale (control buses with virtual elements). =#
+  @test begin
+    key = OMFrontend.loadBundledMSL(version = "4.0.0")
+    lib = OMFrontend.LIBRARY_CACHE[key]
+    (fm, _) = OMFrontend.instantiateSCodeToFM(
+      "Modelica.Mechanics.MultiBody.Examples.Systems.RobotR3.FullRobot", lib)
+    length(fm.equations) > 4000
+  end
 end

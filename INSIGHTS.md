@@ -1115,3 +1115,35 @@ per-broken-edge cost now.
 EngineV6 fresh process (battery): rc:overconstrained 1.35 s -> 0.27 s,
 allocations 1.38 M -> 72 k. resolveConnections is now ~0.9 s on battery with
 oc:evalOperators (0.21 s, generic-traversal floor) the largest piece.
+
+## Expandable connectors: two hangs, one pre-existing, one ours (2026-07-09, Fable)
+
+FullRobot (MSL 4.0.0) hung forever in resolveConnections. Two distinct bugs:
+
+1. **Pre-existing (commit 3f1e6a5): self-append loops in
+   `addElementsToFlatTree`** (`src/NewFrontend/NFClassTree.jl`): `for e in
+   cls_arr; push!(cls_arr, e); end` — iterating a vector while appending to it
+   never terminates. A garbled port of OMC's Array.appendList; fixed by
+   appending the new elements to COPIES of the arrays (also stops mutating the
+   input tree). Diagnosed via `kill -USR1` + force-SIGINT stacks; profile
+   pinned the exact line.
+2. **Our regression (immutable-InstNode rewrite): `IdSet{Connector}` in
+   `elaborateExpandableSet`** (`src/NewFrontend/NFExpandableConnectors.jl`).
+   IdSet keys by objectid; objectid of a deeply IMMUTABLE value content-hashes
+   everything reachable, and after the immutability flip a Connector reaches
+   the whole instance graph. Every push! became a whole-graph hash: tiny
+   models pass, FullRobot effectively never returns. Same family as the
+   documented `objectid(::InstNode)` pathology — identity containers over
+   frontend values are only safe when the value IS a mutable cell. Fixed with
+   semantic dedupe by node name (the isNodeNameEqual/hashConnector semantics
+   of the OMC original).
+
+Debug facts worth keeping: the stray "Heloo" println in makeVirtualConnector
+is gone; `Threads.@spawn` + sleep + istaskdone in a warm REPL localizes hangs
+without losing the session (schedule(t, InterruptException()) does NOT stop a
+tight non-yielding loop); a single native `kill -USR1` backtrace names the
+exact hot line even when the profile report cannot print.
+
+Tests added: `test/Connectors/ExpandableBus.mo` reference test (virtual
+element bus.x) and FullRobot MSL 4.0.0 flatten in `test/useOfMSLTests.jl`
+(4321 equations). Suites 363/363 fresh -t 8 and -t 1.

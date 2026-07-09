@@ -1301,27 +1301,24 @@ function addElementsToFlatTree(elements::List{<:InstNode}, tree::ClassTree)::Cla
   local comp_idx::Int
   local lentry::LookupTree.Entry
   @match CLASS_TREE_FLAT_TREE(ltree, cls_arr, comp_arr, imports, duplicates) = tree
+  #= Append to copies so the input tree's arrays are not mutated. =#
+  local new_cls_arr = copy(cls_arr)
+  local new_comp_arr = copy(comp_arr)
   cls_idx = arrayLength(cls_arr)
   comp_idx = arrayLength(comp_arr)
   for e in elements
     if isComponent(e)
       comp_idx = comp_idx + 1
       lentry = LookupTree.COMPONENT(comp_idx)
-      push!(comp_arr, e)
+      push!(new_comp_arr, e)
     else
       cls_idx = cls_idx + 1
       lentry = LookupTree.CLASS(cls_idx)
-      push!(cls_arr, e)
+      push!(new_cls_arr, e)
     end
     ltree = addLocalElement(name(e), lentry, tree, ltree)
   end
-  for e in cls_arr
-    push!(cls_arr, e)
-  end
-  for c in comp_arr
-    push!(comp_arr, c)
-  end
-  tree = CLASS_TREE_FLAT_TREE(ltree, cls_arr, comp_arr, imports, duplicates)
+  tree = CLASS_TREE_FLAT_TREE(ltree, new_cls_arr, new_comp_arr, imports, duplicates)
   return tree
 end
 
