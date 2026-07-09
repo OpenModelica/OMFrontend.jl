@@ -292,11 +292,7 @@ end
 
 
 @noinline function typeComponentBinding(inComponent::InstNode, origin::ORIGIN_Type)
-  local n = resolveOuter(inComponent)
-  local is_self = referenceEq(n, inComponent)
-  local c = component(n)
-  n = typeComponentBinding2(inComponent, n, c, origin, true)
-  return is_self ? n : inComponent
+  return typeComponentBinding(inComponent, origin, true)
 end
 
 @noinline  function typeComponentBinding(inComponent::InstNode,
@@ -304,8 +300,19 @@ end
                                          typeChildren::Bool)
   local n = resolveOuter(inComponent)
   local is_self = referenceEq(n, inComponent)
-  local c = component(n)
-  n = typeComponentBinding2(inComponent, n, c, origin, typeChildren)
+  if _parallelTypingActive()
+    local l = _typeClaim(_refId(n))
+    lock(l)
+    try
+      #= component(n) is read under the claim so a concurrent typing of the
+         same node is fully ordered with this one. =#
+      n = typeComponentBinding2(inComponent, n, component(n), origin, typeChildren)
+    finally
+      unlock(l)
+    end
+  else
+    n = typeComponentBinding2(inComponent, n, component(n), origin, typeChildren)
+  end
   return is_self ? n : inComponent
 end
 

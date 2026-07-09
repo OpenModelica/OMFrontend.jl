@@ -162,15 +162,26 @@ function flagNotSet(origin::M_Type_Int, flag::M_Type_Int)::Bool
   return notSet
 end
 
-const TYPE_COMPONENT_DEPTH = Ref(0)
 const TYPE_COMPONENT_DEPTH_LIMIT = 60
-const TYPE_COMPONENT_MAX_DEPTH = Ref(0)
+const TYPE_COMPONENT_MAX_DEPTH = Threads.Atomic{Int}(0)
+
+#= Recursion depth is per task; a shared counter would sum concurrent typing
+   chains and trip the limit spuriously. =#
+@inline function _typeDepthRef()::Base.RefValue{Int}
+  local tls = task_local_storage()
+  local r = get(tls, :OMF_TYPE_DEPTH, nothing)
+  if r === nothing
+    r = Ref(0)
+    tls[:OMF_TYPE_DEPTH] = r
+  end
+  return r::Base.RefValue{Int}
+end
 
 function typeClass(cls::InstNode, name::String)
-  TYPE_COMPONENT_DEPTH[] = 0
+  _typeDepthRef()[] = 0
   TYPE_COMPONENT_MAX_DEPTH[] = 0
   typeClassType(cls, EMPTY_BINDING, ORIGIN_CLASS, cls)
-  cls = typeComponents(cls, ORIGIN_CLASS)
+  cls = typeComponents(cls, ORIGIN_CLASS; fanOut = true)
   #  execStat("NFtypeComponents(" + name + ")")
   local tyRef = Ref{NFType}(TYPE_UNKNOWN())
   local varRef = Ref{VariabilityType}(Variability.CONSTANT)
@@ -181,7 +192,26 @@ function typeClass(cls::InstNode, name::String)
   return
 end
 
-function typeComponents(cls::InstNode, origin::ORIGIN_Type)::InstNode
+function typeComponents(cls::InstNode, origin::ORIGIN_Type; fanOut::Bool = false)::InstNode
+  #= Shared class nodes (derived base-class chains) are mutated here; claim the
+     class node. The root fan-out call claims nothing so workers never wait on
+     a lock held across the @sync. Builtins are read-only here. =#
+  if !fanOut && _parallelTypingActive()
+    if isvariant(getClass(cls), INSTANCED_BUILTIN)
+      return typeComponents2(cls, origin, false)
+    end
+    local l = _typeClaim(_refId(cls))
+    lock(l)
+    try
+      return typeComponents2(cls, origin, false)
+    finally
+      unlock(l)
+    end
+  end
+  return typeComponents2(cls, origin, fanOut)
+end
+
+function typeComponents2(cls::InstNode, origin::ORIGIN_Type, fanOut::Bool)::InstNode
   local c::Class = getClass(cls)
   local c2::Class
   local cls_tree::ClassTree
@@ -193,11 +223,29 @@ function typeComponents(cls::InstNode, origin::ORIGIN_Type)::InstNode
     end
 
     INSTANCED_CLASS(elements = cls_tree && CLASS_TREE_FLAT_TREE(__)) => begin
-      for i in eachindex(cls_tree.components)
-        local compNode = @inbounds cls_tree.components[i]
-        local node, _ = typeComponentNode(compNode, origin)
-        if node !== compNode
-          @inbounds cls_tree.components[i] = node
+      if fanOut && parallelInstEnabled(length(cls_tree.components))
+        #= Root-level fan-out only: workers here hold no claims, so claim
+           acquisition inside follows dependency order and cannot deadlock. =#
+        local parentTok = get(task_local_storage(), :OMF_ROOT, 0)::Int
+        @sync for i in eachindex(cls_tree.components)
+          local idx = i
+          local tok = parentTok == 0 ? idx : parentTok
+          Threads.@spawn begin
+            task_local_storage(:OMF_ROOT, tok)
+            local compNode = @inbounds cls_tree.components[idx]
+            local node, _ = typeComponentNode(compNode, origin)
+            if node !== compNode
+              @inbounds cls_tree.components[idx] = node
+            end
+          end
+        end
+      else
+        for i in eachindex(cls_tree.components)
+          local compNode = @inbounds cls_tree.components[i]
+          local node, _ = typeComponentNode(compNode, origin)
+          if node !== compNode
+            @inbounds cls_tree.components[i] = node
+          end
         end
       end
       @match c.ty begin
@@ -268,6 +316,19 @@ function typeComponents(cls::InstNode, origin::ORIGIN_Type)::InstNode
 end
 
 function typeStructor(node::InstNode)
+  if _parallelTypingActive()
+    local l = _typeClaim(_refId(node))
+    lock(l)
+    try
+      return typeStructor2(node)
+    finally
+      unlock(l)
+    end
+  end
+  return typeStructor2(node)
+end
+
+function typeStructor2(node::InstNode)
   local cache::CachedData
   local fnl::Vector{M_Function}
   cache = getFuncCache(node)
@@ -290,6 +351,32 @@ function typeStructor(node::InstNode)
 end
 
 @nospecializeinfer function typeClassType(
+  @nospecialize(clsNode::InstNode),
+  componentBinding::Binding,
+  origin::ORIGIN_Type,
+  @nospecialize(instanceNode::InstNode),
+  )::NFType
+  #= Class nodes (derived types, records) are shared across components; their
+     typing mutates the class payload and class-level dimension vectors, so it
+     must run under the class node's claim. TYPED_DERIVED and INSTANCED_BUILTIN
+     are terminal read-only states here and skip the claim. =#
+  if _parallelTypingActive()
+    local peek = getClass(clsNode)
+    if isvariant(peek, TYPED_DERIVED) || isvariant(peek, INSTANCED_BUILTIN)
+      return typeClassType2(clsNode, componentBinding, origin, instanceNode)
+    end
+    local l = _typeClaim(_refId(clsNode))
+    lock(l)
+    try
+      return typeClassType2(clsNode, componentBinding, origin, instanceNode)
+    finally
+      unlock(l)
+    end
+  end
+  return typeClassType2(clsNode, componentBinding, origin, instanceNode)
+end
+
+@nospecializeinfer function typeClassType2(
   @nospecialize(clsNode::InstNode),
   componentBinding::Binding,
   origin::ORIGIN_Type,
@@ -468,15 +555,16 @@ function typeComponent(inComponent::InstNode, origin::ORIGIN_Type)::NFType
 end
 
 function typeComponentNode(inComponent::InstNode, origin::ORIGIN_Type)::Tuple{InstNode,NFType}
-  TYPE_COMPONENT_DEPTH[] += 1
-  local currentDepth = TYPE_COMPONENT_DEPTH[]
+  local depthRef = _typeDepthRef()
+  depthRef[] += 1
+  local currentDepth = depthRef[]
   if currentDepth > TYPE_COMPONENT_MAX_DEPTH[]
-    TYPE_COMPONENT_MAX_DEPTH[] = currentDepth
+    Threads.atomic_max!(TYPE_COMPONENT_MAX_DEPTH, currentDepth)
   end
   if currentDepth > TYPE_COMPONENT_DEPTH_LIMIT
     nodeName = try name(inComponent) catch; "<unknown>" end
     @warn "typeComponent depth limit reached" depth=currentDepth node=nodeName
-    TYPE_COMPONENT_DEPTH[] -= 1
+    depthRef[] -= 1
     Error.addSourceMessage(
       Error.INST_RECURSION_LIMIT_REACHED,
       list("typeComponent depth > $(TYPE_COMPONENT_DEPTH_LIMIT): node=$(nodeName)"),
@@ -487,6 +575,32 @@ function typeComponentNode(inComponent::InstNode, origin::ORIGIN_Type)::Tuple{In
   local ty::NFType
   local node::InstNode = resolveOuter(inComponent)
   local c::Component = component(node)
+  if isvariant(c, UNTYPED_COMPONENT) && _parallelTypingActive()
+    local l = _typeClaim(_refId(node))
+    lock(l)
+    try
+      #= Re-read under the claim: another task may have typed it meanwhile. =#
+      c = component(node)
+      (node, ty) = typeComponentNode2(inComponent, node, c, origin)
+    finally
+      unlock(l)
+    end
+  else
+    (node, ty) = typeComponentNode2(inComponent, node, c, origin)
+  end
+  return (isvariant(inComponent, INNER_OUTER_NODE) ? INNER_OUTER_NODE(inComponent.innerNode, node) : node, ty)
+  finally
+    depthRef[] -= 1
+  end
+end
+
+function typeComponentNode2(
+  inComponent::InstNode,
+  node::InstNode,
+  c::Component,
+  origin::ORIGIN_Type,
+  )::Tuple{InstNode,NFType}
+  local ty::NFType
    ty = begin
     @match c begin
       #=  An untyped component, type it. =#
@@ -527,10 +641,7 @@ function typeComponentNode(inComponent::InstNode, origin::ORIGIN_Type)::Tuple{In
       end
     end
   end
-  return (isvariant(inComponent, INNER_OUTER_NODE) ? INNER_OUTER_NODE(inComponent.innerNode, node) : node, ty)
-  finally
-    TYPE_COMPONENT_DEPTH[] -= 1
-  end
+  return (node, ty)
 end
 
 function checkComponentStreamAttribute(
@@ -637,6 +748,18 @@ function typeDimension(
   origin::ORIGIN_Type,
   info::SourceInfo,
   )::Dimension
+  #= Dimension vectors can be aliased by several nodes, so node claims are not
+     enough: claim the vector itself so the isProcessing cycle marker is never
+     observed across tasks. =#
+  if _parallelTypingActive()
+    local l = _typeClaim(objectid(dimensions))
+    lock(l)
+    try
+      return typeDimension2(dimensions, index, component, binding, origin, info)
+    finally
+      unlock(l)
+    end
+  end
   typeDimension2(
     dimensions::Vector{Dimension},
     index::Int,
@@ -1684,48 +1807,20 @@ function typeCrefDim2(cref::ComponentRef,
           subscripts = subs,
         ) => begin
           node = resolveOuter(cr.node)
-          c = component(node)
-          #=  If the component is untyped it might have an array type whose dimensions
-          =#
-          #=  we need to take into consideration. To avoid making this more complicated
-          =#
-          #=  than it already is we make sure that the component is typed in that case.
-          =#
-          if hasDimensions(getClass(classInstance(c)))
-            Base.inferencebarrier(typeComponent(node, origin))
-            c = component(node)
-          end
-          dim_count = begin
-            @match c begin
-              UNTYPED_COMPONENT(__) => begin
-                 dim_count = arrayLength(c.dimensions)
-                if index <= dim_count && index > 0
-                  dim = Base.inferencebarrier(typeDimension(
-                    c.dimensions,
-                    index,
-                    node,
-                    c.binding,
-                    origin,
-                    c.info,
-                  ))
-                  return (dim, error)
-                end
-                dim_count
-              end
-
-              TYPED_COMPONENT(__) => begin
-                dim_count = dimensionCount(c.ty)
-                if index <= dim_count && index > 0
-                  dim = nthDimension(c.ty, index)
-                  return (dim, error)
-                end
-                dim_count
-              end
-
-              _ => begin
-                0
-              end
+          local odim::Union{Dimension, Nothing}
+          if _parallelTypingActive()
+            local l = _typeClaim(_refId(node))
+            lock(l)
+            try
+              (odim, dim_count) = typeCrefDimNode(node, index, origin)
+            finally
+              unlock(l)
             end
+          else
+            (odim, dim_count) = typeCrefDimNode(node, index, origin)
+          end
+          if odim !== nothing
+            return (odim, error)
           end
           index = index - dim_count
           dim_total = dim_total + dim_count
@@ -1737,6 +1832,50 @@ function typeCrefDim2(cref::ComponentRef,
   dim = DIMENSION_UNKNOWN()
   error = OUT_OF_BOUNDS(dim_total)
   return (dim, error)
+end
+
+"""
+  Types dimension `index` of a single cref component if the index falls within
+  its dimensions. Returns (dimension or nothing, dimension count of the node).
+"""
+function typeCrefDimNode(node::InstNode, index::Int, origin::ORIGIN_Type)::Tuple{Union{Dimension, Nothing}, Int}
+  local c::Component = component(node)
+  local dim_count::Int
+  #= An untyped component might have an array type whose dimensions we need to
+     take into consideration; type it to be sure. =#
+  if hasDimensions(getClass(classInstance(c)))
+    Base.inferencebarrier(typeComponent(node, origin))
+    c = component(node)
+  end
+  @match c begin
+    UNTYPED_COMPONENT(__) => begin
+      dim_count = arrayLength(c.dimensions)
+      if index <= dim_count && index > 0
+        local dim = Base.inferencebarrier(typeDimension(
+          c.dimensions,
+          index,
+          node,
+          c.binding,
+          origin,
+          c.info,
+        ))
+        return (dim, dim_count)
+      end
+      return (nothing, dim_count)
+    end
+
+    TYPED_COMPONENT(__) => begin
+      dim_count = dimensionCount(c.ty)
+      if index <= dim_count && index > 0
+        return (nthDimension(c.ty, index), dim_count)
+      end
+      return (nothing, dim_count)
+    end
+
+    _ => begin
+      return (nothing, 0)
+    end
+  end
 end
 
 """

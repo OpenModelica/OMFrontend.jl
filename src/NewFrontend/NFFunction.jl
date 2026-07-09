@@ -1017,12 +1017,24 @@ end
  they are not already typed.
 """
 function typeNodeCache(@nospecialize(functionNode::InstNode))::Vector{M_FUNCTION}
+  local fn_node::InstNode = classScope(functionNode)
+  if _parallelTypingActive()
+    local l = _typeClaim(_refId(fn_node))
+    lock(l)
+    try
+      return typeNodeCache2(fn_node)
+    finally
+      unlock(l)
+    end
+  end
+  return typeNodeCache2(fn_node)
+end
+
+function typeNodeCache2(fn_node::InstNode)::Vector{M_FUNCTION}
   local functions::Vector{M_FUNCTION}
-  local fn_node::InstNode
   local typed::Bool
   local special::Bool
   local name::String
-  fn_node = classScope(functionNode)
   #@match C_FUNCTION(functions, typed, special) = getFuncCache(fn_node)
   local cache = getFuncCache(fn_node)
   typed = cache.typed

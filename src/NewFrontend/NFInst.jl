@@ -2215,6 +2215,29 @@ parallelInstEnabled(n::Int) =
   PARALLEL_INST[] && Threads.nthreads() >= 2 && n >= PARALLEL_INST_THRESHOLD &&
   !_holdsInstSharedLock()
 
+#= Parallel typing: per-node claim locks. Typing one component can reach into
+   another (cref typing, binding evaluation, structural-param marking), so every
+   mutation of a component payload during typing happens under that node's claim.
+   Claims are reentrant and are acquired along dependency edges, which form a DAG
+   in valid models; a genuinely cyclic model would deadlock here instead of
+   hitting the serial recursion-limit error. =#
+const _TYPE_CLAIM_SHARDS = 64
+const _TYPE_CLAIMS = [Dict{UInt64, ReentrantLock}() for _ in 1:_TYPE_CLAIM_SHARDS]
+const _TYPE_CLAIMS_LOCKS = [ReentrantLock() for _ in 1:_TYPE_CLAIM_SHARDS]
+
+function _typeClaim(id::UInt64)::ReentrantLock
+  local shard = Int(id % _TYPE_CLAIM_SHARDS) + 1
+  local sl = @inbounds _TYPE_CLAIMS_LOCKS[shard]
+  lock(sl)
+  try
+    return get!(ReentrantLock, @inbounds(_TYPE_CLAIMS[shard]), id)
+  finally
+    unlock(sl)
+  end
+end
+
+_parallelTypingActive() = PARALLEL_INST[] && Threads.nthreads() >= 2
+
 #= Runaway backstops. Atomic so they are safe to bump from parallel instantiation
    workers; the depth guard uses the per-stack `instLevel` parameter instead. =#
 const INST_CLASS_TOTAL_CALLS = Threads.Atomic{Int}(0)
@@ -2232,6 +2255,11 @@ function resetInstDiagnostics()
   empty!(CLASS_PTR_WRITERS)
   empty!(COMPONENT_PTR_WRITERS)
   @atomic INST_CACHE.dict = Base.PersistentDict{UInt64, InstNode}()
+  for i in 1:_TYPE_CLAIM_SHARDS
+    lock(_TYPE_CLAIMS_LOCKS[i]) do
+      empty!(_TYPE_CLAIMS[i])
+    end
+  end
   resetLookupCache()
 end
 
@@ -3590,9 +3618,22 @@ function markStructuralParamsExp_traverser(@nospecialize(exp::Expression))::Noth
 end
 
 function markStructuralParamsComp(component::Component, node::InstNode)::Nothing
+  if _parallelTypingActive()
+    local l = _typeClaim(_refId(node))
+    lock(l)
+    try
+      return markStructuralParamsComp2(node)
+    finally
+      unlock(l)
+    end
+  end
+  return markStructuralParamsComp2(node)
+end
+
+function markStructuralParamsComp2(node::InstNode)::Nothing
   local comp::Component
   local binding::Option{Expression}
-  comp = setVariability(Variability.STRUCTURAL_PARAMETER, component)
+  comp = setVariability(Variability.STRUCTURAL_PARAMETER, component(node))
   node = updateComponent!(comp, node)
   binding = untypedExp(getBinding(comp))
   if isSome(binding)

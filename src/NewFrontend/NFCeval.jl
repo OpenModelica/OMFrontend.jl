@@ -497,6 +497,27 @@ function evalComponentBinding(
   target::EvalTarget,
   evalSubscripts::Bool = true,
 )::Expression #= The expression returned if the binding couldn't be evaluated =#
+  #= Typing plus evaluated-flag write-back must be atomic per node under
+     parallel typing. =#
+  if _parallelTypingActive()
+    local l = _typeClaim(_refId(resolveOuter(node)))
+    lock(l)
+    try
+      return evalComponentBinding2(node, cref, defaultExp, target, evalSubscripts)
+    finally
+      unlock(l)
+    end
+  end
+  return evalComponentBinding2(node, cref, defaultExp, target, evalSubscripts)
+end
+
+function evalComponentBinding2(
+  node::InstNode,
+  cref::ComponentRef,
+  defaultExp::Expression,
+  target::EvalTarget,
+  evalSubscripts::Bool = true,
+)::Expression #= The expression returned if the binding couldn't be evaluated =#
   local exp::Expression
   local exp_origin::ORIGIN_Type
   local comp::Component
