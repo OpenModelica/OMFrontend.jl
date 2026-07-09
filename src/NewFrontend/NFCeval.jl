@@ -500,13 +500,9 @@ function evalComponentBinding(
   #= Typing plus evaluated-flag write-back must be atomic per node under
      parallel typing. =#
   if _parallelTypingActive()
-    local l = _typeClaim(_refId(resolveOuter(node)))
-    lock(l)
-    try
-      return evalComponentBinding2(node, cref, defaultExp, target, evalSubscripts)
-    finally
-      unlock(l)
-    end
+    return _withClaim(
+      () -> evalComponentBinding2(node, cref, defaultExp, target, evalSubscripts),
+      _refId(resolveOuter(node)))
   end
   return evalComponentBinding2(node, cref, defaultExp, target, evalSubscripts)
 end

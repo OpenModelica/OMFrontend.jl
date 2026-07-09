@@ -181,7 +181,7 @@ function typeClass(cls::InstNode, name::String)
   _typeDepthRef()[] = 0
   TYPE_COMPONENT_MAX_DEPTH[] = 0
   typeClassType(cls, EMPTY_BINDING, ORIGIN_CLASS, cls)
-  cls = typeComponents(cls, ORIGIN_CLASS; fanOut = true)
+  cls = typeComponents(cls, ORIGIN_CLASS)
   #  execStat("NFtypeComponents(" + name + ")")
   local tyRef = Ref{NFType}(TYPE_UNKNOWN())
   local varRef = Ref{VariabilityType}(Variability.CONSTANT)
@@ -192,26 +192,21 @@ function typeClass(cls::InstNode, name::String)
   return
 end
 
-function typeComponents(cls::InstNode, origin::ORIGIN_Type; fanOut::Bool = false)::InstNode
-  #= Shared class nodes (derived base-class chains) are mutated here; claim the
-     class node. The root fan-out call claims nothing so workers never wait on
-     a lock held across the @sync. Builtins are read-only here. =#
-  if !fanOut && _parallelTypingActive()
-    if isvariant(getClass(cls), INSTANCED_BUILTIN)
-      return typeComponents2(cls, origin, false)
+function typeComponents(cls::InstNode, origin::ORIGIN_Type)::InstNode
+  #= Derived-chain branches mutate shared class payloads and run under the
+     class claim. Builtins and FLAT_TREE walks run unclaimed so subtree
+     fan-out stays possible; the FLAT_TREE write-back takes a short claim. =#
+  if _parallelTypingActive()
+    local peek = getClass(cls)
+    if isvariant(peek, INSTANCED_BUILTIN) || isvariant(peek, INSTANCED_CLASS)
+      return typeComponents2(cls, origin)
     end
-    local l = _typeClaim(_refId(cls))
-    lock(l)
-    try
-      return typeComponents2(cls, origin, false)
-    finally
-      unlock(l)
-    end
+    return _withClaim(() -> typeComponents2(cls, origin), _refId(cls))
   end
-  return typeComponents2(cls, origin, fanOut)
+  return typeComponents2(cls, origin)
 end
 
-function typeComponents2(cls::InstNode, origin::ORIGIN_Type, fanOut::Bool)::InstNode
+function typeComponents2(cls::InstNode, origin::ORIGIN_Type)::InstNode
   local c::Class = getClass(cls)
   local c2::Class
   local cls_tree::ClassTree
@@ -223,9 +218,11 @@ function typeComponents2(cls::InstNode, origin::ORIGIN_Type, fanOut::Bool)::Inst
     end
 
     INSTANCED_CLASS(elements = cls_tree && CLASS_TREE_FLAT_TREE(__)) => begin
-      if fanOut && parallelInstEnabled(length(cls_tree.components))
-        #= Root-level fan-out only: workers here hold no claims, so claim
-           acquisition inside follows dependency order and cannot deadlock. =#
+      #= parallelInstEnabled requires _noClaimsHeld(): a task holding a claim
+         must not @sync-wait on workers that may need that claim. Two tasks can
+         walk a shared FLAT_TREE concurrently, so the (rare) inner-outer
+         write-back is claimed. =#
+      if parallelInstEnabled(length(cls_tree.components))
         local parentTok = get(task_local_storage(), :OMF_ROOT, 0)::Int
         @sync for i in eachindex(cls_tree.components)
           local idx = i
@@ -235,7 +232,9 @@ function typeComponents2(cls::InstNode, origin::ORIGIN_Type, fanOut::Bool)::Inst
             local compNode = @inbounds cls_tree.components[idx]
             local node, _ = typeComponentNode(compNode, origin)
             if node !== compNode
-              @inbounds cls_tree.components[idx] = node
+              _withClaim(_refId(cls)) do
+                @inbounds cls_tree.components[idx] = node
+              end
             end
           end
         end
@@ -244,7 +243,13 @@ function typeComponents2(cls::InstNode, origin::ORIGIN_Type, fanOut::Bool)::Inst
           local compNode = @inbounds cls_tree.components[i]
           local node, _ = typeComponentNode(compNode, origin)
           if node !== compNode
-            @inbounds cls_tree.components[i] = node
+            if _parallelTypingActive()
+              _withClaim(_refId(cls)) do
+                @inbounds cls_tree.components[i] = node
+              end
+            else
+              @inbounds cls_tree.components[i] = node
+            end
           end
         end
       end
@@ -317,13 +322,7 @@ end
 
 function typeStructor(node::InstNode)
   if _parallelTypingActive()
-    local l = _typeClaim(_refId(node))
-    lock(l)
-    try
-      return typeStructor2(node)
-    finally
-      unlock(l)
-    end
+    return _withClaim(() -> typeStructor2(node), _refId(node))
   end
   return typeStructor2(node)
 end
@@ -365,13 +364,9 @@ end
     if isvariant(peek, TYPED_DERIVED) || isvariant(peek, INSTANCED_BUILTIN)
       return typeClassType2(clsNode, componentBinding, origin, instanceNode)
     end
-    local l = _typeClaim(_refId(clsNode))
-    lock(l)
-    try
-      return typeClassType2(clsNode, componentBinding, origin, instanceNode)
-    finally
-      unlock(l)
-    end
+    return _withClaim(
+      () -> typeClassType2(clsNode, componentBinding, origin, instanceNode),
+      _refId(clsNode))
   end
   return typeClassType2(clsNode, componentBinding, origin, instanceNode)
 end
@@ -576,14 +571,24 @@ function typeComponentNode(inComponent::InstNode, origin::ORIGIN_Type)::Tuple{In
   local node::InstNode = resolveOuter(inComponent)
   local c::Component = component(node)
   if isvariant(c, UNTYPED_COMPONENT) && _parallelTypingActive()
-    local l = _typeClaim(_refId(node))
-    lock(l)
-    try
+    #= The component's own payload is typed under its claim; the claim is
+       released before typing children so subtree fan-out never @sync-waits
+       while holding a lock. Other tasks seeing TYPED only consume the type. =#
+    local doChildren::Bool = false
+    ty = _withClaim(_refId(node)) do
       #= Re-read under the claim: another task may have typed it meanwhile. =#
-      c = component(node)
-      (node, ty) = typeComponentNode2(inComponent, node, c, origin)
-    finally
-      unlock(l)
+      local c2 = component(node)
+      if isvariant(c2, UNTYPED_COMPONENT)
+        doChildren = true
+        typeComponentPayload!(inComponent, node, c2, origin)
+      else
+        local r = typeComponentNode2(inComponent, node, c2, origin)
+        node = r[1]
+        r[2]
+      end
+    end
+    if doChildren
+      typeComponentChildren!(node, origin)
     end
   else
     (node, ty) = typeComponentNode2(inComponent, node, c, origin)
@@ -592,6 +597,43 @@ function typeComponentNode(inComponent::InstNode, origin::ORIGIN_Type)::Tuple{In
   finally
     depthRef[] -= 1
   end
+end
+
+"""
+  Types the component's dimensions and its own type, and installs the typed
+  component. Does not type the children.
+"""
+function typeComponentPayload!(
+  inComponent::InstNode,
+  node::InstNode,
+  c::Component,
+  origin::ORIGIN_Type,
+  )::NFType
+  typeDimensions(c.dimensions, node, c.binding, origin, c.info)
+  local ty = typeClassType(c.classInst, c.binding, origin, inComponent)
+  ty = liftArrayLeftList(ty, arrayList(c.dimensions))
+  updateComponent!(setType(ty, c), node)
+  #=  Check that flow/stream variables are Real. =#
+  checkComponentStreamAttribute(c.attributes.connectorType, ty, inComponent)
+  return ty
+end
+
+function typeComponentChildren!(node::InstNode, origin::ORIGIN_Type)::Nothing
+  local c = component(node)
+  local classInst = typeComponents(c.classInst, origin)
+  if classInst !== c.classInst
+    if _parallelTypingActive()
+      _withClaim(_refId(node)) do
+        local c2 = component(node)
+        @assign c2.classInst = classInst
+        updateComponent!(c2, node)
+      end
+    else
+      @assign c.classInst = classInst
+      updateComponent!(c, node)
+    end
+  end
+  return nothing
 end
 
 function typeComponentNode2(
@@ -605,21 +647,9 @@ function typeComponentNode2(
     @match c begin
       #=  An untyped component, type it. =#
       UNTYPED_COMPONENT(__) => begin
-        #=  Type the component's dimensions. =#
-        typeDimensions(c.dimensions, node, c.binding, origin, c.info)
-        #=  Construct the type of the component and update the node with it. =#
-         ty = typeClassType(c.classInst, c.binding, origin, inComponent)
-         ty = liftArrayLeftList(ty, arrayList(c.dimensions))
-        node = updateComponent!(setType(ty, c), node)
-        #=  Check that flow/stream variables are Real. =#
-        checkComponentStreamAttribute(c.attributes.connectorType, ty, inComponent)
+        ty = typeComponentPayload!(inComponent, node, c, origin)
         #=  Type the component's children. =#
-        local classInst = typeComponents(c.classInst, origin)
-        if classInst !== c.classInst
-          local c2 = component(node)
-          @assign c2.classInst = classInst
-          node = updateComponent!(c2, node)
-        end
+        typeComponentChildren!(node, origin)
         ty
       end
       #=  A component that has already been typed, skip it. =#
@@ -752,13 +782,9 @@ function typeDimension(
      enough: claim the vector itself so the isProcessing cycle marker is never
      observed across tasks. =#
   if _parallelTypingActive()
-    local l = _typeClaim(objectid(dimensions))
-    lock(l)
-    try
-      return typeDimension2(dimensions, index, component, binding, origin, info)
-    finally
-      unlock(l)
-    end
+    return _withClaim(
+      () -> typeDimension2(dimensions, index, component, binding, origin, info),
+      objectid(dimensions))
   end
   typeDimension2(
     dimensions::Vector{Dimension},
@@ -1809,13 +1835,9 @@ function typeCrefDim2(cref::ComponentRef,
           node = resolveOuter(cr.node)
           local odim::Union{Dimension, Nothing}
           if _parallelTypingActive()
-            local l = _typeClaim(_refId(node))
-            lock(l)
-            try
-              (odim, dim_count) = typeCrefDimNode(node, index, origin)
-            finally
-              unlock(l)
-            end
+            local crNode = node
+            (odim, dim_count) = _withClaim(
+              () -> typeCrefDimNode(crNode, index, origin), _refId(crNode))
           else
             (odim, dim_count) = typeCrefDimNode(node, index, origin)
           end

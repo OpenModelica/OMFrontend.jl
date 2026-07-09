@@ -301,15 +301,12 @@ end
   local n = resolveOuter(inComponent)
   local is_self = referenceEq(n, inComponent)
   if _parallelTypingActive()
-    local l = _typeClaim(_refId(n))
-    lock(l)
-    try
-      #= component(n) is read under the claim so a concurrent typing of the
-         same node is fully ordered with this one. =#
-      n = typeComponentBinding2(inComponent, n, component(n), origin, typeChildren)
-    finally
-      unlock(l)
-    end
+    #= component(n) is read under the claim so a concurrent typing of the
+       same node is fully ordered with this one. =#
+    local n0 = n
+    n = _withClaim(
+      () -> typeComponentBinding2(inComponent, n0, component(n0), origin, typeChildren),
+      _refId(n0))
   else
     n = typeComponentBinding2(inComponent, n, component(n), origin, typeChildren)
   end

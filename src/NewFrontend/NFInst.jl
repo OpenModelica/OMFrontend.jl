@@ -2213,7 +2213,7 @@ _holdsInstSharedLock() = _INST_SHARED_LOCK.locked_by === current_task()
 
 parallelInstEnabled(n::Int) =
   PARALLEL_INST[] && Threads.nthreads() >= 2 && n >= PARALLEL_INST_THRESHOLD &&
-  !_holdsInstSharedLock()
+  !_holdsInstSharedLock() && _noClaimsHeld()
 
 #= Parallel typing: per-node claim locks. Typing one component can reach into
    another (cref typing, binding evaluation, structural-param marking), so every
@@ -2237,6 +2237,37 @@ function _typeClaim(id::UInt64)::ReentrantLock
 end
 
 _parallelTypingActive() = PARALLEL_INST[] && Threads.nthreads() >= 2
+
+#= Per-task count of claims currently held. Fan-out while holding a claim can
+   deadlock: the spawning task waits at @sync while a worker waits on the held
+   claim. Fan-out sites therefore require _noClaimsHeld(). =#
+@inline function _claimsHeldRef()::Base.RefValue{Int}
+  local tls = task_local_storage()
+  local r = get(tls, :OMF_CLAIMS_HELD, nothing)
+  if r === nothing
+    r = Ref(0)
+    tls[:OMF_CLAIMS_HELD] = r
+  end
+  return r::Base.RefValue{Int}
+end
+
+_noClaimsHeld() = _claimsHeldRef()[] == 0
+
+"""
+  Runs `f` while holding the claim for `id`, tracking the per-task held count.
+"""
+function _withClaim(f, id::UInt64)
+  local l = _typeClaim(id)
+  local held = _claimsHeldRef()
+  lock(l)
+  held[] += 1
+  try
+    return f()
+  finally
+    held[] -= 1
+    unlock(l)
+  end
+end
 
 #= Runaway backstops. Atomic so they are safe to bump from parallel instantiation
    workers; the depth guard uses the per-stack `instLevel` parameter instead. =#
@@ -3619,13 +3650,7 @@ end
 
 function markStructuralParamsComp(component::Component, node::InstNode)::Nothing
   if _parallelTypingActive()
-    local l = _typeClaim(_refId(node))
-    lock(l)
-    try
-      return markStructuralParamsComp2(node)
-    finally
-      unlock(l)
-    end
+    return _withClaim(() -> markStructuralParamsComp2(node), _refId(node))
   end
   return markStructuralParamsComp2(node)
 end

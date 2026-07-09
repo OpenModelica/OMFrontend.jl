@@ -1019,13 +1019,7 @@ end
 function typeNodeCache(@nospecialize(functionNode::InstNode))::Vector{M_FUNCTION}
   local fn_node::InstNode = classScope(functionNode)
   if _parallelTypingActive()
-    local l = _typeClaim(_refId(fn_node))
-    lock(l)
-    try
-      return typeNodeCache2(fn_node)
-    finally
-      unlock(l)
-    end
+    return _withClaim(() -> typeNodeCache2(fn_node), _refId(fn_node))
   end
   return typeNodeCache2(fn_node)
 end

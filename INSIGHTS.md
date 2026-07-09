@@ -1024,3 +1024,34 @@ single-threaded that parallel paths are not tested (recipe:
 `Pkg.test("OMFrontend"; julia_args = ["-t", "auto"])`). Gates for all of the
 above: 361/361 fresh `julia -t 8` (parallel by default) and 361/361 fresh
 `julia -t 1` (serial).
+
+## Nested parallel typing: release claims before descending (2026-07-09, Fable)
+
+Typing now fans out at EVERY class-tree level, not just the root. Two
+mechanisms make this deadlock-free, both in `src/NewFrontend/NFInst.jl` /
+`NFTyping.jl`:
+
+1. **Claim-scope split.** `typeComponentNode` types the component's own
+   payload (dimensions, type, `setType`) under its claim via
+   `typeComponentPayload!`, RELEASES the claim, and only then types children
+   (`typeComponentChildren!`). The invariant other tasks rely on — TYPED means
+   the component's own type is complete — never required children to be done;
+   the root `@sync` still barriers before `typeBindings`.
+2. **Held-claims counter.** `_withClaim(f, id)` is the single claim-acquisition
+   path and tracks a task-local count; `parallelInstEnabled` additionally
+   requires `_noClaimsHeld()`. A task that does hold a claim (derived-chain
+   collapse, binding evaluation) types that subtree serially instead of
+   deadlocking its own workers. `typeComponents` runs FLAT_TREE walks and
+   builtins unclaimed (the rare inner-outer vector write-back takes a short
+   claim keyed by the class); only class-payload-mutating branches hold the
+   class claim across their body.
+
+EngineV6, fresh `julia -t 8`: whole flatten 8.31 s serial -> 6.44 s root-only
+-> 5.25 s nested (~1.6x); typeClass 1.23 s, instantiate 1.01 s,
+resolveConnections 0.60 s. Suites 361/361 both `-t 8` (parallel by default)
+and `-t 1`.
+
+Remaining exception-as-control-flow candidates surveyed and deferred (moderate
+heat only): `tryEvalExp` (`NFCeval.jl`, throws once per non-constant RHS in
+scalarize) and the `start`-attribute lookup in `evalComponentStartBinding`.
+The other catch sites are legitimate fallbacks.
