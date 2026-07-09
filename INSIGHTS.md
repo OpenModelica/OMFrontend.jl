@@ -1055,3 +1055,35 @@ Remaining exception-as-control-flow candidates surveyed and deferred (moderate
 heat only): `tryEvalExp` (`NFCeval.jl`, throws once per non-constant RHS in
 scalarize) and the `start`-attribute lookup in `evalComponentStartBinding`.
 The other catch sites are legitimate fallbacks.
+
+## Connections-operator evaluation: gate the rebuild-map, flag the usage (2026-07-09, Fable)
+
+`evalConnectionsOperators` (`src/NewFrontend/NFOCConnectionGraph.jl`) mapped a
+5-argument helper over every expression node of every equation via the generic
+rebuilding `map`. Bisection facts worth keeping: EngineV6 has ~80k recursive
+expression nodes and only ~1.8k call nodes; the generic map with a nontrivial
+closure costs ~4-17 us per node (the machinery, not the helper — an identity
+closure runs the same trees in 0.012 s), so the walk cost 1.4 s to find a
+handful of operator calls. Two fixes:
+
+1. `System.getUsesConnectionsOperators()` (GLOBAL_MEMORY[7], reset with its
+   siblings in `NFInst`, set in `NFBuiltinCall` when typing
+   `Connections.rooted`/`isRoot`/`uniqueRootIndices`): operator-free models
+   skip the walk entirely.
+2. Per top-level expression, the early-exit read-only `contains(x,
+   isConnectionsOperatorCall)` gates the expensive rebuilding map; the map runs
+   only on the few operator-containing expressions. Sub-step went 1.43 s ->
+   0.27 s (the 0.27 s remainder is the contains walk itself — the generic
+   traversal floor).
+
+Lessons: (a) prefer `contains`/fold-style read-only gates before rebuild-maps
+on whole-model equation sets; (b) the generic Expression `map`/`apply`
+machinery is ~us-per-node — do not put it in a loop over 10k equations without
+a gate; (c) the remaining `rc:overconstrained` cost is the graph-collection
+loop (`generateEqualityConstraintEquation`: per-connection lookups + typeExp),
+the next sub-target. Sub-step `@EXECSTAT` timers (`oc:*`) are now permanent.
+
+Warm-REPL caveat reconfirmed the hard way: after many Revise cycles the
+process degrades ~4x globally; perf numbers must come from fresh processes.
+Battery power also skews absolute wall times — allocation counts are the
+stable metric.

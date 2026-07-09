@@ -284,6 +284,7 @@ function setSettingForInst()
   System.setUsesCardinality(false)
   System.setHasOverconstrainedConnectors(false)
   System.setHasStreamConnectors(false)
+  System.setUsesConnectionsOperators(false)
 end
 
 """

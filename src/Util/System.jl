@@ -639,6 +639,17 @@ function getHasInnerOuterDefinitions() ::Bool
   hasInnerOuterDefinitions
 end
 
+"""Sets the flag that signals use of Connections.rooted/isRoot/uniqueRootIndices."""
+function setUsesConnectionsOperators(inUses::Bool)
+  GLOBAL_MEMORY[7] = inUses
+end
+
+"""Retrieves the flag that signals use of Connections.rooted/isRoot/uniqueRootIndices."""
+function getUsesConnectionsOperators()::Bool
+  local outUses::Bool = GLOBAL_MEMORY[7]
+  outUses
+end
+
 """returns a tick that can be reset"""
 function tmpTick() ::Int
   local tickNo::Int

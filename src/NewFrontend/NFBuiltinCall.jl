@@ -1575,6 +1575,7 @@ function typeIsRootCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
   local fn::M_Function
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
   assertNoNamedParams("Connections.isRoot", named_args, info)
+  System.setUsesConnectionsOperators(true)
   if length(args) != 1
     Error.addSourceMessageAndFail(Error.NO_MATCHING_FUNCTION_FOUND_NFINST, list(toString(call), toString(fn_ref) + "(Connector)"), info)
   end
@@ -1673,6 +1674,7 @@ function typeRootedCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tupl
   local fn::M_Function
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
   assertNoNamedParams("Connections.rooted", named_args, info)
+  System.setUsesConnectionsOperators(true)
   if length(args) != 1
     Error.addSourceMessageAndFail(Error.NO_MATCHING_FUNCTION_FOUND_NFINST, list(toString(call), toString(fn_ref) + "(Connector)"), info)
   end
@@ -1768,6 +1770,7 @@ end
                   local ty3::M_Type
 
 #                  Error.addSourceMessage(Error.NON_STANDARD_OPERATOR, list("Connections.uniqueRootIndices"), info) TODO
+                  System.setUsesConnectionsOperators(true)
                   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
                   for narg in named_args
                      (name, arg3) = narg

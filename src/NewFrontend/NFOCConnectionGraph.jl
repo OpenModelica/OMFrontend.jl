@@ -193,8 +193,8 @@ function handleOverconstrainedConnections(flatModel::FlatModel,
   #=  now we have the graph, remove the broken connects and evaluate the equation operators =#
   eql = eql
   ieql = flatModel.initialEquations
-  (eql, ieql, connected, broken) = handleOverconstrainedConnections_dispatch(graph, modelNameQualified, eql, ieql)
-  eql = removeBrokenConnects(eql, connected, broken)
+  @EXECSTAT "    oc:dispatch" (eql, ieql, connected, broken) = handleOverconstrainedConnections_dispatch(graph, modelNameQualified, eql, ieql)
+  @EXECSTAT "    oc:removeBroken" eql = removeBrokenConnects(eql, connected, broken)
   #= Convert the lists back to arrays =#
   @assign begin
     flatModel.equations = eql
@@ -360,14 +360,14 @@ function handleOverconstrainedConnections_dispatch(inGraph::NFOCConnectionGraph,
                 + "\\n\\t" + "Nr Branches:        " + intString(listLength(getBranches(graph)))
                 + "\\n\\t" + "Nr Connections:     " + intString(listLength(getConnections(graph))) + "\\n")
         end
-        (roots, connected, broken) = findResultGraph(graph, modelNameQualified)
+        @EXECSTAT "    oc:findResultGraph" (roots, connected, broken) = findResultGraph(graph, modelNameQualified)
         if Flags.isSet(Flags.CGRAPH)
           print("Roots: " + stringDelimitList(ListUtil.map(roots, toString), ", ") + "\\n")
           print("Broken connections: " + stringDelimitList(ListUtil.map1(broken, printConnectionStr, "broken"), ", ") + "\\n")
           print("Allowed connections: " + stringDelimitList(ListUtil.map1(connected, printConnectionStr, "allowed"), ", ") + "\\n")
         end
-        eqs = evalConnectionsOperators(roots, graph, eqs)
-        ieqs = evalConnectionsOperators(roots, graph, ieqs)
+        @EXECSTAT "    oc:evalOperators" eqs = evalConnectionsOperators(roots, graph, eqs)
+        @EXECSTAT "    oc:evalOperatorsInit" ieqs = evalConnectionsOperators(roots, graph, ieqs)
         (eqs, ieqs, connected, broken)
       end
 
@@ -904,6 +904,16 @@ function addConnectionRooted(cref1::ComponentRef, cref2::ComponentRef, itable::N
   return otable
 end
 
+"""True for calls to the Connections operators that evalConnectionsOperators replaces (rooted, isRoot, uniqueRootIndices)."""
+function isConnectionsOperatorCall(exp::Expression)::Bool
+  if !(exp isa CALL_EXPRESSION)
+    return false
+  end
+  local call = exp.call
+  return isvariant(call, TYPED_CALL) &&
+    identifyConnectionsOperator(name(call.fn)) !== ConnectionsOperator.NOT_OPERATOR
+end
+
 """
 evaluation of Connections.rooted, Connections.isRoot, Connections.uniqueRootIndices
   - replaces all [Connections.]rooted calls by true or false depending on wheter branche frame_a or frame_b is closer to root
@@ -916,35 +926,29 @@ See Modelica_StateGraph2:
   for a specification of this operator
 """
 function evalConnectionsOperators(inRoots::List{<:ComponentRef}, graph::NFOCConnectionGraph, inEquations::Vector{Equation}) ::Vector{Equation}
-  local outEquations::Vector{Equation}
-  outEquations = begin
-    local rooted::NFHashTable.HashTable
-    local table::NFHashTable3.HashTable
-    local branches::Edges
-    local connections::FlatEdges
-    local rootEqs = Equation[]
-    outEquations = @matchcontinue (inRoots, graph, inEquations) begin
-      (_, _,  [])  => begin
-        Equation[]
-      end
-      _  => begin
-        table = NFHashTable3.emptyHashTable()
-        branches = getBranches(graph)
-        table = ListUtil.fold(branches, addBranches, table)
-        connections = getConnections(graph)
-        table = ListUtil.fold(connections, addConnectionsRooted, table)
-        rooted = setRootDistance(inRoots, table, 0, nil, NFHashTable.emptyHashTable())
-        tmp = Equation[]
-        for eq in inEquations
-          info = Equation_info(eq)
-          neq =  mapExp(eq, (x) -> evaluateOperators(x, rooted, inRoots, graph, info))
-          push!(tmp, neq)
-        end
-        outEquations = tmp
-      end
-    end
+  local rooted::NFHashTable.HashTable
+  local table::NFHashTable3.HashTable
+  if isempty(inEquations) || !System.getUsesConnectionsOperators()
+    return inEquations
   end
-    return outEquations
+  table = NFHashTable3.emptyHashTable()
+  table = ListUtil.fold(getBranches(graph), addBranches, table)
+  table = ListUtil.fold(getConnections(graph), addConnectionsRooted, table)
+  rooted = setRootDistance(inRoots, table, 0, nil, NFHashTable.emptyHashTable())
+  local tmp = Equation[]
+  for eq in inEquations
+    #= The rebuilding operator map is expensive per node; gate it on a cheap
+       early-exit containment check so operator-free equations pass through. =#
+    local neq = mapExp(eq, (x) -> begin
+      if contains(x, isConnectionsOperatorCall)
+        evaluateOperators(x, rooted, inRoots, graph, Equation_info(eq))
+      else
+        x
+      end
+    end)
+    push!(tmp, neq)
+  end
+  return tmp
 end
 
 """
@@ -1014,6 +1018,15 @@ function evalConnectionsOperatorsHelper(exp::Expression,
                                         rooted::NFHashTable.HashTable,
                                         roots::List{<:ComponentRef},
                                         graph::NFOCConnectionGraph, info::SourceInfo)::Expression
+  #= Cheap exit for the overwhelmingly common non-call node. =#
+  if !(exp isa CALL_EXPRESSION)
+    return exp
+  end
+  local c0 = exp.call
+  if !isvariant(c0, TYPED_CALL) ||
+     identifyConnectionsOperator(name(c0.fn)) === ConnectionsOperator.NOT_OPERATOR
+    return exp
+  end
   local outExp::Expression
   @assign outExp = begin
     local uroots::Expression
