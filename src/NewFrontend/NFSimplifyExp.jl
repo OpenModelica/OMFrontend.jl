@@ -270,11 +270,12 @@ end
 end
 
 const CONST_FOLD_CACHE = Dict{String,Expression}()
+const CONST_FOLD_CACHE_LOCK = ReentrantLock()
 
 function simplifyCall2(call::Call)
   local outExp::Expression
   local key = toString(CALL_EXPRESSION(call))
-  local hit = get(CONST_FOLD_CACHE, key, nothing)
+  local hit = lock(() -> get(CONST_FOLD_CACHE, key, nothing), CONST_FOLD_CACHE_LOCK)
   if hit !== nothing
     return hit
   end
@@ -283,7 +284,7 @@ function simplifyCall2(call::Call)
      outExp = evalCall(call, EVALTARGET_IGNORE_ERRORS())
      outExp = stripBindingInfo(outExp)
     ErrorExt.delCheckpoint(getInstanceName())
-    CONST_FOLD_CACHE[key] = outExp
+    lock(() -> CONST_FOLD_CACHE[key] = outExp, CONST_FOLD_CACHE_LOCK)
   catch
     if Flags.isSet(Flags.FAILTRACE)
       ErrorExt.delCheckpoint(getInstanceName())

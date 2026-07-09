@@ -181,14 +181,11 @@ function typeClass(cls::InstNode, name::String)
   _typeDepthRef()[] = 0
   TYPE_COMPONENT_MAX_DEPTH[] = 0
   typeClassType(cls, EMPTY_BINDING, ORIGIN_CLASS, cls)
-  cls = typeComponents(cls, ORIGIN_CLASS)
-  #  execStat("NFtypeComponents(" + name + ")")
+  @EXECSTAT "  ty:components" cls = typeComponents(cls, ORIGIN_CLASS)
   local tyRef = Ref{NFType}(TYPE_UNKNOWN())
   local varRef = Ref{VariabilityType}(Variability.CONSTANT)
-  typeBindingsRefs(cls, cls, ORIGIN_CLASS, tyRef, varRef)
-#  execStat("NFTyping.typeBindings(" + name + ")")
-  cls = typeClassSections(cls, ORIGIN_CLASS)
-  #execStat("NFTyping.typeClassSections(" + name + ")")
+  @EXECSTAT "  ty:bindings" typeBindingsRefs(cls, cls, ORIGIN_CLASS, tyRef, varRef)
+  @EXECSTAT "  ty:sections" cls = typeClassSections(cls, ORIGIN_CLASS)
   return
 end
 
@@ -3017,11 +3014,8 @@ end
 
 function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)::InstNode
   local cls::Class
-  local typed_cls::Class
   local components::Vector{InstNode}
-  local sections::Sections
   local info::SourceInfo
-  local initial_origin::Int
    cls = getClass(classNode)
    _ = begin
     @match cls begin
@@ -3029,60 +3023,45 @@ function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)::InstNod
         ()
       end
 
-      INSTANCED_CLASS(
-        elements = CLASS_TREE_FLAT_TREE(components = components),
-        sections = sections,
-      ) => begin
-        sections = begin
-          @match sections begin
-            SECTIONS(__) => begin
-              initial_origin = setFlag(originArg, ORIGIN_INITIAL)
-              map(
-                sections,
-                (x) -> typeEquation(x,
-                  setFlag(originArg, ORIGIN_EQUATION),
-                ),
-                (x) -> typeAlgorithm(x,
-                  setFlag(originArg, ORIGIN_ALGORITHM),
-                ),
-                (x) ->
-                typeEquation(x,
-                  setFlag(initial_origin, ORIGIN_EQUATION),
-                  ),
-                (x) ->
-                  typeAlgorithm(x,
-                    setFlag(initial_origin, ORIGIN_ALGORITHM),
-                  )
-              )
-#              @error "TODO"
+      INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = components)) => begin
+        #= The class's own sections are typed under the class claim; the
+           component loop runs after release so subtree fan-out stays possible. =#
+        if _parallelTypingActive()
+          classNode = _withClaim(() -> typeOwnSections!(classNode, originArg), _refId(classNode))
+        else
+          classNode = typeOwnSections!(classNode, originArg)
+        end
+        if parallelInstEnabled(length(components))
+          local parentTok = get(task_local_storage(), :OMF_ROOT, 0)::Int
+          @sync for i in eachindex(components)
+            local idx = i
+            local tok = parentTok == 0 ? idx : parentTok
+            Threads.@spawn begin
+              task_local_storage(:OMF_ROOT, tok)
+              local compNode = @inbounds components[idx]
+              local node = typeComponentSections(compNode, originArg)
+              if node !== compNode
+                _withClaim(_refId(classNode)) do
+                  @inbounds components[idx] = node
+                end
+              end
             end
-            SECTIONS_EXTERNAL(__) => begin
-              Error.addSourceMessage(
-                Error.TRANS_VIOLATION,
-                list(
-                  name(classNode),
-                  P_Restriction.Restriction.toString(cls.restriction),
-                  "external declaration",
-                ),
-                InstNode_info(classNode),
-              )
-              fail()
-            end
-
-            _ => begin
-              sections
+          end
+        else
+          for i in eachindex(components)
+            local c = @inbounds components[i]
+            local node = typeComponentSections(c, originArg)
+            if node !== c
+              if _parallelTypingActive()
+                _withClaim(_refId(classNode)) do
+                  @inbounds components[i] = node
+                end
+              else
+                @inbounds components[i] = node
+              end
             end
           end
         end
-         typed_cls = setSections(sections, cls)
-        for i in eachindex(components)
-          local c = @inbounds components[i]
-          local node = typeComponentSections(c, originArg)
-          if node !== c
-            @inbounds components[i] = node
-          end
-        end
-        classNode = updateClass(typed_cls, classNode)
         ()
       end
 
@@ -3110,6 +3089,54 @@ function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)::InstNod
     end
    end
   return classNode
+end
+
+"""Types the class node's own equation and algorithm sections."""
+function typeOwnSections!(classNode::InstNode, originArg::ORIGIN_Type)::InstNode
+  local cls::Class = getClass(classNode)
+  local sections::Sections = cls.sections
+  local initial_origin::Int
+  sections = begin
+    @match sections begin
+      SECTIONS(__) => begin
+        initial_origin = setFlag(originArg, ORIGIN_INITIAL)
+        map(
+          sections,
+          (x) -> typeEquation(x,
+            setFlag(originArg, ORIGIN_EQUATION),
+          ),
+          (x) -> typeAlgorithm(x,
+            setFlag(originArg, ORIGIN_ALGORITHM),
+          ),
+          (x) ->
+          typeEquation(x,
+            setFlag(initial_origin, ORIGIN_EQUATION),
+            ),
+          (x) ->
+            typeAlgorithm(x,
+              setFlag(initial_origin, ORIGIN_ALGORITHM),
+            )
+        )
+      end
+      SECTIONS_EXTERNAL(__) => begin
+        Error.addSourceMessage(
+          Error.TRANS_VIOLATION,
+          list(
+            name(classNode),
+            P_Restriction.Restriction.toString(cls.restriction),
+            "external declaration",
+          ),
+          InstNode_info(classNode),
+        )
+        fail()
+      end
+
+      _ => begin
+        sections
+      end
+    end
+  end
+  return updateClass(setSections(sections, cls), classNode)
 end
 
 function typeFunctionSections(classNode::InstNode, origin::ORIGIN_Type)::InstNode

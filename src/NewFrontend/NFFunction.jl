@@ -2090,6 +2090,13 @@ end
 
 """Instantiates the given InstNode as a function."""
 function instFunctionNode(node::InstNode)::InstNode
+  if _parallelTypingActive()
+    return _withClaim(() -> instFunctionNode2(node), _refId(node))
+  end
+  return instFunctionNode2(node)
+end
+
+function instFunctionNode2(node::InstNode)::InstNode
   local cache::CachedData
   @assign cache = getFuncCache(node)
    () = begin
@@ -2112,13 +2119,27 @@ function instFunctionRef(
   info::SourceInfo,
 )::Tuple{ComponentRef, InstNode, Bool}
   local specialBuiltin::Bool
-  local fn_node::InstNode
-  local cache::CachedData
+  local fn_node::InstNode = classScope(node(fn_ref))
+  #= Cache check plus instantiation must be atomic per function node: typing
+     workers instantiate functions lazily. =#
+  if _parallelTypingActive()
+    (fn_node, specialBuiltin) = _withClaim(
+      () -> instFunctionRef2(fn_ref, fn_node, info), _refId(fn_node))
+  else
+    (fn_node, specialBuiltin) = instFunctionRef2(fn_ref, fn_node, info)
+  end
+  return (fn_ref, fn_node, specialBuiltin)
+end
+
+function instFunctionRef2(
+  fn_ref::ComponentRef,
+  fn_node::InstNode,
+  info::SourceInfo,
+)::Tuple{InstNode, Bool}
   local parent::InstNode
-  fn_node = classScope(node(fn_ref))
-  cache = getFuncCache(fn_node)
+  local cache::CachedData = getFuncCache(fn_node)
   #=  Check if a cached instantiation of this function already exists. =#
-  (fn_node, specialBuiltin) = begin
+  return begin
     @match cache begin
       C_FUNCTION(__) => begin
         (fn_node, cache.specialBuiltin)
@@ -2138,7 +2159,6 @@ function instFunctionRef(
       end
     end
   end
-  return (fn_ref, fn_node, specialBuiltin)
 end
 
 function instFunction(

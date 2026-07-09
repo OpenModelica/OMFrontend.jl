@@ -937,10 +937,12 @@ function instClassDef(cls::INSTANCED_CLASS,
   #= Track re-instantiation for diagnostics =#
   local reinstCount = Threads.atomic_add!(REINSTANTIATION_COUNT, 1) + 1
   cn = try name(node) catch; "?" end
-  REINSTANTIATION_CLASSES[cn] = get(REINSTANTIATION_CLASSES, cn, 0) + 1
-  if reinstCount % 5000 == 0
-    top5 = sort(Base.collect(REINSTANTIATION_CLASSES), by=last, rev=true)[1:min(5, length(REINSTANTIATION_CLASSES))]
-    @warn "Re-instantiation count: $(reinstCount) (total instClass calls: $(INST_CLASS_TOTAL_CALLS[]))" top_classes=top5
+  lock(_REINST_CLASSES_LOCK) do
+    REINSTANTIATION_CLASSES[cn] = get(REINSTANTIATION_CLASSES, cn, 0) + 1
+    if reinstCount % 5000 == 0
+      top5 = sort(Base.collect(REINSTANTIATION_CLASSES), by=last, rev=true)[1:min(5, length(REINSTANTIATION_CLASSES))]
+      @warn "Re-instantiation count: $(reinstCount) (total instClass calls: $(INST_CLASS_TOTAL_CALLS[]))" top_classes=top5
+    end
   end
   #=  If a class has an instance of a encapsulating class, then the encapsulating
   =#
@@ -2305,11 +2307,13 @@ const INST_CLASS_TOTAL_CALLS = Threads.Atomic{Int}(0)
 const INST_CLASS_TOTAL_CALLS_LIMIT = 200_000
 const REINSTANTIATION_COUNT = Threads.Atomic{Int}(0)
 const REINSTANTIATION_CLASSES = Dict{String, Int}()
+const _REINST_CLASSES_LOCK = ReentrantLock()
 
 function resetInstDiagnostics()
   Threads.atomic_xchg!(INST_CLASS_TOTAL_CALLS, 0)
   Threads.atomic_xchg!(REINSTANTIATION_COUNT, 0)
-  empty!(REINSTANTIATION_CLASSES)
+  lock(() -> empty!(REINSTANTIATION_CLASSES), _REINST_CLASSES_LOCK)
+  lock(() -> empty!(_INLINE_BODY_INFO_CACHE), _INLINE_BODY_INFO_LOCK)
   INST_EXPR_DEPTH[] = 0
   empty!(CLASS_PTR_WRITES)
   empty!(COMPONENT_PTR_WRITES)

@@ -109,11 +109,39 @@ function typeBindingsRefs(cls::InstNode,
     INSTANCED_CLASS(elements = cls_tree && CLASS_TREE_FLAT_TREE(__)) => begin
       local components = cls_tree.components::Vector{InstNode}
       local len = length(components)
-      for i in 1:len
-        local c = @inbounds components[i]
-        local node = typeComponentBindingRef(c, origin, true, tyRef, varRef)
-        if node !== c
-          @inbounds components[i] = node
+      #= Fan-out mirrors typeComponents: requires no held claims, and each
+         worker gets its own scratch type/variability refs. =#
+      if parallelInstEnabled(len)
+        local parentTok = get(task_local_storage(), :OMF_ROOT, 0)::Int
+        @sync for i in 1:len
+          local idx = i
+          local tok = parentTok == 0 ? idx : parentTok
+          Threads.@spawn begin
+            task_local_storage(:OMF_ROOT, tok)
+            local compNode = @inbounds components[idx]
+            local wTyRef = Ref{NFType}(TYPE_UNKNOWN())
+            local wVarRef = Ref{VariabilityType}(Variability.CONSTANT)
+            local node = typeComponentBindingRef(compNode, origin, true, wTyRef, wVarRef)
+            if node !== compNode
+              _withClaim(_refId(cls)) do
+                @inbounds components[idx] = node
+              end
+            end
+          end
+        end
+      else
+        for i in 1:len
+          local c = @inbounds components[i]
+          local node = typeComponentBindingRef(c, origin, true, tyRef, varRef)
+          if node !== c
+            if _parallelTypingActive()
+              _withClaim(_refId(cls)) do
+                @inbounds components[i] = node
+              end
+            else
+              @inbounds components[i] = node
+            end
+          end
         end
       end
       return nothing
@@ -183,61 +211,21 @@ function typeComponentBindingRef2_typed(
   tyRef::Ref{NFType},
   varRef::Ref{VariabilityType}
   )::InstNode
-  local binding::Binding
-  local nameStr::String
-  local comp_var::VariabilityType
   if isvariant(c.binding, UNTYPED_BINDING)
-    nameStr = inComponent.name
-    binding = c.binding
-
-    #= Type the condition first so we can skip matchBinding for disabled components. =#
-    cCond = if isBound(c.condition)
-      typeComponentCondition(c.condition, origin)
-    else
-      c.condition
-    end
-    @assign c.condition = cCond
-
-    #= Check if the condition evaluates to false (component is disabled). =#
-    local componentDisabled = false
-    if isBound(cCond)
-      try
-        local condExp = getTypedExp(cCond)
-        condExp = evalExp(condExp, EVALTARGET_CONDITION(Binding_getInfo(cCond)))
-        condExp = stripBindingInfo(condExp)
-        if condExp isa BOOLEAN_EXPRESSION && !condExp.value
-          componentDisabled = true
+    #= The payload runs under the node's claim; children are typed after the
+       claim is released so subtree fan-out never holds a lock across @sync. =#
+    if _parallelTypingActive()
+      node = _withClaim(_refId(node)) do
+        local c2 = component(node)
+        if isvariant(c2.binding, UNTYPED_BINDING)
+          typeBindingPayload!(inComponent, node, c2, origin, tyRef, varRef)
+        else
+          node
         end
-      catch
       end
+    else
+      node = typeBindingPayload!(inComponent, node, c, origin, tyRef, varRef)
     end
-
-    #ErrorExt.setCheckpoint(getInstanceName())
-    checkBindingEach(c.binding)
-    local originFlag = setFlag(origin, ORIGIN_BINDING)
-    local typedBinding::Binding = typeBinding(binding, originFlag, tyRef, varRef)
-    handleBindingError(binding)
-    #if !(Config.getGraphicsExpMode() && stringEq(nameStr, "graphics")) TODO
-    if !componentDisabled
-      typedBinding = matchBinding(typedBinding, c.ty, nameStr, node)
-      handleBindingError(typedBinding)
-    end
-    #end
-    comp_var = checkComponentBindingVariability(nameStr, c, typedBinding, origin)
-    if comp_var == 404
-      handleBindingError(binding)
-    end
-    attrs = c.attributes
-    if comp_var != attrs.variability
-      @assign attrs.variability = comp_var
-      @assign c.attributes = attrs
-    end
-    #str2 = toString(binding)
-    #@debug "Typed binding 2: $str2"
-    #        ErrorExt.delCheckpoint(getInstanceName()) TODO
-
-    @assign c.binding = typedBinding
-    node = updateComponent!(c, node)
     if typeChildren
       typeBindingsRefs(c.classInst, inComponent, origin, tyRef, varRef)
     end
@@ -245,21 +233,89 @@ function typeComponentBindingRef2_typed(
   end
   #=  Second case: A component without a binding, or with a binding that's already been typed. =#
   checkBindingEach(c.binding)
+  local changed::Bool = false
   if isTyped(c.binding)
     cBinding = matchBinding(c.binding, c.ty, name(inComponent), node)
     @assign c.binding = cBinding
+    changed = true
   end
 
   if isBound(c.condition)
     local cCond = typeComponentCondition(c.condition, origin)
     @assign c.condition = cCond
+    changed = true
   end
-  #= c is immutable now: install the (possibly) rebuilt component once. =#
-  node = updateComponent!(c, node)
+  if changed
+    if _parallelTypingActive()
+      local c3 = c
+      _withClaim(() -> updateComponent!(c3, node), _refId(node))
+    else
+      updateComponent!(c, node)
+    end
+  end
   if typeChildren
     typeBindingsRefs(c.classInst, inComponent, origin, tyRef, varRef)
   end
   return node
+end
+
+"""
+  Types the component's own binding and condition and installs the typed
+  component. Does not type the children.
+"""
+function typeBindingPayload!(
+  inComponent::InstNode,
+  node::InstNode,
+  c::Component,
+  origin::ORIGIN_Type,
+  tyRef::Ref{NFType},
+  varRef::Ref{VariabilityType}
+  )::InstNode
+  local nameStr::String = inComponent.name
+  local binding::Binding = c.binding
+  local comp_var::VariabilityType
+
+  #= Type the condition first so we can skip matchBinding for disabled components. =#
+  cCond = if isBound(c.condition)
+    typeComponentCondition(c.condition, origin)
+  else
+    c.condition
+  end
+  @assign c.condition = cCond
+
+  #= Check if the condition evaluates to false (component is disabled). =#
+  local componentDisabled = false
+  if isBound(cCond)
+    try
+      local condExp = getTypedExp(cCond)
+      condExp = evalExp(condExp, EVALTARGET_CONDITION(Binding_getInfo(cCond)))
+      condExp = stripBindingInfo(condExp)
+      if condExp isa BOOLEAN_EXPRESSION && !condExp.value
+        componentDisabled = true
+      end
+    catch
+    end
+  end
+
+  checkBindingEach(c.binding)
+  local originFlag = setFlag(origin, ORIGIN_BINDING)
+  local typedBinding::Binding = typeBinding(binding, originFlag, tyRef, varRef)
+  handleBindingError(binding)
+  if !componentDisabled
+    typedBinding = matchBinding(typedBinding, c.ty, nameStr, node)
+    handleBindingError(typedBinding)
+  end
+  comp_var = checkComponentBindingVariability(nameStr, c, typedBinding, origin)
+  if comp_var == 404
+    handleBindingError(binding)
+  end
+  attrs = c.attributes
+  if comp_var != attrs.variability
+    @assign attrs.variability = comp_var
+    @assign c.attributes = attrs
+  end
+  @assign c.binding = typedBinding
+  return updateComponent!(c, node)
 end
 
 

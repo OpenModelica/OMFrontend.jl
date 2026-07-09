@@ -47,20 +47,24 @@ const INLINE_POST_SUB_MAX_NODES = Ref{Int}(2)
    identity (_refId). Plain Tuple to dodge world-age issues on Revise-driven
    struct shape changes; UInt key to avoid String allocation per lookup. =#
 const _INLINE_BODY_INFO_CACHE = Dict{UInt, Tuple{Bool, Int}}()
+const _INLINE_BODY_INFO_LOCK = ReentrantLock()
 const _INLINE_BODY_TOOMANY = (true, typemax(Int))
 
 @nospecialized function _bodyInfo(fn)::Tuple{Bool, Int}
   local key = _refId(fn.node)
-  local cached = get(_INLINE_BODY_INFO_CACHE, key, nothing)
+  #= Reads and writes are locked: typing workers memoize concurrently. The
+     value is deterministic, so a duplicate compute outside the lock is fine. =#
+  local cached = lock(() -> get(_INLINE_BODY_INFO_CACHE, key, nothing), _INLINE_BODY_INFO_LOCK)
   cached !== nothing && return cached
   local body = getBody(fn)
+  local info::Tuple{Bool, Int}
   if length(body) != 1
-    _INLINE_BODY_INFO_CACHE[key] = _INLINE_BODY_TOOMANY
-    return _INLINE_BODY_TOOMANY
+    info = _INLINE_BODY_TOOMANY
+  else
+    local stmt = body[1]
+    info = (_stmtHasCall(stmt), _countStmtNodes(stmt))
   end
-  local stmt = body[1]
-  local info = (_stmtHasCall(stmt), _countStmtNodes(stmt))
-  _INLINE_BODY_INFO_CACHE[key] = info
+  lock(() -> _INLINE_BODY_INFO_CACHE[key] = info, _INLINE_BODY_INFO_LOCK)
   return info
 end
 

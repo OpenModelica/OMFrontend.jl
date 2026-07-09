@@ -1147,3 +1147,44 @@ exact hot line even when the profile report cannot print.
 Tests added: `test/Connectors/ExpandableBus.mo` reference test (virtual
 element bus.x) and FullRobot MSL 4.0.0 flatten in `test/useOfMSLTests.jl`
 (4321 equations). Suites 363/363 fresh -t 8 and -t 1.
+
+## Parallel binding and section typing; three shared caches flushed out (2026-07-09, Fable)
+
+typeClass was 0.43-0.50 s on FullRobot vs omc's 0.18 s, and the sub-timers
+(`ty:components/bindings/sections`, now permanent in `typeClass`) showed the
+gap was typeBindings (0.30 s vs omc 0.046 s; 9,571 untyped bindings at ~16 us
+each) — NOT typeComponents (already at omc parity). Measured-first pitfall
+worth remembering: the suspected "re-matchBinding of already-typed bindings"
+accounted for 117 calls and ~0 time.
+
+`typeBindingsRefs` and `typeClassSections` now fan out with the same
+claim-scope discipline as typeComponents: the node's own payload (binding +
+condition, or the class's own sections) runs under its claim via
+`typeBindingPayload!` / `typeOwnSections!`, children recurse after release,
+per-worker scratch Refs, claimed vector write-backs. Result on FullRobot:
+typeClass 0.50 -> 0.27 s warm (bindings 0.30 -> 0.15, sections 0.10 -> 0.06,
+components 0.10 -> 0.05); identical equation counts serial vs parallel.
+
+The fan-out flushed out three unguarded module-level caches (all now locked):
+
+1. **Lazy function instantiation** — `instFunctionRef`/`instFunctionNode` did
+   check-cache-then-instantiate non-atomically; concurrent binding workers hit
+   `cacheAddFunc` -> `append!` on the shared function vector
+   (ConcurrencyViolationError) and corrupted the Complex operator-overload
+   list. Both entries now run under `_withClaim(_refId(fn_node))` with the
+   re-check inside.
+2. `_INLINE_BODY_INFO_CACHE` (NFInline) — memo Dict written from call typing;
+   now lock-guarded AND reset per translation (it was never reset: keyed by
+   `_refId`, address reuse across models could return wrong body info).
+3. `CONST_FOLD_CACHE` (NFSimplifyExp) and `REINSTANTIATION_CLASSES` (NFInst
+   diagnostics) — same unguarded-Dict pattern, reachable from parallel
+   workers; lock-guarded.
+
+Rule reinforced: any module-level Dict/Set written from typing, evaluation, or
+instantiation paths must be lock-guarded or claim-keyed — Julia's Dict now
+detects concurrent rehash ("Multiple concurrent writes to Dict"), so these
+fail loudly under the parallel-by-default test suite.
+
+FullRobot vs omc after this slice (fresh, 8 threads): comparable span ~1.1 s
+vs omc ~1.2 s — at parity end-to-end; remaining phase gap is typeBindings
+(0.15 s vs 0.046 s serial omc). Suites 363/363 fresh -t 8 and -t 1.
