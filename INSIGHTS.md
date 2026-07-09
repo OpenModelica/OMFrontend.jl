@@ -949,3 +949,41 @@ on `julia -t 8`; serial EngineV6 allocations unchanged (29.80 M). EngineV6 with
 8 threads: whole flatten 6.25 s (was 7.34 s with typing contended), instantiate
 1.09 s, typeClass 1.11 s. `resolveConnections` (2.2 s) is now clearly the
 largest serial phase.
+
+## resolveConnections 3x: exceptions as control flow in the union-find (2026-07-09, Fable)
+
+EngineV6 `resolveConnections` went 2.2 s -> 0.66 s (fresh serial process, sub-step
+timers now in `src/NewFrontend/NFFlatten.jl` behind `ENABLE_EXECSTAT`). The whole
+win came from one defect: `ConnectionSets.find`
+(`src/NewFrontend/NFConnectionSets.jl`) looked up the entry with
+`sets.elements[entry]` inside try/catch and used the KeyError as the "not
+found" branch. Every first-seen connector paid a thrown+caught exception; the
+fix is a plain `get(dict, entry, 0)` sentinel.
+
+Two constraints discovered while trying to also replace the string-based
+Entry hash with a structural one (attempted, then deliberately reverted):
+
+1. **The Entry hash order is load-bearing.** `extractSets` iterates
+   `Sets.elements::Dict{Entry,Int}` to build the per-set connector lists, and
+   the reference outputs in `test/frontendResultTest.jl` encode exactly the
+   equation order that falls out of the current string-hash dict order.
+   Changing the hash (or switching to insertion-order iteration) permutes the
+   representative choice in `c1.e = c2.e`-style equations and fails 19-40
+   reference tests. The string hash costs allocations, not time; do not swap it
+   without also canonicalising the output order AND regenerating references in
+   one deliberate change.
+2. **Revise does not reliably apply edits to `Base.hash` methods in the nested
+   `ConnectionSets` module.** The warm REPL kept running the old hash and showed
+   the suite green while every fresh process failed. When touching nested
+   frontend submodules, gate with a fresh process, not the warm REPL.
+
+`hash(::ComponentRef, ::Int)` in `src/NewFrontend/NFComponentRef.jl` is now
+structural (name + subscripts per level, no string rendering); it feeds the
+`NFHashTableCG` bucket placement, which is order-neutral (BaseHashTable
+iterates its insertion-ordered value array). The remaining sub-step cost is
+`handleOverconstrainedConnections` (~0.5 s), which sits on the legacy
+BaseHashTable closure-tuple machinery; replacing that table with a Dict is the
+next candidate, a larger refactor.
+
+Verified: fresh-process suites 361/361 serial and 361/361 parallel
+(`OMFRONTEND_PARALLEL_INST=true`, `julia -t 8`).

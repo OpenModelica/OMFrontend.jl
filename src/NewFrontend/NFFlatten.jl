@@ -1756,24 +1756,24 @@ function resolveConnections(flatModel::FlatModel, name::String)::FlatModel
   local ctable::CardinalityTable.Table
   local broken::BrokenEdges = nil
   #=  get the connections from the model =#
-  (flatModel, conns) = collect(flatModel)
+  @EXECSTAT "  rc:collect" (flatModel, conns) = collect(flatModel)
   #=  Elaborate expandable connectors.=#
-  (flatModel, conns) = elaborate(flatModel, conns)
+  @EXECSTAT "  rc:elaborate" (flatModel, conns) = elaborate(flatModel, conns)
   #=  handle overconstrained connections =#
   #=  - build the graph =#
   #=  - evaluate the Connections.* operators =#
   #=  - generate the equations to replace the broken connects =#
   #=  - return the broken connects + the equations =#
   if System.getHasOverconstrainedConnectors()
-    (flatModel, broken, _) = handleOverconstrainedConnections(flatModel, conns, name)
+    @EXECSTAT "  rc:overconstrained" (flatModel, broken, _) = handleOverconstrainedConnections(flatModel, conns, name)
   end
   #=  add the broken connections  =#
   conns = addBroken(broken, conns)
   #=  build the sets, check the broken connects =#
-  csets = ConnectionSets.fromConnections(conns)
-  (csets_array, _) = ConnectionSets.extractSets(csets)
+  @EXECSTAT "  rc:fromConnections" csets = ConnectionSets.fromConnections(conns)
+  @EXECSTAT "  rc:extractSets" (csets_array, _) = ConnectionSets.extractSets(csets)
   #=  generate the equations =#
-  conn_eql = generateEquations(csets_array) #=In NFConnectEquations=#
+  @EXECSTAT "  rc:generateEquations" conn_eql = generateEquations(csets_array) #=In NFConnectEquations=#
   #=  append the equalityConstraint call equations for the broken connects =#
   if System.getHasOverconstrainedConnectors()
     local flatBrokenEQL = listArray(ListUtil.flatten(ListUtil.map(broken, Util.tuple33)))
@@ -1784,10 +1784,10 @@ function resolveConnections(flatModel::FlatModel, name::String)::FlatModel
     flatModel.equations = vcat(conn_eql, flatModel.equations)
     flatModel.variables = Variable[v for v in flatModel.variables if isPresent(v)]
   end
-  ctable = CardinalityTable.fromConnections(conns)
+  @EXECSTAT "  rc:cardinality" ctable = CardinalityTable.fromConnections(conns)
   #=  Evaluate any connection operators if they're used. =#
   if System.getHasStreamConnectors() || System.getUsesCardinality()
-    flatModel = evaluateConnectionOperators(flatModel, csets, csets_array, ctable)
+    @EXECSTAT "  rc:connOperators" flatModel = evaluateConnectionOperators(flatModel, csets, csets_array, ctable)
   end
 #  execStat(getInstanceName() + "(" + name + ")")
   return flatModel

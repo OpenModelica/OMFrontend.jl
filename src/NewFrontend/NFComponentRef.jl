@@ -428,8 +428,34 @@ function toPath(cref::ComponentRef)::Absyn.Path
 end
 
 function hash(cref::ComponentRef, mod::Int)::Int
-  local hv::Int = stringHashDjb2Mod(toString(cref), mod)
+  return Int(hashStructural(cref) % UInt(mod))
+end
+
+#= Structural cref hash consistent with `isEqual`: node name and subscripts per
+   level. Avoids rendering the cref to a string. =#
+function hashStructural(cref::ComponentRef)::UInt
+  local hv::UInt = UInt(5381)
+  local cr = cref
+  while isvariant(cr, COMPONENT_REF_CREF)
+    hv = Base.hash(name(cr.node), hv)
+    for s in cr.subscripts
+      hv = hashSubscriptStructural(s, hv)
+    end
+    cr = cr.restCref
+  end
   return hv
+end
+
+function hashSubscriptStructural(s::Subscript, h::UInt)::UInt
+  if s isa SUBSCRIPT_INDEX
+    local idx = s.index
+    if idx isa INTEGER_EXPRESSION
+      return Base.hash(idx.value, h)
+    end
+  elseif s isa SUBSCRIPT_WHOLE
+    return Base.hash(0x2e, h)
+  end
+  return Base.hash(toString(s), h)
 end
 
 #= hashes the cref without subscripts. Used for non-expanded variables. =#
