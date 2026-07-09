@@ -1342,20 +1342,23 @@ end
    Types an untyped expression, returning the typed expression itself along with
    its type and variability.
 """
-@nospecializeinfer function typeExp(
-  @nospecialize(exp::Expression),
+#= The typing spine is deliberately fully specialized: @nospecialize boxes the
+   argument on every call and @nospecializeinfer leaves the body abstractly
+   inferred; together they cost ~16 allocations and ~0.8 us per expression
+   node, which dominated binding typing. =#
+function typeExp(
+  exp::Expression,
   origin::ORIGIN_Type,
   info::SourceInfo
   )::Tuple
-  #= Stop excessive type inference =#
   local typeRef = Ref{NFType}(TYPE_UNKNOWN())
   local variabilityTypeRef = Ref{VariabilityType}(Variability.CONSTANT)
   local typedExp = typeExp2(exp, origin, info, typeRef, variabilityTypeRef)
   return (typedExp, typeRef.x, variabilityTypeRef.x)
 end
 
-@nospecializeinfer function typeExp2(
-  @nospecialize(exp::Expression),
+function typeExp2(
+  exp::Expression,
   origin::ORIGIN_Type,
   info::SourceInfo,
   typeRef::Ref{NFType},

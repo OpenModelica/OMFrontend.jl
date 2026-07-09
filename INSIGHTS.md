@@ -1188,3 +1188,32 @@ fail loudly under the parallel-by-default test suite.
 FullRobot vs omc after this slice (fresh, 8 threads): comparable span ~1.1 s
 vs omc ~1.2 s — at parity end-to-end; remaining phase gap is typeBindings
 (0.15 s vs 0.046 s serial omc). Suites 363/363 fresh -t 8 and -t 1.
+
+## The typing spine's @nospecialize tax (2026-07-09, Fable)
+
+Drilling into the last typeBindings gap vs omc (16-25 us per binding for
+mostly trivial expressions) bottomed out in the dispatch machinery, not the
+work: `typeExp2` on a literal cost ~800 ns and 16 allocations. Bisection with
+minimal probes pinned it:
+
+- `@nospecialize(arg)` on a function costs ~16 allocations per call in entry
+  boxing EVEN at statically-typed call sites (measured: identical function
+  with/without the annotation = 16 vs 0 allocations).
+- `@nospecializeinfer` alone does not box; MetaModelica `@match` clause misses
+  are exception-free and allocation-free (2-clause probe: 0 allocations).
+- With both annotations removed from `typeExp`/`typeExp2`, the specialized IR
+  for a literal is 54 statements, ZERO allocation sites, concrete return type.
+- The feared compile-latency cost did NOT materialize: fresh-process core-module
+  precompile was 17.0 s vs the 19-36 s range observed all day.
+
+Result: `typeBinding` accumulated time on FullRobot 0.243 -> 0.135 s (-44%)
+by paired in-process measurement. Whole-phase wall deltas were battery/GC
+noise-dominated; trust the paired counters.
+
+Follow-up documented, not yet done: sweep the remaining `@nospecialize`
+hubs on hot typing paths (`typeCrefExp`, `typeBinaryExpressionRef`,
+`typeCall`, `typeClassType`, `typeIterator`) with the same
+measure-precompile-and-runtime protocol, one function at a time. Also
+remember: microbenchmarks through a module binding (`F.typeExp2(...)`) pay a
+dynamic-call tax (~16 allocations) that masquerades as callee cost — bench
+via a local const or paired probes.
