@@ -458,6 +458,14 @@ function hashSubscriptStructural(s::Subscript, h::UInt)::UInt
   return Base.hash(toString(s), h)
 end
 
+#= Dict key wrapping a cref with structural hash and equality. =#
+struct CrefHashKey
+  cref::ComponentRef
+end
+
+Base.hash(k::CrefHashKey, h::UInt) = Base.hash(hashStructural(k.cref), h)
+Base.isequal(k1::CrefHashKey, k2::CrefHashKey) = isEqual(k1.cref, k2.cref)
+
 #= hashes the cref without subscripts. Used for non-expanded variables. =#
 function hashStrip(cref::ComponentRef, mod::Int)::Int
   local hv::Int = stringHashDjb2Mod(toStringStripImpl(cref, ""), mod)
