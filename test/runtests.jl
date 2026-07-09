@@ -20,6 +20,19 @@ using MetaModelica
 using Test
 import OMFrontend
 
+#= Exercise the parallel frontend paths by default when threads are available.
+   An explicit OMFRONTEND_PARALLEL_INST in the environment overrides. =#
+if !haskey(ENV, "OMFRONTEND_PARALLEL_INST")
+  OMFrontend.Frontend.PARALLEL_INST[] = Threads.nthreads() >= 2
+end
+@info "OMFrontend tests: threads=$(Threads.nthreads()) parallel_inst=$(OMFrontend.Frontend.PARALLEL_INST[])"
+if Threads.nthreads() == 1
+  @warn string(
+    "Running single-threaded: the parallel frontend paths are NOT exercised. ",
+    "Start Julia with -t auto (or JULIA_NUM_THREADS), or use ",
+    "Pkg.test(\"OMFrontend\"; julia_args = [\"-t\", \"auto\"]).")
+end
+
 
 #= Utility functions =#
 function flatten(modelName::String, modelFile::String)

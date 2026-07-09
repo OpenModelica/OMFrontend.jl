@@ -987,3 +987,40 @@ next candidate, a larger refactor.
 
 Verified: fresh-process suites 361/361 serial and 361/361 parallel
 (`OMFRONTEND_PARALLEL_INST=true`, `julia -t 8`).
+
+## Overconstrained graph: Dict-backed tables, exception-free walk (2026-07-09, Fable)
+
+`NFHashTableCG` / `NFHashTable` / `NFHashTable3` (about 2400 lines of ported
+BaseHashTable closure-tuple machinery, used only by `NFOCConnectionGraph`) are
+now ~45-line modules backed by `Dict{CrefHashKey, V}`. `CrefHashKey`
+(`src/NewFrontend/NFComponentRef.jl`) wraps a cref with structural
+hash/equality (`hashStructural` / `isEqual`). The graph walk itself had the
+same exception-as-control-flow disease as ConnectionSets.find, seven times
+over: `canonical` threw once per union-find root hit, `connectComponents`
+carried two dead `@shouldFail` branches costing two exceptions per edge,
+`connectCanonicalComponents` / `addPotentialRootsToTable` / `setRootDistance` /
+`addConnectionRooted` / `getRooted` all used `@matchcontinue` fallthrough on a
+failing `BaseHashTable.get`. All are plain Julia now (`getOrNothing` +
+branches). Net effect: allocations down (1.61 M -> 1.38 M in the phase), wall
+time roughly unchanged (~0.5 s) — the remaining cost is the whole-model
+`evalConnectionsOperators` equation traversal, not the tables.
+
+## Env-derived const Refs bake their precompile-time value (2026-07-09, Fable)
+
+`const FLAG = Ref(get(ENV, ...) == "true")` at module top level evaluates
+during PRECOMPILE and the Ref value is serialized; a later process with a
+different environment silently gets the stale baked value. This made
+`OMFRONTEND_PARALLEL_INST=true julia -t 8` run SERIAL after an env-less
+precompile. Fix: re-read every env-derived flag in `OMFrontend.__init__`
+(`src/OMFrontend.jl`): `PARALLEL_INST`, `CACHE_INST`, `ENABLE_EXECSTAT`.
+Runtime `Ref` flips are unaffected. When adding an env-gated flag, wire it
+into `__init__` or it only works by precompile luck.
+
+## Test suite exercises parallel paths by default (2026-07-09, Fable)
+
+`test/runtests.jl` sets `PARALLEL_INST[] = Threads.nthreads() >= 2` unless
+`OMFRONTEND_PARALLEL_INST` is set explicitly, logs the mode, and warns when
+single-threaded that parallel paths are not tested (recipe:
+`Pkg.test("OMFrontend"; julia_args = ["-t", "auto"])`). Gates for all of the
+above: 361/361 fresh `julia -t 8` (parallel by default) and 361/361 fresh
+`julia -t 1` (serial).
