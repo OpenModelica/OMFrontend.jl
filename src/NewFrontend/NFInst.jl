@@ -105,19 +105,31 @@ end
 
 
 """
-Helper function called by instClassInProgram.
-The main work is done here. The function dumpFlatModel will dump the flat model at intermediate stages
-if the Flags.NF_DUMP_FLAT flag is set to true.
+Helper function called by instClassInProgram. Runs the frontend pipeline:
+instantiate -> instantiate expressions -> type -> flatten -> resolve
+connections and evaluate -> simplify and collect -> scalarize and verify.
+dumpFlatModel dumps the flat model at intermediate stages when the
+Flags.NF_DUMP_FLAT flag is set.
 """
 function instClassInProgramFM2(classPath::Absyn.Path, program::SCode.Program)::Tuple
-  local top::InstNode
-  local cls::InstNode
-  local inst_cls::InstNode
-  local name::String
+  local name::String = AbsynUtil.pathString(classPath)
   local flat_model::FlatModel
   local funcs::FunctionTree
-  #= Add the program currently being translated into the SCode cache. =#
-  local currentProgram = listHead(program)
+  prepareInstEnvironment()
+  local inst_cls::InstNode = instantiateRootClass(classPath, program)
+  instantiateExpressions(inst_cls, name)
+  @EXECSTAT "typeClass:" typeClass(inst_cls, name)
+  @EXECSTAT "flatten" flat_model = flatten(inst_cls, name)
+  dumpFlatModel(flat_model, string(name, "_", "afterFlatten"))
+  flat_model = resolveAndEvaluate(flat_model, program, name)
+  (flat_model, funcs) = simplifyAndCollect(flat_model, name)
+  flat_model = scalarizeAndVerify(flat_model, name)
+  dumpInstDiagnostics(name)
+  return (flat_model, funcs, inst_cls)
+end
+
+"""Resets the per-translation caches, diagnostics, and settings."""
+function prepareInstEnvironment()
   resetInstDiagnostics()
   setSettingForInst()
   # Reset the execstat wall-time baseline so the first `ExecStat.execStat` call
@@ -125,97 +137,56 @@ function instClassInProgramFM2(classPath::Absyn.Path, program::SCode.Program)::T
   if Flags.isSet(Flags.EXEC_STAT)
     ExecStat.execStatResetTimer()
   end
+  return nothing
+end
+
+"""
+  Looks up the class in the given program, instantiates it as the root class,
+  and inserts automatically generated inner elements.
+"""
+function instantiateRootClass(classPath::Absyn.Path, program::SCode.Program)::InstNode
+  local inst_cls::InstNode
   #=  Create a root node from the given top-level classes. =#
-  top = makeTopNode(program)
-  name = AbsynUtil.pathString(classPath)
+  local top::InstNode = makeTopNode(program)
   #=  Look up the class to instantiate and mark it as the root class. =#
-  cls = lookupClassName(classPath, top, AbsynUtil.dummyInfo, false)
+  local cls::InstNode = lookupClassName(classPath, top, AbsynUtil.dummyInfo, false)
   cls = setNodeType(ROOT_CLASS(EMPTY_NODE()), cls)
   #=  Initialize the storage for automatically generated inner elements. =#
   top = setInnerOuterCache(top, C_TOP_SCOPE(NodeTree.new(), cls))
   @EXECSTAT "instantiate" inst_cls = instantiateN1(cls, EMPTY_NODE())
   ExecStat.execStat("Instantiation")
   insertGeneratedInners(inst_cls, top)
-  #=
-  Instantiate expressions (i.e. anything that can contains crefs, like
+  return inst_cls
+end
+
+"""
+  Instantiates expressions (i.e. anything that can contain crefs, like
   bindings, dimensions, etc). This is done as a separate step after
   instantiation to make sure that lookup is able to find the correct nodes.
-  =#
+  Also marks structural parameters.
+"""
+function instantiateExpressions(inst_cls::InstNode, name::String)
   INST_EXPR_DEPTH[] = 0
   @EXECSTAT "instExpressions" instExpressions(inst_cls)
   ExecStat.execStat("NFInst.instExpressions(" + name + ")")
-  #=  Mark structural parameters. =#
   updateImplicitVariability(inst_cls, Flags.isSet(Flags.EVAL_PARAM)::Bool)
   ExecStat.execStat("NFInst.updateImplicitVariability")
-  #=  Type the class. =#
-  #"Type the class"
-  @EXECSTAT "typeClass:" typeClass(inst_cls, name)
-  @EXECSTAT "flatten" flat_model = flatten(inst_cls, name)
-  dumpFlatModel(flat_model, string(name, "_", "afterFlatten"))
-  #=
-  Check if we are to perform recompilation. If true adds the SCode program to the flat model.
-  Also check if we have a Connections.branch statement in an if-equation
-  =#
+  return nothing
+end
+
+"""
+  Resolves connections and evaluates constants. Models with recompilation
+  directives or dynamic overconstrained connectors (DOCC) keep the SCode
+  program in the flat model and get their DOCC if-equations integrated first.
+"""
+function resolveAndEvaluate(flat_model::FlatModel, program::SCode.Program, name::String)::FlatModel
   local recompilationEnabled = recompilationDirectiveExists(flat_model.equations)
   local doccs = collectDOCCS(flat_model.equations)
-  local modelWithDOCC  = ! isempty(doccs)
+  local modelWithDOCC = ! isempty(doccs)
   if recompilationEnabled || modelWithDOCC
     @assign flat_model.scodeProgram = SOME(listHead(program))
     if modelWithDOCC
-      #=
-      1. Evaluate the initial state of the special if-equation (by looking at the condition)
-      Either the equation starts with the relevant equation in the model,
-      or the equations are added during the simulation.
-      (It should also be noted that, the equations are to be removed in some conditions)
-
-      =#
-      #= Remove the conditionals themselves from the flat model =#
-      local doccSet = Set(doccs)
-      local equationsWithoutDOCC = filter(e -> !(e in doccSet), flat_model.equations)
-      #=
-      Check if the existing equations in the flat model should be extended.
-      =#
-      initialEqMapping = evalInitialEqMapping(flat_model.initialEquations)
-      for eq in doccs
-        @assert isvariant(eq, EQUATION_IF)
-        for br in eq.branches
-          @assert isvariant(br, EQUATION_BRANCH)
-          tst = evaluateExp(br.condition, Variability.DISCRETE)
-          tst = Variable_fromCref(toCref(tst))
-          local varAsStr = toString(tst.name)
-          if in(varAsStr, keys(initialEqMapping))
-            expr = initialEqMapping[varAsStr]
-            #=
-            Evaluate the expression. It should be a boolean.
-            Depending on the value we do two things:
-            Either we remove equations from the starting model
-            or we add them to the model.
-            =#
-            @match BOOLEAN_EXPRESSION(active) = expr
-            @assign flat_model.equations = if active
-              #=
-              Equations for this if equation active at the start.
-              Mark as active on both branches. Index is assumed to match with each equation.
-              =#
-              push!(flat_model.active_DOCC_Equations, true)
-              vcat(equationsWithoutDOCC, br.body)
-            else #= Otherwise these equations are active at some later stage =#
-              push!(flat_model.active_DOCC_Equations, false)
-              equationsWithoutDOCC
-            end
-          end
-        end
-        #= Add the special equations to the flat model =#
-        @assign begin
-          flat_model.DOCC_equations = arrayList(doccs)
-          #= Contains the equations of the system before the virtual connection graph is calculated =#
-          flat_model.unresolvedConnectEquations = arrayList(equationsWithoutDOCC)
-        end
-      end
-      #=
-      Remove the doccs equations from the set of equations in the flat model
-      (If they are to be removed)
-      =#
+      flat_model = integrateDOCCEquations!(flat_model, doccs)
     end
     #= Resolve the connections of the current system. =#
     flat_model = resolveConnections(flat_model, name)
@@ -224,12 +195,67 @@ function instClassInProgramFM2(classPath::Absyn.Path, program::SCode.Program)::T
       flat_model = evaluate(flat_model)
       dumpFlatModel(flat_model, string(name, "_", "afterEval"))
     end
-  else #= Regular system without simulaton time reconfigurations =#
+  else #= Regular system without simulation time reconfigurations =#
     @EXECSTAT "resolveConnections" flat_model = resolveConnections(flat_model, name)
     dumpFlatModel(flat_model, string(name, "_", "afterResolveConnections"))
     @EXECSTAT "evaluate" flat_model = evaluate(flat_model)
     dumpFlatModel(flat_model, string(name, "_", "afterEval"))
   end
+  return flat_model
+end
+
+"""
+  Integrates dynamic overconstrained connector (DOCC) if-equations: evaluates
+  the initial state of each special if-equation and either activates its body
+  in the starting model or defers it to a later reconfiguration.
+"""
+function integrateDOCCEquations!(flat_model::FlatModel, doccs)::FlatModel
+  #= Remove the conditionals themselves from the flat model =#
+  local doccSet = Set(doccs)
+  local equationsWithoutDOCC = filter(e -> !(e in doccSet), flat_model.equations)
+  #= Check if the existing equations in the flat model should be extended. =#
+  local initialEqMapping = evalInitialEqMapping(flat_model.initialEquations)
+  for eq in doccs
+    @assert isvariant(eq, EQUATION_IF)
+    for br in eq.branches
+      @assert isvariant(br, EQUATION_BRANCH)
+      tst = evaluateExp(br.condition, Variability.DISCRETE)
+      tst = Variable_fromCref(toCref(tst))
+      local varAsStr = toString(tst.name)
+      if in(varAsStr, keys(initialEqMapping))
+        expr = initialEqMapping[varAsStr]
+        #=
+        Evaluate the expression. It should be a boolean.
+        Depending on the value we either remove equations from the starting
+        model or add them to the model.
+        =#
+        @match BOOLEAN_EXPRESSION(active) = expr
+        @assign flat_model.equations = if active
+          #=
+          Equations for this if equation active at the start.
+          Mark as active on both branches. Index is assumed to match with each equation.
+          =#
+          push!(flat_model.active_DOCC_Equations, true)
+          vcat(equationsWithoutDOCC, br.body)
+        else #= Otherwise these equations are active at some later stage =#
+          push!(flat_model.active_DOCC_Equations, false)
+          equationsWithoutDOCC
+        end
+      end
+    end
+    #= Add the special equations to the flat model =#
+    @assign begin
+      flat_model.DOCC_equations = arrayList(doccs)
+      #= Contains the equations of the system before the virtual connection graph is calculated =#
+      flat_model.unresolvedConnectEquations = arrayList(equationsWithoutDOCC)
+    end
+  end
+  return flat_model
+end
+
+"""Inlines simple calls, simplifies the model, and collects functions and package constants."""
+function simplifyAndCollect(flat_model::FlatModel, name::String)::Tuple{FlatModel, FunctionTree}
+  local funcs::FunctionTree
   #= Do unit checking =#
   #TODO  @assign flat_model = UnitCheck.checkUnits(flat_model)
   flat_model = inlineSimpleCalls(flat_model)
@@ -240,7 +266,11 @@ function instClassInProgramFM2(classPath::Absyn.Path, program::SCode.Program)::T
   #=  Collect package constants that couldn't be substituted with their values =#
   #=  (e.g. because they where used with non-constant subscripts), and add them to the model. =#
   @EXECSTAT "collectConstants" flat_model = collectConstants(flat_model, funcs)
-  #= Scalarize array components in the flat model.=#
+  return (flat_model, funcs)
+end
+
+"""Scalarizes array components (when NF_SCALARIZE is set) and verifies the flat model."""
+function scalarizeAndVerify(flat_model::FlatModel, name::String)::FlatModel
   if Flags.isSet(Flags.NF_SCALARIZE)
     @EXECSTAT "scalarize" flat_model = scalarize(flat_model, name)
     dumpFlatModel(flat_model, string(name, "_", "afterScalarize"))
@@ -249,10 +279,9 @@ function instClassInProgramFM2(classPath::Absyn.Path, program::SCode.Program)::T
     @assign flat_model.variables = filter( (x) -> !isEmptyArray(x), flat_model.variables)
   end
   #=
-  In some cases  array variables remain after scalarization.
-  This also seem to occur in the omc.
-  We readd these variables to the model.
-  (If Scalarize is set to false this function does nothing).
+  In some cases array variables remain after scalarization; this also seems to
+  occur in omc. Readd these variables to the model. (If Scalarize is false
+  restoreMissingArrayVariables! does nothing.)
   =#
   InstUtil.restoreMissingArrayVariables!(flat_model)
   InstUtil.adjustIncorrectVariablePaths!(flat_model)
@@ -260,8 +289,7 @@ function instClassInProgramFM2(classPath::Absyn.Path, program::SCode.Program)::T
   dumpFlatModel(flat_model, string(name, "_", "afterVerify"))
   #= TODO: Expand sliced crefs=#
   #= TODO: Combine subscripts =#
-  dumpInstDiagnostics(name)
-  return (flat_model, funcs, inst_cls)
+  return flat_model
 end
 
 function setSettingForInst()
