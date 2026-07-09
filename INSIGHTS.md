@@ -1257,3 +1257,45 @@ General rule: after compacting a frontend uniontype, grep DOWNSTREAM repos
 (OMBackend, OM) for the variant names in type position — `::Ctor`,
 `isa Ctor`, `Ctor{...}`, `Type{Ctor}`, `Vector{Ctor}` — and for qualified
 `@match Mod.Ctor(...)` patterns.
+
+## DAE.ASUB.sub migration: a five-layer downstream change (2026-07-10, Fable)
+
+JKRT changed `DAE.ASUB.sub` from `List{Exp}` to `List{Subscript}` on 2026-07-05
+("OMC-correct", DAE.jl commit f88b59e) but did not migrate consumers. Running
+the OM.jl light regression (277/1/15) surfaced it. Completing the migration
+touched FIVE distinct layers; each rebuild peeled one:
+
+1. **Construction** — wrap indices in `DAE.INDEX(...)`. Frontend
+   `BindingExpression.jl` (use `toDAE(::Subscript)` not `toDAEExp`); OMBackend
+   `Causalize.jl`, `BDAECreate.jl`, `simCodeFunctions.jl`.
+2. **Consumer pattern-matches** — sites matching `DAE.ICONST(i)` for a subscript
+   now need `DAE.INDEX(DAE.ICONST(i))` (`simCodeUtil.jl` suffix builders, cref
+   collectors).
+3. **Generic DAE traversal** (`FrontendUtil/Util.jl`) — subscript-aware
+   traverse helpers instead of expr-list traversal. TWO Julia traps here:
+   (a) the big `@match` pre-declares `local expl_1::List{DAE.Exp}`; binding
+   `sub = expl_1` force-converts `Cons{DAE.Subscript}` and throws — fix: bind to
+   a FRESH local. (b) `makeASUB(exp, sub::List{DAE.Subscript})` does NOT accept
+   `Cons{DAE.INDEX}` (parametric invariance: `Cons{DAE.INDEX}` is not
+   `<: List{DAE.Subscript}` for dispatch, though the DAE.ASUB constructor widens
+   it via `convert`) — fix: leave `sub` untyped.
+4. **DAE<->SimCode bridge** (`simCodeStructureUtil.jl`) — SimCode `ASUB.subs` is
+   `Vector{Exp}`: `toSimExp` extracts each subscript's inner exp; `toDAEExp`
+   wraps back in `DAE.INDEX`.
+5. **Dump + codegen** (`backendDump.jl` same fresh-local fix; MTK codegen
+   unwraps subscript inner exprs).
+
+Result: OM.jl light regression 297/297, INCLUDING the previously @test_broken
+`EnumForTableLookup` — that "constant-table eager-fold gap" was itself an
+ASUB-subscript-handling issue, now resolved. Commits: OMFrontend bb3451a,
+OMBackend 6cce893 (dev-fix).
+
+Latent twin NOT fixed: `OMFrontend.jl/src/FrontendUtil/Util.jl:244` has the same
+typed-local ASUB trap in a parallel DAE traversal, but it is dead (no callers;
+`VarTransform` uses `Expression.traverseExpBottomUp`, a different module). Fix it
+if that traversal ever gets wired up.
+
+General rule when migrating a DAE/NF field type: grep downstream for the field
+in BOTH construction and consumption, and remember the two Julia gotchas —
+pre-declared typed `local`s in big `@match` functions force silent converts, and
+parametric invariance breaks dispatch even where `convert` succeeds.
