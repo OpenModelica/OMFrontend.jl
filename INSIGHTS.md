@@ -1217,3 +1217,43 @@ measure-precompile-and-runtime protocol, one function at a time. Also
 remember: microbenchmarks through a module binding (`F.typeExp2(...)`) pay a
 dynamic-call tax (~16 allocations) that masquerades as callee cost — bench
 via a local const or paired probes.
+
+## `using OM` end-to-end: four caveats from the @CUniontype compaction (2026-07-09, Fable)
+
+Getting the full OM.jl pipeline (`using OM` -> flatten -> translate) working on
+the cuniontype branch surfaced four cross-repo incompatibilities, all from
+compacted frontend uniontypes (NFEquation, NFStatement, ...) whose variant
+names (EQUATION_IF, ALG_WHEN, EQUATION_EQUALITY, ...) are now constructor
+FUNCTIONS, not types. Downstream code written against the old struct-per-variant
+representation breaks in four distinct ways:
+
+1. **Struct field types** (`OMBackend.jl` BDAE.jl, simCodeData.jl):
+   `ifEquation::OMFrontend.Frontend.EQUATION_IF` -> `::...EquationImpl` (the
+   concrete backing struct). A field typed as a constructor function fails at
+   TYPE-DEFINITION time -> OMBackend precompile aborts.
+2. **`isa` checks** (`OMBackend.jl` BDAECreate.jl x3):
+   `stmt isa ...ALG_WHEN` -> `isvariant(stmt, ...ALG_WHEN)`. `isa` needs a Type;
+   a constructor function throws at runtime. `@match` does NOT cover raw `isa`.
+3. **Qualified `@match` patterns** (`MetaModelica.jl` matchcontinue.jl): the
+   compacted-constructor detection only fired for a bare-Symbol pattern head, so
+   `OMFrontend.Frontend.EQUATION_EQUALITY(...)` (qualified, from a dependent
+   package) fell through to generic struct destructuring ->
+   `evaluated_fieldnames(::typeof(ctor))` MethodError. Fix resolves qualified
+   `A.B.Ctor` heads by eval-ing the module path in the calling module at
+   expansion time. This is the general fix; without it every qualified
+   compacted pattern across OMBackend would need unqualified imports.
+4. **Trace-generated precompile hints** (`OM.jl` precompilation.jl): the
+   `precompile_statements*.jl` files reference `EQUATION_IF{...}`,
+   `Type{ALG_ASSIGNMENT}`, etc. Building those signatures throws at eval time
+   and aborts precompile. Fix evaluates each hint independently and skips
+   stale ones (they are pure perf hints).
+
+Validated: `using OM` loads, `OM.flatten("HelloWorld")` works, and
+`OM.translate` succeeds for HelloWorld/VanDerPol/BouncingBallReals (full
+frontend + backend + MTK codegen). Commits: MetaModelica 4fa1fe9,
+OMBackend 72b7584 (dev-fix), OM.jl 7c9602b (ci-revival).
+
+General rule: after compacting a frontend uniontype, grep DOWNSTREAM repos
+(OMBackend, OM) for the variant names in type position — `::Ctor`,
+`isa Ctor`, `Ctor{...}`, `Type{Ctor}`, `Vector{Ctor}` — and for qualified
+`@match Mod.Ctor(...)` patterns.
