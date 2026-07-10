@@ -1299,3 +1299,36 @@ General rule when migrating a DAE/NF field type: grep downstream for the field
 in BOTH construction and consumption, and remember the two Julia gotchas —
 pre-declared typed `local`s in big `@match` functions force silent converts, and
 parametric invariance breaks dispatch even where `convert` succeeds.
+
+## Heavy OM.jl suite: ASUB tail + two more compaction/pre-existing items (2026-07-10, Fable)
+
+Full `OM_HEAVY_TESTS=1 runtests.jl`: 403/6/4 (413 total, 42 min). All 10
+failures were in MSL/mslExpansion/heavy tiers (light regression skips them).
+Attribution:
+
+- **6 of 10 — the ASUB migration's sixth consumer**: `resolveConstantIfExp`
+  (`simCodeFunctions.jl`) passed each DAE.ASUB sub (a DAE.INDEX) to itself as a
+  DAE.Exp. Only larger MSL models (Engine1a, AxisRotation, PointGravity,
+  OneWayClutch, trajectory tests) reach it. Fixed by recursing into subscript
+  inner exprs (commit fe90c87). Revalidation: 0 resolveConstantIfExp errors.
+- **1 of 10 — include-order compaction bug (pre-existing)**: EngineTest export
+  hit `NFImport.jl:104` `@match tree begin CLASS_TREE_FLAT_TREE(__) ... end`
+  which expanded to a plain `isa` because NFImport.jl (main.jl:158) is included
+  BEFORE NFClassTree.jl (:162) registers
+  `compacted_tag_info(CLASS_TREE_FLAT_TREE)`. `@match` compaction detection runs
+  at MACRO-EXPANSION time, so a pattern on a compacted type in a file loaded
+  before its registration silently falls back to `isa` (which throws on the
+  constructor function). Fixed with explicit `isvariant` (matches NFInst.jl).
+  NFImport is the ONLY frontend file included before NFClassTree that matches a
+  ClassTree variant.
+- **2 of 10 — pre-existing solver convergence, NOT regressions**:
+  OneWayClutchDisengaged and Digital HalfAdder now translate and simulate but
+  the solver returns `MaxIters` (hard hybrid models). Digital is the documented
+  @test_broken cluster. The ASUB fix ADVANCED these (they previously errored at
+  resolveConstantIfExp, now reach the solver).
+
+Follow-up (not done): MetaModelica `@match` could emit `isvariant` for an
+all-wild pattern `Ctor(__)` whenever `Ctor` resolves to a non-Type value at
+expansion time, making compaction detection order-INDEPENDENT. That would
+prevent this whole class of include-order bug. Scoped out; the local isvariant
+fixes suffice.
