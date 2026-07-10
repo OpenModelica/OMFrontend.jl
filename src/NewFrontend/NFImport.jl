@@ -89,23 +89,18 @@ function instUnqualified(
   node = lookupImport(path, scope, info)
   node = instPackage(node)
   tree = classTree(getClass(node))
-   () = begin
-    @match tree begin
-      CLASS_TREE_FLAT_TREE(__) => begin
-        for cls in tree.classes
-          imps = _cons(RESOLVED_IMPORT(cls, info), imps)
-        end
-        for comp in tree.components
-          imps = _cons(RESOLVED_IMPORT(comp, info), imps)
-        end
-        ()
-      end
-
-      _ => begin
-        Error.assertion(false, getInstanceName() + " got invalid class tree", sourceInfo())
-        ()
-      end
+  #= Explicit isvariant: this file is included before NFClassTree.jl registers
+     compacted_tag_info(CLASS_TREE_FLAT_TREE), so a `@match` pattern here expands
+     to a plain `isa` (which fails on the compacted constructor function). =#
+  if isvariant(tree, CLASS_TREE_FLAT_TREE)
+    for cls in tree.classes
+      imps = _cons(RESOLVED_IMPORT(cls, info), imps)
     end
+    for comp in tree.components
+      imps = _cons(RESOLVED_IMPORT(comp, info), imps)
+    end
+  else
+    Error.assertion(false, getInstanceName() + " got invalid class tree", sourceInfo())
   end
   return imps
 end
