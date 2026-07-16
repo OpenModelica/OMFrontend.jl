@@ -1229,9 +1229,12 @@ end
   The function is called by not using forks (experimental version using threads because fork doesn't play nice). Only returns if all functions return.
 """
 function launchParallelTasks(numThreads::Int, inData::List{TI}, func::ForkFunction)  where {TI}
-  local result::List{TO}
-
-  @error "TODO: Defined in the runtime"
+  #= serial execution; results keep the input order =#
+  local result::List = nil
+  for d in inData
+    result = cons(func(d), result)
+  end
+  result = listReverse(result)
   result
 end
 
