@@ -866,9 +866,7 @@ end
 
 """creates the Globally Unique IDentifier and return it as String"""
 function getUUIDStr() ::String
-  local uuidStr::String
-
-  @error "TODO: Defined in the runtime"
+  local uuidStr::String = string(Base.UUID(Base.rand(UInt128)))
   uuidStr
 end
 
