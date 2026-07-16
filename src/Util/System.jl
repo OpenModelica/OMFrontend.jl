@@ -1291,17 +1291,9 @@ function covertTextFileToCLiteral(textFile::String, outFile::String, target::Str
 end
 
 function dladdr(symbol::T #= Function pointer =#)  where {T}
-  local name::String
-  local file::String
-  local info::String
-  (file, name) = _dladdr(symbol)
-  info = file + ": " + name
-  function _dladdr(symbol::T #= Function pointer =#)  where {T}
-    local name::String
-    local file::String
-    @error "TODO: Defined in the runtime"
-    (file, name)
-  end
+  local name::String = string(symbol)
+  local file::String = "julia"
+  local info::String = file + ": " + name
   (info, file, name)
 end
 
