@@ -119,8 +119,28 @@ end
 function regex(str::String, re::String, maxMatches::Int #= The maximum number of matches that will be returned =#, extended::Bool = false #= Use POSIX extended or regular syntax =#, ignoreCase::Bool = false) ::Tuple{Integer, List{String}}
   local strs::List{String} #= This list has length = maxMatches. Substrings that did not match are filled with the empty string =#
   local numMatches::Int #= 0 means no match, else returns a number 1..maxMatches (1 if maxMatches<0) =#
-
-  @error "TODO: Defined in the runtime"
+  local pat::String = re
+  if !extended
+    #= POSIX basic syntax: \( \) delimit groups, bare parens are literal =#
+    pat = replace(pat, "\\(" => "\x01", "\\)" => "\x02")
+    pat = replace(pat, "(" => "\\(", ")" => "\\)")
+    pat = replace(pat, "\x01" => "(", "\x02" => ")")
+  end
+  local m = match(Regex(pat, ignoreCase ? "i" : ""), str)
+  local out = String[]
+  numMatches = 0
+  if m !== nothing
+    push!(out, String(m.match))
+    for c in m.captures
+      push!(out, c === nothing ? "" : String(c))
+    end
+    numMatches = maxMatches < 0 ? 1 : min(length(out), maxMatches)
+  end
+  while length(out) < max(maxMatches, 0)
+    push!(out, "")
+  end
+  maxMatches >= 0 && length(out) > maxMatches && (out = out[1:maxMatches])
+  strs = list(out...)
   (numMatches #= 0 means no match, else returns a number 1..maxMatches (1 if maxMatches<0) =#, strs #= This list has length = maxMatches. Substrings that did not match are filled with the empty string =#)
 end
 
@@ -266,7 +286,8 @@ function writeFile(fileNameToWrite::String #= a filename where to write the data
 end
 
 function appendFile(file::String, data::String)
-  @error "TODO: Defined in the runtime"
+  open(io -> write(io, data), file, "a")
+  nothing
 end
 
 """Does not fail. Returns strings describing the error instead."""
@@ -724,8 +745,11 @@ end
   Tock returns the time since the last tock; undefined if tick was never called.
   The clock index is 0-31. The function fails if the number is out of range.
 """
+const _REALTIME_CLOCKS = Dict{Int, UInt64}()
+
 function realtimeTick(clockIndex::Int)
-  @error "TODO: Defined in the runtime"
+  _REALTIME_CLOCKS[clockIndex] = Base.time_ns()
+  nothing
 end
 
 """
@@ -733,9 +757,7 @@ end
   The clock index is 0-31. The function fails if the number is out of range.
 """
 function realtimeTock(clockIndex::Int) ::AbstractFloat
-  local outTime::AbstractFloat
-
-  @error "TODO: Defined in the runtime"
+  local outTime::AbstractFloat = (Base.time_ns() - get(_REALTIME_CLOCKS, clockIndex, Base.time_ns())) / 1e9
   outTime
 end
 
@@ -1198,9 +1220,7 @@ function rename(source::String, dest::String) ::Bool
 end
 
 function numProcessors() ::Int
-  local result::Int
-
-  @error "TODO: Defined in the runtime"
+  local result::Int = Base.Sys.CPU_THREADS
   result
 end
 
