@@ -952,10 +952,20 @@ end
   'xyz@d!' -> QQ_xyz40d21_QQ
 """
 function unquoteIdentifier(str::String) ::String
-  local outStr::String
-
-  @error "TODO: Defined in the runtime"
-  outStr
+  if !startswith(str, "'") && !occursin("\$", str)
+    return str
+  end
+  local io = IOBuffer()
+  write(io, "_omcQ")
+  for c in codeunits(str)
+    if UInt8('0') <= c <= UInt8('9') || UInt8('A') <= c <= UInt8('Z') || UInt8('a') <= c <= UInt8('z')
+      write(io, c)
+    else
+      write(io, '_')
+      write(io, uppercase(string(c; base = 16, pad = 2)))
+    end
+  end
+  return String(take!(io))
 end
 
 """Returns the maximum integer that can be represent using this version of the compiler"""

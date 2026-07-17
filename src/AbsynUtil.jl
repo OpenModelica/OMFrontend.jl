@@ -60,6 +60,7 @@ using Absyn
 import ListUtil
 
 import ..Frontend.Util
+import ..Frontend.System
 
 const dummyParts = PARTS(nil, nil, nil, nil, NONE())::ClassDef
 
