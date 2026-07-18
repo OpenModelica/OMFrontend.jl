@@ -7738,6 +7738,10 @@ function lookupAnnotation(ann::SCode.Annotation, name::String)::SCode.Mod
   return mod
 end
 
+function lookupAnnotationBinding(ann::SCode.Annotation, name::String)::Option{Absyn.Exp}
+  return getModifierBinding(lookupAnnotation(ann, name))
+end
+
 """Look up all annotations with the given name, returning a list of modifiers."""
 function lookupAnnotations(ann::SCode.Annotation, name::String)::List{SCode.Mod}
   local mods::List{SCode.Mod} = nil
