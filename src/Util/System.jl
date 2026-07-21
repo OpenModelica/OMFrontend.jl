@@ -1065,12 +1065,61 @@ end
   has been completed, but the factor U is exactly
   singular, so the solution could not be computed.
 """
-function dgesv(A::List{<:List{<:AbstractFloat}}, B::List{<:AbstractFloat}) ::Tuple{List{AbstractFloat}, Integer}
-  local info::Int
-  local X::List{AbstractFloat}
-
-  @error "TODO: Defined in the runtime"
-  (X, info)
+function dgesv(A::List, B::List)
+  local n = listLength(B)
+  local M = Base.Matrix{Float64}(undef, n, n + 1)
+  local i = 0
+  for row in A
+    i += 1
+    local j = 0
+    for a in row
+      j += 1
+      M[i, j] = Float64(a)
+    end
+  end
+  i = 0
+  for b in B
+    i += 1
+    M[i, n + 1] = Float64(b)
+  end
+  # Gaussian elimination with partial pivoting; info = k on a singular pivot.
+  for k in 1:n
+    local piv = k
+    for r in (k + 1):n
+      abs(M[r, k]) > abs(M[piv, k]) && (piv = r)
+    end
+    if abs(M[piv, k]) < 1e-300
+      local zeros_list = nil
+      for _ in 1:n
+        zeros_list = cons(0.0, zeros_list)
+      end
+      return (zeros_list, k)
+    end
+    if piv != k
+      for c in k:(n + 1)
+        M[k, c], M[piv, c] = M[piv, c], M[k, c]
+      end
+    end
+    for r in (k + 1):n
+      local f = M[r, k] / M[k, k]
+      for c in k:(n + 1)
+        M[r, c] -= f * M[k, c]
+      end
+    end
+  end
+  local Xvec = Base.Vector{Float64}(undef, n)
+  for k in n:-1:1
+    local acc = M[k, n + 1]
+    for c in (k + 1):n
+      acc -= M[k, c] * Xvec[c]
+    end
+    Xvec[k] = acc / M[k, k]
+  end
+  local X = nil
+  for k in n:-1:1
+    X = cons(Xvec[k], X)
+  end
+  return (X, 0)
 end
 
 """lpsolve55"""
