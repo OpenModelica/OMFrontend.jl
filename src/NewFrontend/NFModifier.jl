@@ -46,7 +46,7 @@
   end
 end
 
-const EMPTY_MOD = MODIFIER_NOMOD_SINGLETON
+const EMPTY_MOD = MODIFIER_NOMOD()
 
 function toString(scope::ModifierScope)
   local string::String

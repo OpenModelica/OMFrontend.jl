@@ -220,44 +220,15 @@ end
 P_Pointer.create(data::InstNode) = P_Pointer.Pointer{InstNode}(data)
 P_Pointer.createImmutable(data::InstNode) = P_Pointer.Pointer{InstNode}(data)
 
-@enum DimensionTag::UInt8 DT_UNKNOWN DT_EXP DT_ENUM DT_BOOLEAN DT_INTEGER DT_UNTYPED DT_RAW_DIM
-
-struct DimensionImpl <: NFDimension
-  tag::DimensionTag
-  exp::Union{NFExpression,Nothing}
-  var::VariabilityType
-  enumType::Any
-  size::Int
-  dimension::Union{NFExpression,Nothing}
-  isProcessing::Bool
-  dim::Union{Absyn.Subscript,Nothing}
+@T_Uniontype NFDimension begin
+  DIMENSION_UNKNOWN()
+  DIMENSION_EXP(exp::NFExpression, var::VariabilityType = Int8(0))
+  DIMENSION_ENUM(enumType::Any)
+  DIMENSION_BOOLEAN()
+  DIMENSION_INTEGER(size::Int = 0, var::VariabilityType = Int8(0))
+  DIMENSION_UNTYPED(dimension::NFExpression, isProcessing::Bool = false)
+  DIMENSION_RAW_DIM(dim::Absyn.Subscript)
 end
-
-@inline _dimension(tag::DimensionTag; exp=nothing,
-  var::VariabilityType=Int8(0), enumType=nothing, size::Int=0,
-  dimension=nothing, isProcessing::Bool=false, dim=nothing) =
-  DimensionImpl(tag, exp, var, enumType, size, dimension, isProcessing, dim)
-
-const DIMENSION_UNKNOWN_SINGLETON = _dimension(DT_UNKNOWN)
-const DIMENSION_BOOLEAN_SINGLETON = _dimension(DT_BOOLEAN)
-DIMENSION_UNKNOWN() = DIMENSION_UNKNOWN_SINGLETON
-DIMENSION_EXP(exp, var) = _dimension(DT_EXP; exp, var=Int8(var))
-DIMENSION_ENUM(enumType) = _dimension(DT_ENUM; enumType)
-DIMENSION_BOOLEAN() = DIMENSION_BOOLEAN_SINGLETON
-DIMENSION_INTEGER(size, var) = _dimension(DT_INTEGER; size=Int(size), var=Int8(var))
-DIMENSION_UNTYPED(dimension, isProcessing) =
-  _dimension(DT_UNTYPED; dimension, isProcessing)
-DIMENSION_RAW_DIM(dim) = _dimension(DT_RAW_DIM; dim)
-
-MetaModelica.compacted_tag_info(::typeof(DIMENSION_UNKNOWN)) = (DimensionImpl, :tag, DT_UNKNOWN, ())
-MetaModelica.compacted_tag_info(::typeof(DIMENSION_EXP)) = (DimensionImpl, :tag, DT_EXP, (:exp, :var))
-MetaModelica.compacted_tag_info(::typeof(DIMENSION_ENUM)) = (DimensionImpl, :tag, DT_ENUM, (:enumType,))
-MetaModelica.compacted_tag_info(::typeof(DIMENSION_BOOLEAN)) = (DimensionImpl, :tag, DT_BOOLEAN, ())
-MetaModelica.compacted_tag_info(::typeof(DIMENSION_INTEGER)) = (DimensionImpl, :tag, DT_INTEGER, (:size, :var))
-MetaModelica.compacted_tag_info(::typeof(DIMENSION_UNTYPED)) = (DimensionImpl, :tag, DT_UNTYPED, (:dimension, :isProcessing))
-MetaModelica.compacted_tag_info(::typeof(DIMENSION_RAW_DIM)) = (DimensionImpl, :tag, DT_RAW_DIM, (:dim,))
-
-MetaModelica.valueConstructor(v::DimensionImpl) = Int(v.tag)
 
 # Boxed CLASS_NODE.cls payload. The node itself is rebuilt functionally while
 # shared derived/base class views still observe updates through the class cell.
@@ -325,7 +296,7 @@ struct NFType
   types::List{NFType}
   names::Option{List{String}}
   elementType::Union{NFType,Nothing}
-  dimensions::List{DimensionImpl}
+  dimensions::List{NFDimensionImpl}
   typePath::Union{Absyn.Path,Nothing}
   literals::List{String}
 end
@@ -407,246 +378,62 @@ MetaModelica.compacted_tag_info(::typeof(UNTYPED_ARRAY_CONSTRUCTOR)) =
 
 MetaModelica.valueConstructor(v::CallImpl) = Int(v.tag)
 
-@enum BindingTag::UInt8 BT_INVALID BT_CEVAL BT_FLAT BT_TYPED BT_UNTYPED BT_RAW BT_UNBOUND BT_ERROR
-
-mutable struct BindingImpl <: NFBinding
-  tag::BindingTag
-  binding::Union{BindingImpl,Nothing}
-  errors::Union{List,Nothing}
-  bindingExp::Union{NFExpression,Absyn.Exp,Nothing}
-  bindingType::Union{NFType,Nothing}
-  variability::VariabilityType
-  eachType::Int
-  evaluated::Bool
-  isFlattened::Bool
-  isProcessing::Bool
-  scope::Union{InstNode,Nothing}
-  parents::Union{List{InstNode},Nothing}
-  isEach::Bool
-  info::Union{SourceInfo,Nothing}
+@T_Uniontype mutable NFBinding begin
+  INVALID_BINDING(binding::NFBinding, errors::List)
+  CEVAL_BINDING(bindingExp::Union{NFExpression,Absyn.Exp})
+  FLAT_BINDING(bindingExp::Union{NFExpression,Absyn.Exp}, variability::VariabilityType = Int8(0))
+  TYPED_BINDING(bindingExp::Union{NFExpression,Absyn.Exp}, bindingType::NFType, variability::VariabilityType = Int8(0), eachType::Int = 0, evaluated::Bool = false, isFlattened::Bool = false, info::SourceInfo)
+  UNTYPED_BINDING(bindingExp::Union{NFExpression,Absyn.Exp}, isProcessing::Bool = false, scope::InstNode, isEach::Bool = false, info::SourceInfo)
+  RAW_BINDING(bindingExp::Union{NFExpression,Absyn.Exp}, scope::InstNode, parents::List{InstNode}, isEach::Bool = false, info::SourceInfo)
+  UNBOUND(parents::List{InstNode}, isEach::Bool = false, info::SourceInfo)
+  BINDING_ERROR()
 end
-
-@inline _binding(tag::BindingTag; binding=nothing, errors=nothing, bindingExp=nothing,
-  bindingType=nothing, variability::VariabilityType=Int8(0), eachType::Int=0,
-  evaluated::Bool=false, isFlattened::Bool=false, isProcessing::Bool=false,
-  scope=nothing, parents=nothing, isEach::Bool=false, info=nothing) =
-  BindingImpl(tag, binding, errors, bindingExp, bindingType, variability, eachType,
-    evaluated, isFlattened, isProcessing, scope, parents, isEach, info)
-
-INVALID_BINDING(binding, errors) = _binding(BT_INVALID; binding, errors)
-CEVAL_BINDING(bindingExp) = _binding(BT_CEVAL; bindingExp)
-FLAT_BINDING(bindingExp, variability) =
-  _binding(BT_FLAT; bindingExp, variability=Int8(variability))
-TYPED_BINDING(bindingExp, bindingType, variability, eachType, evaluated, isFlattened, info) =
-  _binding(BT_TYPED; bindingExp, bindingType, variability=Int8(variability),
-    eachType=Int(eachType), evaluated, isFlattened, info)
-UNTYPED_BINDING(bindingExp, isProcessing, scope, isEach, info) =
-  _binding(BT_UNTYPED; bindingExp, isProcessing, scope, isEach, info)
-RAW_BINDING(bindingExp, scope, parents, isEach, info) =
-  _binding(BT_RAW; bindingExp, scope, parents, isEach, info)
-UNBOUND(parents, isEach, info) = _binding(BT_UNBOUND; parents, isEach, info)
-BINDING_ERROR() = _binding(BT_ERROR)
-
-MetaModelica.compacted_tag_info(::typeof(INVALID_BINDING)) = (BindingImpl, :tag, BT_INVALID, (:binding, :errors))
-MetaModelica.compacted_tag_info(::typeof(CEVAL_BINDING)) = (BindingImpl, :tag, BT_CEVAL, (:bindingExp,))
-MetaModelica.compacted_tag_info(::typeof(FLAT_BINDING)) = (BindingImpl, :tag, BT_FLAT, (:bindingExp, :variability))
-MetaModelica.compacted_tag_info(::typeof(TYPED_BINDING)) = (BindingImpl, :tag, BT_TYPED, (:bindingExp, :bindingType, :variability, :eachType, :evaluated, :isFlattened, :info))
-MetaModelica.compacted_tag_info(::typeof(UNTYPED_BINDING)) = (BindingImpl, :tag, BT_UNTYPED, (:bindingExp, :isProcessing, :scope, :isEach, :info))
-MetaModelica.compacted_tag_info(::typeof(RAW_BINDING)) = (BindingImpl, :tag, BT_RAW, (:bindingExp, :scope, :parents, :isEach, :info))
-MetaModelica.compacted_tag_info(::typeof(UNBOUND)) = (BindingImpl, :tag, BT_UNBOUND, (:parents, :isEach, :info))
-MetaModelica.compacted_tag_info(::typeof(BINDING_ERROR)) = (BindingImpl, :tag, BT_ERROR, ())
-
-MetaModelica.valueConstructor(v::BindingImpl) = Int(v.tag)
 
 include("../NewFrontend/NFModTable.jl")
 
-@enum ModifierTag::UInt8 MT_NOMOD MT_REDECLARE MT_MODIFIER
-
-struct ModifierImpl <: NFModifier
-  tag::ModifierTag
-  name::Union{String,Nothing}
-  finalPrefix::Union{SCode.Final,Nothing}
-  eachPrefix::Union{SCode.Each,Nothing}
-  binding::Union{BindingImpl,Nothing}
-  subModifiers::Union{ModTable.Tree,Nothing}
-  info::Union{SourceInfo,Nothing}
-  element::Union{InstNode,Nothing}
-  mod::Union{ModifierImpl,Nothing}
+@T_Uniontype NFModifier begin
+  MODIFIER_NOMOD()
+  MODIFIER_REDECLARE(finalPrefix::SCode.Final, eachPrefix::SCode.Each, element::InstNode, mod::NFModifier)
+  MODIFIER_MODIFIER(name::String, finalPrefix::SCode.Final, eachPrefix::SCode.Each, binding::NFBindingImpl, subModifiers::ModTable.Tree, info::SourceInfo)
 end
 
-@inline _modifier(tag::ModifierTag; name=nothing, finalPrefix=nothing,
-  eachPrefix=nothing, binding=nothing, subModifiers=nothing, info=nothing,
-  element=nothing, mod=nothing) =
-  ModifierImpl(tag, name, finalPrefix, eachPrefix, binding, subModifiers, info,
-    element, mod)
-
-const MODIFIER_NOMOD_SINGLETON = _modifier(MT_NOMOD)
-MODIFIER_NOMOD() = MODIFIER_NOMOD_SINGLETON
-MODIFIER_REDECLARE(finalPrefix, eachPrefix, element, mod) =
-  _modifier(MT_REDECLARE; finalPrefix, eachPrefix, element, mod)
-MODIFIER_MODIFIER(name, finalPrefix, eachPrefix, binding, subModifiers, info) =
-  _modifier(MT_MODIFIER; name, finalPrefix, eachPrefix, binding, subModifiers, info)
-
-MetaModelica.compacted_tag_info(::typeof(MODIFIER_NOMOD)) = (ModifierImpl, :tag, MT_NOMOD, ())
-MetaModelica.compacted_tag_info(::typeof(MODIFIER_REDECLARE)) = (ModifierImpl, :tag, MT_REDECLARE, (:finalPrefix, :eachPrefix, :element, :mod))
-MetaModelica.compacted_tag_info(::typeof(MODIFIER_MODIFIER)) = (ModifierImpl, :tag, MT_MODIFIER, (:name, :finalPrefix, :eachPrefix, :binding, :subModifiers, :info))
-
-MetaModelica.valueConstructor(v::ModifierImpl) = Int(v.tag)
-
-@enum EquationTag::UInt8 ET_NORETCALL ET_REINIT ET_TERMINATE ET_ASSERT ET_WHEN ET_RECONFIGURE ET_IF ET_FOR ET_CONNECT ET_ARRAY_EQUALITY ET_CREF_EQUALITY ET_EQUALITY
-@enum EquationBranchTag::UInt8 EBT_INVALID_BRANCH EBT_BRANCH
-
-struct EquationImpl <: NFEquation
-  tag::EquationTag
-  exp::Union{NFExpression,Nothing}
-  cref::Union{NFExpression,Nothing}
-  reinitExp::Union{NFExpression,Nothing}
-  message::Union{NFExpression,Nothing}
-  condition::Union{NFExpression,Nothing}
-  level::Union{NFExpression,Nothing}
-  branches::Union{Vector{Equation_Branch},Nothing}
-  variables::Union{MetaModelica.List{Absyn.ElementItem},Nothing}
-  whenConditions::Union{Vector,Nothing}
-  whenConstraints::Union{Vector,Nothing}
-  prompt::Union{Option,Nothing}
-  initialEquations::Union{Option,Nothing}
-  iterator::Union{InstNode,Nothing}
-  range::Union{Option,Nothing}
-  body::Union{Vector{EquationImpl},Nothing}
-  lhs::Union{NFExpression,NFComponentRef,Nothing}
-  rhs::Union{NFExpression,NFComponentRef,Nothing}
-  ty::Union{NFType,Nothing}
-  source::Union{DAE.ElementSource,Nothing}
+@T_Uniontype NFEquation begin
+  EQUATION_NORETCALL(exp::NFExpression, source::DAE.ElementSource)
+  EQUATION_REINIT(cref::NFExpression, reinitExp::NFExpression, source::DAE.ElementSource)
+  EQUATION_TERMINATE(message::NFExpression, source::DAE.ElementSource)
+  EQUATION_ASSERT(condition::NFExpression, message::NFExpression, level::NFExpression, source::DAE.ElementSource)
+  EQUATION_WHEN(branches::Vector{Equation_Branch}, source::DAE.ElementSource)
+  EQUATION_RECONFIGURE(variables::MetaModelica.List{Absyn.ElementItem}, whenConditions::Vector, whenConstraints::Vector, prompt::Option, initialEquations::Option, source::DAE.ElementSource)
+  EQUATION_IF(branches::Vector{Equation_Branch}, source::DAE.ElementSource)
+  EQUATION_FOR(iterator::InstNode, range::Option, body::Vector{NFEquation}, source::DAE.ElementSource)
+  EQUATION_CONNECT(lhs::Union{NFExpression,NFComponentRef}, rhs::Union{NFExpression,NFComponentRef}, source::DAE.ElementSource)
+  EQUATION_ARRAY_EQUALITY(lhs::Union{NFExpression,NFComponentRef}, rhs::Union{NFExpression,NFComponentRef}, ty::NFType, source::DAE.ElementSource)
+  EQUATION_CREF_EQUALITY(lhs::Union{NFExpression,NFComponentRef}, rhs::Union{NFExpression,NFComponentRef}, source::DAE.ElementSource)
+  EQUATION_EQUALITY(lhs::Union{NFExpression,NFComponentRef}, rhs::Union{NFExpression,NFComponentRef}, ty::NFType, source::DAE.ElementSource)
 end
 
-struct EquationBranchImpl <: Equation_Branch
-  tag::EquationBranchTag
-  branch::Union{EquationBranchImpl,Nothing}
-  errors::Union{Vector,Nothing}
-  condition::Union{NFExpression,Nothing}
-  conditionVar::Int
-  body::Union{Vector{EquationImpl},Nothing}
+@T_Uniontype Equation_Branch begin
+  EQUATION_INVALID_BRANCH(branch::Equation_Branch, errors::Vector)
+  EQUATION_BRANCH(condition::NFExpression, conditionVar::Int = 0, body::Vector{NFEquationImpl})
 end
 
-@inline _equation(tag::EquationTag; exp=nothing, cref=nothing, reinitExp=nothing,
-  message=nothing, condition=nothing, level=nothing, branches=nothing,
-  variables=nothing, whenConditions=nothing, whenConstraints=nothing,
-  prompt=nothing, initialEquations=nothing, iterator=nothing, range=nothing,
-  body=nothing, lhs=nothing, rhs=nothing, ty=nothing, source=nothing) =
-  EquationImpl(tag, exp, cref, reinitExp, message, condition, level, branches,
-    variables, whenConditions, whenConstraints, prompt, initialEquations,
-    iterator, range, body, lhs, rhs, ty, source)
-
-@inline _equationBranch(tag::EquationBranchTag; branch=nothing, errors=nothing,
-  condition=nothing, conditionVar::Int=0, body=nothing) =
-  EquationBranchImpl(tag, branch, errors, condition, conditionVar, body)
-
-EQUATION_NORETCALL(exp, source) = _equation(ET_NORETCALL; exp, source)
-EQUATION_REINIT(cref, reinitExp, source) =
-  _equation(ET_REINIT; cref, reinitExp, source)
-EQUATION_TERMINATE(message, source) = _equation(ET_TERMINATE; message, source)
-EQUATION_ASSERT(condition, message, level, source) =
-  _equation(ET_ASSERT; condition, message, level, source)
-EQUATION_WHEN(branches, source) = _equation(ET_WHEN; branches, source)
-EQUATION_RECONFIGURE(variables, whenConditions, whenConstraints, prompt,
-  initialEquations, source) =
-  _equation(ET_RECONFIGURE; variables, whenConditions, whenConstraints, prompt,
-    initialEquations, source)
-EQUATION_IF(branches, source) = _equation(ET_IF; branches, source)
-EQUATION_FOR(iterator, range, body, source) =
-  _equation(ET_FOR; iterator, range, body, source)
-EQUATION_CONNECT(lhs, rhs, source) = _equation(ET_CONNECT; lhs, rhs, source)
-EQUATION_ARRAY_EQUALITY(lhs, rhs, ty, source) =
-  _equation(ET_ARRAY_EQUALITY; lhs, rhs, ty, source)
-EQUATION_CREF_EQUALITY(lhs, rhs, source) =
-  _equation(ET_CREF_EQUALITY; lhs, rhs, source)
-EQUATION_EQUALITY(lhs, rhs, ty, source) =
-  _equation(ET_EQUALITY; lhs, rhs, ty, source)
-
-EQUATION_INVALID_BRANCH(branch, errors) =
-  _equationBranch(EBT_INVALID_BRANCH; branch, errors)
-EQUATION_BRANCH(condition, conditionVar, body) =
-  _equationBranch(EBT_BRANCH; condition, conditionVar=Int(conditionVar), body)
-
-MetaModelica.compacted_tag_info(::typeof(EQUATION_NORETCALL)) = (EquationImpl, :tag, ET_NORETCALL, (:exp, :source))
-MetaModelica.compacted_tag_info(::typeof(EQUATION_REINIT)) = (EquationImpl, :tag, ET_REINIT, (:cref, :reinitExp, :source))
-MetaModelica.compacted_tag_info(::typeof(EQUATION_TERMINATE)) = (EquationImpl, :tag, ET_TERMINATE, (:message, :source))
-MetaModelica.compacted_tag_info(::typeof(EQUATION_ASSERT)) = (EquationImpl, :tag, ET_ASSERT, (:condition, :message, :level, :source))
-MetaModelica.compacted_tag_info(::typeof(EQUATION_WHEN)) = (EquationImpl, :tag, ET_WHEN, (:branches, :source))
-MetaModelica.compacted_tag_info(::typeof(EQUATION_RECONFIGURE)) = (EquationImpl, :tag, ET_RECONFIGURE, (:variables, :whenConditions, :whenConstraints, :prompt, :initialEquations, :source))
-MetaModelica.compacted_tag_info(::typeof(EQUATION_IF)) = (EquationImpl, :tag, ET_IF, (:branches, :source))
-MetaModelica.compacted_tag_info(::typeof(EQUATION_FOR)) = (EquationImpl, :tag, ET_FOR, (:iterator, :range, :body, :source))
-MetaModelica.compacted_tag_info(::typeof(EQUATION_CONNECT)) = (EquationImpl, :tag, ET_CONNECT, (:lhs, :rhs, :source))
-MetaModelica.compacted_tag_info(::typeof(EQUATION_ARRAY_EQUALITY)) = (EquationImpl, :tag, ET_ARRAY_EQUALITY, (:lhs, :rhs, :ty, :source))
-MetaModelica.compacted_tag_info(::typeof(EQUATION_CREF_EQUALITY)) = (EquationImpl, :tag, ET_CREF_EQUALITY, (:lhs, :rhs, :source))
-MetaModelica.compacted_tag_info(::typeof(EQUATION_EQUALITY)) = (EquationImpl, :tag, ET_EQUALITY, (:lhs, :rhs, :ty, :source))
-MetaModelica.compacted_tag_info(::typeof(EQUATION_INVALID_BRANCH)) = (EquationBranchImpl, :tag, EBT_INVALID_BRANCH, (:branch, :errors))
-MetaModelica.compacted_tag_info(::typeof(EQUATION_BRANCH)) = (EquationBranchImpl, :tag, EBT_BRANCH, (:condition, :conditionVar, :body))
-
-MetaModelica.valueConstructor(v::EquationImpl) = Int(v.tag)
-MetaModelica.valueConstructor(v::EquationBranchImpl) = Int(v.tag)
-
-@enum StatementTag::UInt8 ST_FAILURE ST_BREAK ST_RETURN ST_WHILE ST_NORETCALL ST_TERMINATE ST_ASSERT ST_WHEN ST_IF ST_FOR ST_FUNCTION_ARRAY_INIT ST_ASSIGNMENT
-
-struct StatementImpl <: NFStatement
-  tag::StatementTag
-  body::Union{Vector{StatementImpl},Nothing}
-  source::Union{DAE.ElementSource,Nothing}
-  condition::Union{NFExpression,Nothing}
-  exp::Union{NFExpression,Nothing}
-  message::Union{NFExpression,Nothing}
-  level::Union{NFExpression,Nothing}
-  branches::Union{Vector{Tuple{NFExpression, Vector{StatementImpl}}},Nothing}
-  iterator::Union{InstNode,Nothing}
-  range::Union{Option,Nothing}
-  name::Union{String,Nothing}
-  ty::Union{NFType,Nothing}
-  lhs::Union{NFExpression,Nothing}
-  rhs::Union{NFExpression,Nothing}
+@T_Uniontype NFStatement begin
+  ALG_FAILURE(body::Vector{NFStatement}, source::DAE.ElementSource)
+  ALG_BREAK(source::DAE.ElementSource)
+  ALG_RETURN(source::DAE.ElementSource)
+  ALG_WHILE(condition::NFExpression, body::Vector{NFStatement}, source::DAE.ElementSource)
+  ALG_NORETCALL(exp::NFExpression, source::DAE.ElementSource)
+  ALG_TERMINATE(message::NFExpression, source::DAE.ElementSource)
+  ALG_ASSERT(condition::NFExpression, message::NFExpression, level::NFExpression, source::DAE.ElementSource)
+  ALG_WHEN(branches::Vector{Tuple{NFExpression, Vector{NFStatement}}}, source::DAE.ElementSource)
+  ALG_IF(branches::Vector{Tuple{NFExpression, Vector{NFStatement}}}, source::DAE.ElementSource)
+  ALG_FOR(iterator::InstNode, range::Option, body::Vector{NFStatement}, source::DAE.ElementSource)
+  ALG_FUNCTION_ARRAY_INIT(name::String, ty::NFType, source::DAE.ElementSource)
+  ALG_ASSIGNMENT(lhs::NFExpression, rhs::NFExpression, ty::NFType, source::DAE.ElementSource)
 end
-
-@inline _statement(tag::StatementTag; body=nothing, source=nothing,
-  condition=nothing, exp=nothing, message=nothing, level=nothing,
-  branches=nothing, iterator=nothing, range=nothing, name=nothing,
-  ty=nothing, lhs=nothing, rhs=nothing) =
-  StatementImpl(tag, body, source, condition, exp, message, level, branches,
-    iterator, range, name, ty, lhs, rhs)
-
-ALG_FAILURE(body, source) = _statement(ST_FAILURE; body, source)
-ALG_BREAK(source) = _statement(ST_BREAK; source)
-ALG_RETURN(source) = _statement(ST_RETURN; source)
-ALG_WHILE(condition, body, source) =
-  _statement(ST_WHILE; condition, body, source)
-ALG_NORETCALL(exp, source) = _statement(ST_NORETCALL; exp, source)
-ALG_TERMINATE(message, source) = _statement(ST_TERMINATE; message, source)
-ALG_ASSERT(condition, message, level, source) =
-  _statement(ST_ASSERT; condition, message, level, source)
-ALG_WHEN(branches, source) = _statement(ST_WHEN; branches, source)
-ALG_IF(branches, source) = _statement(ST_IF; branches, source)
-ALG_FOR(iterator, range, body, source) =
-  _statement(ST_FOR; iterator, range, body, source)
-ALG_FUNCTION_ARRAY_INIT(name, ty, source) =
-  _statement(ST_FUNCTION_ARRAY_INIT; name, ty, source)
-ALG_ASSIGNMENT(lhs, rhs, ty, source) =
-  _statement(ST_ASSIGNMENT; lhs, rhs, ty, source)
-
-MetaModelica.compacted_tag_info(::typeof(ALG_FAILURE)) = (StatementImpl, :tag, ST_FAILURE, (:body, :source))
-MetaModelica.compacted_tag_info(::typeof(ALG_BREAK)) = (StatementImpl, :tag, ST_BREAK, (:source,))
-MetaModelica.compacted_tag_info(::typeof(ALG_RETURN)) = (StatementImpl, :tag, ST_RETURN, (:source,))
-MetaModelica.compacted_tag_info(::typeof(ALG_WHILE)) = (StatementImpl, :tag, ST_WHILE, (:condition, :body, :source))
-MetaModelica.compacted_tag_info(::typeof(ALG_NORETCALL)) = (StatementImpl, :tag, ST_NORETCALL, (:exp, :source))
-MetaModelica.compacted_tag_info(::typeof(ALG_TERMINATE)) = (StatementImpl, :tag, ST_TERMINATE, (:message, :source))
-MetaModelica.compacted_tag_info(::typeof(ALG_ASSERT)) = (StatementImpl, :tag, ST_ASSERT, (:condition, :message, :level, :source))
-MetaModelica.compacted_tag_info(::typeof(ALG_WHEN)) = (StatementImpl, :tag, ST_WHEN, (:branches, :source))
-MetaModelica.compacted_tag_info(::typeof(ALG_IF)) = (StatementImpl, :tag, ST_IF, (:branches, :source))
-MetaModelica.compacted_tag_info(::typeof(ALG_FOR)) = (StatementImpl, :tag, ST_FOR, (:iterator, :range, :body, :source))
-MetaModelica.compacted_tag_info(::typeof(ALG_FUNCTION_ARRAY_INIT)) = (StatementImpl, :tag, ST_FUNCTION_ARRAY_INIT, (:name, :ty, :source))
-MetaModelica.compacted_tag_info(::typeof(ALG_ASSIGNMENT)) = (StatementImpl, :tag, ST_ASSIGNMENT, (:lhs, :rhs, :ty, :source))
-
-MetaModelica.valueConstructor(v::StatementImpl) = Int(v.tag)
 
 struct AlgorithmImpl <: NFAlgorithm
-  statements::Vector{StatementImpl}
+  statements::Vector{NFStatementImpl}
   source::DAE.ElementSource
 end
 
