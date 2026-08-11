@@ -6179,6 +6179,11 @@ function componentName(c::ComponentItem)::String
   return name
 end
 
+# Current OMC signature: replace the last identifier by name.
+function pathSetLastIdent(inPath::Path, ident::String)::Path
+  return pathSetLastIdent(inPath, IDENT(ident))
+end
+
 function pathSetLastIdent(inPath::Path, inLastIdent::Path)::Path
   local outPath::Path
 
