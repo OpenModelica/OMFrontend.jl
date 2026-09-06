@@ -251,12 +251,12 @@ end
 
 function foldInputFields(
   fields::List{Field},
-  args::List{T},
+  args::List,
   func::FuncT,
   foldArg::ArgT,
-) where {T, ArgT}
-  local arg::T
-  local rest_args::List{T} = args
+) where {ArgT}
+  local arg
+  local rest_args::List = args
   for field in fields
     @match _cons(arg, rest_args) = rest_args
     if isInput(field)

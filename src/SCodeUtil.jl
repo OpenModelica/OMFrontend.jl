@@ -5570,8 +5570,8 @@ function equationContainConnectorsBranch(inEq::SCode.EEquation)::Bool
     local tpl_el::List{Tuple{Absyn.Exp, List{SCode.EEquation}}}
     @match inEq begin
       SCode.EQ_NORETCALL(Absyn.CALL(
-        Absyn.CREF_QUAL("Connections", Nil{Any}(),
-                        Absyn.CREF_IDENT("branch", Nil{Any}())), _, _), _, _) => true
+        Absyn.CREF_QUAL("Connections", nil,
+                        Absyn.CREF_IDENT("branch", nil)), _, _), _, _) => true
       SCode.EQ_WHEN(eEquationLst = eqs, elseBranches = tpl_el) => begin
         b = equationsContainConnectorsBranch(eqs)
         eqs_lst = ListUtil.map(tpl_el, Util.tuple22)

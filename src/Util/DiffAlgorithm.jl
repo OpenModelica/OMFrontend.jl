@@ -75,12 +75,12 @@ Diff = (() -> begin #= Enumeration =#
 end)()
 
 function diff(
-  seq1::List{T},
-  seq2::List{T},
+  seq1::List,
+  seq2::List,
   equals::FunEquals,
   isWhitespace::FunWhitespace,
   toString::ToString,
-) where {T}
+)
   local out::List{Tuple{Diff, List{T}}}
 
   local start1::Int
