@@ -81,7 +81,7 @@ function diff(
   isWhitespace::FunWhitespace,
   toString::ToString,
 )
-  local out::List{Tuple{Diff, List{T}}}
+  local out::List{Tuple{Diff, List}}
 
   local start1::Int
   local end1::Int
@@ -89,8 +89,8 @@ function diff(
   local end2::Int
   local len1::Int
   local len2::Int
-  local arr1::Array{T}
-  local arr2::Array{T}
+  local arr1::Array{Any}
+  local arr2::Array{Any}
 
   @assign arr1 = listArray(seq1)
   @assign arr2 = listArray(seq2)
