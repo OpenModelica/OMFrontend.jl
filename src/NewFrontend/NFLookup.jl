@@ -77,7 +77,7 @@ function lookupClassName(name::Absyn.Path, scope::InstNode, info::SourceInfo, ch
   local state::LookupState
   local LS_REF::Ref{LookupState}
   if _lookupCacheEnabled() && !isRedeclared
-    local key = (objectid(name), objectid(scope), checkAccessViolations)
+    local key = (objectid(name), _refId(scope), checkAccessViolations)
     local cached = get(LOOKUP_CLASS_CACHE, key, nothing)
     if cached !== nothing
       LOOKUP_CLASS_HITS[] += 1
@@ -429,7 +429,7 @@ end
 function lookupLocalSimpleName(n::String, scope::InstNode)
   local isImport::Bool = false
   local node::InstNode
-  if scope isa EMPTY_NODE
+  if isvariant(scope, EMPTY_NODE)
     throw("Lookup Error: Attempted to lookup '$n'. However, it was not found in the given scope.")
   end
   entryInfo = @match ENTRY_INFO(node, isImport) = lookupElement(n, getClass(scope))
@@ -443,7 +443,7 @@ function lookupNameWithError(name::Absyn.Path, scope::InstNode, info::SourceInfo
   local node::InstNode
   node = lookupName(name, scope, lookupStateRef, checkAccessViolations; isRedeclared = isRedeclared)
   state = lookupStateRef.x
-  if node isa EMPTY_NODE
+  if isvariant(node, EMPTY_NODE)
     Error.addSourceMessage(Error.LOOKUP_ERROR, list(AbsynUtil.pathString(name), scopeName(scope)), info)
     #@error "Lookup error for path: $(AbsynUtil.pathString(name)) in the scope $(scopeName(scope))"
     fail()
@@ -649,7 +649,7 @@ function lookupSimpleCref(crefName::String,
       @match foundScope begin
         IMPLICIT_SCOPE(__)  => begin
           node = lookupIteratorNoFail(crefName, foundScope.locals)
-          if node isa EMPTY_NODE
+          if isvariant(node, EMPTY_NODE)
             foundScope = parentScope(foundScope)
             continue
           end
@@ -820,14 +820,14 @@ function lookupCrefInNode(cref::Absyn.ComponentRef #=modification-040321=#,
      "%s is partial, name lookup is not allowed in partial classes"). A
      redeclared package resolves to its concrete target here, so this only
      fires for a genuinely-unredeclared partial default. =#
-  if node isa CLASS_NODE && isPartial(scope)
+  if isvariant(node, CLASS_NODE) && isPartial(scope)
     Error.addSourceMessageAndFail(
       Error.LOOKUP_IN_PARTIAL_CLASS, list(scopeName(scope)), sourceInfo())
   end
   name = AbsynUtil.crefFirstIdent(cref)
   cls = getClass(scope)
   @match ENTRY_INFO(n, is_import) = lookupElement(name, cls)
-  if n isa EMPTY_NODE
+  if isvariant(n, EMPTY_NODE)
     local wasComponent = isComponent(node)
     if !wasComponent
       fail()
@@ -904,6 +904,13 @@ end
   generated inner element if one has already been generated.
 """
 function generateInner(outerNode::InstNode, topScope::InstNode)
+  #= Serialized: check-then-create-then-add on the shared top-scope cache. =#
+  return lock(_INST_SHARED_LOCK) do
+    generateInner2(outerNode, topScope)
+  end
+end
+
+function generateInner2(outerNode::InstNode, topScope::InstNode)
   local innerNode::InstNode
   local cache::CachedData
   local nameStr::String
@@ -926,7 +933,7 @@ function generateInner(outerNode::InstNode, topScope::InstNode)
           try
             local origScope = parent(outerNode)
             local comp = component(innerNode)
-            if comp isa COMPONENT_DEF
+            if isvariant(comp, COMPONENT_DEF)
               local def = comp.definition
               if def isa SCode.COMPONENT && def.typeSpec isa Absyn.TPATH
                 local resolvedNode = lookupClassName(def.typeSpec.path, origScope, def.info, false)
@@ -934,9 +941,7 @@ function generateInner(outerNode::InstNode, topScope::InstNode)
                 def = SCode.COMPONENT(def.name, def.prefixes, def.attributes,
                   Absyn.TPATH(qualPath, def.typeSpec.arrayDim),
                   def.modifications, def.comment, def.condition, def.info)
-                #= Use updateComponent! (mutates pointer in place) instead of
-                   replaceComponent (creates new node, does not mutate). =#
-                updateComponent!(COMPONENT_DEF(def, comp.modifier), innerNode)
+                innerNode = updateComponent!(COMPONENT_DEF(def, comp.modifier), innerNode)
               end
             end
           catch e
@@ -973,8 +978,7 @@ function makeInnerNode(nodeArg::InstNode)
       CLASS_NODE(definition = def && SCode.CLASS(prefixes = prefs))  => begin
         @assign prefs.innerOuter = Absyn.INNER()
         @assign def.prefixes = prefs
-        nodeArg.definition = def
-        nodeArg
+        setDefinition(def, nodeArg)
       end
       COMPONENT_NODE(__)  => begin
         comp = component(nodeArg)

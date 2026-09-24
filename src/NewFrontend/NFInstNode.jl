@@ -33,121 +33,13 @@
 *
 */ =#
 
-@UniontypeDecl InstNodeType
-@UniontypeDecl InstNode
+#= InstNodeType and InstNode are single concrete tagged structs defined at the
+   forward-declaration site (FrontendInterfaces/NFInterfaces.jl). Their
+   constructors / singletons / @match registrations / methods follow here. =#
 
-@Uniontype InstNodeType begin
-  @Record NORMAL_CLASS begin
-  end
-  @Record BASE_CLASS begin
-    parent::InstNode
-    definition #= The extends clause definition. =#::SCode.Element
-  end
-  @Record DERIVED_CLASS begin
-    ty::InstNodeType
-  end
-  @Record BUILTIN_CLASS begin
-  end
-  @Record TOP_SCOPE begin
-  end
-  @Record ROOT_CLASS begin
-    parent #= The parent of the class, e.g. when instantiating a function
-    in a component where the component is the parent. =#::InstNode
-  end
-  @Record NORMAL_COMP begin
-  end
-  @Record REDECLARED_COMP begin
-    parent #= The parent of the replaced component =#::InstNode
-  end
-  @Record REDECLARED_CLASS begin
-    parent::InstNode
-    originalType::InstNodeType
-  end
-end
-
-abstract type InstNode end
-
-struct EMPTY_NODE <: InstNode
-end
-
-#= Backend-only extension: wraps a pointer to a backend Variable. Map/traversal
-   functions must NOT follow varPointer (it would create cyclic behaviour:
-   Var->cref->pointer->Var). Not used in the Frontend. =#
-mutable struct VAR_NODE <: InstNode
-  name::String
-  varPointer
-end
-
-mutable struct EXP_NODE <: InstNode
-  exp::Expression
-end
-
-mutable struct IMPLICIT_SCOPE <: InstNode
-  parentScope::InstNode
-  locals::Vector{InstNode}
-end
-
-mutable struct NAME_NODE{T0 <: String} <: InstNode
-  name::T0
-end
-
-mutable struct REF_NODE{T <: Int} <: InstNode
-  index::T
-end
-
-struct INNER_OUTER_NODE <: InstNode
-  innerNode::InstNode
-  outerNode::InstNode
-end
-
-mutable struct COMPONENT_NODE{T0 <: String, T1 <: Integer} <: InstNode
-  name::T0
-  visibility::T1
-  component::Component
-  parent #= The instance that this component is part of. =#::InstNode
-  nodeType::InstNodeType
-end
-
-# Convenience constructor for the static builtin tables, which still hand in a
-# Pointer{Component}; stores the wrapped value directly in the inlined field.
-COMPONENT_NODE{T0, T1}(name::T0, visibility::T1, component::Pointer{Component},
-                       parent::InstNode, nodeType::InstNodeType) where {T0 <: String, T1 <: Integer} =
-  COMPONENT_NODE{T0, T1}(name, visibility, P_Pointer.access(component), parent, nodeType)
-
-mutable struct CLASS_NODE <: InstNode
-  name::String
-  definition::SCode.Element
-  visibility::VisibilityType
-  cls::Union{Class, Pointer{Class}}
-  caches::Vector{<:Any}
-  parentScope::InstNode
-  nodeType::InstNodeType
-end
-
-# Box-on-share hybrid for CLASS_NODE.cls: single-owner nodes hold the Class
-# inlined (no Ref box); only derived/base sharing sites box it into a
-# Pointer{Class} so a mutation through one view is seen through the other.
-@inline _clsVal(node::CLASS_NODE) = (local c = node.cls; c isa Pointer{Class} ? c.x : c)
-@inline function _clsSet!(node::CLASS_NODE, v::Class)
-  local c = node.cls
-  if c isa Pointer{Class}
-    c.x = v
-  else
-    node.cls = v
-  end
-  return node
-end
-# Ensure node.cls is a shared Ref (box if currently inlined); return the Ref.
-@inline function _clsShareRef!(node::CLASS_NODE)
-  local c = node.cls
-  if c isa Pointer{Class}
-    return c
-  else
-    local r = Pointer{Class}(c)
-    node.cls = r
-    return r
-  end
-end
+#= InstNodeType/InstNode constructors, singletons, @match registrations and
+   box-on-share helpers are defined in FrontendInterfaces/NFInterfaces.jl (before
+   any file that @matches these variants). Methods follow below. =#
 
 module NodeTree
 
@@ -281,7 +173,7 @@ function hasBinding(@nospecialize(node::InstNode))
   hb = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        hasBinding(node.component) || hasBinding(derivedParent(node))
+        hasBinding(_compVal(node)) || hasBinding(derivedParent(node))
       end
       _  => begin
         false
@@ -317,7 +209,7 @@ function isModel(node::InstNode)
         isModel(restriction(_clsVal(node)))
       end
       COMPONENT_NODE(__)  => begin
-        isModel(classInstance(node.component))
+        isModel(classInstance(_compVal(node)))
       end
       _  => begin
         false
@@ -338,26 +230,71 @@ function isRecord(@nospecialize(node::InstNode))
         isRecord(restriction(_clsVal(node)))
       end
       COMPONENT_NODE(__)  => begin
-        isRecord(classInstance(node.component))
+        isRecord(classInstance(_compVal(node)))
       end
     end
   end
   isRec
 end
 
+@inline function withComponent(node::InstNode, component::Union{Component,Pointer{Component}})::InstNode
+  COMPONENT_NODE(node.name, node.visibility, component, node.parent, node.nodeType)
+end
+
+@inline function withClassPayload(node::InstNode, cls)::InstNode
+  CLASS_NODE(node.name, node.definition, node.visibility, cls,
+             node.caches, node.parentScope, node.nodeType)
+end
+
+@inline function withDefinition(node::InstNode, definition::SCode.Element)::InstNode
+  CLASS_NODE(node.name, definition, node.visibility, node.cls,
+             node.caches, node.parentScope, node.nodeType)
+end
+
+@inline function withVisibility(node::InstNode, visibility::VisibilityType)::InstNode
+  if isvariant(node, CLASS_NODE)
+    return CLASS_NODE(node.name, node.definition, visibility, node.cls,
+                      node.caches, node.parentScope, node.nodeType)
+  elseif isvariant(node, COMPONENT_NODE)
+    return COMPONENT_NODE(node.name, visibility, node.component,
+                          node.parent, node.nodeType)
+  else
+    return node
+  end
+end
+
+@inline function withName(newName::String, node::InstNode)::InstNode
+  if isvariant(node, CLASS_NODE)
+    return CLASS_NODE(newName, node.definition, node.visibility, node.cls,
+                      node.caches, node.parentScope, node.nodeType)
+  elseif isvariant(node, COMPONENT_NODE)
+    return COMPONENT_NODE(newName, node.visibility, node.component,
+                          node.parent, node.nodeType)
+  elseif isvariant(node, VAR_NODE)
+    return VAR_NODE(newName, node.varPointer)
+  elseif isvariant(node, NAME_NODE)
+    return NAME_NODE(newName)
+  else
+    return node
+  end
+end
+
 """
-  Copies the instance payload of the src node to the destination node.
-  For components the value is copied into the destination's own slot; for
-  classes the `cls` cell is shared (derived/base class aliasing).
+  Shares the instance payload cell of the src node with the destination node,
+  so updates through either node are observed by both (component and class
+  aliasing, e.g. redeclare and derived/base classes).
 """
 function copyInstancePtr(srcNode::InstNode,
                          dstNode::InstNode)
-  @match srcNode begin
-    COMPONENT_NODE(__) where dstNode isa COMPONENT_NODE  => begin
-      dstNode.component = srcNode.component
+  dstNode = @match srcNode begin
+    COMPONENT_NODE(__) where isvariant(dstNode, COMPONENT_NODE)  => begin
+      withComponent(dstNode, _compRef(srcNode))
     end
-    CLASS_NODE(__) where dstNode isa CLASS_NODE => begin
-      dstNode.cls = _clsShareRef!(srcNode)
+    CLASS_NODE(__) where isvariant(dstNode, CLASS_NODE) => begin
+      withClassPayload(dstNode, _clsRef(srcNode))
+    end
+    _ => begin
+      dstNode
     end
   end
   dstNode
@@ -385,7 +322,7 @@ end
 function clone(@nospecialize(node::InstNode))
   local cls::Class
   local clonedNode::InstNode
-  clonedNode = if node isa CLASS_NODE
+  clonedNode = if isvariant(node, CLASS_NODE)
     cls = _clsVal(node)
     cls = classTreeApply(cls, clone)
     CLASS_NODE(node.name,
@@ -451,7 +388,7 @@ function toFullDAEType(clsNode::InstNode)
               state = toDAE(restriction(cls), scopePath(clsNode, includeRoot = true))
               vars = makeTypeVars(clsNode)
               outType = DAE.T_COMPLEX(state, vars, NONE())
-              _clsSet!(clsNode, DAE_TYPE(outType))
+              clsNode = updateClass(DAE_TYPE(outType), clsNode)
               outType
             end
           end
@@ -502,46 +439,30 @@ function toPartialDAEType(clsNode::InstNode)
 end
 
 function setModifier(mod::Modifier, node::InstNode)
-
-
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        _clsSet!(node, setModifier(mod, _clsVal(node)))
-        ()
-      end
-
-      COMPONENT_NODE(__)  => begin
-        node.component = mergeModifier(mod, node.component)
-        ()
-      end
-
-      _  => begin
-        ()
-      end
+  node = @match node begin
+    CLASS_NODE(__)  => begin
+      updateClass(setModifier(mod, _clsVal(node)), node)
+    end
+    COMPONENT_NODE(__)  => begin
+      updateComponent!(mergeModifier(mod, _compVal(node)), node)
+    end
+    _  => begin
+      node
     end
   end
   node
 end
 
 function mergeModifier(mod::Modifier, node::InstNode)
-
-
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        _clsSet!(node, mergeModifier(mod, _clsVal(node)))
-        ()
-      end
-
-      COMPONENT_NODE(__) => begin
-        node.component = mergeModifier(mod, node.component)
-        ()
-      end
-
-      _  => begin
-        ()
-      end
+  node = @match node begin
+    CLASS_NODE(__)  => begin
+      updateClass(mergeModifier(mod, _clsVal(node)), node)
+    end
+    COMPONENT_NODE(__) => begin
+      updateComponent!(mergeModifier(mod, _compVal(node)), node)
+    end
+    _  => begin
+      node
     end
   end
   node
@@ -550,42 +471,34 @@ end
 
 function getModifier(node::InstNode)
   local mod
-  mod = if node isa CLASS_NODE
+  mod = if isvariant(node, CLASS_NODE)
     getModifier(_clsVal(node))
-  elseif node isa COMPONENT_NODE
-    getModifier(node.component)
+  elseif isvariant(node, COMPONENT_NODE)
+    getModifier(_compVal(node))
   else
     MODIFIER_NOMOD()
   end
 end
 
 function protectComponent(comp::InstNode)
-   () = begin
-    @match comp begin
-      COMPONENT_NODE(visibility = Visibility.PUBLIC)  => begin
-        comp.visibility = Visibility.PROTECTED
-        ()
-      end
-
-      _  => begin
-        ()
-      end
+  comp = @match comp begin
+    COMPONENT_NODE(visibility = Visibility.PUBLIC)  => begin
+      withVisibility(comp, Visibility.PROTECTED)
+    end
+    _  => begin
+      comp
     end
   end
   comp
 end
 
 function protectClass(cls::InstNode)
-   () = begin
-    @match cls begin
-      CLASS_NODE(visibility = Visibility.PUBLIC)  => begin
-        cls.visibility = Visibility.PROTECTED
-        ()
-      end
-
-      _  => begin
-        ()
-      end
+  cls = @match cls begin
+    CLASS_NODE(visibility = Visibility.PUBLIC)  => begin
+      withVisibility(cls, Visibility.PROTECTED)
+    end
+    _  => begin
+      cls
     end
   end
   cls
@@ -660,7 +573,7 @@ function isRedeclare(node::InstNode)
       end
 
       COMPONENT_NODE(__)  => begin
-        isRedeclare(node.component)
+        isRedeclare(_compVal(node))
       end
 
       _  => begin
@@ -690,7 +603,7 @@ function toFlatString(node::InstNode; inFunction = false)
    name = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        toFlatString(node.name, node.component; inFunction = inFunction)
+        toFlatString(node.name, _compVal(node); inFunction = inFunction)
       end
       CLASS_NODE(__)  => begin
         toFlatString(_clsVal(node), node)
@@ -708,7 +621,7 @@ function toString(node::InstNode)
    n = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        toString(node.name, node.component)
+        toString(node.name, _compVal(node))
       end
       CLASS_NODE(__)  => begin
         #SCodeDump.unparseElementStr(node.definition)
@@ -728,20 +641,18 @@ function checkIdentical(node1::InstNode, node2::InstNode)
   if referenceEq(n1, n2)
     return
   end
-   () = begin
-    @matchcontinue (n1, n2) begin
-      (CLASS_NODE(__), CLASS_NODE(__)) where (isIdentical(getClass(n1), getClass(n2)))  => begin
-        ()
-      end
-      (COMPONENT_NODE(__), COMPONENT_NODE(__)) where (isIdentical(component(n1), component(n2)))  => begin
-        ()
-      end
-      _  => begin
-        Error.addMultiSourceMessage(Error.DUPLICATE_ELEMENTS_NOT_IDENTICAL, list(toString(n1), toString(n2)), list(InstNode_info(n1), InstNode_info(n2)))
-        fail()
-      end
-    end
+  local identical::Bool = if isvariant(n1, CLASS_NODE) && isvariant(n2, CLASS_NODE)
+    isIdentical(getClass(n1), getClass(n2))
+  elseif isvariant(n1, COMPONENT_NODE) && isvariant(n2, COMPONENT_NODE)
+    isIdentical(component(n1), component(n2))
+  else
+    false
   end
+  if !identical
+    Error.addMultiSourceMessage(Error.DUPLICATE_ELEMENTS_NOT_IDENTICAL, list(toString(n1), toString(n2)), list(InstNode_info(n1), InstNode_info(n2)))
+    fail()
+  end
+  return
 end
 
 function isSame(node1::InstNode, node2::InstNode)
@@ -766,24 +677,11 @@ function nameEqual(node1::InstNode, node2::InstNode)
 end
 
 function refCompare(node1::InstNode, node2::InstNode)
-  local res::Int
-   res = begin
-    @match (node1, node2) begin
-      (CLASS_NODE(__), CLASS_NODE(__))  => begin
-        Util.referenceCompare(_clsVal(node1), _clsVal(node2))
-      end
-      (COMPONENT_NODE(__), COMPONENT_NODE(__))  => begin
-        Util.referenceCompare(node1.component, node2.component)
-      end
-      (CLASS_NODE(__), COMPONENT_NODE(__))  => begin
-        Util.referenceCompare(_clsVal(node1), node2.component)
-      end
-      (COMPONENT_NODE(__), CLASS_NODE(__))  => begin
-        Util.referenceCompare(node1.component, _clsVal(node2))
-      end
-    end
-  end
-  res
+  #= Order by payload-cell identity: O(1), stable across node shell rebuilds,
+     and equal exactly when two shells alias the same instance cell. =#
+  local t1 = _refId(node1)
+  local t2 = _refId(node2)
+  return Int(t1 < t2 ? -1 : (t1 > t2))
 end
 
 """
@@ -795,10 +693,10 @@ function refEqual(node1::InstNode, node2::InstNode)
   refEqualIs = begin
     @match (node1, node2) begin
       (CLASS_NODE(__), CLASS_NODE(__))  => begin
-        referenceEq(_clsVal(node1), _clsVal(node2))
+        _clsRef(node1) === _clsRef(node2)
       end
       (COMPONENT_NODE(__), COMPONENT_NODE(__))  => begin
-        referenceEq(node1.component, node2.component)
+        _compRef(node1) === _compRef(node2)
       end
       (VAR_NODE(__), VAR_NODE(__))  => begin
         referenceEq(P_Pointer.access(node1.varPointer), P_Pointer.access(node2.varPointer))
@@ -1008,8 +906,7 @@ function cacheInitFunc(node::InstNode)
   node
 end
 
-resolveOuter(node::INNER_OUTER_NODE) = node.outerNode
-resolveOuter(node::InstNode) = node
+resolveOuter(node::InstNode) = isvariant(node, INNER_OUTER_NODE) ? node.outerNode : node
 
 function resolveInner(node::InstNode)
   local innerNode::InstNode
@@ -1050,7 +947,7 @@ function isOnlyOuter(node::InstNode)
    isOuter = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        isOnlyOuter(node.component)
+        isOnlyOuter(_compVal(node))
       end
 
       CLASS_NODE(__)  => begin
@@ -1081,7 +978,7 @@ function isOuter(node::InstNode)
   local _result::Bool = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        isOuter(node.component)
+        isOuter(_compVal(node))
       end
 
       CLASS_NODE(__)  => begin
@@ -1105,7 +1002,7 @@ function isInner(node::InstNode)
   local _result::Bool = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        isInner(node.component)
+        isInner(_compVal(node))
       end
 
       CLASS_NODE(__)  => begin
@@ -1130,7 +1027,7 @@ function isOutput(node::InstNode)
    isOutput = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        isOutput(node.component)
+        isOutput(_compVal(node))
       end
 
       _  => begin
@@ -1147,7 +1044,7 @@ function isInput(node::InstNode)
    isInput = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        isInput(node.component)
+        isInput(_compVal(node))
       end
 
       _  => begin
@@ -1403,11 +1300,11 @@ end
 """
 function scopeList!(@nospecialize(node::InstNode), includeRoot::Bool = false, accumScopes::List{InstNode} = nil)
   local parent::InstNode
-  if node isa CLASS_NODE
+  if isvariant(node, CLASS_NODE)
     accumScopes = scopeListClass!(node, node.nodeType, includeRoot, accumScopes)
     return accumScopes
   end
-  if node isa COMPONENT_NODE && node.parent isa EMPTY_NODE
+  if isvariant(node, COMPONENT_NODE) && isvariant(node.parent, EMPTY_NODE)
     return nil
   end
   local scopes::Cons{InstNode}
@@ -1437,22 +1334,20 @@ end
 function componentApply(node::T, func::Function, arg::ArgT)::T  where {T <: InstNode, ArgT}
   @match node begin
     COMPONENT_NODE(__)  => begin
-      if isFrozen(node)
-        return thawCopy(node, func(arg::ArgT, node.component))
-      end
-      node.component = func(arg::ArgT, node.component)
+      node = updateComponent!(func(arg::ArgT, _compVal(node)), node)
     end
   end
   node
 end
 
+
 function classApply(node::InstNode, func::FuncType, arg::ArgT)  where {ArgT}
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        _clsSet!(node, func(arg, _clsVal(node)))
-        ()
-      end
+  node = @match node begin
+    CLASS_NODE(__)  => begin
+      updateClass(func(arg, _clsVal(node)), node)
+    end
+    _ => begin
+      node
     end
   end
   node
@@ -1467,7 +1362,7 @@ function getType(node::InstNode)
       end
 
       COMPONENT_NODE(__)  => begin
-        getType(node.component)
+        getType(_compVal(node))
       end
 
       VAR_NODE(__)  => begin
@@ -1493,7 +1388,7 @@ function InstNode_info(node::InstNode)
       end
 
       COMPONENT_NODE(__)  => begin
-        Component_info(node.component)
+        Component_info(_compVal(node))
       end
 
       COMPONENT_NODE(__)  => begin
@@ -1508,12 +1403,12 @@ function InstNode_info(node::InstNode)
 end
 
 function setDefinition(definition::SCode.Element, node::InstNode)
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        node.definition = definition
-        ()
-      end
+  node = @match node begin
+    CLASS_NODE(__)  => begin
+      withDefinition(node, definition)
+    end
+    _ => begin
+      node
     end
   end
   node
@@ -1521,10 +1416,10 @@ end
 
 function definition(node::InstNode)
   local def::SCode.Element
-  def = if node isa CLASS_NODE
+  def = if isvariant(node, CLASS_NODE)
     node.definition
-  elseif node isa COMPONENT_NODE
-    definition(node.component)
+  elseif isvariant(node, COMPONENT_NODE)
+    definition(_compVal(node))
   else
     fail()
   end
@@ -1535,14 +1430,14 @@ end
 function setNodeType(@nospecialize(nodeType::InstNodeType),
                      @nospecialize(node::InstNode))
 
-  local newNode = if node isa COMPONENT_NODE
-    COMPONENT_NODE{String, Int8}(node.name,
+  local newNode = if isvariant(node, COMPONENT_NODE)
+    COMPONENT_NODE(node.name,
                                 node.visibility,
                                 node.component,
                                 node.parent,
                                 nodeType)
-  elseif node isa CLASS_NODE
-    local newCls = nodeType isa DERIVED_CLASS ? _clsShareRef!(node) : node.cls
+  elseif isvariant(node, CLASS_NODE)
+    local newCls = isvariant(nodeType, DERIVED_CLASS) ? _clsRef(node) : node.cls
     tmp = CLASS_NODE(node.name,
                                   node.definition,
                                   node.visibility,
@@ -1573,42 +1468,30 @@ function nodeType(node::InstNode)
 end
 
 """TODO: Investigate how to integrate these..."""
-function replaceClass(cls::Class, node::CLASS_NODE)
-  replacedClass =
-    CLASS_NODE(node.name,
-                            node.definition,
-                            node.visibility,
-                            cls,
-                            node.caches,
-                            node.parentScope,
-                            node.nodeType)
-  return replacedClass
+function replaceClass(cls::Class, node::InstNode)
+  if isvariant(node, CLASS_NODE)
+    return withClassPayload(node, cls)
+  end
+  return node
 end
-
-
-replaceClass(cls::Class, node::InstNode) = node
 
 
 """
 Creates a new component node holding the supplied component value.
 """
-function replaceComponent(component::Component, node::COMPONENT_NODE{String, Int8})::COMPONENT_NODE{String, VisibilityType}
-  node = newComponent(node.name,
-                      node.visibility,
-                      component,
-                      node.parent,
-                      node.nodeType)
-  return node
+function replaceComponent(component::Component, node::InstNode)::InstNode
+  return withComponent(node, component)
 end
 
 """
 Combined setParent + replaceComponent in a single allocation: returns a new
-COMPONENT_NODE with `parent` set, carrying the existing component value.
+COMPONENT_NODE with `parent` set and a fresh payload cell holding the current
+component value (a unique instance, not an alias of `node`).
 """
-@inline function setParentAndReplaceComponent(parent::InstNode, node::COMPONENT_NODE{String, Int8})::COMPONENT_NODE{String, VisibilityType}
+@inline function setParentAndReplaceComponent(parent::InstNode, node::InstNode)::InstNode
   newComponent(node.name,
                node.visibility,
-               node.component,
+               _compVal(node),
                parent,
                node.nodeType)
 end
@@ -1635,18 +1518,8 @@ const CLASS_PTR_WRITERS = Dict{UInt64, Base.IdSet{Any}}()
 # Share immutable, unmodified TYPE_ATTRIBUTE template nodes across instances
 # instead of copying them per instance. Enabled by default; disable with
 # OMFRONTEND_SHARE_ATTRS=false. Only attributes with no instance modifier are
-# shared (their payload is never mutated). A copy-on-write guard in the mutators
-# protects against any unexpected mutation of a shared node.
+# shared. Mutators rebuild component nodes instead of modifying them in place.
 const SHARE_ATTRS = Base.RefValue{Bool}(get(ENV, "OMFRONTEND_SHARE_ATTRS", "true") == "true")
-# Shared (frozen) attribute template nodes; cleared per flatten in resetInstDiagnostics.
-const FROZEN_ATTR_NODES = Base.IdSet{Any}()
-
-@inline isFrozen(node) = SHARE_ATTRS[] && node in FROZEN_ATTR_NODES
-
-# Fresh, unfrozen per-instance copy of a frozen node carrying `comp` as payload.
-@inline function thawCopy(node::COMPONENT_NODE, comp::Component)
-  COMPONENT_NODE{String, Int8}(node.name, node.visibility, comp, node.parent, node.nodeType)
-end
 
 function _profileEnabled()
   return get(ENV, "OMFRONTEND_INST_PROFILE", "false") == "true"
@@ -1663,12 +1536,7 @@ function updateComponent!(component::Component, node::InstNode)
           COMPONENT_PTR_WRITES[k] = (prev[1], prev[2] + 1)
           push!(get!(COMPONENT_PTR_WRITERS, k, Base.IdSet{Any}()), node)
         end
-        if isFrozen(node)
-          thawCopy(node, component)
-        else
-          node.component = component
-          node
-        end
+        _compSet!(node, component)
       end
     end
   end
@@ -1680,7 +1548,7 @@ function component(node::InstNode)
    component = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        node.component
+        _compVal(node)
       end
     end
   end
@@ -1698,8 +1566,12 @@ function updateClass(cls::Class, node::InstNode)
           CLASS_PTR_WRITES[k] = (prev[1], prev[2] + 1)
           push!(get!(CLASS_PTR_WRITERS, k, Base.IdSet{Any}()), node)
         end
-        _clsSet!(node, cls)
-        node
+        if node.cls isa Pointer{Class}
+          _clsSet!(node, cls)
+          node
+        else
+          withClassPayload(node, cls)
+        end
       end
     end
   end
@@ -1721,75 +1593,55 @@ function getDerivedNode(node::InstNode)
   derived
 end
 
-function getDerivedClass(node::Union{CLASS_NODE, COMPONENT_NODE})
-   cls =  if cls isa CLASS_NODE
+function getDerivedClass(node::InstNode)
+   cls =  if isvariant(cls, CLASS_NODE)
      getClass(getDerivedNode(node))
    else
-     getClass(getDerivedNode(classInstance(node.component)))
+     getClass(getDerivedNode(classInstance(_compVal(node))))
    end
 end
 
 function getClass(node::InstNode)
-  cls = if node isa CLASS_NODE
+  cls = if isvariant(node, CLASS_NODE)
     _clsVal(node)
-  elseif  node isa COMPONENT_NODE
-    getClass(classInstance(node.component))
+  elseif  isvariant(node, COMPONENT_NODE)
+    getClass(classInstance(_compVal(node)))
+  elseif isvariant(node, INNER_OUTER_NODE)
+    getClass(node.innerNode)
   else
     return node#fail()
   end
 end
 
-function setOrphanParent(parent::InstNode, node::CLASS_NODE)
-  if node.parentScope isa EMPTY_NODE
-    CLASS_NODE(node.name,
-                            node.definition,
-                            node.visibility,
-                            node.cls,
-                            node.caches,
-                            parent,
-                            node.nodeType)
+function setOrphanParent(parent::InstNode, node::InstNode)
+  if isvariant(node, CLASS_NODE)
+    if isvariant(node.parentScope, EMPTY_NODE)
+      CLASS_NODE(node.name, node.definition, node.visibility, node.cls,
+                 node.caches, parent, node.nodeType)
+    else
+      node
+    end
   else
-    node
+    if isvariant(node.parent, EMPTY_NODE)
+      COMPONENT_NODE(node.name, node.visibility, node.component, parent, node.nodeType)
+    else
+      node
+    end
   end
 end
 
-function setOrphanParent(parent::InstNode, node::COMPONENT_NODE{String, Int8})
-  if node.parent isa EMPTY_NODE
-    COMPONENT_NODE{String, Int8}(node.name,
-                                 node.visibility,
-                                 node.component,
-                                 parent,
-                                 node.nodeType)
-  else
-    node
-  end
-end
-
-function setParent(@nospecialize(parent::InstNode),
-                   node::CLASS_NODE)::CLASS_NODE
-  if node.parentScope === parent
+function setParent(@nospecialize(parent::InstNode), node::InstNode)::InstNode
+  if isvariant(node, CLASS_NODE)
+    node.parentScope === parent && return node
+    return CLASS_NODE(node.name, node.definition, node.visibility, node.cls,
+                      node.caches, parent, node.nodeType)
+  elseif isvariant(node, COMPONENT_NODE)
+    parent !== node.parent &&
+      (node = COMPONENT_NODE(node.name, node.visibility, node.component, parent, node.nodeType))
     return node
+  else
+    return IMPLICIT_SCOPE(parent, node.locals)
   end
-  CLASS_NODE(node.name,
-             node.definition,
-             node.visibility,
-             node.cls,
-             node.caches,
-             parent,
-             node.nodeType)
-end
-
-function setParent(parent::InstNode,
-                   node::COMPONENT_NODE{String, VisibilityType})::COMPONENT_NODE{String, VisibilityType}
-  if parent !== node.parent
-    tmp = newComponent(node.name, node.visibility, node.component, parent, node.nodeType)
-    node = tmp
-  end
-  return node
-end
-
-function setParent(@nospecialize(parent::InstNode), node::IMPLICIT_SCOPE)
-  IMPLICIT_SCOPE(parent, node.locals)
 end
 
 function topComponent(node::InstNode)
@@ -1827,7 +1679,7 @@ function classScope(node::InstNode)
    scope = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        classInstance(node.component)
+        classInstance(_compVal(node))
       end
       _  => begin
         node
@@ -1854,7 +1706,7 @@ function parentScope(@nospecialize(node::InstNode))
       end
 
       COMPONENT_NODE(__)  => begin
-        parentScope(classInstance(node.component))
+        parentScope(classInstance(_compVal(node)))
       end
 
       IMPLICIT_SCOPE(__)  => begin
@@ -1953,25 +1805,7 @@ function parent(node::InstNode)
 end
 
 function rename(name::String, node::InstNode)
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        node.name = name
-        ()
-      end
-
-      COMPONENT_NODE(__)  => begin
-        node.name = name
-        ()
-      end
-
-      VAR_NODE(__)  => begin
-        node.name = name
-        ()
-      end
-    end
-  end
-  node
+  withName(name, node)
 end
 
 """Returns the type of node the given node is as a string."""
@@ -2192,7 +2026,7 @@ function isReplaceable(node::InstNode)
   repl = @match node begin
     CLASS_NODE(__) => SCodeUtil.isElementReplaceable(node.definition)
     COMPONENT_NODE(__) => begin
-      local comp = node.component
+      local comp = _compVal(node)
       isDefinition(comp) && SCodeUtil.isElementReplaceable(definition(comp))
     end
     _ => false
@@ -2274,10 +2108,10 @@ end
 
 #= A redeclared class counts as user-defined when the class it replaced was. =#
 function isUserdefinedClassType(ty)::Bool
-  ty isa NORMAL_CLASS && return true
-  ty isa BASE_CLASS && return true
-  ty isa DERIVED_CLASS && return true
-  ty isa REDECLARED_CLASS && return isUserdefinedClassType(ty.originalType)
+  isvariant(ty, NORMAL_CLASS) && return true
+  isvariant(ty, BASE_CLASS) && return true
+  isvariant(ty, DERIVED_CLASS) && return true
+  isvariant(ty, REDECLARED_CLASS) && return isUserdefinedClassType(ty.originalType)
   return false
 end
 
@@ -2384,30 +2218,16 @@ function newComponent(definition::SCode.Element, parent::InstNode = EMPTY_NODE()
   local name::String
   local vis::SCode.Visibility
   @match SCode.COMPONENT(name = name, prefixes = SCode.PREFIXES(visibility = vis)) = definition
-   node = COMPONENT_NODE{String, Int8}(name, visibilityFromSCode(vis), new(definition), parent, NORMAL_COMP())
+   node = COMPONENT_NODE(name, visibilityFromSCode(vis), new(definition), parent, NORMAL_COMP())
   node
 end
-
-"""
-  Constructor to create a new component by via the component buffer.
-"""
-function newComponentC(name::String, visibility::VisibilityType, component::Component, parent::InstNode, nodeType::InstNodeType)
-  local r = Frontend.MemoryUtil.getNewComponent()::COMPONENT_NODE{String, VisibilityType}
-  r.component = component
-  r.name = name
-  r.visibility = visibility
-  r.parent = parent
-  r.nodeType = nodeType
-  return r
-end
-
 
 function newComponent(name::String,
                       visibility::VisibilityType,
                       component::Component,
                       parent::InstNode,
-                      nodeType::InstNodeType)::COMPONENT_NODE{String, VisibilityType}
-  COMPONENT_NODE{String, Int8}(name, visibility, component, parent, nodeType)
+                      nodeType::InstNodeType)::InstNode
+  COMPONENT_NODE(name, visibility, component, parent, nodeType)
 end
 
 function newClass(definition::SCode.Element, parent::InstNode, nodeType::InstNodeType = NORMAL_CLASS())

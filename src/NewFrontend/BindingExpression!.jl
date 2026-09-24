@@ -469,7 +469,7 @@ function mapFoldShallowRef(@nospecialize(exp::Expression), @nospecialize(func::F
 end
 
 
-function mapFoldCallShallowRef(@nospecialize(call::Call), @nospecialize(func::Function), foldArg::ArgT, outRefArg::Ref{ArgT})  where {ArgT}
+function mapFoldCallShallowRef(call::Call, @nospecialize(func::Function), foldArg::ArgT, outRefArg::Ref{ArgT})  where {ArgT}
   local outCall::Call
   outCall = begin
     local args::Vector{Expression}

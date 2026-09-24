@@ -4626,6 +4626,23 @@ end
   returns true if annotation(Evaluate = true) is present,
   otherwise false
 """
+# Pinned-OMC API: bare Comment in, Option{Bool} out (SOME(v) only for a
+# boolean-valued Evaluate annotation). The Option{Comment} -> Bool method below
+# serves the old frontend; the translated NF calls this one.
+function getEvaluateAnnotation(cmt::SCode.Comment)::Option{Bool}
+  if cmt isa SCode.COMMENT && isSome(cmt.annotation_)
+    local ann = Util.getOption(cmt.annotation_)
+    local mod = lookupNamedAnnotation(ann, "Evaluate")
+    if mod isa SCode.MOD && isSome(mod.binding)
+      local bexp = Util.getOption(mod.binding)
+      if bexp isa Absyn.BOOL
+        return SOME(bexp.value)
+      end
+    end
+  end
+  return NONE()
+end
+
 function getEvaluateAnnotation(inCommentOpt::Option{<:SCode.Comment})::Bool
   local evalIsTrue::Bool
 
@@ -5553,8 +5570,8 @@ function equationContainConnectorsBranch(inEq::SCode.EEquation)::Bool
     local tpl_el::List{Tuple{Absyn.Exp, List{SCode.EEquation}}}
     @match inEq begin
       SCode.EQ_NORETCALL(Absyn.CALL(
-        Absyn.CREF_QUAL("Connections", Nil{Any}(),
-                        Absyn.CREF_IDENT("branch", Nil{Any}())), _, _), _, _) => true
+        Absyn.CREF_QUAL("Connections", nil,
+                        Absyn.CREF_IDENT("branch", nil)), _, _), _, _) => true
       SCode.EQ_WHEN(eEquationLst = eqs, elseBranches = tpl_el) => begin
         b = equationsContainConnectorsBranch(eqs)
         eqs_lst = ListUtil.map(tpl_el, Util.tuple22)
@@ -7721,6 +7738,10 @@ function lookupAnnotation(ann::SCode.Annotation, name::String)::SCode.Mod
   return mod
 end
 
+function lookupAnnotationBinding(ann::SCode.Annotation, name::String)::Option{Absyn.Exp}
+  return getModifierBinding(lookupAnnotation(ann, name))
+end
+
 """Look up all annotations with the given name, returning a list of modifiers."""
 function lookupAnnotations(ann::SCode.Annotation, name::String)::List{SCode.Mod}
   local mods::List{SCode.Mod} = nil
@@ -7920,6 +7941,66 @@ end
 """Map a function over expressions in statements. Stub - returns unchanged."""
 function mapStatementExps(stmt::SCode.Statement, func)::SCode.Statement
   return stmt
+end
+
+#= Annotation/modifier construction helpers (SCodeUtil.mo). The reused SCode.MOD is the
+   5-field variant (no comment field). =#
+
+function setModifierBinding(binding::Option, mod::SCode.Mod)::SCode.Mod
+  @match mod begin
+    SCode.MOD(fp, ep, subModLst, _, info) => SCode.MOD(fp, ep, subModLst, binding, info)
+    _ => mod
+  end
+end
+
+function makeMod(; isFinal::Bool = false, isEach::Bool = false,
+                   subMods::List = nil, binding::Option = NONE(),
+                   info::SourceInfo = AbsynUtil.dummyInfo)::SCode.Mod
+  return SCode.MOD(isFinal ? SCode.FINAL() : SCode.NOT_FINAL(),
+                   isEach ? SCode.EACH() : SCode.NOT_EACH(),
+                   subMods, binding, info)
+end
+
+function makeSingleAnnotation(name::String, value::Absyn.Exp)::SCode.Annotation
+  return SCode.ANNOTATION(SCode.MOD(
+    SCode.NOT_FINAL(), SCode.NOT_EACH(),
+    list(SCode.NAMEMOD(name, SCode.MOD(SCode.NOT_FINAL(), SCode.NOT_EACH(),
+                                       nil, SOME(value), AbsynUtil.dummyInfo))),
+    NONE(), AbsynUtil.dummyInfo))
+end
+
+"""Set an annotation value, adding the named submod when absent."""
+function setAnnotationValue(name::String, value::Absyn.Exp,
+                            ann::SCode.Annotation, replace::Bool = true)::SCode.Annotation
+  replace_mod = function (submod)
+    @match submod begin
+      SCode.NAMEMOD(ident, m) => begin
+        local found = ident == name
+        ((found && replace) ? SCode.NAMEMOD(ident, setModifierBinding(SOME(value), m)) : submod, found)
+      end
+      _ => (submod, false)
+    end
+  end
+  @match ann begin
+    SCode.ANNOTATION(SCode.MOD(fp, ep, subModLst, binding, info)) => begin
+      (submods, found) = ListUtil.findMap(subModLst, replace_mod)
+      if !found
+        submods = _cons(SCode.NAMEMOD(name, makeMod(binding = SOME(value))), submods)
+      end
+      SCode.ANNOTATION(SCode.MOD(fp, ep, submods, binding, info))
+    end
+    _ => ann
+  end
+end
+
+"""Set the value of an annotation in a comment, adding it when absent."""
+function setAnnotationInComment(name::String, value::Absyn.Exp,
+                                cmt::SCode.Comment; replace::Bool = true)::SCode.Comment
+  if isNone(cmt.annotation_)
+    return SCode.COMMENT(SOME(makeSingleAnnotation(name, value)), cmt.comment)
+  end
+  return SCode.COMMENT(SOME(setAnnotationValue(name, value, Util.getOption(cmt.annotation_), replace)),
+                       cmt.comment)
 end
 
 @exportAll()

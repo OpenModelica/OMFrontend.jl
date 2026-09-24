@@ -223,7 +223,7 @@ function stripEW(op::Operator)
   return OPERATOR(op.ty, opOP)
 end
 
-function makeArrayScalar(@nospecialize(ty::M_Type), op::OpType)::Operator
+function makeArrayScalar(ty::M_Type, op::OpType)::Operator
   local outOp::Operator
   local o::OpType
   o = begin
@@ -253,7 +253,7 @@ function makeArrayScalar(@nospecialize(ty::M_Type), op::OpType)::Operator
   return outOp
 end
 
-function makeScalarArray(@nospecialize(ty::M_Type), op::OpType)::Operator
+function makeScalarArray(ty::M_Type, op::OpType)::Operator
   local outOp::Operator
   local o::OpType
   o = begin
@@ -283,97 +283,97 @@ function makeScalarArray(@nospecialize(ty::M_Type), op::OpType)::Operator
   return outOp
 end
 
-function makeNotEqual(@nospecialize(ty::M_Type))::Operator
+function makeNotEqual(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.NEQUAL)
   return op
 end
 
-function makeEqual(@nospecialize(ty::M_Type))::Operator
+function makeEqual(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.EQUAL)
   return op
 end
 
-function makeGreaterEq(@nospecialize(ty::M_Type))::Operator
+function makeGreaterEq(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.GREATEREQ)
   return op
 end
 
-function makeGreater(@nospecialize(ty::M_Type))::Operator
+function makeGreater(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.GREATER)
   return op
 end
 
-function makeLessEq(@nospecialize(ty::M_Type))::Operator
+function makeLessEq(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.LESSEQ)
   return op
 end
 
-function makeLess(@nospecialize(ty::M_Type))::Operator
+function makeLess(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.LESS)
   return op
 end
 
-function makeNot(@nospecialize(ty::M_Type))::Operator
+function makeNot(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.NOT)
   return op
 end
 
-function makeOr(@nospecialize(ty::M_Type))::Operator
+function makeOr(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.OR)
   return op
 end
 
-function makeAnd(@nospecialize(ty::M_Type))::Operator
+function makeAnd(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.AND)
   return op
 end
 
-function makeUMinus(@nospecialize(ty::M_Type))::Operator
+function makeUMinus(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.UMINUS)
   return op
 end
 
-function makeDivEW(@nospecialize(ty::M_Type))::Operator
+function makeDivEW(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.DIV_EW)
   return op
 end
 
-function makeMulEW(@nospecialize(ty::M_Type))::Operator
+function makeMulEW(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.MUL_EW)
   return op
 end
 
-function makeSubEW(@nospecialize(ty::M_Type))::Operator
+function makeSubEW(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.SUB_EW)
   return op
 end
 
-function makeAddEW(@nospecialize(ty::M_Type))::Operator
+function makeAddEW(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.ADD_EW)
   return op
 end
 
-function makePow(@nospecialize(ty::M_Type))::Operator
+function makePow(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.POW)
   return op
 end
 
-function makeDiv(@nospecialize(ty::M_Type))::Operator
+function makeDiv(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.DIV)
   return op
 end
 
-function makeMul(@nospecialize(ty::M_Type))::Operator
+function makeMul(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.MUL)
   return op
 end
 
-function makeSub(@nospecialize(ty::M_Type))::Operator
+function makeSub(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.SUB)
   return op
 end
 
-function makeAdd(@nospecialize(ty::M_Type))::Operator
+function makeAdd(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.ADD)
   return op
 end
@@ -679,7 +679,7 @@ function scalarize(op::OPERATOR)
   return OPERATOR{Int}(ty, op.op)
 end
 
-function setType(@nospecialize(ty::M_Type), op::OPERATOR)
+function setType(ty::M_Type, op::OPERATOR)
   return OPERATOR{Int}(ty, op.op)
 end
 

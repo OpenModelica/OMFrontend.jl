@@ -126,7 +126,10 @@ function collectExpConstants_traverser(@nospecialize(exp::Expression), @nospecia
       CREF_EXPRESSION(cref = cref && COMPONENT_REF_CREF(__)) =>
         begin
           if isPackageConstant(cref)
-            typeComponentBinding(cref.node, ORIGIN_CLASS)
+            local typedNode = typeComponentBinding(cref.node, ORIGIN_CLASS)
+            if typedNode !== cref.node
+              @assign cref.node = typedNode
+            end
             @assign constants = ConstantsSetImpl.add(
               constants,
               stripSubscriptsAll(cref),
@@ -134,9 +137,7 @@ function collectExpConstants_traverser(@nospecialize(exp::Expression), @nospecia
               ConstantsSetImpl.addConflictKeep,
             )
             @assign constants = collectBindingConstants(
-              getBinding(component(node(
-                cref,
-              ))),
+              getBinding(component(typedNode)),
               constants,
             )
           end
@@ -278,13 +279,17 @@ function replaceFuncConstants(name::Absyn.Path, func::M_Function)::M_Function
         elements = CLASS_TREE_FLAT_TREE(components = comps),
         sections = sections,
       ) => begin
-        for c in comps
+        for i in eachindex(comps)
+          local c = @inbounds comps[i]
           @assign comp = component(c)
           @assign binding = getBinding(comp)
           @assign eval_binding = replaceBindingConstants(binding)
           if !referenceEq(binding, eval_binding)
             @assign comp = setBinding(eval_binding, comp)
-            updateComponent!(comp, c)
+            local node = updateComponent!(comp, c)
+            if node !== c
+              @inbounds comps[i] = node
+            end
           end
         end
          () = begin
@@ -292,10 +297,10 @@ function replaceFuncConstants(name::Absyn.Path, func::M_Function)::M_Function
             P_Sections.Sections.SECTIONS(__) => begin
               @assign sections.algorithms = list(
                 P_Algorithm.Algorithm.mapExp(a, replaceExpConstants)
-                for a in sections.algorithms
+              for a in sections.algorithms
               )
               @assign cls.sections = sections
-              updateClass(cls, func.node)
+              @assign func.node = updateClass(cls, func.node)
               ()
             end
 
@@ -303,7 +308,7 @@ function replaceFuncConstants(name::Absyn.Path, func::M_Function)::M_Function
               @assign sections.args =
                 list(replaceExpConstants(arg) for arg in sections.args)
               @assign cls.sections = sections
-              updateClass(cls, func.node)
+              @assign func.node = updateClass(cls, func.node)
               ()
             end
 

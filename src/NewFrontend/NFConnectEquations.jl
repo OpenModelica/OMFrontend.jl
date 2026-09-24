@@ -352,7 +352,7 @@ end
    This is special since it forces the iterator replacements.
    It differs from the normal unroll procedure in that it replaces all \$1 call with the correct value.
 """
-function unrollFlowForLoop(forLoop::EQUATION_FOR,
+function unrollFlowForLoop(forLoop::Equation,
                            prefix::ComponentRef,
                            equations::Vector{Equation})
   local iter::InstNode
@@ -416,7 +416,7 @@ the given iterator node with a concrete SUBSCRIPT_INDEX(iteratorValue).
 """
 function _replaceIteratorInCref(cref::ComponentRef, iterator::InstNode,
                                 @nospecialize(iteratorValue::Expression))::ComponentRef
-  if !(cref isa COMPONENT_REF_CREF)
+  if !(isvariant(cref, COMPONENT_REF_CREF))
     return cref
   end
   local newSubs = Subscript[]
@@ -424,7 +424,7 @@ function _replaceIteratorInCref(cref::ComponentRef, iterator::InstNode,
   for sub in cref.subscripts
     if sub isa SUBSCRIPT_INDEX && sub.index isa CREF_EXPRESSION
       subNode = sub.index.cref
-      if subNode isa COMPONENT_REF_CREF && subNode.node === iterator
+      if isvariant(subNode, COMPONENT_REF_CREF) && subNode.node === iterator
         push!(newSubs, SUBSCRIPT_INDEX(iteratorValue))
         changed = true
         continue

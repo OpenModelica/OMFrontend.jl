@@ -33,13 +33,6 @@
 *
 */ =#
 
-abstract type NFAlgorithm end
-
-mutable struct ALGORITHM <: NFAlgorithm
-    statements::Vector{Statement}
-    source::DAE.ElementSource
-end
-
 function toString(alg::ALGORITHM)::String
   local str::String
   @assign str = toStringList(alg.statements)

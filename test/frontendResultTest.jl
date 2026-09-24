@@ -40,6 +40,7 @@ multipleinheritanceconnect = (ConnectTests.MultipleInheritanceConnect
 resistorCircuit0 = (ConnectTests.ResistorCircuit0, "ElectricalComponentTest.ResistorCircuit0", "./Connectors/EletricalComponentTest.mo")
 resistorCircuit1 = (ConnectTests.ResistorCircuit1, "ElectricalComponentTest.ResistorCircuit1", "./Connectors/EletricalComponentTest.mo")
 simpleCircuit = (ConnectTests.SimpleCircuit, "ElectricalComponentTest.SimpleCircuit", "./Connectors/EletricalComponentTest.mo")
+expandableBus = (ConnectTests.ExpandableBus, "ExpandableBus", "./Connectors/ExpandableBus.mo")
 #= Basic connect tests=#
 connectTsts = [ctst1,
                ctst2,
@@ -65,7 +66,8 @@ tst = [tank,
        multipleinheritanceconnect,
        resistorCircuit0,
        resistorCircuit1,
-       simpleCircuit]
+       simpleCircuit,
+       expandableBus]
 
 equationTests = [circle,
                  arrayfancy,

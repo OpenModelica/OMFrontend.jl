@@ -58,11 +58,13 @@ import ..Frontend.toDebugString
 import ..Frontend.isEqual
 import ..Frontend.name
 import ..Frontend.isPrefix
-
 const Connector = NFConnector
 const Connections = NFConnections
 const Entry = Connector
 
+#= NOTE: the hash renders the cref to a string on purpose. The dict iteration
+   order in extractSets defines the connection-equation output order that the
+   reference tests encode; a structural hash permutes it. =#
 function Base.hash(conn::Entry, h::UInt)
   local str = toString(conn.name)
   local hv = Base.hash(str, h)
@@ -272,14 +274,13 @@ end
 
 """ Find function, replication of the functionality in DisjointSets.mo """
 function find(entry, sets)::Tuple
-  try
-    idx::Int = sets.elements[entry]
+  local idx::Int = get(sets.elements, entry, 0)
+  if idx > 0
     return (sets, idx)
-  catch
-    #=Otherwise if the node does not exist. Create a new node=#
-    (sets, idx) = add(entry, sets)
-    return(sets, idx)
   end
+  #= The node does not exist, create a new one. =#
+  (sets, idx) = add(entry, sets)
+  return (sets, idx)
 end
 
 """

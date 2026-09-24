@@ -282,7 +282,16 @@ end
       end
 
       MUTABLE_EXPRESSION(__) => begin
-         exp1 = evalExp_impl(P_Pointer.access(exp.exp), target)
+        #= A mutable cell holds a local/output variable's binding. Evaluate it
+           once and write the value back, so repeated references to the same
+           local (common in functions whose locals form a dependency DAG, e.g.
+           MultiBody Frames.from_nxy) do not re-evaluate the whole binding tree.
+           Algorithm assignments overwrite the cell, invalidating the cache. =#
+        local cur = P_Pointer.access(exp.exp)
+        exp1 = evalExp_impl(cur, target)
+        if !referenceEq(exp1, cur)
+          P_Pointer.update(exp.exp, exp1)
+        end
         exp1
       end
 
@@ -454,7 +463,7 @@ function evalExpPartialRef(
   return outExp
 end
 
-function evalCref(@nospecialize(cref::ComponentRef),
+function evalCref(cref::ComponentRef,
                   defaultExp::Expression,
                   target::EvalTarget;
                   evalSubscripts::Bool = true)
@@ -488,6 +497,23 @@ function evalComponentBinding(
   target::EvalTarget,
   evalSubscripts::Bool = true,
 )::Expression #= The expression returned if the binding couldn't be evaluated =#
+  #= Typing plus evaluated-flag write-back must be atomic per node under
+     parallel typing. =#
+  if _parallelTypingActive()
+    return _withClaim(
+      () -> evalComponentBinding2(node, cref, defaultExp, target, evalSubscripts),
+      _refId(resolveOuter(node)))
+  end
+  return evalComponentBinding2(node, cref, defaultExp, target, evalSubscripts)
+end
+
+function evalComponentBinding2(
+  node::InstNode,
+  cref::ComponentRef,
+  defaultExp::Expression,
+  target::EvalTarget,
+  evalSubscripts::Bool = true,
+)::Expression #= The expression returned if the binding couldn't be evaluated =#
   local exp::Expression
   local exp_origin::ORIGIN_Type
   local comp::Component
@@ -500,7 +526,7 @@ function evalComponentBinding(
   else
     ORIGIN_CLASS
    end
-  typeComponentBinding(node, exp_origin, false)
+  node = typeComponentBinding(node, exp_origin, false)
   comp = component(node)
   binding = getBinding(comp)
   parent_cr = rest(cref)
@@ -548,7 +574,7 @@ function evalComponentBinding(
           @assign binding.bindingExp = exp
           @assign binding.evaluated = true
           comp = setBinding(binding, comp)
-          updateComponent!(comp, node)
+          node = updateComponent!(comp, node)
         end
         (exp, true)
       end
@@ -731,7 +757,7 @@ function evalComponentStartBinding(
   #=  Look up \"start\" in the class. =#
   #@info "Checking start in the class"
   try
-    @match ENTRY_INFO(start_node, isImport) = lookupElement("start", getClass(node))
+    start_node = lookupElementNode("start", getClass(node))
   catch e
     @debug "lookupElement(start) not found in class"
     return outExp
@@ -758,7 +784,7 @@ function evalComponentStartBinding(
         if !referenceEq(exp, binding.bindingExp)
           binding.bindingExp = exp
           start_comp = setBinding(binding, start_comp)
-          updateComponent!(start_comp, start_node)
+          start_node = updateComponent!(start_comp, start_node)
         end
         SOME(exp)
       end
@@ -768,7 +794,7 @@ function evalComponentStartBinding(
         if !referenceEq(exp, binding.bindingExp)
           binding.bindingExp = exp
           start_comp = setBinding(binding, start_comp)
-          updateComponent!(start_comp, start_node)
+          start_node = updateComponent!(start_comp, start_node)
         end
         SOME(exp)
       end
@@ -826,7 +852,7 @@ function makeComponentBinding(
           BINDING_EXP(exp, exp_ty, exp_ty, list(node), true)
         binding = CEVAL_BINDING(exp)
         if !hasSubscripts(cref)
-          updateComponent!(setBinding(binding, component), node)
+          node = updateComponent!(setBinding(binding, component), node)
         end
         binding
       end
@@ -849,7 +875,7 @@ function makeComponentBinding(
           BINDING_EXP(exp, exp_ty, exp_ty, list(node), true)
         binding = CEVAL_BINDING(exp)
         if !hasSubscripts(cref)
-          updateComponent!(setBinding(binding, component), node)
+          node = updateComponent!(setBinding(binding, component), node)
         end
         binding
       end
@@ -883,7 +909,7 @@ function makeRecordFieldBindingFromParent(
   #@match true = isRecord(arrayElementType(parent_ty))
   #= NEW =#
   parent = node(parent_cr)
-  typeComponentBinding(parent, ORIGIN_CLASS, #= typeChildren =# false);
+  parent = typeComponentBinding(parent, ORIGIN_CLASS, #= typeChildren =# false)
   comp = component(parent)
   binding = getBinding(comp)
   subs = getSubscripts(parent_cr)
@@ -946,7 +972,7 @@ function splitRecordArrayExp(@nospecialize(exp::Expression))::Expression
   return exp
 end
 
-function evalTypename(@nospecialize(ty::M_Type), @nospecialize(originExp::Expression), target::EvalTarget)::Expression
+function evalTypename(ty::M_Type, @nospecialize(originExp::Expression), target::EvalTarget)::Expression
   local exp::Expression
 
   #=  Only expand the typename into an array if it's used as a range, and keep
@@ -2414,7 +2440,7 @@ function evalIfExp2(@nospecialize(ifExp::Expression), target::EvalTarget)::Expre
   return result
 end
 
-function evalCast(@nospecialize(castExp::Expression), @nospecialize(castTy::M_Type))::Expression
+function evalCast(@nospecialize(castExp::Expression), castTy::M_Type)::Expression
   local exp::Expression
 
    exp = typeCast(castExp, castTy)
@@ -2438,7 +2464,7 @@ function evalCast(@nospecialize(castExp::Expression), @nospecialize(castTy::M_Ty
   return exp
 end
 
-@nospecializeinfer function evalCall(@nospecialize(call::Call), target::EvalTarget)::Expression
+@nospecializeinfer function evalCall(call::Call, target::EvalTarget)::Expression
   local exp::Expression
   local c::Call = call
   # @info "evalCall..."
@@ -3336,7 +3362,7 @@ function evalBuiltinMatrix(@nospecialize(arg::Expression))::Expression
   return result
 end
 
-function evalBuiltinMatrix2(@nospecialize(arg::Expression), @nospecialize(ty::M_Type))::Expression
+function evalBuiltinMatrix2(@nospecialize(arg::Expression), ty::M_Type)::Expression
   local result::Expression
 
    result = begin

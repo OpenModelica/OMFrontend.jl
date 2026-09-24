@@ -119,8 +119,28 @@ end
 function regex(str::String, re::String, maxMatches::Int #= The maximum number of matches that will be returned =#, extended::Bool = false #= Use POSIX extended or regular syntax =#, ignoreCase::Bool = false) ::Tuple{Integer, List{String}}
   local strs::List{String} #= This list has length = maxMatches. Substrings that did not match are filled with the empty string =#
   local numMatches::Int #= 0 means no match, else returns a number 1..maxMatches (1 if maxMatches<0) =#
-
-  @error "TODO: Defined in the runtime"
+  local pat::String = re
+  if !extended
+    #= POSIX basic syntax: \( \) delimit groups, bare parens are literal =#
+    pat = replace(pat, "\\(" => "\x01", "\\)" => "\x02")
+    pat = replace(pat, "(" => "\\(", ")" => "\\)")
+    pat = replace(pat, "\x01" => "(", "\x02" => ")")
+  end
+  local m = match(Regex(pat, ignoreCase ? "i" : ""), str)
+  local out = String[]
+  numMatches = 0
+  if m !== nothing
+    push!(out, String(m.match))
+    for c in m.captures
+      push!(out, c === nothing ? "" : String(c))
+    end
+    numMatches = maxMatches < 0 ? 1 : min(length(out), maxMatches)
+  end
+  while length(out) < max(maxMatches, 0)
+    push!(out, "")
+  end
+  maxMatches >= 0 && length(out) > maxMatches && (out = out[1:maxMatches])
+  strs = list(out...)
   (numMatches #= 0 means no match, else returns a number 1..maxMatches (1 if maxMatches<0) =#, strs #= This list has length = maxMatches. Substrings that did not match are filled with the empty string =#)
 end
 
@@ -266,7 +286,8 @@ function writeFile(fileNameToWrite::String #= a filename where to write the data
 end
 
 function appendFile(file::String, data::String)
-  @error "TODO: Defined in the runtime"
+  open(io -> write(io, data), file, "a")
+  nothing
 end
 
 """Does not fail. Returns strings describing the error instead."""
@@ -639,6 +660,17 @@ function getHasInnerOuterDefinitions() ::Bool
   hasInnerOuterDefinitions
 end
 
+"""Sets the flag that signals use of Connections.rooted/isRoot/uniqueRootIndices."""
+function setUsesConnectionsOperators(inUses::Bool)
+  GLOBAL_MEMORY[7] = inUses
+end
+
+"""Retrieves the flag that signals use of Connections.rooted/isRoot/uniqueRootIndices."""
+function getUsesConnectionsOperators()::Bool
+  local outUses::Bool = GLOBAL_MEMORY[7]
+  outUses
+end
+
 """returns a tick that can be reset"""
 function tmpTick() ::Int
   local tickNo::Int
@@ -651,7 +683,8 @@ end
 Resets the tick so it restarts on start
 """
 function tmpTickReset(start::Int)
-  setGlobalRoot(Global.tmpTickIndex, start)
+  #= same slot as tmpTick's tmpTickIndex(index = 0) =#
+  setGlobalRoot(0, start)
 end
 
 """
@@ -712,8 +745,11 @@ end
   Tock returns the time since the last tock; undefined if tick was never called.
   The clock index is 0-31. The function fails if the number is out of range.
 """
+const _REALTIME_CLOCKS = Dict{Int, UInt64}()
+
 function realtimeTick(clockIndex::Int)
-  @error "TODO: Defined in the runtime"
+  _REALTIME_CLOCKS[clockIndex] = Base.time_ns()
+  nothing
 end
 
 """
@@ -721,9 +757,7 @@ end
   The clock index is 0-31. The function fails if the number is out of range.
 """
 function realtimeTock(clockIndex::Int) ::AbstractFloat
-  local outTime::AbstractFloat
-
-  @error "TODO: Defined in the runtime"
+  local outTime::AbstractFloat = (Base.time_ns() - get(_REALTIME_CLOCKS, clockIndex, Base.time_ns())) / 1e9
   outTime
 end
 
@@ -854,9 +888,7 @@ end
 
 """creates the Globally Unique IDentifier and return it as String"""
 function getUUIDStr() ::String
-  local uuidStr::String
-
-  @error "TODO: Defined in the runtime"
+  local uuidStr::String = string(Base.UUID(Base.rand(UInt128)))
   uuidStr
 end
 
@@ -920,10 +952,20 @@ end
   'xyz@d!' -> QQ_xyz40d21_QQ
 """
 function unquoteIdentifier(str::String) ::String
-  local outStr::String
-
-  @error "TODO: Defined in the runtime"
-  outStr
+  if !startswith(str, "'") && !occursin("\$", str)
+    return str
+  end
+  local io = IOBuffer()
+  write(io, "_omcQ")
+  for c in codeunits(str)
+    if UInt8('0') <= c <= UInt8('9') || UInt8('A') <= c <= UInt8('Z') || UInt8('a') <= c <= UInt8('z')
+      write(io, c)
+    else
+      write(io, '_')
+      write(io, uppercase(string(c; base = 16, pad = 2)))
+    end
+  end
+  return String(take!(io))
 end
 
 """Returns the maximum integer that can be represent using this version of the compiler"""
@@ -1023,12 +1065,61 @@ end
   has been completed, but the factor U is exactly
   singular, so the solution could not be computed.
 """
-function dgesv(A::List{<:List{<:AbstractFloat}}, B::List{<:AbstractFloat}) ::Tuple{List{AbstractFloat}, Integer}
-  local info::Int
-  local X::List{AbstractFloat}
-
-  @error "TODO: Defined in the runtime"
-  (X, info)
+function dgesv(A::List, B::List)
+  local n = listLength(B)
+  local M = Base.Matrix{Float64}(undef, n, n + 1)
+  local i = 0
+  for row in A
+    i += 1
+    local j = 0
+    for a in row
+      j += 1
+      M[i, j] = Float64(a)
+    end
+  end
+  i = 0
+  for b in B
+    i += 1
+    M[i, n + 1] = Float64(b)
+  end
+  # Gaussian elimination with partial pivoting; info = k on a singular pivot.
+  for k in 1:n
+    local piv = k
+    for r in (k + 1):n
+      abs(M[r, k]) > abs(M[piv, k]) && (piv = r)
+    end
+    if abs(M[piv, k]) < 1e-300
+      local zeros_list = nil
+      for _ in 1:n
+        zeros_list = cons(0.0, zeros_list)
+      end
+      return (zeros_list, k)
+    end
+    if piv != k
+      for c in k:(n + 1)
+        M[k, c], M[piv, c] = M[piv, c], M[k, c]
+      end
+    end
+    for r in (k + 1):n
+      local f = M[r, k] / M[k, k]
+      for c in k:(n + 1)
+        M[r, c] -= f * M[k, c]
+      end
+    end
+  end
+  local Xvec = Base.Vector{Float64}(undef, n)
+  for k in n:-1:1
+    local acc = M[k, n + 1]
+    for c in (k + 1):n
+      acc -= M[k, c] * Xvec[c]
+    end
+    Xvec[k] = acc / M[k, k]
+  end
+  local X = nil
+  for k in n:-1:1
+    X = cons(Xvec[k], X)
+  end
+  return (X, 0)
 end
 
 """lpsolve55"""
@@ -1188,9 +1279,7 @@ function rename(source::String, dest::String) ::Bool
 end
 
 function numProcessors() ::Int
-  local result::Int
-
-  @error "TODO: Defined in the runtime"
+  local result::Int = Base.Sys.CPU_THREADS
   result
 end
 
@@ -1199,9 +1288,12 @@ end
   The function is called by not using forks (experimental version using threads because fork doesn't play nice). Only returns if all functions return.
 """
 function launchParallelTasks(numThreads::Int, inData::List{TI}, func::ForkFunction)  where {TI}
-  local result::List{TO}
-
-  @error "TODO: Defined in the runtime"
+  #= serial execution; results keep the input order =#
+  local result::List = nil
+  for d in inData
+    result = cons(func(d), result)
+  end
+  result = listReverse(result)
   result
 end
 
@@ -1258,17 +1350,9 @@ function covertTextFileToCLiteral(textFile::String, outFile::String, target::Str
 end
 
 function dladdr(symbol::T #= Function pointer =#)  where {T}
-  local name::String
-  local file::String
-  local info::String
-  (file, name) = _dladdr(symbol)
-  info = file + ": " + name
-  function _dladdr(symbol::T #= Function pointer =#)  where {T}
-    local name::String
-    local file::String
-    @error "TODO: Defined in the runtime"
-    (file, name)
-  end
+  local name::String = string(symbol)
+  local file::String = "julia"
+  local info::String = file + ": " + name
   (info, file, name)
 end
 

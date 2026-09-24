@@ -397,11 +397,12 @@ function deleteComponent(compNode::InstNode)
   #=  @adrpo: don't delete the inner/outer node, it doesn't work!
   =#
   if isInnerOuterNode(compNode)
-    return
+    return compNode
   end
   @assign comp = component(compNode)
-  updateComponent!(DELETED_COMPONENT(comp), compNode)
-  return deleteClassComponents(classInstance(comp))
+  compNode = updateComponent!(DELETED_COMPONENT(comp), compNode)
+  deleteClassComponents(classInstance(comp))
+  return compNode
 end
 
 function deleteClassComponents(clsNode::InstNode)
@@ -413,8 +414,12 @@ function deleteClassComponents(clsNode::InstNode)
       INSTANCED_CLASS(
         elements = CLASS_TREE_FLAT_TREE(components = comps),
       ) where {(!isType(cls.restriction))} => begin
-        for c in comps
-          deleteComponent(c)
+        for i in eachindex(comps)
+          local c = @inbounds comps[i]
+          local node = deleteComponent(c)
+          if node !== c
+            @inbounds comps[i] = node
+          end
         end
         ()
       end
@@ -828,7 +833,7 @@ function vectorizeEquation(
                 ITERATOR_COMPONENT(
                   TYPE_INTEGER(),
                   Variability.IMPLICITLY_DISCRETE,
-                  Component_info(prefix_node.component),
+                  Component_info(_compVal(prefix_node)),
                 ),
                 prefix_node.parent,
                 NORMAL_COMP(),
@@ -896,7 +901,7 @@ function vectorizeAlgorithm(
                 ITERATOR_COMPONENT(
                   TYPE_INTEGER(),
                   Variability.IMPLICITLY_DISCRETE,
-                  info(prefix_node.component),
+                  info(_compVal(prefix_node)),
                 ),
                 prefix_node.parent,
                 NORMAL_COMP(),
@@ -937,7 +942,7 @@ function makeIterators(prefix::ComponentRef,
   #Locals
   local iter_comp::Component
   local prefix_node::InstNode
-  local iter::COMPONENT_NODE
+  local iter::InstNode
   local range::Expression
   local index = 1
   local sub::Subscript
@@ -1103,7 +1108,7 @@ end
 
 function flattenBindingExp(
   @nospecialize(exp::Expression),
-  @nospecialize(prefix::ComponentRef),
+  prefix::ComponentRef,
   isTypeAttribute::Bool = false
 )::Expression
   local outExp::Expression
@@ -1143,7 +1148,7 @@ Optimize this function
 """
 function flattenBindingExp2(
   @nospecialize(exp::Expression),
-  @nospecialize(prefix::ComponentRef),
+  prefix::ComponentRef,
   parents::List{InstNode},
 )::Expression
   local outExp::Expression = exp
@@ -1245,7 +1250,7 @@ end
 
 function flattenEquation(
   @nospecialize(eq::Equation),
-  @nospecialize(prefix::ComponentRef),
+  prefix::ComponentRef,
   inEquations::Vector{Equation},
   )
   equations = begin
@@ -1316,8 +1321,8 @@ function flattenIfEquation(
   equations::Vector{Equation},
 )
   local branch::Equation_Branch
-  local branches::Vector{Equation_Branch}
-  local bl::Vector{Equation_Branch} = Equation_Branch[]
+  local branches::Vector{EquationBranch}
+  local bl::Vector{EquationBranch} = EquationBranch[]
   local cond::Expression
   local eql::Vector{Equation} = Equation[]
   local var::VariabilityType
@@ -1358,7 +1363,7 @@ function flattenIfEquation(
           #=  Conditions in an if-equation that contains connects must be possible to evaluate. =#
           if isTrue(cond)           #=  The condition is true and the branch will thus always be selected =#
             #=  if reached, so we can discard the remaining branches.          =#
-            branches = Equation_Branch[]
+            branches = EquationBranch[]
             if isempty(bl) #= If we haven't collected any other branches yet, replace the if-equation with this branch.=#
               equations = vcat(eql, equations)
             else
@@ -1431,7 +1436,7 @@ end
 
 function flattenEqBranch(
   @nospecialize(branch::Equation_Branch),
-  @nospecialize(prefix::ComponentRef),
+  prefix::ComponentRef,
 )::Equation_Branch
   local exp::Expression
   local eql::Vector{Equation}
@@ -1446,7 +1451,7 @@ end
 """
  Unrolls an equational for-loop.
 """
-function unrollForLoop(forLoop::EQUATION_FOR, prefix::ComponentRef, equations::Vector{Equation})
+function unrollForLoop(forLoop::Equation, prefix::ComponentRef, equations::Vector{Equation})
   local iter::InstNode
   local body::Vector{Equation}
   local unrolled_body::Vector{Equation}
@@ -1567,7 +1572,7 @@ end
 
 function flattenAlgorithmStatement(
   @nospecialize(stmt::Statement),
-  @nospecialize(prefix::ComponentRef),
+  prefix::ComponentRef,
   outStatements::Vector{Statement},
 )::Vector{Statement}
   outStatements = begin
@@ -1611,7 +1616,7 @@ const ALG_UNROLL_MAX_ITERATIONS = 16
   would see the first iteration's substituted body.
 """
 function tryUnrollAlgorithmForLoop(
-  forStmt::ALG_FOR,
+  forStmt::Statement,
   prefix::ComponentRef,
 )::Union{Vector{Statement}, Nothing}
   if !Flags.isSet(Flags.NF_SCALARIZE)
@@ -1751,24 +1756,24 @@ function resolveConnections(flatModel::FlatModel, name::String)::FlatModel
   local ctable::CardinalityTable.Table
   local broken::BrokenEdges = nil
   #=  get the connections from the model =#
-  (flatModel, conns) = collect(flatModel)
+  @EXECSTAT "  rc:collect" (flatModel, conns) = collect(flatModel)
   #=  Elaborate expandable connectors.=#
-  (flatModel, conns) = elaborate(flatModel, conns)
+  @EXECSTAT "  rc:elaborate" (flatModel, conns) = elaborate(flatModel, conns)
   #=  handle overconstrained connections =#
   #=  - build the graph =#
   #=  - evaluate the Connections.* operators =#
   #=  - generate the equations to replace the broken connects =#
   #=  - return the broken connects + the equations =#
   if System.getHasOverconstrainedConnectors()
-    (flatModel, broken, _) = handleOverconstrainedConnections(flatModel, conns, name)
+    @EXECSTAT "  rc:overconstrained" (flatModel, broken, _) = handleOverconstrainedConnections(flatModel, conns, name)
   end
   #=  add the broken connections  =#
   conns = addBroken(broken, conns)
   #=  build the sets, check the broken connects =#
-  csets = ConnectionSets.fromConnections(conns)
-  (csets_array, _) = ConnectionSets.extractSets(csets)
+  @EXECSTAT "  rc:fromConnections" csets = ConnectionSets.fromConnections(conns)
+  @EXECSTAT "  rc:extractSets" (csets_array, _) = ConnectionSets.extractSets(csets)
   #=  generate the equations =#
-  conn_eql = generateEquations(csets_array) #=In NFConnectEquations=#
+  @EXECSTAT "  rc:generateEquations" conn_eql = generateEquations(csets_array) #=In NFConnectEquations=#
   #=  append the equalityConstraint call equations for the broken connects =#
   if System.getHasOverconstrainedConnectors()
     local flatBrokenEQL = listArray(ListUtil.flatten(ListUtil.map(broken, Util.tuple33)))
@@ -1779,10 +1784,10 @@ function resolveConnections(flatModel::FlatModel, name::String)::FlatModel
     flatModel.equations = vcat(conn_eql, flatModel.equations)
     flatModel.variables = Variable[v for v in flatModel.variables if isPresent(v)]
   end
-  ctable = CardinalityTable.fromConnections(conns)
+  @EXECSTAT "  rc:cardinality" ctable = CardinalityTable.fromConnections(conns)
   #=  Evaluate any connection operators if they're used. =#
   if System.getHasStreamConnectors() || System.getUsesCardinality()
-    flatModel = evaluateConnectionOperators(flatModel, csets, csets_array, ctable)
+    @EXECSTAT "  rc:connOperators" flatModel = evaluateConnectionOperators(flatModel, csets, csets_array, ctable)
   end
 #  execStat(getInstanceName() + "(" + name + ")")
   return flatModel

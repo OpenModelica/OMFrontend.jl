@@ -1295,9 +1295,9 @@ end
 
 @nospecializeinfer function checkBinaryOperationMul(
   @nospecialize(exp1::Expression),
-  @nospecialize(type1::M_Type),
+  type1::M_Type,
   @nospecialize(exp2::Expression),
-  @nospecialize(type2::M_Type),
+  type2::M_Type,
   info::SourceInfo,
 )::Tuple{Expression, NFType}
   local resultType::NFType
@@ -1935,9 +1935,9 @@ end
 
 @nospecializeinfer function matchExpressions(
   @nospecialize(exp1::Expression),
-  @nospecialize(type1::NFType),
+  type1::NFType,
   @nospecialize(exp2::Expression),
-  @nospecialize(type2::NFType),
+  type2::NFType,
   allowUnknown::Bool = false,
   )
 
@@ -1967,9 +1967,9 @@ end
 
 function matchExpressions2(
   @nospecialize(exp1::Expression),
-  @nospecialize(type1::NFType),
+  type1::NFType,
   @nospecialize(exp2::Expression),
-  @nospecialize(type2::NFType),
+  type2::NFType,
   allowUnknown::Bool = false,
 )::Tuple{Expression, Expression, NFType, MatchKindType}
   local e1::Expression
@@ -2899,7 +2899,7 @@ function matchArrayTypes(
   arrayType2::NFType,
   expression::Expression,
   allowUnknown::Bool,
-)::Tuple{Expression, TYPE_ARRAY, Int}
+)::Tuple{Expression, NFType, Int}
   local matchKind::MatchKindType
   local compatibleType::NFType
 
@@ -3002,7 +3002,7 @@ function matchArrayDims(
   ty::NFType,
   matchKind::MatchKindType,
   allowUnknown::Bool,
-)::Tuple{TYPE_ARRAY, Int}
+)::Tuple{NFType, Int}
   local rest_dims2::List{Dimension} = dims2
   local dim2::Dimension
   local compat::Bool
@@ -3747,7 +3747,7 @@ end
 
 """ #= Checks that an expression used as a dimension has a valid type for a
    dimension, otherwise prints an error and fails. =#"""
-@nospecializeinfer function checkDimensionType(@nospecialize(exp::Expression), @nospecialize(ty::NFType), info::SourceInfo)
+@nospecializeinfer function checkDimensionType(@nospecialize(exp::Expression), ty::NFType, info::SourceInfo)
   return if !isInteger(ty)
      () = begin
       @match exp begin
@@ -3774,7 +3774,7 @@ end
   end
 end
 
-@nospecializeinfer function checkReductionType(@nospecialize(ty::NFType), name::Absyn.Path, @nospecialize(exp::Expression), info::SourceInfo)
+@nospecializeinfer function checkReductionType(ty::NFType, name::Absyn.Path, @nospecialize(exp::Expression), info::SourceInfo)
   local ety::NFType
   local err::String
   @assign err = begin
@@ -3890,7 +3890,7 @@ end
   end
 end
 
-@nospecializeinfer function checkSumComplexType(@nospecialize(ty::NFType), @nospecialize(exp::Expression), info::SourceInfo)::Bool
+@nospecializeinfer function checkSumComplexType(ty::NFType, @nospecialize(exp::Expression), info::SourceInfo)::Bool
   local valid::Bool = true
   local cls_node::InstNode
   local op_node::InstNode

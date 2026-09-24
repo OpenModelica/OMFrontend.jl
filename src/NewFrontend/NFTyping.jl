@@ -162,26 +162,48 @@ function flagNotSet(origin::M_Type_Int, flag::M_Type_Int)::Bool
   return notSet
 end
 
-const TYPE_COMPONENT_DEPTH = Ref(0)
 const TYPE_COMPONENT_DEPTH_LIMIT = 60
-const TYPE_COMPONENT_MAX_DEPTH = Ref(0)
+const TYPE_COMPONENT_MAX_DEPTH = Threads.Atomic{Int}(0)
+
+#= Recursion depth is per task; a shared counter would sum concurrent typing
+   chains and trip the limit spuriously. =#
+@inline function _typeDepthRef()::Base.RefValue{Int}
+  local tls = task_local_storage()
+  local r = get(tls, :OMF_TYPE_DEPTH, nothing)
+  if r === nothing
+    r = Ref(0)
+    tls[:OMF_TYPE_DEPTH] = r
+  end
+  return r::Base.RefValue{Int}
+end
 
 function typeClass(cls::InstNode, name::String)
-  TYPE_COMPONENT_DEPTH[] = 0
+  _typeDepthRef()[] = 0
   TYPE_COMPONENT_MAX_DEPTH[] = 0
   typeClassType(cls, EMPTY_BINDING, ORIGIN_CLASS, cls)
-  typeComponents(cls, ORIGIN_CLASS)
-  #  execStat("NFtypeComponents(" + name + ")")
+  @EXECSTAT "  ty:components" cls = typeComponents(cls, ORIGIN_CLASS)
   local tyRef = Ref{NFType}(TYPE_UNKNOWN())
   local varRef = Ref{VariabilityType}(Variability.CONSTANT)
-  typeBindingsRefs(cls, cls, ORIGIN_CLASS, tyRef, varRef)
-#  execStat("NFTyping.typeBindings(" + name + ")")
-  typeClassSections(cls, ORIGIN_CLASS)
-  #execStat("NFTyping.typeClassSections(" + name + ")")
+  @EXECSTAT "  ty:bindings" typeBindingsRefs(cls, cls, ORIGIN_CLASS, tyRef, varRef)
+  @EXECSTAT "  ty:sections" cls = typeClassSections(cls, ORIGIN_CLASS)
   return
 end
 
-function typeComponents(cls::InstNode, origin::ORIGIN_Type)::Nothing
+function typeComponents(cls::InstNode, origin::ORIGIN_Type)::InstNode
+  #= Derived-chain branches mutate shared class payloads and run under the
+     class claim. Builtins and FLAT_TREE walks run unclaimed so subtree
+     fan-out stays possible; the FLAT_TREE write-back takes a short claim. =#
+  if _parallelTypingActive()
+    local peek = getClass(cls)
+    if isvariant(peek, INSTANCED_BUILTIN) || isvariant(peek, INSTANCED_CLASS)
+      return typeComponents2(cls, origin)
+    end
+    return _withClaim(() -> typeComponents2(cls, origin), _refId(cls))
+  end
+  return typeComponents2(cls, origin)
+end
+
+function typeComponents2(cls::InstNode, origin::ORIGIN_Type)::InstNode
   local c::Class = getClass(cls)
   local c2::Class
   local cls_tree::ClassTree
@@ -193,8 +215,40 @@ function typeComponents(cls::InstNode, origin::ORIGIN_Type)::Nothing
     end
 
     INSTANCED_CLASS(elements = cls_tree && CLASS_TREE_FLAT_TREE(__)) => begin
-      for c in cls_tree.components
-        typeComponent(c, origin)
+      #= parallelInstEnabled requires _noClaimsHeld(): a task holding a claim
+         must not @sync-wait on workers that may need that claim. Two tasks can
+         walk a shared FLAT_TREE concurrently, so the (rare) inner-outer
+         write-back is claimed. =#
+      if parallelInstEnabled(length(cls_tree.components))
+        local parentTok = get(task_local_storage(), :OMF_ROOT, 0)::Int
+        @sync for i in eachindex(cls_tree.components)
+          local idx = i
+          local tok = parentTok == 0 ? idx : parentTok
+          Threads.@spawn begin
+            task_local_storage(:OMF_ROOT, tok)
+            local compNode = @inbounds cls_tree.components[idx]
+            local node, _ = typeComponentNode(compNode, origin)
+            if node !== compNode
+              _withClaim(_refId(cls)) do
+                @inbounds cls_tree.components[idx] = node
+              end
+            end
+          end
+        end
+      else
+        for i in eachindex(cls_tree.components)
+          local compNode = @inbounds cls_tree.components[i]
+          local node, _ = typeComponentNode(compNode, origin)
+          if node !== compNode
+            if _parallelTypingActive()
+              _withClaim(_refId(cls)) do
+                @inbounds cls_tree.components[i] = node
+              end
+            else
+              @inbounds cls_tree.components[i] = node
+            end
+          end
+        end
       end
       @match c.ty begin
         TYPE_COMPLEX(complexTy = COMPLEX_RECORD(constructor = con)) => begin
@@ -220,16 +274,23 @@ function typeComponents(cls::InstNode, origin::ORIGIN_Type)::Nothing
       =#
       #=  need to preserve the dimensions.
       =#
-      typeComponents(c.baseClass, origin)
+      local baseClass = typeComponents(c.baseClass, origin)
+      if baseClass !== c.baseClass
+        @assign c.baseClass = baseClass
+        cls = updateClass(c, cls)
+      end
     end
 
     TYPED_DERIVED(__) => begin
       #=  Derived types without dimensions can be collapsed.
       =#
-      typeComponents(c.baseClass, origin)
+      local baseClass = typeComponents(c.baseClass, origin)
+      if baseClass !== c.baseClass
+        @assign c.baseClass = baseClass
+      end
       c2 = getClass(c.baseClass)
       c2 = setRestriction(c.restriction, c2)
-      updateClass(c2, cls)
+      cls = updateClass(c2, cls)
     end
 
     INSTANCED_BUILTIN(
@@ -253,10 +314,17 @@ function typeComponents(cls::InstNode, origin::ORIGIN_Type)::Nothing
       fail()
     end
   end
-  return nothing
+  return cls
 end
 
 function typeStructor(node::InstNode)
+  if _parallelTypingActive()
+    return _withClaim(() -> typeStructor2(node), _refId(node))
+  end
+  return typeStructor2(node)
+end
+
+function typeStructor2(node::InstNode)
   local cache::CachedData
   local fnl::Vector{M_Function}
   cache = getFuncCache(node)
@@ -280,7 +348,29 @@ end
 
 @nospecializeinfer function typeClassType(
   @nospecialize(clsNode::InstNode),
-  @nospecialize(componentBinding::Binding),
+  componentBinding::Binding,
+  origin::ORIGIN_Type,
+  @nospecialize(instanceNode::InstNode),
+  )::NFType
+  #= Class nodes (derived types, records) are shared across components; their
+     typing mutates the class payload and class-level dimension vectors, so it
+     must run under the class node's claim. TYPED_DERIVED and INSTANCED_BUILTIN
+     are terminal read-only states here and skip the claim. =#
+  if _parallelTypingActive()
+    local peek = getClass(clsNode)
+    if isvariant(peek, TYPED_DERIVED) || isvariant(peek, INSTANCED_BUILTIN)
+      return typeClassType2(clsNode, componentBinding, origin, instanceNode)
+    end
+    return _withClaim(
+      () -> typeClassType2(clsNode, componentBinding, origin, instanceNode),
+      _refId(clsNode))
+  end
+  return typeClassType2(clsNode, componentBinding, origin, instanceNode)
+end
+
+@nospecializeinfer function typeClassType2(
+  @nospecialize(clsNode::InstNode),
+  componentBinding::Binding,
   origin::ORIGIN_Type,
   @nospecialize(instanceNode::InstNode),
   )::NFType
@@ -298,8 +388,8 @@ end
         restriction = RESTRICTION_CONNECTOR(isExpandable = is_expandable),
       ) => begin
         ty = TYPE_COMPLEX(clsNode, makeConnectorType(cls.elements, is_expandable))
-        cls.ty = ty
-        updateClass(cls, clsNode)
+        @assign cls.ty = ty
+        clsNode = updateClass(cls, clsNode)
         ty
       end
 
@@ -310,8 +400,8 @@ end
         ),
       ) => begin
         ty = TYPE_COMPLEX(ty_node, makeRecordType(node))
-        cls.ty = ty
-        updateClass(cls, clsNode)
+        @assign cls.ty = ty
+        clsNode = updateClass(cls, clsNode)
         ty
       end
 
@@ -321,8 +411,8 @@ end
         #=  A long class declaration of a type extending from a type has the type of the base class.
         =#
         ty = typeClassType(node, componentBinding, origin, instanceNode)
-        cls.ty = ty
-        updateClass(cls, clsNode)
+        @assign cls.ty = ty
+        clsNode = updateClass(cls, clsNode)
         ty
       end
 
@@ -342,8 +432,8 @@ end
           fail()
         end
          ty = TYPE_FUNCTION(fn, FunctionType.FUNCTIONAL_PARAMETER)
-        cls.ty = ty
-        updateClass(cls, clsNode)
+        @assign cls.ty = ty
+        clsNode = updateClass(cls, clsNode)
         ty
       end
 
@@ -356,7 +446,7 @@ end
         ty = typeClassType(cls.baseClass, componentBinding, origin, instanceNode)
         ty = liftArrayLeftList(ty, arrayList(cls.dims))
         ty_cls = TYPED_DERIVED(ty, cls.baseClass, cls.restriction)
-        updateClass(ty_cls, clsNode)
+        clsNode = updateClass(ty_cls, clsNode)
         ty
       end
 
@@ -452,15 +542,21 @@ function makeRecordType(constructor::InstNode)::ComplexType
 end
 
 function typeComponent(inComponent::InstNode, origin::ORIGIN_Type)::NFType
-  TYPE_COMPONENT_DEPTH[] += 1
-  local currentDepth = TYPE_COMPONENT_DEPTH[]
+  _, ty = typeComponentNode(inComponent, origin)
+  return ty
+end
+
+function typeComponentNode(inComponent::InstNode, origin::ORIGIN_Type)::Tuple{InstNode,NFType}
+  local depthRef = _typeDepthRef()
+  depthRef[] += 1
+  local currentDepth = depthRef[]
   if currentDepth > TYPE_COMPONENT_MAX_DEPTH[]
-    TYPE_COMPONENT_MAX_DEPTH[] = currentDepth
+    Threads.atomic_max!(TYPE_COMPONENT_MAX_DEPTH, currentDepth)
   end
   if currentDepth > TYPE_COMPONENT_DEPTH_LIMIT
     nodeName = try name(inComponent) catch; "<unknown>" end
     @warn "typeComponent depth limit reached" depth=currentDepth node=nodeName
-    TYPE_COMPONENT_DEPTH[] -= 1
+    depthRef[] -= 1
     Error.addSourceMessage(
       Error.INST_RECURSION_LIMIT_REACHED,
       list("typeComponent depth > $(TYPE_COMPONENT_DEPTH_LIMIT): node=$(nodeName)"),
@@ -471,20 +567,86 @@ function typeComponent(inComponent::InstNode, origin::ORIGIN_Type)::NFType
   local ty::NFType
   local node::InstNode = resolveOuter(inComponent)
   local c::Component = component(node)
+  if isvariant(c, UNTYPED_COMPONENT) && _parallelTypingActive()
+    #= The component's own payload is typed under its claim; the claim is
+       released before typing children so subtree fan-out never @sync-waits
+       while holding a lock. Other tasks seeing TYPED only consume the type. =#
+    local doChildren::Bool = false
+    ty = _withClaim(_refId(node)) do
+      #= Re-read under the claim: another task may have typed it meanwhile. =#
+      local c2 = component(node)
+      if isvariant(c2, UNTYPED_COMPONENT)
+        doChildren = true
+        typeComponentPayload!(inComponent, node, c2, origin)
+      else
+        local r = typeComponentNode2(inComponent, node, c2, origin)
+        node = r[1]
+        r[2]
+      end
+    end
+    if doChildren
+      typeComponentChildren!(node, origin)
+    end
+  else
+    (node, ty) = typeComponentNode2(inComponent, node, c, origin)
+  end
+  return (isvariant(inComponent, INNER_OUTER_NODE) ? INNER_OUTER_NODE(inComponent.innerNode, node) : node, ty)
+  finally
+    depthRef[] -= 1
+  end
+end
+
+"""
+  Types the component's dimensions and its own type, and installs the typed
+  component. Does not type the children.
+"""
+function typeComponentPayload!(
+  inComponent::InstNode,
+  node::InstNode,
+  c::Component,
+  origin::ORIGIN_Type,
+  )::NFType
+  typeDimensions(c.dimensions, node, c.binding, origin, c.info)
+  local ty = typeClassType(c.classInst, c.binding, origin, inComponent)
+  ty = liftArrayLeftList(ty, arrayList(c.dimensions))
+  updateComponent!(setType(ty, c), node)
+  #=  Check that flow/stream variables are Real. =#
+  checkComponentStreamAttribute(c.attributes.connectorType, ty, inComponent)
+  return ty
+end
+
+function typeComponentChildren!(node::InstNode, origin::ORIGIN_Type)::Nothing
+  local c = component(node)
+  local classInst = typeComponents(c.classInst, origin)
+  if classInst !== c.classInst
+    if _parallelTypingActive()
+      _withClaim(_refId(node)) do
+        local c2 = component(node)
+        @assign c2.classInst = classInst
+        updateComponent!(c2, node)
+      end
+    else
+      @assign c.classInst = classInst
+      updateComponent!(c, node)
+    end
+  end
+  return nothing
+end
+
+function typeComponentNode2(
+  inComponent::InstNode,
+  node::InstNode,
+  c::Component,
+  origin::ORIGIN_Type,
+  )::Tuple{InstNode,NFType}
+  local ty::NFType
    ty = begin
     @match c begin
       #=  An untyped component, type it. =#
       UNTYPED_COMPONENT(__) => begin
-        #=  Type the component's dimensions. =#
-        typeDimensions(c.dimensions, node, c.binding, origin, c.info)
-        #=  Construct the type of the component and update the node with it. =#
-         ty = typeClassType(c.classInst, c.binding, origin, inComponent)
-         ty = liftArrayLeftList(ty, arrayList(c.dimensions))
-        updateComponent!(setType(ty, c), node)
-        #=  Check that flow/stream variables are Real. =#
-        checkComponentStreamAttribute(c.attributes.connectorType, ty, inComponent)
+        ty = typeComponentPayload!(inComponent, node, c, origin)
         #=  Type the component's children. =#
-        typeComponents(c.classInst, origin)
+        typeComponentChildren!(node, origin)
         ty
       end
       #=  A component that has already been typed, skip it. =#
@@ -506,10 +668,7 @@ function typeComponent(inComponent::InstNode, origin::ORIGIN_Type)::NFType
       end
     end
   end
-  return ty
-  finally
-    TYPE_COMPONENT_DEPTH[] -= 1
-  end
+  return (node, ty)
 end
 
 function checkComponentStreamAttribute(
@@ -566,7 +725,7 @@ end
   @nospecialize(iterator::Any),
   @nospecialize(range::RANGE_EXPRESSION),
   @nospecialize(origin::ORIGIN_Type),
-  @nospecialize(c::ITERATOR_COMPONENT),
+  @nospecialize(c::Component),
   structural,
   )::Tuple{Expression, NFType, VariabilityType}
   @nospecialize
@@ -590,7 +749,7 @@ end
   end
   #=  The type of the iterator is the element type of the range expression.=#
   c = ITERATOR_COMPONENT(arrayElementType(ty), var, info)
-  updateComponent!(c, iterator)
+  iterator = updateComponent!(c, iterator)
   (outRange, ty, var) = (exp, ty, var)
   return (outRange, ty, var)
 end
@@ -616,6 +775,14 @@ function typeDimension(
   origin::ORIGIN_Type,
   info::SourceInfo,
   )::Dimension
+  #= Dimension vectors can be aliased by several nodes, so node claims are not
+     enough: claim the vector itself so the isProcessing cycle marker is never
+     observed across tasks. =#
+  if _parallelTypingActive()
+    return _withClaim(
+      () -> typeDimension2(dimensions, index, component, binding, origin, info),
+      objectid(dimensions))
+  end
   typeDimension2(
     dimensions::Vector{Dimension},
     index::Int,
@@ -867,7 +1034,7 @@ end
 
 
 @nospecializeinfer function typeDimensionUntyped(@nospecialize(dimensions::Vector{Dimension}),
-                              @nospecialize(dimension::DIMENSION_UNTYPED),
+                              @nospecialize(dimension::Dimension),
                               @nospecialize(index::Int),
                               @nospecialize(component::InstNode),
                               @nospecialize(origin::ORIGIN_Type),
@@ -967,7 +1134,7 @@ function getRecordElementBinding(componentVar::InstNode)::Tuple{Binding, Int}
     else
        binding = typeBinding(parent_binding, ORIGIN_CLASS)
       if !referenceEq(parent_binding, binding)
-        componentApply(parent, setBinding, binding)
+        parent = componentApply(parent, setBinding, binding)
       end
     end
      parentDims = parentDims + dimensionCount(comp)
@@ -1028,7 +1195,7 @@ function checkComponentBindingVariability(
   return var
 end
 
-@nospecializeinfer function checkBindingEach(@nospecialize(binding::Binding))
+@nospecializeinfer function checkBindingEach(binding::Binding)
   local parentBindings
   if isEach(binding)
     parentBindings = listRest(parents(binding))
@@ -1048,17 +1215,17 @@ end
 """
 If the condition already is typed we return it.
 """
-function typeComponentCondition(condition::TYPED_BINDING, origin::Int)::TYPED_BINDING
-  return condition
-end
+function typeComponentCondition(condition::Binding, origin::Int)::Binding
+  if isvariant(condition, TYPED_BINDING)
+    return condition
+  end
 
-function typeComponentCondition(condition::UNTYPED_BINDING, origin::Int)::TYPED_BINDING
   local exp::Expression
   local ty::NFType
   local var::VariabilityType
   local info::SOURCEINFO
   local mk::MatchKindType
-  local outCondition::TYPED_BINDING
+  local outCondition::Binding
   @match condition begin
     UNTYPED_BINDING(bindingExp = exp) => begin
       info = Binding_getInfo(condition)
@@ -1090,6 +1257,10 @@ function typeComponentCondition(condition::UNTYPED_BINDING, origin::Int)::TYPED_
         false,
         info,
       )
+    end
+
+    _ => begin
+      outCondition = condition
     end
   end
   return outCondition
@@ -1157,14 +1328,7 @@ function typeTypeAttribute(
           fail()
         end
         attributeBinding = binding
-        attribute.binding = attributeBinding # MODIFIER_MODIFIER(
-        #   attribute.name,
-        #   attribute.finalPrefix,
-        #   attribute.eachPrefix,
-        #   attributeBinding,
-        #   attribute.subModifiers,
-        #   attribute.info,
-        # )
+        @assign attribute.binding = attributeBinding
         finalAttribute = attribute
       end
       #=  Check the variability. All builtin attributes have parameter variability.
@@ -1178,20 +1342,23 @@ end
    Types an untyped expression, returning the typed expression itself along with
    its type and variability.
 """
-@nospecializeinfer function typeExp(
-  @nospecialize(exp::Expression),
+#= The typing spine is deliberately fully specialized: @nospecialize boxes the
+   argument on every call and @nospecializeinfer leaves the body abstractly
+   inferred; together they cost ~16 allocations and ~0.8 us per expression
+   node, which dominated binding typing. =#
+function typeExp(
+  exp::Expression,
   origin::ORIGIN_Type,
   info::SourceInfo
   )::Tuple
-  #= Stop excessive type inference =#
   local typeRef = Ref{NFType}(TYPE_UNKNOWN())
   local variabilityTypeRef = Ref{VariabilityType}(Variability.CONSTANT)
   local typedExp = typeExp2(exp, origin, info, typeRef, variabilityTypeRef)
   return (typedExp, typeRef.x, variabilityTypeRef.x)
 end
 
-@nospecializeinfer function typeExp2(
-  @nospecialize(exp::Expression),
+function typeExp2(
+  exp::Expression,
   origin::ORIGIN_Type,
   info::SourceInfo,
   typeRef::Ref{NFType},
@@ -1622,7 +1789,7 @@ function typeCrefDim(
   ))
 end
 
-function typeCrefDim2(@nospecialize(cref::ComponentRef),
+function typeCrefDim2(cref::ComponentRef,
                       @nospecialize(dimIndex::Int),
                       @nospecialize(origin::ORIGIN_Type),
                       @nospecialize(info::SourceInfo))::Tuple{Dimension, TypingError}
@@ -1666,48 +1833,16 @@ function typeCrefDim2(@nospecialize(cref::ComponentRef),
           subscripts = subs,
         ) => begin
           node = resolveOuter(cr.node)
-          c = component(node)
-          #=  If the component is untyped it might have an array type whose dimensions
-          =#
-          #=  we need to take into consideration. To avoid making this more complicated
-          =#
-          #=  than it already is we make sure that the component is typed in that case.
-          =#
-          if hasDimensions(getClass(classInstance(c)))
-            Base.inferencebarrier(typeComponent(node, origin))
-            c = component(node)
+          local odim::Union{Dimension, Nothing}
+          if _parallelTypingActive()
+            local crNode = node
+            (odim, dim_count) = _withClaim(
+              () -> typeCrefDimNode(crNode, index, origin), _refId(crNode))
+          else
+            (odim, dim_count) = typeCrefDimNode(node, index, origin)
           end
-          dim_count = begin
-            @match c begin
-              UNTYPED_COMPONENT(__) => begin
-                 dim_count = arrayLength(c.dimensions)
-                if index <= dim_count && index > 0
-                  dim = Base.inferencebarrier(typeDimension(
-                    c.dimensions,
-                    index,
-                    node,
-                    c.binding,
-                    origin,
-                    c.info,
-                  ))
-                  return (dim, error)
-                end
-                dim_count
-              end
-
-              TYPED_COMPONENT(__) => begin
-                dim_count = dimensionCount(c.ty)
-                if index <= dim_count && index > 0
-                  dim = nthDimension(c.ty, index)
-                  return (dim, error)
-                end
-                dim_count
-              end
-
-              _ => begin
-                0
-              end
-            end
+          if odim !== nothing
+            return (odim, error)
           end
           index = index - dim_count
           dim_total = dim_total + dim_count
@@ -1719,6 +1854,50 @@ function typeCrefDim2(@nospecialize(cref::ComponentRef),
   dim = DIMENSION_UNKNOWN()
   error = OUT_OF_BOUNDS(dim_total)
   return (dim, error)
+end
+
+"""
+  Types dimension `index` of a single cref component if the index falls within
+  its dimensions. Returns (dimension or nothing, dimension count of the node).
+"""
+function typeCrefDimNode(node::InstNode, index::Int, origin::ORIGIN_Type)::Tuple{Union{Dimension, Nothing}, Int}
+  local c::Component = component(node)
+  local dim_count::Int
+  #= An untyped component might have an array type whose dimensions we need to
+     take into consideration; type it to be sure. =#
+  if hasDimensions(getClass(classInstance(c)))
+    Base.inferencebarrier(typeComponent(node, origin))
+    c = component(node)
+  end
+  @match c begin
+    UNTYPED_COMPONENT(__) => begin
+      dim_count = arrayLength(c.dimensions)
+      if index <= dim_count && index > 0
+        local dim = Base.inferencebarrier(typeDimension(
+          c.dimensions,
+          index,
+          node,
+          c.binding,
+          origin,
+          c.info,
+        ))
+        return (dim, dim_count)
+      end
+      return (nothing, dim_count)
+    end
+
+    TYPED_COMPONENT(__) => begin
+      dim_count = dimensionCount(c.ty)
+      if index <= dim_count && index > 0
+        return (nthDimension(c.ty, index), dim_count)
+      end
+      return (nothing, dim_count)
+    end
+
+    _ => begin
+      return (nothing, 0)
+    end
+  end
 end
 
 """
@@ -1745,7 +1924,7 @@ function nthDimensionBoundsChecked(
 end
 
 @nospecializeinfer function typeCrefExp(
-  @nospecialize(cref::ComponentRef),
+  cref::ComponentRef,
   o::ORIGIN_Type,
   info::SourceInfo,
   typeRef::Ref{NFType},
@@ -1793,7 +1972,7 @@ will be updated as we traverse the tree structure and can be utilized by the cal
 retrieve information about the variability type of the node and the subscripts of the component reference.
 """
 @nospecializeinfer function typeCref(
-  @nospecialize(cref::ComponentRef),
+  cref::ComponentRef,
   origin::ORIGIN_Type,
   info::SourceInfo,
   typeRef::Ref{NFType},
@@ -1819,23 +1998,16 @@ retrieve information about the variability type of the node and the subscripts o
 end
 
 @nospecializeinfer function typeCref2(
-  @nospecialize(cref::ComponentRef),
+  cref::ComponentRef,
   origin::ORIGIN_Type,
   variabilityTypeRef::Ref{VariabilityType},
   info::SourceInfo,
   firstPart::Bool = true,
-  )
-  variabilityTypeRef.x = Variability.CONSTANT
-  cref
-end
-
-@nospecializeinfer function typeCref2(
-  @nospecialize(cref::COMPONENT_REF_CREF),
-  origin::ORIGIN_Type,
-  variabilityTypeRef::Ref{VariabilityType},
-  info::SourceInfo,
-  firstPart::Bool = true,
-  )::COMPONENT_REF_CREF
+  )::ComponentRef
+  if !isvariant(cref, COMPONENT_REF_CREF)
+    variabilityTypeRef.x = Variability.CONSTANT
+    return cref
+  end
   local subsVariability::VariabilityType
 
   local rest_cr::ComponentRef
@@ -1976,7 +2148,7 @@ end
 @nospecializeinfer function typeSubscript(
   @nospecialize(subscript::Subscript),
   @nospecialize(dimension::Dimension),
-  @nospecialize(cref::ComponentRef),
+  cref::ComponentRef,
   index::Int,
   origin::ORIGIN_Type,
   info::SourceInfo,
@@ -2843,13 +3015,10 @@ function evaluateCondition(
   return condBool
 end
 
-function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)
+function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)::InstNode
   local cls::Class
-  local typed_cls::Class
   local components::Vector{InstNode}
-  local sections::Sections
   local info::SourceInfo
-  local initial_origin::Int
    cls = getClass(classNode)
    _ = begin
     @match cls begin
@@ -2857,56 +3026,45 @@ function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)
         ()
       end
 
-      INSTANCED_CLASS(
-        elements = CLASS_TREE_FLAT_TREE(components = components),
-        sections = sections,
-      ) => begin
-        sections = begin
-          @match sections begin
-            SECTIONS(__) => begin
-              initial_origin = setFlag(originArg, ORIGIN_INITIAL)
-              map(
-                sections,
-                (x) -> typeEquation(x,
-                  setFlag(originArg, ORIGIN_EQUATION),
-                ),
-                (x) -> typeAlgorithm(x,
-                  setFlag(originArg, ORIGIN_ALGORITHM),
-                ),
-                (x) ->
-                typeEquation(x,
-                  setFlag(initial_origin, ORIGIN_EQUATION),
-                  ),
-                (x) ->
-                  typeAlgorithm(x,
-                    setFlag(initial_origin, ORIGIN_ALGORITHM),
-                  )
-              )
-#              @error "TODO"
+      INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = components)) => begin
+        #= The class's own sections are typed under the class claim; the
+           component loop runs after release so subtree fan-out stays possible. =#
+        if _parallelTypingActive()
+          classNode = _withClaim(() -> typeOwnSections!(classNode, originArg), _refId(classNode))
+        else
+          classNode = typeOwnSections!(classNode, originArg)
+        end
+        if parallelInstEnabled(length(components))
+          local parentTok = get(task_local_storage(), :OMF_ROOT, 0)::Int
+          @sync for i in eachindex(components)
+            local idx = i
+            local tok = parentTok == 0 ? idx : parentTok
+            Threads.@spawn begin
+              task_local_storage(:OMF_ROOT, tok)
+              local compNode = @inbounds components[idx]
+              local node = typeComponentSections(compNode, originArg)
+              if node !== compNode
+                _withClaim(_refId(classNode)) do
+                  @inbounds components[idx] = node
+                end
+              end
             end
-            SECTIONS_EXTERNAL(__) => begin
-              Error.addSourceMessage(
-                Error.TRANS_VIOLATION,
-                list(
-                  name(classNode),
-                  P_Restriction.Restriction.toString(cls.restriction),
-                  "external declaration",
-                ),
-                InstNode_info(classNode),
-              )
-              fail()
-            end
-
-            _ => begin
-              sections
+          end
+        else
+          for i in eachindex(components)
+            local c = @inbounds components[i]
+            local node = typeComponentSections(c, originArg)
+            if node !== c
+              if _parallelTypingActive()
+                _withClaim(_refId(classNode)) do
+                  @inbounds components[i] = node
+                end
+              else
+                @inbounds components[i] = node
+              end
             end
           end
         end
-         typed_cls = setSections(sections, cls)
-        for c in components
-          typeComponentSections(resolveOuter(c), originArg)
-        end
-        updateClass(typed_cls, classNode)
         ()
       end
 
@@ -2915,7 +3073,11 @@ function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)
       end
 
       TYPED_DERIVED(__) => begin
-        typeClassSections(cls.baseClass, originArg)
+        local baseClass = typeClassSections(cls.baseClass, originArg)
+        if baseClass !== cls.baseClass
+          @assign cls.baseClass = baseClass
+          classNode = updateClass(cls, classNode)
+        end
         ()
       end
 
@@ -2929,10 +3091,58 @@ function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)
       end
     end
    end
-  return
+  return classNode
 end
 
-function typeFunctionSections(classNode::InstNode, origin::ORIGIN_Type)
+"""Types the class node's own equation and algorithm sections."""
+function typeOwnSections!(classNode::InstNode, originArg::ORIGIN_Type)::InstNode
+  local cls::Class = getClass(classNode)
+  local sections::Sections = cls.sections
+  local initial_origin::Int
+  sections = begin
+    @match sections begin
+      SECTIONS(__) => begin
+        initial_origin = setFlag(originArg, ORIGIN_INITIAL)
+        map(
+          sections,
+          (x) -> typeEquation(x,
+            setFlag(originArg, ORIGIN_EQUATION),
+          ),
+          (x) -> typeAlgorithm(x,
+            setFlag(originArg, ORIGIN_ALGORITHM),
+          ),
+          (x) ->
+          typeEquation(x,
+            setFlag(initial_origin, ORIGIN_EQUATION),
+            ),
+          (x) ->
+            typeAlgorithm(x,
+              setFlag(initial_origin, ORIGIN_ALGORITHM),
+            )
+        )
+      end
+      SECTIONS_EXTERNAL(__) => begin
+        Error.addSourceMessage(
+          Error.TRANS_VIOLATION,
+          list(
+            name(classNode),
+            P_Restriction.Restriction.toString(cls.restriction),
+            "external declaration",
+          ),
+          InstNode_info(classNode),
+        )
+        fail()
+      end
+
+      _ => begin
+        sections
+      end
+    end
+  end
+  return updateClass(setSections(sections, cls), classNode)
+end
+
+function typeFunctionSections(classNode::InstNode, origin::ORIGIN_Type)::InstNode
   local cls::Class
   local typed_cls::Class
   local sections::Sections
@@ -2987,7 +3197,7 @@ function typeFunctionSections(classNode::InstNode, origin::ORIGIN_Type)
             SECTIONS_EXTERNAL(__) => begin
               r = makeDefaultExternalCall(sections, classNode)
               if r == SECTIONS_EMPTY()
-                return
+                return classNode
               end
               r
             end
@@ -2997,12 +3207,16 @@ function typeFunctionSections(classNode::InstNode, origin::ORIGIN_Type)
           end
         end
          typed_cls = setSections(sections, cls)
-        updateClass(typed_cls, classNode)
+        classNode = updateClass(typed_cls, classNode)
         ()
       end
 
       TYPED_DERIVED(__) => begin
-        typeFunctionSections(cls.baseClass, origin)
+        local baseClass = typeFunctionSections(cls.baseClass, origin)
+        if baseClass !== cls.baseClass
+          @assign cls.baseClass = baseClass
+          classNode = updateClass(cls, classNode)
+        end
         ()
       end
 
@@ -3016,6 +3230,7 @@ function typeFunctionSections(classNode::InstNode, origin::ORIGIN_Type)
       end
     end
   end
+  return classNode
 end
 
 @nospecializeinfer function typeExternalArg(@nospecialize(arg::Expression), info::SourceInfo, node::InstNode)::Expression
@@ -3163,27 +3378,34 @@ function makeDefaultExternalCall(extDecl::Sections, fnNode::InstNode)::Sections
   return extDecl
 end
 
-function typeComponentSections(c::InstNode, origin::ORIGIN_Type)
+function typeComponentSections(c::InstNode, origin::ORIGIN_Type)::InstNode
   local comp::Component
 
-   comp = component(c)
-  return  () = begin
+  local node = resolveOuter(c)
+  local is_self = referenceEq(node, c)
+  comp = component(node)
+  () = begin
     @match comp begin
       TYPED_COMPONENT(__) => begin
-        typeClassSections(comp.classInst, origin)
+        local classInst = typeClassSections(comp.classInst, origin)
+        if classInst !== comp.classInst
+          @assign comp.classInst = classInst
+          node = updateComponent!(comp, node)
+        end
         ()
       end
 
       _ => begin
         Error.assertion(
           false,
-          getInstanceName() + " got uninstantiated component " + name(component),
+          getInstanceName() + " got uninstantiated component " + name(node),
           sourceInfo(),
         )
         fail()
       end
     end
   end
+  return is_self ? node : INNER_OUTER_NODE(c.innerNode, node)
 end
 
 @nospecializeinfer function typeEquation(@nospecialize(eq::Equation), origin::ORIGIN_Type)::Equation
@@ -3307,7 +3529,7 @@ end
   return eq
 end
 
-function typeEquationAssert(eq::EQUATION_ASSERT, origin::ORIGIN_Type)
+function typeEquationAssert(eq::Equation, origin::ORIGIN_Type)
   info = sourceInfo() #TODO: DAE.emptyElementSource
   next_origin = setFlag(origin, ORIGIN_ASSERT)
   e1 = typeOperatorArg(
@@ -3345,7 +3567,7 @@ end
   @nospecialize(rhsConn::Expression),
   origin::ORIGIN_Type,
   source::DAE.ElementSource,
-)::EQUATION_CONNECT
+)::Equation
   local connEq::Equation
 
   local lhs::Expression
@@ -3687,7 +3909,7 @@ end
         end
          e1 = typeOperatorArg(
           st.message,
-          TYPE_STRING,
+          TYPE_STRING(),
           origin,
           "terminate",
           "message",
@@ -3731,7 +3953,7 @@ end
   @nospecialize(rhsExp::Expression),
   origin::ORIGIN_Type,
   source::DAE.ElementSource,
-  )::EQUATION_EQUALITY
+  )::Equation
   local eq::Equation
   local info::SourceInfo = sourceInfo()
   local e1::Expression
@@ -3816,17 +4038,17 @@ end
 end
 
 @nospecializeinfer function typeIfEquation(
-  @nospecialize(branches::Vector{Equation_Branch}),
+  @nospecialize(branches::Vector{<:Equation_Branch}),
   origin::ORIGIN_Type,
   source::DAE.ElementSource,
-)::EQUATION_IF
+)::Equation
   local ifEq::Equation
   local cond::Expression
   local eql::Vector{Equation}
   local accum_var::VariabilityType = Variability.CONSTANT
   local var::VariabilityType
-  local bl::Vector{Equation_Branch} = Equation_Branch[]
-  local bl2::Vector{Equation_Branch} = Equation_Branch[]
+  local bl::Vector{EquationBranch} = EquationBranch[]
+  local bl2::Vector{EquationBranch} = EquationBranch[]
   local next_origin::ORIGIN_Type = setFlag(origin, ORIGIN_IF)
   local cond_origin::ORIGIN_Type = setFlag(next_origin, ORIGIN_CONDITION)
   #=  Type the conditions of all the branches. =#
@@ -3892,7 +4114,7 @@ end
   =#
   if !Flags.isSet(Flags.NF_SCALARIZE)
     bl = bl2
-    bl2 = Equation_Branch[]
+    bl2 = EquationBranch[]
     for b in bl
        bl2 = begin
         @match b begin
@@ -3953,13 +4175,13 @@ end
 end
 
 @nospecializeinfer function typeWhenEquation(
-  @nospecialize(branches::Vector{Equation_Branch}),
+  @nospecialize(branches::Vector{<:Equation_Branch}),
   origin::ORIGIN_Type,
   source::DAE.ElementSource,
-)::EQUATION_WHEN
+)::Equation
   local whenEq::Equation
   local next_origin::ORIGIN_Type = setFlag(origin, ORIGIN_WHEN)
-  local accum_branches::Vector{Equation_Branch} = Equation_Branch[]
+  local accum_branches::Vector{EquationBranch} = EquationBranch[]
   local cond::Expression
   local body::Vector{Equation}
   local ty::NFType
@@ -3999,7 +4221,7 @@ end
 
 function typeOperatorArg(
   @nospecialize(arg::Expression),
-  @nospecialize(expectedType::NFType),
+  expectedType::NFType,
   @nospecialize(origin::ORIGIN_Type),
   operatorName::String,
   argName::String,

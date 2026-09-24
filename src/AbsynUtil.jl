@@ -60,6 +60,7 @@ using Absyn
 import ListUtil
 
 import ..Frontend.Util
+import ..Frontend.System
 
 const dummyParts = PARTS(nil, nil, nil, nil, NONE())::ClassDef
 
@@ -6178,6 +6179,11 @@ function componentName(c::ComponentItem)::String
   return name
 end
 
+# Current OMC signature: replace the last identifier by name.
+function pathSetLastIdent(inPath::Path, ident::String)::Path
+  return pathSetLastIdent(inPath, IDENT(ident))
+end
+
 function pathSetLastIdent(inPath::Path, inLastIdent::Path)::Path
   local outPath::Path
 
@@ -6994,16 +7000,16 @@ function traverseClassComponents(inClass::Class, inFunc::FuncType, inArg::ArgT) 
   return (outClass, outArg)
 end
 
-function traverseListGeneric(inList::List{T}, inFunc::FuncType, inArg::ArgT) where {T, ArgT}
+function traverseListGeneric(inList::List, inFunc::FuncType, inArg::ArgT) where {ArgT}
   local outContinue::Bool = true
   local outArg::ArgT = inArg
-  local outList::List{T} = nil
+  local outList::List = nil
 
   local eq::Bool
   local changed::Bool = false
-  local e::T
-  local new_e::T
-  local rest_e::List{T} = inList
+  local e
+  local new_e
+  local rest_e::List = inList
 
   while !listEmpty(rest_e)
     @match _cons(e, rest_e) = rest_e

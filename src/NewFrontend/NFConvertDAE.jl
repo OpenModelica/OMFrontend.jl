@@ -244,7 +244,7 @@ function convertVarAttributes(
   is_final =
     compAttrs.isFinal || compAttrs.variability == Variability.STRUCTURAL_PARAMETER
   #= Real types require SOME(VAR_ATTR_REAL(...)) for backend initialization =#
-  if isempty(attrs) && !is_final && !isa(arrayElementType(ty), TYPE_REAL)
+  if isempty(attrs) && !is_final && !isvariant(arrayElementType(ty), TYPE_REAL)
     attributes = NONE()
     return attributes
   end
@@ -1003,7 +1003,7 @@ function convertForEquation(forEquation::Equation)::DAE.Element
 end
 
 function convertIfEquation(
-  ifBranches::Vector{Equation_Branch},
+  ifBranches::Vector{<:Equation_Branch},
   source::DAE.ElementSource;
   isInitial::Bool,
 )::DAE.Element
@@ -1049,7 +1049,7 @@ function convertIfEquation(
 end
 
 function convertWhenEquation(
-  whenBranches::Vector{Equation_Branch},
+  whenBranches::Vector{<:Equation_Branch},
   source::DAE.ElementSource,
 )::DAE.Element
   local whenEquation::DAE.Element

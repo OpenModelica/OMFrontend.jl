@@ -55,20 +55,20 @@ struct TYPED_DERIVED{T0 <: NFType, T1 <: InstNode, T2 <: Restriction} <: Class
   restriction::T2
 end
 
-mutable struct INSTANCED_BUILTIN <: Class
+struct INSTANCED_BUILTIN <: Class
   ty::NFType
   elements::ClassTree
   restriction::Restriction
 end
 
-mutable struct INSTANCED_CLASS <: Class
+struct INSTANCED_CLASS <: Class
   ty::NFType
   elements::ClassTree
   sections::Sections
   restriction::Restriction
 end
 
-mutable struct EXPANDED_DERIVED <: Class
+struct EXPANDED_DERIVED <: Class
   baseClass::InstNode
   modifier::Modifier
   dims::Vector{Dimension}
@@ -77,14 +77,14 @@ mutable struct EXPANDED_DERIVED <: Class
   restriction::Restriction
 end
 
-mutable struct EXPANDED_CLASS <: Class
+struct EXPANDED_CLASS <: Class
   elements::ClassTree
   modifier::Modifier
   prefixes::Prefixes
   restriction::Restriction
 end
 
-mutable struct PARTIAL_BUILTIN <: Class
+struct PARTIAL_BUILTIN <: Class
   ty::NFType
   elements::ClassTree
   modifier::Modifier
@@ -92,7 +92,7 @@ mutable struct PARTIAL_BUILTIN <: Class
   restriction::Restriction
 end
 
-mutable struct PARTIAL_CLASS <: Class
+struct PARTIAL_CLASS <: Class
   elements::ClassTree
   modifier::Modifier
   prefixes::Prefixes
@@ -136,7 +136,7 @@ function toFlatStream(cls::Class, clsNode::InstNode, s)
             compComp = component(comp)
             if compComp.attributes.direction != Direction.NONE
               @assign compComp.attributes.direction = Direction.NONE
-              updateComponent!(compComp, comp)
+              comp = updateComponent!(compComp, comp)
             end
           end
           s = IOStream_M.append(s, "  ")
@@ -199,8 +199,8 @@ function hasOperator(name::String, cls::Class)::Bool
   local op_node::InstNode
   local op_cls::Class
   if isOperatorRecord(restriction(cls))
-    @match ENTRY_INFO(op_node, _) = lookupElement(name, cls)
-    if op_node isa EMPTY_NODE
+    op_node = lookupElementNode(name, cls)
+    if isvariant(op_node, EMPTY_NODE)
       hasOperator = false
     else
       hasOperator = SCodeUtil.isOperator(definition(op_node))
@@ -274,12 +274,12 @@ end
 function setPrefixes(prefs::Prefixes, cls::Class)
   @match cls begin
     EXPANDED_CLASS(__) => begin
-      cls.prefixes = prefs
+      @assign cls.prefixes = prefs
       ()
     end
 
     EXPANDED_DERIVED(__) => begin
-      cls.prefixes = prefs
+      @assign cls.prefixes = prefs
       ()
     end
   end
@@ -309,8 +309,8 @@ end
 
 function isOverdetermined(cls::Class)::Bool
   local isOverdetermined::Bool
-  local res = lookupElement("equalityConstraint", cls)
-  if res.node !== EMPTY_NODE()
+  local resNode = lookupElementNode("equalityConstraint", cls)
+  if resNode !== EMPTY_NODE()
     System.setHasOverconstrainedConnectors(true)
     isOverdetermined = true
   else
@@ -376,27 +376,27 @@ function setRestriction(res::Restriction, cls::Class)::Class
     @match cls begin
       EXPANDED_CLASS(__) => begin
         #=  PARTIAL_BUILTIN is only used for predefined builtin types and not needed here. =#
-        cls.restriction = res
+        @assign cls.restriction = res
         ()
       end
 
       EXPANDED_DERIVED(__) => begin
-        cls.restriction = res
+        @assign cls.restriction = res
         ()
       end
 
       INSTANCED_CLASS(__) => begin
-        cls.restriction = res
+        @assign cls.restriction = res
         ()
       end
 
       INSTANCED_BUILTIN(__) => begin
-        cls.restriction = res
+        @assign cls.restriction = res
         ()
       end
 
       TYPED_DERIVED(__) => begin
-        cls.restriction = res
+        @assign cls.restriction = res
         ()
       end
     end
@@ -441,31 +441,31 @@ function restriction(cls::Class)::Restriction
   return res
 end
 
-function setType(@nospecialize(ty::M_Type), @nospecialize(cls::Class))
+function setType(ty::M_Type, @nospecialize(cls::Class))
    () = begin
     @match cls begin
       PARTIAL_BUILTIN(__) => begin
-        cls.ty = ty
+        @assign cls.ty = ty
         ()
       end
 
       EXPANDED_DERIVED(__) => begin
-        classApply(cls.baseClass, setType, ty)
+        @assign cls.baseClass = classApply(cls.baseClass, setType, ty)
         ()
       end
 
       INSTANCED_CLASS(__) => begin
-        cls.ty = ty
+        @assign cls.ty = ty
         ()
       end
 
       INSTANCED_BUILTIN(__) => begin
-        cls.ty = ty
+        @assign cls.ty = ty
         ()
       end
 
       TYPED_DERIVED(__) => begin
-        cls.ty = ty
+        @assign cls.ty = ty
         ()
       end
 
@@ -619,7 +619,7 @@ function isIdentical(cls1::Class, cls2::Class)::Bool
   return identical
 end
 
-function mergeModifier(@nospecialize(modifier::Modifier), @nospecialize(cls::Class))
+function mergeModifier(modifier::Modifier, @nospecialize(cls::Class))
   local mod
   local resClass = @match cls begin
     PARTIAL_CLASS(__) => begin
@@ -642,27 +642,27 @@ function mergeModifier(@nospecialize(modifier::Modifier), @nospecialize(cls::Cla
   return resClass
 end
 
-function setModifier(@nospecialize(modifier::Modifier),
+function setModifier(modifier::Modifier,
                      @nospecialize(cls::Class))
    () = begin
     @match cls begin
       PARTIAL_CLASS(__) => begin
-        cls.modifier = modifier
+        @assign cls.modifier = modifier
         ()
       end
 
       EXPANDED_CLASS(__) => begin
-        cls.modifier = modifier
+        @assign cls.modifier = modifier
         ()
       end
 
       EXPANDED_DERIVED(__) => begin
-        cls.modifier = modifier
+        @assign cls.modifier = modifier
         ()
       end
 
       PARTIAL_BUILTIN(__) => begin
-        cls.modifier = modifier
+        @assign cls.modifier = modifier
         ()
       end
       _ => begin
@@ -820,7 +820,7 @@ function lookupAttributeBinding(name::String, cls::Class)::Binding
   local binding::Binding
   local attr_node::InstNode
   try
-    @match ENTRY_INFO(attr_node, isImport) = lookupElement(name, classTree(cls))
+    attr_node = lookupElementNode(name, classTree(cls))
     binding = getBinding(component(attr_node))
   catch
     binding = EMPTY_BINDING
@@ -846,6 +846,9 @@ function lookupElement(name::String, cls::Class)
   local entryInfo = lookupElement(name, classTree(cls))
   return entryInfo
 end
+
+"""Node-only sibling of `lookupElement`, dropping the import flag."""
+lookupElementNode(name::String, cls::Class)::InstNode = lookupElementNode(name, classTree(cls))
 
 function setSections(sections::Sections, cls::Class)::Class
   cls = begin

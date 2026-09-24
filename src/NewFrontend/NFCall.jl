@@ -78,62 +78,9 @@ mutable struct CALL_ATTR <: CallAttributes
   tailCall::DAE.TailCall #=Input variables of the function if the call is tail-recursive =#
 end
 
-abstract type Call end
-
-mutable struct TYPED_REDUCTION <: Call
-  fn::M_Function
-  ty::NFType
-  var::VariabilityType
-  exp::Expression
-  iters::List{Tuple{InstNode, Expression}}
-  defaultExp::Option{Expression}
-  foldExp::Tuple{Option{Expression}, String, String}
-end
-
-mutable struct TYPED_ARRAY_CONSTRUCTOR <: Call
-  ty::NFType
-  var::VariabilityType
-  exp::Expression
-  iters::List{Tuple{InstNode, Expression}}
-end
-
-mutable struct TYPED_CALL <: Call
-  fn::M_Function
-  ty::NFType
-  var::VariabilityType
-  arguments::Vector{Expression}
-  attributes::CallAttributes
-end
-
-mutable struct ARG_TYPED_CALL <: Call
-  ref::ComponentRef
-  arguments::Vector{TypedArg}
-  named_args::Vector{TypedNamedArg}
-  call_scope::InstNode
-end
-
-mutable struct UNTYPED_CALL <: Call
-  ref::ComponentRef
-  arguments::Vector{Expression}
-  named_args::Vector{NamedArg}
-  call_scope::InstNode
-end
-
-mutable struct UNTYPED_REDUCTION <: Call
-  ref::ComponentRef
-  exp::Expression
-  iters::List{Tuple{InstNode, Expression}}
-end
-
-mutable struct UNTYPED_ARRAY_CONSTRUCTOR <: Call
-  exp::Expression
-  iters::List{Tuple{InstNode, Expression}}
-end
-
-
 @UniontypeDecl CallAttributes
 
-function toDAE(attr::CallAttributes, @nospecialize(returnType::NFType))::DAE.CallAttributes
+function toDAE(attr::CallAttributes, returnType::NFType)::DAE.CallAttributes
   local fattr::DAE.CallAttributes
    fattr = DAE.CALL_ATTR(
      toDAE(returnType),
@@ -152,28 +99,27 @@ function typeCast(callExp::CALL_EXPRESSION, ty::NFType)
   return _typeCastCall(call, ty, callExp)
 end
 
-function _typeCastCall(call::TYPED_CALL, ty::NFType, callExp::CALL_EXPRESSION)
-  isBuiltin(call.fn) || return CAST_EXPRESSION(setArrayElementType(typeOf(call), ty), callExp)
-  local cast_ty = setArrayElementType(call.ty, ty)
-  local fn_name = AbsynUtil.pathFirstIdent(name(call.fn))
-  if fn_name == "fill"
-    return CALL_EXPRESSION(TYPED_CALL(call.fn, cast_ty, call.var,
-      Expression[typeCast(Base.first(call.arguments), ty), call.arguments[2:end]...],
-      call.attributes))
-  elseif fn_name == "diagonal"
-    return CALL_EXPRESSION(TYPED_CALL(call.fn, cast_ty, call.var,
-      Expression[typeCast(call.arguments[1], ty)],
-      call.attributes))
-  else
-    return CAST_EXPRESSION(cast_ty, callExp)
-  end
-end
-
 function _typeCastCall(call::Call, ty::NFType, callExp::CALL_EXPRESSION)
+  if isvariant(call, TYPED_CALL)
+    isBuiltin(call.fn) || return CAST_EXPRESSION(setArrayElementType(typeOf(call), ty), callExp)
+    local cast_ty = setArrayElementType(call.ty, ty)
+    local fn_name = AbsynUtil.pathFirstIdent(name(call.fn))
+    if fn_name == "fill"
+      return CALL_EXPRESSION(TYPED_CALL(call.fn, cast_ty, call.var,
+        Expression[typeCast(Base.first(call.arguments), ty), call.arguments[2:end]...],
+        call.attributes))
+    elseif fn_name == "diagonal"
+      return CALL_EXPRESSION(TYPED_CALL(call.fn, cast_ty, call.var,
+        Expression[typeCast(call.arguments[1], ty)],
+        call.attributes))
+    else
+      return CAST_EXPRESSION(cast_ty, callExp)
+    end
+  end
   CAST_EXPRESSION(setArrayElementType(typeOf(call), ty), callExp)
 end
 
-function retype(@nospecialize(call::Call))::Call
+function retype(call::Call)::Call
 
    () = begin
     local ty::NFType
@@ -200,7 +146,7 @@ function retype(@nospecialize(call::Call))::Call
   return call
 end
 
-function isVectorizeable(@nospecialize(call::Call))::Bool
+function isVectorizeable(call::Call)::Bool
   isVect = begin
     local name::String
     @match call begin
@@ -230,7 +176,7 @@ function isVectorizeable(@nospecialize(call::Call))::Bool
   return isVect
 end
 
-function toDAE(@nospecialize(call::Call))
+function toDAE(call::Call)
   local daeCall::DAE.Exp
    daeCall = begin
     local fold_id::String
@@ -289,7 +235,7 @@ function toDAE(@nospecialize(call::Call))
 end
 
 """Like toString, but prefixes each argument with its type as a comment."""
-function typedString(@nospecialize(call::Call))::String
+function typedString(call::Call)::String
   local str::String
 
   local name::String
@@ -346,7 +292,7 @@ function typedString(@nospecialize(call::Call))::String
   return str
 end
 
-function toFlatString(@nospecialize(call::Call); inFunction = false)
+function toFlatString(call::Call; inFunction = false)
   local str::String
   local nameVar::String
   local arg_str::String
@@ -417,7 +363,7 @@ function toFlatString(@nospecialize(call::Call); inFunction = false)
   return str
 end
 
-function toString(@nospecialize(call::Call))::String
+function toString(call::Call)::String
   local str::String
   local nameStr::String
   local arg_str::String
@@ -533,7 +479,7 @@ nameStr = AbsynUtil.pathString(name(call.fn))
   return str
 end
 
-function toRecordExpression(@nospecialize(call::Call), @nospecialize(ty::NFType))::Expression
+function toRecordExpression(call::Call, ty::NFType)::Expression
   local exp::Expression
    exp = begin
     @match call begin
@@ -549,7 +495,7 @@ function toRecordExpression(@nospecialize(call::Call), @nospecialize(ty::NFType)
   return exp
 end
 
-function arguments(@nospecialize(call::Call))::Vector{Expression}
+function arguments(call::Call)::Vector{Expression}
   local arguments::Vector{Expression}
    arguments = begin
     @match call begin
@@ -565,7 +511,7 @@ function arguments(@nospecialize(call::Call))::Vector{Expression}
 end
 
 const ARRAY_IDENTIFIER = Absyn.IDENT("array")
-function functionName(@nospecialize(call::Call))::Absyn.Path
+function functionName(call::Call)::Absyn.Path
   local nameV::Absyn.Path
   nameV = begin
     @match call begin
@@ -595,7 +541,7 @@ function functionName(@nospecialize(call::Call))::Absyn.Path
   return nameV
 end
 
-function typedFunction(@nospecialize(call::Call))::M_Function
+function typedFunction(call::Call)::M_Function
   local fn::M_Function
    fn = begin
     @match call begin
@@ -617,7 +563,7 @@ function typedFunction(@nospecialize(call::Call))::M_Function
   return fn
 end
 
-function inlineType(@nospecialize(call::Call))::DAE.InlineType
+function inlineType(call::Call)::DAE.InlineType
   local inlineTy::DAE.InlineType
    inlineTy = begin
     @match call begin
@@ -632,7 +578,7 @@ function inlineType(@nospecialize(call::Call))::DAE.InlineType
   return inlineTy
 end
 
-function isRecordConstructor(@nospecialize(call::Call))::Bool
+function isRecordConstructor(call::Call)::Bool
   local isConstructor::Bool
 
    isConstructor = begin
@@ -651,7 +597,7 @@ function isRecordConstructor(@nospecialize(call::Call))::Bool
   return isConstructor
 end
 
-function isImpure(@nospecialize(call::Call))::Bool
+function isImpure(call::Call)::Bool
   local impure::Bool
   impure = begin
     @match call begin
@@ -669,11 +615,11 @@ function isImpure(@nospecialize(call::Call))::Bool
   return impure
 end
 
-function isNotImpure(@nospecialize(call::Call))::Bool
+function isNotImpure(call::Call)::Bool
   return !(isImpure(call))
 end
 
-function isExternal(@nospecialize(call::Call))::Bool
+function isExternal(call::Call)::Bool
   local isExt::Bool
   isExt = begin
     @match call begin
@@ -694,7 +640,7 @@ function isExternal(@nospecialize(call::Call))::Bool
   return isExt
 end
 
-function compare(@nospecialize(call1::Call), @nospecialize(call2::Call))::Int
+function compare(call1::Call, call2::Call)::Int
   local comp::Int
    comp = begin
     @match (call1, call2) begin
@@ -724,7 +670,7 @@ function compare(@nospecialize(call1::Call), @nospecialize(call2::Call))::Int
   return comp
 end
 
-function variability(@nospecialize(call::Call))::VariabilityType
+function variability(call::Call)::VariabilityType
   local var::VariabilityType
    var = begin
     local var_set::Bool
@@ -771,19 +717,19 @@ function variability(@nospecialize(call::Call))::VariabilityType
   return var
 end
 
-function setType(@nospecialize(call::Call), @nospecialize(ty::NFType))
-  local callWithNewType = if call isa TYPED_CALL
+function setType(call::Call, ty::NFType)
+  local callWithNewType = if isvariant(call, TYPED_CALL)
     TYPED_CALL(call.fn, ty, call.var, call.arguments, call.attributes)
-  elseif call isa TYPED_ARRAY_CONSTRUCTOR
+  elseif isvariant(call, TYPED_ARRAY_CONSTRUCTOR)
     TYPED_ARRAY_CONSTRUCTOR(ty, call.var, call.exp, call.iters)
-  elseif call isa TYPED_REDUCTION
+  elseif isvariant(call, TYPED_REDUCTION)
     TYPED_REDUCTION(call.fn, ty, call.var, call.exp,
                     call.iters, call.defaultExp, call.foldExp)
   end
   return callWithNewType
 end
 
-function typeOf(@nospecialize(call::Call))::NFType
+function typeOf(call::Call)::NFType
   local ty::NFType
    ty = begin
     @match call begin
@@ -798,7 +744,7 @@ function typeOf(@nospecialize(call::Call))::NFType
   return ty
 end
 
-function matchTypedNormalCall(@nospecialize(call::Call), origin::ORIGIN_Type, info::SourceInfo)::Call
+function matchTypedNormalCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Call
   local func::M_Function
   local args::Vector{Expression}
   local typed_args::Vector{TypedArg}
@@ -859,14 +805,14 @@ function matchTypedNormalCall(@nospecialize(call::Call), origin::ORIGIN_Type, in
   return call
 end
 
-function typeMatchNormalCall(@nospecialize(call::Call), origin::ORIGIN_Type, info::SourceInfo)::Call
+function typeMatchNormalCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Call
   local argtycall::Call
   argtycall = typeNormalCall(call, origin, info)
   call = matchTypedNormalCall(argtycall, origin, info)
   return call
 end
 
-function unboxArgs(call::TYPED_CALL)
+function unboxArgs(call::Call)
   local args = Expression[unbox(arg) for arg in call.arguments]#TODO: Can potentially be done inline
   return TYPED_CALL(call.fn, call.ty, call.var, args, call.attributes)
 end
@@ -891,7 +837,7 @@ function makeTypedCall(
   return call
 end
 
-function typeNormalCall(call::UNTYPED_CALL, origin::ORIGIN_Type, info::SourceInfo)::Call
+function typeNormalCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Call
   local fnl::Vector{M_FUNCTION} = typeRefCache(call.ref)
   call = typeArgs(call, origin, info)
   return call
@@ -906,7 +852,7 @@ function typeCall(
   arg2 = origin
   arg3 = info
   @match CALL_EXPRESSION(call = call) = callExp
-  if call isa TYPED_ARRAY_CONSTRUCTOR || call isa TYPED_REDUCTION || call isa TYPED_CALL || call isa ARG_TYPED_CALL
+  if isvariant(call, TYPED_ARRAY_CONSTRUCTOR) || isvariant(call, TYPED_REDUCTION) || isvariant(call, TYPED_CALL)
     ty = call.ty
     var = call.var
     return (callExp, call.ty, call.var)
@@ -1184,7 +1130,7 @@ end
   used as a helper to output valid flat Modelica, and should probably not
   be used where e.g. correct types are required.
 """
-function devectorizeCall(@nospecialize(call::Call))::Call
+function devectorizeCall(call::Call)::Call
   local outCall::Call
   local exp::Expression
   local iter_exp::Expression
@@ -1199,7 +1145,7 @@ function devectorizeCall(@nospecialize(call::Call))::Call
   return outCall
 end
 
-function isVectorized(@nospecialize(call::Call))::Bool
+function isVectorized(call::Call)::Bool
   local vectorized::Bool
    vectorized = begin
     @match call begin
@@ -1321,7 +1267,7 @@ function iteratorToDAE(iter::Tuple{<:InstNode, Expression})::DAE.ReductionIterat
   return diter
 end
 
-function checkMatchingFunctions(@nospecialize(call::Call), info::SourceInfo)
+function checkMatchingFunctions(call::Call, info::SourceInfo)
   local matchedFunc::MatchedFunction
   local matchedFunctions::Vector{MatchedFunction}
   local exactMatches::Vector{MatchedFunction}
@@ -1406,7 +1352,7 @@ function checkMatchingFunctions(@nospecialize(call::Call), info::SourceInfo)
   return matchedFunc
 end
 
-function typeArgs(@nospecialize(call::Call), origin::ORIGIN_Type, info::SourceInfo)::Call
+function typeArgs(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Call
    call = begin
     local arg::Expression
     local arg_ty::NFType
@@ -1466,7 +1412,7 @@ function reductionFoldExpression(
       @match AbsynUtil.pathFirstIdent(name(reductionFn)) begin
         "sum" => begin
           @match TYPE_COMPLEX(cls = op_node) = reductionType
-          @match ENTRY_INFO(op_node, _) = lookupElement("'+'", getClass(op_node))
+          op_node = lookupElementNode("'+'", getClass(op_node))
           instFunctionNode(op_node)
           fns = typeNodeCache(op_node)
           fn = fns[1]
@@ -1642,7 +1588,7 @@ function typeReduction(
 end
 
 function typeArrayConstructor(
-  @nospecialize(call::Call),
+  call::Call,
   @nospecialize(origin::ORIGIN_Type),
   @nospecialize(info::SourceInfo),
 )::Tuple{Call, NFType, VariabilityType}
@@ -1872,4 +1818,3 @@ function instNormalCall(
   end
   return callExp
 end
-

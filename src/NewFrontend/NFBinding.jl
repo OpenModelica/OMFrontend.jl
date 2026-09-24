@@ -33,62 +33,7 @@
 *
 */ =#
 
-const VariabilityType = Int8
-
-@UniontypeDecl Binding
-
-abstract type Binding end
-
-mutable struct INVALID_BINDING <: Binding
-  binding::Binding
-  errors::List
-end
-
-mutable struct CEVAL_BINDING <: Binding
-  bindingExp::Expression
-end
-
-mutable struct FLAT_BINDING <: Binding
-  bindingExp::Expression
-  variability::VariabilityType
-end
-
-mutable struct TYPED_BINDING <: Binding
-  bindingExp::Expression
-  bindingType::NFType
-  variability::VariabilityType
-  eachType::Int
-  evaluated::Bool
-  isFlattened::Bool
-  info::SourceInfo
-end
-
-mutable struct UNTYPED_BINDING <: Binding
-  bindingExp::Expression
-  isProcessing::Bool
-  scope::InstNode
-  isEach::Bool
-  info::SourceInfo
-end
-
-mutable struct RAW_BINDING <: Binding
-  bindingExp::Absyn.Exp
-  scope::InstNode
-  parents::List{InstNode}
-  isEach::Bool
-  info::SourceInfo
-end
-
-mutable struct UNBOUND <: Binding
-  parents::List{InstNode}
-  isEach::Bool
-  info::SourceInfo
-end
-
-struct BINDING_ERROR <: Binding
-end
-
-const EMPTY_BINDING::UNBOUND = UNBOUND(nil, false, AbsynUtil.dummyInfo)
+const EMPTY_BINDING::Binding = UNBOUND(nil, false, AbsynUtil.dummyInfo)
 
 struct EachTypeStruct{T <: Int}
   NOT_EACH::T
