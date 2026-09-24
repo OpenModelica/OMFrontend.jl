@@ -45,45 +45,13 @@ jobs:
       # OMFrontend.jl/Project.toml uses [sources] to point at sibling working
       # copies. We mirror the CI workflow and lay the siblings out alongside the
       # main checkout.
-      - name: Checkout Absyn.jl
-        uses: actions/checkout@v4
-        with: { repository: OpenModelica/Absyn.jl, ref: master, path: Absyn.jl }
-
-      - name: Checkout ArrayUtil.jl
-        uses: actions/checkout@v4
-        with: { repository: OpenModelica/ArrayUtil.jl, ref: master, path: ArrayUtil.jl }
-
-      - name: Checkout DAE.jl
-        uses: actions/checkout@v4
-        with: { repository: OpenModelica/DAE.jl, ref: master, path: DAE.jl }
-
-      - name: Checkout DoubleEnded.jl
-        uses: actions/checkout@v4
-        with: { repository: OpenModelica/DoubleEnded.jl, ref: master, path: DoubleEnded.jl }
-
-      - name: Checkout ImmutableList.jl
-        uses: actions/checkout@v4
-        with: { repository: OpenModelica/ImmutableList.jl, ref: master, path: ImmutableList.jl }
-
-      - name: Checkout ListUtil.jl
-        uses: actions/checkout@v4
-        with: { repository: OpenModelica/ListUtil.jl, ref: master, path: ListUtil.jl }
-
-      - name: Checkout MetaModelica.jl
-        uses: actions/checkout@v4
-        with: { repository: OpenModelica/MetaModelica.jl, ref: master, path: MetaModelica.jl }
-
-      - name: Checkout OMParser.jl
-        uses: actions/checkout@v4
-        with: { repository: OpenModelica/OMParser.jl, ref: master, path: OMParser.jl }
-
-      - name: Checkout OMRuntimeExternalC.jl
-        uses: actions/checkout@v4
-        with: { repository: OpenModelica/OMRuntimeExternalC.jl, ref: master, path: OMRuntimeExternalC.jl }
-
-      - name: Checkout SCode.jl
-        uses: actions/checkout@v4
-        with: { repository: OpenModelica/SCode.jl, ref: master, path: SCode.jl }
+      # The shared action checks the siblings out at the branch that matches
+      # this change (the PR branch if the sibling has it, else the PR base
+      # branch, e.g. 1.13, else master) from the OpenModelica repositories.
+      - name: Checkout sibling OM*.jl packages
+        uses: JKRT/OM.jl/.github/actions/checkout-siblings@master
+        with:
+          packages: Absyn ArrayUtil DAE DoubleEnded ImmutableList ListUtil MetaModelica OMParser OMRuntimeExternalC SCode
 
       - name: Setup Julia
         uses: julia-actions/setup-julia@v2
