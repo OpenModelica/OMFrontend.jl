@@ -26,4 +26,5 @@ OMRuntimeExternalC="ada38df0-e20e-11ed-02f3-2b4b19c1ec8a"
 
 [compat]
 julia = "1.12"
+MetaModelica = "0.4"
 OMParser = "0.1, 0.2"
