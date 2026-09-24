@@ -2,6 +2,24 @@
 
 Project continuity notes. Append verified, high-confidence findings only.
 
+## Dimension migrated to @T_Uniontype (2026-07-11)
+
+The hand-written Dimension tagged struct in
+`src/FrontendInterfaces/NFInterfaces.jl` (enum `DimensionTag`/`DT_*`,
+`DimensionImpl`, `_dimension` builder, per-variant ctors, tag registrations,
+`valueConstructor`) is now a single `@T_Uniontype NFDimension` declaration
+(macro in `MetaModelica.jl/src/union.jl`; generates the field-union tagged
+struct, `@match` registrations, `variantof`, `valueConstructor`,
+`setproperties`). Concrete type is now `NFDimensionImpl`; updated the only
+two external references: `NFType.dimensions::List{NFDimensionImpl}`
+(NFInterfaces.jl) and `const Dimension = NFDimensionImpl` (NFAlias.jl:50).
+Struct layout, defaults (`var=Int8(0)`, `size=0`, `isProcessing=false`) and
+tag ordinals are unchanged. Verified: full OMFrontend suite 363/363 +
+precompile MSL flatten workload. Remaining hand-written blocks in
+NFInterfaces (InstNodeType/InstNode/Call/Binding/Modifier/Equation/Statement)
+are candidates for the same migration; InstNode/Call have custom payload
+coercions (`_compPayload`/`_callExpressionArgs`) the macro does not cover.
+
 ## HANDOFF (LIVE, 2026-07-04) — from a MMJLTranslator session (Claude Fable), read this first
 
 Cross-repo handoff. The bulk of the recent work was in sibling repos; this note
