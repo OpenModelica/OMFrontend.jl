@@ -64,11 +64,87 @@ const Entry = Connector
 
 #= NOTE: the hash renders the cref to a string on purpose. The dict iteration
    order in extractSets defines the connection-equation output order that the
-   reference tests encode; a structural hash permutes it. =#
+   reference tests encode; a structural hash permutes it.
+   That order also depends on the string hash itself, and Julia 1.13 replaced
+   hash(::String) (MurmurHash3 -> rapidhash) and the default seed of hash(x)
+   (0 -> Base.HASH_SEED). So the entry hash is Julia 1.12's string hash,
+   written out below, with 1.12's default seed: one order on every version
+   (on 64-bit; 32-bit falls back to Base.hash). =#
 function Base.hash(conn::Entry, h::UInt)
-  local str = toString(conn.name)
-  local hv = Base.hash(str, h)
-  return hv
+  return stableStringHash(toString(conn.name), h)
+end
+Base.hash(conn::Entry) = Base.hash(conn, zero(UInt))
+
+@static if UInt === UInt64
+  @inline _rotl64(x::UInt64, r::Int) = (x << r) | (x >> (64 - r))
+
+  @inline function _fmix64(k::UInt64)
+    k ⊻= k >> 33
+    k *= 0xff51afd7ed558ccd
+    k ⊻= k >> 33
+    k *= 0xc4ceb9fe1a85ec53
+    k ⊻= k >> 33
+    return k
+  end
+
+  @inline function _load64le(data, i::Int)
+    local v = UInt64(0)
+    for j in 0:7
+      v |= UInt64(data[i + j]) << (8 * j)
+    end
+    return v
+  end
+
+  #= Second 64-bit half of MurmurHash3_x64_128, as returned by Julia's
+     memhash_seed (src/support/hashing.c). =#
+  function _murmur3_x64_128_hi(data, seed::UInt32)::UInt64
+    local n = length(data)
+    local c1 = 0x87c37b91114253d5
+    local c2 = 0x4cf5ad432745937f
+    local h1 = UInt64(seed)
+    local h2 = UInt64(seed)
+    local nblocks = n ÷ 16
+    for b in 0:(nblocks - 1)
+      local k1 = _load64le(data, 16 * b + 1)
+      local k2 = _load64le(data, 16 * b + 9)
+      k1 *= c1; k1 = _rotl64(k1, 31); k1 *= c2; h1 ⊻= k1
+      h1 = _rotl64(h1, 27); h1 += h2; h1 = h1 * 5 + 0x52dce729
+      k2 *= c2; k2 = _rotl64(k2, 33); k2 *= c1; h2 ⊻= k2
+      h2 = _rotl64(h2, 31); h2 += h1; h2 = h2 * 5 + 0x38495ab5
+    end
+    local tail = 16 * nblocks
+    local rest = n & 15
+    if rest > 8
+      local k2 = UInt64(0)
+      for j in rest:-1:9
+        k2 ⊻= UInt64(data[tail + j]) << (8 * (j - 9))
+      end
+      k2 *= c2; k2 = _rotl64(k2, 33); k2 *= c1; h2 ⊻= k2
+    end
+    if rest > 0
+      local k1 = UInt64(0)
+      for j in min(rest, 8):-1:1
+        k1 ⊻= UInt64(data[tail + j]) << (8 * (j - 1))
+      end
+      k1 *= c1; k1 = _rotl64(k1, 31); k1 *= c2; h1 ⊻= k1
+    end
+    h1 ⊻= UInt64(n); h2 ⊻= UInt64(n)
+    h1 += h2; h2 += h1
+    h1 = _fmix64(h1); h2 = _fmix64(h2)
+    h1 += h2; h2 += h1
+    return h2
+  end
+
+  """
+    Julia 1.12's `hash(::String, ::UInt)` on 64-bit, independent of the running
+    Julia version.
+  """
+  function stableStringHash(s::String, h::UInt)
+    h += 0x71e729fd56419c81
+    return _murmur3_x64_128_hi(codeunits(s), h % UInt32) + h
+  end
+else
+  stableStringHash(s::String, h::UInt) = Base.hash(s, h)
 end
 
 Base.isequal(entry1::Entry, entry2::Entry) = begin
