@@ -6906,8 +6906,7 @@ end
     UNTYPED_BINDING(bindingExp = e1) => begin
       e2 = map(e1, mapFn)
       binding = if !referenceEq(e1, e2)
-        bindingExp = e2
-        UNTYPED_BINDING(bindinExp, binding.isProcessing, binding.isEach, binding.info)
+        UNTYPED_BINDING(e2, binding.isProcessing, binding.scope, binding.isEach, binding.info)
       else
         binding
       end
@@ -6930,10 +6929,10 @@ end
     FLAT_BINDING(bindingExp = e1) => begin
       e2 = map(e1, mapFn)
       if !referenceEq(e1, e2)
-        bindingBindingExp = e2
-        FLAT_BINDING(bindingBindingExp, binding.variability)
+        FLAT_BINDING(e2, binding.variability)
+      else
+        binding
       end
-      binding
     end
     CEVAL_BINDING(bindingExp = e1) => begin
       e2 = map(e1, mapFn)

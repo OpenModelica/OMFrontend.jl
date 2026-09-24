@@ -68,6 +68,9 @@ end
     @testset "SCode -> DAE Sanity test" begin
       include("daeTests.jl")
     end
+    @testset "Binding mapExp" begin
+      include("bindingMapExpTests.jl")
+    end
   end
 
   # GUI_API tests are gated behind the OMFRONTEND_TEST_GUI_API env var while
