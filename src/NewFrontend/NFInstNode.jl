@@ -1699,7 +1699,17 @@ function parentScope(@nospecialize(node::InstNode))
   scope = begin
     @match node begin
       CLASS_NODE(nodeType = DERIVED_CLASS(__))  => begin
-        parentScope(lastBaseClass(node))
+        #= As in OpenModelica's NFInstNode.parentScope: lastBaseClass returns the
+           node itself once the class has been flattened (an infinite loop, e.g.
+           `connector C = A;` as the root class), and builtin types have no parent. =#
+        local base = lastBaseClass(node)
+        if isBuiltin(base)
+          topScope(node.parentScope)
+        elseif base === node
+          node.parentScope
+        else
+          parentScope(base)
+        end
       end
       CLASS_NODE(__)  => begin
         node.parentScope

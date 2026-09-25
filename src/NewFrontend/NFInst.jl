@@ -122,7 +122,7 @@ function instClassInProgramFM2(classPath::Absyn.Path, program::SCode.Program)::T
   @EXECSTAT "flatten" flat_model = flatten(inst_cls, name)
   dumpFlatModel(flat_model, string(name, "_", "afterFlatten"))
   flat_model = resolveAndEvaluate(flat_model, program, name)
-  (flat_model, funcs) = simplifyAndCollect(flat_model, name)
+  (flat_model, funcs) = simplifyAndCollect(flat_model, name, topScope(inst_cls))
   flat_model = scalarizeAndVerify(flat_model, name)
   dumpInstDiagnostics(name)
   return (flat_model, funcs, inst_cls)
@@ -254,11 +254,13 @@ function integrateDOCCEquations!(flat_model::FlatModel, doccs)::FlatModel
 end
 
 """Inlines simple calls, simplifies the model, and collects functions and package constants."""
-function simplifyAndCollect(flat_model::FlatModel, name::String)::Tuple{FlatModel, FunctionTree}
+#= `top`: the top scope, where inlining finds noEvent for the relations of
+   inlined function bodies (nothing: no wrapping). =#
+function simplifyAndCollect(flat_model::FlatModel, name::String, top = nothing)::Tuple{FlatModel, FunctionTree}
   local funcs::FunctionTree
   #= Do unit checking =#
   #TODO  @assign flat_model = UnitCheck.checkUnits(flat_model)
-  flat_model = inlineSimpleCalls(flat_model)
+  flat_model = inlineSimpleCalls(flat_model, top)
   dumpFlatModel(flat_model, string(name, "_", "afterInlining"))
   @EXECSTAT "Simplify" flat_model = simplifyFlatModel(flat_model)
   dumpFlatModel(flat_model, string(name, "_", "afterSimplify"))
@@ -321,8 +323,8 @@ end
     Currently it inlines all functions.
     Throws an error if a function is not complex enough.
 """
-function inlineSimpleCalls(fm::FlatModel)
-  local inlinedEqs = mapExpList(fm.equations, inlineSimpleCall)
+function inlineSimpleCalls(fm::FlatModel, top = nothing)
+  local inlinedEqs = mapExpList(fm.equations, e -> inlineSimpleCall(e, top))
   @assign fm.equations = inlinedEqs
   return fm
 end

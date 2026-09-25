@@ -171,7 +171,7 @@ end
   Inline function for nonbuiltin callexps
   @author johti17
 """
-function inlineSimpleCall(callExp::Expression)::Expression
+function inlineSimpleCall(callExp::Expression, top = nothing)::Expression
   local result::Expression
   local call::Call
   local shouldInline = @match callExp begin
@@ -181,7 +181,7 @@ function inlineSimpleCall(callExp::Expression)::Expression
 #      println("Inline = $(shouldInline) for: " * toString(c))
       #= We might want to inline more things, so check arguments anyway =#
       if !shouldInline
-        local newArgs = Expression[map(arg, inlineSimpleCall) for arg in arguments]
+        local newArgs = Expression[map(arg, a -> inlineSimpleCall(a, top)) for arg in arguments]
         callArguments = newArgs
         TYPED_CALL(c.fn, c.ty, c.var, callArguments, c.attributes)
         return CALL_EXPRESSION(call)
@@ -191,7 +191,7 @@ function inlineSimpleCall(callExp::Expression)::Expression
     _ => false
   end
   result = if shouldInline
-    inlineCall(call)
+    inlineCall(call, top)
   else
     callExp
   end
@@ -202,7 +202,7 @@ end
   Function to inline calls
 @author johti17
 """
-function inlineCall(call::Call)::Expression
+function inlineCall(call::Call, top = nothing)::Expression
   local exp::Expression
   exp = begin
     local fn::M_Function
@@ -257,7 +257,8 @@ function inlineCall(call::Call)::Expression
           stmt = mapExp(stmt,
                         (exp) -> map(exp, (exp) -> replaceCrefNode(exp, i, arg)))
         end
-        getOutputExp(stmt, listHead(outputs), call)
+        local outExp = getOutputExp(stmt, listHead(outputs), call)
+        top === nothing ? outExp : _noEventRelations(outExp, top)
       end
 
       _ => begin
@@ -266,6 +267,39 @@ function inlineCall(call::Call)::Expression
     end
   end
   return exp
+end
+
+#= MLS 8.5: relations in a function body never generate events ("all
+   assignment statements within function classes are implicitly treated with
+   noEvent"). An inlined body keeps that: its relations are wrapped in
+   noEvent (e.g. MSL Frames.Internal.maxWithoutEvent, `if u1 > u2 ...`). =#
+const _NO_EVENT_FN_CACHE = Dict{UInt, M_FUNCTION}()
+
+function _noEventFunction(top::InstNode)::M_FUNCTION
+  return lock(_INST_SHARED_LOCK) do
+    get!(_NO_EVENT_FN_CACHE, _refId(top)) do
+      local (fnRef, _, _) = instFunctionRef(lookupFunctionSimple("noEvent", top), AbsynUtil.dummyInfo)
+      Base.first(typeRefCache(fnRef))
+    end
+  end
+end
+
+function _isNoEventCall(exp::Expression)::Bool
+  return exp isa CALL_EXPRESSION && isvariant(exp.call, TYPED_CALL) &&
+         AbsynUtil.pathString(name(exp.call.fn)) == "noEvent"
+end
+
+function _noEventRelations(exp::Expression, top::InstNode)::Expression
+  local wrap = function (e::Expression)
+    if e isa RELATION_EXPRESSION
+      local fn = _noEventFunction(top)
+      return CALL_EXPRESSION(makeTypedCall(fn, Expression[e], variability(e), typeOf(e)))
+    elseif _isNoEventCall(e) && _isNoEventCall(e.call.arguments[1])
+      return e.call.arguments[1]        # noEvent(noEvent(r)) from a noEvent in the body
+    end
+    return e
+  end
+  return map(exp, wrap)
 end
 
 function replaceCrefNode(exp::Expression, node::InstNode, value::Expression)::Expression
