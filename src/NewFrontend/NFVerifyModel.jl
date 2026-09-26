@@ -46,7 +46,7 @@ function expandCrefSet(crefs::List{<:ComponentRef})
   local expl::List{Expression}
   for cref in crefs
     exp = fromCref(cref)
-    exp = expandCref(exp)
+    (exp, _) = expandCref(exp)
     if isArray(exp)
       expl = arrayElements(exp)
       outCrefs =
@@ -84,7 +84,7 @@ function checkCrefSetEquality(
   end
   #=  Couldn't get the sets to match, print an error and fail.
   =#
-  Error.addSourceMessage(errMsg, nil, ElementSource_getInfo(source))
+  Error.addSourceMessage(errMsg, nil, DAE.ElementSource_getInfo(source))
   return fail()
 end
 
@@ -150,10 +150,8 @@ function whenEquationBranchCrefs(eql::Union{List{<:Equation}, Vector{<:Equation}
         EQUATION_ARRAY_EQUALITY(__) => begin
           whenEquationEqualityCrefs(eq.lhs, crefs)
         end
-        EQUATION_REINIT(__) => begin
-          whenEquationEqualityCrefs(eq.cref, crefs)
-        end
-
+        #= A reinit is not an equation for a variable: the branches of a
+           when-equation need not reinit the same states (as OpenModelica). =#
         EQUATION_IF(__) => begin
           whenEquationIfCrefs(eq.branches, eq.source, crefs)
         end

@@ -97,6 +97,10 @@ end
     include("replaceableTests.jl")
   end
 
+  @testset "When-equation branches" begin
+    include("whenVerifyTests.jl")
+  end
+
   @testset "JSON exporter" begin
     include("jsonExportTests.jl")
   end

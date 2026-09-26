@@ -938,7 +938,7 @@ function evaluateFor(
         Error.addSourceMessage(
           Error.EVAL_LOOP_LIMIT_REACHED,
           list(String(limit)),
-          ElementSource_getInfo(source),
+          DAE.ElementSource_getInfo(source),
         )
         fail()
       end
@@ -988,7 +988,7 @@ function evaluateAssert(@nospecialize(condition::Expression), assertStmt::Statem
           Error.addSourceMessage(
             Error.ASSERT_TRIGGERED_WARNING,
             list(msg.value),
-            ElementSource_getInfo(source),
+            DAE.ElementSource_getInfo(source),
           )
           ()
         end
@@ -1000,7 +1000,7 @@ function evaluateAssert(@nospecialize(condition::Expression), assertStmt::Statem
           Error.addSourceMessage(
             Error.ASSERT_TRIGGERED_ERROR,
             list(msg.value),
-            ElementSource_getInfo(source),
+            DAE.ElementSource_getInfo(source),
           )
           ctrl = FlowControl.ASSERTION
           ()
@@ -1055,7 +1055,7 @@ function evaluateWhile(
       Error.addSourceMessage(
         Error.EVAL_LOOP_LIMIT_REACHED,
         list(String(limit)),
-        ElementSource_getInfo(source),
+        DAE.ElementSource_getInfo(source),
       )
       fail()
     end
