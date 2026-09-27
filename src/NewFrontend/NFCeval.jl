@@ -220,10 +220,9 @@ end
         exp
       end
       RECORD_EXPRESSION(__) => begin
-        #= In place handling...  =#
-        for (i, e) in enumerate(exp.elements)
-          exp.elements[i] = e
-        end
+        #= Not evaluated (OpenModelica evaluates the fields): a record variable's fields
+           are its cells, which later `r.x := ...` update. Assignments and arguments
+           take the current values through NFEvalFunction's detachCells. =#
         exp
       end
       CALL_EXPRESSION(__) => begin

@@ -1262,10 +1262,10 @@ function fillType(ty::M_Type, @nospecialize(fillExp::Expression)) ::Expression
   local dims::List{Dimension} = arrayDims(ty)
   local expl::Vector{Expression}
   local arr_ty::M_Type = arrayElementType(ty)
-  for dim in dims #listReverse(dims)
+  #= Innermost dimension first: each pass lifts the array by one dimension on the left. =#
+  for dim in listReverse(dims)
     expl  = Expression[]
     for i in 1:size(dim)
-      #expl = _cons(exp, expl)
       push!(expl, exp)
     end
     arr_ty = liftArrayLeft(arr_ty, dim)
@@ -1274,28 +1274,13 @@ function fillType(ty::M_Type, @nospecialize(fillExp::Expression)) ::Expression
   exp
 end
 
-function fillArgs(@nospecialize(fillExp::Expression), dims::List{Expression})
-  local dimSize
-  local arr::Vector{Expression} = Expression[]
-  local result = fillExp
-  local arrTy = typeOf(result)
-  local literal::Bool = isLiteral(fillExp)
-  for d in dims#listReverse(dims)
-    dimSize = toInteger(d)
-    arr = Expression[result for e in 1:dimSize]
-    arrTy = liftArrayLeft(arrTy, fromInteger(dimSize))
-    result = makeArray(arrTy, arr, literal = literal)
-  end
-  return result
-end
-
 function fillArgsDimVec(@nospecialize(fillExp::Expression), dims::Vector{Expression})
   local dimSize
   local arr::Vector{Expression} = Expression[]
   local result = fillExp
   local arrTy = typeOf(result)
   local literal::Bool = isLiteral(fillExp)
-  for d in dims#listReverse(dims)
+  for d in Iterators.reverse(dims)
     dimSize = toInteger(d)
     arr = Expression[result for e in 1:dimSize]
     arrTy = liftArrayLeft(arrTy, fromInteger(dimSize))

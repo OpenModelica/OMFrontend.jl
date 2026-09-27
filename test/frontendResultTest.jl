@@ -8,6 +8,7 @@ include("equationTests.jl")
 include("connect.jl")
 include("arrayTests.jl")
 include("bindingExpTests.jl")
+include("funcEvalAssignTests.jl")
 import ..ConnectTests
 
 #= The set of basic connect tests=#
@@ -112,4 +113,5 @@ include("connectGenerated.jl")
 runTestsDefinedInVector(generatedConnectorTests,
                         "Connector regression tests (auto-generated from unused .mo files)")
 runTestsDefinedInVector(bindingExpTests, "BINDING_EXP constant evaluation in function bodies")
+runTestsDefinedInVector(funcEvalAssignTests, "Assignments in functions evaluated at compile time")
 #= End Connector tests =#
