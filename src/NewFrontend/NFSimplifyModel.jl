@@ -524,7 +524,9 @@ function simplifyIfEqBranches(
 end
 
 """
-Note possible recheck to make sure the order is right
+The branches of an if-statement with their conditions simplified: those with a literal false
+condition dropped, and the statement replaced by the body of the first one with a literal true
+condition (an `else` is one), or cut after it. `elements` is in forward order.
 """
 function simplifyIfStmtBranches(
   branches::Vector{Tuple{Expression, Vector{Statement}}},
@@ -543,7 +545,7 @@ function simplifyIfStmtBranches(
     if isTrue(cond)
       #=  If it's the first branch, remove the if and keep only the branch body. =#
       if isempty(accum)
-        append!(simplifyFunc(body), elements)
+        append!(elements, simplifyFunc(body))
         return elements
       else   #=  Keep branches that are neither literal true or false. =#
         push!(accum, (cond, simplifyFunc(body)))
