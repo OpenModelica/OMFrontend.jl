@@ -1081,7 +1081,10 @@ function scopePathClass(node::InstNode, ty::InstNodeType, includeRoot::Bool, acc
       end
 
       ROOT_CLASS(__)  => begin
-        if includeRoot
+        #= An instantiated function is a root too; a class inside it (a protected package's
+           function) keeps the function's path, or two functions' `Internal.f` collide (the
+           MSL Media T_h and T_ps, each with its own OneNonLinearEquation package). =#
+        if includeRoot || SCodeUtil.isFunction(definition(node))
           scopePath2(classParent(node), includeRoot, Absyn.QUALIFIED(className(node), accumPath))
         else
           accumPath
@@ -1189,6 +1192,8 @@ function scopeListClass!(clsNode::InstNode,
         break
       end
       ROOT_CLASS(__)  => begin
+        #= A function root ends the scope list (a function's locals are named from it), unlike
+           scopePathClass, which continues through it for the names of classes inside. =#
         accumScopes = if includeRoot
           accumScopes = scopeList!(parent(clsNode),
                                    includeRoot, Cons{InstNode}(clsNode, accumScopes))
