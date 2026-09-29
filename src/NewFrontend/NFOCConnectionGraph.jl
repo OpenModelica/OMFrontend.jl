@@ -1220,40 +1220,6 @@ function scalarEquationCount(@nospecialize(eq::Equation))::Int
         toString(eq))
 end
 
-"""
- Finds the root equations
-"""
-function findRootEquations(inRoots::List{<:ComponentRef}, graph::NFOCConnectionGraph, inEquations)::Vector{Equation}
-  local rootEqs = Equation[]
-  if isempty(inEquations)
-    return rootEqs
-  end
-  table = NFHashTable3.emptyHashTable()
-  branches = getBranches(graph)
-  table = ListUtil.fold(branches, addBranches, table)
-  connections = getConnections(graph)
-  table = ListUtil.fold(connections, addConnectionsRooted, table)
-  rooted = setRootDistance(inRoots, table, 0, nil, NFHashTable.emptyHashTable())
-  for (i, eq) in enumerate(inEquations)
-    info = Equation_info(eq)
-    @match eq begin
-      EQUATION_IF(EQUATION_BRANCH(cond, condVar, body) <| nil, _) where isCall(cond) => begin
-        neq = mapExp(eq, (x) -> evaluateOperators(x, rooted, inRoots, graph, info))
-        #= We know that this has only one branch. =#
-        @match BOOLEAN_EXPRESSION(isRootedEvalToTrue) = listHead(neq.branches).condition
-        @assert length(body) == 1 "Assuming the body is of length 1"
-        if isRootedEvalToTrue
-          push!(rootEqs, listHead(body))
-        end
-      end
-      _ => begin
-        continue
-      end
-    end
-  end
-  return rootEqs
-end
-
 function evaluateOperators(exp::Expression
                            ,rooted::NFHashTable.HashTable
                            ,roots::List{<:ComponentRef}
@@ -1262,23 +1228,6 @@ function evaluateOperators(exp::Expression
   return result
 end
 
-
-function evaluateOperatorsReturnTrueIfRoot(exp::Expression
-                           ,rooted::NFHashTable.HashTable
-                           ,roots::List{<:ComponentRef}
-                           ,graph::NFOCConnectionGraph, info::SourceInfo)::Bool
-  local wasRooted = false
-  wasRooted = @match exp begin
-    CALL_EXPRESSION(call = call && TYPED_CALL(__))  => begin
-      if identifyConnectionsOperator(name(call.fn)) === ConnectionsOperator.IS_ROOT
-        true
-      end
-      false
-    end
-    _ => ()
-  end
-  return wasRooted
-end
 
 """
 Helper function for evaluation of Connections.rooted, Connections.isRoot, Connections.uniqueRootIndices.

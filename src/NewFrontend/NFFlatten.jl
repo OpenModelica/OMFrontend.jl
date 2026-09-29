@@ -102,9 +102,6 @@ function flatten(classInst::InstNode, name::String; prefix = COMPONENT_REF_EMPTY
                    ialg,
                    structuralSubmodels,
                    NONE(),
-                   nil,
-                   nil,
-                   Bool[],
                    cmt)
       end
       _ => begin
@@ -116,9 +113,6 @@ function flatten(classInst::InstNode, name::String; prefix = COMPONENT_REF_EMPTY
                    Algorithm[],
                    nil,
                    NONE(),
-                   nil,
-                   nil,
-                   Bool[],
                    cmt)
       end
     end

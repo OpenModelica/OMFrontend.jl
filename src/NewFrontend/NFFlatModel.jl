@@ -45,11 +45,6 @@ struct FLAT_MODEL <: FlatModel
   #= VSS Modelica extension =#
   structuralSubmodels::List{FlatModel}
   scodeProgram::Option{SCode.CLASS}
-  #= Dynamically Overconstrained connectors =#
-  DOCC_equations::List{Equation}
-  #= Contains the set of unresolved connect equations =#
-  unresolvedConnectEquations::List{Equation}
-  active_DOCC_Equations::Vector{Bool}
   #= End VSS Modelica extension =#
   comment::Option{SCode.Comment}
 end
@@ -67,11 +62,6 @@ struct FLAT_MODEL <: FlatModel
   #= VSS Modelica extension =#
   structuralSubmodels::List{FlatModel}
   scodeProgram::Option{SCode.CLASS}
-  #= Dynamically Overconstrained connectors =#
-  DOCC_equations::List{Equation}
-  #= Contains the set of unresolved connect equations =#
-  unresolvedConnectEquations::List{Equation}
-  active_DOCC_Equations::Vector{Bool}
   #= End VSS Modelica extension =#
   comment::Option{SCode.Comment}
 end
@@ -922,13 +912,6 @@ function toString(flatModel::FlatModel, printBindingTypes::Bool = false)::String
       s = toStreamList(alg.statements, "  ", s)
     end
   end
-  if !(flatModel.DOCC_equations isa Nil)
-    doccs = flatModel.DOCC_equations
-    for eq in doccs
-      s = IOStream_M.append(s, "//dynamic overconstraint connector equation\\n")
-      s = IOStream_M.append(s, toString(eq) * ";\\n")
-    end
-  end
   s = IOStream_M.append(s, "end " + modelName + ";\\n")
   str = IOStream_M.string(s)
   return str
@@ -945,21 +928,6 @@ function recompilationDirectiveExists(@nospecialize(eqs::Vector{Equation}))::Boo
   return hasCallDirective || hasReconfigure
 end
 
-
-"""
-  Returns true if the list of equations contains a branch directive.
-"""
-function branchDirectiveExists(@nospecialize(eqs::Vector{Equation}))::Bool
-  local hasBranchDirective = containsList(eqs, (eq) -> containsCallNamed(eq, "Connections.branch"))
-  return hasBranchDirective
-end
-
-"""
-  Collect all DOCCS Equations.
-"""
-function collectDOCCS(@nospecialize(eqs::Vector{Equation}))
-  Base.collect(Iterators.flatten([containsDOCC(eq) for eq in eqs]))
-end
 
 """
   This function returns true if a EQUATION_NORETCALL is a func name.
@@ -984,24 +952,3 @@ function containsCallNamed(@nospecialize(eq::Equation), funcName::String)::Bool
   return functionExistWithName
 end
 
-
-"""
-  Check if the model contains a Dynamically Overconstrained Connector (DOCC).
-  returns a list with all if-equations containing DOCC.
-"""
-function containsDOCC(@nospecialize(eq::Equation))::Vector{Equation}
-  local doccs = Equation[]
-  @match eq begin
-    EQUATION_IF(__) => begin
-      for branch in eq.branches
-        if isvariant(branch, EQUATION_BRANCH)
-          if branchDirectiveExists(branch.body)
-            push!(doccs, eq)
-          end
-        end
-      end
-    end
-    _ => Equation[]
-  end
-  return doccs
-end

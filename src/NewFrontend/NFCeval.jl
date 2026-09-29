@@ -4856,21 +4856,6 @@ function printWrongArgsError(evalFunc::String, args::List{Expression}, info::Sou
 end
 
 """
-  @author:johti17
-  input: The set of initial equations
-  output: A mapping between the component references of the variables and the values of the initial equations
-(Where the lhs of the equation system is a variable)
-"""
-function evalInitialEqMapping(ieq)
-  local mapping::Dict = Dict()
-  for eq in ieq
-    var = Variable_fromCref(toCref(eq.lhs))
-    push!(mapping, toString(var.name) => eq.rhs)
-  end
-  return mapping
-end
-
-"""
   Custom reimplementation of evalCat
   @author johti17
 """

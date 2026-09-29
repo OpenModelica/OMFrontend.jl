@@ -69,5 +69,4 @@ end
   #= toString writes a line break as the two characters \\n, the else case as `elseif true`. =#
   @test only(ifs) == "if T2.closed then\\n  T2.port_a.omegaRef = T2.port_b.omegaRef;\\nelseif true then\\n  G2.port.omegaRef = G2.omega;\\nend if"
   @test "G1.port.omegaRef = G1.omega" in map(OMFrontend.Frontend.toString, flat.equations)
-  @test isempty(flat.DOCC_equations)
 end

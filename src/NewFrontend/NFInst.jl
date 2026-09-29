@@ -196,55 +196,6 @@ function resolveAndEvaluate(flat_model::FlatModel, program::SCode.Program, name:
   return flat_model
 end
 
-"""
-  Integrates dynamic overconstrained connector (DOCC) if-equations: evaluates
-  the initial state of each special if-equation and either activates its body
-  in the starting model or defers it to a later reconfiguration.
-"""
-function integrateDOCCEquations!(flat_model::FlatModel, doccs)::FlatModel
-  #= Remove the conditionals themselves from the flat model =#
-  local doccSet = Set(doccs)
-  local equationsWithoutDOCC = filter(e -> !(e in doccSet), flat_model.equations)
-  #= Check if the existing equations in the flat model should be extended. =#
-  local initialEqMapping = evalInitialEqMapping(flat_model.initialEquations)
-  for eq in doccs
-    @assert isvariant(eq, EQUATION_IF)
-    for br in eq.branches
-      @assert isvariant(br, EQUATION_BRANCH)
-      tst = evaluateExp(br.condition, Variability.DISCRETE)
-      tst = Variable_fromCref(toCref(tst))
-      local varAsStr = toString(tst.name)
-      if in(varAsStr, keys(initialEqMapping))
-        expr = initialEqMapping[varAsStr]
-        #=
-        Evaluate the expression. It should be a boolean.
-        Depending on the value we either remove equations from the starting
-        model or add them to the model.
-        =#
-        @match BOOLEAN_EXPRESSION(active) = expr
-        @assign flat_model.equations = if active
-          #=
-          Equations for this if equation active at the start.
-          Mark as active on both branches. Index is assumed to match with each equation.
-          =#
-          push!(flat_model.active_DOCC_Equations, true)
-          vcat(equationsWithoutDOCC, br.body)
-        else #= Otherwise these equations are active at some later stage =#
-          push!(flat_model.active_DOCC_Equations, false)
-          equationsWithoutDOCC
-        end
-      end
-    end
-    #= Add the special equations to the flat model =#
-    @assign begin
-      flat_model.DOCC_equations = arrayList(doccs)
-      #= Contains the equations of the system before the virtual connection graph is calculated =#
-      flat_model.unresolvedConnectEquations = arrayList(equationsWithoutDOCC)
-    end
-  end
-  return flat_model
-end
-
 """Inlines simple calls, simplifies the model, and collects functions and package constants."""
 #= `top`: the top scope, where inlining finds noEvent for the relations of
    inlined function bodies (nothing: no wrapping). =#
