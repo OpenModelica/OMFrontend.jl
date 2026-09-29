@@ -1013,8 +1013,14 @@ end
    not), and the equations that differ between the modes become one
    if-equation over the conditions. At run time the event that changes a
    condition switches to that mode's roots and equations; nothing is rebuilt.
-   Removing a branch that is a tree edge splits one tree, and exactly one
-   potential root takes the new part, so every mode has as many equations. =#
+   The roots depend on the conditions at that instant only (JKRT). Removing a
+   branch that is a tree edge splits one tree, and a potential root of the
+   new part takes it, so every mode has as many equations; the modes are
+   checked to be balanced.
+   Not supported (an error): an else or elseif in the if-equation, more than
+   one Connections.branch in it, a conditional branch whose presence changes
+   which connects break (a breaker on one of two parallel lines), and mode
+   equations that are not scalar. =#
 
 """A Connections.branch(a, b) under `if condition then ... end if`, with the branch's other equations."""
 struct ConditionalBranch
@@ -1022,6 +1028,7 @@ struct ConditionalBranch
   b::ComponentRef
   condition::Expression
   body::Vector{Equation}
+  source::DAE.ElementSource
 end
 
 #= 2^k modes for k conditional branches. =#
@@ -1046,10 +1053,10 @@ function conditionalBranch(@nospecialize(eq::Equation))::Union{Nothing, Conditio
   local calls = filter(isBranchCall, br.body)
   length(calls) == 1 || error("more than one Connections.branch in one if-equation is not supported: " * toString(eq))
   @match CREF_EXPRESSION(cref = a) <| CREF_EXPRESSION(cref = b) <| nil = arrayList(only(calls).exp.call.arguments)
-  return ConditionalBranch(a, b, br.condition, filter(e -> !isBranchCall(e), br.body))
+  return ConditionalBranch(a, b, br.condition, filter(e -> !isBranchCall(e), br.body), eq.source)
 end
 
-isActive(mode::Int, i::Int)::Bool = (mode >> (i - 1)) & 1 == 1
+isActive(mode::Int, i::Int)::Bool = isodd(mode >> (i - 1))
 
 """
   Resolves the graph for every mode of the conditional branches `cbs` and
@@ -1073,8 +1080,9 @@ function resolveModes(graph::NFOCConnectionGraph, cbs::Vector{ConditionalBranch}
   local results = [findResultGraph(g, modelNameQualified) for g in graphs]
   #= The broken connects decide which connect equations are kept: one set for all modes. =#
   local brokenNames(r) = sort([printConnectionStr(e, "broken") for e in r[3]])
+  local brokenInFirst = brokenNames(Base.first(results))
   for (m, r) in zip(modes, results)
-    brokenNames(r) == brokenNames(Base.first(results)) ||
+    brokenNames(r) == brokenInFirst ||
       error("the conditional branches of $modelNameQualified break different connections in mode " *
             modeString(cbs, m) * " than with all of them present")
   end
@@ -1094,8 +1102,11 @@ modeString(cbs::Vector{ConditionalBranch}, mode::Int) =
 """
 function modeEquations(eqs::Vector{Equation}, cbs::Vector{ConditionalBranch}, modes::Vector{Int},
                        roots::Vector, graphs::Vector{<:NFOCConnectionGraph}, withBodies::Bool)::Vector{Equation}
-  local dependent = filter(usesConnectionsOperators, eqs)
-  local out = filter(!usesConnectionsOperators, eqs)
+  local dependent = Equation[]
+  local out = Equation[]
+  for eq in eqs
+    push!(usesConnectionsOperators(eq) ? dependent : out, eq)
+  end
   local perMode = Base.map(eachindex(modes)) do j
     local decided = Equation[]
     for eq in evalConnectionsOperators(roots[j], graphs[j], dependent)
@@ -1103,26 +1114,52 @@ function modeEquations(eqs::Vector{Equation}, cbs::Vector{ConditionalBranch}, mo
     end
     if withBodies
       for i in eachindex(cbs)
-        isActive(modes[j], i) && append!(decided, cbs[i].body)
+        isActive(modes[j], i) || continue
+        for eq in evalConnectionsOperators(roots[j], graphs[j], cbs[i].body)
+          appendDecided!(decided, eq)
+        end
       end
     end
     decided
   end
-  local keys = [Base.map(toString, p) for p in perMode]
-  local common = reduce(intersect, keys)
-  append!(out, filter(eq -> toString(eq) in common, Base.first(perMode)))
-  local own = [filter(eq -> !(toString(eq) in common), p) for p in perMode]
-  all(isempty, own) && return out
-  local counts = Base.map(p -> sum(scalarEquationCount, p; init = 0), own)
+  local strs = [Base.map(toString, p) for p in perMode]
+  #= The equations common to all modes, counted: an equation twice in every mode
+     is common twice. =#
+  local tally(v) = (d = Dict{String, Int}(); foreach(x -> d[x] = get(d, x, 0) + 1, v); d)
+  local tallies = Base.map(tally, strs)
+  local common = Dict(k => minimum(t -> get(t, k, 0), tallies) for k in Base.keys(Base.first(tallies)))
+  #= `eqs` without the common ones (`taken`: with them). =#
+  local split(eqs, ks) = begin
+    local budget = copy(common)
+    local rest = Equation[]
+    local taken = Equation[]
+    for (eq, k) in zip(eqs, ks)
+      get(budget, k, 0) > 0 ? (budget[k] -= 1; push!(taken, eq)) : push!(rest, eq)
+    end
+    (rest, taken)
+  end
+  append!(out, split(Base.first(perMode), Base.first(strs))[2])
+  #= Per mode what it adds beyond the common equations; modes that add the same
+     equations share one branch (one per distinct root assignment). =#
+  local groups = Tuple{Vector{String}, Vector{Equation}, Vector{Int}}[]
+  for (j, m) in enumerate(modes)
+    local own = split(perMode[j], strs[j])[1]
+    local ownStrs = sort!(Base.map(toString, own))
+    local g = findfirst(grp -> grp[1] == ownStrs, groups)
+    g === nothing ? push!(groups, (ownStrs, own, [m])) : push!(groups[g][3], m)
+  end
+  length(groups) == 1 && (append!(out, groups[1][2]); return out)
+  local counts = Base.map(g -> sum(scalarEquationCount, g[2]; init = 0), groups)
   all(==(Base.first(counts)), counts) ||
     error("the modes of the conditional Connections.branch calls have different numbers of equations: " *
-          Base.join(("$(modeString(cbs, m)): $c" for (m, c) in zip(modes, counts)), "; "))
+          Base.join(("$(modeString(cbs, g[3][1])): $c" for (g, c) in zip(groups, counts)), "; "))
   local branches = Equation_Branch[]
-  for (j, m) in enumerate(modes)
-    local cond = j == length(modes) ? BOOLEAN_EXPRESSION(true) : modeCondition(cbs, m)
-    push!(branches, EQUATION_BRANCH(cond, Variability.DISCRETE, own[j]))
+  for (j, g) in enumerate(groups)
+    local cond = j == length(groups) ? BOOLEAN_EXPRESSION(true) :
+      foldl((a, b) -> LBINARY_EXPRESSION(a, makeOr(TYPE_BOOLEAN()), b), (modeCondition(cbs, m) for m in g[3]))
+    push!(branches, EQUATION_BRANCH(cond, Variability.DISCRETE, g[2]))
   end
-  push!(out, EQUATION_IF(branches, DAE.emptyElementSource))
+  push!(out, EQUATION_IF(branches, isempty(cbs) ? DAE.emptyElementSource : Base.first(cbs).source))
   return out
 end
 
@@ -1171,9 +1208,11 @@ end
 """The scalar equations `eq` stands for; an error for the kinds the modes cannot count yet."""
 function scalarEquationCount(@nospecialize(eq::Equation))::Int
   if isvariant(eq, EQUATION_EQUALITY) || isvariant(eq, EQUATION_ARRAY_EQUALITY)
-    isScalar(eq.ty) && return 1
+    #= isScalar holds for records too (Orientation: 12 scalars). =#
+    (isScalar(eq.ty) && !isComplex(eq.ty)) && return 1
   elseif isvariant(eq, EQUATION_CREF_EQUALITY)
-    return 1
+    local ty = eq.lhs isa Expression ? typeOf(eq.lhs) : getSubscriptedType(eq.lhs)
+    (isScalar(ty) && !isComplex(ty)) && return 1
   elseif isvariant(eq, EQUATION_IF) && !isempty(eq.branches) && isvariant(Base.first(eq.branches), EQUATION_BRANCH)
     return sum(scalarEquationCount, Base.first(eq.branches).body; init = 0)
   end

@@ -60,7 +60,7 @@ end
 @testset "A conditional Connections.branch becomes one if-equation over the breaker state" begin
   #= While T2 is closed its branch joins G2 to G1's tree; while open G2 is the root of
      its island. The two modes' equations, one each, form one balanced if-equation. =#
-  local result = OMFrontend.flattenModelWithLibraries("DynamicOverconstrainedConnectors.System5",
+  local result = OMFrontend.flattenModelWithLibraries("DynamicOverconstrainedConnectors.System4ConditionalBranch",
                                                       "./Models/DynamicOverconstrainedConnectors.mo";
                                                       libraries = [_OCC_MSL_KEY])
   local flat = result[1]

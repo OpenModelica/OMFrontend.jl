@@ -199,7 +199,7 @@ package DynamicOverconstrainedConnectors
     end if;
   end TransmissionLineConditionalBranch;
 
-  model System5 "System4 with the conditional branch: the OCC roots depend on T2.closed"
+  model System4ConditionalBranch "System4 with the conditional branch: the OCC roots depend on T2.closed"
     Generator G1;
     Generator G2;
     Load L1(P = 1);
@@ -215,5 +215,5 @@ package DynamicOverconstrainedConnectors
     connect(T1a.port_b, T2.port_a);
     connect(T1b.port_b, T2.port_a);
     connect(G2.port, T2.port_b);
-  end System5;
+  end System4ConditionalBranch;
 end DynamicOverconstrainedConnectors;
