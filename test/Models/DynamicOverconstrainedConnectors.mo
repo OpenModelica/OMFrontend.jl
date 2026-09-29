@@ -175,4 +175,45 @@ package DynamicOverconstrainedConnectors
     connect(G2.port, T2.port_b);
   annotation(experiment(StopTime = 50, Interval = 0.02));
   end System4;
+
+  model TransmissionLineConditionalBranch "Purely inductive transmission line whose branch holds while the breaker is closed"
+    parameter SI.PerUnit B = -5.0 "Line series per unit susceptance";
+    discrete SI.PerUnit B_act "Actual value of per unit susceptance including breaker status";
+    Boolean closed "State of line breaker";
+    Boolean open = false "Command to open the line breaker";
+    ACPort port_a;
+    ACPort port_b;
+  initial equation
+    closed = true;
+    B_act = B;
+  equation
+    port_a.i + port_b.i = Complex(0);
+    port_a.i = Complex(0,B_act)*(port_a.v - port_b.v);
+    when open then
+      closed = false;
+      B_act = 0;
+    end when;
+    if closed then
+      Connections.branch(port_a.omegaRef, port_b.omegaRef);
+      port_a.omegaRef = port_b.omegaRef;
+    end if;
+  end TransmissionLineConditionalBranch;
+
+  model System5 "System4 with the conditional branch: the OCC roots depend on T2.closed"
+    Generator G1;
+    Generator G2;
+    Load L1(P = 1);
+    Load L2(P = if time < 1 then 1 else 0.8);
+    TransmissionLine T1a(B = -5.0);
+    TransmissionLine T1b(B = -5.0);
+    TransmissionLineConditionalBranch T2(B = -10.0, open = time >= 10);
+  equation
+    connect(G1.port, L1.port);
+    connect(G2.port, L2.port);
+    connect(G1.port, T1a.port_a);
+    connect(G1.port, T1b.port_a);
+    connect(T1a.port_b, T2.port_a);
+    connect(T1b.port_b, T2.port_a);
+    connect(G2.port, T2.port_b);
+  end System5;
 end DynamicOverconstrainedConnectors;

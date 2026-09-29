@@ -176,25 +176,17 @@ end
 
 """
   Resolves connections and evaluates constants. Models with recompilation
-  directives or dynamic overconstrained connectors (DOCC) keep the SCode
-  program in the flat model and get their DOCC if-equations integrated first.
+  directives keep the SCode program in the flat model. The if-equations of
+  dynamic overconstrained connectors (DOCC) are resolved with the connections
+  (NFOCConnectionGraph.resolveModes).
 """
 function resolveAndEvaluate(flat_model::FlatModel, program::SCode.Program, name::String)::FlatModel
   local recompilationEnabled = recompilationDirectiveExists(flat_model.equations)
-  local doccs = collectDOCCS(flat_model.equations)
-  local modelWithDOCC = ! isempty(doccs)
-  if recompilationEnabled || modelWithDOCC
+  if recompilationEnabled
     @assign flat_model.scodeProgram = SOME(listHead(program))
-    if modelWithDOCC
-      flat_model = integrateDOCCEquations!(flat_model, doccs)
-    end
     #= Resolve the connections of the current system. =#
     flat_model = resolveConnections(flat_model, name)
     dumpFlatModel(flat_model, string(name, "_", "afterResolveConnections"))
-    if ! recompilationEnabled
-      flat_model = evaluate(flat_model)
-      dumpFlatModel(flat_model, string(name, "_", "afterEval"))
-    end
   else #= Regular system without simulation time reconfigurations =#
     @EXECSTAT "resolveConnections" flat_model = resolveConnections(flat_model, name)
     dumpFlatModel(flat_model, string(name, "_", "afterResolveConnections"))

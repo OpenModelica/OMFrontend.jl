@@ -144,7 +144,13 @@ function handleOverconstrainedConnections(flatModel::FlatModel,
                                   (x, y, z) -> addConnection(x, y, eqlBroken, print_trace, z), graph)
     end
   end
+  local conditionals = ConditionalBranch[]
   for eq in flatModel.equations
+    local cb = conditionalBranch(eq)
+    if cb !== nothing
+      push!(conditionals, cb)
+      continue
+    end
     eql = begin
       @match eq begin
         EQUATION_NORETCALL(exp = CALL_EXPRESSION(call && TYPED_CALL(arguments = lst)), source = source)  => begin
@@ -199,7 +205,11 @@ function handleOverconstrainedConnections(flatModel::FlatModel,
   #=  now we have the graph, remove the broken connects and evaluate the equation operators =#
   eql = eql
   ieql = flatModel.initialEquations
-  @EXECSTAT "    oc:dispatch" (eql, ieql, connected, broken) = handleOverconstrainedConnections_dispatch(graph, modelNameQualified, eql, ieql)
+  if isempty(conditionals)
+    @EXECSTAT "    oc:dispatch" (eql, ieql, connected, broken) = handleOverconstrainedConnections_dispatch(graph, modelNameQualified, eql, ieql)
+  else
+    @EXECSTAT "    oc:modes" (eql, ieql, connected, broken) = resolveModes(graph, conditionals, modelNameQualified, eql, ieql)
+  end
   #= Fill in the equality-constraint equations for the edges that broke. =#
   for edge in broken
     local edgeEql = edge[3]
@@ -985,6 +995,186 @@ function evalConnectionsOperators(inRoots::List{<:ComponentRef}, graph::NFOCConn
     push!(tmp, neq)
   end
   return tmp
+end
+
+#= Dynamic overconstrained connectors (DOCC): a Connections.branch under an
+   if-equation on a discrete condition,
+
+     if closed then
+       Connections.branch(port_a.omegaRef, port_b.omegaRef);
+       port_a.omegaRef = port_b.omegaRef;
+     end if;
+
+   The graph is resolved once per mode (each conditional branch present or
+   not), and the equations that differ between the modes become one
+   if-equation over the conditions. At run time the event that changes a
+   condition switches to that mode's roots and equations; nothing is rebuilt.
+   Removing a branch that is a tree edge splits one tree, and exactly one
+   potential root takes the new part, so every mode has as many equations. =#
+
+"""A Connections.branch(a, b) under `if condition then ... end if`, with the branch's other equations."""
+struct ConditionalBranch
+  a::ComponentRef
+  b::ComponentRef
+  condition::Expression
+  body::Vector{Equation}
+end
+
+#= 2^k modes for k conditional branches. =#
+const MAX_CONDITIONAL_BRANCHES = 8
+
+function isBranchCall(@nospecialize(eq::Equation))::Bool
+  return isvariant(eq, EQUATION_NORETCALL) && eq.exp isa CALL_EXPRESSION && isvariant(eq.exp.call, TYPED_CALL) &&
+    identifyConnectionsOperator(name(eq.exp.call.fn)) == ConnectionsOperator.BRANCH
+end
+
+"""
+  The conditional branch `eq` states, or nothing when `eq` is not an if-equation
+  whose body calls Connections.branch.
+"""
+function conditionalBranch(@nospecialize(eq::Equation))::Union{Nothing, ConditionalBranch}
+  isvariant(eq, EQUATION_IF) || return nothing
+  any(br -> isvariant(br, EQUATION_BRANCH) && any(isBranchCall, br.body), eq.branches) || return nothing
+  if length(eq.branches) != 1
+    error("Connections.branch in an if-equation with more than one branch is not supported: " * toString(eq))
+  end
+  local br = only(eq.branches)
+  local calls = filter(isBranchCall, br.body)
+  length(calls) == 1 || error("more than one Connections.branch in one if-equation is not supported: " * toString(eq))
+  @match CREF_EXPRESSION(cref = a) <| CREF_EXPRESSION(cref = b) <| nil = arrayList(only(calls).exp.call.arguments)
+  return ConditionalBranch(a, b, br.condition, filter(e -> !isBranchCall(e), br.body))
+end
+
+isActive(mode::Int, i::Int)::Bool = (mode >> (i - 1)) & 1 == 1
+
+"""
+  Resolves the graph for every mode of the conditional branches `cbs` and
+  returns the equations (the mode-dependent ones as one if-equation over the
+  conditions), the initial equations, and the connected and broken edges.
+"""
+function resolveModes(graph::NFOCConnectionGraph, cbs::Vector{ConditionalBranch}, modelNameQualified::String,
+                      eqs::Vector{Equation}, ieqs::Vector{Equation})::Tuple{Vector{Equation}, Vector{Equation}, FlatEdges, FlatEdges}
+  local k = length(cbs)
+  k <= MAX_CONDITIONAL_BRANCHES ||
+    error("$k conditional Connections.branch calls in $modelNameQualified; at most $MAX_CONDITIONAL_BRANCHES are supported")
+  #= All branches present first: the if-equation's first case. =#
+  local modes = Base.collect((1 << k) - 1:-1:0)
+  local graphs = Base.map(modes) do m
+    local g = graph
+    for i in 1:k
+      isActive(m, i) && (g = addBranch(cbs[i].a, cbs[i].b, false, g))
+    end
+    g
+  end
+  local results = [findResultGraph(g, modelNameQualified) for g in graphs]
+  #= The broken connects decide which connect equations are kept: one set for all modes. =#
+  local brokenNames(r) = sort([printConnectionStr(e, "broken") for e in r[3]])
+  for (m, r) in zip(modes, results)
+    brokenNames(r) == brokenNames(Base.first(results)) ||
+      error("the conditional branches of $modelNameQualified break different connections in mode " *
+            modeString(cbs, m) * " than with all of them present")
+  end
+  local roots = [r[1] for r in results]
+  local outEqs = modeEquations(eqs, cbs, modes, roots, graphs, true)
+  local outIeqs = modeEquations(ieqs, cbs, modes, roots, graphs, false)
+  return (outEqs, outIeqs, Base.first(results)[2], Base.first(results)[3])
+end
+
+modeString(cbs::Vector{ConditionalBranch}, mode::Int) =
+  Base.join((toString(cbs[i].condition) * (isActive(mode, i) ? " = true" : " = false") for i in eachindex(cbs)), ", ")
+
+"""
+  `eqs` with the Connections operators evaluated for every mode. The equations
+  alike in all modes stay; the others, with the bodies of the active
+  conditional branches (`withBodies`), become one if-equation over the modes.
+"""
+function modeEquations(eqs::Vector{Equation}, cbs::Vector{ConditionalBranch}, modes::Vector{Int},
+                       roots::Vector, graphs::Vector{<:NFOCConnectionGraph}, withBodies::Bool)::Vector{Equation}
+  local dependent = filter(usesConnectionsOperators, eqs)
+  local out = filter(!usesConnectionsOperators, eqs)
+  local perMode = Base.map(eachindex(modes)) do j
+    local decided = Equation[]
+    for eq in evalConnectionsOperators(roots[j], graphs[j], dependent)
+      appendDecided!(decided, eq)
+    end
+    if withBodies
+      for i in eachindex(cbs)
+        isActive(modes[j], i) && append!(decided, cbs[i].body)
+      end
+    end
+    decided
+  end
+  local keys = [Base.map(toString, p) for p in perMode]
+  local common = reduce(intersect, keys)
+  append!(out, filter(eq -> toString(eq) in common, Base.first(perMode)))
+  local own = [filter(eq -> !(toString(eq) in common), p) for p in perMode]
+  all(isempty, own) && return out
+  local counts = Base.map(p -> sum(scalarEquationCount, p; init = 0), own)
+  all(==(Base.first(counts)), counts) ||
+    error("the modes of the conditional Connections.branch calls have different numbers of equations: " *
+          Base.join(("$(modeString(cbs, m)): $c" for (m, c) in zip(modes, counts)), "; "))
+  local branches = Equation_Branch[]
+  for (j, m) in enumerate(modes)
+    local cond = j == length(modes) ? BOOLEAN_EXPRESSION(true) : modeCondition(cbs, m)
+    push!(branches, EQUATION_BRANCH(cond, Variability.DISCRETE, own[j]))
+  end
+  push!(out, EQUATION_IF(branches, DAE.emptyElementSource))
+  return out
+end
+
+usesConnectionsOperators(@nospecialize(eq::Equation))::Bool =
+  foldExp(eq, (x, found) -> found || contains(x, isConnectionsOperatorCall), false)
+
+"""The condition of `mode`: each conditional branch's condition, negated where the branch is absent."""
+function modeCondition(cbs::Vector{ConditionalBranch}, mode::Int)::Expression
+  local lit(i) = isActive(mode, i) ? cbs[i].condition :
+    LUNARY_EXPRESSION(makeNot(TYPE_BOOLEAN()), cbs[i].condition)
+  return foldl((a, b) -> LBINARY_EXPRESSION(a, makeAnd(TYPE_BOOLEAN()), b), (lit(i) for i in eachindex(cbs)))
+end
+
+"""
+  Appends `eq` to `out`, an if-equation reduced by its conditions that are
+  now literals (the evaluated Connections operators): a false branch is
+  dropped, a true one taken when no undecided branch precedes it.
+"""
+function appendDecided!(out::Vector{Equation}, @nospecialize(eq::Equation))::Vector{Equation}
+  if !isvariant(eq, EQUATION_IF)
+    push!(out, eq)
+    return out
+  end
+  local kept = Equation_Branch[]
+  for br in eq.branches
+    if !isvariant(br, EQUATION_BRANCH)
+      push!(kept, br)
+      continue
+    end
+    local cond = simplify(br.condition)
+    if cond isa BOOLEAN_EXPRESSION
+      cond.value || continue
+      if isempty(kept)
+        foreach(e -> appendDecided!(out, e), br.body)
+        return out
+      end
+      push!(kept, EQUATION_BRANCH(cond, br.conditionVar, br.body))
+      break
+    end
+    push!(kept, EQUATION_BRANCH(cond, br.conditionVar, br.body))
+  end
+  isempty(kept) || push!(out, EQUATION_IF(kept, eq.source))
+  return out
+end
+
+"""The scalar equations `eq` stands for; an error for the kinds the modes cannot count yet."""
+function scalarEquationCount(@nospecialize(eq::Equation))::Int
+  if isvariant(eq, EQUATION_EQUALITY) || isvariant(eq, EQUATION_ARRAY_EQUALITY)
+    isScalar(eq.ty) && return 1
+  elseif isvariant(eq, EQUATION_CREF_EQUALITY)
+    return 1
+  elseif isvariant(eq, EQUATION_IF) && !isempty(eq.branches) && isvariant(Base.first(eq.branches), EQUATION_BRANCH)
+    return sum(scalarEquationCount, Base.first(eq.branches).body; init = 0)
+  end
+  error("an equation that differs between the modes of conditional Connections.branch calls is not scalar: " *
+        toString(eq))
 end
 
 """
