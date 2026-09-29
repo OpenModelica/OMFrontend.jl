@@ -210,7 +210,8 @@ function handleOverconstrainedConnections(flatModel::FlatModel,
   else
     @EXECSTAT "    oc:modes" (eql, ieql, connected, broken) = resolveModes(graph, conditionals, modelNameQualified, eql, ieql)
   end
-  #= Fill in the equality-constraint equations for the edges that broke. =#
+  #= Fill in the equality-constraint equations for the edges that broke; the
+     consumers (NFFlatten.resolveConnections) take them as lists. =#
   for edge in broken
     local edgeEql = edge[3]
     local genArgs = Base.get(pendingGen, edgeEql, nothing)
@@ -219,6 +220,7 @@ function handleOverconstrainedConnections(flatModel::FlatModel,
         genArgs[1], genArgs[2], genArgs[3], genArgs[4], origin, genArgs[5]))
     end
   end
+  broken = ListUtil.map(broken, e -> (e[1], e[2], arrayList(e[3])))
   @EXECSTAT "    oc:removeBroken" eql = removeBrokenConnects(eql, connected, broken)
   #= Convert the lists back to arrays =#
   @assign begin
@@ -498,7 +500,9 @@ function addConnection(ref1::ComponentRef, ref2::ComponentRef, brokenEquations::
   if printTrace
     print("- NFOCConnectionGraph.addConnection(" + toString(ref1) + ", " + toString(ref2) + ")\\n")
   end
-  graphConnections = _cons((ref1, ref2, arrayList(brokenEquations)), graph.connections)
+  #= The vector itself: handleOverconstrainedConnections fills it once the edge
+     breaks (keyed by its identity) and then turns it into a list. =#
+  graphConnections = _cons((ref1, ref2, brokenEquations), graph.connections)
   return OCC_GRAPH(graph.updateGraph,
             graph.definiteRoots,
             graph.potentialRoots,
