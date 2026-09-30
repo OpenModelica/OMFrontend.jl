@@ -55,7 +55,11 @@ function instClassInProgram(classPath::Absyn.Path, program::SCode.Program)
   local funcs::FunctionTree
   name = AbsynUtil.pathString(classPath)
   try
-    (flat_model, funcs, inst_cls) = instClassInProgramFM2(classPath::Absyn.Path, program::SCode.Program)
+    #= Control-flow failures (fail(), @match, @matchcontinue) throw without a backtrace
+       (MetaModelica.with_cheap_throws; METAMODELICA_CHEAP_THROWS=false for full ones). The
+       parallel fan-out's tasks throw normally: a scope per task costs one throw, and there
+       are thousands of tasks. =#
+    (flat_model, funcs, inst_cls) = with_cheap_throws(() -> instClassInProgramFM2(classPath, program))
   catch e
     println("The compiler failed to process a model with the following message(s):")
     print(Error.printMessagesStr())
@@ -76,18 +80,24 @@ end
 function instClassInProgramFM(classPath::Absyn.Path, program::SCode.Program)::Tuple
   local flat_model, funcs, inst_cls
   try
-    (flat_model, funcs, inst_cls) = instClassInProgramFM2(classPath::Absyn.Path, program::SCode.Program)
+    #= Control-flow failures (fail(), @match, @matchcontinue) throw without a backtrace
+       (MetaModelica.with_cheap_throws; METAMODELICA_CHEAP_THROWS=false for full ones). =#
+    (flat_model, funcs, inst_cls) = with_cheap_throws(() -> instClassInProgramFM2(classPath, program))
   catch e
     println("The compiler failed to process a model with the following message(s):")
     print(Error.printMessagesStr())
     Error.clearMessages()
     #=TODO: Add a @static flag later to supress this message. =#
     println("Internal stack trace:")
-    bt = catch_backtrace()
-    for (i, frame) in enumerate(stacktrace(bt))
-      fname = string(frame.file)
-      if i <= 40 && (occursin("NF", fname) || occursin("OM", fname) || occursin("ListUtil", fname))
-        println("  [$i] $(frame.func) at $(frame.file):$(frame.line)")
+    if e isa MetaModelica.MetaModelicaException && MetaModelica.CHEAP_THROWS[]
+      println("  (a MetaModelica failure, thrown without a backtrace: METAMODELICA_CHEAP_THROWS=false gives it one)")
+    else
+      bt = catch_backtrace()
+      for (i, frame) in enumerate(stacktrace(bt))
+        fname = string(frame.file)
+        if i <= 40 && (occursin("NF", fname) || occursin("OM", fname) || occursin("ListUtil", fname))
+          println("  [$i] $(frame.func) at $(frame.file):$(frame.line)")
+        end
       end
     end
     rethrow()

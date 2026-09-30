@@ -567,7 +567,8 @@ function evalComponentBinding2(
             if target isa EVALTARGET_IGNORE_ERRORS
               return defaultExp
             end
-            throw(e)
+            #= rethrow(), not throw(e): no new backtrace (a throw costs 0.5-2 ms on macOS). =#
+            rethrow()
           end
           #= Update the binding and set is as evaluated =#
           @assign binding.bindingExp = exp
