@@ -3389,8 +3389,20 @@ function typeComponentSections(c::InstNode, origin::ORIGIN_Type)::InstNode
       TYPED_COMPONENT(__) => begin
         local classInst = typeClassSections(comp.classInst, origin)
         if classInst !== comp.classInst
-          @assign comp.classInst = classInst
-          node = updateComponent!(comp, node)
+          if _parallelTypingActive()
+            #= On the component as it is under the claim (see typeComponentChildren!): typing
+               the sections evaluates parameters, and writing back the copy read before them
+               dropped a binding evaluated meanwhile. =#
+            local n0 = node
+            _withClaim(_refId(n0)) do
+              local c2 = component(n0)
+              @assign c2.classInst = classInst
+              updateComponent!(c2, n0)
+            end
+          else
+            @assign comp.classInst = classInst
+            node = updateComponent!(comp, node)
+          end
         end
         ()
       end

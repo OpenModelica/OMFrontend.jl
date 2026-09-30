@@ -109,39 +109,16 @@ function typeBindingsRefs(cls::InstNode,
     INSTANCED_CLASS(elements = cls_tree && CLASS_TREE_FLAT_TREE(__)) => begin
       local components = cls_tree.components::Vector{InstNode}
       local len = length(components)
-      #= Fan-out mirrors typeComponents: requires no held claims, and each
-         worker gets its own scratch type/variability refs. =#
-      if parallelInstEnabled(len)
-        local parentTok = get(task_local_storage(), :OMF_ROOT, 0)::Int
-        @sync for i in 1:len
-          local idx = i
-          local tok = parentTok == 0 ? idx : parentTok
-          Threads.@spawn begin
-            task_local_storage(:OMF_ROOT, tok)
-            local compNode = @inbounds components[idx]
-            local wTyRef = Ref{NFType}(TYPE_UNKNOWN())
-            local wVarRef = Ref{VariabilityType}(Variability.CONSTANT)
-            local node = typeComponentBindingRef(compNode, origin, true, wTyRef, wVarRef)
-            if node !== compNode
-              _withClaim(_refId(cls)) do
-                @inbounds components[idx] = node
-              end
-            end
-          end
-        end
-      else
-        for i in 1:len
-          local c = @inbounds components[i]
-          local node = typeComponentBindingRef(c, origin, true, tyRef, varRef)
-          if node !== c
-            if _parallelTypingActive()
-              _withClaim(_refId(cls)) do
-                @inbounds components[i] = node
-              end
-            else
-              @inbounds components[i] = node
-            end
-          end
+      #= Serial, also under parallel typing. A parameter bound to a structural parameter's
+         cref becomes structural itself (checkComponentBindingVariability), which reads the
+         referenced parameter's variability when the binding is typed; typed in parallel,
+         which parameters came out structural (and were folded by evaluate) varied from run
+         to run. Serially the flat model is the serial path's. =#
+      for i in 1:len
+        local c = @inbounds components[i]
+        local node = typeComponentBindingRef(c, origin, true, tyRef, varRef)
+        if node !== c
+          @inbounds components[i] = node
         end
       end
       return nothing

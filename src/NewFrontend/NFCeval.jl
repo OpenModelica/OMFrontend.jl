@@ -720,6 +720,19 @@ function subscriptEvaluatedBinding2(
   return exp
 end
 
+#= Installs the evaluated start binding. Under parallel typing on the start node's component as it
+   is under that node's claim: attribute typing writes the same node under it (the caller holds the
+   parent's claim only). =#
+function setStartBinding!(start_node::InstNode, binding::Binding, exp::Expression)::Nothing
+  binding.bindingExp = exp
+  if _parallelTypingActive()
+    _withClaim(() -> updateComponent!(setBinding(binding, component(start_node)), start_node), _refId(start_node))
+  else
+    updateComponent!(setBinding(binding, component(start_node)), start_node)
+  end
+  return nothing
+end
+
 """
 Tries to evaluate the given component's start value. NONE() is returned if
 the component isn't a fixed parameter or if it doesn't have a start value.
@@ -781,9 +794,7 @@ function evalComponentStartBinding(
         binding = typeBinding(binding, ORIGIN_BINDING)
         exp = evalExp_impl(binding.bindingExp, target)
         if !referenceEq(exp, binding.bindingExp)
-          binding.bindingExp = exp
-          start_comp = setBinding(binding, start_comp)
-          start_node = updateComponent!(start_comp, start_node)
+          setStartBinding!(start_node, binding, exp)
         end
         SOME(exp)
       end
@@ -791,9 +802,7 @@ function evalComponentStartBinding(
       TYPED_BINDING(__) => begin
         exp = evalExp_impl(binding.bindingExp, target)
         if !referenceEq(exp, binding.bindingExp)
-          binding.bindingExp = exp
-          start_comp = setBinding(binding, start_comp)
-          start_node = updateComponent!(start_comp, start_node)
+          setStartBinding!(start_node, binding, exp)
         end
         SOME(exp)
       end
