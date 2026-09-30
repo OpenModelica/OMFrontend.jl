@@ -106,7 +106,7 @@ function lookupBaseClassName(name::Absyn.Path, scope::InstNode, info::SourceInfo
   state = LS_REF.x
   if state isa LOOKUP_STATE_ERROR
     Error.addSourceMessage(Error.LOOKUP_BASECLASS_ERROR, list(AbsynUtil.pathString(name), scopeName(scope)), info)
-    throw(e)
+    fail()
   end
   assertClass(state, listHead(nodes), name, info)
   nodes
