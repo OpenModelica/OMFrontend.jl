@@ -366,7 +366,7 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
         end
 
       EQUATION_ARRAY_EQUALITY(CREF_EXPRESSION(__), CALL_EXPRESSION(call), TYPE_ARRAY(__))  where {isvariant(call, TYPED_ARRAY_CONSTRUCTOR)}=> begin
-        local newExp = tryEvalExp(eq.rhs)
+        local newExp = _tryEvalParameterExp(eq.rhs)
         local aeq = EQUATION_ARRAY_EQUALITY(eq.lhs, newExp, eq.ty, eq.source)
         push!(equations, aeq)
       end
@@ -374,8 +374,8 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
       EQUATION_ARRAY_EQUALITY(__) => begin
         #= Try to expand/eval and scalarize before falling through. =#
         try
-          local _aexp_lhs = tryEvalExp(eq.lhs)
-          local _aexp_rhs = tryEvalExp(eq.rhs)
+          local _aexp_lhs = _tryEvalParameterExp(eq.lhs)
+          local _aexp_rhs = _tryEvalParameterExp(eq.rhs)
           (_aexp_lhs, _) = expand(_aexp_lhs)
           (_aexp_rhs, _) = expand(_aexp_rhs)
           local _a_lhs_iter = fromExpToExpressionIterator(_aexp_lhs)
@@ -413,6 +413,14 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
     end
   end
   return equations
+end
+
+#= tryEvalExp for a constant or parameter expression; any other is returned as it is. A discrete or
+   continuous expression cannot evaluate to a constant: evalExp finds that out by throwing, after
+   evaluating the function bodies it calls (0.3-7 ms per equation on MultiBody's frame functions,
+   three quarters of Engine1a's scalarize). =#
+function _tryEvalParameterExp(exp::Expression)::Expression
+  return variability(exp) <= Variability.NON_STRUCTURAL_PARAMETER ? tryEvalExp(exp) : exp
 end
 
 """
