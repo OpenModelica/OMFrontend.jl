@@ -1386,6 +1386,9 @@ function convertIfStatement(
     end
     first = false
   end
+  #= Only the else branch is left (the conditions evaluated to false and their
+     branches were removed): the statement is its body, an if true. =#
+  else_stmt isa DAE.ELSE && return DAE.STMT_IF(DAE.BCONST(true), else_stmt.statementLst, DAE.NOELSE(), source)
   @match DAE.ELSEIF(dcond, dstmts, else_stmt) = else_stmt
   return DAE.STMT_IF(dcond, dstmts, else_stmt, source)
 end

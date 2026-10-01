@@ -424,9 +424,10 @@ function _tryEvalParameterExp(exp::Expression)::Expression
 end
 
 """
-Remove branches with no equations after scalarization.
-Add the scalarized if equation to the list of equations unless we don't
-have any branches left.
+Remove the trailing branches with no equations after scalarization (an empty
+branch before others stays: where its condition holds, none of the later
+ones runs). Add the scalarized if equation to the list of equations unless we
+don't have any branches left.
 """
 function scalarizeIfEquation(
   branches::Vector{<:Equation_Branch},
@@ -440,9 +441,10 @@ function scalarizeIfEquation(
   for b in branches
     @match EQUATION_BRANCH(cond, var, body) = b
     body = scalarizeEquations(body)
-    if !isempty(body)
-      push!(bl, makeBranch(cond, body, var))
-    end
+    push!(bl, makeBranch(cond, body, var))
+  end
+  while !isempty(bl) && isempty(last(bl).body)
+    pop!(bl)
   end
   if !isempty(bl)
     push!(equations, EQUATION_IF(bl, source))
@@ -533,17 +535,15 @@ function scalarizeIfStatement(
   local body::Vector{Statement}
   for b in branches
     (cond, body) = b
-    body = scalarizeStatements(body)
-    if !isempty(body)
-      push!(bl, (cond, body))
-    end
+    push!(bl, (cond, scalarizeStatements(body)))
   end
-  #=  Remove branches with no statements after scalarization.
-  =#
-  #=  Add the scalarized if statement to the list of statements unless we don't
-  =#
-  #=  have any branches left.
-  =#
+  #= Remove the trailing branches with no statements after scalarization (an
+     empty branch before others stays: where its condition holds, none of the
+     later ones runs; `if mode == 1 then else y := 5; end if` with mode = 1
+     set y). Add the scalarized if statement unless no branch is left. =#
+  while !isempty(bl) && isempty(last(bl)[2])
+    pop!(bl)
+  end
   if !isempty(bl)
     push!(statements, ALG_IF(bl, source))
   end
