@@ -9,6 +9,7 @@ include("connect.jl")
 include("arrayTests.jl")
 include("bindingExpTests.jl")
 include("funcEvalAssignTests.jl")
+include("stringEvalTests.jl")
 import ..ConnectTests
 
 #= The set of basic connect tests=#
@@ -114,4 +115,5 @@ runTestsDefinedInVector(generatedConnectorTests,
                         "Connector regression tests (auto-generated from unused .mo files)")
 runTestsDefinedInVector(bindingExpTests, "BINDING_EXP constant evaluation in function bodies")
 runTestsDefinedInVector(funcEvalAssignTests, "Assignments in functions evaluated at compile time")
+runTestsDefinedInVector(stringEvalTests, "String() of constants, as OpenModelica formats them")
 #= End Connector tests =#

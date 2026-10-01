@@ -1155,7 +1155,9 @@ end
 """sprintf format string that takes one double as argument"""
 function snprintff(format::String, maxlen::Int, val::AbstractFloat) ::String
   local buf = zeros(UInt8, maxlen)
-  local n = ccall(:snprintf, Cint, (Ptr{UInt8}, Csize_t, Cstring, Cdouble), buf, maxlen, format, val)
+  #= snprintf is variadic: a plain ccall passed the double where it is not read
+     (Apple arm64: on the stack), and the text was garbage (1.26481e-321). =#
+  local n = @ccall snprintf(buf::Ptr{UInt8}, maxlen::Csize_t, format::Cstring; Float64(val)::Cdouble)::Cint
   return unsafe_string(pointer(buf), min(n, maxlen - 1))
 end
 
@@ -1169,9 +1171,8 @@ end
   snprintf said it needed and calls snprintf again.
 """
 function sprintff(format::String, val::AbstractFloat) ::String
-  local buf = zeros(UInt8, 256)
-  local n = ccall(:snprintf, Cint, (Ptr{UInt8}, Csize_t, Cstring, Cdouble), buf, 256, format, val)
-  return unsafe_string(pointer(buf), min(n, 255))
+  local n = @ccall snprintf(C_NULL::Ptr{UInt8}, 0::Csize_t, format::Cstring; Float64(val)::Cdouble)::Cint
+  return snprintff(format, n + 1, val)
 end
 
 """Returns a value in the intervals (0,1]"""

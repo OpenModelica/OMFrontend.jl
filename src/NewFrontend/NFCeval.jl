@@ -3964,10 +3964,16 @@ function evalBuiltinString(args::Union{List{Expression}, Vector{Expression}})::E
     str = System.sprintff(format, r)
     result = STRING_EXPRESSION(str)
   elseif nArgs == 2 && args[1] isa REAL_EXPRESSION && args[2] isa STRING_EXPRESSION
-    #= String(real, format) =#
+    #= String(real, format): C's printf with "%" + format, as OpenModelica
+       (flags, width, precision, then f, e, E, g or G: another conversion of a
+       double is not defined). =#
     r = args[1].value
     format = args[2].value
-    str = System.sprintff(format, r)
+    if !occursin(r"^[#0 +-]*[0-9]*(\.[0-9]*)?[feEgG]$", format)
+      printWrongArgsError(getInstanceName(), args, sourceInfo())
+      fail()
+    end
+    str = System.sprintff("%" + format, r)
     result = STRING_EXPRESSION(str)
   else
     printWrongArgsError(getInstanceName(), args, sourceInfo())
