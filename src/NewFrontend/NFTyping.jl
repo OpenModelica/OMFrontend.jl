@@ -721,6 +721,26 @@ end
   )
 end
 
+#= An iteration range given as an array (`for i in {1, 3}`, MLS 10.4.1.2):
+   typed as an expression, as OpenModelica's typeIterator types any range;
+   the range method above types a range expression (there was no method for
+   an array: a MethodError). =#
+@nospecializeinfer function typeIterator(
+  @nospecialize(iterator::InstNode),
+  @nospecialize(range::ARRAY_EXPRESSION),
+  @nospecialize(origin::ORIGIN_Type),
+  structural::Bool = false
+  )::Tuple{Expression, NFType, VariabilityType}
+  local info::SourceInfo = AbsynUtil.dummyInfo
+  local (exp, ty, var) = typeExp(range, setFlag(origin, ORIGIN_ITERATION_RANGE), info)
+  if structural && var > Variability.PARAMETER
+    Error.addSourceMessageAndFail(Error.NON_PARAMETER_ITERATOR_RANGE, list(toString(exp)), info)
+  end
+  isVector(ty) || Error.addSourceMessageAndFail(Error.FOR_EXPRESSION_ERROR, list(toString(exp), toString(ty)), info)
+  updateComponent!(ITERATOR_COMPONENT(arrayElementType(ty), var, info), iterator)
+  return (exp, ty, var)
+end
+
 @nospecializeinfer function typeIterator2(
   @nospecialize(iterator::Any),
   @nospecialize(range::RANGE_EXPRESSION),

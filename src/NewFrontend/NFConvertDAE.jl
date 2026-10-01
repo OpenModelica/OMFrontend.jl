@@ -1056,7 +1056,8 @@ function convertWhenEquation(
   local cond::DAE.Exp
   local els::List{DAE.Element}
   local when_eq::Option{DAE.Element} = NONE()
-  for b in whenBranches
+  #= From the last branch: the first is the outermost (elsewhen order is priority). =#
+  for b in reverse(whenBranches)
     when_eq = begin
       @match b begin
         EQUATION_BRANCH(__) => begin

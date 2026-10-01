@@ -391,14 +391,16 @@ end
    Handles Expression.TUPLE() := Expression.TUPLE() assignments by splitting
    them into a separate assignment statement for each pair of tuple elements.
 """
+#= Statements (makeAssignment) or equations (makeEquality): typed for
+   statements only, every tuple equation failed with a MethodError. =#
 function simplifyTupleElement(
   lhsTuple::List{Expression},
   rhsTuple::List{Expression},
   ty::M_Type,
   src::DAE.ElementSource,
   makeFn::MakeElement,
-  statements::Vector{Statement},
-)
+  statements::Vector{E},
+) where {E <: Union{Statement, Equation}}
   local rhs::Expression
   local rest_rhs::List{Expression} = rhsTuple
   local ety::M_Type
