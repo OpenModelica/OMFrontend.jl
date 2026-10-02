@@ -18,7 +18,7 @@ on:
       julia-version:
         description: 'Julia version to use for the build'
         required: false
-        default: '1.12'
+        default: '1.13'
       target:
         description: 'What to build: sysimage, app, or both'
         required: false

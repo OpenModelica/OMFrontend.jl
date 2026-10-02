@@ -38,14 +38,14 @@ jobs:
           # Coverage is only collected/uploaded on one runner.
           - os: ubuntu-latest
             arch: x64
-            version: '1.12'
+            version: '1.13'
             coverage: true
           - os: windows-latest
             arch: x64
-            version: '1.12'
+            version: '1.13'
           - os: macos-latest
             arch: aarch64
-            version: '1.12'
+            version: '1.13'
 
     steps:
       - name: Checkout OMFrontend.jl
