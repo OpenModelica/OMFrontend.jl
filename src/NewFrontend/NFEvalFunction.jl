@@ -438,7 +438,8 @@ function addInputReplacement(
   repl::ReplTree.Tree,
 )::ReplTree.Tree
 
-  @assign repl = ReplTree.add(repl, node, argument)
+  #= Passed by value: a record argument must not bring the caller's cells along. =#
+  @assign repl = ReplTree.add(repl, node, detachCells(argument))
   return repl
 end
 
@@ -697,8 +698,51 @@ function evaluateAssignment(
   source::DAE.ElementSource,
 )::FlowControlType
   local ctrl::FlowControlType = FlowControl.NEXT
-  assignVariable(lhsExp, evalExp(rhsExp, EVALTARGET_STATEMENT(source)))
+  assignVariable(lhsExp, detachCells(evalExp(rhsExp, EVALTARGET_STATEMENT(source))))
   return ctrl
+end
+
+"""
+  The value with the variable cells in it replaced by their current values: cells
+  at the top, in records, and in arrays and tuples of them (not cells nested in
+  other expressions). A record variable evaluates to a record of its field cells;
+  stored or passed as it is, the target would share those cells (`r2 := r1;
+  r1.x := 7` would change r2.x). A cell is read without writing its value back
+  into it; a field that does not evaluate is kept partly evaluated.
+"""
+function detachCells(@nospecialize(exp::Expression))::Expression
+  @match exp begin
+    MUTABLE_EXPRESSION(__) => detachCells(evalExp(P_Pointer.access(exp.exp)))
+    RECORD_EXPRESSION(__) => begin
+      local elems = detachElements(exp.elements)
+      elems === exp.elements ? exp : RECORD_EXPRESSION(exp.path, exp.ty, elems)
+    end
+    #= An evaluated array is marked literal even when its records hold cells. =#
+    ARRAY_EXPRESSION(__) where {!exp.literal || isComplex(arrayElementType(exp.ty))} => begin
+      local elems = detachElements(exp.elements)
+      elems === exp.elements ? exp : ARRAY_EXPRESSION(exp.ty, elems, exp.literal)
+    end
+    TUPLE_EXPRESSION(__) => begin
+      local elems = list(detachCells(e) for e in exp.elements)
+      all(referenceEq(d, e) for (d, e) in zip(elems, exp.elements)) ? exp : TUPLE_EXPRESSION(exp.ty, elems)
+    end
+    _ => exp
+  end
+end
+
+#= The elements with their cells detached; the same vector when none held a cell. =#
+function detachElements(elems::Vector{Expression})::Vector{Expression}
+  local out = elems
+  for (i, e) in enumerate(elems)
+    local d = detachCells(e)
+    if !referenceEq(d, e)
+      if out === elems
+        out = copy(elems)
+      end
+      out[i] = d
+    end
+  end
+  return out
 end
 
 function assignVariable(@nospecialize(variable::Expression), @nospecialize(value::Expression))
@@ -786,11 +830,14 @@ function assignArrayElement(
         SUBSCRIPT_INDEX(sub) <| rest_subs,
       ) where {(isScalarLiteral(sub))} => begin
         idx = toInteger(sub)
-        arrayExpElements = arrayExp.elements
+        #= Copied, not updated in place: the element vector can be shared with other
+           arrays. fillType and fill() repeat one row, and `y := x` shares x's elements,
+           which may be a literal array from an argument or a constant's binding. =#
+        arrayExpElements = copy(arrayExp.elements)
         if listEmpty(rest_subs)
-          arrayExpElements[idx] = value # arrayExp.elements[idx] = value #ListUtil.set(arrayExp.elements, idx, value)
+          arrayExpElements[idx] = value
         else
-          arrayExpElements[idx] = assignArrayElement(arrayExp.elements[idx], rest_subs, value) #Recheck this John
+          arrayExpElements[idx] = assignArrayElement(arrayExpElements[idx], rest_subs, value)
         end
         ARRAY_EXPRESSION(arrayExp.ty, arrayExpElements, arrayExp.literal)
       end
@@ -904,7 +951,7 @@ end
 
 function evaluateFor(
   iterator::InstNode,
-  range::Option{Expression},
+  range::Option,
   forBody::Vector{Statement},
   source::DAE.ElementSource,
 )::FlowControlType
@@ -938,7 +985,7 @@ function evaluateFor(
         Error.addSourceMessage(
           Error.EVAL_LOOP_LIMIT_REACHED,
           list(String(limit)),
-          ElementSource_getInfo(source),
+          DAE.ElementSource_getInfo(source),
         )
         fail()
       end
@@ -988,7 +1035,7 @@ function evaluateAssert(@nospecialize(condition::Expression), assertStmt::Statem
           Error.addSourceMessage(
             Error.ASSERT_TRIGGERED_WARNING,
             list(msg.value),
-            ElementSource_getInfo(source),
+            DAE.ElementSource_getInfo(source),
           )
           ()
         end
@@ -1000,7 +1047,7 @@ function evaluateAssert(@nospecialize(condition::Expression), assertStmt::Statem
           Error.addSourceMessage(
             Error.ASSERT_TRIGGERED_ERROR,
             list(msg.value),
-            ElementSource_getInfo(source),
+            DAE.ElementSource_getInfo(source),
           )
           ctrl = FlowControl.ASSERTION
           ()
@@ -1055,7 +1102,7 @@ function evaluateWhile(
       Error.addSourceMessage(
         Error.EVAL_LOOP_LIMIT_REACHED,
         list(String(limit)),
-        ElementSource_getInfo(source),
+        DAE.ElementSource_getInfo(source),
       )
       fail()
     end
@@ -1138,10 +1185,10 @@ const FILE_TYPE_PATH =
 const FILE_TYPE_TYPE = TYPE_ENUMERATION(FILE_TYPE_PATH, FILE_TYPE_NAMES)::M_Type
 const FILE_TYPE_LITERALS =
   list(
-    ENUM_LITERAL_EXPRESSION{TYPE_ENUMERATION, String, Int64}(FILE_TYPE_TYPE, "NoFile", 1),
-    ENUM_LITERAL_EXPRESSION{TYPE_ENUMERATION, String, Int64}(FILE_TYPE_TYPE, "RegularFile", 2),
-    ENUM_LITERAL_EXPRESSION{TYPE_ENUMERATION, String, Int64}(FILE_TYPE_TYPE, "Directory", 3),
-    ENUM_LITERAL_EXPRESSION{TYPE_ENUMERATION, String, Int64}(FILE_TYPE_TYPE, "SpecialFile", 4),
+    ENUM_LITERAL_EXPRESSION(FILE_TYPE_TYPE, "NoFile", 1),
+    ENUM_LITERAL_EXPRESSION(FILE_TYPE_TYPE, "RegularFile", 2),
+    ENUM_LITERAL_EXPRESSION(FILE_TYPE_TYPE, "Directory", 3),
+    ENUM_LITERAL_EXPRESSION(FILE_TYPE_TYPE, "SpecialFile", 4),
   )::List
 const COMPARE_NAMES = list("Less", "Equal", "Greater")::List
 const COMPARE_PATH =
@@ -1155,9 +1202,9 @@ const COMPARE_PATH =
 const COMPARE_TYPE = TYPE_ENUMERATION(COMPARE_PATH, COMPARE_NAMES)::M_Type
 const COMPARE_LITERALS =
   list(
-    ENUM_LITERAL_EXPRESSION{TYPE_ENUMERATION, String, Int64}(COMPARE_TYPE, "Less", 1),
-    ENUM_LITERAL_EXPRESSION{TYPE_ENUMERATION, String, Int64}(COMPARE_TYPE, "Equal", 2),
-    ENUM_LITERAL_EXPRESSION{TYPE_ENUMERATION, String, Int64}(COMPARE_TYPE, "Greater", 3),
+    ENUM_LITERAL_EXPRESSION(COMPARE_TYPE, "Less", 1),
+    ENUM_LITERAL_EXPRESSION(COMPARE_TYPE, "Equal", 2),
+    ENUM_LITERAL_EXPRESSION(COMPARE_TYPE, "Greater", 3),
   )::List
 
 function evaluateKnownExternal(name::String, args::List{<:Expression})::Expression

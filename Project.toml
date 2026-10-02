@@ -1,7 +1,7 @@
 name = "OMFrontend"
 uuid = "b10394b5-f439-4073-a0c5-e09cb00cf46c"
 authors = ["John Tinnerholm <johti17@liu.se>", "Martin Sjölund <martin.sjolund@liu.se>", "Adrian Pop <adrian.pop@liu.se>"]
-version = "1.1.1"
+version = "1.3.1"
 
 [deps]
 Absyn = "ce2f92e2-a952-11e9-0543-8b443f216f1d"
@@ -15,6 +15,7 @@ ListUtil = "b2a72b7e-c1ef-11e9-3a87-6ddc5900c366"
 MetaModelica = "9d7f2a79-07b5-5542-8b19-c0100dda6b06"
 OMParser = "11f87224-cae7-4e99-a924-e50d12f62c59"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 SCode = "350d45b0-c210-11e9-3b9e-fdad65bb3d46"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
@@ -25,5 +26,12 @@ ManualMemory="d125e4d3-2237-4719-b19c-fa641b8a4667"
 OMRuntimeExternalC="ada38df0-e20e-11ed-02f3-2b4b19c1ec8a"
 
 [compat]
-julia = "1.12"
-OMParser = "0.1"
+julia = "1.13"
+MetaModelica = "0.4.2"
+OMParser = "0.2.1"
+Absyn = "1.3.5"
+ArrayUtil = "0.3.2"
+DAE = "1.2.0"
+ImmutableList = "0.4.2"
+ListUtil = "0.4.1"
+SCode = "1.2.0"

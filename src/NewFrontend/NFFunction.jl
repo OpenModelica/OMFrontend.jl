@@ -33,10 +33,6 @@
 *
 */ =#
 
-const NamedArg = Tuple{String,B} where {B <: Expression}
-const TypedArg = Tuple{A,B,C} where {A,B,C}
-const TypedNamedArg = Tuple{String, ExpT, TypeT, VariabilityT} where {ExpT <: Expression, TypeT <: M_Type, VariabilityT <: Int}
-
 @Uniontype MatchedFunction begin
   @Record MATCHED_FUNC begin
     func::M_FUNCTION
@@ -373,9 +369,10 @@ function mapExpParameter(node::InstNode, mapFn::MapFunc)
       end
     end
   end
-  return if dirty
-    updateComponent!(comp, node)
+  if dirty
+    node = updateComponent!(comp, node)
   end
+  return node
 end
 
 function mapExp(
@@ -400,7 +397,7 @@ function mapExp(
   if mapBody
     sections = mapExp(getSections(cls), mapFn)
     cls = setSections(sections, cls)
-    updateClass(cls, fn.node)
+    @assign fn.node = updateClass(cls, fn.node)
   end
   return fn
 end
@@ -499,7 +496,7 @@ function toDAE(fn::M_FUNCTION, def::DAE.FunctionDefinition)::DAE.Function
   @assign par = false
   #=  TODO: Use the actual partial prefix.
   =#
-  @assign impr = fn.attributes.isImpure
+  @assign impr = fn.attributes.purity == DAE.IMPURE
   @assign ity = fn.attributes.inline
   @assign ty = makeDAEType(fn)
   @assign unused_inputs = analyseUnusedParameters(fn)
@@ -573,12 +570,12 @@ function isFunctionPointer(fn::M_FUNCTION)::Bool
 end
 
 function isOMImpure(fn::M_FUNCTION)::Bool
-  local isImpure::Bool = !fn.attributes.isOpenModelicaPure
+  local isImpure::Bool = fn.attributes.purity == DAE.IMPURE
   return isImpure
 end
 
 function isImpure(fn::M_FUNCTION)::Bool
-  local impure::Bool = fn.attributes.isImpure
+  local impure::Bool = fn.attributes.purity == DAE.IMPURE
   return impure
 end
 
@@ -935,20 +932,30 @@ function boxFunctionParameter(compNode::InstNode)
   return updateComponent!(comp, compNode)
 end
 
+function mapFunctionNodes(nodes::List{InstNode}, func::FuncT)::List{InstNode} where {FuncT}
+  local accum::List{InstNode} = nil
+  local changed::Bool = false
+  local new_node::InstNode
+
+  for node in nodes
+    new_node = func(node)
+    changed = changed || new_node !== node
+    accum = _cons(new_node, accum)
+  end
+
+  return changed ? listReverseInPlace(accum) : nodes
+end
+
 """
   Types the body of a function, along with any bindings of local variables
   and outputs.
 """
 function typeFunctionBody(fn::M_FUNCTION)::M_FUNCTION
   #=  Type the bindings of the outputs and local variables. =#
-  for c in fn.outputs
-    typeComponentBinding(c, ORIGIN_FUNCTION)
-  end
-  for c in fn.locals
-    typeComponentBinding(c, ORIGIN_FUNCTION)
-  end
+  @assign fn.outputs = mapFunctionNodes(fn.outputs, (c) -> typeComponentBinding(c, ORIGIN_FUNCTION))
+  @assign fn.locals = mapFunctionNodes(fn.locals, (c) -> typeComponentBinding(c, ORIGIN_FUNCTION))
   #=  Type the algorithm section of the function, if it has one. =#
-  typeFunctionSections(fn.node, ORIGIN_FUNCTION)
+  @assign fn.node = typeFunctionSections(fn.node, ORIGIN_FUNCTION)
   #=  Type any derivatives of the function.
   =#
   for fn_der in fn.derivatives
@@ -969,10 +976,9 @@ function typeFunctionSignature(fn::M_FUNCTION)
         classTree(getClass(node)),
         boxFunctionParameter,
       )
+      @assign fn.inputs = mapFunctionNodes(fn.inputs, boxFunctionParameter)
     end
-    for c in fn.inputs
-      typeComponentBinding(c, ORIGIN_FUNCTION)
-    end
+    @assign fn.inputs = mapFunctionNodes(fn.inputs, (c) -> typeComponentBinding(c, ORIGIN_FUNCTION))
     fnSlots = makeSlots(fn.inputs)
     checkParamTypes(fn)
     fnReturnType = makeReturnType(fn)
@@ -1011,12 +1017,18 @@ end
  they are not already typed.
 """
 function typeNodeCache(@nospecialize(functionNode::InstNode))::Vector{M_FUNCTION}
+  local fn_node::InstNode = classScope(functionNode)
+  if _parallelTypingActive()
+    return _withClaim(() -> typeNodeCache2(fn_node), _refId(fn_node))
+  end
+  return typeNodeCache2(fn_node)
+end
+
+function typeNodeCache2(fn_node::InstNode)::Vector{M_FUNCTION}
   local functions::Vector{M_FUNCTION}
-  local fn_node::InstNode
   local typed::Bool
   local special::Bool
   local name::String
-  fn_node = classScope(functionNode)
   #@match C_FUNCTION(functions, typed, special) = getFuncCache(fn_node)
   local cache = getFuncCache(fn_node)
   typed = cache.typed
@@ -1042,7 +1054,7 @@ end
  Returns the function(s) referenced by the given cref, and types them if
  they are not already typed.
 """
-function typeRefCache(@nospecialize(functionRef::ComponentRef))::Vector{M_FUNCTION}
+function typeRefCache(functionRef::ComponentRef)::Vector{M_FUNCTION}
   local functions::Vector{M_FUNCTION}
   functions = begin
     @match functionRef begin
@@ -2078,6 +2090,13 @@ end
 
 """Instantiates the given InstNode as a function."""
 function instFunctionNode(node::InstNode)::InstNode
+  if _parallelTypingActive()
+    return _withClaim(() -> instFunctionNode2(node), _refId(node))
+  end
+  return instFunctionNode2(node)
+end
+
+function instFunctionNode2(node::InstNode)::InstNode
   local cache::CachedData
   @assign cache = getFuncCache(node)
    () = begin
@@ -2100,13 +2119,27 @@ function instFunctionRef(
   info::SourceInfo,
 )::Tuple{ComponentRef, InstNode, Bool}
   local specialBuiltin::Bool
-  local fn_node::InstNode
-  local cache::CachedData
+  local fn_node::InstNode = classScope(node(fn_ref))
+  #= Cache check plus instantiation must be atomic per function node: typing
+     workers instantiate functions lazily. =#
+  if _parallelTypingActive()
+    (fn_node, specialBuiltin) = _withClaim(
+      () -> instFunctionRef2(fn_ref, fn_node, info), _refId(fn_node))
+  else
+    (fn_node, specialBuiltin) = instFunctionRef2(fn_ref, fn_node, info)
+  end
+  return (fn_ref, fn_node, specialBuiltin)
+end
+
+function instFunctionRef2(
+  fn_ref::ComponentRef,
+  fn_node::InstNode,
+  info::SourceInfo,
+)::Tuple{InstNode, Bool}
   local parent::InstNode
-  fn_node = classScope(node(fn_ref))
-  cache = getFuncCache(fn_node)
+  local cache::CachedData = getFuncCache(fn_node)
   #=  Check if a cached instantiation of this function already exists. =#
-  (fn_node, specialBuiltin) = begin
+  return begin
     @match cache begin
       C_FUNCTION(__) => begin
         (fn_node, cache.specialBuiltin)
@@ -2126,7 +2159,6 @@ function instFunctionRef(
       end
     end
   end
-  return (fn_ref, fn_node, specialBuiltin)
 end
 
 function instFunction(

@@ -43,8 +43,7 @@ const EquationFn = Function
 const AlgorithmFn = Function
 #=Necessary redefinitions=#
 const Sections = NFSections
-const Equation = NFEquation
-const Algorithm = NFAlgorithm
+const Algorithm = AlgorithmImpl
 
 abstract type NFSections
 end

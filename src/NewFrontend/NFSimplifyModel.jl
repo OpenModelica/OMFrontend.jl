@@ -38,6 +38,9 @@ const MakeElement = Function
 const MakeFunc = Function
 
 function simplifyFlatModel(flatModel::FlatModel)::FlatModel
+  #= Per-model cache so identical constant folds (e.g. the orientation matrices
+     of symmetric MultiBody bodies) are evaluated once, not once per binding. =#
+  empty!(CONST_FOLD_CACHE)
   @assign begin
     flatModel.variables = simplifyVariables(flatModel.variables)
     flatModel.equations = simplifyEquations(flatModel.equations)
@@ -58,14 +61,20 @@ end
 
 function simplifyVariable(var::Variable)::Variable
   varBinding = simplifyBinding(var.binding)
-  varTypeAttributes = simplifyTypeAttributes(var.typeAttributes)
-  VARIABLE(
+  #= simplifyTypeAttributes mutates the vector in place (same object), so the
+     only field that can change identity is the binding. Reuse var unchanged
+     when the binding did not simplify, to avoid rebuilding every VARIABLE. =#
+  simplifyTypeAttributes(var.typeAttributes)
+  if referenceEq(varBinding, var.binding)
+    return var
+  end
+  return VARIABLE(
     var.name,
     var.ty,
     varBinding,
     var.visibility,
     var.attributes,
-    varTypeAttributes,
+    var.typeAttributes,
     var.comment,
     var.info
   )
@@ -126,7 +135,7 @@ function simplifyDimension(dim::Dimension)::Dimension
   return outDim
 end
 
-function simplifyEquations(eql::Vector{<:Equation})
+function simplifyEquations(eql::Vector{Equation})
   local outEql::Vector{Equation} = Equation[]
   for eq in eql
     outEql = simplifyEquation(eq, outEql)
@@ -186,7 +195,7 @@ function simplifyEquation(@nospecialize(eq::Equation), equations::Vector{Equatio
       end
 
       EQUATION_WHEN(__) => begin
-        @assign eq.branches = Equation_Branch[simplifyBranch(b) for b in eq.branches]
+        @assign eq.branches = EquationBranch[simplifyBranch(b) for b in eq.branches]
         push!(equations, eq)
       end
 
@@ -221,7 +230,7 @@ function simplifyEquation(@nospecialize(eq::Equation), equations::Vector{Equatio
   return equations
 end
 
-function simplifyEqualityEquation(eq::EQUATION_EQUALITY, equations::Vector{Equation})
+function simplifyEqualityEquation(eq::Equation, equations::Vector{Equation})
   local lhs::Expression
   local rhs::Expression
   local ty::M_Type
@@ -382,14 +391,16 @@ end
    Handles Expression.TUPLE() := Expression.TUPLE() assignments by splitting
    them into a separate assignment statement for each pair of tuple elements.
 """
+#= Statements (makeAssignment) or equations (makeEquality): typed for
+   statements only, every tuple equation failed with a MethodError. =#
 function simplifyTupleElement(
   lhsTuple::List{Expression},
   rhsTuple::List{Expression},
   ty::M_Type,
   src::DAE.ElementSource,
   makeFn::MakeElement,
-  statements::Vector{Statement},
-)
+  statements::Vector{E},
+) where {E <: Union{Statement, Equation}}
   local rhs::Expression
   local rest_rhs::List{Expression} = rhsTuple
   local ety::M_Type
@@ -444,14 +455,14 @@ function removeEmptyFunctionArguments(@nospecialize(exp::Expression), isArg = fa
 end
 
 function simplifyIfEqBranches(
-  branches::Vector{Equation_Branch},
+  branches::Vector{<:Equation_Branch},
   src::DAE.ElementSource,
   elements::Vector{Equation},
 )::Vector{Equation}
   local cond::Expression
   local body::Vector{Equation}
   local var::VariabilityType
-  local accum::Vector{Equation_Branch} = Equation_Branch[]
+  local accum::Vector{EquationBranch} = EquationBranch[]
   for branch in branches
     accum = begin
       @match branch begin
@@ -515,7 +526,9 @@ function simplifyIfEqBranches(
 end
 
 """
-Note possible recheck to make sure the order is right
+The branches of an if-statement with their conditions simplified: those with a literal false
+condition dropped, and the statement replaced by the body of the first one with a literal true
+condition (an `else` is one), or cut after it. `elements` is in forward order.
 """
 function simplifyIfStmtBranches(
   branches::Vector{Tuple{Expression, Vector{Statement}}},
@@ -534,7 +547,7 @@ function simplifyIfStmtBranches(
     if isTrue(cond)
       #=  If it's the first branch, remove the if and keep only the branch body. =#
       if isempty(accum)
-        append!(simplifyFunc(body), elements)
+        append!(elements, simplifyFunc(body))
         return elements
       else   #=  Keep branches that are neither literal true or false. =#
         push!(accum, (cond, simplifyFunc(body)))
@@ -555,9 +568,9 @@ function simplifyFunction(func::M_Function)
   local cls::Class
   local fn_body::Algorithm
   local sections::Sections
-  return if !isSimplified(func)
+  if !isSimplified(func)
     markSimplified(func)
-    mapExp(func, simplify, false)
+    func = mapExp(func, simplify, false)
     cls = getClass(func.node)
     () = begin
       @match cls begin
@@ -568,7 +581,7 @@ function simplifyFunction(func::M_Function)
                 @assign fn_body.statements = simplifyStatements(fn_body.statements)
                 @assign sections.algorithms = [fn_body]
                 @assign cls.sections = sections
-                updateClass(cls, func.node)
+                @assign func.node = updateClass(cls, func.node)
                 ()
               end
 
@@ -590,4 +603,5 @@ function simplifyFunction(func::M_Function)
       end
     end
   end
+  return func
 end

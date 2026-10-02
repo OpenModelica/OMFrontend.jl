@@ -98,7 +98,7 @@ function instDefaultConstructor(
     ctor_node = replaceClass(NOT_INSTANTIATED(), node)
   end
   #= Backported from the original code. =#
-  setNodeType(ROOT_CLASS(parent(node)), ctor_node)
+  ctor_node = setNodeType(ROOT_CLASS(parent(node)), ctor_node)
   #= End=#
   ctor_node = instantiateN1(ctor_node) #, parent(ctor_node))
   instExpressions(ctor_node)
@@ -119,7 +119,7 @@ function instDefaultConstructor(
   #=  Make a record constructor class and create a node for the constructor. =#
   ctor_cls = makeRecordConstructor(all_params, out_rec)
   ctor_node = replaceClass(ctor_cls, ctor_node)
-  classApply(ctor_node, setType, TYPE_COMPLEX(ctor_node, COMPLEX_CLASS()))
+  ctor_node = classApply(ctor_node, setType, TYPE_COMPLEX(ctor_node, COMPLEX_CLASS()))
   #=  Create the constructor function and add it to the function cache. =#
   attr = DAE.FUNCTION_ATTRIBUTES_DEFAULT
   status = P_Pointer.create(FunctionStatus.INITIAL)
@@ -251,12 +251,12 @@ end
 
 function foldInputFields(
   fields::List{Field},
-  args::List{T},
+  args::List,
   func::FuncT,
   foldArg::ArgT,
-) where {T, ArgT}
-  local arg::T
-  local rest_args::List{T} = args
+) where {ArgT}
+  local arg
+  local rest_args::List = args
   for field in fields
     @match _cons(arg, rest_args) = rest_args
     if isInput(field)

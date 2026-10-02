@@ -33,103 +33,6 @@
 *
 */ =#
 
-@UniontypeDecl Equation_Branch
-abstract type Equation_Branch end
-abstract type NFEquation end
-
-struct EQUATION_NORETCALL{T0 <: Expression, T1 <: DAE.ElementSource} <: NFEquation
-  exp::T0
-  source::T1
-end
-
-struct EQUATION_REINIT{T0 <: Expression, T1 <: Expression, T2 <: DAE.ElementSource} <: NFEquation
-  cref::T0 #= The variable to reinitialize. =#
-  reinitExp::T1 #= The new value of the variable. =#
-  source::T2
-end
-
-struct EQUATION_TERMINATE{T0 <: Expression, T1 <: DAE.ElementSource} <: NFEquation
-  message::T0 #= The message to display if the terminate triggers. =#
-  source::T1
-end
-
-struct EQUATION_ASSERT{T0 <: Expression,
-                       T1 <: Expression,
-                       T2 <: Expression,
-                       T3 <: DAE.ElementSource} <: NFEquation
-  condition::T0 #= The assert condition. =#
-  message::T1 #= The message to display if the assert fails. =#
-  level::T2 #= Error or warning =#
-  source::T3
-end
-
-struct EQUATION_WHEN{T0 <: DAE.ElementSource} <: NFEquation
-  branches::Vector{Equation_Branch}
-  source::T0
-end
-
-struct EQUATION_RECONFIGURE{T0 <: DAE.ElementSource} <: NFEquation
-  variables        ::MetaModelica.List{Absyn.ElementItem}
-  whenConditions   ::Vector   #= Instantiated trigger conditions (NFExpression.Expression) =#
-  whenConstraints  ::Vector   #= Optional post-conditions, one per whenCondition (Option{Expression}) =#
-  prompt           ::Option   #= Instantiated natural-language prompt (Option{Expression}) =#
-  initialEquations ::Option   #= Raw Absyn constraint equations checked at recompilation =#
-  source           ::T0
-end
-
-struct EQUATION_IF{T1 <: DAE.ElementSource} <: NFEquation
-  branches::Vector{Equation_Branch}
-  source::T1
-end
-
-struct EQUATION_FOR{T0 <: InstNode, T1 <:Expression, T2 <: DAE.ElementSource} <: NFEquation
-  iterator::T0
-  range::Option{T1}
-  body::Vector{Equation} #= The body of the for loop. =#
-  source::T2
-end
-
-struct EQUATION_CONNECT{T0 <: Expression, T1 <: Expression, T2 <: DAE.ElementSource} <: NFEquation
-  lhs::T0
-  rhs::T1
-  source::T2
-end
-
-struct EQUATION_ARRAY_EQUALITY{T0 <: Expression,
-                               T1 <: Expression,
-                               T2 <: NFType,
-                               T3 <: DAE.ElementSource} <: NFEquation
-  lhs::T0
-  rhs::T1
-  ty::T2
-  source::T3
-end
-
-struct EQUATION_CREF_EQUALITY <: NFEquation
-  lhs::ComponentRef
-  rhs::ComponentRef
-  source::DAE.ElementSource
-end
-
-struct EQUATION_EQUALITY <: NFEquation
-  lhs::Expression #= The left hand side expression. =#
-  rhs::Expression #= The right hand side expression. =#
-  ty::NFType
-  source::DAE.ElementSource
-end
-
-struct EQUATION_INVALID_BRANCH <: Equation_Branch
-  branch::Equation_Branch
-  errors::Vector
-end
-
-struct EQUATION_BRANCH <: Equation_Branch
-  condition::Expression
-  conditionVar::Int
-  body::Vector{Equation}
-end
-
-
 @nospecializeinfer function isMultiLine(@nospecialize(eq::Equation))::Bool
   local singleLine::Bool
    singleLine = begin
@@ -676,7 +579,7 @@ function foldExpList(eq::Vector{Equation}, func::FoldFunc, arg::ArgT) where {Arg
   return arg
 end
 
-function mapExpBranch(branch::Equation_Branch, func::MapExpFn)::Equation_Branch
+function mapExpBranch(branch::EquationBranch, func::MapExpFn)::EquationBranch
   local cond::Expression
   local eql::Vector{Equation}
   branch = begin
@@ -740,12 +643,12 @@ end
 
       EQUATION_IF(__) => begin
         #= We need to create a new instance here for the logic to work=#
-        @assign eq.branches = Equation_Branch[mapExpBranch(b, func) for b in eq.branches]
+        @assign eq.branches = EquationBranch[mapExpBranch(b, func) for b in eq.branches]
         eq
       end
 
       EQUATION_WHEN(__) => begin
-        @assign eq.branches = Equation_Branch[mapExpBranch(b, func) for b in eq.branches]
+        @assign eq.branches = EquationBranch[mapExpBranch(b, func) for b in eq.branches]
         eq
       end
 
@@ -846,7 +749,7 @@ map(@nospecialize(eq::Equation), func::MapFn)
 Applies the function `func` to `eq`
 """
 @nospecializeinfer function map(@nospecialize(eq::Equation), func::MapFn)
-  function f(b::Equation_Branch)
+  function f(b::EquationBranch)
     @match b begin
       EQUATION_BRANCH(__) => begin
         eqBody = Equation[map(e, func) for e in b.body]
@@ -862,12 +765,12 @@ Applies the function `func` to `eq`
       EQUATION_FOR(eq.iterator, eq.range, eqBody, eq.source)
     end
     EQUATION_IF(__) => begin
-      eqBranches = Equation_Branch[res =  f(b) for b in eq.branches]
+      eqBranches = EquationBranch[res =  f(b) for b in eq.branches]
       EQUATION_IF(eqBranches, eq.source)
     end
     EQUATION_WHEN(__) => begin
-      eqBranches = Equation_Branch[
-        if b isa EQUATION_BRANCH
+      eqBranches = EquationBranch[
+        if isvariant(b, EQUATION_BRANCH)
           eqBody = Equation[map(e, func) for e in b.body];
           EQUATION_BRANCH(b.condition, b.conditionVar, eqBody)
         else
@@ -995,7 +898,7 @@ end
   return sourceVar
 end
 
-function makeIf(branches::Vector{Equation_Branch}, src::DAE.ElementSource)
+function makeIf(branches::Vector{<:Equation_Branch}, src::DAE.ElementSource)
   local eq::Equation
    eq = EQUATION_IF(branches, src)
   return eq
@@ -1005,8 +908,8 @@ function makeBranch(
   @nospecialize(condition::Expression),
   body::Vector{Equation},
   condVar = Variability.CONTINUOUS,
-)::Equation_Branch
-  local branch::Equation_Branch
+)::EquationBranch
+  local branch::EquationBranch
    branch = EQUATION_BRANCH(condition, condVar, body)
   return branch
 end
@@ -1022,7 +925,7 @@ function makeEquality(
   return eq
 end
 
-function triggerErrors(branch::Equation_Branch)
+function triggerErrors(branch::EquationBranch)
   return  () = begin
     @match branch begin
       EQUATION_INVALID_BRANCH(__) => begin
@@ -1037,7 +940,7 @@ function triggerErrors(branch::Equation_Branch)
   end
 end
 
-function toFlatStream(branch::Equation_Branch,
+function toFlatStream(branch::EquationBranch,
   indent::String,
   s::IOStream_M.IOSTREAM,
 )
@@ -1058,7 +961,7 @@ function toFlatStream(branch::Equation_Branch,
   return s
 end
 
-function toStream(branch::Equation_Branch, indent::String, s)
+function toStream(branch::EquationBranch, indent::String, s)
    s = begin
     @match branch begin
       EQUATION_BRANCH(__) => begin
@@ -1075,7 +978,7 @@ function toStream(branch::Equation_Branch, indent::String, s)
   return s
 end
 
-function toString(branch::Equation_Branch, indent::String = "")::String
+function toString(branch::EquationBranch, indent::String = "")::String
   local s
   s = IOStream_M.create(getInstanceName(), IOStream_M.LIST())
   s = toStream(branch, indent, s)

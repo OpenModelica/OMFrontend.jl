@@ -33,36 +33,6 @@
 *
 */ =#
 
-include("NFModTable.jl")
-
-abstract type Modifier end
-
-struct MODIFIER_NOMOD <: Modifier end
-
-mutable struct MODIFIER_REDECLARE{  T0 <: SCode.Final,
-                            T1 <: SCode.Each,
-                            T2 <: InstNode,
-                            T3 <: Modifier} <: Modifier
-  finalPrefix::T0
-  eachPrefix::T1
-  element::T2
-  mod::T3
-end
-
-mutable struct MODIFIER_MODIFIER{ T0 <: String,
-                          T1 <: SCode.Final,
-                          T2 <: SCode.Each,
-                          T4 <: ModTable.Tree,
-                          T5 <: SOURCEINFO} <: Modifier
-  name::T0
-  finalPrefix::T1
-  eachPrefix::T2
-  binding#::Binding
-  subModifiers::T4
-  info::T5
-end
-
-
 #= Structure that represents where a modifier comes from. =#
 @Uniontype ModifierScope begin
   @Record SCOPE_EXTENDS begin
@@ -291,7 +261,7 @@ function toVector!(mod::Modifier)
   # println("....")
   modV = @match mod begin
     MODIFIER_MODIFIER(__) where mod.subModifiers !== nothing => begin
-      ModTable.vectorValues!(mod.subModifiers)
+      ModTable.vectorValues!(mod.subModifiers, Modifier[])
     end
     _ => begin
       TMP_MOD
@@ -334,8 +304,8 @@ function merge(outerMod::Modifier, innerMod::Modifier, name::String = "")
   #= One of the modifiers is NOMOD, return the other. Checked before the
      @match: matching on (a, b) allocates the tuple it destructures, and the
      no-modifier case dominates instantiation. =#
-  outerMod isa MODIFIER_NOMOD && return innerMod
-  innerMod isa MODIFIER_NOMOD && return outerMod
+  isvariant(outerMod, MODIFIER_NOMOD) && return innerMod
+  isvariant(innerMod, MODIFIER_NOMOD) && return outerMod
   local mergedMod::Modifier
 
   mergedMod = begin
@@ -390,7 +360,7 @@ function merge(outerMod::Modifier, innerMod::Modifier, name::String = "")
   return mergedMod
 end
 
-function setBinding(binding::Binding, mod::MODIFIER_MODIFIER)
+function setBinding(binding::Binding, mod::Modifier)
   # local modifier = MODIFIER_MODIFIER(
   #       mod.name,
   #       mod.finalPrefix,
@@ -399,9 +369,10 @@ function setBinding(binding::Binding, mod::MODIFIER_MODIFIER)
   #       mod.subModifiers,
   #       mod.info,
   # )
-  mod.binding = binding
-  modifier = mod
-  return modifier
+  if isvariant(mod, MODIFIER_MODIFIER)
+    @assign mod.binding = binding
+  end
+  return mod
 end
 
 function binding(modifier::Modifier)
@@ -514,8 +485,7 @@ function addParent(parentNode::InstNode, mod::Modifier)
     @match mod begin
       MODIFIER_MODIFIER(binding = binding) => begin
         modBinding = addParent(parentNode, binding)
-        #lmod = MODIFIER_MODIFIER(mod.name, mod.finalPrefix, mod.eachPrefix, modBinding, mod.subModifiers, mod.info)
-        mod.binding = modBinding
+        @assign mod.binding = modBinding
         lmod = mod
         map(lmod, @closure (x, y) -> addParent_work(x, parentNode, y))
       end
@@ -664,7 +634,7 @@ function create(mod::SCode.REDECL,
                 name::String,
                 modScope::ModifierScope,
                 parents::List{<:InstNode},
-                scope::InstNode)::MODIFIER_REDECLARE
+                scope::InstNode)::Modifier
   local elem = mod.element
   node = new(elem, scope)
   if isClass(node)
@@ -677,7 +647,7 @@ function create(mod::SCode.MOD,
                 name::String,
                 modScope::ModifierScope,
                 parents::List{<:InstNode},
-                scope::InstNode)::MODIFIER_MODIFIER
+                scope::InstNode)::Modifier
   local submodV::Vector{Modifier}
   local submod_table::ModTable.Tree
   local binding::Binding
@@ -728,7 +698,7 @@ function mergeLocal(
   name::String = "",
   scope::ModifierScope = nothing,
   prefix::Vector{String} = String[],
-  )::MODIFIER_MODIFIER
+  )::Modifier
   local mod::Modifier
   local comp_name::String
 

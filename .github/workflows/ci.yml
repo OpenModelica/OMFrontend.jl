@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - master
+      - "1.13"
     tags: '*'
   workflow_call:
   workflow_dispatch:
@@ -37,14 +38,14 @@ jobs:
           # Coverage is only collected/uploaded on one runner.
           - os: ubuntu-latest
             arch: x64
-            version: '1.12'
+            version: '1.13'
             coverage: true
           - os: windows-latest
             arch: x64
-            version: '1.12'
+            version: '1.13'
           - os: macos-latest
             arch: aarch64
-            version: '1.12'
+            version: '1.13'
 
     steps:
       - name: Checkout OMFrontend.jl
@@ -55,75 +56,13 @@ jobs:
       # Project.toml [sources] (and the transitive [sources] inside DoubleEnded
       # / ListUtil) points at sibling working copies in ../<name>.jl. We lay
       # the siblings out alongside the main checkout so Pkg.resolve finds them.
-      - name: Checkout Absyn.jl
-        uses: actions/checkout@v4
+      # The shared action checks the siblings out at the branch that matches
+      # this change (the PR branch if the sibling has it, else the PR base
+      # branch, e.g. 1.13, else master) from the OpenModelica repositories.
+      - name: Checkout sibling OM*.jl packages
+        uses: JKRT/OM.jl/.github/actions/checkout-siblings@master
         with:
-          repository: OpenModelica/Absyn.jl
-          ref: master
-          path: Absyn.jl
-
-      - name: Checkout ArrayUtil.jl
-        uses: actions/checkout@v4
-        with:
-          repository: JKRT/ArrayUtil.jl
-          ref: master
-          path: ArrayUtil.jl
-
-      - name: Checkout DAE.jl
-        uses: actions/checkout@v4
-        with:
-          repository: JKRT/DAE.jl
-          ref: master
-          path: DAE.jl
-
-      - name: Checkout DoubleEnded.jl
-        uses: actions/checkout@v4
-        with:
-          repository: OpenModelica/DoubleEnded.jl
-          ref: master
-          path: DoubleEnded.jl
-
-      - name: Checkout ImmutableList.jl
-        uses: actions/checkout@v4
-        with:
-          repository: OpenModelica/ImmutableList.jl
-          ref: master
-          path: ImmutableList.jl
-
-      - name: Checkout ListUtil.jl
-        uses: actions/checkout@v4
-        with:
-          repository: JKRT/ListUtil.jl
-          ref: master
-          path: ListUtil.jl
-
-      - name: Checkout MetaModelica.jl
-        uses: actions/checkout@v4
-        with:
-          repository: OpenModelica/MetaModelica.jl
-          ref: master
-          path: MetaModelica.jl
-
-      - name: Checkout OMParser.jl
-        uses: actions/checkout@v4
-        with:
-          repository: OpenModelica/OMParser.jl
-          ref: master
-          path: OMParser.jl
-
-      - name: Checkout OMRuntimeExternalC.jl
-        uses: actions/checkout@v4
-        with:
-          repository: OpenModelica/OMRuntimeExternalC.jl
-          ref: master
-          path: OMRuntimeExternalC.jl
-
-      - name: Checkout SCode.jl
-        uses: actions/checkout@v4
-        with:
-          repository: OpenModelica/SCode.jl
-          ref: master
-          path: SCode.jl
+          packages: Absyn ArrayUtil DAE DoubleEnded ImmutableList ListUtil MetaModelica OMParser OMRuntimeExternalC SCode
 
       - name: Setup Julia ${{ matrix.version }}-${{ matrix.arch }}
         uses: julia-actions/setup-julia@v2

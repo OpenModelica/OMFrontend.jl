@@ -35,13 +35,13 @@
 
 module ModTable
 
-import ..Modifier
+import ..NFModifier
 using MetaModelica
 using ExportAll
 using ..Frontend
 
 const Key = String
-const Value = Modifier
+const Value = NFModifier
 #= Modelica extend clause =#
 
 const keyCompare = (inKey1::String, inKey2::String) -> begin
@@ -50,24 +50,12 @@ const keyCompare = (inKey1::String, inKey2::String) -> begin
 end
 
 
-#=  TODO: We should have an Any type =#
-#= The binary tree data structure. =#
-abstract type Tree end
-
-mutable struct NODE <: Tree
-  key::Key #= The key of the node. =#
-  value::Value
-  height::Int #= Height of tree, used for balancing =#
-  left::Tree #= Left subtree. =#
-  right::Tree #= Right subtree. =#
-end
-
-mutable struct LEAF <: Tree
-  key::Key #= The key of the node. =#
-  value::Value
-end
-
-struct EMPTY <: Tree
+#= The binary tree data structure. Compacted so the recursive left/right
+   spine is concretely typed (TreeData) for inference-friendly traversal. =#
+@CUniontype Tree begin
+  EMPTY()
+  LEAF(key::Key, value::Value)
+  NODE(key::Key, value::Value, height::Int, left::Tree, right::Tree)
 end
 
 """  Return an empty tree """
@@ -80,7 +68,7 @@ end
 function hasKey(inTree::Tree, inKey::Key)
   local cur = inTree
   while true
-    if cur isa NODE
+    if isvariant(cur, NODE)
       local c = keyCompare(inKey, cur.key)
       if c == 0
         return true
@@ -89,7 +77,7 @@ function hasKey(inTree::Tree, inKey::Key)
       else
         cur = cur.left
       end
-    elseif cur isa LEAF
+    elseif isvariant(cur, LEAF)
       return keyCompare(inKey, cur.key) == 0
     else
       return false
@@ -191,7 +179,7 @@ function printTreeStr(inTree::Tree)
 end
 
 function referenceEqOrEmpty(t1::Tree, t2::Tree)
-  if t1 isa EMPTY && t2 isa EMPTY
+  if isvariant(t1, EMPTY) && isvariant(t2, EMPTY)
     return true
   end
   return referenceEq(t1, t2)
@@ -235,8 +223,7 @@ function balance(inTree::Tree)
             rotateRight(outTree)
           end
         elseif outTree.height != max(lh, rh) + 1
-           outTree.height = max(lh, rh) + 1
-          balanced_tree = outTree
+          balanced_tree = NODE(outTree.key, outTree.value, max(lh, rh) + 1, outTree.left, outTree.right)
         else
           balanced_tree = outTree
         end
@@ -445,44 +432,31 @@ function add(
       NODE(key = key) => begin
          key_comp = keyCompare(inKey, key)
         if key_comp == (-1)
-           tree.left = add(tree.left, inKey, inValue, conflictFunc)
+          balance(NODE(tree.key, tree.value, tree.height, add(tree.left, inKey, inValue, conflictFunc), tree.right))
         elseif key_comp == 1
-           tree.right = add(tree.right, inKey, inValue, conflictFunc)
+          balance(NODE(tree.key, tree.value, tree.height, tree.left, add(tree.right, inKey, inValue, conflictFunc)))
         else
            value = conflictFunc(inValue, tree.value, key)
-          if !referenceEq(tree.value, value)
-             tree.value = value
+          if referenceEq(tree.value, value)
+            tree
+          else
+            NODE(tree.key, value, tree.height, tree.left, tree.right)
           end
-        end
-        #=  Replace left branch.
-        =#
-        #=  Replace right branch.
-        =#
-        #=  Use the given function to resolve the conflict.
-        =#
-        if key_comp == 0
-          tree
-        else
-          balance(tree)
         end
       end
       LEAF(key = key) => begin
          key_comp = keyCompare(inKey, key)
         if key_comp == (-1)
-           outTree = NODE(tree.key, tree.value, 2, LEAF(inKey, inValue), EMPTY())
+          balance(NODE(tree.key, tree.value, 2, LEAF(inKey, inValue), EMPTY()))
         elseif key_comp == 1
-           outTree = NODE(tree.key, tree.value, 2, EMPTY(), LEAF(inKey, inValue))
+          balance(NODE(tree.key, tree.value, 2, EMPTY(), LEAF(inKey, inValue)))
         else
           value = conflictFunc(inValue, tree.value, key)
-          if !referenceEq(tree.value, value)
-             tree.value = value
+          if referenceEq(tree.value, value)
+            tree
+          else
+            LEAF(tree.key, value)
           end
-           outTree = tree
-        end
-        if key_comp == 0
-          outTree
-        else
-          balance(outTree)
         end
       end
     end
@@ -518,44 +492,31 @@ function add(
       NODE(key = key) => begin
          key_comp = keyCompare(inKey, key)
         if key_comp == (-1)
-           tree.left = add(tree.left, inKey, inValue, scope, prefix)
+          balance(NODE(tree.key, tree.value, tree.height, add(tree.left, inKey, inValue, scope, prefix), tree.right))
         elseif key_comp == 1
-           tree.right = add(tree.right, inKey, inValue, scope, prefix)
+          balance(NODE(tree.key, tree.value, tree.height, tree.left, add(tree.right, inKey, inValue, scope, prefix)))
         else
            value = conflictFunc(inValue, tree.value, key)
-          if !referenceEq(tree.value, value)
-             tree.value = value
+          if referenceEq(tree.value, value)
+            tree
+          else
+            NODE(tree.key, value, tree.height, tree.left, tree.right)
           end
-        end
-        #=  Replace left branch.
-        =#
-        #=  Replace right branch.
-        =#
-        #=  Use the given function to resolve the conflict.
-        =#
-        if key_comp == 0
-          tree
-        else
-          balance(tree)
         end
       end
       LEAF(key = key) => begin
          key_comp = keyCompare(inKey, key)
         if key_comp == (-1)
-           outTree = NODE(tree.key, tree.value, 2, LEAF(inKey, inValue), EMPTY())
+          balance(NODE(tree.key, tree.value, 2, LEAF(inKey, inValue), EMPTY()))
         elseif key_comp == 1
-           outTree = NODE(tree.key, tree.value, 2, EMPTY(), LEAF(inKey, inValue))
+          balance(NODE(tree.key, tree.value, 2, EMPTY(), LEAF(inKey, inValue)))
         else
           value = mergeLocal(inValue, tree.value, key, scope, prefix)
-          if !referenceEq(tree.value, value)
-             tree.value = value
+          if referenceEq(tree.value, value)
+            tree
+          else
+            LEAF(tree.key, value)
           end
-           outTree = tree
-        end
-        if key_comp == 0
-          outTree
-        else
-          balance(outTree)
         end
       end
     end
@@ -567,7 +528,7 @@ end
 """  Adds a list of key-value pairs to the tree. """
 function addList(
   tree::Tree,
-  inValues::List{<:Tuple{<:Key, Value}},
+  inValues::List{<:Tuple{<:Key, <:Value}},
   conflictFunc::Function = addConflictDefault,
 )::Tree #= Used to resolve conflicts. =#
 
@@ -593,18 +554,18 @@ end
 """
 function get(tree::Tree, key::Key)
   local value::Value
-  local k::Key
-  k = tree.key
+  if isvariant(tree, EMPTY)
+    fail()
+  end
+  local k::Key = tree.key
   local kc = keyCompare(key, k)
   if kc == 0
     return tree.value
   end
   value = begin
-    if kc == 0
-      tree.value
-    elseif kc == 1 && tree isa NODE
+    if kc == 1 && isvariant(tree, NODE)
       get(tree.right, key)
-    elseif kc == -1 && tree isa NODE
+    elseif kc == -1 && isvariant(tree, NODE)
       get(tree.left, key)
     else
       fail()
@@ -614,20 +575,13 @@ function get(tree::Tree, key::Key)
 end
 
 """
-Get on an empty tree results in failure...
-"""
-@noinline function get(tree::EMPTY, key::Key)
-  fail()
-end
-
-"""
   Fetches a value from the tree given a key, or returns NONE if no value is
   associated with the key.
 """
 function getOpt(tree::Tree, key::Key)
   local cur = tree
   while true
-    if cur isa NODE
+    if isvariant(cur, NODE)
       local c = keyCompare(key, cur.key)
       if c == 0
         return SOME(cur.value)
@@ -636,7 +590,7 @@ function getOpt(tree::Tree, key::Key)
       else
         cur = cur.left
       end
-    elseif cur isa LEAF
+    elseif isvariant(cur, LEAF)
       return keyCompare(key, cur.key) == 0 ? SOME(cur.value) : NONE()
     else
       return NONE()
@@ -646,7 +600,7 @@ end
 
 """Creates a new tree from a list of key-value pairs."""
 function fromList(
-  inValues::List{<:Tuple{<:Key, Value}},
+  inValues::List{<:Tuple{<:Key, <:Value}},
   conflictFunc::Function = addConflictDefault,
 )::Tree #= Used to resolve conflicts. =#
   local tree::Tree = EMPTY()
@@ -663,7 +617,7 @@ end
 
 
 function fromVector(
-  inValues::Vector{Tuple{Key, Value}},
+  inValues::Vector{<:Tuple{Key, <:Value}},
   conflictFunc::Function = addConflictDefault,
   )::Tree #= Used to resolve conflicts. =#
   local tree::Tree = EMPTY()
@@ -677,7 +631,7 @@ function fromVector(
 end
 
 function fromVector(
-  inValues::Vector{Value},
+  inValues::Vector{<:Value},
   inKeys::Vector{Key},
   scope,
   prefix
@@ -724,7 +678,7 @@ end
 """
 function toVector!(
   inTree::Tree,
-  vec::Vector{Tuple{Key, Value}} = Tuple{Key, Value}[],
+  vec::Vector{<:Tuple{Key, <:Value}} = Tuple{Key, Value}[],
   )#::List{Tuple{Key, Value}}
   vec = begin
     local key::Key
@@ -885,26 +839,22 @@ function map(inTree::Tree, inFunc::Function)::Tree
     local new_branch::Tree
     @match outTree begin
       NODE(key = key, value = value) => begin
-         new_branch = map(outTree.left, inFunc)
-        if !referenceEq(new_branch, outTree.left)
-           outTree.left = new_branch
-        end
+         new_left = map(outTree.left, inFunc)
          new_value = inFunc(key, value)
-        if !referenceEq(value, new_value)
-           outTree.value = new_value
+         new_right = map(outTree.right, inFunc)
+        if referenceEq(new_left, outTree.left) && referenceEq(value, new_value) && referenceEq(new_right, outTree.right)
+          outTree
+        else
+          NODE(key, new_value, outTree.height, new_left, new_right)
         end
-         new_branch = map(outTree.right, inFunc)
-        if !referenceEq(new_branch, outTree.right)
-           outTree.right = new_branch
-        end
-        outTree
       end
       LEAF(key = key, value = value) => begin
          new_value = inFunc(key, value)
-        if !referenceEq(value, new_value)
-          outTree.value = new_value
+        if referenceEq(value, new_value)
+          outTree
+        else
+          LEAF(key, new_value)
         end
-        outTree
       end
       _ => begin
         inTree
@@ -1020,27 +970,23 @@ function mapFold(inTree::Tree, inFunc::Function, inStartValue::FT) where {FT}
     local new_branch::Tree
     @match outTree begin
       NODE(key = key, value = value) => begin
-         (new_branch, outResult) = mapFold(outTree.left, inFunc, outResult)
-        if !referenceEq(new_branch, outTree.left)
-           outTree.left = new_branch
-        end
+         (new_left, outResult) = mapFold(outTree.left, inFunc, outResult)
          (new_value, outResult) = inFunc(key, value, outResult)
-        if !referenceEq(value, new_value)
-           outTree.value = new_value
+         (new_right, outResult) = mapFold(outTree.right, inFunc, outResult)
+        if referenceEq(new_left, outTree.left) && referenceEq(value, new_value) && referenceEq(new_right, outTree.right)
+          outTree
+        else
+          NODE(key, new_value, outTree.height, new_left, new_right)
         end
-         (new_branch, outResult) = mapFold(outTree.right, inFunc, outResult)
-        if !referenceEq(new_branch, outTree.right)
-           outTree.right = new_branch
-        end
-        outTree
       end
 
       LEAF(key = key, value = value) => begin
          (new_value, outResult) = inFunc(key, value, outResult)
-        if !referenceEq(value, new_value)
-           outTree.value = new_value
+        if referenceEq(value, new_value)
+          outTree
+        else
+          LEAF(key, new_value)
         end
-        outTree
       end
 
       _ => begin

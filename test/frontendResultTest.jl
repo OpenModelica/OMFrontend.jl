@@ -8,6 +8,8 @@ include("equationTests.jl")
 include("connect.jl")
 include("arrayTests.jl")
 include("bindingExpTests.jl")
+include("funcEvalAssignTests.jl")
+include("stringEvalTests.jl")
 import ..ConnectTests
 
 #= The set of basic connect tests=#
@@ -40,6 +42,7 @@ multipleinheritanceconnect = (ConnectTests.MultipleInheritanceConnect
 resistorCircuit0 = (ConnectTests.ResistorCircuit0, "ElectricalComponentTest.ResistorCircuit0", "./Connectors/EletricalComponentTest.mo")
 resistorCircuit1 = (ConnectTests.ResistorCircuit1, "ElectricalComponentTest.ResistorCircuit1", "./Connectors/EletricalComponentTest.mo")
 simpleCircuit = (ConnectTests.SimpleCircuit, "ElectricalComponentTest.SimpleCircuit", "./Connectors/EletricalComponentTest.mo")
+expandableBus = (ConnectTests.ExpandableBus, "ExpandableBus", "./Connectors/ExpandableBus.mo")
 #= Basic connect tests=#
 connectTsts = [ctst1,
                ctst2,
@@ -65,7 +68,8 @@ tst = [tank,
        multipleinheritanceconnect,
        resistorCircuit0,
        resistorCircuit1,
-       simpleCircuit]
+       simpleCircuit,
+       expandableBus]
 
 equationTests = [circle,
                  arrayfancy,
@@ -110,4 +114,6 @@ include("connectGenerated.jl")
 runTestsDefinedInVector(generatedConnectorTests,
                         "Connector regression tests (auto-generated from unused .mo files)")
 runTestsDefinedInVector(bindingExpTests, "BINDING_EXP constant evaluation in function bodies")
+runTestsDefinedInVector(funcEvalAssignTests, "Assignments in functions evaluated at compile time")
+runTestsDefinedInVector(stringEvalTests, "String() of constants, as OpenModelica formats them")
 #= End Connector tests =#

@@ -155,6 +155,11 @@ include("./NewFrontend/NFType.jl")
 include("./NewFrontend/NFComplexType.jl")
 include("./NewFrontend/NFPrefixes.jl")
 include("./NewFrontend/NFComponent.jl")
+include("./NewFrontend/NFImport.jl")
+include("./NewFrontend/LookupTree.jl")
+include("./NewFrontend/DuplicateTree.jl")
+include("./NewFrontend/JLookupTree.jl")
+include("./NewFrontend/NFClassTree.jl")
 include("./NewFrontend/NFEquation.jl")
 
 #= Declare the signature for a M_Function early.. =#
@@ -177,10 +182,14 @@ include("./NewFrontend/NFInstNode.jl")
 include("./NewFrontend/NFSections.jl")
 include("./NewFrontend/NFRecord.jl")
 include("./NewFrontend/NFOperatorOverloading.jl")
-include("./NewFrontend/NFCeval.jl")
-include("./NewFrontend/NFDimension.jl")
+#= NFComponentRef uses @CUniontype; its compacted_tag_info registration must be
+   evaluated before any file whose @match patterns destructure crefs (NFCeval
+   is the first), so @match compiles the tag-dispatch path, not the record path. =#
 include("./NewFrontend/NFComponentRef.jl")
 include("./NewFrontend/NFBinding.jl")
+include("./NewFrontend/NFModifier.jl")
+include("./NewFrontend/NFCeval.jl")
+include("./NewFrontend/NFDimension.jl")
 include("./NewFrontend/NFTyping.jl")
 
 include("./NewFrontend/NFScalarize.jl")
@@ -188,7 +197,6 @@ include("./NewFrontend/NFScalarize.jl")
 include("./NewFrontend/NFClass.jl")
 include("./NewFrontend/NFExpressionIterator.jl")
 include("./NewFrontend/NFInstUtil.jl")
-include("./NewFrontend/NFModifier.jl")
 include("./NewFrontend/NFInst.jl")
 include("./NewFrontend/NFAlgorithm.jl")
 include("./NewFrontend/NFStatement.jl")
@@ -216,16 +224,10 @@ include("./NewFrontend/NFConvertDAE.jl")
 
 include("./NewFrontend/NFRestriction.jl")
 
-include("./NewFrontend/NFImport.jl")
 
 
 
-#= Add the trees =#
-include("./NewFrontend/LookupTree.jl")
-include("./NewFrontend/DuplicateTree.jl")
-include("./NewFrontend/JLookupTree.jl")
 
-include("./NewFrontend/NFClassTree.jl")
 
 include("./NewFrontend/NFLookup.jl")
 

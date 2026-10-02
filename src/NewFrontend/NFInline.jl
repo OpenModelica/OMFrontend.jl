@@ -43,24 +43,28 @@ const INLINE_POST_SUB_MAX_NODES = Ref{Int}(2)
    `M_FUNCTION` and reuse across every call site. The previous unconditional
    per-call walk dominated flatten time on MultiBody (hundreds of call sites
    to a small pool of distinct helpers). =#
-#= (hasCall, nodeCount) tuple cache keyed by the function's InstNode
-   objectid. Plain Tuple to dodge world-age issues on Revise-driven struct
-   shape changes; UInt key to avoid String allocation per lookup. =#
+#= (hasCall, nodeCount) tuple cache keyed by the function node's payload-cell
+   identity (_refId). Plain Tuple to dodge world-age issues on Revise-driven
+   struct shape changes; UInt key to avoid String allocation per lookup. =#
 const _INLINE_BODY_INFO_CACHE = Dict{UInt, Tuple{Bool, Int}}()
+const _INLINE_BODY_INFO_LOCK = ReentrantLock()
 const _INLINE_BODY_TOOMANY = (true, typemax(Int))
 
 @nospecialized function _bodyInfo(fn)::Tuple{Bool, Int}
-  local key = objectid(fn.node)
-  local cached = get(_INLINE_BODY_INFO_CACHE, key, nothing)
+  local key = _refId(fn.node)
+  #= Reads and writes are locked: typing workers memoize concurrently. The
+     value is deterministic, so a duplicate compute outside the lock is fine. =#
+  local cached = lock(() -> get(_INLINE_BODY_INFO_CACHE, key, nothing), _INLINE_BODY_INFO_LOCK)
   cached !== nothing && return cached
   local body = getBody(fn)
+  local info::Tuple{Bool, Int}
   if length(body) != 1
-    _INLINE_BODY_INFO_CACHE[key] = _INLINE_BODY_TOOMANY
-    return _INLINE_BODY_TOOMANY
+    info = _INLINE_BODY_TOOMANY
+  else
+    local stmt = body[1]
+    info = (_stmtHasCall(stmt), _countStmtNodes(stmt))
   end
-  local stmt = body[1]
-  local info = (_stmtHasCall(stmt), _countStmtNodes(stmt))
-  _INLINE_BODY_INFO_CACHE[key] = info
+  lock(() -> _INLINE_BODY_INFO_CACHE[key] = info, _INLINE_BODY_INFO_LOCK)
   return info
 end
 
@@ -167,7 +171,7 @@ end
   Inline function for nonbuiltin callexps
   @author johti17
 """
-function inlineSimpleCall(callExp::Expression)::Expression
+function inlineSimpleCall(callExp::Expression, top = nothing)::Expression
   local result::Expression
   local call::Call
   local shouldInline = @match callExp begin
@@ -177,7 +181,7 @@ function inlineSimpleCall(callExp::Expression)::Expression
 #      println("Inline = $(shouldInline) for: " * toString(c))
       #= We might want to inline more things, so check arguments anyway =#
       if !shouldInline
-        local newArgs = Expression[map(arg, inlineSimpleCall) for arg in arguments]
+        local newArgs = Expression[map(arg, a -> inlineSimpleCall(a, top)) for arg in arguments]
         callArguments = newArgs
         TYPED_CALL(c.fn, c.ty, c.var, callArguments, c.attributes)
         return CALL_EXPRESSION(call)
@@ -187,7 +191,7 @@ function inlineSimpleCall(callExp::Expression)::Expression
     _ => false
   end
   result = if shouldInline
-    inlineCall(call)
+    inlineCall(call, top)
   else
     callExp
   end
@@ -198,7 +202,7 @@ end
   Function to inline calls
 @author johti17
 """
-function inlineCall(call::Call)::Expression
+function inlineCall(call::Call, top = nothing)::Expression
   local exp::Expression
   exp = begin
     local fn::M_Function
@@ -253,7 +257,8 @@ function inlineCall(call::Call)::Expression
           stmt = mapExp(stmt,
                         (exp) -> map(exp, (exp) -> replaceCrefNode(exp, i, arg)))
         end
-        getOutputExp(stmt, listHead(outputs), call)
+        local outExp = getOutputExp(stmt, listHead(outputs), call)
+        top === nothing ? outExp : _noEventRelations(outExp, top)
       end
 
       _ => begin
@@ -264,13 +269,46 @@ function inlineCall(call::Call)::Expression
   return exp
 end
 
+#= MLS 8.5: relations in a function body never generate events ("all
+   assignment statements within function classes are implicitly treated with
+   noEvent"). An inlined body keeps that: its relations are wrapped in
+   noEvent (e.g. MSL Frames.Internal.maxWithoutEvent, `if u1 > u2 ...`). =#
+const _NO_EVENT_FN_CACHE = Dict{UInt, M_FUNCTION}()
+
+function _noEventFunction(top::InstNode)::M_FUNCTION
+  return lock(_INST_SHARED_LOCK) do
+    get!(_NO_EVENT_FN_CACHE, _refId(top)) do
+      local (fnRef, _, _) = instFunctionRef(lookupFunctionSimple("noEvent", top), AbsynUtil.dummyInfo)
+      Base.first(typeRefCache(fnRef))
+    end
+  end
+end
+
+function _isNoEventCall(exp::Expression)::Bool
+  return exp isa CALL_EXPRESSION && isvariant(exp.call, TYPED_CALL) &&
+         AbsynUtil.pathString(name(exp.call.fn)) == "noEvent"
+end
+
+function _noEventRelations(exp::Expression, top::InstNode)::Expression
+  local wrap = function (e::Expression)
+    if e isa RELATION_EXPRESSION
+      local fn = _noEventFunction(top)
+      return CALL_EXPRESSION(makeTypedCall(fn, Expression[e], variability(e), typeOf(e)))
+    elseif _isNoEventCall(e) && _isNoEventCall(e.call.arguments[1])
+      return e.call.arguments[1]        # noEvent(noEvent(r)) from a noEvent in the body
+    end
+    return e
+  end
+  return map(exp, wrap)
+end
+
 function replaceCrefNode(exp::Expression, node::InstNode, value::Expression)::Expression
   local ty::M_Type
   local repl_ty::M_Type
-  if exp isa CREF_EXPRESSION && exp.cref isa COMPONENT_REF_CREF
+  if exp isa CREF_EXPRESSION && isvariant(exp.cref, COMPONENT_REF_CREF)
     local cr = exp.cref
     local basePart = cr
-    while basePart.restCref isa COMPONENT_REF_CREF
+    while isvariant(basePart.restCref, COMPONENT_REF_CREF)
       basePart = basePart.restCref
     end
     if refEqual(node, basePart.node)
@@ -286,7 +324,7 @@ function replaceCrefNode(exp::Expression, node::InstNode, value::Expression)::Ex
     end
   end
   ty = typeOf(exp)
-  if ty isa TYPE_ARRAY || ty isa TYPE_TUPLE || ty isa TYPE_FUNCTION || ty isa TYPE_METABOXED
+  if isvariant(ty, TYPE_ARRAY) || isvariant(ty, TYPE_TUPLE) || isvariant(ty, TYPE_FUNCTION) || isvariant(ty, TYPE_METABOXED)
     repl_ty = mapDims(ty, (dimArg) -> replaceDimExp(dimArg, node, value))
     if !referenceEq(ty, repl_ty)
       exp = setType(repl_ty, exp)
@@ -343,5 +381,5 @@ function getOutputExp(stmt::Statement, outputNode::InstNode, call::Call)::Expres
 end
 
 function isSimpleType(ty)
-  return ty isa TYPE_INTEGER || ty isa TYPE_REAL || ty isa TYPE_STRING || ty isa TYPE_REAL
+  return isvariant(ty, TYPE_INTEGER) || isvariant(ty, TYPE_REAL) || isvariant(ty, TYPE_STRING) || isvariant(ty, TYPE_REAL)
 end

@@ -244,7 +244,7 @@ function convertVarAttributes(
   is_final =
     compAttrs.isFinal || compAttrs.variability == Variability.STRUCTURAL_PARAMETER
   #= Real types require SOME(VAR_ATTR_REAL(...)) for backend initialization =#
-  if isempty(attrs) && !is_final && !isa(arrayElementType(ty), TYPE_REAL)
+  if isempty(attrs) && !is_final && !isvariant(arrayElementType(ty), TYPE_REAL)
     attributes = NONE()
     return attributes
   end
@@ -1003,7 +1003,7 @@ function convertForEquation(forEquation::Equation)::DAE.Element
 end
 
 function convertIfEquation(
-  ifBranches::Vector{Equation_Branch},
+  ifBranches::Vector{<:Equation_Branch},
   source::DAE.ElementSource;
   isInitial::Bool,
 )::DAE.Element
@@ -1049,14 +1049,15 @@ function convertIfEquation(
 end
 
 function convertWhenEquation(
-  whenBranches::Vector{Equation_Branch},
+  whenBranches::Vector{<:Equation_Branch},
   source::DAE.ElementSource,
 )::DAE.Element
   local whenEquation::DAE.Element
   local cond::DAE.Exp
   local els::List{DAE.Element}
   local when_eq::Option{DAE.Element} = NONE()
-  for b in whenBranches
+  #= From the last branch: the first is the outermost (elsewhen order is priority). =#
+  for b in reverse(whenBranches)
     when_eq = begin
       @match b begin
         EQUATION_BRANCH(__) => begin
@@ -1386,6 +1387,9 @@ function convertIfStatement(
     end
     first = false
   end
+  #= Only the else branch is left (the conditions evaluated to false and their
+     branches were removed): the statement is its body, an if true. =#
+  else_stmt isa DAE.ELSE && return DAE.STMT_IF(DAE.BCONST(true), else_stmt.statementLst, DAE.NOELSE(), source)
   @match DAE.ELSEIF(dcond, dstmts, else_stmt) = else_stmt
   return DAE.STMT_IF(dcond, dstmts, else_stmt, source)
 end

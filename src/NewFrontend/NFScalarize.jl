@@ -218,7 +218,7 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
   #= Expand record-typed equations to field-level equations.
      For CREF = CREF: expand both sides to their record fields.
      For CREF = CALL (function returning record): keep as record-level. =#
-  if eq isa EQUATION_EQUALITY && isComplex(eq.ty)
+  if isvariant(eq, EQUATION_EQUALITY) && isComplex(eq.ty)
     local rec_lhs = eq.lhs
     local rec_rhs = eq.rhs
     local lhs_expandable = rec_lhs isa CREF_EXPRESSION || rec_lhs isa RECORD_EXPRESSION
@@ -249,7 +249,7 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
   end
   #= Pre-process: try to expand EQUATION_ARRAY_EQUALITY with TYPED_ARRAY_CONSTRUCTOR
      before the @match block, since Revise cannot update @match cases. =#
-  if eq isa EQUATION_ARRAY_EQUALITY
+  if isvariant(eq, EQUATION_ARRAY_EQUALITY)
     local _expanded = tryExpandArrayEqualityToScalar(eq)
     if _expanded !== nothing
       for _eq in _expanded
@@ -365,8 +365,8 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
 
         end
 
-      EQUATION_ARRAY_EQUALITY(CREF_EXPRESSION(__), CALL_EXPRESSION(call), TYPE_ARRAY(__))  where {call isa TYPED_ARRAY_CONSTRUCTOR}=> begin
-        local newExp = tryEvalExp(eq.rhs)
+      EQUATION_ARRAY_EQUALITY(CREF_EXPRESSION(__), CALL_EXPRESSION(call), TYPE_ARRAY(__))  where {isvariant(call, TYPED_ARRAY_CONSTRUCTOR)}=> begin
+        local newExp = _tryEvalParameterExp(eq.rhs)
         local aeq = EQUATION_ARRAY_EQUALITY(eq.lhs, newExp, eq.ty, eq.source)
         push!(equations, aeq)
       end
@@ -374,8 +374,8 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
       EQUATION_ARRAY_EQUALITY(__) => begin
         #= Try to expand/eval and scalarize before falling through. =#
         try
-          local _aexp_lhs = tryEvalExp(eq.lhs)
-          local _aexp_rhs = tryEvalExp(eq.rhs)
+          local _aexp_lhs = _tryEvalParameterExp(eq.lhs)
+          local _aexp_rhs = _tryEvalParameterExp(eq.rhs)
           (_aexp_lhs, _) = expand(_aexp_lhs)
           (_aexp_rhs, _) = expand(_aexp_rhs)
           local _a_lhs_iter = fromExpToExpressionIterator(_aexp_lhs)
@@ -415,26 +415,36 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
   return equations
 end
 
+#= tryEvalExp for a constant or parameter expression; any other is returned as it is. A discrete or
+   continuous expression cannot evaluate to a constant: evalExp finds that out by throwing, after
+   evaluating the function bodies it calls (0.3-7 ms per equation on MultiBody's frame functions,
+   three quarters of Engine1a's scalarize). =#
+function _tryEvalParameterExp(exp::Expression)::Expression
+  return variability(exp) <= Variability.NON_STRUCTURAL_PARAMETER ? tryEvalExp(exp) : exp
+end
+
 """
-Remove branches with no equations after scalarization.
-Add the scalarized if equation to the list of equations unless we don't
-have any branches left.
+Remove the trailing branches with no equations after scalarization (an empty
+branch before others stays: where its condition holds, none of the later
+ones runs). Add the scalarized if equation to the list of equations unless we
+don't have any branches left.
 """
 function scalarizeIfEquation(
-  branches::Vector{Equation_Branch},
+  branches::Vector{<:Equation_Branch},
   source::DAE.ElementSource,
   equations::Vector{Equation},
 )
-  local bl::Vector{Equation_Branch} = Equation_Branch[]
+  local bl::Vector{EquationBranch} = EquationBranch[]
   local cond::Expression
   local body::Vector{Equation}
   local var::VariabilityType
   for b in branches
     @match EQUATION_BRANCH(cond, var, body) = b
     body = scalarizeEquations(body)
-    if !isempty(body)
-      push!(bl, makeBranch(cond, body, var))
-    end
+    push!(bl, makeBranch(cond, body, var))
+  end
+  while !isempty(bl) && isempty(last(bl).body)
+    pop!(bl)
   end
   if !isempty(bl)
     push!(equations, EQUATION_IF(bl, source))
@@ -443,11 +453,11 @@ function scalarizeIfEquation(
 end
 
 function scalarizeWhenEquation(
-  branches::Vector{Equation_Branch},
+  branches::Vector{<:Equation_Branch},
   source::DAE.ElementSource,
   equations::Vector{Equation},
   )
-  local bl::Vector{Equation_Branch} = Equation_Branch[]
+  local bl::Vector{EquationBranch} = EquationBranch[]
   local cond::Expression
   local body::Vector{Equation}
   local var::VariabilityType
@@ -525,17 +535,15 @@ function scalarizeIfStatement(
   local body::Vector{Statement}
   for b in branches
     (cond, body) = b
-    body = scalarizeStatements(body)
-    if !isempty(body)
-      push!(bl, (cond, body))
-    end
+    push!(bl, (cond, scalarizeStatements(body)))
   end
-  #=  Remove branches with no statements after scalarization.
-  =#
-  #=  Add the scalarized if statement to the list of statements unless we don't
-  =#
-  #=  have any branches left.
-  =#
+  #= Remove the trailing branches with no statements after scalarization (an
+     empty branch before others stays: where its condition holds, none of the
+     later ones runs; `if mode == 1 then else y := 5; end if` with mode = 1
+     set y). Add the scalarized if statement unless no branch is left. =#
+  while !isempty(bl) && isempty(last(bl)[2])
+    pop!(bl)
+  end
   if !isempty(bl)
     push!(statements, ALG_IF(bl, source))
   end
@@ -611,7 +619,7 @@ For RECORD_EXPRESSION: extracts the i-th element
 function expandRecordFieldExp(
   @nospecialize(exp::Expression),
   fieldNode::InstNode,
-  @nospecialize(field_ty::M_Type),
+  field_ty::M_Type,
   fieldIndex::Int,
 )::Expression
   @match exp begin
@@ -642,17 +650,17 @@ function tryExpandArrayEqualityToScalar(eq::Equation)
   local wrapper_op = nothing
   local wrapper_scalar = nothing
   local wrapper_is_lhs = false
-  if rhs_exp isa CALL_EXPRESSION && rhs_exp.call isa TYPED_ARRAY_CONSTRUCTOR
+  if rhs_exp isa CALL_EXPRESSION && isvariant(rhs_exp.call, TYPED_ARRAY_CONSTRUCTOR)
     constructor = rhs_exp.call
   elseif rhs_exp isa BINARY_EXPRESSION
     local e1 = rhs_exp.exp1
     local e2 = rhs_exp.exp2
-    if e1 isa CALL_EXPRESSION && e1.call isa TYPED_ARRAY_CONSTRUCTOR
+    if e1 isa CALL_EXPRESSION && isvariant(e1.call, TYPED_ARRAY_CONSTRUCTOR)
       constructor = e1.call
       wrapper_op = rhs_exp.operator
       wrapper_scalar = e2
       wrapper_is_lhs = false
-    elseif e2 isa CALL_EXPRESSION && e2.call isa TYPED_ARRAY_CONSTRUCTOR
+    elseif e2 isa CALL_EXPRESSION && isvariant(e2.call, TYPED_ARRAY_CONSTRUCTOR)
       constructor = e2.call
       wrapper_op = rhs_exp.operator
       wrapper_scalar = e1

@@ -46,6 +46,7 @@ const maxFunctionFileLength = 50::Int
 =#
 const instOnlyForcedFunctions = 0::Int
 const simulationData = 0::Int #= For simulations =#
+const tmpTickIndex = 0::Int #= slot used by System.tmpTick(index = 0) =#
 const codegenTryThrowIndex = 1::Int
 const codegenFunctionList = 2::Int
 const symbolTable = 3::Int

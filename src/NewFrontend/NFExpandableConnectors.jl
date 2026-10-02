@@ -369,7 +369,6 @@ function makeVirtualConnector(
   normal_cref = normalConnector.name
   ty = normalConnector.ty
   #=  TODO: Update the virtual connector with the created node. =#
-  println("Heloo")
   nodeV = node(normal_cref)
   nodeV = clone(nodeV)
   nodeV = rename(firstName(virtual_cref), nodeV)
@@ -398,22 +397,24 @@ function elaborateExpandableSet(
   set::List{<:Connector},
   vars::List{<:Variable},
 )::List{Variable}
-  #throw("Not implemented/checked")
-  local exp_set::ExpandableSet.HashSet
   local exp_conns::List{Connector} = nil
-  local exp_set_lst::List{Connector}
-  local expandableSetCustom = IdSet{Connector}()
-  #exp_set = ExpandableSet.emptySet(Util.nextPrime(listLength(set)))
+  local exp_set_lst::List{Connector} = nil
+  #= Deduplicate undeclared elements by node name (isNodeNameEqual semantics).
+     Identity-based sets are unusable here: objectid of the deeply immutable
+     connector would content-hash the reachable instance graph. =#
+  local seenNames = Set{String}()
   for c in set
     if isExpandable(c.cty)
       exp_conns = _cons(c, exp_conns)
     elseif isUndeclared(c.cty)
-      #exp_set = BaseHashSet.add(c, exp_set)
-      push!(expandableSetCustom, c)
+      local elemName = name(node(c.name))
+      if !(elemName in seenNames)
+        push!(seenNames, elemName)
+        exp_set_lst = _cons(c, exp_set_lst)
+      end
       markComponentPresent(node(name(c)))
     end
   end
-  exp_set_lst = arrayList(Base.collect(expandableSetCustom)) #BaseHashSet.hashSetList(exp_set)
   for ec in exp_conns
     vars = augmentExpandableConnector(ec, exp_set_lst, vars)
   end
@@ -428,9 +429,9 @@ function markComponentPresent(node::InstNode)
   if isPotentiallyPresent(cty)
     cty = setPresent(cty)
     comp = setConnectorType(cty, comp)
-    updateComponent!(comp, node)
+    node = updateComponent!(comp, node)
   end
-  return
+  return node
 end
 
 function augmentExpandableConnector(
@@ -471,17 +472,18 @@ function augmentExpandableConnector(
   for c in expandableSet
     elem_name = name(c)
     nodeElem = node(elem_name)
-    @match ENTRY_INFO(comp_node, isImport) = lookupElement(name(nodeElem), cls_tree)
+    comp_node = lookupElementNode(name(nodeElem), cls_tree)
     if isEmpty(comp_node)
       nodes = _cons(nodeElem, nodes)
       ty = c.ty
       elem_name = prefixCref(nodeElem, ty, nil, exp_name)
       vars = createVirtualVariables(elem_name, ty, Connector_getInfo(c), vars)
     else
-      @match ENTRY_INFO(comp_node, _) = lookupElement(name(nodeElem), cls_tree)
+      comp_node = lookupElementNode(name(nodeElem), cls_tree)
       comp_node = resolveInner(comp_node)
       if isComponent(comp_node)
-        markComponentPresent(comp_node)
+        comp_node = markComponentPresent(comp_node)
+        cls_tree = replaceElementNode(name(nodeElem), comp_node, cls_tree)
       else
         Error.addInternalError(
           getInstanceName() + " got non-component element",
@@ -510,8 +512,8 @@ function augmentExpandableConnector(
   ty = TYPE_COMPLEX(cls_node, complex_ty)
   ty = liftArrayLeftList(ty, arrayDims(getType(exp_node))) #Change from pstream
   cls = setType(ty, cls)
-  updateClass(cls, cls_node)
-  componentApply(exp_node, setType, ty)
+  cls_node = updateClass(cls, cls_node)
+  exp_node = componentApply(exp_node, setType, ty)
   return vars
 end
 

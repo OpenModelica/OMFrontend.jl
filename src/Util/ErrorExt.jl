@@ -258,10 +258,21 @@ function getMessages()::List{ErrorTypes.TotalMessage}
   return res
 end
 
-"""Returns all error messages since the last checkpoint and pops them from the message queue."""
+"""Returns the messages added since the last checkpoint and POPS them from the
+message queue (the checkpoint mark itself stays on the stack).
+Entries are stored as `[message, tokens, info]`; token substitution is deferred
+to print time, so the tokens list is not preserved in the TotalMessage."""
 function getCheckpointMessages()::List{ErrorTypes.TotalMessage}
   local res::List{ErrorTypes.TotalMessage} = nil
-  @warn "TODO: getCheckpointMessages not defined in the runtime"
+  local st = _state()
+  local mark = isempty(st.checkpointStack) ? 0 : st.checkpointStack[end]
+  for i in (mark + 1):length(st.sourceMessages)
+    local e = st.sourceMessages[i]
+    if e isa AbstractVector && length(e) >= 3
+      res = ErrorTypes.TOTALMESSAGE(e[1], e[3]) <| res
+    end
+  end
+  resize!(st.sourceMessages, min(mark, length(st.sourceMessages)))
   return res
 end
 
@@ -334,26 +345,47 @@ function rollBack(id::String) #= unique identifier =#
   return nothing
 end
 
+#= Messages parked by popCheckPoint, keyed by opaque handle until pushMessages
+   or freeMessages consumes them. =#
+const _POPPED_MESSAGES = Dict{Int, Any}()
+const _NEXT_POP_HANDLE = Ref(0)
+
 """
   rolls back error messages until the latest checkpoint,
-  returning all error messages added since that point in time. A unique identifier for the checkpoint must be provided
-  The application will exit with return code -1 if this identifier does not match.
+  returning the removed messages as opaque handles; pass them back to
+  pushMessages (re-add) or freeMessages (discard). Handles are oldest-first.
 """
 function popCheckPoint(id::String)::List{Integer} #= unique identifier =#
-  local handles::List{Integer} #= opaque pointers; you MUST pass them back or memory is leaked =#
-
-  @warn "TODO: Defined in the runtime"
-  return handles #= opaque pointers; you MUST pass them back or memory is leaked =#
+  local handles::List{Integer} = nil
+  local st = _state()
+  if !isempty(st.checkpointStack)
+    local mark = pop!(st.checkpointStack)
+    for i in (mark + 1):length(st.sourceMessages)
+      local h = (_NEXT_POP_HANDLE[] += 1)
+      _POPPED_MESSAGES[h] = st.sourceMessages[i]
+      handles = h <| handles
+    end
+    resize!(st.sourceMessages, min(mark, length(st.sourceMessages)))
+  end
+  return listReverse(handles)
 end
 
-"""Pushes stored pointers back to the error stack."""
+"""Pushes stored messages back to the error queue, consuming the handles."""
 function pushMessages(handles::List{<:Integer}) #= opaque pointers from popCheckPoint =#
-  return @warn "TODO: Defined in the runtime"
+  local st = _state()
+  for h in handles
+    local entry = pop!(_POPPED_MESSAGES, h, nothing)
+    entry === nothing || push!(st.sourceMessages, entry)
+  end
+  return nothing
 end
 
-"""Pushes stored pointers back to the error stack."""
+"""Discards stored messages, consuming the handles."""
 function freeMessages(handles::List{<:Integer}) #= opaque pointers from popCheckPoint =#
-  return @warn "TODO: Defined in the runtime"
+  for h in handles
+    delete!(_POPPED_MESSAGES, h)
+  end
+  return nothing
 end
 
 """
@@ -363,10 +395,8 @@ end
   not sure that it exists (due to MetaModelica backtracking).
 """
 function isTopCheckpoint(id::String)::Bool #= unique identifier =#
-  local isThere::Bool #= tells us if the checkpoint exists (true) or doesn't (false) =#
-
-  @warn "TODO: Defined in the runtime"
-  return isThere #= tells us if the checkpoint exists (true) or doesn't (false) =#
+  #= checkpoint ids are not stored in this port; report whether any checkpoint exists =#
+  return !isempty(_state().checkpointStack)
 end
 
 function setShowErrorMessages(inShow::Bool)

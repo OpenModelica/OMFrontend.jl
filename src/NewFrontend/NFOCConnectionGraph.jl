@@ -128,17 +128,29 @@ function handleOverconstrainedConnections(flatModel::FlatModel,
   local source::DAE.ElementSource
   @assign origin = intBitOr(ORIGIN_EQUATION, ORIGIN_CONNECT)
   #=  Go over all equations, connect, Connection.branch =#
-  for conn in conns.connections
+  #= The equality-constraint equations are only needed for the edges the
+     spanning tree BREAKS (a handful), but each generation types two calls.
+     Attach an empty vector to every edge, remember the inputs keyed by that
+     vector's identity, and generate lazily for the broken edges below. =#
+  local pendingGen = IdDict{Vector{Equation}, Tuple{ComponentRef, NFType, ComponentRef, NFType, DAE.ElementSource}}()
+  @EXECSTAT "    oc:collectGraph" for conn in conns.connections
     @match CONNECTION(lhs = c1, rhs = c2) = conn
     lhs_crefs = getOverconstrainedCrefs(c1)
     rhs_crefs = getOverconstrainedCrefs(c2)
     if ! listEmpty(lhs_crefs)
-      eqlBroken = generateEqualityConstraintEquation(c1.name, c1.ty, c2.name, c2.ty, origin, c1.source)
+      eqlBroken = Equation[]
+      pendingGen[eqlBroken] = (c1.name, c1.ty, c2.name, c2.ty, c1.source)
       graph = ListUtil.threadFold(lhs_crefs, rhs_crefs,
                                   (x, y, z) -> addConnection(x, y, eqlBroken, print_trace, z), graph)
     end
   end
+  local conditionals = ConditionalBranch[]
   for eq in flatModel.equations
+    local cb = conditionalBranch(eq)
+    if cb !== nothing
+      push!(conditionals, cb)
+      continue
+    end
     eql = begin
       @match eq begin
         EQUATION_NORETCALL(exp = CALL_EXPRESSION(call && TYPED_CALL(arguments = lst)), source = source)  => begin
@@ -193,8 +205,23 @@ function handleOverconstrainedConnections(flatModel::FlatModel,
   #=  now we have the graph, remove the broken connects and evaluate the equation operators =#
   eql = eql
   ieql = flatModel.initialEquations
-  (eql, ieql, connected, broken) = handleOverconstrainedConnections_dispatch(graph, modelNameQualified, eql, ieql)
-  eql = removeBrokenConnects(eql, connected, broken)
+  if isempty(conditionals)
+    @EXECSTAT "    oc:dispatch" (eql, ieql, connected, broken) = handleOverconstrainedConnections_dispatch(graph, modelNameQualified, eql, ieql)
+  else
+    @EXECSTAT "    oc:modes" (eql, ieql, connected, broken) = resolveModes(graph, conditionals, modelNameQualified, eql, ieql)
+  end
+  #= Fill in the equality-constraint equations for the edges that broke; the
+     consumers (NFFlatten.resolveConnections) take them as lists. =#
+  for edge in broken
+    local edgeEql = edge[3]
+    local genArgs = Base.get(pendingGen, edgeEql, nothing)
+    if genArgs !== nothing && isempty(edgeEql)
+      append!(edgeEql, generateEqualityConstraintEquation(
+        genArgs[1], genArgs[2], genArgs[3], genArgs[4], origin, genArgs[5]))
+    end
+  end
+  broken = ListUtil.map(broken, e -> (e[1], e[2], arrayList(e[3])))
+  @EXECSTAT "    oc:removeBroken" eql = removeBrokenConnects(eql, connected, broken)
   #= Convert the lists back to arrays =#
   @assign begin
     flatModel.equations = eql
@@ -202,6 +229,19 @@ function handleOverconstrainedConnections(flatModel::FlatModel,
   end
   outBroken = broken
   (flatModel, outBroken, graph)
+end
+
+#= Per-translation caches for the function refs used in generated
+   equalityConstraint equations. Lookup + instantiation only depend on the
+   connector class (equalityConstraint) or the top scope (fill), not on the
+   individual connection. =#
+const _EQ_CONSTRAINT_FN_CACHE = Dict{UInt64, Tuple{ComponentRef, InstNode}}()
+const _FILL_FN_CACHE = Dict{UInt64, Tuple{ComponentRef, InstNode}}()
+
+function resetConnectionGraphCaches()
+  empty!(_EQ_CONSTRAINT_FN_CACHE)
+  empty!(_FILL_FN_CACHE)
+  return nothing
 end
 
 function generateEqualityConstraintEquation(clhs::ComponentRef,
@@ -262,12 +302,20 @@ function generateEqualityConstraintEquation(clhs::ComponentRef,
             rhsArr = Base.first(stripSubscripts(rhs))
             ty1 = getComponentType(lhsArr)
             ty2 = getComponentType(rhsArr)
-            fcref_rhs = lookupFunctionSimple("equalityConstraint", classScope(node(lhs)))
-            (fcref_rhs, fn_node_rhs, _) = instFunctionRef(fcref_rhs, AbsynUtil.dummyInfo)
+            local eqScope = classScope(node(lhs))
+            (fcref_rhs, fn_node_rhs) = get!(_EQ_CONSTRAINT_FN_CACHE, _refId(eqScope)) do
+              local fc = lookupFunctionSimple("equalityConstraint", eqScope)
+              local (fc2, fn2, _) = instFunctionRef(fc, AbsynUtil.dummyInfo)
+              (fc2, fn2)
+            end
             expRHS = CALL_EXPRESSION(UNTYPED_CALL(fcref_rhs, Expression[CREF_EXPRESSION(ty1, lhsArr), CREF_EXPRESSION(ty2, rhsArr)], Expression[], fn_node_rhs))
             (expRHS, ty, var) = typeExp(expRHS, origin, AbsynUtil.dummyInfo #=ElementSource_getInfo(source)=#)
-            fcref_lhs = lookupFunctionSimple("fill", topScope(node(clhs)))
-            (fcref_lhs, fn_node_lhs, _) = instFunctionRef(fcref_lhs, AbsynUtil.dummyInfo #= ElementSource_getInfo(source)=#)
+            local fillScope = topScope(node(clhs))
+            (fcref_lhs, fn_node_lhs) = get!(_FILL_FN_CACHE, _refId(fillScope)) do
+              local fc = lookupFunctionSimple("fill", fillScope)
+              local (fc2, fn2, _) = instFunctionRef(fc, AbsynUtil.dummyInfo)
+              (fc2, fn2)
+            end
             local argLst = _cons(REAL_EXPRESSION(0.0), ListUtil.map(arrayDims(ty), sizeExp))
             expLHS = CALL_EXPRESSION(UNTYPED_CALL(fcref_lhs, listArray(argLst), Expression[], fn_node_lhs))
             (expLHS, ty, var) = typeExp(expLHS, origin, AbsynUtil.dummyInfo#=ElementSource_getInfo(source)=#)
@@ -360,14 +408,14 @@ function handleOverconstrainedConnections_dispatch(inGraph::NFOCConnectionGraph,
                 + "\\n\\t" + "Nr Branches:        " + intString(listLength(getBranches(graph)))
                 + "\\n\\t" + "Nr Connections:     " + intString(listLength(getConnections(graph))) + "\\n")
         end
-        (roots, connected, broken) = findResultGraph(graph, modelNameQualified)
+        @EXECSTAT "    oc:findResultGraph" (roots, connected, broken) = findResultGraph(graph, modelNameQualified)
         if Flags.isSet(Flags.CGRAPH)
           print("Roots: " + stringDelimitList(ListUtil.map(roots, toString), ", ") + "\\n")
           print("Broken connections: " + stringDelimitList(ListUtil.map1(broken, printConnectionStr, "broken"), ", ") + "\\n")
           print("Allowed connections: " + stringDelimitList(ListUtil.map1(connected, printConnectionStr, "allowed"), ", ") + "\\n")
         end
-        eqs = evalConnectionsOperators(roots, graph, eqs)
-        ieqs = evalConnectionsOperators(roots, graph, ieqs)
+        @EXECSTAT "    oc:evalOperators" eqs = evalConnectionsOperators(roots, graph, eqs)
+        @EXECSTAT "    oc:evalOperatorsInit" ieqs = evalConnectionsOperators(roots, graph, ieqs)
         (eqs, ieqs, connected, broken)
       end
 
@@ -452,7 +500,9 @@ function addConnection(ref1::ComponentRef, ref2::ComponentRef, brokenEquations::
   if printTrace
     print("- NFOCConnectionGraph.addConnection(" + toString(ref1) + ", " + toString(ref2) + ")\\n")
   end
-  graphConnections = _cons((ref1, ref2, arrayList(brokenEquations)), graph.connections)
+  #= The vector itself: handleOverconstrainedConnections fills it once the edge
+     breaks (keyed by its identity) and then turns it into a list. =#
+  graphConnections = _cons((ref1, ref2, brokenEquations), graph.connections)
   return OCC_GRAPH(graph.updateGraph,
             graph.definiteRoots,
             graph.potentialRoots,
@@ -464,55 +514,17 @@ end
 """  Returns the canonical element of the component where input element belongs to.
      See explanation at the top of file.
 """
-function canonical(inPartition::NFHashTableCG.HashTable, inRef::ComponentRef) ::ComponentRef
-  local outCanonical::ComponentRef
-  outCanonical = begin
-    #= /*outPartition,*/ =#
-    local partition::NFHashTableCG.HashTable
-    local ref::ComponentRef
-    local parent::ComponentRef
-    local parentCanonical::ComponentRef
-    @matchcontinue (inPartition, inRef) begin
-      (partition, ref)  => begin
-        parent = BaseHashTable.get(ref, partition)
-        parentCanonical = canonical(partition, parent)
-        parentCanonical
-      end
-
-      (_, ref)  => begin
-        ref
-      end
-    end
-  end
-  outCanonical
+function canonical(inPartition::NFHashTableCG.HashTable, inRef::ComponentRef)::ComponentRef
+  local parent = NFHashTableCG.getOrNothing(inRef, inPartition)
+  return parent === nothing ? inRef : canonical(inPartition, parent)
 end
 
 """
   Tells whether the elements belong to the same component.
   See explanation at the top of file.
 """
-function areInSameComponent(inPartition::NFHashTableCG.HashTable, inRef1::ComponentRef, inRef2::ComponentRef) ::Bool
-  local outResult::Bool
-  #=  canonical(inPartition,inRef1) = canonical(inPartition,inRef2); =#
-  @assign outResult = begin
-    local partition::NFHashTableCG.HashTable
-    local ref1::ComponentRef
-    local ref2::ComponentRef
-    local canon1::ComponentRef
-    local canon2::ComponentRef
-    @matchcontinue (inPartition, inRef1, inRef2) begin
-      (partition, ref1, ref2)  => begin
-        canon1 = canonical(partition, ref1)
-        canon2 = canonical(partition, ref2)
-        @match true = isEqual(canon1, canon2)
-        true
-      end
-      _  => begin
-        false
-      end
-    end
-  end
-  outResult
+function areInSameComponent(inPartition::NFHashTableCG.HashTable, inRef1::ComponentRef, inRef2::ComponentRef)::Bool
+  return isEqual(canonical(inPartition, inRef1), canonical(inPartition, inRef2))
 end
 
 """
@@ -520,33 +532,11 @@ end
   on wheter the connection success or not (i.e are the components already connected),
   adds either inConnectionDae or inBreakDae to the list of DAE elements.
 """
-function connectBranchComponents(inPartition::NFHashTableCG.HashTable, inRef1::ComponentRef, inRef2::ComponentRef) ::NFHashTableCG.HashTable
-  local outPartition::NFHashTableCG.HashTable
-
-  @assign outPartition = begin
-    local partition::NFHashTableCG.HashTable
-    local ref1::ComponentRef
-    local ref2::ComponentRef
-    local canon1::ComponentRef
-    local canon2::ComponentRef
-    #=  can connect them
-    =#
-    @matchcontinue (inPartition, inRef1, inRef2) begin
-      (partition, ref1, ref2)  => begin
-        @assign canon1 = canonical(partition, ref1)
-        @assign canon2 = canonical(partition, ref2)
-        @match (partition, true) = connectCanonicalComponents(partition, canon1, canon2)
-        partition
-      end
-
-      (partition, _, _)  => begin
-        partition
-      end
-    end
-  end
-  #=  cannot connect them
-  =#
-  outPartition
+function connectBranchComponents(inPartition::NFHashTableCG.HashTable, inRef1::ComponentRef, inRef2::ComponentRef)::NFHashTableCG.HashTable
+  local canon1 = canonical(inPartition, inRef1)
+  local canon2 = canonical(inPartition, inRef2)
+  local (partition, _) = connectCanonicalComponents(inPartition, canon1, canon2)
+  return partition
 end
 
 """ Tries to connect two components whose elements are given. Depending
@@ -558,41 +548,18 @@ function connectComponents(inPartition::NFHashTableCG.HashTable, inFlatEdge::Fla
   local outConnectedConnections::FlatEdges
   local outPartition::NFHashTableCG.HashTable
 
-  (outPartition, outConnectedConnections, outBrokenConnections) = begin
-    local partition::NFHashTableCG.HashTable
-    local ref1::ComponentRef
-    local ref2::ComponentRef
-    local canon1::ComponentRef
-    local canon2::ComponentRef
-    #=  leave the connect(ref1,ref2)
-    =#
-    @matchcontinue (inPartition, inFlatEdge) begin
-      (partition, (ref1, _, _))  => begin
-        @shouldFail @assign _ = canonical(partition, ref1)
-        (partition, list(inFlatEdge), nil)
-      end
-
-      (partition, (_, ref2, _))  => begin
-        @shouldFail @assign _ = canonical(partition, ref2)
-        (partition, list(inFlatEdge), nil)
-      end
-
-      (partition, (ref1, ref2, _))  => begin
-        canon1 = canonical(partition, ref1)
-        canon2 = canonical(partition, ref2)
-        @match (partition, true) = connectCanonicalComponents(partition, canon1, canon2)
-        (partition, list(inFlatEdge), nil)
-      end
-
-      (partition, (ref1, ref2, _))  => begin
-        if Flags.isSet(Flags.CGRAPH)
-          Debug.trace("- NFOCConnectionGraph.connectComponents: should remove equations generated from: connect(" + toString(ref1) + ", " + toString(ref2) + ") and add {0, ..., 0} = equalityConstraint(cr1, cr2) instead.\\n")
-        end
-        (partition, nil, list(inFlatEdge))
-      end
-    end
+  local (ref1, ref2, _) = inFlatEdge
+  local canon1 = canonical(inPartition, ref1)
+  local canon2 = canonical(inPartition, ref2)
+  local connected::Bool
+  (outPartition, connected) = connectCanonicalComponents(inPartition, canon1, canon2)
+  if connected
+    return (outPartition, list(inFlatEdge), nil)
   end
-  (outPartition, outConnectedConnections, outBrokenConnections)
+  if Flags.isSet(Flags.CGRAPH)
+    Debug.trace("- NFOCConnectionGraph.connectComponents: should remove equations generated from: connect(" + toString(ref1) + ", " + toString(ref2) + ") and add {0, ..., 0} = equalityConstraint(cr1, cr2) instead.\\n")
+  end
+  return (outPartition, nil, list(inFlatEdge))
 end
 
 """
@@ -603,51 +570,22 @@ function connectCanonicalComponents(inPartition::NFHashTableCG.HashTable, inRef1
   local outReallyConnected::Bool
   local outPartition::NFHashTableCG.HashTable
 
-   (outPartition, outReallyConnected) = begin
-    local partition::NFHashTableCG.HashTable
-    local ref1::ComponentRef
-    local ref2::ComponentRef
-    #=  they are the same
-    =#
-    @matchcontinue (inPartition, inRef1, inRef2) begin
-      (partition, ref1, ref2)  => begin
-        @match true = isEqual(ref1, ref2)
-        (partition, false)
-      end
-
-      (partition, ref1, ref2)  => begin
-        @assign partition = BaseHashTable.add((ref1, ref2), partition)
-        (partition, true)
-      end
-    end
+  if isEqual(inRef1, inRef2)
+    return (inPartition, false)
   end
-  #=  not the same, add it
-  =#
-  (outPartition, outReallyConnected)
+  outPartition = NFHashTableCG.add((inRef1, inRef2), inPartition)
+  return (outPartition, true)
 end
 
 """Adds a root the the graph. This is implemented by connecting the root to inFirstRoot element."""
 function addRootsToTable(inTable::NFHashTableCG.HashTable, inRoots::List{<:ComponentRef}, inFirstRoot::ComponentRef) ::NFHashTableCG.HashTable
   local outTable::NFHashTableCG.HashTable
 
-  @assign outTable = begin
-    local table::NFHashTableCG.HashTable
-    local root::ComponentRef
-    local firstRoot::ComponentRef
-    local tail::List{ComponentRef}
-    @match (inTable, inRoots, inFirstRoot) begin
-      (table, root <| tail, firstRoot)  => begin
-        @assign table = BaseHashTable.add((root, firstRoot), table)
-        @assign table = addRootsToTable(table, tail, firstRoot)
-        table
-      end
-
-      (table,  nil(), _)  => begin
-        table
-      end
-    end
+  outTable = inTable
+  for root in inRoots
+    outTable = NFHashTableCG.add((root, inFirstRoot), outTable)
   end
-  outTable
+  return outTable
 end
 
 """Creates an initial graph with given definite roots."""
@@ -667,26 +605,12 @@ end
 function addBranchesToTable(inTable::NFHashTableCG.HashTable, inBranches::Edges) ::NFHashTableCG.HashTable
   local outTable::NFHashTableCG.HashTable
 
-  @assign outTable = begin
-    local table::NFHashTableCG.HashTable
-    local table1::NFHashTableCG.HashTable
-    local table2::NFHashTableCG.HashTable
-    local ref1::ComponentRef
-    local ref2::ComponentRef
-    local tail::Edges
-    @match (inTable, inBranches) begin
-      (table, (ref1, ref2) <| tail)  => begin
-        @assign table1 = connectBranchComponents(table, ref1, ref2)
-        @assign table2 = addBranchesToTable(table1, tail)
-        table2
-      end
-
-      (table,  nil())  => begin
-        table
-      end
-    end
+  outTable = inTable
+  for branch in inBranches
+    local (ref1, ref2) = branch
+    outTable = connectBranchComponents(outTable, ref1, ref2)
   end
-  outTable
+  return outTable
 end
 
 """ An ordering function for potential roots. """
@@ -724,35 +648,19 @@ function addPotentialRootsToTable(inTable::NFHashTableCG.HashTable, inPotentialR
   local outRoots::DefiniteRoots
   local outTable::NFHashTableCG.HashTable
 
-   (outTable, outRoots) = begin
-    local table::NFHashTableCG.HashTable
-    local potentialRoot::ComponentRef
-    local firstRoot::ComponentRef
-    local canon1::ComponentRef
-    local canon2::ComponentRef
-    local roots::DefiniteRoots
-    local finalRoots::DefiniteRoots
-    local tail::PotentialRoots
-    @matchcontinue (inTable, inPotentialRoots, inRoots, inFirstRoot) begin
-      (table,  nil(), roots, _)  => begin
-        (table, roots)
-      end
-
-      (table, (potentialRoot, _) <| tail, roots, firstRoot)  => begin
-        @assign canon1 = canonical(table, potentialRoot)
-        @assign canon2 = canonical(table, firstRoot)
-        @match (table, true) = connectCanonicalComponents(table, canon1, canon2)
-         (table, finalRoots) = addPotentialRootsToTable(table, tail, _cons(potentialRoot, roots), firstRoot)
-        (table, finalRoots)
-      end
-
-      (table, _ <| tail, roots, firstRoot)  => begin
-         (table, finalRoots) = addPotentialRootsToTable(table, tail, roots, firstRoot)
-        (table, finalRoots)
-      end
+  outTable = inTable
+  outRoots = inRoots
+  for pr in inPotentialRoots
+    local (potentialRoot, _) = pr
+    local canon1 = canonical(outTable, potentialRoot)
+    local canon2 = canonical(outTable, inFirstRoot)
+    local connected::Bool
+    (outTable, connected) = connectCanonicalComponents(outTable, canon1, canon2)
+    if connected
+      outRoots = _cons(potentialRoot, outRoots)
     end
   end
-  (outTable, outRoots)
+  return (outTable, outRoots)
 end
 
 """Adds all connections to graph."""
@@ -997,38 +905,21 @@ function setRootDistance(finalRoots::List{<:ComponentRef},
                          nextLevel::List{<:ComponentRef},
                          irooted::NFHashTable.HashTable)::NFHashTable.HashTable
   local orooted::NFHashTable.HashTable
-  orooted = begin
-    local rooted::NFHashTable.HashTable
-    local rest::List{ComponentRef}
-    local next::List{ComponentRef}
-    local cr::ComponentRef
-    @matchcontinue (finalRoots, table, distance, nextLevel, irooted) begin
-      ( nil(), _, _,  nil(), _)  => begin
-        irooted
-      end
-
-      ( nil(), _, _, _, _)  => begin
-        setRootDistance(nextLevel, table, distance + 1, nil, irooted)
-      end
-
-      (cr <| rest, _, _, _, _) where {BaseHashTable.hasKey(cr, irooted) == false} => begin
-        rooted = BaseHashTable.add((cr, distance), irooted)
-        next = BaseHashTable.get(cr, table)
-        next = listAppend(nextLevel, next)
-        setRootDistance(rest, table, distance, next, rooted)
-      end
-
-      (cr <| rest, _, _, _, _)  where {BaseHashTable.hasKey(cr, irooted) == false} => begin
-        @assign rooted = BaseHashTable.add((cr, distance), irooted)
-        setRootDistance(rest, table, distance, nextLevel, rooted)
-      end
-
-      (_ <| rest, _, _, _, _)  => begin
-        setRootDistance(rest, table, distance, nextLevel, irooted)
+  local rooted = irooted
+  local next = nextLevel
+  for cr in finalRoots
+    if !NFHashTable.hasKey(cr, rooted)
+      rooted = NFHashTable.add((cr, distance), rooted)
+      local adjacent = NFHashTable3.getOrNothing(cr, table)
+      if adjacent !== nothing
+        next = listAppend(next, adjacent)
       end
     end
   end
-  orooted
+  if listEmpty(next)
+    return rooted
+  end
+  return setRootDistance(next, table, distance + 1, nil, rooted)
 end
 
 function addBranches(edge::Edge, itable::NFHashTable3.HashTable) ::NFHashTable3.HashTable
@@ -1058,28 +949,19 @@ end
 function addConnectionRooted(cref1::ComponentRef, cref2::ComponentRef, itable::NFHashTable3.HashTable) ::NFHashTable3.HashTable
   local otable::NFHashTable3.HashTable
 
-  @assign otable = begin
-    local table::NFHashTable3.HashTable
-    local crefs::List{ComponentRef}
-    @match (cref1, cref2, itable) begin
-      (_, _, _)  => begin
-        @assign crefs = begin
-          @matchcontinue () begin
-            ()  => begin
-              BaseHashTable.get(cref1, itable)
-            end
+  local crefs = NFHashTable3.getOrNothing(cref1, itable)
+  otable = NFHashTable3.add((cref1, _cons(cref2, crefs === nothing ? nil : crefs)), itable)
+  return otable
+end
 
-            _  => begin
-              nil
-            end
-          end
-        end
-        @assign table = BaseHashTable.add((cref1, _cons(cref2, crefs)), itable)
-        table
-      end
-    end
+"""True for calls to the Connections operators that evalConnectionsOperators replaces (rooted, isRoot, uniqueRootIndices)."""
+function isConnectionsOperatorCall(exp::Expression)::Bool
+  if !(exp isa CALL_EXPRESSION)
+    return false
   end
-  otable
+  local call = exp.call
+  return isvariant(call, TYPED_CALL) &&
+    identifyConnectionsOperator(name(call.fn)) !== ConnectionsOperator.NOT_OPERATOR
 end
 
 """
@@ -1094,69 +976,248 @@ See Modelica_StateGraph2:
   for a specification of this operator
 """
 function evalConnectionsOperators(inRoots::List{<:ComponentRef}, graph::NFOCConnectionGraph, inEquations::Vector{Equation}) ::Vector{Equation}
-  local outEquations::Vector{Equation}
-  outEquations = begin
-    local rooted::NFHashTable.HashTable
-    local table::NFHashTable3.HashTable
-    local branches::Edges
-    local connections::FlatEdges
-    local rootEqs = Equation[]
-    outEquations = @matchcontinue (inRoots, graph, inEquations) begin
-      (_, _,  [])  => begin
-        Equation[]
-      end
-      _  => begin
-        table = NFHashTable3.emptyHashTable()
-        branches = getBranches(graph)
-        table = ListUtil.fold(branches, addBranches, table)
-        connections = getConnections(graph)
-        table = ListUtil.fold(connections, addConnectionsRooted, table)
-        rooted = setRootDistance(inRoots, table, 0, nil, NFHashTable.emptyHashTable())
-        tmp = Equation[]
-        for eq in inEquations
-          info = Equation_info(eq)
-          neq =  mapExp(eq, (x) -> evaluateOperators(x, rooted, inRoots, graph, info))
-          push!(tmp, neq)
-        end
-        outEquations = tmp
-      end
-    end
+  local rooted::NFHashTable.HashTable
+  local table::NFHashTable3.HashTable
+  if isempty(inEquations) || !System.getUsesConnectionsOperators()
+    return inEquations
   end
-    return outEquations
+  table = NFHashTable3.emptyHashTable()
+  table = ListUtil.fold(getBranches(graph), addBranches, table)
+  table = ListUtil.fold(getConnections(graph), addConnectionsRooted, table)
+  rooted = setRootDistance(inRoots, table, 0, nil, NFHashTable.emptyHashTable())
+  local tmp = Equation[]
+  for eq in inEquations
+    #= The rebuilding operator map is expensive per node; gate it on a cheap
+       early-exit containment check so operator-free equations pass through. =#
+    local neq = mapExp(eq, (x) -> begin
+      if contains(x, isConnectionsOperatorCall)
+        evaluateOperators(x, rooted, inRoots, graph, Equation_info(eq))
+      else
+        x
+      end
+    end)
+    push!(tmp, neq)
+  end
+  return tmp
+end
+
+#= Dynamic overconstrained connectors (DOCC): a Connections.branch under an
+   if-equation on a discrete condition,
+
+     if closed then
+       Connections.branch(port_a.omegaRef, port_b.omegaRef);
+       port_a.omegaRef = port_b.omegaRef;
+     end if;
+
+   The graph is resolved once per mode (each conditional branch present or
+   not), and the equations that differ between the modes become one
+   if-equation over the conditions. At run time the event that changes a
+   condition switches to that mode's roots and equations; nothing is rebuilt.
+   The roots depend on the conditions at that instant only (JKRT). Removing a
+   branch that is a tree edge splits one tree, and a potential root of the
+   new part takes it, so every mode has as many equations; the modes are
+   checked to be balanced.
+   Not supported (an error): an else or elseif in the if-equation, more than
+   one Connections.branch in it, a conditional branch whose presence changes
+   which connects break (a breaker on one of two parallel lines), and mode
+   equations that are not scalar. =#
+
+"""A Connections.branch(a, b) under `if condition then ... end if`, with the branch's other equations."""
+struct ConditionalBranch
+  a::ComponentRef
+  b::ComponentRef
+  condition::Expression
+  body::Vector{Equation}
+  source::DAE.ElementSource
+end
+
+#= 2^k modes for k conditional branches. =#
+const MAX_CONDITIONAL_BRANCHES = 8
+
+function isBranchCall(@nospecialize(eq::Equation))::Bool
+  return isvariant(eq, EQUATION_NORETCALL) && eq.exp isa CALL_EXPRESSION && isvariant(eq.exp.call, TYPED_CALL) &&
+    identifyConnectionsOperator(name(eq.exp.call.fn)) == ConnectionsOperator.BRANCH
 end
 
 """
- Finds the root equations
+  The conditional branch `eq` states, or nothing when `eq` is not an if-equation
+  whose body calls Connections.branch.
 """
-function findRootEquations(inRoots::List{<:ComponentRef}, graph::NFOCConnectionGraph, inEquations)::Vector{Equation}
-  local rootEqs = Equation[]
-  if isempty(inEquations)
-    return rootEqs
+function conditionalBranch(@nospecialize(eq::Equation))::Union{Nothing, ConditionalBranch}
+  isvariant(eq, EQUATION_IF) || return nothing
+  any(br -> isvariant(br, EQUATION_BRANCH) && any(isBranchCall, br.body), eq.branches) || return nothing
+  if length(eq.branches) != 1
+    error("Connections.branch in an if-equation with more than one branch is not supported: " * toString(eq))
   end
-  table = NFHashTable3.emptyHashTable()
-  branches = getBranches(graph)
-  table = ListUtil.fold(branches, addBranches, table)
-  connections = getConnections(graph)
-  table = ListUtil.fold(connections, addConnectionsRooted, table)
-  rooted = setRootDistance(inRoots, table, 0, nil, NFHashTable.emptyHashTable())
-  for (i, eq) in enumerate(inEquations)
-    info = Equation_info(eq)
-    @match eq begin
-      EQUATION_IF(EQUATION_BRANCH(cond, condVar, body) <| nil, _) where isCall(cond) => begin
-        neq = mapExp(eq, (x) -> evaluateOperators(x, rooted, inRoots, graph, info))
-        #= We know that this has only one branch. =#
-        @match BOOLEAN_EXPRESSION(isRootedEvalToTrue) = listHead(neq.branches).condition
-        @assert length(body) == 1 "Assuming the body is of length 1"
-        if isRootedEvalToTrue
-          push!(rootEqs, listHead(body))
+  local br = only(eq.branches)
+  local calls = filter(isBranchCall, br.body)
+  length(calls) == 1 || error("more than one Connections.branch in one if-equation is not supported: " * toString(eq))
+  @match CREF_EXPRESSION(cref = a) <| CREF_EXPRESSION(cref = b) <| nil = arrayList(only(calls).exp.call.arguments)
+  return ConditionalBranch(a, b, br.condition, filter(e -> !isBranchCall(e), br.body), eq.source)
+end
+
+isActive(mode::Int, i::Int)::Bool = isodd(mode >> (i - 1))
+
+"""
+  Resolves the graph for every mode of the conditional branches `cbs` and
+  returns the equations (the mode-dependent ones as one if-equation over the
+  conditions), the initial equations, and the connected and broken edges.
+"""
+function resolveModes(graph::NFOCConnectionGraph, cbs::Vector{ConditionalBranch}, modelNameQualified::String,
+                      eqs::Vector{Equation}, ieqs::Vector{Equation})::Tuple{Vector{Equation}, Vector{Equation}, FlatEdges, FlatEdges}
+  local k = length(cbs)
+  k <= MAX_CONDITIONAL_BRANCHES ||
+    error("$k conditional Connections.branch calls in $modelNameQualified; at most $MAX_CONDITIONAL_BRANCHES are supported")
+  #= All branches present first: the if-equation's first case. =#
+  local modes = Base.collect((1 << k) - 1:-1:0)
+  local graphs = Base.map(modes) do m
+    local g = graph
+    for i in 1:k
+      isActive(m, i) && (g = addBranch(cbs[i].a, cbs[i].b, false, g))
+    end
+    g
+  end
+  local results = [findResultGraph(g, modelNameQualified) for g in graphs]
+  #= The broken connects decide which connect equations are kept: one set for all modes. =#
+  local brokenNames(r) = sort([printConnectionStr(e, "broken") for e in r[3]])
+  local brokenInFirst = brokenNames(Base.first(results))
+  for (m, r) in zip(modes, results)
+    brokenNames(r) == brokenInFirst ||
+      error("the conditional branches of $modelNameQualified break different connections in mode " *
+            modeString(cbs, m) * " than with all of them present")
+  end
+  local roots = [r[1] for r in results]
+  local outEqs = modeEquations(eqs, cbs, modes, roots, graphs, true)
+  local outIeqs = modeEquations(ieqs, cbs, modes, roots, graphs, false)
+  return (outEqs, outIeqs, Base.first(results)[2], Base.first(results)[3])
+end
+
+modeString(cbs::Vector{ConditionalBranch}, mode::Int) =
+  Base.join((toString(cbs[i].condition) * (isActive(mode, i) ? " = true" : " = false") for i in eachindex(cbs)), ", ")
+
+"""
+  `eqs` with the Connections operators evaluated for every mode. The equations
+  alike in all modes stay; the others, with the bodies of the active
+  conditional branches (`withBodies`), become one if-equation over the modes.
+"""
+function modeEquations(eqs::Vector{Equation}, cbs::Vector{ConditionalBranch}, modes::Vector{Int},
+                       roots::Vector, graphs::Vector{<:NFOCConnectionGraph}, withBodies::Bool)::Vector{Equation}
+  local dependent = Equation[]
+  local out = Equation[]
+  for eq in eqs
+    push!(usesConnectionsOperators(eq) ? dependent : out, eq)
+  end
+  local perMode = Base.map(eachindex(modes)) do j
+    local decided = Equation[]
+    for eq in evalConnectionsOperators(roots[j], graphs[j], dependent)
+      appendDecided!(decided, eq)
+    end
+    if withBodies
+      for i in eachindex(cbs)
+        isActive(modes[j], i) || continue
+        for eq in evalConnectionsOperators(roots[j], graphs[j], cbs[i].body)
+          appendDecided!(decided, eq)
         end
       end
-      _ => begin
-        continue
-      end
     end
+    decided
   end
-  return rootEqs
+  local strs = [Base.map(toString, p) for p in perMode]
+  #= The equations common to all modes, counted: an equation twice in every mode
+     is common twice. =#
+  local tally(v) = (d = Dict{String, Int}(); foreach(x -> d[x] = get(d, x, 0) + 1, v); d)
+  local tallies = Base.map(tally, strs)
+  local common = Dict(k => minimum(t -> get(t, k, 0), tallies) for k in Base.keys(Base.first(tallies)))
+  #= `eqs` without the common ones (`taken`: with them). =#
+  local split(eqs, ks) = begin
+    local budget = copy(common)
+    local rest = Equation[]
+    local taken = Equation[]
+    for (eq, k) in zip(eqs, ks)
+      get(budget, k, 0) > 0 ? (budget[k] -= 1; push!(taken, eq)) : push!(rest, eq)
+    end
+    (rest, taken)
+  end
+  append!(out, split(Base.first(perMode), Base.first(strs))[2])
+  #= Per mode what it adds beyond the common equations; modes that add the same
+     equations share one branch (one per distinct root assignment). =#
+  local groups = Tuple{Vector{String}, Vector{Equation}, Vector{Int}}[]
+  for (j, m) in enumerate(modes)
+    local own = split(perMode[j], strs[j])[1]
+    local ownStrs = sort!(Base.map(toString, own))
+    local g = findfirst(grp -> grp[1] == ownStrs, groups)
+    g === nothing ? push!(groups, (ownStrs, own, [m])) : push!(groups[g][3], m)
+  end
+  length(groups) == 1 && (append!(out, groups[1][2]); return out)
+  local counts = Base.map(g -> sum(scalarEquationCount, g[2]; init = 0), groups)
+  all(==(Base.first(counts)), counts) ||
+    error("the modes of the conditional Connections.branch calls have different numbers of equations: " *
+          Base.join(("$(modeString(cbs, g[3][1])): $c" for (g, c) in zip(groups, counts)), "; "))
+  local branches = Equation_Branch[]
+  for (j, g) in enumerate(groups)
+    local cond = j == length(groups) ? BOOLEAN_EXPRESSION(true) :
+      foldl((a, b) -> LBINARY_EXPRESSION(a, makeOr(TYPE_BOOLEAN()), b), (modeCondition(cbs, m) for m in g[3]))
+    push!(branches, EQUATION_BRANCH(cond, Variability.DISCRETE, g[2]))
+  end
+  push!(out, EQUATION_IF(branches, isempty(cbs) ? DAE.emptyElementSource : Base.first(cbs).source))
+  return out
+end
+
+usesConnectionsOperators(@nospecialize(eq::Equation))::Bool =
+  foldExp(eq, (x, found) -> found || contains(x, isConnectionsOperatorCall), false)
+
+"""The condition of `mode`: each conditional branch's condition, negated where the branch is absent."""
+function modeCondition(cbs::Vector{ConditionalBranch}, mode::Int)::Expression
+  local lit(i) = isActive(mode, i) ? cbs[i].condition :
+    LUNARY_EXPRESSION(makeNot(TYPE_BOOLEAN()), cbs[i].condition)
+  return foldl((a, b) -> LBINARY_EXPRESSION(a, makeAnd(TYPE_BOOLEAN()), b), (lit(i) for i in eachindex(cbs)))
+end
+
+"""
+  Appends `eq` to `out`, an if-equation reduced by its conditions that are
+  now literals (the evaluated Connections operators): a false branch is
+  dropped, a true one taken when no undecided branch precedes it.
+"""
+function appendDecided!(out::Vector{Equation}, @nospecialize(eq::Equation))::Vector{Equation}
+  if !isvariant(eq, EQUATION_IF)
+    push!(out, eq)
+    return out
+  end
+  local kept = Equation_Branch[]
+  for br in eq.branches
+    if !isvariant(br, EQUATION_BRANCH)
+      push!(kept, br)
+      continue
+    end
+    local cond = simplify(br.condition)
+    if cond isa BOOLEAN_EXPRESSION
+      cond.value || continue
+      if isempty(kept)
+        foreach(e -> appendDecided!(out, e), br.body)
+        return out
+      end
+      push!(kept, EQUATION_BRANCH(cond, br.conditionVar, br.body))
+      break
+    end
+    push!(kept, EQUATION_BRANCH(cond, br.conditionVar, br.body))
+  end
+  isempty(kept) || push!(out, EQUATION_IF(kept, eq.source))
+  return out
+end
+
+"""The scalar equations `eq` stands for; an error for the kinds the modes cannot count yet."""
+function scalarEquationCount(@nospecialize(eq::Equation))::Int
+  if isvariant(eq, EQUATION_EQUALITY) || isvariant(eq, EQUATION_ARRAY_EQUALITY)
+    #= isScalar holds for records too (Orientation: 12 scalars). =#
+    (isScalar(eq.ty) && !isComplex(eq.ty)) && return 1
+  elseif isvariant(eq, EQUATION_CREF_EQUALITY)
+    local ty = eq.lhs isa Expression ? typeOf(eq.lhs) : getSubscriptedType(eq.lhs)
+    (isScalar(ty) && !isComplex(ty)) && return 1
+  elseif isvariant(eq, EQUATION_IF) && !isempty(eq.branches) && isvariant(Base.first(eq.branches), EQUATION_BRANCH)
+    return sum(scalarEquationCount, Base.first(eq.branches).body; init = 0)
+  end
+  error("an equation that differs between the modes of conditional Connections.branch calls is not scalar: " *
+        toString(eq))
 end
 
 function evaluateOperators(exp::Expression
@@ -1168,23 +1229,6 @@ function evaluateOperators(exp::Expression
 end
 
 
-function evaluateOperatorsReturnTrueIfRoot(exp::Expression
-                           ,rooted::NFHashTable.HashTable
-                           ,roots::List{<:ComponentRef}
-                           ,graph::NFOCConnectionGraph, info::SourceInfo)::Bool
-  local wasRooted = false
-  wasRooted = @match exp begin
-    CALL_EXPRESSION(call = call && TYPED_CALL(__))  => begin
-      if identifyConnectionsOperator(name(call.fn)) === ConnectionsOperator.IS_ROOT
-        true
-      end
-      false
-    end
-    _ => ()
-  end
-  return wasRooted
-end
-
 """
 Helper function for evaluation of Connections.rooted, Connections.isRoot, Connections.uniqueRootIndices.
 """
@@ -1192,6 +1236,15 @@ function evalConnectionsOperatorsHelper(exp::Expression,
                                         rooted::NFHashTable.HashTable,
                                         roots::List{<:ComponentRef},
                                         graph::NFOCConnectionGraph, info::SourceInfo)::Expression
+  #= Cheap exit for the overwhelmingly common non-call node. =#
+  if !(exp isa CALL_EXPRESSION)
+    return exp
+  end
+  local c0 = exp.call
+  if !isvariant(c0, TYPED_CALL) ||
+     identifyConnectionsOperator(name(c0.fn)) === ConnectionsOperator.NOT_OPERATOR
+    return exp
+  end
   local outExp::Expression
   @assign outExp = begin
     local uroots::Expression
@@ -1311,23 +1364,13 @@ end
 function getRooted(cref1::ComponentRef, cref2::ComponentRef, rooted::NFHashTable.HashTable) ::Bool
   local result::Bool
 
-  @assign result = begin
-    local i1::Int
-    local i2::Int
-    @matchcontinue (cref1, cref2, rooted) begin
-      (_, _, _)  => begin
-        @assign i1 = BaseHashTable.get(cref1, rooted)
-        @assign i2 = BaseHashTable.get(cref2, rooted)
-        intLt(i1, i2)
-      end
-
-      _  => begin
-        true
-      end
-    end
-  end
+  local i1 = NFHashTable.getOrNothing(cref1, rooted)
+  local i2 = NFHashTable.getOrNothing(cref2, rooted)
   #=  in fail case return true =#
-  result
+  if i1 === nothing || i2 === nothing
+    return true
+  end
+  return i1 < i2
 end
 
 """return the Edge partner of a edge, fails if not found"""

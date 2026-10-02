@@ -801,35 +801,31 @@ end
   each node, constructing a new tree with the resulting nodes.
 """
 function map(inTree::Tree, inFunc::Function)::Tree
+  # Persistent (MetaModelica record-update semantics): callers may map a SHARED
+  # tree (expandExtends offsets the ext's own duplicate tree); mutating in place
+  # corrupts the source tree for all other holders.
   local outTree::Tree = inTree
   outTree = begin
     local key::Key
     local value::Value
     local new_value::Value
-    local branch::Tree
-    local new_branch::Tree
+    local new_left::Tree
+    local new_right::Tree
     @match outTree begin
       NODE(key = key, value = value) => begin
-         new_branch = map(outTree.left, inFunc)
-        if !referenceEq(new_branch, outTree.left)
-           outTree.left = new_branch
+        new_left = map(outTree.left, inFunc)
+        new_value = inFunc(key, value)
+        new_right = map(outTree.right, inFunc)
+        if referenceEq(new_left, outTree.left) && referenceEq(value, new_value) &&
+           referenceEq(new_right, outTree.right)
+          outTree
+        else
+          NODE(key, new_value, outTree.height, new_left, new_right)
         end
-         new_value = inFunc(key, value)
-        if !referenceEq(value, new_value)
-           outTree.value = new_value
-        end
-         new_branch = map(outTree.right, inFunc)
-        if !referenceEq(new_branch, outTree.right)
-           outTree.right = new_branch
-        end
-        outTree
       end
       LEAF(key = key, value = value) => begin
-         new_value = inFunc(key, value)
-        if !referenceEq(value, new_value)
-          outTree.value = new_value
-        end
-        outTree
+        new_value = inFunc(key, value)
+        referenceEq(value, new_value) ? outTree : LEAF(key, new_value)
       end
       _ => begin
         inTree
@@ -941,31 +937,24 @@ function mapFold(inTree::Tree, inFunc::Function, inStartValue::FT) where {FT}
     local key::Key
     local value::Value
     local new_value::Value
-    local branch::Tree
-    local new_branch::Tree
+    local new_left::Tree
+    local new_right::Tree
     @match outTree begin
       NODE(key = key, value = value) => begin
-         (new_branch, outResult) = mapFold(outTree.left, inFunc, outResult)
-        if !referenceEq(new_branch, outTree.left)
-           outTree.left = new_branch
+        (new_left, outResult) = mapFold(outTree.left, inFunc, outResult)
+        (new_value, outResult) = inFunc(key, value, outResult)
+        (new_right, outResult) = mapFold(outTree.right, inFunc, outResult)
+        if referenceEq(new_left, outTree.left) && referenceEq(value, new_value) &&
+           referenceEq(new_right, outTree.right)
+          outTree
+        else
+          NODE(key, new_value, outTree.height, new_left, new_right)
         end
-         (new_value, outResult) = inFunc(key, value, outResult)
-        if !referenceEq(value, new_value)
-           outTree.value = new_value
-        end
-         (new_branch, outResult) = mapFold(outTree.right, inFunc, outResult)
-        if !referenceEq(new_branch, outTree.right)
-           outTree.right = new_branch
-        end
-        outTree
       end
 
       LEAF(key = key, value = value) => begin
-         (new_value, outResult) = inFunc(key, value, outResult)
-        if !referenceEq(value, new_value)
-           outTree.value = new_value
-        end
-        outTree
+        (new_value, outResult) = inFunc(key, value, outResult)
+        referenceEq(value, new_value) ? outTree : LEAF(key, new_value)
       end
 
       _ => begin

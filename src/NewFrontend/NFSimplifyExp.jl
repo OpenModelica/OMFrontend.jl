@@ -38,14 +38,22 @@
     @match exp begin
       CREF_EXPRESSION(__) => begin
         local expCref = simplifySubscripts(exp.cref)
-        local expTy = getSubscriptedType(exp.cref)
-        CREF_EXPRESSION(expTy, expCref)
+        #= Reuse the node when the cref did not simplify; the subscripted type
+           is then unchanged too, so no rebuild is needed. =#
+        if referenceEq(expCref, exp.cref)
+          exp
+        else
+          CREF_EXPRESSION(getSubscriptedType(expCref), expCref)
+        end
       end
 
       ARRAY_EXPRESSION(__) => begin
-        expElements = Expression[simplify(e) for e in exp.elements]
-        #Base.map!(simplify, expElements, expElements)
-        ARRAY_EXPRESSION(exp.ty, expElements, exp.literal)
+        expElements = mapPreservingEq(exp.elements, simplify)
+        if referenceEq(expElements, exp.elements)
+          exp
+        else
+          ARRAY_EXPRESSION(exp.ty, expElements, exp.literal)
+        end
       end
 
       RANGE_EXPRESSION(__) => begin
@@ -94,11 +102,14 @@
       end
 
       CAST_EXPRESSION(__) => begin
-        simplifyCast(simplify(exp.exp), exp.ty)
+        local se = simplify(exp.exp)
+        local c = simplifyCast(se, exp.ty)
+        (referenceEq(se, exp.exp) && c isa CAST_EXPRESSION) ? exp : c
       end
 
       UNBOX_EXPRESSION(__) => begin
-        UNBOX_EXPRESSION(simplify(exp.exp), exp.ty)
+        local se = simplify(exp.exp)
+        referenceEq(se, exp.exp) ? exp : UNBOX_EXPRESSION(se, exp.ty)
       end
 
       SUBSCRIPTED_EXP_EXPRESSION(__) => begin
@@ -110,7 +121,8 @@
       end
 
       BOX_EXPRESSION(__) => begin
-        BOX_EXPRESSION(simplify(exp.exp))
+        local se = simplify(exp.exp)
+        referenceEq(se, exp.exp) ? exp : BOX_EXPRESSION(se)
       end
 
       MUTABLE_EXPRESSION(__) => begin
@@ -186,12 +198,9 @@ end
   callExp = begin
     @match call begin
       TYPED_CALL(arguments = args) where {(!isExternal(call))} => begin
+        local origArgs = args
         if Flags.isSet(Flags.NF_EXPAND_FUNC_ARGS)
-          args = Expression[if hasArrayCall(arg)
-                              arg
-                            else
-                              Base.first(expand(arg))
-                            end for arg in args]
+          args = mapPreservingEq(args, arg -> hasArrayCall(arg) ? arg : Base.first(expand(arg)))
         end
         #=  HACK, TODO, FIXME! handle DynamicSelect properly in OMEdit, then disable this stuff! =#
         if Flags.isSet(Flags.NF_API) && !Flags.isSet(Flags.NF_API_DYNAMIC_SELECT)
@@ -203,9 +212,11 @@ end
             return
           end
         end
-        args = Expression[simplify(arg) for arg in args]
-        callArgs = args
-        call = TYPED_CALL(call.fn, call.ty, call.var, callArgs, call.attributes)
+        args = mapPreservingEq(args, simplify)
+        local changed = !referenceEq(args, origArgs)
+        if changed
+          call = TYPED_CALL(call.fn, call.ty, call.var, args, call.attributes)
+        end
         builtin = isBuiltin(call.fn)
         is_pure = !isImpure(call.fn)
         #=  Use Ceval for builtin pure functions with literal arguments.
@@ -230,7 +241,7 @@ end
                ArrayUtil.all(args, isLiteral)
           callExp = simplifyCall2(call)
         else
-          callExp = CALL_EXPRESSION(call)
+          callExp = changed ? CALL_EXPRESSION(call) : callExp
         end
         #=  do not expand builtin calls if we should not scalarize
         =#
@@ -258,14 +269,22 @@ end
   return callExp
 end
 
+const CONST_FOLD_CACHE = Dict{String,Expression}()
+const CONST_FOLD_CACHE_LOCK = ReentrantLock()
+
 function simplifyCall2(call::Call)
   local outExp::Expression
-
+  local key = toString(CALL_EXPRESSION(call))
+  local hit = lock(() -> get(CONST_FOLD_CACHE, key, nothing), CONST_FOLD_CACHE_LOCK)
+  if hit !== nothing
+    return hit
+  end
   ErrorExt.setCheckpoint(getInstanceName())
   try
      outExp = evalCall(call, EVALTARGET_IGNORE_ERRORS())
      outExp = stripBindingInfo(outExp)
     ErrorExt.delCheckpoint(getInstanceName())
+    lock(() -> CONST_FOLD_CACHE[key] = outExp, CONST_FOLD_CACHE_LOCK)
   catch
     if Flags.isSet(Flags.FAILTRACE)
       ErrorExt.delCheckpoint(getInstanceName())
@@ -454,6 +473,16 @@ function simplifySize(sizeExp::Expression)
   return sizeExp
 end
 
+#= Reuse `orig` when the fallback would rebuild the identical binary (same
+   operands by identity, same operator); otherwise allocate a fresh node. =#
+@inline function reuseBinary(@nospecialize(orig), @nospecialize(e1), op::Operator, @nospecialize(e2))
+  if orig isa BINARY_EXPRESSION && orig.operator === op &&
+     referenceEq(orig.exp1, e1) && referenceEq(orig.exp2, e2)
+    return orig
+  end
+  return BINARY_EXPRESSION(e1, op, e2)
+end
+
 @nospecializeinfer function simplifyBinary(@nospecialize(binaryExp::Expression))
   local e1::Expression
   local e2::Expression
@@ -463,14 +492,14 @@ end
   @match BINARY_EXPRESSION(e1, op, e2) = binaryExp
   se1 = simplify(e1)
   se2 = simplify(e2)
-  binaryExp = simplifyBinaryOp(se1, op, se2)
+  binaryExp = simplifyBinaryOp(se1, op, se2, binaryExp)
   if Flags.isSet(Flags.NF_EXPAND_OPERATIONS) && !hasArrayCall(binaryExp)
     (binaryExp, _) = expand(binaryExp)
   end
   return binaryExp
 end
 
-@nospecializeinfer function simplifyBinaryOp(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression))
+@nospecializeinfer function simplifyBinaryOp(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local outExp::Expression
 
   if isLiteral(exp1) && isLiteral(exp2)
@@ -484,27 +513,27 @@ end
     outExp = begin
       @match op.op begin
         Op.ADD => begin
-          simplifyBinaryAdd(exp1, op, exp2)
+          simplifyBinaryAdd(exp1, op, exp2, orig)
         end
 
         Op.SUB => begin
-          simplifyBinarySub(exp1, op, exp2)
+          simplifyBinarySub(exp1, op, exp2, orig)
         end
 
         Op.MUL => begin
-          simplifyBinaryMul(exp1, op, exp2)
+          simplifyBinaryMul(exp1, op, exp2, false, orig)
         end
 
         Op.DIV => begin
-          simplifyBinaryDiv(exp1, op, exp2)
+          simplifyBinaryDiv(exp1, op, exp2, orig)
         end
 
         Op.POW => begin
-          simplifyBinaryPow(exp1, op, exp2)
+          simplifyBinaryPow(exp1, op, exp2, orig)
         end
 
         _ => begin
-          BINARY_EXPRESSION(exp1, op, exp2)
+          reuseBinary(orig, exp1, op, exp2)
         end
       end
     end
@@ -512,7 +541,7 @@ end
   return outExp
 end
 
-@nospecializeinfer function simplifyBinaryAdd(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression))
+@nospecializeinfer function simplifyBinaryAdd(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local outExp::Expression
 
   if isZero(exp1)
@@ -526,7 +555,7 @@ end
       negate(exp2),
     )
   else
-    outExp = BINARY_EXPRESSION(exp1, op, exp2)
+    outExp = reuseBinary(orig, exp1, op, exp2)
   end
   #=  0 + e = e
   =#
@@ -537,7 +566,7 @@ end
   return outExp
 end
 
-@nospecializeinfer function simplifyBinarySub(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression))
+@nospecializeinfer function simplifyBinarySub(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local outExp::Expression
 
   if isZero(exp1)
@@ -554,7 +583,7 @@ end
       negate(exp2),
     )
   else
-     outExp = BINARY_EXPRESSION(exp1, op, exp2)
+     outExp = reuseBinary(orig, exp1, op, exp2)
   end
   #=  0 - e = -e
   =#
@@ -570,6 +599,7 @@ end
   op::Operator,
   @nospecialize(exp2::Expression),
   switched::Bool = false,
+  @nospecialize(orig = nothing),
 )
   local outExp::Expression
 
@@ -593,9 +623,10 @@ end
 
       _ => begin
         if switched
-          BINARY_EXPRESSION(exp2, op, exp1)
+          #= operands are swapped back to original order here =#
+          reuseBinary(orig, exp2, op, exp1)
         else
-          simplifyBinaryMul(exp2, op, exp1, true)
+          simplifyBinaryMul(exp2, op, exp1, true, orig)
         end
       end
     end
@@ -607,7 +638,7 @@ end
   return outExp
 end
 
-@nospecializeinfer function simplifyBinaryDiv(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression))
+@nospecializeinfer function simplifyBinaryDiv(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local outExp::Expression
 
   #=  e / 1 = e
@@ -615,12 +646,12 @@ end
   if isOne(exp2)
      outExp = exp1
   else
-     outExp = BINARY_EXPRESSION(exp1, op, exp2)
+     outExp = reuseBinary(orig, exp1, op, exp2)
   end
   return outExp
 end
 
-@nospecializeinfer function simplifyBinaryPow(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression))
+@nospecializeinfer function simplifyBinaryPow(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local outExp::Expression
 
   if isZero(exp2)
@@ -628,7 +659,7 @@ end
   elseif isOne(exp2)
      outExp = exp1
   else
-     outExp = BINARY_EXPRESSION(exp1, op, exp2)
+     outExp = reuseBinary(orig, exp1, op, exp2)
   end
   return outExp
 end
@@ -639,18 +670,20 @@ end
   local op::Operator
   @match UNARY_EXPRESSION(op, e) = unaryExp
    se = simplify(e)
-   unaryExp = simplifyUnaryOp(se, op)
+   unaryExp = simplifyUnaryOp(se, op, unaryExp)
   if Flags.isSet(Flags.NF_EXPAND_OPERATIONS) && !hasArrayCall(unaryExp)
     (unaryExp, _) = expand(unaryExp)
  end
   return unaryExp
 end
 
-@nospecializeinfer function simplifyUnaryOp(@nospecialize(exp::Expression), op::Operator)
+@nospecializeinfer function simplifyUnaryOp(@nospecialize(exp::Expression), op::Operator, @nospecialize(orig = nothing))
   local outExp::Expression
   if isLiteral(exp)
     outExp = evalUnaryOp(exp, op)
     outExp = stripBindingInfo(outExp)
+  elseif orig isa UNARY_EXPRESSION && orig.operator === op && referenceEq(orig.exp, exp)
+    outExp = orig
   else
     outExp = UNARY_EXPRESSION(op, exp)
   end
@@ -671,21 +704,31 @@ end
    binaryExp = begin
     @match op.op begin
       Op.AND => begin
-        simplifyLogicBinaryAnd(se1, op, se2)
+        simplifyLogicBinaryAnd(se1, op, se2, binaryExp)
       end
 
       Op.OR => begin
-        simplifyLogicBinaryOr(se1, op, se2)
+        simplifyLogicBinaryOr(se1, op, se2, binaryExp)
       end
     end
   end
   return binaryExp
 end
 
+#= Reuse `orig` when the LBINARY fallback would rebuild the identical node. =#
+@inline function reuseLBinary(@nospecialize(orig), @nospecialize(e1), op::Operator, @nospecialize(e2))
+  if orig isa LBINARY_EXPRESSION && orig.operator === op &&
+     referenceEq(orig.exp1, e1) && referenceEq(orig.exp2, e2)
+    return orig
+  end
+  return LBINARY_EXPRESSION(e1, op, e2)
+end
+
 @nospecializeinfer function simplifyLogicBinaryAnd(
   @nospecialize(exp1::Expression),
   op::Operator,
   @nospecialize(exp2::Expression),
+  @nospecialize(orig = nothing),
 )
   local exp::Expression
 
@@ -728,14 +771,14 @@ end
       end
 
       _ => begin
-        LBINARY_EXPRESSION(exp1, op, exp2)
+        reuseLBinary(orig, exp1, op, exp2)
       end
     end
   end
   return exp
 end
 
-@nospecializeinfer function simplifyLogicBinaryOr(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression))
+@nospecializeinfer function simplifyLogicBinaryOr(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local exp::Expression
 
    exp = begin
@@ -777,7 +820,7 @@ end
       end
 
       _ => begin
-        LBINARY_EXPRESSION(exp1, op, exp2)
+        reuseLBinary(orig, exp1, op, exp2)
       end
     end
   end
@@ -824,22 +867,27 @@ end
   local tb::Expression
   local fb::Expression
 
-  @match IF_EXPRESSION(cond, tb, fb) = ifExp
-   cond = simplify(cond)
+  local ocond::Expression
+  local otb::Expression
+  local ofb::Expression
+  @match IF_EXPRESSION(ocond, otb, ofb) = ifExp
+   cond = simplify(ocond)
    ifExp = begin
     @match cond begin
       BOOLEAN_EXPRESSION(__) => begin
         simplify(if cond.value
-          tb
+          otb
         else
-          fb
+          ofb
         end)
       end
       _ => begin
-         tb = simplify(tb)
-         fb = simplify(fb)
+         tb = simplify(otb)
+         fb = simplify(ofb)
         if isEqual(tb, fb)
           tb
+        elseif referenceEq(cond, ocond) && referenceEq(tb, otb) && referenceEq(fb, ofb)
+          ifExp
         else
           IF_EXPRESSION(cond, tb, fb)
         end
@@ -849,7 +897,7 @@ end
   return ifExp
 end
 
-@nospecializeinfer function simplifyCast(@nospecialize(exp::Expression), @nospecialize(ty::NFType))
+@nospecializeinfer function simplifyCast(@nospecialize(exp::Expression), ty::NFType)
   local castExp::Expression
   castExp = begin
     local ety::NFType

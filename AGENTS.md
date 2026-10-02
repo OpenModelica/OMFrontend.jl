@@ -59,6 +59,27 @@ Hot allocation sources to scrutinise in the `instantiate` path:
 
 `--track-allocation=user` and `Profile.@profile` can produce stale `.mem` files when precompiled methods are not re-instrumented, and the profiler may hang on long flatten runs. The reliable workflow is `@time` with two warm runs and a sequence of code-review-driven fixes verified by allocation-count delta.
 
+## Typed Callable Structs Over Abstractly-Typed Closures
+
+When a function value is stored in a struct field, captured by a closure used on a hot path, or passed into a tight inner loop, prefer a **typed callable struct (functor)** over a closure or an abstractly-typed field. A functor is a `struct` with concretely-typed fields plus a call method:
+
+```julia
+struct ApplyIndex{A, S}
+    array::A
+    rest::S
+end
+(f::ApplyIndex)(index::Int) = applyIndexExpArray(f.array, index, f.rest)
+```
+
+Why it is faster and more stable:
+- A closure gets a compiler-generated type, and any captured variable the compiler cannot prove is never reassigned is boxed into a `Core.Box` (field type `Any`). Every read then dynamically dispatches. A functor's fields carry their declared concrete type, so reads stay inferred.
+- A struct field typed `::Function` (or left untyped, defaulting to `Any`) forces a dynamic call on every invocation. Type the field concretely, or make the whole struct the callable, so the call site specializes. The same applies to `Vector{Function}` accumulators iterated in a loop — give them a concrete element type or a functor.
+- A functor has a stable, named type, so methods that take it specialize once instead of recompiling per distinct closure.
+
+This is the idiom the SciML/MTK stack uses internally (its compiled conditions and affects are typed functors, not closures). The complementary tool is `FunctionWrappers.FunctionWrapper{Ret, Tuple{Args...}}`: use it when you want to **erase** a function to one stable type (a single specialization, at the cost of one indirection) rather than specialize on it — for example to keep a downstream concrete type model-independent.
+
+Caveats: this only helps when the captured/stored state can be given a concrete (or at least narrow) type. Genuinely heterogeneous captures (a `Vector` of differently-parameterized values) stay abstract either way, and a `FunctionWrapper` around the result erases the outer type regardless of whether the inner is a closure or a functor. The candidate sites are the abstract `Function`-typed fields and closures captured inside the `traverse`/`map` expression walkers, which run once per `Expression` node.
+
 ## Helper Pattern Caveats
 
 The helpers `mapPreservingEq` and `reuseIfRefEqual` live in `src/NewFrontend/NFPerfHelpers.jl` and are loaded at the top level of module `Frontend` via `src/main.jl`.

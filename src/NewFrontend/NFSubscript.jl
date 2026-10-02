@@ -497,9 +497,11 @@ end
 function simplify(subscript::Subscript, dimension::Dimension)
   local outSubscript::Subscript
   outSubscript = begin
+    local idx::Expression
     @match subscript begin
       SUBSCRIPT_INDEX(__) => begin
-        SUBSCRIPT_INDEX(simplify(subscript.index))
+        idx = simplify(subscript.index)
+        referenceEq(idx, subscript.index) ? subscript : SUBSCRIPT_INDEX(idx)
       end
       SUBSCRIPT_SLICE(__) => begin
         simplifySlice(subscript.slice, dimension)
@@ -541,16 +543,29 @@ end
 
 function simplifyList(subscripts::List, dimensions::List ; trim = false)
   local outSubscripts::List = nil
+  local changed::Bool = false
   if listEmpty(dimensions)
-    outSubscripts = list(simplify(s, DIMENSION_UNKNOWN()) for s in subscripts)
+    for s in subscripts
+      s2 = simplify(s, DIMENSION_UNKNOWN())
+      changed = changed || !referenceEq(s2, s)
+      outSubscripts = s2 <| outSubscripts
+    end
+    if !changed
+      return subscripts
+    end
+    outSubscripts = listReverseInPlace(outSubscripts)
   else
     rest_d = ListUtil.lastN(dimensions, listLength(subscripts))
     for s in subscripts
       @match d <| rest_d = rest_d;
-      outSubscripts = simplify(s, d) <| outSubscripts
+      s2 = simplify(s, d)
+      changed = changed || !referenceEq(s2, s)
+      outSubscripts = s2 <| outSubscripts
     end
     if trim
       outSubscripts = listReverseInPlace(ListUtil.trim(outSubscripts, isWhole))
+    elseif !changed
+      return subscripts
     else
       outSubscripts = listReverseInPlace(outSubscripts)
     end
