@@ -37,6 +37,7 @@ module System
 
 using MetaModelica
 using ExportAll
+import Printf
   #= Forward declarations for uniontypes until Julia adds support for mutual recursion =#
   const ForkFunction = Function
 
@@ -1152,13 +1153,10 @@ end
 
 #= /* Print errors */ =#
 
-"""sprintf format string that takes one double as argument"""
+"""sprintf format string that takes one double as argument, at most `maxlen - 1` characters (as snprintf)"""
 function snprintff(format::String, maxlen::Int, val::AbstractFloat) ::String
-  local buf = zeros(UInt8, maxlen)
-  #= snprintf is variadic: a plain ccall passed the double where it is not read
-     (Apple arm64: on the stack), and the text was garbage (1.26481e-321). =#
-  local n = @ccall snprintf(buf::Ptr{UInt8}, maxlen::Csize_t, format::Cstring; Float64(val)::Cdouble)::Cint
-  return unsafe_string(pointer(buf), min(n, maxlen - 1))
+  local str = sprintff(format, val)
+  return length(str) < maxlen ? str : first(str, maxlen - 1)
 end
 
 """
@@ -1171,8 +1169,12 @@ end
   snprintf said it needed and calls snprintf again.
 """
 function sprintff(format::String, val::AbstractFloat) ::String
-  local n = @ccall snprintf(C_NULL::Ptr{UInt8}, 0::Csize_t, format::Cstring; Float64(val)::Cdouble)::Cint
-  return snprintff(format, n + 1, val)
+  #= Julia's Printf, not C's snprintf: Windows exports no snprintf symbol (the
+     Universal CRT defines it inline), so the call failed there (String() of a
+     constant, 2026-10-02); and snprintf is variadic, which a plain ccall got
+     wrong on Apple arm64 before. Printf takes the same C conversions: flags,
+     width, precision; f, e, E, g, G. =#
+  return Printf.format(Printf.Format(format), Float64(val))
 end
 
 """Returns a value in the intervals (0,1]"""
