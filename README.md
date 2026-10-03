@@ -158,13 +158,3 @@ For questions or collaboration ideas, contact details are available on my
 
 OMFrontend.jl itself is distributed under the **OSMC Public License (OSMC-PL)**;
 see `OSMC-License.txt`.
-
-Third-party Modelica libraries included in the test suite (`test/3rdParty/`)
-carry their own licenses and are not covered by OSMC-PL:
-
-| Library | License | Source |
-|---|---|---|
-| [Modelica Buildings Library](https://github.com/lbl-srg/modelica-buildings) | Modified BSD (3-clause) | Lawrence Berkeley National Laboratory |
-
-See `test/3rdParty/README.md` for the full license text of each third-party
-library.
