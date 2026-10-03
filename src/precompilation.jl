@@ -44,9 +44,7 @@ function workload()
   @info "NOTE: This version of OMFrontend only supports Julia versions greater than 1.10"
   if ! haskey(NFModelicaBuiltinCache, "NFModelicaBuiltin")
     @info "Locating external libraries.."
-    packagePath = dirname(realpath(Base.find_package("OMFrontend")))
-    packagePath *= "/.."
-    pathToLib = packagePath * "/lib/NFModelicaBuiltin.mo"
+    pathToLib = joinpath(packageRoot(), "lib", "NFModelicaBuiltin.mo")
     #= The external C stuff can be a bit flaky.. =#
     GC.enable(false)
     p = parseFile(pathToLib, 2 #= MetaModelica =#)
@@ -66,9 +64,7 @@ function workload()
   @info "Builtin libraries successfully precompiled!"
   @info "Initial compiler module interfaces are compiled!"
   #= Make sure that we load the builtin scode =#
-  packagePath = dirname(realpath(Base.find_package("OMFrontend")))
-  packagePath *= "/.."
-  pathToLib = packagePath * "/lib/NFModelicaBuiltin.mo"
+  pathToLib = joinpath(packageRoot(), "lib", "NFModelicaBuiltin.mo")
   #= The external C stuff can be a bit flaky.. =#
   GC.enable(false)
   p = OMParser.parseFile(pathToLib, 2 #= MetaModelica=#)
@@ -83,9 +79,7 @@ function workload()
   Instantiate the HelloWorld module
   This will precompile a significant part of the frontend.
   =#
-  packagePath = dirname(realpath(Base.find_package("OMFrontend")))
-  packagePath *= "/.."
-  pathToTest = packagePath * "/test/Models/HelloWorld.mo"
+  pathToTest = joinpath(packageRoot(), "test", "Models", "HelloWorld.mo")
   p = OMParser.parseFile(pathToTest, 1)
   s = Frontend.AbsynToSCode.translateAbsyn2SCode(p)
   @info "Compiling core modules. This might take awhile.."
