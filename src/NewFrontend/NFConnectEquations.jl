@@ -832,7 +832,7 @@ function evaluateOperatorReductionExp(
   setsArray::Vector{<:List{<:Connector}},
   ctable::CardinalityTable.Table,
 )::Expression
-  local evalExp::Expression
+  local outExp::Expression
 
   local call::Call
   local fn::M_Function
@@ -842,7 +842,7 @@ function evaluateOperatorReductionExp(
   local iters::List{Tuple{InstNode, Expression}} = nil
   local iter_node::InstNode
 
-  @assign evalExp = begin
+  @assign outExp = begin
     @match exp begin
       CALL_EXPRESSION(call = call && TYPED_REDUCTION(__)) => begin
         @assign ty = typeOf(call.exp)
@@ -871,8 +871,8 @@ function evaluateOperatorReductionExp(
       end
     end
   end
-  @assign evalExp = evaluateOperators(evalExp, sets, setsArray, ctable)
-  return evalExp
+  @assign outExp = evaluateOperators(outExp, sets, setsArray, ctable)
+  return outExp
 end
 
 function evaluateOperatorArrayConstructorExp(

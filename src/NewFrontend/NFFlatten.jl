@@ -895,7 +895,7 @@ function vectorizeAlgorithm(
                 ITERATOR_COMPONENT(
                   TYPE_INTEGER(),
                   Variability.IMPLICITLY_DISCRETE,
-                  info(_compVal(prefix_node)),
+                  Component_info(_compVal(prefix_node)),
                 ),
                 prefix_node.parent,
                 NORMAL_COMP(),
@@ -1349,7 +1349,7 @@ function flattenIfEquation(
                 "Failed to evaluate branch condition in if equation containing connect equations: `" +
                 toString(cond) +
                 "`",
-                info(eq),
+                Equation_info(eq),
               )
               fail()
             end

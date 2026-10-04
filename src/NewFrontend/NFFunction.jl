@@ -515,7 +515,7 @@ function toDAE(fn::M_FUNCTION, def::DAE.FunctionDefinition)::DAE.Function
     impr,
     ity,
     unused_inputs,
-    ElementSource.createElementSource(info(fn.node)),
+    ElementSource.createElementSource(InstNode_info(fn.node)),
     SCodeUtil.getElementComment(definition(fn.node)),
   )
   return daeFn
@@ -2626,7 +2626,7 @@ function paramDirection(@nospecialize(componentArg::InstNode))::DirectionType
     Error.addSourceMessage(
       Error.INNER_OUTER_FORMAL_PARAMETER,
       list(ConnectortoString(cty), name(componentArg)),
-      info(componentArg),
+      InstNode_info(componentArg),
     )
     fail()
   end

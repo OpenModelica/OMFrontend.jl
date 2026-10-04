@@ -1554,12 +1554,12 @@ function arrayAllEqual2(@nospecialize(arrayExp::Expression), @nospecialize(eleme
 
    allEqual = begin
     @match arrayExp begin
-      ARRAY_EXPRESSION(elements = ARRAY_EXPRESSION(__) <| _)  => begin
-        ListUtil.map1BoolAnd(arrayExp.elements, arrayAllEqual2, element)
+      ARRAY_EXPRESSION(__) where (!isempty(arrayExp.elements) && arrayExp.elements[1] isa ARRAY_EXPRESSION)  => begin
+        all(e -> arrayAllEqual2(e, element), arrayExp.elements)
       end
 
       ARRAY_EXPRESSION(__)  => begin
-        ListUtil.map1BoolAnd(arrayExp.elements, isEqual, element)
+        all(e -> isEqual(e, element), arrayExp.elements)
       end
 
       _  => begin
@@ -1595,7 +1595,7 @@ end
    exp = begin
     @match arrayExp begin
       ARRAY_EXPRESSION(__)  => begin
-        arrayFirstScalar(listHead(arrayExp.elements))
+        arrayFirstScalar(arrayExp.elements[1])
       end
 
       _  => begin
@@ -4226,7 +4226,7 @@ end
    dimCount = begin
     @match exp begin
       ARRAY_EXPRESSION(ty = TYPE_UNKNOWN(__))  => begin
-        1 + dimensionCount(listHead(exp.elements))
+        1 + dimensionCount(exp.elements[1])
       end
 
       ARRAY_EXPRESSION(__)  => begin

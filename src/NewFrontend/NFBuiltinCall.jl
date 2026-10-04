@@ -1097,7 +1097,7 @@ function typeFillCall2(fnRef::ComponentRef,
       evaluated = false
     end
     if ! isInteger(arg_ty)
-      Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list(intString(listLength(ty_args) + 1), toString(fnRef), "", toString(arg), toString(arg_ty), "Integer"), info)
+      Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list(intString(length(ty_args) + 1), toString(fnRef), "", toString(arg), toString(arg_ty), "Integer"), info)
     end
     variability = variabilityMax(variability, arg_var)
     push!(ty_args, arg)

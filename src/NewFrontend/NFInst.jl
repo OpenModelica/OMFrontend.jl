@@ -1301,7 +1301,7 @@ function applyModifier(modifier::Modifier, cls::ClassTree, clsName::String) ::Cl
               end
             else
               if isOnlyOuter(node)
-                Error.addSourceMessage(Error.OUTER_ELEMENT_MOD, list(toString(mod, false), name(mod)), info(mod))
+                Error.addSourceMessage(Error.OUTER_ELEMENT_MOD, list(toString(mod, false), name(mod)), Modifier_info(mod))
                 fail()
               end
               partialInstClass(node)
@@ -3027,7 +3027,7 @@ function instSections2(parts::SCode.ClassDef, scope::InstNode, sections::Section
     #= Plain conditionals instead of matching on a constructed tuple; the
        non-PARTS case keeps its MatchFailure via the single-record match. =#
     if sections isa SECTIONS_EXTERNAL
-      Error.addSourceMessage(Error.MULTIPLE_SECTIONS_IN_FUNCTION, list(name(scope)), info(scope))
+      Error.addSourceMessage(Error.MULTIPLE_SECTIONS_IN_FUNCTION, list(name(scope)), InstNode_info(scope))
       fail()
     end
     @match SCode.PARTS(__) = parts
@@ -3467,7 +3467,7 @@ function isStructuralComponent(component::Component, compAttrs::Attributes, comp
        isStructural = false
     elseif ! hasBinding(compNode)
       if ! evalAllParams && ! Flags.getConfigBool(Flags.CHECK_MODEL)
-        Error.addSourceMessage(Error.UNBOUND_PARAMETER_EVALUATE_TRUE, list(name(compNode)), info(compNode))
+        Error.addSourceMessage(Error.UNBOUND_PARAMETER_EVALUATE_TRUE, list(name(compNode)), InstNode_info(compNode))
       end
        isStructural = false
     elseif isBindingNotFixed(compBinding, #= requireFinal = =# false)

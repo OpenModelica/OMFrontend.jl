@@ -492,7 +492,7 @@ end
         #=  c.C1...Cn.f is allowed.
         =#
         @assign name_str = name(node)
-        @assign info2 = info(node)
+        @assign info2 = InstNode_info(node)
         Error.addSourceMessage(Error.NON_CLASS_IN_COMP_FUNC_NAME, list(name_str), info2)
         fail()
       end

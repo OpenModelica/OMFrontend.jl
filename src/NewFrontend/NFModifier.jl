@@ -414,7 +414,7 @@ function Modifier_info(modifier::Modifier)
       end
 
       MODIFIER_REDECLARE(__) => begin
-        info(modifier.element)
+        SCodeUtil.elementInfo(modifier.element)
       end
 
       _ => begin

@@ -1778,7 +1778,7 @@ function typeArrayDim2(
       end
 
       (ARRAY_EXPRESSION(__), _) => begin
-        typeArrayDim2(listHead(arrayExp.elements), dimIndex - 1, dimCount + 1)
+        typeArrayDim2(arrayExp.elements[1], dimIndex - 1, dimCount + 1)
       end
 
       _ => begin
@@ -3009,7 +3009,10 @@ function evaluateCondition(
 
   local cond_exp::Expression
 
-  cond_exp = evalExp(condExp, EVALTARGET_GENERIC(info))
+  #= The condition's values only: a condition on the parameters of an array of components
+     evaluates to an array of binding expressions, one per element (Buildings' conduction
+     layers), which arrayAllEqual and arrayFirstScalar do not look into. =#
+  cond_exp = stripBindingInfo(evalExp(condExp, EVALTARGET_GENERIC(info)))
   if arrayAllEqual(cond_exp)
      cond_exp = arrayFirstScalar(cond_exp)
   end

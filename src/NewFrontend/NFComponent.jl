@@ -995,7 +995,7 @@ function isTyped(component::Component)
         true
       end
 
-      TYPE_ATTRIBUTE_COMPONENT(__) => begin
+      TYPE_ATTRIBUTE(__) => begin
         true
       end
 
@@ -1155,7 +1155,7 @@ function Component_info(component::Component)
       end
 
       TYPE_ATTRIBUTE(__) => begin
-        info(component.modifier)
+        Modifier_info(component.modifier)
       end
 
       DELETED_COMPONENT(__) => begin

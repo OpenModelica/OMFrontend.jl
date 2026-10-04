@@ -119,7 +119,7 @@ function evaluateNormal(fn::M_Function, args::Vector{Expression})::Expression
     Error.addSourceMessage(
       Error.EVAL_RECURSION_LIMIT_REACHED,
       list(String(limit), AbsynUtil.pathString(name(fn))),
-      info(fn.node),
+      InstNode_info(fn.node),
     )
     fail()
   end
@@ -605,7 +605,7 @@ function assertAssignedOutput(outputNode::InstNode, @nospecialize(value::Express
         Error.addSourceMessage(
           Error.UNASSIGNED_FUNCTION_OUTPUT,
           list(name(outputNode)),
-          info(outputNode),
+          InstNode_info(outputNode),
         )
         fail()
       end

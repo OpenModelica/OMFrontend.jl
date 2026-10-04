@@ -971,7 +971,7 @@ function printPrefixError(outerPrefix::String, innerPrefix::String, node::InstNo
   Error.addSourceMessage(
     Error.INVALID_TYPE_PREFIX,
     list(outerPrefix, typeName(node), name(node), innerPrefix),
-    info(node),
+    InstNode_info(node),
   )
   return fail()
 end

@@ -1597,7 +1597,7 @@ function realRangeSize(
 )::Int
   local outSize::Int
 
-   outSize = integer(floor((inStop - inStart) / inStep + 5e-15)) + 1
+   outSize = floor(Int, (inStop - inStart) / inStep + 5e-15) + 1
    outSize = max(outSize, 0)
   return outSize
 end

@@ -112,7 +112,7 @@ function checkOperatorRestrictions(operatorNode::InstNode)
     Error.addSourceMessage(
       Error.OPERATOR_NOT_ENCAPSULATED,
       list(AbsynUtil.pathString(scopePath(operatorNode, includeRoot = true))),
-      info(operatorNode),
+      InstNode_info(operatorNode),
     )
     fail()
   end

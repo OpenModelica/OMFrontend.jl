@@ -1585,7 +1585,7 @@ function checkOuterClass(outerCls::InstNode)
           Error.addSourceMessage(
             Error.OUTER_ELEMENT_MOD,
             list(SCodeDump.printModStr(def.modifications), name(outerCls)),
-            info(outerCls),
+            InstNode_info(outerCls),
           )
           fail()
         end
@@ -1596,7 +1596,7 @@ function checkOuterClass(outerCls::InstNode)
           Error.addSourceMessage(
             Error.OUTER_LONG_CLASS,
             list(name(outerCls)),
-            info(outerCls),
+            InstNode_info(outerCls),
           )
           fail()
         end
@@ -1625,7 +1625,7 @@ function linkInnerOuter(outerNode::InstNode, scope::InstNode)::InstNode
         name(outerNode),
         typeName(outerNode),
       ),
-      list(info(outerNode), info(inner_node)),
+      list(InstNode_info(outerNode), InstNode_info(inner_node)),
     )
     fail()
   end
@@ -1695,13 +1695,13 @@ function getRedeclareChain(
           Error.addSourceMessage(
             Error.CLASS_EXTENDS_TARGET_NOT_FOUND,
             list(name(node)),
-            info(node),
+            InstNode_info(node),
           )
         else
           Error.addSourceMessage(
             Error.REDECLARE_NONEXISTING_ELEMENT,
             list(name(node)),
-            info(node),
+            InstNode_info(node),
           )
         end
         fail()
@@ -2434,7 +2434,7 @@ function addEnumConflict(
   Error.addSourceMessage(
     Error.DOUBLE_DECLARATION_OF_ELEMENTS,
     list(name(literal)),
-    info(literal),
+    InstNode_info(literal),
   )
   fail()
   return entry
