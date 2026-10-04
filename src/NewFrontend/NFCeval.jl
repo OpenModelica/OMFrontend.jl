@@ -4246,7 +4246,7 @@ function resolveModelicaUri(uri::String)::String
   local packageName = rest[1:slashIdx-1]
   local resourcePath = rest[slashIdx+1:end]
   #= Search in OMFrontend bundled lib directory =#
-  local packagePath = dirname(dirname(realpath(Base.find_package("OMFrontend"))))
+  local packagePath = something(pkgdir(@__MODULE__), normpath(joinpath(@__DIR__, "..", "..")))
   local libDir = joinpath(packagePath, "lib", packageName)
   local resolved = joinpath(libDir, resourcePath)
   if isfile(resolved)

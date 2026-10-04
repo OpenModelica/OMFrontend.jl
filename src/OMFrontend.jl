@@ -51,6 +51,13 @@ import Serialization
 #= This file defines additional utility macros. =#
 include("util.jl")
 
+#= OMFrontend's root directory, wherever it is loaded from (lib/ holds the builtin
+   library and the bundled MSL). Base.find_package resolves a package name only where
+   the active environment lists the package directly: with only OM or OMBackend in
+   an environment it returned nothing, and the precompile workload and the MSL loading
+   failed there. =#
+packageRoot()::String = something(pkgdir(@__MODULE__), normpath(joinpath(@__DIR__, "..")))
+
 
 #= Cache for NFModelicaBuiltin. We only use the result once! =#
 """
@@ -73,12 +80,7 @@ Improving the speed of precompilation would improve the feel of this package
 by a lot.
 """
 function __init__()
-  # Base.find_package returns nothing when OMFrontend is baked into a
-  # PackageCompiler sysimage; fall back to the source dir captured at build time.
-  pkg = Base.find_package("OMFrontend")
-  packagePath = pkg === nothing ?
-      abspath(joinpath(@__DIR__, "..")) :
-      dirname(realpath(pkg)) * "/.."
+  packagePath = packageRoot()
   # Load builtin library if not already in cache (e.g. when precompile workload is disabled)
   if !haskey(NFModelicaBuiltinCache, "NFModelicaBuiltin")
     pathToLib = packagePath * "/lib/NFModelicaBuiltin.mo"
@@ -396,9 +398,7 @@ function loadMSL(; MSL_Version)
     Frontend.Global.initialize()
     try
       @info "Loading MSL.."
-      local packagePath = dirname(realpath(Base.find_package("OMFrontend")))
-      local packagePath *= "/.."
-      local pathToLib = packagePath * string("/lib/Modelica/", MSL_Version, ".mo")
+      local pathToLib = joinpath(packageRoot(), "lib", "Modelica", string(MSL_Version, ".mo"))
       local contentHash = _computeLibHash(pathToLib)
       if _loadLibCache(MSL_Version, contentHash)
         return LIBRARY_CACHE[MSL_Version]
@@ -804,25 +804,18 @@ function libraries(; installDir::Union{String, Nothing} = nothing)
       _add!(name, version, fullPath, :installed)
     end
   end
-  local pkgRoot = try
-    normpath(dirname(realpath(Base.find_package("OMFrontend"))) * "/..")
-  catch
-    nothing
-  end
-  if pkgRoot !== nothing
-    local bundledDir = joinpath(pkgRoot, "lib", "Modelica")
-    if isdir(bundledDir)
-      for entry in sort(readdir(bundledDir))
-        startswith(entry, "MSL_") && continue
-        local fullPath = joinpath(bundledDir, entry)
-        if isdir(fullPath) && isfile(joinpath(fullPath, "package.mo"))
-          local spaceIdx = findfirst(isequal(' '), entry)
-          local name = spaceIdx !== nothing ? entry[1:spaceIdx-1] : splitext(entry)[1]
-          local version = spaceIdx !== nothing ? entry[spaceIdx+1:end] : ""
-          _add!(name, version, fullPath, :bundled)
-        elseif isfile(fullPath) && endswith(entry, ".mo")
-          _add!(splitext(entry)[1], "", fullPath, :bundled)
-        end
+  local bundledDir = joinpath(packageRoot(), "lib", "Modelica")
+  if isdir(bundledDir)
+    for entry in sort(readdir(bundledDir))
+      startswith(entry, "MSL_") && continue
+      local fullPath = joinpath(bundledDir, entry)
+      if isdir(fullPath) && isfile(joinpath(fullPath, "package.mo"))
+        local spaceIdx = findfirst(isequal(' '), entry)
+        local name = spaceIdx !== nothing ? entry[1:spaceIdx-1] : splitext(entry)[1]
+        local version = spaceIdx !== nothing ? entry[spaceIdx+1:end] : ""
+        _add!(name, version, fullPath, :bundled)
+      elseif isfile(fullPath) && endswith(entry, ".mo")
+        _add!(splitext(entry)[1], "", fullPath, :bundled)
       end
     end
   end
