@@ -72,6 +72,12 @@ const NFModelicaBuiltinCache = Dict()
 const LIBRARY_CACHE = Dict{String, SCode.Program}()
 
 """
+  The cache keys of the libraries a cached library uses (its `uses` annotation), as
+  `loadInstalledLibrary` loaded them; `libraryClosure` adds them to a flattening.
+"""
+const LIBRARY_DEPENDENCIES = Dict{String, Vector{String}}()
+
+"""
   This function "precompiles" some of the runtime Modelica libraries.
   While it results in some latency when importing OMFrontend, subsequent
   use of OMFrontend to parse and work with Modelica files is faster.
@@ -856,7 +862,7 @@ function _parseUsesDeps(path::String)::Dict{String, String}
 end
 
 """
-    loadInstalledLibrary(name; version = nothing, forceReload = false, autodeps = true) -> String
+    loadInstalledLibrary(name; version = nothing, forceReload = false, autodeps = true, installDir = nothing) -> String
 
 Load a Modelica library discovered via `libraries`. Installed OpenModelica
 libraries are searched first, then the bundled `lib/Modelica/` directory.
@@ -866,7 +872,9 @@ match is tried before a prefix match (e.g. `"4.1"` matches `"4.1.0"`).
 
 When `autodeps = true` (default), the `uses(...)` annotation of the loaded
 `package.mo` is parsed and any declared dependencies that are available via
-`libraries()` are loaded automatically before returning.
+`libraries()` are loaded automatically before returning. Their keys are recorded
+in `LIBRARY_DEPENDENCIES`, so flattening with the returned key alone also uses them.
+`installDir` is the directory of installed libraries (see `libraries`).
 
 Returns the cache key under which the library is stored in `LIBRARY_CACHE`.
 
@@ -879,8 +887,9 @@ OMFrontend.loadInstalledLibrary("Buildings")   # auto-loads Modelica + ModelicaS
 function loadInstalledLibrary(name::String;
                               version::Union{String, Nothing} = nothing,
                               forceReload::Bool = false,
-                              autodeps::Bool = true)::String
-  local avail = libraries()
+                              autodeps::Bool = true,
+                              installDir::Union{String, Nothing} = nothing)::String
+  local avail = libraries(; installDir = installDir)
   if !haskey(avail, name)
     error("Library '$name' not found. Run `libraries()` to see what is available.")
   end
@@ -899,6 +908,7 @@ function loadInstalledLibrary(name::String;
   local cacheKey = isempty(cleanVer) ? name : string(name, "_", cleanVer)
   if forceReload
     delete!(LIBRARY_CACHE, cacheKey)
+    delete!(LIBRARY_DEPENDENCIES, cacheKey)
   end
   if haskey(LIBRARY_CACHE, cacheKey)
     @info "Library '$cacheKey' already cached."
@@ -911,11 +921,13 @@ function loadInstalledLibrary(name::String;
   end
   if autodeps
     local deps = _parseUsesDeps(entry.path)
-    local avail2 = libraries()
+    local avail2 = libraries(; installDir = installDir)
+    local depKeys = String[]
     for (depName, depVer) in deps
       if haskey(avail2, depName)
         try
-          loadInstalledLibrary(depName; version = depVer, autodeps = true)
+          push!(depKeys, loadInstalledLibrary(depName; version = depVer, autodeps = true,
+                                              installDir = installDir))
         catch e
           @warn "Could not auto-load dependency '$depName $depVer' for '$name': $e"
         end
@@ -923,8 +935,27 @@ function loadInstalledLibrary(name::String;
         @info "Dependency '$depName $depVer' declared by '$name' is not in the discovered library list."
       end
     end
+    LIBRARY_DEPENDENCIES[cacheKey] = depKeys
   end
   return cacheKey
+end
+
+"""
+    libraryClosure(keys) -> Vector{String}
+
+`keys` followed by the libraries they use (`LIBRARY_DEPENDENCIES`, transitively),
+each once, in that order of priority for name resolution.
+"""
+function libraryClosure(keys::Vector{String})::Vector{String}
+  local closure = String[]
+  local pending = copy(keys)
+  while !isempty(pending)
+    local key = popfirst!(pending)
+    key in closure && continue
+    push!(closure, key)
+    append!(pending, get(LIBRARY_DEPENDENCIES, key, String[]))
+  end
+  return closure
 end
 
 const _LIBRARY_REGISTRY = Dict{String, @NamedTuple{url::String, tag_prefix::String, pkg_subdir::String}}(
@@ -993,8 +1024,10 @@ end
     flattenModelWithLibraries(modelName, fileName; libraries, MSL, MSL_Version, scalarize, forceReload)
 
 Flatten a Modelica model combining it with one or more pre-loaded libraries.
-Libraries are looked up in `LIBRARY_CACHE` by their cache keys. If MSL is
-requested, it is appended last (lowest priority for name resolution).
+Libraries are looked up in `LIBRARY_CACHE` by their cache keys, followed by the
+libraries they use (`libraryClosure`). If MSL is requested, it is appended last
+(lowest priority for name resolution). `fileName` may be empty for a model of
+one of the libraries.
 
 Ordering in the combined program (leftmost = highest priority):
 1. User model code
@@ -1019,7 +1052,7 @@ function flattenModelWithLibraries(modelName::String,
     local absynProgram = parseFile(fileName)
     translateToSCode(absynProgram)
   end
-  for libKey in libraries
+  for libKey in libraryClosure(libraries)
     if !haskey(LIBRARY_CACHE, libKey)
       error("Library '$libKey' not loaded. Call loadInstalledLibrary or loadLibrary first.")
     end

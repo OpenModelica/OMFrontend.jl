@@ -62,6 +62,7 @@ end
 
 @testset "OMFrontend tests" begin
   include("packageRootTests.jl")
+  include("libraryDependencyTests.jl")
   @testset "Frontend sanitiy tests. Check if we can transform the abstract tree to SCode and that we are able to flatten without exceptions" begin
     @testset "Absyn -> SCode test" begin
       include("scodeSanityTest.jl")
