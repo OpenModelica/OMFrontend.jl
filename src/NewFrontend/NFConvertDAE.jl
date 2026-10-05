@@ -978,7 +978,7 @@ function convertForEquation(forEquation::Equation)::DAE.Element
   local iterator::InstNode
   local ty::M_Type
   local range::Expression
-  local body::List{Equation}
+  local body::Vector{Equation} #= EQUATION_FOR holds a Vector (was List: a convert MethodError) =#
   local dbody::List{DAE.Element}
   local source::DAE.ElementSource
 

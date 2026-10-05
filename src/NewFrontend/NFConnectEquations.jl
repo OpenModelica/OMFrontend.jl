@@ -861,7 +861,8 @@ function evaluateOperatorReductionExp(
           @assign iters = _cons((iter_node, iter_exp), iters)
         end
         @assign iters = listReverseInPlace(iters)
-        @assign arg = expandArrayConstructor(call.exp, ty, iters)
+        #= expandArrayConstructor returns (exp, expanded). =#
+        (arg, _) = expandArrayConstructor(call.exp, ty, iters)
         CALL_EXPRESSION(makeTypedCall(
           call.fn,
           Expression[arg],

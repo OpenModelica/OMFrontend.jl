@@ -809,7 +809,10 @@ function expandBuiltinGeneric(call::Call)::Tuple{Expression, Bool}
   local arg::Expression
   local args::List{Expression}
   local expl::List{Expression}
-  @match TYPED_CALL(fn, ty, var, Cons{Expression}(arg, T), attr) = call
+  #= The arguments are a Vector (the Cons pattern never matched: der(x), pre(x) of an array
+     fell back to a subscripted call). =#
+  @match TYPED_CALL(fn, ty, var, _, attr) = call
+  arg = call.arguments[1]
   ty = arrayElementType(ty)
   @match (arg, true) = expand(arg)
   outExp = expandBuiltinGeneric2(arg, fn, ty, var, attr)

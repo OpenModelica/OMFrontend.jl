@@ -721,13 +721,12 @@ end
   )
 end
 
-#= An iteration range given as an array (`for i in {1, 3}`, MLS 10.4.1.2):
-   typed as an expression, as OpenModelica's typeIterator types any range;
-   the range method above types a range expression (there was no method for
-   an array: a MethodError). =#
+#= Any other iteration range, an array (`for i in {1, 3}`, MLS 10.4.1.2) or an array
+   cref or call (`for x in v`): typed as an expression, as OpenModelica's typeIterator
+   types any range; the method above types a range expression. =#
 @nospecializeinfer function typeIterator(
   @nospecialize(iterator::InstNode),
-  @nospecialize(range::ARRAY_EXPRESSION),
+  @nospecialize(range::Expression),
   @nospecialize(origin::ORIGIN_Type),
   structural::Bool = false
   )::Tuple{Expression, NFType, VariabilityType}
@@ -1196,7 +1195,8 @@ function checkComponentBindingVariability(
       ),
       Binding_getInfo(binding),
     )
-    return 404
+    #= An error (omc fails here); this returned 404, an InexactError for the Int8 variability. =#
+    fail()
   end
   #=  Mark parameters that have a structural cref as binding as also
   =#

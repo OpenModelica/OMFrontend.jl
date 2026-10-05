@@ -1150,7 +1150,7 @@ function scopePath(node::InstNode; includeRoot::Bool = false #= Whether to inclu
       end
 
       IMPLICIT_SCOPE(__)  => begin
-        scopePath(node.parentScope, includeRoot)
+        scopePath(node.parentScope; includeRoot = includeRoot)
       end
 
       _  => begin

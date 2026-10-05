@@ -4610,11 +4610,10 @@ function evalReduction(
 )::Expression
   local result::Expression
 
-   result = evalExpPartial(exp)
-   result = bindingExpMap(
-    result,
-    (fn, iterators) -> evalReduction2(fn = fn, iterators = iterators),
-  )
+  #= evalExpPartial returns (exp, evaluated); evalReduction2 with fn and iterators fixed
+     (a partial application in the Modelica original). =#
+  (result, _) = evalExpPartial(exp)
+  result = bindingExpMap(result, (e) -> evalReduction2(fn, e, iterators))
   return result
 end
 
