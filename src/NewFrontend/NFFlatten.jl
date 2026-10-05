@@ -735,17 +735,14 @@ function flattenArray(
           #=  vectorize equations
           =#
           for eqn in sects.equations #listReverse(sects.equations)
-            sections = prependEquation(
-              vectorizeEquation(eqn, dimensions, prefix),
-              sections,
-            )
+            for veq in _vectorizeEquationSplit(eqn, dimensions, prefix)
+              sections = prependEquation(veq, sections)
+            end
           end
           for eqn in sects.initialEquations #listReverse(sects.initialEquations)
-            sections = prependEquation(
-              vectorizeEquation(eqn, dimensions, prefix),
-              sections,
-              true,
-            )
+            for veq in _vectorizeEquationSplit(eqn, dimensions, prefix)
+              sections = prependEquation(veq, sections, true)
+            end
           end
           for alg in sects.algorithms #listReverse(sects.algorithms)
             sections = prependAlgorithm(
@@ -796,6 +793,24 @@ function flattenArray(
     end
   end
   return (vars, sections)
+end
+
+#= As omc's vectorizeEquation: the connects (and connection calls) of an arrayed component are
+   unrolled for the connection handling (splitForLoop2); the rest stays a loop. The iterators
+   are in the subscripts of the prefix parts (c[$i1].a), so the unrolling replaces them in all
+   parts (_unrollForEquation!), not with replaceIteratorList. =#
+function _vectorizeEquationSplit(eqn::Equation, dimensions::List, prefix::ComponentRef)::Vector{Equation}
+  local veq = vectorizeEquation(eqn, dimensions, prefix)
+  if isvariant(veq, EQUATION_FOR) &&
+     (contains(veq, isConnectEq) || foldExp(veq, (e, acc) -> acc || contains(e, _isConnectionCall), false))
+    local (connects, rest) = splitForLoop2(Equation[veq])
+    local out = Equation[]
+    for c in connects
+      _unrollForEquation!(out, c)
+    end
+    return append!(out, rest)
+  end
+  return Equation[veq]
 end
 
 function vectorizeEquation(

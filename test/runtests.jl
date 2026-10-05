@@ -91,6 +91,10 @@ end
     include("frontendResultTest.jl")
   end
 
+  @testset "Arrays kept (no scalarization)" begin
+    include("keepArraysTests.jl")
+  end
+
   @testset "Algorithm-level for-loop unrolling" begin
     include("algorithmUnrollTests.jl")
   end

@@ -53,6 +53,318 @@ function scalarize(flatModel::FlatModel, name::String)::FlatModel
   return flatModel
 end
 
+"""
+    scalarizeKeptArrays(flatModel::FlatModel)::FlatModel
+
+A flat model flattened without scalarization (`scalarize = false`: array variables, array
+equations, for-equations) in the scalarized form the backend takes: for-equations unrolled
+(nested ones too, then simplified), array variables split into their elements, also those
+whose dimensions are on a prefix part (`r.p.i` of a component array `r`: `r[1].p.i`, as the
+equations refer to them), then the array equations expanded by `scalarize`. Algorithms keep
+their for-statements, as when scalarizing.
+"""
+function scalarizeKeptArrays(flatModel::FlatModel)::FlatModel
+  #= The settings of a scalarizing flattening (setSettingForInst): expansion of operations and
+     function arguments on, so der(x) expands to der(x[1]), ... They stay on: from here on
+     the model is scalar, as after a scalarizing flatten. =#
+  FlagsUtil.set(Flags.NF_SCALARIZE, true)
+  FlagsUtil.set(Flags.NF_EXPAND_OPERATIONS, true)
+  FlagsUtil.set(Flags.NF_EXPAND_FUNC_ARGS, true)
+  #= The array variables by name: their element crefs, dimensions and element type. A cref
+     of an array variable without (literal) subscripts on its array parts becomes the array of
+     its elements (the variable table knows the dimensions; the parts of a cref in a
+     vectorized equation do not always carry them). =#
+  local table = Dict{String, Tuple{Vector{ComponentRef}, Vector{Int}, NFType}}()
+  for v in flatModel.variables
+    if isArray(v.ty) && hasKnownSize(v.ty) && !isEmptyArray(v.ty)
+      table[_unsubscriptedName(v.name)] = (_expandArrayParts(v.name), [size(d) for d in arrayDims(v.ty)], arrayElementType(v.ty))
+    end
+  end
+  local expandArr = (e) -> map(e, (x) -> _expandKeptArrayCref(x, table))
+  local vars::Vector{Variable} = Variable[]
+  for v in flatModel.variables
+    _splitKeptArrayVariable(v, vars, table)
+  end
+  @assign begin
+    flatModel.variables = vars
+    flatModel.equations = _arrayEqualityAsEquality(mapExpList(_unrollForEquations(flatModel.equations), expandArr))
+    flatModel.initialEquations = _arrayEqualityAsEquality(mapExpList(_unrollForEquations(flatModel.initialEquations), expandArr))
+    flatModel.algorithms = mapExpList(_unrollVectorizedAlgorithms(flatModel.algorithms), expandArr)
+    flatModel.initialAlgorithms = mapExpList(_unrollVectorizedAlgorithms(flatModel.initialAlgorithms), expandArr)
+  end
+  #= As a scalarizing flatten: simplify with the expansion settings on (function arguments and
+     operations on arrays expanded, in bindings and algorithms too), then scalarize. =#
+  flatModel = simplifyFlatModel(flatModel)
+  return scalarize(flatModel, flatModel.name)
+end
+
+#= An algorithm of a component array kept as an array is vectorized into one for-loop over the
+   array (vectorizeAlgorithm, iterators named $i...): one algorithm per element instead, with
+   the iterator replaced in every cref part, as a scalarizing flatten gives (the backend lowers
+   when-statements per element). Loops written in the model stay. =#
+function _unrollVectorizedAlgorithms(algs::Vector{Algorithm})::Vector{Algorithm}
+  local out = Algorithm[]
+  for alg in algs
+    _unrollVectorizedAlgorithm!(out, alg.statements, alg.source)
+  end
+  return out
+end
+
+function _unrollVectorizedAlgorithm!(out::Vector{Algorithm}, stmts::Vector{Statement}, source)
+  if length(stmts) == 1 && isvariant(stmts[1], ALG_FOR) && startswith(name(stmts[1].iterator), "\$") &&
+     isSome(stmts[1].range)
+    local loop = stmts[1]
+    local range::Expression = evalExp(Util.getOption(loop.range), EVALTARGET_RANGE(AbsynUtil.dummyInfo))
+    local range_iter = RangeIterator_fromExp(range)
+    local val::Expression
+    while hasNext(range_iter)
+      (range_iter, val) = next(range_iter)
+      local f = (e) -> map(e, (x) -> _replaceIteratorInExp(x, loop.iterator, val))
+      _unrollVectorizedAlgorithm!(out, mapExpList(loop.body, f), source)
+    end
+  else
+    push!(out, ALGORITHM(stmts, source))
+  end
+  return out
+end
+
+#= A variable of a flat model with arrays kept, split into its elements (also over the
+   dimensions of its prefix parts: r.p.i of a component array r -> r[1].p.i, ...), with the
+   binding and type attributes of each element. A scalar variable keeps its binding, array
+   crefs in it expanded (an array context). =#
+function _splitKeptArrayVariable(v::Variable, vars::Vector{Variable}, table)
+  local expandArr = (x) -> _expandKeptArrayCref(x, table)
+  if !(isArray(v.ty) && hasKnownSize(v.ty))
+    push!(vars, VARIABLE(v.name, v.ty, mapExp(v.binding, expandArr), v.visibility, v.attributes,
+                         Tuple{String, Binding}[(n, mapExp(b, expandArr)) for (n, b) in v.typeAttributes],
+                         v.comment, v.info))
+    return vars
+  end
+  isEmptyArray(v.ty) && return vars
+  local ndims = length(arrayDims(v.ty))
+  local (elems, _, elty) = table[_unsubscriptedName(v.name)]
+  local bindings = _elementBindings(v.binding, elems, ndims, v, table)
+  local attrs = [(n, _elementBindings(b, elems, ndims, v, table)) for (n, b) in v.typeAttributes]
+  for (k, e) in enumerate(elems)
+    push!(vars, VARIABLE(e, elty, bindings[k], v.visibility, v.attributes,
+                         Tuple{String, Binding}[(n, bs[k]) for (n, bs) in attrs], v.comment, v.info))
+  end
+  return vars
+end
+
+#= The binding of each element. Per instance (fewer dimensions than the variable: written for
+   one component of a component array kept as an array, or each): the element's prefix
+   subscripts transferred into its crefs (r[2].p.i's binding reads r[2]'s parameters), as
+   flattening a scalarized component array does. An array binding: expanded, element k. =#
+function _elementBindings(b::Binding, elems::Vector{ComponentRef}, ndims::Int, v::Variable, table)::Vector{Binding}
+  isBound(b) || return Binding[b for _ in elems]
+  local e = getTypedExp(b)
+  local var = variability(b)
+  local expandArr = (x) -> _expandKeptArrayCref(x, table)
+  if isEach(b) || dimensionCount(typeOf(e)) < ndims
+    #= Per element: the prefix subscripts transferred, then the arrays left (a field that is
+       itself an array, vol[2].X_start) expanded. =#
+    return Binding[FLAT_BINDING(map(map(e, (x) -> _transferPrefixSubs(x, el)), expandArr), var) for el in elems]
+  end
+  local (ee, expanded) = expand(map(e, expandArr))
+  local scal = expanded ? Base.collect(arrayScalarElements(ee)) : Expression[]
+  if length(scal) != length(elems)
+    Error.assertion(false, getInstanceName() + " could not split the binding " + toString(e) +
+                    " over the " + String(length(elems)) + " elements of " + toString(v.name), v.info)
+    fail()
+  end
+  return Binding[FLAT_BINDING(x, var) for x in scal]
+end
+
+function _transferPrefixSubs(@nospecialize(x::Expression), el::ComponentRef)::Expression
+  (x isa CREF_EXPRESSION && isvariant(x.cref, COMPONENT_REF_CREF)) || return x
+  return CREF_EXPRESSION(x.ty, transferSubscripts(el, x.cref))
+end
+
+#= A cref of an array variable whose array parts are not all subscripted: the (nested) array of
+   the matching elements over the free dimensions (x -> {x[1], x[2]}, vol[2].X_start ->
+   {vol[2].X_start[1], ...}, whole arrays in function arguments too, as a scalarizing flatten
+   expands them). Crefs with non-literal subscripts (loop iterators) are left. Array crefs in a
+   tuple target are expanded likewise. Other crefs: _expandPrefixArrayCref. =#
+function _expandKeptArrayCref(@nospecialize(x::Expression), table)::Expression
+  if x isa TUPLE_EXPRESSION
+    local changed = false
+    local elems = Expression[]
+    for e in x.elements
+      local e2 = e isa CREF_EXPRESSION ? _expandKeptArrayCref(e, table) : e
+      changed |= !referenceEq(e, e2)
+      push!(elems, e2)
+    end
+    return changed ? TUPLE_EXPRESSION(x.ty, list(elems...)) : x
+  end
+  (x isa CREF_EXPRESSION && isvariant(x.cref, COMPONENT_REF_CREF)) || return x
+  local entry = get(table, _unsubscriptedName(x.cref), nothing)
+  entry === nothing && return _expandPrefixArrayCref(x)
+  local (elems, dims, elty) = entry
+  local xparts = _crefPartsRootFirst(x.cref)
+  local eparts0 = _crefPartsRootFirst(elems[1])
+  length(xparts) == length(eparts0) || return x
+  #= The variable's dimensions per part (the elements' subscript counts), the free ones where x
+     has no subscripts. =#
+  local freeDims = Int[]
+  local pos = 1
+  for (xp, ep) in zip(xparts, eparts0)
+    local n = listLength(ep.subscripts)
+    listEmpty(xp.subscripts) && append!(freeDims, dims[pos:(pos + n - 1)])
+    pos += n
+  end
+  isempty(freeDims) && return x
+  local matching = ComponentRef[]
+  for el in elems
+    local ok = true
+    for (xp, ep) in zip(xparts, _crefPartsRootFirst(el))
+      listEmpty(xp.subscripts) && continue
+      local eq = _literalSubsEqual(xp.subscripts, ep.subscripts)
+      eq === nothing && return x
+      if !eq
+        ok = false
+        break
+      end
+    end
+    ok && push!(matching, el)
+  end
+  length(matching) == prod(freeDims) || return x
+  return _nestedCrefArray(matching, freeDims, elty, 0)
+end
+
+#= An array equality whose sides are both expanded arrays (a vectorized x = k after
+   _expandKeptArrayCref) as a plain equality: scalarizeEquation splits that per element, while
+   its array-equality case evaluates parameters (x[1] = -0.01 instead of x[1] = k[1]). =#
+function _arrayEqualityAsEquality(eql::Vector{Equation})::Vector{Equation}
+  return Equation[(isvariant(eq, EQUATION_ARRAY_EQUALITY) && eq.lhs isa ARRAY_EXPRESSION && eq.rhs isa ARRAY_EXPRESSION) ?
+                  EQUATION_EQUALITY(eq.lhs, eq.rhs, eq.ty, eq.source) : eq for eq in eql]
+end
+
+function _unsubscriptedName(cr::ComponentRef)::String
+  return Base.join([name(p.node) for p in _crefPartsRootFirst(cr)], ".")
+end
+
+function _crefPartsRootFirst(cr::ComponentRef)::Vector{ComponentRef}
+  local parts = ComponentRef[]
+  while isvariant(cr, COMPONENT_REF_CREF)
+    pushfirst!(parts, cr)
+    cr = cr.restCref
+  end
+  return parts
+end
+
+#= Whether two subscript lists are equal literal indices; nothing when the first is not literal. =#
+function _literalSubsEqual(xs::List{<:Subscript}, es::List{<:Subscript})
+  listLength(xs) == listLength(es) || return false
+  for (a, b) in zip(xs, es)
+    (a isa SUBSCRIPT_INDEX && isLiteral(a.index)) || return nothing
+    (b isa SUBSCRIPT_INDEX && isEqual(a.index, b.index)) || return false
+  end
+  return true
+end
+
+#= A cref with array dimensions on a prefix part without subscripts, as names of a component
+   array kept as an array (c.T0 of c[4]): the nested array of its element crefs (c[1].T0, ...).
+   ExpandExp.expandCref expands the parts written in an expression only, not the prefix of a
+   flattened name. =#
+function _expandPrefixArrayCref(@nospecialize(exp::Expression))::Expression
+  exp isa CREF_EXPRESSION || return exp
+  local cr = exp.cref
+  isvariant(cr, COMPONENT_REF_CREF) || return exp
+  local dims = Int[]
+  local hasPrefixDims = false
+  local part = cr
+  local isLeaf = true
+  while isvariant(part, COMPONENT_REF_CREF)
+    if listEmpty(part.subscripts)
+      local pdims = [size(d) for d in arrayDims(part.ty)]
+      if !isempty(pdims)
+        prepend!(dims, pdims)
+        isLeaf || (hasPrefixDims = true)
+      end
+    end
+    isLeaf = false
+    part = part.restCref
+  end
+  hasPrefixDims || return exp
+  return _nestedCrefArray(_expandArrayParts(cr), dims, arrayElementType(exp.ty), 0)
+end
+
+function _nestedCrefArray(crefs::Vector{ComponentRef}, dims::Vector{Int}, elty::NFType, offset::Int)::Expression
+  if length(dims) == 1
+    local elems = Expression[CREF_EXPRESSION(elty, crefs[offset + i]) for i in 1:dims[1]]
+    return makeArray(liftArrayLeft(elty, fromInteger(dims[1])), elems)
+  end
+  local rest = dims[2:end]
+  local stride = prod(rest)
+  local subs = Expression[_nestedCrefArray(crefs, rest, elty, offset + (i - 1) * stride) for i in 1:dims[1]]
+  return makeArray(liftArrayLeft(typeOf(subs[1]), fromInteger(dims[1])), subs)
+end
+
+#= For-equations unrolled: the iterator replaced by each value of its range (nested loops and
+   loops in if-branches too), then simplified so subscripts like x[i - 1] fold and
+   if-equations whose conditions used the iterator are resolved. =#
+function _unrollForEquations(eql::Vector{Equation})::Vector{Equation}
+  local out = Equation[]
+  for eq in eql
+    _unrollForEquation!(out, eq)
+  end
+  return simplifyEquations(out)
+end
+
+#= replaceIteratorList that also replaces the iterator in the subscripts of a cref's prefix
+   parts: vectorizing a component array puts its iterators there (c[$i1].C), and the
+   expression map (mapCref) only visits the parts of CREF origin. =#
+function _replaceIteratorAllParts(eql::Vector{Equation}, iterator::InstNode, @nospecialize(value::Expression))::Vector{Equation}
+  local f = (e) -> map(e, (x) -> _replaceIteratorInExp(x, iterator, value))
+  return mapExpList(eql, f)
+end
+
+function _replaceIteratorInExp(@nospecialize(x::Expression), iterator::InstNode, @nospecialize(value::Expression))::Expression
+  if x isa CREF_EXPRESSION && isvariant(x.cref, COMPONENT_REF_CREF) && !isSimple(x.cref)
+    return CREF_EXPRESSION(x.ty, _replaceIteratorInCrefParts(x.cref, iterator, value))
+  end
+  return replaceIterator2(x, iterator, value)
+end
+
+function _replaceIteratorInCrefParts(cr::ComponentRef, iterator::InstNode, @nospecialize(value::Expression))::ComponentRef
+  isvariant(cr, COMPONENT_REF_CREF) || return cr
+  local rest = _replaceIteratorInCrefParts(cr.restCref, iterator, value)
+  local subs = list(mapExp(sub, (e) -> replaceIterator(e, iterator, value)) for sub in cr.subscripts)
+  return COMPONENT_REF_CREF(cr.node, subs, cr.ty, cr.origin, rest)
+end
+
+function _unrollForEquation!(out::Vector{Equation}, @nospecialize(eq::Equation))
+  if isvariant(eq, EQUATION_FOR)
+    local range::Expression = evalExp(Util.getOption(eq.range), EVALTARGET_RANGE(Equation_info(eq)))
+    local range_iter = RangeIterator_fromExp(range)
+    local val::Expression
+    while hasNext(range_iter)
+      (range_iter, val) = next(range_iter)
+      for b in _replaceIteratorAllParts(eq.body, eq.iterator, val)
+        _unrollForEquation!(out, b)
+      end
+    end
+  elseif isvariant(eq, EQUATION_IF)
+    local bl = EquationBranch[]
+    for b in eq.branches
+      if isvariant(b, EQUATION_BRANCH)
+        local body = Equation[]
+        for e in b.body
+          _unrollForEquation!(body, e)
+        end
+        push!(bl, makeBranch(b.condition, body, b.conditionVar))
+      else
+        push!(bl, b)
+      end
+    end
+    push!(out, EQUATION_IF(bl, eq.source))
+  else
+    push!(out, eq)
+  end
+  return out
+end
+
 function scalarizeVariable(var::Variable, vars::Vector{Variable})
   local name::ComponentRef
   local binding::Binding
