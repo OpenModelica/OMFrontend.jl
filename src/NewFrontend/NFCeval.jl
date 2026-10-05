@@ -4862,11 +4862,12 @@ function printUnboundError(component::Component, target::EvalTarget, @nospeciali
   end
 end
 
-function printWrongArgsError(evalFunc::String, args::List{Expression}, info::SourceInfo)
+#= args: the List (list(arg) builds e.g. a Cons{CALL_EXPRESSION}) or Vector the evalBuiltin* functions take. =#
+function printWrongArgsError(evalFunc::String, args::Union{List{<:Expression}, Vector{<:Expression}}, info::SourceInfo)
   return Error.addInternalError(
     evalFunc +
-    " got invalid arguments " +
-    ListUtil.toString(args, toString, "", "(", ", ", ")", true),
+    " got invalid arguments (" +
+    stringDelimitList(list(toString(a) for a in args), ", ") + ")",
     info,
   )
 end

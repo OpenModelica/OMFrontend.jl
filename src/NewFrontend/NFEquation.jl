@@ -121,7 +121,8 @@ end
 
       EQUATION_FOR(__) => begin
          s = IOStream_M.append(s, "for ")
-         s = IOStream_M.append(s, toFlatString(eq.iterator))
+         #= Not scalarizing: quoted like the iterator's uses (omc). =#
+         s = IOStream_M.append(s, Flags.isSet(Flags.NF_SCALARIZE) ? toFlatString(eq.iterator) : "'" * name(eq.iterator) * "'")
         if isSome(eq.range)
            s = IOStream_M.append(s, " in ")
            s = IOStream_M.append(
@@ -139,10 +140,17 @@ end
       EQUATION_IF(__) => begin
         s = IOStream_M.append(s, "if ")
         s = toFlatStream(eq.branches[1], indent, s)
-        for b in eq.branches[2:end]
+        for (k, b) in enumerate(eq.branches[2:end])
           s = IOStream_M.append(s, indent)
-          s = IOStream_M.append(s, "elseif ")
-          s = toFlatStream(b, indent, s)
+          #= Not scalarizing: a last branch with a literal true condition is the else (omc). =#
+          if !Flags.isSet(Flags.NF_SCALARIZE) && k == length(eq.branches) - 1 &&
+             isvariant(b, EQUATION_BRANCH) && isTrue(b.condition)
+            s = IOStream_M.append(s, "else\\n")
+            s = toFlatStreamList(b.body, indent + "  ", s)
+          else
+            s = IOStream_M.append(s, "elseif ")
+            s = toFlatStream(b, indent, s)
+          end
         end
         s = IOStream_M.append(s, indent)
         s = IOStream_M.append(s, "end if")

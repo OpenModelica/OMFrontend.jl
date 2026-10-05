@@ -574,6 +574,13 @@ function getRecordBindings(binding::Binding, comps::Vector{<:InstNode})::List{Bi
         end for e in binding_exp.elements)
       end
 
+      #= An array of records (a vectorized component array, not scalarizing): field i is bound
+         to the array of field i in each element (as omc's getRecordBindings). Scalarizing, each
+         element gets its own subscripted binding, so an array here is a bug upstream. =#
+      ARRAY_EXPRESSION(__) where (!Flags.isSet(Flags.NF_SCALARIZE) && isRecord(arrayElementType(typeOf(binding_exp)))) => begin
+        list(FLAT_BINDING(nthRecordElement(i, binding_exp), var) for i in 1:length(comps))
+      end
+
       _ => begin
         #=  The binding for a record field might be Expression.EMPTY if it comes
         =#
@@ -798,11 +805,8 @@ function vectorizeEquation(
 )::Equation
   local veqn::Equation
   veqn = begin
-    local prefix_node::InstNode
-    local iter::InstNode
-    local stop::Int
-    local range::Expression
     @match eqn begin
+      #=  convert simple equality of crefs to array equality =#
       EQUATION_EQUALITY(
         lhs = CREF_EXPRESSION(__),
         rhs = CREF_EXPRESSION(__),
@@ -814,46 +818,16 @@ function vectorizeEquation(
           eqn.source,
         )
       end
+      #=  wrap general equation into one for loop per dimension (omc's vectorizeEquationGeneric) =#
       _ => begin
-        #=  convert simple equality of crefs to array equality
-        wrap general equation into for loop
-        =#
-        iter = begin
-          @match node(prefix) begin
-            prefix_node && COMPONENT_NODE(__)=> begin
-              COMPONENT_NODE(
-                "i",
-                prefix_node.visibility,
-                ITERATOR_COMPONENT(
-                  TYPE_INTEGER(),
-                  Variability.IMPLICITLY_DISCRETE,
-                  Component_info(_compVal(prefix_node)),
-                ),
-                prefix_node.parent,
-                NORMAL_COMP(),
-              )
-            end
-          end
+        local (iters, ranges, subs) = makeIterators(prefix, dimensions)
+        local subsInOrder = listReverse(subs)
+        local mappedEq = mapExp(eqn, (x) -> addIterator(x, prefix, subsInOrder))
+        for (iter, range) in zip(iters, ranges)
+          mappedEq = EQUATION_FOR(iter, SOME(range), Equation[mappedEq], source(eqn))
         end
-        @match DIMENSION_INTEGER(size = stop) <| rest = dimensions
-        range = RANGE_EXPRESSION(
-          TYPE_ARRAY(TYPE_INTEGER(), dimensions),
-          INTEGER_EXPRESSION(1),
-          NONE(),
-          INTEGER_EXPRESSION(stop),
-        )
-        local subscript = SUBSCRIPT_INDEX(CREF_EXPRESSION(TYPE_INTEGER(),
-                                                          makeIterator(iter,
-                                                                       TYPE_INTEGER())))
-        local mappedEq = mapExp(eqn, (x) -> addIterator(x, prefix, subscript))
-        EQUATION_FOR(
-          iter,
-          SOME(range),
-          Equation[mappedEq],
-          source(eqn),
-        )
+        mappedEq
       end
-      veqn
     end
   end
   return veqn
@@ -864,67 +838,21 @@ function vectorizeAlgorithm(
   dimensions::List{Dimension},
   prefix::ComponentRef
 )::Algorithm
-  local valg::Algorithm
-  @assign valg = begin
-    local prefix_node::InstNode
-    local iter::InstNode
-    local stop::Int
-    local range::Expression
-    local body::Vector{Statement}
-    @match alg begin
-      ALGORITHM(
-        statements = ALG_ASSIGNMENT(
-          lhs = CREF_EXPRESSION(__),
-          rhs = CREF_EXPRESSION(__),
-        ) <| nil(),
-      ) => begin
-        alg
-      end
-
-      _ => begin
-        #=  let simple assignment as is
-        =#
-        #=  wrap general algorithm into for loop
-        =#
-        @assign iter = begin
-          @match node(prefix) begin
-            prefix_node && COMPONENT_NODE(__) => begin
-              COMPONENT_NODE(
-                "i",
-                prefix_node.visibility,
-                ITERATOR_COMPONENT(
-                  TYPE_INTEGER(),
-                  Variability.IMPLICITLY_DISCRETE,
-                  Component_info(_compVal(prefix_node)),
-                ),
-                prefix_node.parent,
-                NORMAL_COMP(),
-              )
-            end
-          end
-        end
-        @match list(INTEGER_EXPRESSION(value = stop)) = dimensions
-        @assign range = RANGE_EXPRESSION(
-          TYPE_ARRAY(TYPE_INTEGER(), dimensions),
-          INTEGER_EXPRESSION(1),
-          NONE(),
-          INTEGER_EXPRESSION(stop),
-        )
-        #@info "Manually check this error. It has to do with higher order functions in the translation"
-        local subscript = SUBSCRIPT_INDEX(
-          CREF_EXPRESSION(TYPE_INTEGER(),
-                          makeIterator(iter, TYPE_INTEGER())))
-        body = mapExpList(
-          alg.statements,
-          (x) -> addIterator(x, prefix, subscript))
-        ALGORITHM(
-          list(ALG_FOR(iter, SOME(range), body, alg.source)),
-          alg.source,
-        )
-      end
+  #=  let simple assignment as is =#
+  if length(alg.statements) == 1
+    local stmt = alg.statements[1]
+    if isvariant(stmt, ALG_ASSIGNMENT) && stmt.lhs isa CREF_EXPRESSION && stmt.rhs isa CREF_EXPRESSION
+      return alg
     end
   end
-  return valg
+  #=  wrap general algorithm into one for loop per dimension (as omc's vectorizeAlgorithm) =#
+  local (iters, ranges, subs) = makeIterators(prefix, dimensions)
+  local subsInOrder = listReverse(subs)
+  local body = mapExpList(alg.statements, (x) -> addIterator(x, prefix, subsInOrder))
+  for (iter, range) in zip(iters, ranges)
+    body = Statement[ALG_FOR(iter, SOME(range), body, alg.source)]
+  end
+  return ALGORITHM(body, alg.source)
 end
 
 function makeIterators(prefix::ComponentRef,
@@ -956,11 +884,11 @@ end
 function addIterator(
   exp::Expression,
   prefix::ComponentRef,
-  subscript::Subscript,
+  subscripts::List{<:Subscript},
 )::Expression
   exp = map(
     exp,
-    (exp) -> addIterator_traverse(exp, prefix, subscript),
+    (exp) -> addIterator_traverse(exp, prefix, subscripts),
   )
   return exp
 end
@@ -968,7 +896,7 @@ end
 function addIterator_traverse(
   exp::Expression,
   prefix::ComponentRef,
-  subscript::Subscript,
+  subscripts::List{<:Subscript},
   )::Expression
   local restString::String
   local prefixString::String = toString(prefix)
@@ -982,8 +910,7 @@ function addIterator_traverse(
         restString = toString(restCref)
         if prefixLength <= stringLength(restString) &&
            prefixString == substring(restString, 1, prefixLength)
-          @assign exp.cref =
-            applySubscripts(list(subscript), exp.cref)
+          @assign exp.cref = mergeIterator(exp.cref, prefix, subscripts)
         end
         exp
       end
@@ -994,6 +921,26 @@ function addIterator_traverse(
     end
   end
   return exp
+end
+
+#= Appends the iterator subscripts to the part of cref that is the vectorized prefix (omc's
+   NFFlatten.mergeIterator). applySubscripts would fill the outermost part with free
+   dimensions instead, the wrong part when component arrays are nested. =#
+function mergeIterator(
+  cref::ComponentRef,
+  ref::ComponentRef,
+  subscripts::List{<:Subscript},
+)::ComponentRef
+  @match cref begin
+    COMPONENT_REF_CREF(__) => begin
+      if isEqual(cref, ref)
+        COMPONENT_REF_CREF(cref.node, listAppend(cref.subscripts, subscripts), cref.ty, cref.origin, cref.restCref)
+      else
+        COMPONENT_REF_CREF(cref.node, cref.subscripts, cref.ty, cref.origin, mergeIterator(cref.restCref, ref, subscripts))
+      end
+    end
+    _ => cref
+  end
 end
 
 function subscriptBindingOpt(
@@ -1166,13 +1113,15 @@ function flattenBindingExp2(
     binding_level = binding_level + dimensionCount(getType(parent))
   end
   if binding_level > 0
-    #subs = listAppend(listReverse(s) for s in subscriptsAll(pre)) modifed as per below
-    local subsT = list(listReverse(s) for s in subscriptsAll(pre) if !(s isa Nil) )
+    #= OMC 1.16: listAppend(listReverse(s) for s in subscriptsAll(pre)) and
+       List.firstN_reverse, written for subscriptsAll leaf part first (its docstring); this
+       port's subscriptsAll returns the root part first, hence the listReverse of the parts.
+       (The port had firstN without either reversal: right for nested 1-D parents, transposed
+       for a multi-dimensional parent, a[2, 3](p = {{1, 2, 3}, {4, 5, 6}}).) =#
+    local subsT = list(listReverse(s) for s in listReverse(subscriptsAll(pre)) if !(s isa Nil))
     subs = list(Base.collect(Iterators.flatten(subsT))...)
-    #= End of modification=#
     binding_level = min(binding_level, listLength(subs))
-    #subs = ListUtil.firstN_reverse(subs, binding_level)
-    subs = ListUtil.firstN(subs, binding_level)
+    subs = listReverse(ListUtil.firstN(subs, binding_level))
     outExp = applySubscripts(subs, exp)
   end
   #=
@@ -1341,8 +1290,10 @@ function flattenIfEquation(
           #=  Flatten the condition and body of the branch. =#
           cond = flattenExp(cond, prefix)
           eql = flattenEquations(eql, prefix)
-          #=  Evaluate structural conditions. =#
-          if var <= Variability.STRUCTURAL_PARAMETER
+          #=  Evaluate structural conditions. Not scalarizing, a condition with a for-loop
+              iterator is kept (the iterator has no value here; omc's flattenIfEquation). =#
+          if var <= Variability.STRUCTURAL_PARAMETER &&
+             (has_connect || Flags.isSet(Flags.NF_SCALARIZE) || !contains(cond, isIterator))
             cond = evalExp(cond, target)
             if !isBoolean(cond) && has_connect
               Error.addInternalError(
@@ -1359,7 +1310,8 @@ function flattenIfEquation(
             #=  if reached, so we can discard the remaining branches.          =#
             branches = EquationBranch[]
             if isempty(bl) #= If we haven't collected any other branches yet, replace the if-equation with this branch.=#
-              equations = vcat(eql, equations)
+              #= In place: the caller ignores the return value (vcat rebound the local and dropped the branch). =#
+              append!(equations, eql)
             else
               bl = push!(bl, makeBranch(cond, eql, var))
             end
@@ -1489,10 +1441,16 @@ function splitForLoop(
   local non_connects::Vector{Equation}
   local src::DAE.ElementSource
   @match EQUATION_FOR(iter, range, body, src) = forLoop
+  #= Split the body before flattening it (omc flattens first): the part with connects or
+     connection calls, also inside if-equations whose conditions use the iterator, is
+     unrolled and flattened per iteration with the iterator bound (omc -d=-nfScalarize
+     fails on ). The rest is flattened as the body
+     of the kept loop, where branch selection also drops emptied if-equations. =#
   (connects, non_connects) = splitForLoop2(body)
   if !isempty(connects)
     equations = unrollForLoop(EQUATION_FOR(iter, range, connects, src), prefix, equations)
   end
+  non_connects = flattenEquations(non_connects, prefix)
   if !isempty(non_connects)
     equations = push!(equations, EQUATION_FOR(iter, range, non_connects, src))
   end
@@ -1526,13 +1484,34 @@ function splitForLoop2(forBody::Vector{Equation})::Tuple{Vector{Equation}, Vecto
           ()
         end
         _ => begin
-          nonConnects = push!(nonConnects, eq)
+          #= Equations that contain a connect or a connection call (Connections.*, inStream,
+             actualStream, cardinality) are resolved per scalar: unroll them (omc's splitForLoop2). =#
+          if contains(eq, isConnectEq) ||
+             foldExp(eq, (e, acc) -> acc || contains(e, _isConnectionCall), false)
+            connects = push!(connects, eq)
+          else
+            nonConnects = push!(nonConnects, eq)
+          end
           ()
         end
       end
     end
   end
   return (connects, nonConnects)
+end
+
+#= omc's Expression.isConnectionCall: a Connections operator, a stream operator or cardinality. =#
+function _isConnectionCall(exp::Expression)::Bool
+  exp isa CALL_EXPRESSION || return false
+  local call = exp.call
+  local nm = if isvariant(call, TYPED_CALL)
+    AbsynUtil.pathString(name(call.fn))
+  elseif isvariant(call, UNTYPED_CALL) || isvariant(call, ARG_TYPED_CALL)
+    toString(call.ref)
+  else
+    ""
+  end
+  return nm in ("inStream", "actualStream", "cardinality") || startswith(nm, "Connections.")
 end
 
 function flattenAlgorithms(

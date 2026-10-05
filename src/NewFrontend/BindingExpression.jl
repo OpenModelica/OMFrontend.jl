@@ -394,13 +394,13 @@ function nthRecordElement(index::Int, @nospecialize(recordExp::Expression)) ::Ex
         recordExp.elements[index]
       end
 
-      ARRAY_EXPRESSION(elements =  nil(), ty = TYPE_ARRAY(elementType = TYPE_COMPLEX(cls = node)))  => begin
+      ARRAY_EXPRESSION(ty = TYPE_ARRAY(elementType = TYPE_COMPLEX(cls = node))) where (isempty(recordExp.elements))  => begin
         makeEmptyArray(getType(nthComponent(index, getClass(node))))
       end
 
       ARRAY_EXPRESSION(__)  => begin
         expV = Expression[nthRecordElement(index, e) for e in recordExp.elements]
-        makeArray(setArrayElementType(recordExp.ty, typeOf(first(expV))), expV)
+        makeArray(liftArrayLeft(typeOf(expV[1]), fromInteger(length(expV))), expV)
       end
 
       RECORD_ELEMENT_EXPRESSION(ty = TYPE_ARRAY(elementType = TYPE_COMPLEX(cls = node)))  => begin

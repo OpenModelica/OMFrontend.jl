@@ -63,9 +63,17 @@ function toFlatStream(var::Variable,
     s = IOStream_M.append(s, "public ")
   end
   s = IOStream_M.append(s, toFlatString(var.attributes, var.ty; isTopLevel = isSimple(var.name)))
-  s = IOStream_M.append(s, toFlatString(var.ty))
-  s = IOStream_M.append(s, " ")
-  s = IOStream_M.append(s, toFlatString(var.name))
+  if !Flags.isSet(Flags.NF_SCALARIZE) && isArray(var.ty)
+    #= Not scalarizing: Real 'r.p.v'[3] (omc), the dimensions after the name. =#
+    s = IOStream_M.append(s, toFlatString(arrayElementType(var.ty)))
+    s = IOStream_M.append(s, " ")
+    s = IOStream_M.append(s, toFlatString(var.name))
+    s = IOStream_M.append(s, "[" * stringDelimitList(list(toFlatString(d) for d in arrayDims(var.ty)), ", ") * "]")
+  else
+    s = IOStream_M.append(s, toFlatString(var.ty))
+    s = IOStream_M.append(s, " ")
+    s = IOStream_M.append(s, toFlatString(var.name))
+  end
   if !isempty(var.typeAttributes)
     s = IOStream_M.append(s, "(")
     first = true

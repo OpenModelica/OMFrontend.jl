@@ -4153,9 +4153,10 @@ end
     for b in bl
        bl2 = begin
         @match b begin
+          #= A condition with a for-loop iterator is kept: the iterator has no value here. =#
           EQUATION_BRANCH(
             __,
-          ) where {(b.conditionVar <= Variability.STRUCTURAL_PARAMETER)} => begin
+          ) where {(b.conditionVar <= Variability.STRUCTURAL_PARAMETER && !contains(b.condition, isIterator))} => begin
             @assign b.condition = evalExp(b.condition)
             if isFalse(b.condition)
               bl2

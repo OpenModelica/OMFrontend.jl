@@ -7663,6 +7663,10 @@ function mergeSCodeMods(inModOuter::SCode.Mod, inModInner::SCode.Mod)::SCode.Mod
     local b2::Option{Absyn.Exp}
     local info::SourceInfo
     @match (inModOuter, inModInner) begin
+      (SCode.NOMOD(__), _) => begin
+        inModInner
+      end
+
       (_, SCode.NOMOD(__)) => begin
         inModOuter
       end
