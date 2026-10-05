@@ -155,28 +155,21 @@ end
 function vectorize(@nospecialize(exp::Expression), dims::List{<:Dimension}, func::FuncT, accumSubs::List{<:Subscript} = nil)
   local outExp::Expression
   local iter::RangeIterator
-  local dim::Dimension
-  local rest_dims::List{Dimension}
-  local expl::Vector{Expression}
   local e::Expression
   if listEmpty(dims)
-    local tmp = accumSubs
-    accumSubs = nil
-    while tmp !== nil
-      @match Cons{Subscript}(t, tmp) = tmp
-      accumSumbs = Cons{Subscript}{t, accumSubs}
-    end
-     outExp = func(exp, accumSubs)
+    #= The subscripts were accumulated innermost first (omc's vectorize). =#
+    outExp = func(exp, listReverse(accumSubs))
   else
-    expl = Expression[]
-    @match Cons{Dimensions}(dim, rest_dims) = dims
+    local expl = Expression[]
+    local dim = listHead(dims)
+    local rest_dims = listRest(dims)
     iter = fromDim(dim)
     while hasNext(iter)
       (iter, e) = next(iter)
       e = vectorize(exp, rest_dims, func, Cons{Subscript}(SUBSCRIPT_INDEX(e), accumSubs))
       push!(expl, e)
     end
-    outExp = makeExpArray(expl)
+    outExp = makeArray(liftArrayLeft(typeOf(expl[1]), fromInteger(length(expl))), expl)
   end
   outExp
 end
