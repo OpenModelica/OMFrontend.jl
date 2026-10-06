@@ -793,7 +793,10 @@ function evalComponentStartBinding(
       =#
       UNTYPED_BINDING(__) => begin
         binding = typeBinding(binding, ORIGIN_BINDING)
-        exp = evalExp_impl(binding.bindingExp, target)
+        #= evalExp, as omc: the value without the start modifier's propagation
+           (BINDING_EXP), which applies per element; as the component's value the
+           propagated start of r[3](start = {...}) vectorized from_nxy(r, ...). =#
+        exp = evalExp(binding.bindingExp, target)
         if !referenceEq(exp, binding.bindingExp)
           setStartBinding!(start_node, binding, exp)
         end
@@ -801,7 +804,7 @@ function evalComponentStartBinding(
       end
 
       TYPED_BINDING(__) => begin
-        exp = evalExp_impl(binding.bindingExp, target)
+        exp = evalExp(binding.bindingExp, target)
         if !referenceEq(exp, binding.bindingExp)
           setStartBinding!(start_node, binding, exp)
         end
