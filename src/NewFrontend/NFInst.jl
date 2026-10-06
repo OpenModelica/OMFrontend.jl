@@ -2269,6 +2269,8 @@ function resetInstDiagnostics()
   Threads.atomic_xchg!(REINSTANTIATION_COUNT, 0)
   lock(() -> empty!(REINSTANTIATION_CLASSES), _REINST_CLASSES_LOCK)
   lock(() -> empty!(_INLINE_BODY_INFO_CACHE), _INLINE_BODY_INFO_LOCK)
+  #= Keyed by the top scope of one instantiation: kept, it holds every earlier model's instance tree. =#
+  lock(() -> empty!(_NO_EVENT_FN_CACHE), _INST_SHARED_LOCK)
   INST_EXPR_DEPTH[] = 0
   empty!(CLASS_PTR_WRITES)
   empty!(COMPONENT_PTR_WRITES)
