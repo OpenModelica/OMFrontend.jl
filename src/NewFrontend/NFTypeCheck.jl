@@ -469,11 +469,11 @@ function checkOverloadedBinaryArrayAddSub2(
           @assign ty2 = arrayElementType(type2)
           try
              (_, ty) = matchOverloadedBinaryOperator(
-              EMPTY(ty1),
+              EMPTY_EXPRESSION(ty1),
               ty1,
               var1,
               op,
-              EMPTY(ty2),
+              EMPTY_EXPRESSION(ty2),
               ty2,
               var2,
               candidates,
@@ -974,11 +974,11 @@ function checkOverloadedBinaryArrayEW2(
       @assign ty2 = arrayElementType(type2)
       try
          (_, ty) = matchOverloadedBinaryOperator(
-          EMPTY(ty1),
+          EMPTY_EXPRESSION(ty1),
           ty1,
           var1,
           op,
-          EMPTY(ty2),
+          EMPTY_EXPRESSION(ty2),
           ty2,
           var2,
           candidates,

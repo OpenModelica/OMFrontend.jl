@@ -823,6 +823,9 @@ function assignArrayElement(
   local idx::Int
   local subs
   local vals
+  #= A variable's binding (fill(0.0, n), zeros(n)) is not evaluated when its cell is made:
+     the element assignment needs the array (Buildings.Fluid.Movers.BaseClasses.Euler). =#
+  arrayExp isa ARRAY_EXPRESSION || (arrayExp = evalExp(arrayExp))
   result = begin
     @match (arrayExp, subscripts) begin
       (

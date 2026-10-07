@@ -1206,6 +1206,13 @@ function evalBinaryOp_dispatch(
   target::EvalTarget = EVALTARGET_IGNORE_ERRORS(),
 )::Expression
   local exp::Expression
+  #= An Integer and a Real: a Real operation, as typing would have cast them (a function
+     body evaluated with Integer arguments, its literals). =#
+  if exp1 isa INTEGER_EXPRESSION && exp2 isa REAL_EXPRESSION
+    exp1 = REAL_EXPRESSION(Float64(exp1.value))
+  elseif exp1 isa REAL_EXPRESSION && exp2 isa INTEGER_EXPRESSION
+    exp2 = REAL_EXPRESSION(Float64(exp2.value))
+  end
 
    exp = begin
     @match op.op begin
@@ -2085,6 +2092,13 @@ function evalRelationOp_dispatch(
   local exp::Expression
 
   local res::Bool
+  #= An Integer and a Real (a function's Integer argument where typing had a Real, or a
+     literal 1 in a function body): compared as Reals, as typing would have cast them. =#
+  if exp1 isa INTEGER_EXPRESSION && exp2 isa REAL_EXPRESSION
+    exp1 = REAL_EXPRESSION(Float64(exp1.value))
+  elseif exp1 isa REAL_EXPRESSION && exp2 isa INTEGER_EXPRESSION
+    exp2 = REAL_EXPRESSION(Float64(exp2.value))
+  end
 
    res = begin
     @match op.op begin
@@ -3499,7 +3513,7 @@ function evalBuiltinMin(args::Union{List{Expression}, Vector{Expression}}, fn::M
   elseif nArgs == 1
     e1 = Base.first(args)
     @match ARRAY_EXPRESSION(ty = ty) = e1
-    result = fold(e1, evalBuiltinMin2, EMPTY(ty))
+    result = fold(e1, evalBuiltinMin2, EMPTY_EXPRESSION(ty))
     if isEmpty(result)
       result = CALL_EXPRESSION(makeTypedCall(
         fn,
@@ -3559,7 +3573,7 @@ function evalBuiltinMin2(@nospecialize(exp1::Expression), @nospecialize(exp2::Ex
         exp2
       end
 
-      (_, EMPTY(__)) => begin
+      (_, EMPTY_EXPRESSION(__)) => begin
         exp1
       end
 
@@ -4790,7 +4804,9 @@ function evalRecordElement(exp::RECORD_ELEMENT_EXPRESSION, target::EvalTarget)
       sourceInfo(),
     )
   end
-  return result
+  #= A record expression's fields are not evaluated (evalExp_impl): the field is, as it
+     is read (a record constructor's array constructor argument: Buildings' Movers). =#
+  return evalExp_impl(result, target)
 end
 
 function evalRecordElement2(exp::RECORD_EXPRESSION, index::Int)
