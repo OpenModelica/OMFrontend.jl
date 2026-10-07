@@ -1756,7 +1756,7 @@ function typeArrayDim(
   if dimIndex < 1
      dim = DIMENSION_UNKNOWN()
      error =
-      P_TypingError.OUT_OF_BOUNDS(dimensionCount(arrayExp))
+      OUT_OF_BOUNDS(dimensionCount(arrayExp))
   else
      (dim, error) = typeArrayDim2(arrayExp, dimIndex)
   end
@@ -1787,7 +1787,7 @@ function typeArrayDim2(
         #=  expression can be empty, so just traverse into the first element.
         =#
          dim = DIMENSION_UNKNOWN()
-         error = P_TypingError.OUT_OF_BOUNDS(dimCount)
+         error = OUT_OF_BOUNDS(dimCount)
         (dim, error)
       end
     end

@@ -4693,10 +4693,10 @@ function evalReduction3(
   else
     @match _cons(range, ranges_rest) = ranges
     @match _cons(iter, iters_rest) = iterators
-     range_iter = P_ExpressionIterator.ExpressionIterator.fromExp(range)
-     result = foldExp
-    while P_ExpressionIterator.ExpressionIterator.hasNext(range_iter)
-       (range_iter, value) = P_ExpressionIterator.ExpressionIterator.next(range_iter)
+    range_iter = fromExpToExpressionIterator(range)
+    result = foldExp
+    while hasNext(range_iter)
+      (range_iter, value) = next(range_iter)
       P_Pointer.update(iter, value)
        result = evalReduction3(exp, ranges_rest, iters_rest, result, fn)
     end

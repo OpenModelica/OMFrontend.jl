@@ -500,13 +500,11 @@ function tupleElement(@nospecialize(exp::Expression), ty::M_Type, index::Int) ::
 
       ARRAY_EXPRESSION(__)  => begin
         ety = unliftArray(ty)
-        expElements = list(tupleElement(e, ety, index) for e in exp.elements)
-        ARRAY_EXPRESSION(exp.ty, expElements, exp.literal)
+        ARRAY_EXPRESSION(exp.ty, Expression[tupleElement(e, ety, index) for e in exp.elements], exp.literal)
       end
 
       BINDING_EXP(__)  => begin
-        local f = @closure (ty, index) -> tupleElement(ty = ty, index = index)
-        bindingExpMap(exp, f)
+        bindingExpMap(exp, e -> tupleElement(e, ty, index))
       end
 
       _  => begin
