@@ -4801,7 +4801,7 @@ function evalRecordElement(exp::RECORD_ELEMENT_EXPRESSION, target::EvalTarget)
   e = evalExp_impl(e, target)
   try
     result =
-      bindingExpMap(e, @closure (x) -> evalRecordElement2(x, index))
+      bindingExpMap(e, @closure (x) -> _recordElementOf(x, index, exp.ty))
   catch
     Error.assertion(
       false,
@@ -4816,6 +4816,16 @@ end
 
 function evalRecordElement2(exp::RECORD_EXPRESSION, index::Int)
   exp.elements[index]
+end
+
+#= The field of a record, or of each record of an array of records (Buildings' chillers'
+   perChi[numChi]: its records' nCapFunT). =#
+function _recordElementOf(@nospecialize(x::Expression), index::Int, @nospecialize(ty::M_Type))::Expression
+  if x isa ARRAY_EXPRESSION
+    local ety = isArray(ty) ? unliftArray(ty) : ty
+    return ARRAY_EXPRESSION(ty, Expression[_recordElementOf(el, index, ety) for el in x.elements], x.literal)
+  end
+  return evalRecordElement2(x, index)
 end
 
 function printUnboundError(component::Component, target::EvalTarget, @nospecialize(exp::Expression))
