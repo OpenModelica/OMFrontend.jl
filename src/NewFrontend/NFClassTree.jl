@@ -1301,9 +1301,13 @@ function addElementsToFlatTree(elements::List{<:InstNode}, tree::ClassTree)::Cla
   local comp_idx::Int
   local lentry::LookupTree.Entry
   @match CLASS_TREE_FLAT_TREE(ltree, cls_arr, comp_arr, imports, duplicates) = tree
-  #= Append to copies so the input tree's arrays are not mutated. =#
+  #= Append to copies so the input tree's arrays are not mutated, nor its lookup tree (a
+     Dict here, added to in place: OMC's is persistent). The class of the expandable
+     connectors of one class is shared; one connector's elements went to the other's
+     lookup (Buildings' VAVReheat control buses: an index past the components). =#
   local new_cls_arr = copy(cls_arr)
   local new_comp_arr = copy(comp_arr)
+  ltree = copy(ltree)
   cls_idx = arrayLength(cls_arr)
   comp_idx = arrayLength(comp_arr)
   for e in elements
