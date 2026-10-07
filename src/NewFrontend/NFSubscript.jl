@@ -444,10 +444,7 @@ function scalarize(subscript::Subscript, dimension::Dimension)::List{Subscript}
       end
 
       SUBSCRIPT_WHOLE(__) => begin
-        P_RangeIterator.RangeIterator.map(
-          P_RangeIterator.RangeIterator.fromDim(dimension),
-          makeIndex,
-        )
+        map(fromDim(dimension), makeIndex)
       end
     end
   end

@@ -207,8 +207,10 @@ function fromDim(dim::Dimension)::RangeIterator
         RANGEITERATOR_ARRAY_RANGE(makeEnumLiterals(ty))
       end
 
+      #= RangeIterator_fromExp: fromExp is Subscript's in this namespace (a SUBSCRIPT_UNTYPED
+         where an iterator was expected) =#
       DIMENSION_EXP(__) => begin
-        fromExp(dim.exp)
+        RangeIterator_fromExp(dim.exp)
       end
 
       _ => begin
