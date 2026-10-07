@@ -171,15 +171,18 @@ function endExp(dim::Dimension, cref::ComponentRef, index::Int)::Expression
         makeEnumLiteral(ty, listLength(ty.literals))
       end
 
-      DIMENSION_EXP(__) => begin
+      #= The dimension's expression may name a record field (V_flow[n] of a function's record
+         input: pressure.n), which the function's replacements do not know: size() of the
+         array instead (Buildings.Fluid.Movers.BaseClasses.Euler.power: pressure.V_flow[end]). =#
+      DIMENSION_EXP(__) where isLiteral(dim.exp) => begin
         dim.exp
       end
 
-      DIMENSION_UNKNOWN(__) => begin
+      DIMENSION_EXP(__) || DIMENSION_UNKNOWN(__) => begin
         SIZE_EXPRESSION(
           CREF_EXPRESSION(
             TYPE_UNKNOWN(),
-            stripSubscripts(cref),
+            stripSubscripts(cref)[1],
           ),
           SOME(INTEGER_EXPRESSION(index)),
         )

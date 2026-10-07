@@ -1784,11 +1784,11 @@ function stripScopePrefixCref(cref::ComponentRef)::ComponentRef
   end
    () = begin
     @match cref begin
-      CREF(__) => begin
+      COMPONENT_REF_CREF(__) => begin
         if isFromCref(cref.restCref)
           @assign cref.restCref = stripScopePrefixCref(cref.restCref)
         else
-          @assign cref.restCref = EMPTY()
+          @assign cref.restCref = COMPONENT_REF_EMPTY()
         end
         ()
       end
