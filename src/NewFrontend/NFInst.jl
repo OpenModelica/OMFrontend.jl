@@ -2259,7 +2259,9 @@ end
 #= Runaway backstops. Atomic so they are safe to bump from parallel instantiation
    workers; the depth guard uses the per-stack `instLevel` parameter instead. =#
 const INST_CLASS_TOTAL_CALLS = Threads.Atomic{Int}(0)
-const INST_CLASS_TOTAL_CALLS_LIMIT = 200_000
+#= Per instantiation. Large models need far more than the depth: Buildings' VAVReheat
+   ASHRAE2006 and DualFanDualDuct went over 200_000 at instLevel 1-2. =#
+const INST_CLASS_TOTAL_CALLS_LIMIT = 10_000_000
 const REINSTANTIATION_COUNT = Threads.Atomic{Int}(0)
 const REINSTANTIATION_CLASSES = Dict{String, Int}()
 const _REINST_CLASSES_LOCK = ReentrantLock()

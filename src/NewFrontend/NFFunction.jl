@@ -1250,7 +1250,10 @@ function matchArgs(
     (arg_exp, arg_ty, arg_var) = arg
     @match _cons(input_node, inputs) = inputs
     @assign comp = component(input_node)
-    if arg_var > variability(comp)
+    #= A record's default constructor takes values of any variability: its inputs are the
+       fields, whose parameter prefix is not the input's (Buildings' ClimaticConstants.Generic
+       built from a function's locals). =#
+    if arg_var > variability(comp) && !isDefaultRecordConstructor(func)
       # Error.addSourceMessage(
       #   Error.FUNCTION_SLOT_VARIABILITY,
       #   list(
