@@ -345,6 +345,20 @@ function _unrollForEquation!(out::Vector{Equation}, @nospecialize(eq::Equation))
         _unrollForEquation!(out, b)
       end
     end
+  elseif isvariant(eq, EQUATION_IF) && contains(eq, isConnectEq)
+    #= An if-equation with connects: its branch picked now that the iterators have values
+       (an arrayed component's if ground then connect(...) end if). =#
+    for b in eq.branches
+      isvariant(b, EQUATION_BRANCH) || (push!(out, eq); return out)
+      local c = evalExp(b.condition)
+      isBoolean(c) || (push!(out, eq); return out)
+      if isTrue(c)
+        for e in b.body
+          _unrollForEquation!(out, e)
+        end
+        return out
+      end
+    end
   elseif isvariant(eq, EQUATION_IF)
     local bl = EquationBranch[]
     for b in eq.branches

@@ -4116,8 +4116,12 @@ end
         if isFalse(_evalCond)
           continue
         end
-        cond = _evalCond
-        _condKnown = isTrue(cond)
+        #= Anything but true keeps the condition: in an array of components it is the
+           elements' values ({true, false, false}), for the flattening to pick per element. =#
+        if isTrue(_evalCond)
+          cond = _evalCond
+          _condKnown = true
+        end
       catch
         #= If evaluation fails, fall through to normal branch typing =#
       end
@@ -4157,7 +4161,10 @@ end
           EQUATION_BRANCH(
             __,
           ) where {(b.conditionVar <= Variability.STRUCTURAL_PARAMETER && !contains(b.condition, isIterator))} => begin
-            @assign b.condition = evalExp(b.condition)
+            local evCond = evalExp(b.condition)
+            #= an array of components' values ({true, false}) keeps the condition: the
+               vectorized equation is unrolled and its branch picked per element =#
+            isBoolean(evCond) && (@assign b.condition = evCond)
             if isFalse(b.condition)
               bl2
             else

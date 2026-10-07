@@ -1309,8 +1309,14 @@ function flattenIfEquation(
               iterator is kept (the iterator has no value here; omc's flattenIfEquation). =#
           if var <= Variability.STRUCTURAL_PARAMETER &&
              (has_connect || Flags.isSet(Flags.NF_SCALARIZE) || !contains(cond, isIterator))
+            local cond0 = cond
             cond = evalExp(cond, target)
-            if !isBoolean(cond) && has_connect
+            #= Not scalarizing, an arrayed component's condition is its elements' values: the
+               if-equation stays, vectorized and unrolled, its branch picked per element
+               (_unrollForEquation!). =#
+            if !Flags.isSet(Flags.NF_SCALARIZE) && cond isa ARRAY_EXPRESSION
+              cond = cond0
+            elseif !isBoolean(cond) && has_connect
               Error.addInternalError(
                 "Failed to evaluate branch condition in if equation containing connect equations: `" +
                 toString(cond) +
