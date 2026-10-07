@@ -4127,9 +4127,11 @@ end
       end
     end
     if _condKnown
-      #= True branch: type directly, let any errors propagate =#
+      #= True branch: type directly, let any errors propagate; the branches after it are
+         never taken (CDL Reals.MatrixMax: the else branch's sizes do not fit) =#
       eql = Equation[typeEquation(e, next_origin) for e in eql]
       push!(bl2, makeBranch(cond, eql, var))
+      break
     else
       ErrorExt.setCheckpoint(getInstanceName())
       try
