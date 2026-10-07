@@ -138,6 +138,8 @@ jobs:
       - name: Upload coverage to Codecov
         if: matrix.coverage
         uses: codecov/codecov-action@v4
+        # an upload problem (Codecov's service or network) must not fail the tests
+        continue-on-error: true
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
