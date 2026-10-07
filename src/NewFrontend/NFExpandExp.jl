@@ -898,8 +898,10 @@ function expand(
         expandBuiltinGeneric(call)
       end
 
+      #= fill/identity/zeros/ones with sizes that are not literals (a function's local:
+         MSL Polynomials.roots' [identity(n - 1), zeros(n - 1)]) stay calls, as omc's expandGeneric =#
       "fill" => begin
-        expandBuiltinFill(args)
+        all(isLiteral, args[2:end]) ? expandBuiltinFill(args) : (CALL_EXPRESSION(call), false)
       end
 
       "previous" => begin
@@ -915,15 +917,15 @@ function expand(
       end
 
       "identity" => begin
-        expandBuiltinIdentity(args)
+        all(isLiteral, args) ? expandBuiltinIdentity(args) : (CALL_EXPRESSION(call), false)
       end
 
       "zeros" => begin
-        expandBuiltinZeros(args)
+        all(isLiteral, args) ? expandBuiltinZeros(args) : (CALL_EXPRESSION(call), false)
       end
 
       "ones" => begin
-        expandBuiltinOnes(args)
+        all(isLiteral, args) ? expandBuiltinOnes(args) : (CALL_EXPRESSION(call), false)
       end
     end
   end

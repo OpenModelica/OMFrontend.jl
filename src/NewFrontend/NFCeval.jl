@@ -1206,13 +1206,6 @@ function evalBinaryOp_dispatch(
   target::EvalTarget = EVALTARGET_IGNORE_ERRORS(),
 )::Expression
   local exp::Expression
-  #= An Integer and a Real: a Real operation, as typing would have cast them (a function
-     body evaluated with Integer arguments, its literals). =#
-  if exp1 isa INTEGER_EXPRESSION && exp2 isa REAL_EXPRESSION
-    exp1 = REAL_EXPRESSION(Float64(exp1.value))
-  elseif exp1 isa REAL_EXPRESSION && exp2 isa INTEGER_EXPRESSION
-    exp2 = REAL_EXPRESSION(Float64(exp2.value))
-  end
 
    exp = begin
     @match op.op begin
@@ -1310,7 +1303,16 @@ function evalBinaryOp_dispatch(
   return exp
 end
 
+#= An Integer with a Real: both as Reals, as typing would have cast them (a function body
+   evaluated with Integer arguments, an Integer literal in a Real array: Buildings' Movers). =#
+@inline function _mixedAsReal(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))
+  exp1 isa INTEGER_EXPRESSION && exp2 isa REAL_EXPRESSION && return (REAL_EXPRESSION(Float64(exp1.value)), exp2)
+  exp1 isa REAL_EXPRESSION && exp2 isa INTEGER_EXPRESSION && return (exp1, REAL_EXPRESSION(Float64(exp2.value)))
+  return (exp1, exp2)
+end
+
 function evalBinaryAdd(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Expression
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local exp::Expression
 
    exp = begin
@@ -1356,6 +1358,7 @@ function evalBinaryAdd(@nospecialize(exp1::Expression), @nospecialize(exp2::Expr
 end
 
 function evalBinarySub(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Expression
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local exp::Expression
 
    exp = begin
@@ -1399,6 +1402,7 @@ function evalBinarySub(@nospecialize(exp1::Expression), @nospecialize(exp2::Expr
 end
 
 function evalBinaryMul(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Expression
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local exp::Expression
 
    exp = begin
@@ -1448,6 +1452,7 @@ function evalBinaryMul(@nospecialize(exp1::Expression), @nospecialize(exp2::Expr
 end
 
 function evalBinaryDiv(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression), target::EvalTarget)::Expression
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local exp::Expression
 
    exp = begin
@@ -1506,6 +1511,7 @@ function evalBinaryDiv(@nospecialize(exp1::Expression), @nospecialize(exp2::Expr
 end
 
 function evalBinaryPow(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Expression
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local exp::Expression
 
    exp = begin
@@ -2092,13 +2098,6 @@ function evalRelationOp_dispatch(
   local exp::Expression
 
   local res::Bool
-  #= An Integer and a Real (a function's Integer argument where typing had a Real, or a
-     literal 1 in a function body): compared as Reals, as typing would have cast them. =#
-  if exp1 isa INTEGER_EXPRESSION && exp2 isa REAL_EXPRESSION
-    exp1 = REAL_EXPRESSION(Float64(exp1.value))
-  elseif exp1 isa REAL_EXPRESSION && exp2 isa INTEGER_EXPRESSION
-    exp2 = REAL_EXPRESSION(Float64(exp2.value))
-  end
 
    res = begin
     @match op.op begin
@@ -2146,6 +2145,7 @@ function evalRelationOp_dispatch(
 end
 
 function evalRelationLess(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Bool
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local res::Bool
 
    res = begin
@@ -2191,6 +2191,7 @@ function evalRelationLess(@nospecialize(exp1::Expression), @nospecialize(exp2::E
 end
 
 function evalRelationLessEq(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Bool
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local res::Bool
 
    res = begin
@@ -2236,6 +2237,7 @@ function evalRelationLessEq(@nospecialize(exp1::Expression), @nospecialize(exp2:
 end
 
 function evalRelationGreater(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Bool
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local res::Bool
 
    res = begin
@@ -2281,6 +2283,7 @@ function evalRelationGreater(@nospecialize(exp1::Expression), @nospecialize(exp2
 end
 
 function evalRelationGreaterEq(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Bool
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local res::Bool
 
    res = begin
@@ -2326,6 +2329,7 @@ function evalRelationGreaterEq(@nospecialize(exp1::Expression), @nospecialize(ex
 end
 
 function evalRelationEqual(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Bool
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local res::Bool
 
    res = begin
@@ -2371,6 +2375,7 @@ function evalRelationEqual(@nospecialize(exp1::Expression), @nospecialize(exp2::
 end
 
 function evalRelationNotEqual(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Bool
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local res::Bool
 
    res = begin
