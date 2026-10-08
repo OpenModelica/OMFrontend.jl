@@ -302,6 +302,34 @@ function _noEventRelations(exp::Expression, top::InstNode)::Expression
   return map(exp, wrap)
 end
 
+#= The body's subscripts on an argument. In an array of components (arrays kept) the
+   argument `vPhase.theta` has the element type and an unsubscripted prefix (iterated
+   later), which applySubscripts fills first: `theta[1]` became `vPhase[1].theta`
+   (Buildings' three-phase sources: `{vPhase[1].theta[1]} = 2*pi*f*time`). There they go
+   on the argument's own part. =#
+function _applySubscriptsToArgument(subs::List{<:Subscript}, value::Expression)::Expression
+  if !listEmpty(subs) && value isa CREF_EXPRESSION && isvariant(value.cref, COMPONENT_REF_CREF) &&
+     _freeDimensions(value.cref) > dimensionCount(value.ty)
+    local cr = value.cref
+    local (crSubs, rest) = mergeList(subs, cr.subscripts, dimensionCount(cr.ty))
+    if listEmpty(rest)
+      return CREF_EXPRESSION(subscript(value.ty, subs),
+                             COMPONENT_REF_CREF(cr.node, crSubs, cr.ty, cr.origin, cr.restCref))
+    end
+  end
+  return applySubscripts(subs, value)
+end
+
+#= The dimensions of a cref's parts not subscripted. =#
+function _freeDimensions(cr::ComponentRef)::Int
+  local n = 0
+  while isvariant(cr, COMPONENT_REF_CREF)
+    n += dimensionCount(cr.ty) - listLength(cr.subscripts)
+    cr = cr.restCref
+  end
+  return n
+end
+
 function replaceCrefNode(exp::Expression, node::InstNode, value::Expression)::Expression
   local ty::M_Type
   local repl_ty::M_Type
@@ -313,7 +341,7 @@ function replaceCrefNode(exp::Expression, node::InstNode, value::Expression)::Ex
     end
     if refEqual(node, basePart.node)
       local cref_parts = toListReverse(cr)
-      local result = applySubscripts(basePart.subscripts, value)
+      local result = _applySubscriptsToArgument(basePart.subscripts, value)
       local fieldParts = listRest(cref_parts)
       for fieldCr in fieldParts
         result = makeImmutable(result)
