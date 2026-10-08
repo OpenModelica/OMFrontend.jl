@@ -4382,6 +4382,16 @@ function toDAERecord(ty::M_Type, path::Absyn.Path, args::List{<:Expression}) ::D
   exp
 end
 
+#= The bound arguments of `function f(b = e, ...)` in the function's input order (they are
+   in the order written; the DAE has no names: the backend places them by the inputs the
+   partial application's type no longer has). =#
+function _partialArgsInInputOrder(exp::PARTIAL_FUNCTION_APPLICATION_EXPRESSION, fn::M_Function)::Vector{Expression}
+  local position = Dict{String, Int}(name(n) => k for (k, n) in enumerate(fn.inputs))
+  local args = Expression[a for a in exp.args]
+  local order = sortperm([get(position, nm, typemax(Int)) for nm in exp.argNames])
+  return args[order]
+end
+
 @nospecializeinfer function toDAE(@nospecialize(exp::Expression))
   local dexp::DAE.Exp
   local changed::Bool = true
@@ -4525,7 +4535,8 @@ end
       PARTIAL_FUNCTION_APPLICATION_EXPRESSION(__)  => begin
         fns = typeRefCache(exp.fn)
         fn = fns[1]
-        DAE.PARTEVALFUNCTION(nameConsiderBuiltin(fn), list(toDAE(arg) for arg in exp.args), toDAE(exp.ty), toDAE(TYPE_FUNCTION(fn, FunctionType.FUNCTIONAL_VARIABLE)))
+        DAE.PARTEVALFUNCTION(nameConsiderBuiltin(fn), list(toDAE(arg) for arg in _partialArgsInInputOrder(exp, fn)),
+                             toDAE(exp.ty), toDAE(TYPE_FUNCTION(fn, FunctionType.FUNCTIONAL_VARIABLE)))
       end
 
       BINDING_EXP(__)  => begin

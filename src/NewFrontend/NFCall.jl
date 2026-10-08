@@ -751,6 +751,13 @@ function matchTypedNormalCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)
    matchedFunc = checkMatchingFunctions(call, info)
    func = matchedFunc.func
    typed_args = matchedFunc.args
+  #= A call through a functional input (`f(a)` in a function with `input Integrand f`): the
+     function is the input, a function pointer, not its partial class (the call went to
+     `Integrand`, which has no body: Buildings' Borefields quadratureLobatto). =#
+  if isComponent(node(call.ref))
+    func = setFunctionPointer(true, func)
+    @assign func.path = toPath(call.ref)
+  end
    args = Vector{Expression}(undef, length(typed_args))
   #=  if is impure, make it a parameter expression
   =#
