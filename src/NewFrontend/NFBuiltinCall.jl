@@ -2118,9 +2118,9 @@ function typeActualInStreamCall2(name::String, fn::M_Function, @nospecialize(arg
       end
 
       ARRAY_EXPRESSION(__)  => begin
-        local argElements = list(typeActualInStreamCall2(name, fn, e, var, info) for e in arg.elements)
-        ARRAY_EXPRESSION(arg.ty, argElements, arg.literal)
-        arg
+        #= The operator on each element. The array of the elements was returned without the
+           calls: `a.Xi_outflow = inStream(b.Xi_outflow)` became `a.Xi_outflow = b.Xi_outflow`. =#
+        ARRAY_EXPRESSION(arg.ty, Expression[typeActualInStreamCall2(name, fn, e, var, info) for e in arg.elements], false)
       end
 
       _  => begin

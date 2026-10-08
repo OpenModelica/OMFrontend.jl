@@ -74,6 +74,7 @@ function generateEquations(sets::Vector{<:List{<:Connector}})
 end
 
 const CardinalityTable = NFCardinalityTable
+
 function evaluateOperators(
   @nospecialize(exp::Expression),
   @nospecialize(sets::ConnectionSets.Sets),
@@ -919,12 +920,11 @@ function evaluateInStream(
     ConnectorType.STREAM,
     DAE.emptyElementSource,
   )
-  try
-    @assign set = ConnectionSets.findSetArrayIndex(c, sets)
-    @assign sl = arrayGet(setsArray, set)
-  catch
-    @assign sl = list(c)
-  end
+  #= A connector in no set (unconnected): itself. A bare catch here hid that
+     findSetArrayIndex was not ported: every inStream was its own connector
+     (pipe.b.h_outflow = pipe.a.h_outflow, not the source's). =#
+  @assign set = ConnectionSets.findSetArrayIndex(c, sets)
+  @assign sl = set > 0 ? arrayGet(setsArray, set) : list(c)
   @assign exp = generateInStreamExp(
     cref,
     sl,
@@ -976,7 +976,7 @@ function generateInStreamExp(
         =#
         #=    inStream(c2) = c1;
         =#
-        @match list(CONNECTOR(name = cr)) =
+        @match CONNECTOR(name = cr) <| nil() =
           removeStreamSetElement(streamCref, reducedStreams)
         fromCref(cr)
       end
@@ -987,7 +987,7 @@ function generateInStreamExp(
         =#
         #=    inStream(c1) = inStream(c2);
         =#
-        @match list(CONNECTOR(name = cr)) =
+        @match CONNECTOR(name = cr) <| nil() =
           removeStreamSetElement(streamCref, reducedStreams)
         evaluateInStream(cr, sets, setsArray, ctable)
       end
@@ -1029,7 +1029,8 @@ end
 
 """Returns true if the given flow attribute of a connector is zero."""
 function isZeroFlow(element::Connector, attr::String)::Bool
-  local isZero::Bool
+  #= `zeroFlow`: a local `isZero` shadowed the function it called (UndefVarError). =#
+  local zeroFlow::Bool
 
   local attr_oexp::Option{Expression}
   local flow_exp::Expression
@@ -1042,12 +1043,13 @@ function isZeroFlow(element::Connector, attr::String)::Bool
   @assign attr_oexp = lookupAttributeValue(attr, getClass(flow_node))
   if isSome(attr_oexp)
     @match SOME(attr_exp) = attr_oexp
-    @assign isZero =
-      isZero(getBindingExp(attr_exp))
+    #= Evaluated, as OMC's Ceval.evalExp: `min = if allowFlowReversal then -inf else 0`. =#
+    local e = getBindingExp(attr_exp)
+    @assign zeroFlow = isZero(isLiteral(e) ? e : evalExp(e))
   else
-    @assign isZero = false
+    @assign zeroFlow = false
   end
-  return isZero
+  return zeroFlow
 end
 
 """
