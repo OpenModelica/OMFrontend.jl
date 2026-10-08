@@ -258,6 +258,7 @@ function inlineCall(call::Call, top = nothing)::Expression
                         (exp) -> map(exp, (exp) -> replaceCrefNode(exp, i, arg)))
         end
         local outExp = getOutputExp(stmt, listHead(outputs), call)
+        _hasVaryingSlice(outExp) && return CALL_EXPRESSION(call)
         top === nothing ? outExp : _noEventRelations(outExp, top)
       end
 
@@ -267,6 +268,16 @@ function inlineCall(call::Call, top = nothing)::Expression
     end
   end
   return exp
+end
+
+#= Whether `exp` slices an array with bounds that vary (above parameter variability): `x[1:n]`
+   with n a discrete of the model (Buildings' temporalSuperposition,
+   `QAgg_flow[1:curCel]*kappa[1:curCel]`) is an array of varying size, which only a function
+   body may have; inlined, its type was the element's and the scalar product's expansion
+   failed (MatchFailure on a cref). =#
+function _hasVaryingSlice(exp::Expression)::Bool
+  return contains(exp, e -> e isa CREF_EXPRESSION &&
+    any(s -> s isa SUBSCRIPT_SLICE && variability(s.slice) > Variability.PARAMETER, subscriptsAllFlat(e.cref)))
 end
 
 #= MLS 8.5: relations in a function body never generate events ("all
