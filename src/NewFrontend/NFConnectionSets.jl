@@ -427,7 +427,7 @@ end
   in no set. The sets are the ones extractSets assigned (a root holds its set's
   index, negated). DisjointSets.findSetArrayIndex in OMC.
 """
-function findSetArrayIndex(entry, sets::Sets)::Int
+function findSetArrayIndex(entry::Entry, sets::Sets)::Int
   local idx::Int = get(sets.elements, entry, 0)
   idx > 0 || return 0
   while sets.nodes[idx] > 0
