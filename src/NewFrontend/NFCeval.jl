@@ -643,7 +643,13 @@ function evalComponentBinding2(
       end
 
       CEVAL_BINDING(__) => begin
-        (binding.bindingExp, true)
+        #= Over the enclosing component arrays too (a record field's value from its parent's,
+           the parent bound to an array of records: Buildings' Templates pumps, pum[nPum](per =
+           per), each element's `per.haveWMot_nominal` the array {false, true}): its element. =#
+        local cexp = binding.bindingExp
+        local extra = _valueDimensionCount(cexp) - dimensionCount(getType(comp))
+        extra > 0 && (cexp = _subscriptByEnclosingElements(cexp, cref, extra, evalSubscripts))
+        (cexp, true)
       end
 
       UNBOUND(__) => begin
