@@ -506,6 +506,19 @@ function evalComponentBinding(
   return evalComponentBinding2(node, cref, defaultExp, target, evalSubscripts)
 end
 
+#= The dimensions of an evaluated value: an array literal's nesting under any binding info
+   (its type can be the element's: `abs(dp_nominal)` evaluated over the array modifier). =#
+function _valueDimensionCount(@nospecialize(exp::Expression))::Int
+  local e = stripBindingInfo(exp)
+  local depth = 0
+  local x = e
+  while x isa ARRAY_EXPRESSION && !isempty(x.elements)
+    depth += 1
+    x = Base.first(x.elements)
+  end
+  return max(depth, dimensionCount(typeOf(e)))
+end
+
 function evalComponentBinding2(
   node::InstNode,
   cref::ComponentRef,
@@ -570,11 +583,17 @@ function evalComponentBinding2(
             #= rethrow(), not throw(e): no new backtrace (a throw costs 0.5-2 ms on macOS). =#
             rethrow()
           end
-          #= Update the binding and set is as evaluated =#
-          @assign binding.bindingExp = exp
-          @assign binding.evaluated = true
-          comp = setBinding(binding, comp)
-          node = updateComponent!(comp, node)
+          #= Update the binding and set is as evaluated; not a value with more dimensions than
+             the component (a binding in an array of components evaluated in its class, which
+             the elements share, its references to the elements' array modifiers whole: every
+             element's binding became the array, Buildings' PressureDrop[nRes] resSeries,
+             dp_nominal_pos = abs(dp_nominal) evaluated for an if-equation's condition). =#
+          if _valueDimensionCount(exp) <= dimensionCount(getType(comp))
+            @assign binding.bindingExp = exp
+            @assign binding.evaluated = true
+            comp = setBinding(binding, comp)
+            node = updateComponent!(comp, node)
+          end
         end
         (exp, true)
       end
