@@ -108,6 +108,7 @@ include("./Util/Global.jl")
 include("./Util/Settings.jl")
 include("./Util/Print.jl")
 include("./Util/Util.jl")
+include("./Util/Lapack.jl")
 include("./Util/StringUtil.jl")
 include("./Util/Flags.jl")
 include("./Util/FlagsUtil.jl")
@@ -249,6 +250,7 @@ include("./NewFrontend/BindingExpression!.jl")
 
 include("./Util/ModelicaExternalC.jl")
 include("./NewFrontend/NFEvalFunction.jl")
+include("./NewFrontend/NFEvalFunctionExt.jl")
 
 include("./NewFrontend/NFCall.jl")
 

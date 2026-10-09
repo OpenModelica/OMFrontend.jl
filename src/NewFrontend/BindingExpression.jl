@@ -961,10 +961,10 @@ function hasArrayCall(@nospecialize(exp::Expression)) ::Bool
   hasArrayCall
 end
 
+#= The only element of an array of one element. =#
 function arrayScalarElement(@nospecialize(arrayExp::Expression)) ::Expression
-  local scalarExp::Expression
-  @match ARRAY_EXPRESSION(elements = list(scalarExp)) = arrayExp
-  scalarExp
+  (arrayExp isa ARRAY_EXPRESSION && length(arrayExp.elements) == 1) || fail()
+  return arrayExp.elements[1]
 end
 
 @nospecializeinfer function arrayScalarElements_impl(@nospecialize(exp::Expression), elements::List{<:Expression}) ::List{Expression}
@@ -5737,8 +5737,8 @@ function makeRealMatrix(values::List{<:List{<:AbstractFloat}}) ::Expression
      exp = makeEmptyArray(ty)
   else
      ty = TYPE_ARRAY(TYPE_REAL(), list(fromInteger(listLength(listHead(values)))))
-     expl = Expression[makeArray(ty, list(REAL_EXPRESSION(v) for v in row), literal = true) for row in values]
-     ty = liftArrayLeft(ty, fromInteger(listLength(expl)))
+     expl = Expression[makeArray(ty, Expression[REAL_EXPRESSION(v) for v in row], literal = true) for row in values]
+     ty = liftArrayLeft(ty, fromInteger(length(expl)))
      exp = makeArray(ty, expl, literal = true)
   end
   exp
@@ -5760,7 +5760,7 @@ end
 
 function makeEmptyArray(ty::M_Type)
   local outExp::Expression
-   outExp = ARRAY_EXPRESSION(ty, nil, true)
+   outExp = ARRAY_EXPRESSION(ty, Expression[], true)
   outExp
 end
 

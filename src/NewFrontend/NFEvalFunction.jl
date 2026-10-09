@@ -177,7 +177,7 @@ function evaluateExternal(fn::M_Function, args::Vector{Expression})::Expression
   local lang::String
   local output_ref::ComponentRef
   local ann::Option{SCode.Annotation}
-  local ext_args::Vector{Expression}
+  local ext_args::List{Expression}
 
   @match SECTIONS_EXTERNAL(
     name = name,
@@ -1490,7 +1490,7 @@ end
 function evaluateExternal2(
   name::String,
   fn::M_Function,
-  args::List{<:Expression},
+  args::Vector{Expression},
   extArgs::List{<:Expression},
 )::Expression
   local result::Expression
@@ -1512,77 +1512,82 @@ function evaluateExternal3(name::String, args::List{<:Expression})
   return  () = begin
     @match name begin
       "dgeev" => begin
-        EvalFunctionExt.Lapack_dgeev(args)
+        Lapack_dgeev(args)
         ()
       end
 
       "dgegv" => begin
-        EvalFunctionExt.Lapack_dgegv(args)
+        Lapack_dgegv(args)
         ()
       end
 
       "dgels" => begin
-        EvalFunctionExt.Lapack_dgels(args)
+        Lapack_dgels(args)
         ()
       end
 
       "dgelsx" => begin
-        EvalFunctionExt.Lapack_dgelsx(args)
+        Lapack_dgelsx(args)
         ()
       end
 
       "dgelsy" => begin
-        EvalFunctionExt.Lapack_dgelsy(args)
+        Lapack_dgelsy(args)
         ()
       end
 
       "dgesv" => begin
-        EvalFunctionExt.Lapack_dgesv(args)
+        Lapack_dgesv(args)
         ()
       end
 
       "dgglse" => begin
-        EvalFunctionExt.Lapack_dgglse(args)
+        Lapack_dgglse(args)
         ()
       end
 
       "dgtsv" => begin
-        EvalFunctionExt.Lapack_dgtsv(args)
+        Lapack_dgtsv(args)
         ()
       end
 
       "dgbsv" => begin
-        EvalFunctionExt.Lapack_dgtsv(args)
+        Lapack_dgbsv(args)
         ()
       end
 
       "dgesvd" => begin
-        EvalFunctionExt.Lapack_dgesvd(args)
+        Lapack_dgesvd(args)
         ()
       end
 
       "dgetrf" => begin
-        EvalFunctionExt.Lapack_dgetrf(args)
+        Lapack_dgetrf(args)
         ()
       end
 
       "dgetrs" => begin
-        EvalFunctionExt.Lapack_dgetrs(args)
+        Lapack_dgetrs(args)
         ()
       end
 
       "dgetri" => begin
-        EvalFunctionExt.Lapack_dgetri(args)
+        Lapack_dgetri(args)
         ()
       end
 
       "dgeqpf" => begin
-        EvalFunctionExt.Lapack_dgeqpf(args)
+        Lapack_dgeqpf(args)
         ()
       end
 
       "dorgqr" => begin
-        EvalFunctionExt.Lapack_dorgqr(args)
+        Lapack_dorgqr(args)
+        ()
+      end
+
+      "dhseqr" => begin
+        Lapack_dhseqr(args)
         ()
       end
     end
