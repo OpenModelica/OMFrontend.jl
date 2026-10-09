@@ -667,8 +667,36 @@ function evalComponentBinding2(
   =#
   if evaluated
      exp = subscriptEvaluatedBinding(exp, cref, evalSubscripts)
+     exp = _liftToCrefDims(exp, defaultExp)
   end
   return exp
+end
+
+#= The value of a cref over an array of components, with the cref's dimensions (omc: liftExp).
+   A cref naming the array (`bld.m_flow_nominal`, no subscript on bld) reads every element:
+   - a binding propagated from a modifier on the array (a BINDING_EXP over its elements) is
+     the plain array; a builtin call mapped it per element (sum of each element);
+   - the elements' shared class binding (propagated through no dimension) is one value for
+     all, lifted to the cref's dimensions; sum had summed the scalar.
+   Buildings DHC: mDis_flow_nominal = sum(bld.m_flow_nominal)*1.2, read by a dimension. In an
+   element's own context the cref has fewer dimensions than the value: kept for the mapping. =#
+function _liftToCrefDims(@nospecialize(exp::Expression), @nospecialize(defaultExp::Expression))::Expression
+  exp isa BINDING_EXP || dimensionCount(typeOf(exp)) < dimensionCount(typeOf(defaultExp)) || return exp
+  local value = exp
+  while value isa BINDING_EXP
+    value = value.exp
+  end
+  contains(value, isBindingExp) && return exp
+  local cref_ty = typeOf(defaultExp)
+  local diff = dimensionCount(cref_ty) - dimensionCount(typeOf(value))
+  diff == 0 && return value
+  diff > 0 || return exp
+  local lift = Base.collect(Dimension, arrayDims(cref_ty))[1:diff]
+  all(d -> isKnown(d), lift) || return exp
+  for d in reverse(lift)
+    value = Base.first(liftArray(d, value))
+  end
+  return value
 end
 
 function flattenBindingExp(@nospecialize(exp::Expression))::Expression
