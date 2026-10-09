@@ -1335,18 +1335,13 @@ function matchArgs(
   return (args, funcMatchKind)
 end
 
+#= The slot of that name. It was always none: ArrayUtil.getMemberOnTrue returns (slot, index),
+   and the bare catch took the failed assignment for a missing slot, so a default reading
+   another input kept the function's own input (MSL WallFriction's `crossArea = pi*diameter^2/4`
+   a continuous binding of a parameter: Buildings' FixedResistances). =#
 function lookupSlotInArray(slotName::String, slots::Vector{<:Slot})::Option{Slot}
-  local outSlot::Option{Slot}
-
-  local slot::Slot
-
-  try
-    @assign slot = ArrayUtil.getMemberOnTrue(slotName, slots, P_Slot.hasName)
-    @assign outSlot = SOME(slot)
-  catch
-    @assign outSlot = NONE()
-  end
-  return outSlot
+  local i = findfirst(slot -> slot.name == slotName, slots)
+  return i === nothing ? NONE() : SOME(slots[i])
 end
 
 function evaluateSlotExp_traverser(
