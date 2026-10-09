@@ -401,17 +401,12 @@ function applyLocalComponents_inst(tree::ClassTree,
      is write-then-read scratch within one instComponent call, never carried
      between siblings. =#
   if parallelInstEnabled(length(plainIndices))
-    local parentTok = get(task_local_storage(), :OMF_ROOT, 0)::Int
-    @sync for i in plainIndices
-      local tok = parentTok == 0 ? i : parentTok
-      Threads.@spawn begin
-        task_local_storage(:OMF_ROOT, tok)
-        local ptr = @inbounds tree.components[i]::Pointer{InstNode}
-        local arg = P_Pointer.access(ptr)
-        local node = instComponent(arg, attributes, MODIFIER_NOMOD(), useBinding,
-                                   instLevel, Ref{Attributes}(attributeRef.x), NONE())::InstNode
-        referenceEq(node, arg) || P_Pointer.update(ptr, node)
-      end
+    _parallelFor(plainIndices) do i
+      local ptr = @inbounds tree.components[i]::Pointer{InstNode}
+      local arg = P_Pointer.access(ptr)
+      local node = instComponent(arg, attributes, MODIFIER_NOMOD(), useBinding,
+                                 instLevel, Ref{Attributes}(attributeRef.x), NONE())::InstNode
+      referenceEq(node, arg) || P_Pointer.update(ptr, node)
     end
   else
     for i in plainIndices

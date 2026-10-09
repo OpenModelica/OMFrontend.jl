@@ -589,3 +589,12 @@ function fromExp(@nospecialize(exp::Expression), var::VariabilityType)::Dimensio
 end
 
 #= Backported =#
+
+#= The first index of a dimension (omc Dimension.lowerBoundExp). =#
+function lowerBoundExp(dim::Dimension)::Expression
+  @match dim begin
+    DIMENSION_BOOLEAN(__) => BOOLEAN_EXPRESSION(false)
+    DIMENSION_ENUM(__) => makeEnumLiteral(dim.enumType, 1)
+    _ => INTEGER_EXPRESSION(1)
+  end
+end

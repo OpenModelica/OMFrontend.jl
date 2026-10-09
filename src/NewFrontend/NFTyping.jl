@@ -220,18 +220,12 @@ function typeComponents2(cls::InstNode, origin::ORIGIN_Type)::InstNode
          walk a shared FLAT_TREE concurrently, so the (rare) inner-outer
          write-back is claimed. =#
       if parallelInstEnabled(length(cls_tree.components))
-        local parentTok = get(task_local_storage(), :OMF_ROOT, 0)::Int
-        @sync for i in eachindex(cls_tree.components)
-          local idx = i
-          local tok = parentTok == 0 ? idx : parentTok
-          Threads.@spawn begin
-            task_local_storage(:OMF_ROOT, tok)
-            local compNode = @inbounds cls_tree.components[idx]
-            local node, _ = typeComponentNode(compNode, origin)
-            if node !== compNode
-              _withClaim(_refId(cls)) do
-                @inbounds cls_tree.components[idx] = node
-              end
+        _parallelFor(eachindex(cls_tree.components)) do idx
+          local compNode = @inbounds cls_tree.components[idx]
+          local node, _ = typeComponentNode(compNode, origin)
+          if node !== compNode
+            _withClaim(_refId(cls)) do
+              @inbounds cls_tree.components[idx] = node
             end
           end
         end
@@ -3064,18 +3058,12 @@ function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)::InstNod
           classNode = typeOwnSections!(classNode, originArg)
         end
         if parallelInstEnabled(length(components))
-          local parentTok = get(task_local_storage(), :OMF_ROOT, 0)::Int
-          @sync for i in eachindex(components)
-            local idx = i
-            local tok = parentTok == 0 ? idx : parentTok
-            Threads.@spawn begin
-              task_local_storage(:OMF_ROOT, tok)
-              local compNode = @inbounds components[idx]
-              local node = typeComponentSections(compNode, originArg)
-              if node !== compNode
-                _withClaim(_refId(classNode)) do
-                  @inbounds components[idx] = node
-                end
+          _parallelFor(eachindex(components)) do idx
+            local compNode = @inbounds components[idx]
+            local node = typeComponentSections(compNode, originArg)
+            if node !== compNode
+              _withClaim(_refId(classNode)) do
+                @inbounds components[idx] = node
               end
             end
           end
@@ -3482,17 +3470,8 @@ end
 
       EQUATION_FOR(__) => begin
         info = sourceInfo() #DAE.emptyElementSource -John
-        if isSome(eq.range)
-          @match SOME(e1) = eq.range
-          (e1, _, _) = typeIterator(eq.iterator, e1, origin, true)
-        else
-          Error.assertion(
-            false,
-            getInstanceName() + ": missing support for implicit iteration range",
-            sourceInfo(),
-          )
-          fail()
-        end
+        e1 = isSome(eq.range) ? Util.getOption(eq.range) : deduceIterationRangeEq(eq, eq.iterator, info)
+        (e1, _, _) = typeIterator(eq.iterator, e1, origin, true)
         next_origin = setFlag(origin, ORIGIN_FOR)
         body = Equation[typeEquation(e, next_origin) for e in eq.body]
         EQUATION_FOR(eq.iterator, SOME(e1), body, eq.source)
@@ -3847,17 +3826,8 @@ end
 
       ALG_FOR(__) => begin
         info = AbsynUtil.dummyInfo #DAE.ElementSource_getInfo(st.source)
-        if isSome(st.range)
-          @match SOME(e1) = st.range
-          (e1, _, _) = typeIterator(st.iterator, e1, origin, false)
-        else
-          Error.assertion(
-            false,
-            getInstanceName() + ": missing support for implicit iteration range",
-            sourceInfo(),
-          )
-          fail()
-        end
+        e1 = isSome(st.range) ? Util.getOption(st.range) : deduceIterationRangeStmt(st, st.iterator, info)
+        (e1, _, _) = typeIterator(st.iterator, e1, origin, false)
         next_origin = setFlag(origin, ORIGIN_FOR)
         body = typeStatements(st.body, next_origin)
         ALG_FOR(st.iterator, SOME(e1), body, st.source)
@@ -4383,4 +4353,74 @@ function typeReinit(
     fail()
   end
   return (crefExp, exp)
+end
+
+#= A for-loop without a range (`for i loop x[i] = ...`) iterates over the dimensions the iterator
+   subscripts in its body: lower bound to end of that dimension (omc deduceIterationRange*). =#
+function deduceIterationRangeEq(@nospecialize(eq::Equation), iterator::InstNode, info::SourceInfo)::Expression
+  local crefs = foldExp(eq, (e, acc) -> fold(e, (e2, acc2) -> collectIteratorCrefs(e2, iterator, acc2), acc),
+                        Tuple{ComponentRef, Int}[])
+  return deduceIterationRange(crefs, iterator, info)
+end
+
+function deduceIterationRangeStmt(stmt::Statement, iterator::InstNode, info::SourceInfo)::Expression
+  local crefs = foldExp(stmt, (e, acc) -> fold(e, (e2, acc2) -> collectIteratorCrefs(e2, iterator, acc2), acc),
+                        Tuple{ComponentRef, Int}[])
+  return deduceIterationRange(crefs, iterator, info)
+end
+
+#= The reference parts the iterator subscripts, with the subscripted dimension's index. =#
+function collectIteratorCrefs(@nospecialize(exp::Expression), iterator::InstNode,
+                              crefs::Vector{Tuple{ComponentRef, Int}})::Vector{Tuple{ComponentRef, Int}}
+  exp isa CREF_EXPRESSION || return crefs
+  local cref::ComponentRef = exp.cref
+  local subs::List{Subscript}
+  while isvariant(cref, COMPONENT_REF_CREF)
+    (cref, subs) = stripSubscripts(cref)
+    local index = 1
+    for sub in subs
+      equalsIterator(sub, iterator) && push!(crefs, (cref, index))
+      index += 1
+    end
+    cref = rest(cref)
+  end
+  return crefs
+end
+
+function deduceIterationRange(crefs::Vector{Tuple{ComponentRef, Int}}, iterator::InstNode, info::SourceInfo)::Expression
+  if isempty(crefs)
+    Error.addSourceMessage(Error.IMPLICIT_ITERATOR_NOT_FOUND_IN_LOOP_BODY, list(name(iterator)), info)
+    fail()
+  end
+  for k in 2:length(crefs)
+    checkImplicitRangesEqual(crefs[k - 1], crefs[k], info)
+  end
+  local (cr, index) = crefs[1]
+  local dim = nthDimension(getType(node(cr)), index)
+  return RANGE_EXPRESSION(TYPE_UNKNOWN(), lowerBoundExp(dim), NONE(), endExp(dim, cr, index))
+end
+
+#= Two subscripted dimensions are the same, or one is size() of the other (omc
+   deduceIterationRange2, Dimension.isEqualKnownSize). =#
+function checkImplicitRangesEqual(range1::Tuple{ComponentRef, Int}, range2::Tuple{ComponentRef, Int}, info::SourceInfo)
+  local (cref1, index1) = range1
+  local (cref2, index2) = range2
+  local node1 = node(cref1)
+  local node2 = node(cref2)
+  (index1 == index2 && refEqual(node1, node2)) && return
+  local dim1 = nthDimension(getType(node1), index1)
+  local dim2 = nthDimension(getType(node2), index2)
+  local isSizeOf = (dim::Dimension, n::InstNode, i::Int) -> begin
+    isvariant(dim, DIMENSION_EXP) || return false
+    local e = dim.exp
+    e isa SIZE_EXPRESSION && e.exp isa CREF_EXPRESSION && refEqual(node(e.exp.cref), n) &&
+      isSome(e.dimIndex) && Util.getOption(e.dimIndex) isa INTEGER_EXPRESSION &&
+      Util.getOption(e.dimIndex).value == i
+  end
+  if !(isSizeOf(dim1, node2, index2) || isSizeOf(dim2, node1, index1) || isEqualKnown(dim1, dim2))
+    Error.addSourceMessage(Error.INCOMPATIBLE_IMPLICIT_RANGES,
+      list(string(index1), toString(cref1), string(index2), toString(cref2)), info)
+    fail()
+  end
+  return nothing
 end

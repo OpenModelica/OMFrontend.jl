@@ -1306,3 +1306,12 @@ function isSplit(sub::Subscript)
   end
   return res
 end
+
+#= Whether the subscript is the iterator (omc Subscript.equalsIterator). =#
+function equalsIterator(sub::Subscript, iterator::InstNode)::Bool
+  @match sub begin
+    SUBSCRIPT_UNTYPED(exp = CREF_EXPRESSION(cref = cref)) => refEqual(iterator, node(cref))
+    SUBSCRIPT_INDEX(index = CREF_EXPRESSION(cref = cref)) => refEqual(iterator, node(cref))
+    _ => false
+  end
+end

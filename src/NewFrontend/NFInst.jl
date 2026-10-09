@@ -2249,6 +2249,42 @@ end
 
 _parallelTypingActive() = PARALLEL_INST[] && Threads.nthreads() >= 2
 
+#= Sibling fan-out: body(i) for each index in its own task. A task's error messages go to the
+   spawning task's buffer, and its failure is rethrown as itself: serially a MetaModelica failure
+   is control flow callers catch; wrapped it was a TaskFailedException without its message
+   (OpenModelica testsuite: Extends3, Connect12, InvertedPendulumTotal). =#
+function _parallelFor(body::Function, indices::AbstractVector{Int})::Nothing
+  local parentTok = get(task_local_storage(), :OMF_ROOT, 0)::Int
+  local parent = current_task()
+  try
+    @sync for i in indices
+      local idx = i
+      local tok = parentTok == 0 ? idx : parentTok
+      Threads.@spawn begin
+        task_local_storage(:OMF_ROOT, tok)
+        try
+          body(idx)
+        finally
+          ErrorExt.moveMessagesToParentThread(parent)
+        end
+      end
+    end
+  catch e
+    local inner = e
+    while true
+      if inner isa CompositeException && !isempty(inner.exceptions)
+        inner = Base.first(inner.exceptions)
+      elseif inner isa TaskFailedException
+        inner = inner.task.result
+      else
+        break
+      end
+    end
+    throw(inner)
+  end
+  return nothing
+end
+
 #= Per-task count of claims currently held. Fan-out while holding a claim can
    deadlock: the spawning task waits at @sync while a worker waits on the held
    claim. Fan-out sites therefore require _noClaimsHeld(). =#
