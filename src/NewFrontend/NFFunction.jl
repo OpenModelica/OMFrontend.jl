@@ -2003,7 +2003,12 @@ function getCachedFuncs(inNode::InstNode)
 end
 
 function instFunction3(fnNode::InstNode)::InstNode
-  fnNode = instantiateN1(fnNode, EMPTY_NODE())
+  #= A partial function is instantiated too (omc: instPartial = true). A redeclared
+     component's original declaration may look up its partial default package
+     (PartialMedium), whose constants call its partial functions (setState_pTX through
+     h_default); skipped, the function's own class node got the expressions (got
+     non-instantiated function, Buildings DHC). =#
+  fnNode = instantiateN1(fnNode, EMPTY_NODE(), true)
   cacheInitFunc(fnNode)
   instExpressions(fnNode)
   return fnNode
