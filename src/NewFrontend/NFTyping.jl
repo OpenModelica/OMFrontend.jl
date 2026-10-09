@@ -2327,7 +2327,10 @@ function typeArrayRef(
   local arrayType::NFType = TYPE_UNKNOWN()
   local arrayExp::Expression
   local numberOfElements = length(elements)::Int
-  local expV::Vector{T} = Vector{T}(undef, numberOfElements)
+  #= The typed elements go to a new vector: the untyped expression's elements are shared (a
+     binding typed by two tasks found the other's typed record elements, which do not type:
+     Buildings DX VariableSpeedEnergyPlus under parallel typing). =#
+  local expV::Vector{Expression} = Vector{Expression}(undef, numberOfElements)
   local var::VariabilityType
   local ty1::NFType = TYPE_UNKNOWN()
   local ty2::NFType
@@ -2359,15 +2362,15 @@ function typeArrayRef(
     else
       ty1 = ty3
     end
-    elements[i] = exp::T
+    expV[i] = exp
     tys[i] = ty2
   end
   for i in 1:numberOfElements
-    local e = elements[i]::T
+    local e = expV[i]
     ty2 = tys[i]
     exp = matchTypesRef(ty2, ty1, e, tyRef, mkRef, #=allowUnknown =# true)
     mk = mkRef.x
-    elements[i] = exp
+    expV[i] = exp
     if true ## !Config.getGraphicsExpMode()
       if isIncompatibleMatch(mk)
         Error.addSourceMessage(
@@ -2385,8 +2388,8 @@ function typeArrayRef(
     end
   end
   #=  forget errors when handling annotations =#
-  arrayType = liftArrayLeft(ty1, fromExpList(elements))
-  arrayExp = makeArray(arrayType, elements)::ARRAY_EXPRESSION
+  arrayType = liftArrayLeft(ty1, fromExpList(expV))
+  arrayExp = makeArray(arrayType, expV)::ARRAY_EXPRESSION
   arrayTypeRef.x = arrayType
   variabilityTypeRef.x = variability
   return arrayExp

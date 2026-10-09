@@ -2692,7 +2692,9 @@ function matchComplexTypes(
           for i = 1:arrayLength(comps1)
             @assign comp1 = component(comps1[i])
             @assign comp2 = component(comps2[i])
-            if isTyped(comp2)
+            #= Both typed: an untyped field's type is its element type (under parallel typing
+               another task's record: sta of Stage[1] read as Stage, a binding type mismatch). =#
+            if isTyped(comp1) && isTyped(comp2)
                (_, _, mk) = matchTypes(
                 getType(comp1),
                 getType(comp2),
