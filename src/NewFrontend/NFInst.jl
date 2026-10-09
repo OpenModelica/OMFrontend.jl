@@ -2112,7 +2112,7 @@ function instTypeSpec(typeSpec::Absyn.TPATH,
                       isRedeclared::Bool = false)::InstNode
   local node::InstNode = lookupClassName(typeSpec.path, scope, info; isRedeclared = isRedeclared)
   if instLevel >= 100
-    checkRecursiveDefinition(node, parent, limitReached = true)
+    checkRecursiveDefinition(node, parent, true)
   end
   node = expand(node)
   instClass(node, modifier, attributes, attributeRef, useBinding, instLevel, parent)

@@ -2009,7 +2009,8 @@ function expandExtends(
       end
 
       _ => begin
-        return (tree, DuplicateTree.new())
+        #= Not expanded (omc returns the tree unchanged). =#
+        return tree
       end
     end
   end
@@ -2357,29 +2358,29 @@ function addImportConflict(
         =#
         entry = begin
           @match (imp1, imp2) begin
-            (Import.UNRESOLVED_IMPORT(__), Import.UNRESOLVED_IMPORT(__)) => begin
+            (UNRESOLVED_IMPORT(__), UNRESOLVED_IMPORT(__)) => begin
               #=  Two qualified imports of the same name gives an error.
               =#
               arrayUpdate(
                 imports,
                 oldEntry.index,
-                Import.CONFLICTING_IMPORT(imp1, imp2),
+                CONFLICTING_IMPORT(imp1, imp2),
               )
               oldEntry
             end
 
-            (Import.RESOLVED_IMPORT(__), Import.RESOLVED_IMPORT(__)) => begin
+            (RESOLVED_IMPORT(__), RESOLVED_IMPORT(__)) => begin
               #=  A name imported from several unqualified imports gives an error.
               =#
               arrayUpdate(
                 imports,
                 oldEntry.index,
-                Import.CONFLICTING_IMPORT(imp1, imp2),
+                CONFLICTING_IMPORT(imp1, imp2),
               )
               oldEntry
             end
 
-            (Import.UNRESOLVED_IMPORT(__), _) => begin
+            (UNRESOLVED_IMPORT(__), _) => begin
               newEntry
             end
 

@@ -1256,30 +1256,18 @@ function evalRangeExp(@nospecialize(rangeExp::Expression))::Expression
   return exp
 end
 
-function evalRangeReal(
-  start::Float64,
-  step::Float64,
-  stop::Float64,
-)::Vector{REAL_EXPRESSION}
-  local result::Vector{Expression}
-  local steps::Int
-  steps = Util.realRangeSize(start, step, stop)
-  #=  Real ranges are tricky, make sure that start and stop are reproduced
-  =#
-  #=  exactly if they are part of the range.
-  =#
-  if steps == 0
-     result = REAL_EXPRESSION[]
-  elseif steps == 1
-    result = REAL_EXPRESSION[REAL_EXPRESSION(start)]
-  else
-     result = REAL_EXPRESSION[REAL_EXPRESSION(stop)]
-    for i = (steps - 2):(-1):1
-      result = REAL_EXPRESSION[REAL_EXPRESSION(start + i * step), result]
-    end
-    result = REAL_EXPRESSION[REAL_EXPRESSION(start), result]
+function evalRangeReal(start::Float64, step::Float64, stop::Float64)::Vector{Expression}
+  local steps::Int = Util.realRangeSize(start, step, stop)
+  #=  Real ranges are tricky, make sure that start and stop are reproduced exactly if they are
+      part of the range. =#
+  steps == 0 && return Expression[]
+  steps == 1 && return Expression[REAL_EXPRESSION(start)]
+  local result = Vector{Expression}(undef, steps)
+  result[1] = REAL_EXPRESSION(start)
+  for i in 1:(steps - 2)
+    result[i + 1] = REAL_EXPRESSION(start + i * step)
   end
-  reverse!(result)
+  result[steps] = REAL_EXPRESSION(stop)
   return result
 end
 

@@ -2081,7 +2081,7 @@ end
       fns = typeNodeCache(cref.node)
       fn = fns[1]
       local crefTy = TYPE_FUNCTION(fn, FunctionType.FUNCTION_REFERENCE)
-      local crefRestCref = typeCref2(cref.restCref, origin, info, false)
+      local crefRestCref = typeCref2(cref.restCref, origin, Ref{VariabilityType}(Variability.CONSTANT), info, false)
       @assign cref.ty = crefTy
       @assign cref.restCref = crefRestCref
       variabilityTypeRef.x = Variability.CONTINUOUS
@@ -3356,7 +3356,7 @@ function makeDefaultExternalCall(extDecl::Sections, fnNode::InstNode)::Sections
         #=  be a reference to the function's output. Otherwise leave it as empty.
         =#
         if single_output
-          @match list(node) = fn.outputs
+           node = listHead(fn.outputs)
            ty = getType(node)
            extDecl.outputRef = fromNode(node, ty)
         end

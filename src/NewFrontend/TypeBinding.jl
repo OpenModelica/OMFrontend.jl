@@ -248,7 +248,7 @@ function typeBindingPayload!(
   tyRef::Ref{NFType},
   varRef::Ref{VariabilityType}
   )::InstNode
-  local nameStr::String = inComponent.name
+  local nameStr::String = name(inComponent)
   local binding::Binding = c.binding
   local comp_var::VariabilityType
 
