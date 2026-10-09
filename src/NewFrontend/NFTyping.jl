@@ -2546,14 +2546,17 @@ function typeMatrixComma(
            ty = ty2
         end
       end
-       tys = Cons{NFType}(ty1, tys)
+       tys2[i] = ty1
        variability = variabilityMax(variability, var)
        n = max(n, dimensionCount(ty))
     end
+    #= Each element with its own type (omc reverses both lists; the elements here are in
+       order, their types were the reversed list: `[a, 2]` matched a with Integer and 2 with
+       Real, the 2 left an Integer in a Real matrix, sum() of it failed). =#
     pos = n + 1
     local i = 1
     for e in expl
-      @match Cons{NFType}(ty1, tys) = tys
+      ty1 = tys2[i]
        pos = pos - 1
       if dimensionCount(ty1) != n
          (e, ty1) = promote(e, ty1, n)
