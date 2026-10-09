@@ -735,7 +735,7 @@ end
   if structural && var > Variability.PARAMETER
     Error.addSourceMessageAndFail(Error.NON_PARAMETER_ITERATOR_RANGE, list(toString(exp)), info)
   end
-  isVector(ty) || Error.addSourceMessageAndFail(Error.FOR_EXPRESSION_ERROR, list(toString(exp), toString(ty)), info)
+  isVector(ty) || Error.addSourceMessageAndFail(Error.FOR_EXPRESSION_TYPE_ERROR, list(toString(exp), toString(ty)), info)
   updateComponent!(ITERATOR_COMPONENT(arrayElementType(ty), var, info), iterator)
   return (exp, ty, var)
 end
@@ -761,7 +761,7 @@ end
   #=  The iteration range must be a vector expression. =#
   if !isVector(ty)
     Error.addSourceMessageAndFail(
-        Error.FOR_EXPRESSION_ERROR,
+        Error.FOR_EXPRESSION_TYPE_ERROR,
       list(toString(exp), toString(ty)),
       info,
     )
@@ -3155,7 +3155,7 @@ function typeOwnSections!(classNode::InstNode, originArg::ORIGIN_Type)::InstNode
           Error.TRANS_VIOLATION,
           list(
             name(classNode),
-            P_Restriction.Restriction.toString(cls.restriction),
+            toString(cls.restriction),
             "external declaration",
           ),
           InstNode_info(classNode),

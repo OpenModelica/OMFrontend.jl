@@ -708,70 +708,32 @@ end
   This is allowed as long as the two modifiers doesn't modify the same
   element, otherwise it's an error.
 """
-function mergeLocal(
-  mod1::Modifier,
-  mod2::Modifier,
-  name::String = "",
-  scope::ModifierScope = nothing,
-  prefix::Vector{String} = String[],
-  )::Modifier
-  local mod::Modifier
-  local comp_name::String
+#= The prefix is the path of the enclosing modifiers, innermost first (omc). =#
+function mergeLocal(mod1::Modifier, mod2::Modifier, key::String, scope::ModifierScope,
+                    prefix::List{String} = nil)::Modifier
+  @match (mod1, mod2) begin
+    (MODIFIER_MODIFIER(__), MODIFIER_MODIFIER(binding = UNBOUND(__))) => begin
+      #= The second modifier has no binding, use the binding from the first. =#
+      MODIFIER_MODIFIER(mod1.name, mod1.finalPrefix, mod1.eachPrefix, mod1.binding,
+                        ModTable.join(mod1.subModifiers, mod2.subModifiers, scope, Cons{String}(mod1.name, prefix)),
+                        mod1.info)
+    end
 
-  mod = begin
-    @match (mod1, mod2) begin
-      (MODIFIER_MODIFIER(__), MODIFIER_MODIFIER(binding = UNBOUND(__))) => begin
-        #=  The second modifier has no binding, use the binding from the first.
-        =#
-        #local prefixV = mod1.name <| prefix
-        push!(prefix, mod1.name)
-        #@debug "Value of $lst"
-        local mod1SubModifiers = ModTable.join(
-          mod1.subModifiers,
-          mod2.subModifiers,
-          scope,
-          prefix)
-        MODIFIER_MODIFIER(mod1.name,
-                          mod1.finalPrefix,
-                          mod1.eachPrefix,
-                          mod1.binding,
-                          mod1SubModifiers,
-                          mod1.info)
-      end
-      (MODIFIER_MODIFIER(binding = UNBOUND(__)), MODIFIER_MODIFIER(__)) => begin
-        #=  The first modifier has no binding, use the binding from the second.
-        =#
-        #local lst = mod1.name <| prefix
-        push!(prefix, mod1.name)
-        #@debug "Value of $lst"
-        local mod2SubModifiers = ModTable.join(
-          mod2.subModifiers,
-          mod1.subModifiers,
-          scope,
-          prefix)
-        MODIFIER_MODIFIER(mod2.name,
-                          mod2.finalPrefix,
-                          mod2.eachPrefix,
-                          mod2.binding,
-                          mod2SubModifiers,
-                          mod2.info)
-      end
+    (MODIFIER_MODIFIER(binding = UNBOUND(__)), MODIFIER_MODIFIER(__)) => begin
+      #= The first modifier has no binding, use the binding from the second. =#
+      MODIFIER_MODIFIER(mod2.name, mod2.finalPrefix, mod2.eachPrefix, mod2.binding,
+                        ModTable.join(mod2.subModifiers, mod1.subModifiers, scope, Cons{String}(mod1.name, prefix)),
+                        mod2.info)
+    end
 
-      _ => begin
-        #=  Both modifiers modify the same element, give duplicate modification error.
-        =#
-        comp_name =
-          stringDelimitList(listReverse(_cons(P_Modifier.name(mod1), prefix)), ".")
-        Error.addMultiSourceMessage(
-          Error.DUPLICATE_MODIFICATIONS,
-          list(comp_name, P_ModifierScope.toString(scope)),
-          list(P_Modifier.info(mod1), P_Modifier.info(mod2)),
-        )
-        fail()
-      end
+    _ => begin
+      #= Both modifiers modify the same element. =#
+      local comp_name = stringDelimitList(listReverse(Cons{String}(name(mod1), prefix)), ".")
+      Error.addMultiSourceMessage(Error.DUPLICATE_MODIFICATIONS, list(comp_name, toString(scope)),
+                                  list(Modifier_info(mod1), Modifier_info(mod2)))
+      fail()
     end
   end
-  return mod
 end
 
 """

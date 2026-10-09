@@ -1145,7 +1145,7 @@ function makeMinValue(ty::M_Type) ::Expression
       end
 
       TYPE_ARRAY(__)  => begin
-        makeArray(ty, ArrayUtil.fill(makeMaxValue(unliftArray(ty)), size(listHead(ty.dimensions))), literal = true)
+        fillType(ty, makeMinValue(arrayElementType(ty)))
       end
     end
   end
@@ -1174,7 +1174,7 @@ function makeMaxValue(ty::M_Type) ::Expression
       end
 
       TYPE_ARRAY(__)  => begin
-        ARRAY_EXPRESSION(ty, ListUtil.fill(makeMaxValue(unliftArray(ty)), size(listHead(ty.dimensions))), literal = true)
+        fillType(ty, makeMaxValue(arrayElementType(ty)))
       end
     end
   end
@@ -1195,7 +1195,7 @@ function makeOne(ty::M_Type) ::Expression
       end
 
       TYPE_ARRAY(__)  => begin
-        ARRAY_EXPRESSION(ty, ListUtil.fill(makeZero(unliftArray(ty)), size(listHead(ty.dimensions))), literal = true)
+        fillType(ty, makeOne(arrayElementType(ty)))
       end
     end
   end
@@ -1229,7 +1229,7 @@ function makeZero(ty::M_Type) ::Expression
       end
 
       TYPE_ARRAY(__)  => begin
-        ARRAY_EXPRESSION(ty, ListUtil.fill(makeZero(unliftArray(ty)), size(listHead(ty.dimensions))), literal = true)
+        fillType(ty, makeZero(arrayElementType(ty)))
       end
 
       TYPE_COMPLEX(__)  => begin
@@ -6736,8 +6736,8 @@ function toDebugString(ick::ClockKind) ::String
   ock
 end
 
-function toDAE(ick::ClockKind) ::DAE.P_ClockKind
-  local ock::DAE.P_ClockKind
+function toDAE(ick::ClockKind) ::DAE.ClockKind
+  local ock::DAE.ClockKind
 
    ock = begin
     local i::Expression

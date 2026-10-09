@@ -3534,7 +3534,7 @@ end
     local dim_exp::Expression
     local var::VariabilityType
     @match (startExp, stopExp) begin
-      (P_Expression.BOOLEAN_EXPRESSION(__), P_Expression.BOOLEAN_EXPRESSION(__)) => begin
+      (BOOLEAN_EXPRESSION(__), BOOLEAN_EXPRESSION(__)) => begin
         @assign sz = if startExp.value == stopExp.value
           1
         elseif (startExp.value < stopExp.value)
@@ -3706,7 +3706,7 @@ function printBindingTypeError(
   @assign comp_info = InstNode_info(component)
   return if isScalar(bindingType) && isArray(componentType)
     Error.addMultiSourceMessage(
-      Error.MODIFIER_NON_TYPE_ARRAY_ERROR,
+      Error.MODIFIER_NON_ARRAY_TYPE_ERROR,
       list(toString(binding), name),
       list(binding_info, comp_info),
     )

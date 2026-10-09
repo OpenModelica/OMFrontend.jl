@@ -112,7 +112,7 @@ function toString(name::LookupStateName)::String
       end
 
       LOOKUP_STATE_NAME_CREF(__) => begin
-        Dump.printComponentRefStr(name.cref)
+        AbsynUtil.printComponentRefStr(name.cref)
       end
     end
   end
@@ -480,7 +480,7 @@ end
         =#
         Error.addSourceMessage(
           Error.FOUND_CLASS_NAME_VIA_COMPONENT,
-          list(P_LookupStateName.toString(lookupName)),
+          list(toString(lookupName)),
           info,
         )
         fail()
@@ -503,7 +503,7 @@ end
         @assign name_str = name(node)
         Error.addSourceMessage(
           Error.CLASS_IN_COMPOSITE_COMP_NAME,
-          list(name_str, P_LookupStateName.toString(lookupName)),
+          list(name_str, toString(lookupName)),
           info,
         )
         fail()

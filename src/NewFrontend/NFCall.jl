@@ -957,7 +957,7 @@ function instantiate(
   return callExp
 end
 
-function getSpecialReturnType(fn::M_Function, args::List{<:Expression})::NFType
+function getSpecialReturnType(fn::M_Function, args::Vector{Expression})::NFType
   local ty::NFType
 
    ty = begin
@@ -1040,11 +1040,8 @@ function evaluateCallTypeDimExp(@nospecialize(exp::Expression), ptree::Parameter
         ),
       ) => begin
         local v = ParameterTreeImpl.tryGet(ptree, name(node))
-        if v !== nothing
-          outExp = v
-        end
         #=  TODO: Apply subscripts. =#
-        outExp
+        v === nothing ? exp : v
       end
       _ => begin
         exp

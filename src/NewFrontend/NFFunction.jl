@@ -2628,7 +2628,7 @@ function paramDirection(@nospecialize(componentArg::InstNode))::DirectionType
   if isFlowOrStream(cty)
     Error.addSourceMessage(
       Error.INNER_OUTER_FORMAL_PARAMETER,
-      list(ConnectortoString(cty), name(componentArg)),
+      list(toString(cty), name(componentArg)),
       InstNode_info(componentArg),
     )
     fail()

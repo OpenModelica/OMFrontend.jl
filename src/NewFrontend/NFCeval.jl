@@ -3068,7 +3068,7 @@ function evalBuiltinAtan2(args::Union{List{Expression}, Vector{Expression}})::Ex
   if length(args) == 2
     @match REAL_EXPRESSION(value = y) = Base.first(args)
     @match REAL_EXPRESSION(value = x) = Base.last(args)
-    result = REAL_EXPRESSION(atan2(y, x))
+    result = REAL_EXPRESSION(atan(y, x))
   else
     printWrongArgsError(getInstanceName(), args, sourceInfo())
     fail()
@@ -4558,7 +4558,7 @@ function evalInferredClock(args::List{Expression})::Expression
    result = begin
     @match args begin
       nil() => begin
-        CLKCONST(P_Expression.P_ClockKind.Expression.INFERRED_CLOCK())
+        CLKCONST_EXPRESSION(INFERRED_CLOCK())
       end
 
       _ => begin
@@ -4580,7 +4580,7 @@ function evalRationalClock(args::List{Expression})::Expression
       interval &&
       INTEGER_EXPRESSION(__) <| resolution &&
       INTEGER_EXPRESSION(__) <| nil() => begin
-        CLKCONST(P_Expression.P_ClockKind.Expression.INTEGER_CLOCK(
+        CLKCONST_EXPRESSION(INTEGER_CLOCK(
           interval,
           resolution,
         ))
@@ -4602,7 +4602,7 @@ function evalRealClock(args::List{Expression})::Expression
     local interval::Expression
     @match args begin
       interval && REAL_EXPRESSION(__) <| nil() => begin
-        CLKCONST(P_Expression.P_ClockKind.REAL_EXPRESSION_CLOCK(
+        CLKCONST_EXPRESSION(REAL_CLOCK(
           interval,
         ))
       end
@@ -4626,7 +4626,7 @@ function evalBooleanClock(args::List{Expression})::Expression
       condition &&
       BOOLEAN_EXPRESSION(__) <| interval &&
       REAL_EXPRESSION(__) <| nil() => begin
-        CLKCONST(P_Expression.P_ClockKind.BOOLEAN_EXPRESSION_CLOCK(
+        CLKCONST_EXPRESSION(BOOLEAN_CLOCK(
           condition,
           interval,
         ))
@@ -4649,9 +4649,9 @@ function evalSolverClock(args::List{Expression})::Expression
     local solver::Expression
     @match args begin
       c &&
-      CLKCONST(__) <| solver &&
+      CLKCONST_EXPRESSION(__) <| solver &&
       STRING_EXPRESSION(__) <| nil() => begin
-        CLKCONST(P_Expression.P_ClockKind.Expression.SOLVER_CLOCK(
+        CLKCONST_EXPRESSION(SOLVER_CLOCK(
           c,
           solver,
         ))

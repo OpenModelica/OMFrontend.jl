@@ -1925,58 +1925,34 @@ function typeClockCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tupl
   local var::VariabilityType = Variability.PARAMETER
   local outType::M_Type = TYPE_CLOCK()
   local callExp::Expression
-
-  local ty_call::Call
   local args::Vector{Expression}
-  local args_count::Int
-  local e1::Expression
-  local e2::Expression
-
   @match TYPED_CALL(arguments = args) = typeMatchNormalCall(call, origin, info)
-  @assign args_count = length(args)
-  @assign callExp = begin
-    @match args begin
-      nil()  => begin
-        CLKCONST(P_Expression.P_ClockKind.Expression.INFERRED_CLOCK())
+  if isempty(args)
+    #= Clock() - inferred clock. =#
+    callExp = CLKCONST_EXPRESSION(INFERRED_CLOCK())
+  elseif length(args) == 1
+    #= Clock(interval) - real clock. =#
+    callExp = CLKCONST_EXPRESSION(REAL_CLOCK(args[1]))
+  else
+    local e1 = args[1]
+    local e2 = evalExp(args[2])
+    callExp = @match typeOf(e2) begin
+      TYPE_INTEGER(__) => begin
+        #= Clock(intervalCounter, resolution) - integer clock. =#
+        Error.assertionOrAddSourceMessage(integerValue(e2) >= 1, Error.WRONG_VALUE_OF_ARG, list("Clock", "resolution", toString(e2), "=> 1"), info)
+        CLKCONST_EXPRESSION(INTEGER_CLOCK(e1, e2))
       end
-
-      e1 <|  nil()  => begin
-        CLKCONST(P_Expression.P_ClockKind.REAL_EXPRESSION_CLOCK(e1))
+      TYPE_REAL(__) => begin
+        #= Clock(condition, startInterval) - boolean clock. =#
+        CLKCONST_EXPRESSION(BOOLEAN_CLOCK(e1, e2))
       end
-
-      e1 <| e2 <|  nil()  => begin
-        #=  Clock() - inferred clock.
-        =#
-        #=  Clock(interval) - real clock.
-        =#
-        @assign e2 = evalExp(e2)
-        @assign callExp = begin
-          @match typeOf(e2) begin
-            TYPE_INTEGER(__)  => begin
-              #=  Clock(intervalCounter, resolution) - integer clock.
-              =#
-              Error.assertionOrAddSourceMessage(integerValue(e2) >= 1, Error.WRONG_VALUE_OF_ARG, list("Clock", "resolution", toString(e2), "=> 1"), info)
-              CLKCONST(INTEGER_EXPRESSION_CLOCK(e1, e2))
-            end
-
-            TYPE_REAL(__)  => begin
-              CLKCONST(BOOLEAN_EXPRESSION_CLOCK(e1, e2))
-            end
-
-            TYPE_STRING(__)  => begin
-              CLKCONST(SOLVER_CLOCK(e1, e2))
-            end
-          end
-        end
-        #=  Clock(condition, startInterval) - boolean clock.
-        =#
-        #=  Clock(c, solverMethod) - solver clock.
-        =#
-        callExp
+      TYPE_STRING(__) => begin
+        #= Clock(c, solverMethod) - solver clock. =#
+        CLKCONST_EXPRESSION(SOLVER_CLOCK(e1, e2))
       end
     end
   end
-  (callExp, outType, var)
+  return (callExp, outType, var)
 end
 
 function typeSampleCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tuple{Expression, M_Type, VariabilityType}
@@ -2041,7 +2017,7 @@ function typeSampleCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tupl
       ([(e, t, v)],  _) where (isempty(namedArgs) && Config.synchronousFeaturesAllowed())  => begin
         #=  sample(u) - inferred clock
         =#
-        @assign ty_call = makeTypedCall(clockedSample, Expression[e, CLKCONST(P_Expression.P_ClockKind.Expression.INFERRED_CLOCK())], v, t)
+        @assign ty_call = makeTypedCall(clockedSample, Expression[e, CLKCONST_EXPRESSION(INFERRED_CLOCK())], v, t)
         (CALL_EXPRESSION(ty_call), t, v)
       end
 

@@ -540,7 +540,7 @@ function connectorType(component::Component)
         connectorType(component.component)
       end
       _ => begin
-        NON_CONNECTOR
+        ConnectorType.NON_CONNECTOR
       end
     end
   end

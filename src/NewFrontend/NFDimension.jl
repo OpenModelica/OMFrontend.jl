@@ -382,11 +382,11 @@ function isEqualKnown(dim1::Dimension, dim2::Dimension)::Bool
 
   @assign isEqual = begin
     @match (dim1, dim2) begin
-      (UNKNOWN(__), _) => begin
+      (DIMENSION_UNKNOWN(__), _) => begin
         false
       end
 
-      (_, UNKNOWN(__)) => begin
+      (_, DIMENSION_UNKNOWN(__)) => begin
         false
       end
 

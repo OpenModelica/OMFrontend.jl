@@ -496,7 +496,7 @@ function add(
         elseif key_comp == 1
           balance(NODE(tree.key, tree.value, tree.height, tree.left, add(tree.right, inKey, inValue, scope, prefix)))
         else
-           value = conflictFunc(inValue, tree.value, key)
+           value = mergeLocal(inValue, tree.value, key, scope, prefix)
           if referenceEq(tree.value, value)
             tree
           else

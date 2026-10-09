@@ -1388,7 +1388,8 @@ function redeclareComponentElement(redeclareComp::Pointer{InstNode}, replaceable
   repl_node = P_Pointer.access(replaceableComp)
   repl_node = instComponent(repl_node, DEFAULT_ATTR, MODIFIER_NOMOD(), true, instLevel, Ref{Attributes}(DEFAULT_ATTR))
   P_Pointer.update(replaceableComp, repl_node)
-  rdcl_node = redeclareComponent(rdcl_node, repl_node, MODIFIER_NOMOD(), MODIFIER_NOMOD(), DEFAULT_ATTR, rdcl_node, instLevel)
+  rdcl_node = redeclareComponent(rdcl_node, repl_node, MODIFIER_NOMOD(), MODIFIER_NOMOD(), DEFAULT_ATTR, rdcl_node, instLevel,
+                                 Ref{Attributes}(DEFAULT_ATTR))
    outComp = P_Pointer.create(rdcl_node)
   outComp
 end
@@ -1981,7 +1982,7 @@ function mergeRedeclaredComponentAttributes(origAttr::Attributes, redeclAttr::At
     cty_fs = intBitAnd(cty, ConnectorType.FLOW_STREAM_MASK)
     if rcty_fs > 0
       if cty_fs > 0 && rcty_fs != cty_fs
-        printRedeclarePrefixError(node, ConnectorType.toString(rcty), ConnectorType.toString(cty))
+        printRedeclarePrefixError(node, toString(rcty), toString(cty))
       end
     end
     if rpar != Parallelism.NON_PARALLEL
@@ -2442,7 +2443,7 @@ function instExpressions(node::InstNode,
       elseif SCodeUtil.hasBooleanNamedAnnotationInClass(definition(node), BUILTIN_PREFIX)
         ty = TYPE_COMPLEX(node, COMPLEX_CLASS())
       else
-        Error.addSourceMessage(Error.MISSING_TYPE_BASETYPE, list(name(node)), infoInstNode_info(node))
+        Error.addSourceMessage(Error.MISSING_TYPE_BASETYPE, list(name(node)), InstNode_info(node))
         fail()
       end
       cls_tree = flatten(cls_tree)
