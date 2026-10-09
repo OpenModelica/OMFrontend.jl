@@ -965,7 +965,7 @@ function instClassDef(cls::EXPANDED_DERIVED,
   @match EXPANDED_DERIVED(baseClass = base_node) = getClass(node)
   #=  Merge outer modifiers and attributes.
   =#
-  mod = fromElement(definition(node), list(node), rootParent(node))
+  mod = withConstrainingMod(fromElement(definition(node), list(node), rootParent(node)), node, rootParent(node))
   outer_mod = merge(outerMod, addParent(node, cls.modifier))
   mod = merge(outer_mod, mod)
   #strMod = toString(mod, true)
@@ -1019,7 +1019,7 @@ function instClassDef(cls::EXPANDED_CLASS,
   inst_cls = getClass(node)
   cls_tree = inst_cls.elements
   #=  Fetch modification on the class definition (for class extends). =#
-  mod = fromElement(definition(node), nil, par)
+  mod = withConstrainingMod(fromElement(definition(node), nil, par), node, par)
   #=  Merge with any outer modifications. =#
   outer_mod = merge(outerMod, cls.modifier)
   mod = merge(outer_mod, mod)
@@ -1404,6 +1404,18 @@ function constrainingClassMod(def::SCode.Element, parent::InstNode)::Modifier
   return create(cc_smod, nm, SCOPE_CLASS(nm), nil, parent)
 end
 
+#= A class's element modifier with its own constraining clause's below it, unless the class was
+   redeclared (it got the original's in redeclareClass); omc: instElementModifier. Buildings
+   Obsolete DHC: `replaceable model BorefieldType = OneUTube constrainedby
+   PartialBorefield(borFieDat = datBorFie, ...)`, not redeclared, left borFieDat unbound. =#
+function withConstrainingMod(mod::Modifier, node::InstNode, scope::InstNode)::Modifier
+  _isRedeclaredClassType(nodeType(node)) && return mod
+  return merge(mod, instConstrainingMod(definition(node), scope))
+end
+
+_isRedeclaredClassType(ty::InstNodeType)::Bool =
+  isvariant(ty, REDECLARED_CLASS) || (isvariant(ty, DERIVED_CLASS) && _isRedeclaredClassType(ty.ty))
+
 function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMod::Modifier,
                         constrainingMod::Modifier = MODIFIER_NOMOD()) ::InstNode
   local redeclaredNode::InstNode
@@ -1663,7 +1675,7 @@ function instConstrainingMod(element::SCode.Element, parent::InstNode) ::Modifie
     local smod::SCode.Mod
     @match element begin
       SCode.CLASS(prefixes = SCode.PREFIXES(replaceablePrefix = SCode.REPLACEABLE(cc = SOME(SCode.CONSTRAINCLASS(modifier = smod)))))  => begin
-        create(smod, element.name, cope.CLASS(element.name), nil, parent)
+        create(smod, element.name, SCOPE_CLASS(element.name), nil, parent)
       end
       SCode.COMPONENT(prefixes = SCode.PREFIXES(replaceablePrefix = SCode.REPLACEABLE(cc = SOME(SCode.CONSTRAINCLASS(modifier = smod)))))  => begin
         create(smod, element.name, SCOPE_COMPONENT(element.name), nil, parent)
