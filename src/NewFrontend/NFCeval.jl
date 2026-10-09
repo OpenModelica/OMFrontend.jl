@@ -519,6 +519,34 @@ function _valueDimensionCount(@nospecialize(exp::Expression))::Int
   return max(depth, dimensionCount(typeOf(e)))
 end
 
+#= An evaluated value over the enclosing component arrays (`extra` dimensions more than the
+   component), for one element: subscripted by the cref's innermost enclosing parts. Each element's
+   if-equation condition had been the whole array (Buildings' counter-flow coils, `if
+   {true, false, false, false} then assert(...)` for hex.ele[1]: computeFlowResistance of the
+   elements' array modifiers). A cref without them (the array itself) keeps the value. =#
+function _subscriptByEnclosingElements(@nospecialize(exp::Expression), cref::ComponentRef, extra::Int,
+                                       evalSubscripts::Bool)::Expression
+  local subs = Subscript[]
+  local cr = rest(cref)
+  while !isEmpty(cr)
+    for s in reverse(Base.collect(getSubscripts(cr)))
+      pushfirst!(subs, s)
+    end
+    cr = rest(cr)
+  end
+  local value = stripBindingInfo(exp)
+  local depth = 0
+  local x = value
+  while x isa ARRAY_EXPRESSION && !isempty(x.elements)
+    depth += 1
+    x = Base.first(x.elements)
+  end
+  (length(subs) >= extra && depth >= extra) || return exp
+  local own = subs[end - extra + 1:end]
+  evalSubscripts && (own = Subscript[evalSubscript(s) for s in own])
+  return applySubscripts(list(own...), value)
+end
+
 function evalComponentBinding2(
   node::InstNode,
   cref::ComponentRef,
@@ -588,11 +616,14 @@ function evalComponentBinding2(
              the elements share, its references to the elements' array modifiers whole: every
              element's binding became the array, Buildings' PressureDrop[nRes] resSeries,
              dp_nominal_pos = abs(dp_nominal) evaluated for an if-equation's condition). =#
-          if _valueDimensionCount(exp) <= dimensionCount(getType(comp))
+          local extra = _valueDimensionCount(exp) - dimensionCount(getType(comp))
+          if extra <= 0
             @assign binding.bindingExp = exp
             @assign binding.evaluated = true
             comp = setBinding(binding, comp)
             node = updateComponent!(comp, node)
+          else
+            exp = _subscriptByEnclosingElements(exp, cref, extra, evalSubscripts)
           end
         end
         (exp, true)
