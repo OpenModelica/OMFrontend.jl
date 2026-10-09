@@ -5025,24 +5025,38 @@ end
   Custom reimplementation of evalCat
   @author johti17
 """
+#= An argument of cat along dim: its subexpressions at depth dim as an array of dim
+   dimensions; one of fewer dimensions gets trailing ones (Modelica's promote, a vector a column). =#
+function _catPart(@nospecialize(e::Expression), dim::Int)::Array{Expression}
+  local sizes = Int[]
+  local level = Expression[e]
+  for _ in 1:dim
+    all(x -> x isa ARRAY_EXPRESSION, level) || break
+    local n = length(level[1].elements)
+    all(x -> length(x.elements) == n, level) || fail()
+    push!(sizes, n)
+    level = Expression[y for x in level for y in x.elements]
+  end
+  while length(sizes) < dim
+    push!(sizes, 1)
+  end
+  #= level is in row-major order of sizes =#
+  return Base.permutedims(Base.reshape(level, Tuple(Base.reverse(sizes))), Tuple(dim:-1:1))
+end
+
 function evalCat(dim::Int,
                  exps::Vector{Expression},
                  getArrayContents::Function,
                  toString::Function)::Tuple{Vector{Expression}, List{Int}}
   if dim > 1
-    local jlmatrix = modelicaMatrixToJuliaMatrix(exps)::Matrix{ARRAY_EXPRESSION}
-    local matrixCat = Base.cat(jlmatrix; dims = dim)
-    local outExps = jlMatrixToModelicaArrayExpVector(matrixCat)
-    #= Convert the outExps to a flat array =#
-    local outDims = list(length(outExps), length(Base.first(outExps).elements))
-    local outExpsAsVector = Base.map((x) -> x.elements, outExps)
-    local outExpFlat = Expression[]
-    for vec in outExpsAsVector
-      for e in vec
-        push!(outExpFlat, e)
-      end
-    end
-    local outDims = list(length(outExps), length(Base.first(outExps).elements))
+    #= omc's ExpressionBasics.evalCat: each argument as an array of its subexpressions at depth
+       dim, concatenated along dim; the result in row-major order with its first dim sizes. The
+       former version took the arguments' rows as one matrix (wrong beyond two matrices of rows)
+       and failed on a vector argument ([identity(n - 1), zeros(n - 1)], Polynomials.roots). =#
+    local parts = Array{Expression}[_catPart(e, dim) for e in exps]
+    local c = Base.cat(parts...; dims = dim)
+    local outExpFlat = Vector{Expression}(Base.vec(Base.permutedims(c, Tuple(dim:-1:1))))
+    local outDims = list(Base.size(c)...)
   else
     local outExpsAsVector = Base.map(x-> x.elements, exps)
     local outExpFlat = Expression[]
