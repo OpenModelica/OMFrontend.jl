@@ -95,6 +95,8 @@ end
     include("keepArraysTests.jl")
   end
 
+  include("omcTestsuiteTests.jl")
+
   @testset "Algorithm-level for-loop unrolling" begin
     include("algorithmUnrollTests.jl")
   end
