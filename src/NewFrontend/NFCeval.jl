@@ -1937,6 +1937,15 @@ function evalLogicBinaryOp(
    (max_prop_exp, max_prop_count) =
     mostPropagatedSubExpBinary(exp1, exp2)
   if max_prop_count >= 0
+    #= The second operand evaluated first, so that it too is taken per element: evaluated
+       lazily, within each element's pass, it was the whole array again, a cross product
+       (Buildings' movers over per[nPum]: `sum(pressure.V_flow) > eps and sum(pressure.dp) >
+       eps` gave {{true, true}, {true, true}}). Where it cannot be evaluated, lazily as before. =#
+    local e2 = _evalOrNothing(exp2, target)
+    if e2 !== nothing
+      exp2 = e2
+      (max_prop_exp, max_prop_count) = mostPropagatedSubExpBinary(exp1, exp2)
+    end
      exp = bindingExpMap2(
       LBINARY_EXPRESSION(exp1, op, exp2),
       (binaryExpArg) -> evalLogicBinaryExp(binaryExpArg, target),
@@ -1947,6 +1956,16 @@ function evalLogicBinaryOp(
      exp = evalLogicBinaryOp_dispatch(exp1, op, exp2, target)
   end
   return exp
+end
+
+#= The value of exp, or nothing where its evaluation fails (a MetaModelica failure). =#
+function _evalOrNothing(@nospecialize(exp::Expression), target::EvalTarget)::Union{Expression, Nothing}
+  try
+    return evalExp_impl(exp, target)
+  catch e
+    e isa MetaModelica.MetaModelicaException || rethrow()
+    return nothing
+  end
 end
 
 function evalLogicBinaryExp(@nospecialize(binaryExp::Expression), target::EvalTarget)::Expression
