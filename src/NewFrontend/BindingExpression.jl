@@ -398,6 +398,7 @@ function nthRecordElement(index::Int, @nospecialize(recordExp::Expression)) ::Ex
 
       RECORD_ELEMENT_EXPRESSION(ty = TYPE_ARRAY(elementType = TYPE_COMPLEX(cls = node)))  => begin
          node = nthComponent(index, getClass(node))
+        _typeRecordExpField!(node, recordExp)
         RECORD_ELEMENT_EXPRESSION(recordExp, index, name(node), liftArrayLeftList(getType(node), arrayDims(recordExp.ty)))
       end
 
@@ -409,6 +410,7 @@ function nthRecordElement(index::Int, @nospecialize(recordExp::Expression)) ::Ex
       _  => begin
         @match TYPE_COMPLEX(cls = node) = typeOf(recordExp)
          node = nthComponent(index, getClass(node))
+        _typeRecordExpField!(node, recordExp)
         RECORD_ELEMENT_EXPRESSION(recordExp, index, name(node), getType(node))
       end
     end
@@ -426,6 +428,23 @@ function _typeRecordField!(field::InstNode, recordCref::ComponentRef)::Nothing
     ORIGIN_FUNCTION : ORIGIN_CLASS
   typeComponent(field, origin)
   return nothing
+end
+
+#= The same for a field read through a record element or a subscripted record, found through
+   the reference the expression reads (Buildings DX coils: datCoi.sta.perCur.EIRFunFF, sta an
+   array of records, had type Real[1]: sta's dimension without its own). =#
+function _typeRecordExpField!(field::InstNode, @nospecialize(recordExp::Expression))::Nothing
+  local exp = recordExp
+  while !(exp isa CREF_EXPRESSION)
+    if exp isa RECORD_ELEMENT_EXPRESSION
+      exp = exp.recordExp
+    elseif exp isa SUBSCRIPTED_EXP_EXPRESSION
+      exp = exp.exp
+    else
+      return nothing
+    end
+  end
+  return _typeRecordField!(field, exp.cref)
 end
 
 """  Returns the field with the given name in a record expression. If the
@@ -494,7 +513,11 @@ function recordElement(elementName::String, @nospecialize(recordExp::Expression)
         @match TYPE_COMPLEX(cls = node) = arrayElementType(ty)
          cls = getClass(node)
          index = lookupComponentIndex(elementName, cls)
-         ty = liftArrayRightList(getType(nthComponent(index, cls)), arrayDims(ty))
+         node = nthComponent(index, cls)
+         _typeRecordExpField!(node, recordExp)
+         #= The record array's dimensions first (omc: liftArrayLeftList): f[6] of sta[1] is
+            Real[1, 6], not Real[6, 1] (a field's size deduced from it was sta's). =#
+         ty = liftArrayLeftList(getType(node), arrayDims(ty))
         RECORD_ELEMENT_EXPRESSION(recordExp, index, elementName, ty)
       end
     end
