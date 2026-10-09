@@ -1033,7 +1033,7 @@ function instClassDef(cls::EXPANDED_CLASS,
     also be handled here, but since each component is only instantiated once
     it's more efficient to apply the redeclare when instantiating them instead.
   =#
-  redeclareClasses(cls_tree)
+  redeclareClasses(cls_tree, par)
   #=  Instantiate the extends nodes. =#
   mapExtends(cls_tree, attributes, useBinding, ExtendsVisibility.PUBLIC, instLevel + 1, attributeRef)
   applyLocalComponents(cls_tree, attributes, useBinding, instLevel + 1, attributeRef)
@@ -1318,7 +1318,7 @@ function applyModifier(modifier::Modifier, cls::ClassTree, clsName::String) ::Cl
   cls
 end
 
-function redeclareClasses(tree::ClassTree) ::ClassTree
+function redeclareClasses(tree::ClassTree, parent::InstNode) ::ClassTree
   local cls_node::InstNode
   local redecl_node::InstNode
   local cls::Class
@@ -1332,7 +1332,7 @@ function redeclareClasses(tree::ClassTree) ::ClassTree
            mod = getModifier(cls)
           if isRedeclare(mod)
             @match MODIFIER_REDECLARE(element = redecl_node, mod = mod) = mod
-            cls_node = redeclareClass(redecl_node, cls_node, mod)
+            cls_node = redeclareClass(redecl_node, cls_node, mod, constrainingClassMod(definition(cls_node), parent))
             P_Pointer.update(cls_ptr, cls_node)
           end
         end
@@ -1392,7 +1392,20 @@ function redeclareComponentElement(redeclareComp::Pointer{InstNode}, replaceable
   outComp
 end
 
-function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMod::Modifier) ::InstNode
+#= The constraining clause's modifier of a replaceable class (omc: getConstrainingMod), in the
+   scope declaring it: applied to the class redeclaring it (MLS 7.3.2), below that class's own
+   modifiers (omc: Class.ccMod). Buildings DHC: `replaceable model Model_pipDisRet = ...
+   constrainedby PartialTwoPortInterface(redeclare final package Medium = MediumRet, ...)`,
+   redeclared without a medium, had kept PartialMedium. =#
+function constrainingClassMod(def::SCode.Element, parent::InstNode)::Modifier
+  local cc_smod = SCodeUtil.getConstrainingMod(def)
+  SCodeUtil.isEmptyMod(cc_smod) && return MODIFIER_NOMOD()
+  local nm = SCodeUtil.elementName(def)
+  return create(cc_smod, nm, SCOPE_CLASS(nm), nil, parent)
+end
+
+function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMod::Modifier,
+                        constrainingMod::Modifier = MODIFIER_NOMOD()) ::InstNode
   local redeclaredNode::InstNode
   local orig_node::InstNode
   local orig_cls::Class
@@ -1438,7 +1451,7 @@ function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMo
            orig_node = setNodeType(node_ty, orig_node)
           @assign begin
             rdcl_cls.elements = setClassExtends(orig_node, rdcl_cls.elements)
-            rdcl_cls.modifier = merge(outerMod, rdcl_cls.modifier)
+            rdcl_cls.modifier = merge(outerMod, merge(rdcl_cls.modifier, constrainingMod))
             rdcl_cls.prefixes = prefs
           end
           rdcl_cls
@@ -1466,7 +1479,7 @@ function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMo
 
         (_, PARTIAL_CLASS(__))  => begin
           @assign rdcl_cls.prefixes = prefs
-          @assign rdcl_cls.modifier = merge(outerMod, rdcl_cls.modifier)
+          @assign rdcl_cls.modifier = merge(outerMod, merge(rdcl_cls.modifier, constrainingMod))
           rdcl_cls
         end
 
