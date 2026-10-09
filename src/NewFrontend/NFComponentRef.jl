@@ -1053,6 +1053,9 @@ function hasSubscripts(cref::ComponentRef)::Bool
   return hs
 end
 
+#= Only the parts written in the reference, not its scope (omc: mergeSubscripts, applyToScope
+   false). max(power.P) of a one-element P in an array of records' shared class became
+   perPum[1].power.P (Buildings DataCenters: {0.0} > eps). =#
 function applySubscripts2(subscripts::List{<:Subscript},
                           cref::ComponentRef,
                           )::Tuple{List{Subscript}, ComponentRef}
@@ -1060,7 +1063,7 @@ function applySubscripts2(subscripts::List{<:Subscript},
     local rest_cref::ComponentRef
     local cref_subs::List{Subscript}
     @match cref begin
-      COMPONENT_REF_CREF(subscripts = cref_subs) => begin
+      COMPONENT_REF_CREF(subscripts = cref_subs) where cref.origin == Origin.CREF => begin
          (subscripts, rest_cref) = applySubscripts2(subscripts, cref.restCref)
         if !listEmpty(subscripts)
           (cref_subs, subscripts) = mergeList(
