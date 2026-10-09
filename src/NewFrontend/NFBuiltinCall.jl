@@ -630,55 +630,42 @@ function typeBuiltinStringCall(call::Call, origin::ORIGIN_Type, info::SourceInfo
   (callExp, ty, var)
 end
 
-function typeOverloadedStringCall(overloadedType::M_Type, args::List{<:TypedArg}, namedArgs::List{<:TypedNamedArg}, call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeOverloadedStringCall(overloadedType::M_Type, args::Vector{TypedArg}, namedArgs::Vector{TypedNamedArg}, call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
   local var::VariabilityType = Variability.CONSTANT
   local outType::M_Type
-  local callExp::Expression
-
   local fn_ref::ComponentRef
-  local candidates::List{M_Function}
+  local candidates::Vector{M_Function}
   local recopnode::InstNode
   local matchedFunc::MatchedFunction
-  local matchedFunctions::List{MatchedFunction}
-  local exactMatches::List{MatchedFunction}
+  local matchedFunctions::Vector{MatchedFunction}
+  local exactMatches::Vector{MatchedFunction}
 
   @match TYPE_COMPLEX(cls = recopnode) = overloadedType
   try
-    @assign fn_ref = lookupFunctionSimple("'String'", recopnode)
-  catch e
-    @error "Error $e"
+    fn_ref = lookupFunctionSimple("'String'", recopnode)
+  catch
+    #= If there's no 'String' overload, let the normal String handler print the error. =#
     typeBuiltinStringCall(call, origin, info)
     fail()
   end
-  #=  If there's no 'String' overload, let the normal String handler print the error.
-  =#
-  @assign fn_ref = instFunctionRef(fn_ref, InstNode_info(recopnode))
-  @assign candidates = typeRefCache(fn_ref)
-  #= for fn in candidates loop
-  =#
-  #=   TypeCheck.checkValidOperatorOverload(\"'String'\", fn, recopnode);
-  =#
-  #= end for;
-  =#
-  @assign matchedFunctions = matchFunctionsSilent(candidates, args, namedArgs, info)
-  @assign exactMatches = getExactMatches(matchedFunctions)
-  if listEmpty(exactMatches)
+  (fn_ref, _, _) = instFunctionRef(fn_ref, InstNode_info(recopnode))
+  candidates = M_Function[fn for fn in typeRefCache(fn_ref)]
+  matchedFunctions = matchFunctionsSilent(candidates, args, namedArgs, info)
+  exactMatches = getExactMatches(matchedFunctions)
+  if isempty(exactMatches)
     Error.addSourceMessage(Error.NO_MATCHING_FUNCTION_FOUND_NFINST, list(typedString(call), candidateFuncListString(candidates)), info)
     fail()
   end
-  if listLength(exactMatches) == 1
-    @match _cons(matchedFunc, _) = exactMatches
-    @assign outType = returnType(matchedFunc.func)
-    for arg in matchedFunc.args
-      @assign var = variabilityMax(var, Util.tuple33(arg))
-    end
-    @assign callExp = CALL_EXPRESSION(makeTypedCall(matchedFunc.func, Expression[Util.tuple31(a) for a in matchedFunc.args], var, outType))
-    return (callExp, outType, var)
-  else
-    Error.addSourceMessage(Error.AMBIGUOUS_MATCHING_FUNCTIONS_NFINST, list(typedString(call), candidateFuncListString(list(mfn.func for mfn in matchedFunctions))), info)
+  if length(exactMatches) > 1
+    Error.addSourceMessage(Error.AMBIGUOUS_MATCHING_FUNCTIONS_NFINST, list(typedString(call), candidateFuncListString(M_Function[mfn.func for mfn in matchedFunctions])), info)
     fail()
   end
-  (callExp, outType, var)
+  matchedFunc = exactMatches[1]
+  outType = returnType(matchedFunc.func)
+  for arg in matchedFunc.args
+    var = variabilityMax(var, Util.tuple33(arg))
+  end
+  return (CALL_EXPRESSION(makeTypedCall(matchedFunc.func, Expression[Util.tuple31(a) for a in matchedFunc.args], var, outType)), outType, var)
 end
 
 """

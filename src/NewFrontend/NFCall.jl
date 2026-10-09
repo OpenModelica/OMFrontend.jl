@@ -498,6 +498,10 @@ function arguments(call::Call)::Vector{Expression}
       TYPED_CALL(__) => begin
         call.arguments
       end
+      #= The constructor's or reduction's expression (omc Call.arguments). =#
+      UNTYPED_ARRAY_CONSTRUCTOR(__) || TYPED_ARRAY_CONSTRUCTOR(__) || UNTYPED_REDUCTION(__) || TYPED_REDUCTION(__) => begin
+        Expression[call.exp]
+      end
     end
   end
   return arguments
@@ -633,34 +637,36 @@ function isExternal(call::Call)::Bool
   return isExt
 end
 
+#= By function name, arguments and iterators, for every kind of call (omc Call.compare). =#
 function compare(call1::Call, call2::Call)::Int
-  local comp::Int
-   comp = begin
-    @match (call1, call2) begin
-      (UNTYPED_CALL(__), UNTYPED_CALL(__)) => begin
-        compare(call1.ref, call2.ref)
-      end
-      (TYPED_CALL(__), TYPED_CALL(__)) => begin
-        AbsynUtil.pathCompare(name(call1.fn), name(call2.fn))
-      end
-      (UNTYPED_CALL(__), TYPED_CALL(__)) => begin
-        AbsynUtil.pathCompare(
-          toPath(call1.ref),
-          name(call2.fn),
-        )
-      end
-      (TYPED_CALL(__), UNTYPED_CALL(__)) => begin
-        AbsynUtil.pathCompare(
-          name(call1.fn),
-          toPath(call2.ref),
-        )
-      end
-    end
-  end
+  local comp::Int = AbsynUtil.pathCompare(functionName(call1), functionName(call2))
   if comp == 0
     comp = compareVector(arguments(call1), arguments(call2))
   end
+  if comp == 0
+    local iters1 = callIterators(call1)
+    local iters2 = callIterators(call2)
+    comp = Util.intCompare(listLength(iters1), listLength(iters2))
+    while comp == 0 && !listEmpty(iters1)
+      comp = compareIterator(listHead(iters1), listHead(iters2))
+      iters1 = listRest(iters1)
+      iters2 = listRest(iters2)
+    end
+  end
   return comp
+end
+
+function compareIterator(iter1::Tuple{InstNode, Expression}, iter2::Tuple{InstNode, Expression})::Int
+  local comp::Int = stringCompare(name(iter1[1]), name(iter2[1]))
+  return comp == 0 ? compare(iter1[2], iter2[2]) : comp
+end
+
+#= The iterators of an array constructor or a reduction, none for other calls. =#
+function callIterators(call::Call)::List{Tuple{InstNode, Expression}}
+  return @match call begin
+    UNTYPED_ARRAY_CONSTRUCTOR(__) || TYPED_ARRAY_CONSTRUCTOR(__) || UNTYPED_REDUCTION(__) || TYPED_REDUCTION(__) => call.iters
+    _ => nil
+  end
 end
 
 function variability(call::Call)::VariabilityType
@@ -812,9 +818,18 @@ function typeMatchNormalCall(call::Call, origin::ORIGIN_Type, info::SourceInfo):
   return call
 end
 
-function unboxArgs(call::Call)
-  local args = Expression[unbox(arg) for arg in call.arguments]#TODO: Can potentially be done inline
-  return TYPED_CALL(call.fn, call.ty, call.var, args, call.attributes)
+function unboxArgs(call::Call)::Call
+  return @match call begin
+    TYPED_CALL(__) => begin
+      local args = Expression[unbox(arg) for arg in call.arguments]
+      TYPED_CALL(call.fn, call.ty, call.var, args, call.attributes)
+    end
+    #= A vectorized call (`edge(b)` with `Boolean b[3]`): the call in the array constructor (omc). =#
+    TYPED_ARRAY_CONSTRUCTOR(__) where {call.exp isa CALL_EXPRESSION} => begin
+      TYPED_ARRAY_CONSTRUCTOR(call.ty, call.var, CALL_EXPRESSION(unboxArgs(call.exp.call)), call.iters)
+    end
+    _ => call
+  end
 end
 
 function makeTypedCall(
@@ -1015,14 +1030,34 @@ function getSpecialReturnType(fn::M_Function, args::Vector{Expression})::NFType
       end
 
       _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() + ": unhandled case for " + AbsynUtil.pathString(fn.path),
-          sourceInfo(),
-        )
-        fail()
+        resolvePolymorphicReturnType(fn, args, fn.returnType)
       end
     end
+  end
+  return ty
+end
+
+#= A polymorphic output's type from the input of the same polymorphic type, less that input's
+   dimensions (`T[:]` and Real[2, 3] give T = Real[3]); noClock(u) is u's type (omc
+   resolvePolymorphicReturnType). =#
+function resolvePolymorphicReturnType(fn::M_Function, args::Vector{Expression}, ty::NFType)::NFType
+  if isvariant(ty, TYPE_POLYMORPHIC)
+    local i = 0
+    for inp in fn.inputs
+      i += 1
+      local input_ty = getType(inp)
+      local el_ty = arrayElementType(input_ty)
+      if isvariant(el_ty, TYPE_POLYMORPHIC) && el_ty.name == ty.name
+        return unliftArrayN(dimensionCount(input_ty), typeOf(unbox(args[i])))
+      end
+    end
+    if ty.name == "__Scalar"
+      return arrayElementType(resolvePolymorphicReturnType(fn, args, TYPE_POLYMORPHIC("__Array")))
+    end
+    Error.assertion(false, getInstanceName() + ": unhandled case for " + AbsynUtil.pathString(fn.path), sourceInfo())
+    fail()
+  elseif isvariant(ty, TYPE_ARRAY) && isvariant(ty.elementType, TYPE_POLYMORPHIC)
+    return TYPE_ARRAY(resolvePolymorphicReturnType(fn, args, ty.elementType), ty.dimensions)
   end
   return ty
 end
@@ -1030,18 +1065,23 @@ end
 function evaluateCallTypeDimExp(@nospecialize(exp::Expression), ptree::ParameterTree)::Expression
   local outExp::Expression
   outExp = begin
-    local node::InstNode
     local e::Expression
     @match exp begin
-      CREF_EXPRESSION(
-        cref = COMPONENT_REF_CREF(
-          node = node,
-          restCref = COMPONENT_REF_EMPTY(__),
-        ),
-      ) => begin
-        local v = ParameterTreeImpl.tryGet(ptree, name(node))
-        #=  TODO: Apply subscripts. =#
-        v === nothing ? exp : v
+      #= An input, or a field of a record input (`size(r.names, 1)`): the argument, subscripted
+         and its fields selected as the reference (omc evaluateCallTypeDimExp). =#
+      CREF_EXPRESSION(cref = COMPONENT_REF_CREF(__)) => begin
+        local parts = toListReverse(exp.cref)
+        local v = ParameterTreeImpl.tryGet(ptree, name(node(listHead(parts))))
+        if v === nothing
+          exp
+        else
+          e = applySubscripts(getSubscripts(listHead(parts)), v)
+          for cr in listRest(parts)
+            e = recordElement(name(node(cr)), e)
+            e = applySubscripts(getSubscripts(cr), e)
+          end
+          e
+        end
       end
       _ => begin
         exp
@@ -1575,7 +1615,8 @@ function typeReduction(
       UNTYPED_REDUCTION(__) => begin
          variability = Variability.CONSTANT
          next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
-        for i in call.iters
+        #= Last to first, as instIterators (omc typeReduction). =#
+        for i in listReverse(call.iters)
            (iter, range) = i
            if range isa EMPTY_EXPRESSION
              range = deduceIterationRangeExp(CALL_EXPRESSION(call), iter, info)
@@ -1585,7 +1626,6 @@ function typeReduction(
            variability = variabilityMax(variability, iter_var)
            iters = Cons{Tuple{InstNode, Expression}}((iter, range), iters)
         end
-         iters = listReverseInPlace(iters)
         #=  ExpOrigin.FOR is used here as a marker that this expression may contain iterators.
         =#
         next_origin = intBitOr(next_origin, ORIGIN_FOR)
@@ -1641,7 +1681,8 @@ function typeArrayConstructor(
         #=  The size of the expression must be known unless we're in a function. =#
         is_structural = flagNotSet(origin, ORIGIN_FUNCTION)
         next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
-        for i in call.iters
+        #= Last to first, as instIterators (omc typeArrayConstructor). =#
+        for i in listReverse(call.iters)
           (iter, range) = i
           if range isa EMPTY_EXPRESSION
             range = deduceIterationRangeExp(CALL_EXPRESSION(call), iter, info)
@@ -1652,11 +1693,11 @@ function typeArrayConstructor(
             range = evalExp(range, EVALTARGET_RANGE(info))
             iter_ty = typeOf(range)
           end
-          dims = listAppend(arrayDims(iter_ty), dims)
+          dims = ListUtil.append_reverse(arrayDims(iter_ty), dims)
           variability = variabilityMax(variability, iter_var)
           iters = Cons{Tuple{InstNode, Expression}}((iter, range), iters)
         end
-        iters = listReverseInPlace(iters)
+        dims = listReverseInPlace(dims)
         #=  ExpOrigin.FOR is used here as a marker that this expression may contain iterators.
         =#
         next_origin = intBitOr(next_origin, ORIGIN_FOR)
@@ -1690,7 +1731,8 @@ function instIterators(
   local range::Expression
   local iter::InstNode
   local ty::NFType
-  for i in inIters
+  #= Last to first, so a range can use a later iterator (`j in 1:i, i in 1:4`, omc instIterators). =#
+  for i in listReverse(inIters)
     #= A missing range (`{x[i] for i}`) is deduced during typing from the subscripts the iterator
        is used in (omc deduceIterationRangeExp). =#
     range = isSome(i.range) ? instExp(Util.getOption(i.range), outScope, info) : EMPTY_EXPRESSION(TYPE_UNKNOWN())
@@ -1702,7 +1744,6 @@ function instIterators(
     (outScope, iter) = addIteratorToScope(i.name, outScope, info, ty)
     outIters = Cons{Tuple{InstNode, Expression}}((iter, range), outIters)
   end
-  outIters = listReverse(outIters)
   return (outScope, outIters)
 end
 

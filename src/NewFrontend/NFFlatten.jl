@@ -152,6 +152,9 @@ function flattenClass(
   local b::Binding
   () = begin
     @match cls begin
+      #= A type (`type T extends Integer`) has no variables of its own (omc flattenClass). =#
+      INSTANCED_CLASS(restriction = RESTRICTION_TYPE(__)) => ()
+
       INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps)) =>
         begin
           if isSome(binding)

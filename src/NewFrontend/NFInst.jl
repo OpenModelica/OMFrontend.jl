@@ -1460,8 +1460,9 @@ function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMo
           setPrefixes(prefs, orig_cls)
         end
 
-        (EXPANDED_CLASS(__), PARTIAL_CLASS(__))  => begin
-          #=  Class extends of a long class declaration. =#
+        (EXPANDED_CLASS(__), PARTIAL_CLASS(__)) || (EXPANDED_DERIVED(__), PARTIAL_CLASS(__))  => begin
+          #=  Class extends of a long or a short class declaration (`replaceable function f = .f`,
+              omc redeclareClass): the original is the base class of the redeclaring one. =#
            node_ty = BASE_CLASS(parent(orig_node), definition(orig_node))
            orig_node = setNodeType(node_ty, orig_node)
           @assign begin
@@ -1469,13 +1470,6 @@ function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMo
             rdcl_cls.modifier = merge(outerMod, merge(rdcl_cls.modifier, constrainingMod))
             rdcl_cls.prefixes = prefs
           end
-          rdcl_cls
-        end
-
-        (EXPANDED_DERIVED(__), PARTIAL_CLASS(__))  => begin
-          #=  Class extends of a short class declaration.
-          =#
-          @assign rdcl_cls.prefixes = prefs
           rdcl_cls
         end
 
@@ -3559,6 +3553,17 @@ function isBindingNotFixed(binding::Binding, requireFinal::Bool, maxDepth::Int =
   isNotFixed
 end
 
+#= The binding of the component's type attribute `attrName`, or an empty binding (omc
+   Component.getTypeAttributeBinding). =#
+function getTypeAttributeBinding(comp::Component, attrName::String)::Binding
+  local cls_node = classInstance(comp)
+  (cls_node === nothing || isvariant(cls_node, EMPTY_NODE)) && return EMPTY_BINDING
+  @match ENTRY_INFO(attr_node, _) = lookupElement(attrName, getClass(cls_node))
+  (isvariant(attr_node, EMPTY_NODE) || !isComponent(attr_node)) && return EMPTY_BINDING
+  local attr_comp = component(attr_node)
+  return attr_comp.tag == CT_TYPE_ATTRIBUTE ? getBinding(attr_comp) : EMPTY_BINDING
+end
+
 function isComponentBindingNotFixed(comp::Component, node::InstNode, requireFinal::Bool, maxDepth::Int, isRecordB::Bool = false) ::Bool
   local isNotFixed::Bool
 
@@ -3574,7 +3579,8 @@ function isComponentBindingNotFixed(comp::Component, node::InstNode, requireFina
       if isComponent(parentNode) && isRecord(parentNode)
         isNotFixed = isComponentBindingNotFixed(component(parentNode), parentNode, requireFinal, maxDepth, true)
       else
-        isNotFixed = true
+        #= Fixed by its start value (`parameter Boolean b(start = true)`, omc). =#
+        isNotFixed = isBindingNotFixed(getTypeAttributeBinding(comp, "start"), requireFinal, maxDepth)
       end
     end
   else

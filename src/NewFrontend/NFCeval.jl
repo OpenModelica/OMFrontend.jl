@@ -2772,7 +2772,7 @@ function ceval(
         evalBuiltinInteger(Base.first(args))
       end
 
-      "Int" => begin
+      "Integer" => begin
         evalBuiltinIntegerEnum(Base.first(args))
       end
 
@@ -4694,15 +4694,7 @@ function evalArrayConstructor2(
   local ty::M_Type
 
    (e, ranges, iters) = createIterationRanges(exp, iterators)
-  #=  Precompute all the types we're going to need for the arrays created.
-  =#
-   ty = typeOf(e)
-  for r in ranges
-     ty =
-      liftArrayLeftList(ty, arrayDims(typeOf(r)))
-     types = Cons{NFType}(ty, types)
-  end
-   result = evalArrayConstructor3(e, ranges, iters, types)
+   result = evalArrayConstructor3(e, ranges, iters)
   return result
 end
 
@@ -4717,29 +4709,31 @@ function createIterationRanges(
   local range::Expression
   local iter::Pointer{Expression}
 
+  #= The iterator is also replaced in the ranges collected so far, which may use it (`j in 1:i,
+     i in 1:4`); the ranges are evaluated when their loop starts (omc createIterationRanges). =#
   for i in iterators
      (node, range) = i
      iter = P_Pointer.create(INTEGER_EXPRESSION(0), Expression)
+     ranges = list(replaceIterator(r, node, MUTABLE_EXPRESSION(iter)) for r in ranges)
      exp = replaceIterator(
       exp,
       node,
       MUTABLE_EXPRESSION(iter),
     )
      iters = _cons(iter, iters)
-     ranges = _cons(evalExp_impl(range, EVALTARGET_IGNORE_ERRORS()), ranges)
+     ranges = _cons(range, ranges)
   end
   return (exp, ranges, iters)
 end
 
+#= The arrays' types from their elements (a range can depend on an enclosing iterator; omc
+   evalArrayConstructor2). =#
 function evalArrayConstructor3(
   exp::Expression,
   ranges::List{Expression},
   iterators::List{<:Pointer{Expression}},
-  types::List{<:M_Type},
 )::Expression
-  local result::Expression
   local range::Expression
-  local e::Expression
   local ranges_rest::List{Expression}
   local expV::Vector{Expression} = Expression[]
   local iter::Pointer{Expression}
@@ -4747,22 +4741,24 @@ function evalArrayConstructor3(
   local range_iter::ExpressionIterator
   local value::Expression
   local ty::M_Type
-  local rest_ty::List{M_Type}
   if listEmpty(ranges)
-    result = evalExp_impl(exp, EVALTARGET_IGNORE_ERRORS())
-  else
-    @match _cons(range, ranges_rest) = ranges
-    @match _cons(iter, iters_rest) = iterators
-    @match _cons(ty, rest_ty) = types
-    range_iter = fromExpToExpressionIterator(range)
-    while hasNext(range_iter)
-      (range_iter, value) = next(range_iter)
-      P_Pointer.update(iter, value)
-      push!(expV, evalArrayConstructor3(exp, ranges_rest, iters_rest, rest_ty))#expl = _cons(evalArrayConstructor3(exp, ranges_rest, iters_rest, rest_ty), expl)
-    end
-    result = makeArray(ty, expV, literal = true)
+    return evalExp_impl(exp, EVALTARGET_IGNORE_ERRORS())
   end
-  return result
+  @match _cons(range, ranges_rest) = ranges
+  @match _cons(iter, iters_rest) = iterators
+  range_iter = fromExpToExpressionIterator(evalExp_impl(range, EVALTARGET_IGNORE_ERRORS()))
+  while hasNext(range_iter)
+    (range_iter, value) = next(range_iter)
+    P_Pointer.update(iter, value)
+    push!(expV, evalArrayConstructor3(exp, ranges_rest, iters_rest))
+  end
+  ty = if isempty(expV)
+    liftArrayLeftList(typeOf(exp), ListUtil.mapFlat(ranges_rest, r -> arrayDims(typeOf(r)), Dimension))
+  else
+    typeOf(expV[1])
+  end
+  ty = liftArrayLeft(ty, fromInteger(length(expV)))
+  return makeArray(ty, expV, literal = true)
 end
 
 function evalReduction(
@@ -4793,8 +4789,9 @@ function evalReduction2(
   local red_fn::Function
   local ty::M_Type
 
+   #= The type before the iterators are replaced by their (Integer-initialized) values. =#
+   ty = typeOf(exp)
    (e, ranges, iters) = createIterationRanges(exp, iterators)
-   ty = typeOf(e)
    (red_fn, default_exp) = begin
     @match AbsynUtil.pathString(name(fn)) begin
       "sum" => begin
@@ -4852,7 +4849,7 @@ function evalReduction3(
   else
     @match _cons(range, ranges_rest) = ranges
     @match _cons(iter, iters_rest) = iterators
-    range_iter = fromExpToExpressionIterator(range)
+    range_iter = fromExpToExpressionIterator(evalExp_impl(range, EVALTARGET_IGNORE_ERRORS()))
     result = foldExp
     while hasNext(range_iter)
       (range_iter, value) = next(range_iter)

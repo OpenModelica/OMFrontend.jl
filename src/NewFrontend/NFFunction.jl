@@ -139,7 +139,7 @@ function isExactVectorized(mk::FunctionMatchKind)::Bool
 
   @assign b = begin
     @match mk begin
-      VECTORIZED_MATCH_KIND(baseMatch = EXACT(__)) => begin
+      VECTORIZED_MATCH_KIND(baseMatch = EXACT_MATCH_KIND(__)) => begin
         true
       end
       _ => begin
@@ -226,11 +226,8 @@ function isVectorized(mf::MatchedFunction)::Bool
   return b
 end
 
-function getExactVectorizedMatches(
-  matchedFunctions::List{<:MatchedFunction},
-)::List{MatchedFunction}
-  local outFuncs::List{MatchedFunction} =
-    list(mf for mf in matchedFunctions if isExactVectorized(mf.mk))
+function getExactVectorizedMatches(matchedFunctions::Vector{MatchedFunction})::Vector{MatchedFunction}
+  local outFuncs::Vector{MatchedFunction} = MatchedFunction[mf for mf in matchedFunctions if isExactVectorized(mf.mk)]
   return outFuncs
 end
 

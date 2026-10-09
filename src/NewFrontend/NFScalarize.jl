@@ -620,6 +620,13 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
         end
         lhs_iter = fromExpToExpressionIterator(_exp_lhs)
         rhs_iter = fromExpToExpressionIterator(_exp_rhs)
+        #= A side that stays a call (an operator record's array function, `ca1 = -ca2` as
+           Complex.'-'.negateArr(ca2)) has no elements: an array equation, as omc keeps any
+           equation with an array call. =#
+        if hasNext(lhs_iter) != hasNext(rhs_iter) && isArray(typeOf(eq.rhs)) && isArray(typeOf(lhs))
+          equations = push!(equations, EQUATION_ARRAY_EQUALITY(lhs, eq.rhs, eq.ty, src))
+          return equations
+        end
       else
         lhs_iter = fromExpToExpressionIterator(lhs)
         rhs_iter = fromExpToExpressionIterator(rhs)

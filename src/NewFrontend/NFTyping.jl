@@ -609,6 +609,16 @@ function typeComponentPayload!(
   return ty
 end
 
+#= An untyped component's type, its dimensions typed, without typing its children or installing
+   the type (omc typeComponent with typeChildren = false). =#
+function _componentTypeOnly(inComponent::InstNode, origin::ORIGIN_Type)::NFType
+  local node = resolveOuter(inComponent)
+  local c = component(node)
+  typeDimensions(c.dimensions, node, c.binding, origin, c.info)
+  local ty = isEmpty(c.classInst) ? TYPE_UNKNOWN() : typeClassType(c.classInst, c.binding, origin, inComponent)
+  return liftArrayLeftList(ty, arrayList(c.dimensions))
+end
+
 function typeComponentChildren!(node::InstNode, origin::ORIGIN_Type)::Nothing
   local c = component(node)
   local classInst = typeComponents(c.classInst, origin)
@@ -806,6 +816,9 @@ function typeDimension(
   )
 end
 
+#= The `:` dimensions the current task is deducing from bindings, by component and index. =#
+_deducingDimensions()::Set{Tuple{UInt64, Int}} = get!(() -> Set{Tuple{UInt64, Int}}(), task_local_storage(), :NFTypingDeducingDimensions)::Set{Tuple{UInt64, Int}}
+
 function typeDimension2(
   dimensions::Vector{Dimension},
   index::Int,
@@ -886,6 +899,17 @@ function typeDimension2(
         If the dimension is unknown in a function, keep it unknown.
           If the dimension is unknown in a class, try to infer it from the components binding.
         =#
+        #= A binding that needs the dimension itself (`Real c[:] = fill(0, size(c, 1))`) is a
+           cyclic dimension, not a recursion without end (omc marks the dimension as being typed).
+           Marked per component: instances can share a dimension vector. =#
+        local key = (_refId(component), index)
+        local deducing = _deducingDimensions()
+        if key in deducing
+          Error.addSourceMessage(Error.CYCLIC_DIMENSIONS, list(String(index), name(component), ":"), info)
+          fail()
+        end
+        push!(deducing, key)
+        try
         b = binding
         parent_dims = 0
         if isUnbound(binding)
@@ -1005,6 +1029,9 @@ function typeDimension2(
               dim
             end
           end
+        end
+        finally
+          delete!(deducing, key)
         end
         arrayUpdate(dimensions, index, dim)
         dim
@@ -1145,7 +1172,9 @@ function getRecordElementBinding(componentVar::InstNode)::Tuple{Binding, Int}
     if isUnbound(parent_binding)
        (binding, parentDims) = getRecordElementBinding(parent)
     else
-       binding = typeBinding(parent_binding, ORIGIN_CLASS)
+       #= Typed for a dimension: crefs into other components type those without their
+          children (omc getRecordElementBinding, typeCref2). =#
+       binding = typeBinding(parent_binding, setFlag(ORIGIN_CLASS, ORIGIN_DIMENSION))
       if !referenceEq(parent_binding, binding)
         parent = componentApply(parent, setBinding, binding)
       end
@@ -2065,7 +2094,13 @@ end
         else
           ORIGIN_CLASS
         end
-      node_ty = typeComponent(cref.node, node_origin) #NOTE: Removed barrier here(!)
+      #= A prefix of a cref in a dimension: its type only, children untyped (they may need
+         this dimension; omc typeComponent with typeChildren = false). =#
+      node_ty = if !firstPart && flagSet(origin, ORIGIN_DIMENSION) && isvariant(component(resolveOuter(cref.node)), UNTYPED_COMPONENT)
+        _componentTypeOnly(cref.node, node_origin)
+      else
+        typeComponent(cref.node, node_origin)
+      end
       (subs, subs_var) =
         typeSubscripts(cref.subscripts, node_ty, cref, origin, info)
       rest_cr = typeCref2(cref.restCref, origin, variabilityTypeRef, info, false)

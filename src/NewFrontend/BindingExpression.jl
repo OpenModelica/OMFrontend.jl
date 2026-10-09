@@ -5520,7 +5520,9 @@ end
 function applyIndexExpArray(@nospecialize(exp::Expression), @nospecialize(index::Expression), restSubscripts::List{<:Subscript}) ::Expression
   local outExp::Expression
   local expl::Vector{Expression}
-  if isScalarLiteral(index)
+  #= An index out of bounds is left as a subscripted expression: someone else's problem, and
+     maybe fine (a branch not taken; omc applyIndexExpArray). =#
+  if isScalarLiteral(index) && !(exp isa ARRAY_EXPRESSION && !(1 <= toInteger(index) <= length(exp.elements)))
     @match ARRAY_EXPRESSION(elements = expl) = exp
      outExp = applySubscripts(restSubscripts, arrayGet(expl, toInteger(index)))
   elseif isBindingExp(index)
@@ -6108,8 +6110,9 @@ end
         typeOf(exp.operator)
       end
 
+      #= Boolean, over the operands' dimensions (the operator's type is the operands'; omc). =#
       RELATION_EXPRESSION(__)  => begin
-        typeOf(exp.operator)
+        copyDims(typeOf(exp.operator), TYPE_BOOLEAN())
       end
 
       IF_EXPRESSION(__)  => begin

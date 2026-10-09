@@ -278,6 +278,18 @@ function RangeIterator_fromExp(exp::Expression)::RangeIterator
         RANGEITERATOR_REAL_RANGE(rstart, 1.0, 0, Util.realRangeSize(rstart, 1.0, rstop))
       end
 
+      #= false:true, true:true, false:false, or empty (true:false), as omc. =#
+      RANGE_EXPRESSION(
+        start = BOOLEAN_EXPRESSION(__),
+        stop = BOOLEAN_EXPRESSION(__),
+      ) => begin
+        local bvals::List{Expression} = nil
+        for b in (true, false)
+          exp.start.value <= b <= exp.stop.value && (bvals = Cons{Expression}(BOOLEAN_EXPRESSION(b), bvals))
+        end
+        RANGEITERATOR_ARRAY_RANGE(bvals)
+      end
+
       RANGE_EXPRESSION(
         start = ENUM_LITERAL_EXPRESSION(ty = ty, index = istart),
         step = NONE(),
