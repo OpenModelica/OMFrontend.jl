@@ -98,6 +98,27 @@ function evaluate(fn::M_Function, args::Vector{Expression})::Expression
   return result
 end
 
+#= A function's evaluation depth in this task (EVAL_RECURSION_LIMIT), keyed by its call counter,
+   which the copies of a function share. The counter itself was shared by the tasks of the
+   parallel typing, and its read-then-write updates lost counts: it ended at 2 to 5, not 0, in
+   flat models (Buildings' CoolingCoilHumidifyingHeating_ClosedLoop), a drift that would fail an
+   evaluation that does not recurse once it reached the limit. =#
+@inline function _evalDepths()::IdDict{Any, Int}
+  local tls = task_local_storage()
+  local d = get(tls, :OMF_EVAL_DEPTHS, nothing)
+  if d === nothing
+    d = IdDict{Any, Int}()
+    tls[:OMF_EVAL_DEPTHS] = d
+  end
+  return d::IdDict{Any, Int}
+end
+
+#= Sets the depth; the entry goes at 0 (the table holds the functions being evaluated). =#
+@inline function _setEvalDepth!(depths::IdDict{Any, Int}, counter::Pointer, depth::Int)::Nothing
+  depth > 0 ? (depths[counter] = depth) : delete!(depths, counter)
+  return nothing
+end
+
 function evaluateNormal(fn::M_Function, args::Vector{Expression})::Expression
   local result::Expression
   local fn_body::Vector{Statement}
@@ -108,14 +129,15 @@ function evaluateNormal(fn::M_Function, args::Vector{Expression})::Expression
   local call_counter::Pointer = fn.callCounter
   local ctrl::FlowControlType
   #=
-  Functions contain a mutable call counter that's increased by one at the
+  The function's evaluation depth in this task is increased by one at the
   start of each evaluation, and decreased by one when the evalution is
   finished. This is used to limit the number of recursive functions calls.
   =#
-  call_count = P_Pointer.access(call_counter) + 1
+  local depths = _evalDepths()
+  call_count = get(depths, call_counter, 0) + 1
   limit = _evalRecursionLimit()
   if call_count > limit
-    Pointer.update(call_counter, 0)
+    _setEvalDepth!(depths, call_counter, 0)
     Error.addSourceMessage(
       Error.EVAL_RECURSION_LIMIT_REACHED,
       list(String(limit), AbsynUtil.pathString(name(fn))),
@@ -123,7 +145,7 @@ function evaluateNormal(fn::M_Function, args::Vector{Expression})::Expression
     )
     fail()
   end
-  P_Pointer.update(call_counter, call_count)
+  _setEvalDepth!(depths, call_counter, call_count)
   try
     fn_body = getBody(fn)
     repl = createReplacements(fn, args)
@@ -136,7 +158,7 @@ function evaluateNormal(fn::M_Function, args::Vector{Expression})::Expression
       fail()
     end
   catch e
-    P_Pointer.update(call_counter, call_count - 1)
+    _setEvalDepth!(depths, call_counter, call_count - 1)
     fail()
   end
   #=  TODO: Also apply replacements to the replacements themselves, i.e. the
@@ -144,7 +166,7 @@ function evaluateNormal(fn::M_Function, args::Vector{Expression})::Expression
          sorted by dependencies first.
   Make sure we always decrease the call counter even if the evaluation fails.
   =#
-  P_Pointer.update(call_counter, call_count - 1)
+  _setEvalDepth!(depths, call_counter, call_count - 1)
   return result
 end
 

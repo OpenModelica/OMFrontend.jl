@@ -416,6 +416,18 @@ function nthRecordElement(index::Int, @nospecialize(recordExp::Expression)) ::Ex
   outExp
 end
 
+#= A field of a record component not typed yet is typed here, as a reference to it would be: its
+   type before had no dimensions (the element type). Under parallel typing a record component is
+   typed before its fields, which other tasks type; its field's binding then had type Real for
+   Real[3] (Buildings' fan records, `per = perFan`: an unknown dimension in typeDimension). =#
+function _typeRecordField!(field::InstNode, recordCref::ComponentRef)::Nothing
+  isComponent(field) && isvariant(component(resolveOuter(field)), UNTYPED_COMPONENT) || return nothing
+  local origin = isvariant(recordCref, COMPONENT_REF_CREF) && isFunction(explicitParent(node(recordCref))) ?
+    ORIGIN_FUNCTION : ORIGIN_CLASS
+  typeComponent(field, origin)
+  return nothing
+end
+
 """  Returns the field with the given name in a record expression. If the
      expression is an array it will return the equivalent of calling the
      function on each element of the array.
@@ -442,6 +454,7 @@ function recordElement(elementName::String, @nospecialize(recordExp::Expression)
         local entryInfo  = lookupElement(elementName, cls_tree)
         node = entryInfo.node
         @assert entryInfo.isImport == false "Entry info was not an import."
+        _typeRecordField!(node, recordExp.cref)
         ty = getType(node)
         cref = prefixCref(node, ty, nil, recordExp.cref)
         ty = liftArrayLeftList(ty, arrayDims(recordExp.ty))

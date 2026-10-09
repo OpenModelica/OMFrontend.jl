@@ -115,6 +115,10 @@ end
     include("separateFlattenTests.jl")
   end
 
+  @testset "Parallel typing" begin
+    include("parallelTypingTests.jl")
+  end
+
   #=
   Test components in the MSL
   If you are a user of this package please submit more tests here.
