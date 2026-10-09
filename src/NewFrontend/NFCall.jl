@@ -843,6 +843,17 @@ function typeNormalCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Call
   return call
 end
 
+#= A call of a partial function is an error (omc: Call.checkNotPartial; omc skips it in a relaxed
+   context, which typing here does not have). Since partial functions are instantiated (as omc), a
+   call through a package left at its partial default had otherwise passed. =#
+function checkNotPartial(fnRef::ComponentRef, info::SourceInfo)
+  if isPartial(node(fnRef))
+    Error.addSourceMessage(Error.PARTIAL_FUNCTION_CALL, list(toString(fnRef)), info)
+    fail()
+  end
+  return nothing
+end
+
 function typeCall(
   callExp::Expression,
   origin::ORIGIN_Type,
@@ -883,6 +894,7 @@ function typeCall2(
         if needSpecialHandling(call)
           (outExp, ty, var) = typeSpecial(call, origin, info)
         else
+          checkNotPartial(cref, info)
           ty_call = typeMatchNormalCall(call, origin, info)
           ty = typeOf(ty_call)
           var = variability(ty_call)
@@ -904,6 +916,7 @@ function typeCall2(
         CALL_EXPRESSION(ty_call)
       end
       UNTYPED_REDUCTION(__) => begin
+        checkNotPartial(call.ref, info)
         (ty_call, ty, var) = typeReduction(call, origin, info)
         CALL_EXPRESSION(ty_call)
       end
