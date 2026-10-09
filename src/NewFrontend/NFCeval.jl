@@ -498,13 +498,26 @@ function evalComponentBinding(
 )::Expression #= The expression returned if the binding couldn't be evaluated =#
   #= Typing plus evaluated-flag write-back must be atomic per node under
      parallel typing. =#
-  if _parallelTypingActive()
-    return _withClaim(
-      () -> evalComponentBinding2(node, cref, defaultExp, target, evalSubscripts),
-      _refId(resolveOuter(node)))
+  local id = _refId(resolveOuter(node))
+  #= A binding this task is evaluating, read again within itself: not evaluated there. Field
+     by field acyclic, whole records read each other (Buildings' Templates: pla.cfg, through
+     pla.THeaWatSup_nominal and datAll.pla.ctl.cfg, back to pla.cfg): a recursion without end,
+     a stack overflow that killed the process. =#
+  local evaluating = _evaluatingBindings()
+  id in evaluating && return defaultExp
+  push!(evaluating, id)
+  try
+    if _parallelTypingActive()
+      return _withClaim(() -> evalComponentBinding2(node, cref, defaultExp, target, evalSubscripts), id)
+    end
+    return evalComponentBinding2(node, cref, defaultExp, target, evalSubscripts)
+  finally
+    delete!(evaluating, id)
   end
-  return evalComponentBinding2(node, cref, defaultExp, target, evalSubscripts)
 end
+
+#= The component bindings the current task is evaluating (evalComponentBinding). =#
+_evaluatingBindings()::Set{UInt64} = get!(() -> Set{UInt64}(), task_local_storage(), :NFCevalEvaluatingBindings)::Set{UInt64}
 
 #= The dimensions of an evaluated value: an array literal's nesting under any binding info
    (its type can be the element's: `abs(dp_nominal)` evaluated over the array modifier). =#
