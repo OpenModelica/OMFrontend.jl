@@ -154,18 +154,19 @@ end
 end
 
 """
- Attempts to evaluate an expression.
- Continues if it fails
+ Attempts to evaluate an expression: the value, or the expression itself when it cannot be
+ evaluated; the messages of the failed attempt are dropped (omc tryEvalExp).
 """
-@nospecializeinfer function tryEvalExp(@nospecialize(exp::Expression))
-  local outExp = exp
+@nospecializeinfer function tryEvalExp(@nospecialize(exp::Expression), target::EvalTarget = EVALTARGET_IGNORE_ERRORS())::Expression
+  ErrorExt.setCheckpoint("NFCeval.tryEvalExp")
   try
-    outExp = evalExp(exp)
-  catch
+    exp = evalExp(exp, target)
+  catch e
+    e isa InterruptException && rethrow()
   end
-  return outExp
+  ErrorExt.rollBack("NFCeval.tryEvalExp")
+  return exp
 end
-
 
 """
   Evaluates an expression.

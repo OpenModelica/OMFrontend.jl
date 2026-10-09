@@ -1313,7 +1313,9 @@ function flattenIfEquation(
           if var <= Variability.STRUCTURAL_PARAMETER &&
              (has_connect || Flags.isSet(Flags.NF_SCALARIZE) || !contains(cond, isIterator))
             local cond0 = cond
-            cond = evalExp(cond, target)
+            #= Kept when it cannot be evaluated (an external function's value, Buildings' heat
+               pump data); with connects it must be (omc flattenIfEquation, tryEvalExp). =#
+            cond = tryEvalExp(cond, target)
             #= Not scalarizing, an arrayed component's condition is its elements' values: the
                if-equation stays, vectorized and unrolled, its branch picked per element
                (_unrollForEquation!). =#

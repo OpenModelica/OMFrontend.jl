@@ -430,6 +430,11 @@ function markComponentPresent(node::InstNode)
     cty = setPresent(cty)
     comp = setConnectorType(cty, comp)
     node = updateComponent!(comp, node)
+    #= Its children too (a declared connector in an expandable bus, `connect(bus.c, c)`: c's
+       potentials and flows; omc markComponentPresent). =#
+    if isComplex(getType(comp))
+      applyComponents(classTree(getClass(classInstance(comp))), markComponentPresent)
+    end
   end
   return node
 end
