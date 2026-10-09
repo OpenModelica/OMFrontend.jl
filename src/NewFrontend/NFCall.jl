@@ -1112,10 +1112,11 @@ function evaluateCallType(
   fn::M_Function,
   args::Vector{Expression},
   ptree::ParameterTree = ParameterTreeImpl.EMPTY(),
+  outputIndex::Int = 1,
   )::Tuple{NFType, ParameterTree}
    ty = begin
     local dims::List{Dimension}
-    local tys::List{NFType}
+    local tys::Vector{NFType}
     @match ty begin
       TYPE_ARRAY(__) => begin
         (dims, ptree) = ListUtil.map1Fold(ty.dimensions, evaluateCallTypeDim, (fn, args), ptree)
@@ -1123,9 +1124,24 @@ function evaluateCallType(
         TYPE_ARRAY(ty.elementType, tyDimensions)
       end
       TYPE_TUPLE(__) => begin
-        (tys, ptree) = ListUtil.map2Fold(ty.types, evaluateCallType, fn, args, ptree)
-        tyTypes = tys
-        TYPE_TUPLE(tyTypes, ty.names)
+        tys = NFType[]
+        for (i, t) in enumerate(ty.types)
+          (t, ptree) = evaluateCallType(t, fn, args, ptree, i)
+          push!(tys, t)
+        end
+        TYPE_TUPLE(list(tys...), ty.names)
+      end
+      #= A record output with a binding (`output R outR = inR`): its type with the inputs
+         replaced by the arguments, so the record's field sizes are the argument's. =#
+      TYPE_COMPLEX(__) where {isRecord(ty) && !isNonDefaultRecordConstructor(fn)} => begin
+        local binding = getBinding(component(listGet(fn.outputs, outputIndex)))
+        if isBound(binding)
+          ptree = buildParameterTree((fn, args), ptree)
+          #= Without the binding wrapper, whose stored type is the declared output's. =#
+          typeOf(map(stripBindingInfo(getExp(binding)), e -> evaluateCallTypeDimExp(e, ptree)))
+        else
+          ty
+        end
       end
       _ => begin
         ty
@@ -1561,6 +1577,9 @@ function typeReduction(
          next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
         for i in call.iters
            (iter, range) = i
+           if range isa EMPTY_EXPRESSION
+             range = deduceIterationRangeExp(CALL_EXPRESSION(call), iter, info)
+           end
            (range, _, iter_var) =
             typeIterator(iter, range, origin, false)
            variability = variabilityMax(variability, iter_var)
@@ -1624,6 +1643,9 @@ function typeArrayConstructor(
         next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
         for i in call.iters
           (iter, range) = i
+          if range isa EMPTY_EXPRESSION
+            range = deduceIterationRangeExp(CALL_EXPRESSION(call), iter, info)
+          end
           (range, iter_ty, iter_var) =
             Base.inferencebarrier(typeIterator(iter, range, next_origin, is_structural)::Tuple{Expression, NFType, VariabilityType})
           if is_structural
@@ -1667,9 +1689,17 @@ function instIterators(
   local outScope::InstNode = scope
   local range::Expression
   local iter::InstNode
+  local ty::NFType
   for i in inIters
-    range = instExp(Util.getOption(i.range), outScope, info)
-    (outScope, iter) = addIteratorToScope(i.name, outScope, info)
+    #= A missing range (`{x[i] for i}`) is deduced during typing from the subscripts the iterator
+       is used in (omc deduceIterationRangeExp). =#
+    range = isSome(i.range) ? instExp(Util.getOption(i.range), outScope, info) : EMPTY_EXPRESSION(TYPE_UNKNOWN())
+    #= A component range gives the iterator its class, so `r.x` can be looked up in `for r in rs`. =#
+    ty = TYPE_UNKNOWN()
+    if range isa CREF_EXPRESSION && isvariant(range.cref, COMPONENT_REF_CREF) && isComponent(range.cref.node)
+      ty = TYPE_COMPLEX(classInstance(component(range.cref.node)), COMPLEX_CLASS())
+    end
+    (outScope, iter) = addIteratorToScope(i.name, outScope, info, ty)
     outIters = Cons{Tuple{InstNode, Expression}}((iter, range), outIters)
   end
   outIters = listReverse(outIters)

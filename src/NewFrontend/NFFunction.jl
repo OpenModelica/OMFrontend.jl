@@ -521,6 +521,16 @@ function toDAE(fn::M_FUNCTION, def::DAE.FunctionDefinition)::DAE.Function
   return daeFn
 end
 
+#= An operator record's constructor: 'constructor' in its path (omc isNonDefaultRecordConstructor). =#
+function isNonDefaultRecordConstructor(fn::M_FUNCTION)::Bool
+  return isNonDefaultRecordConstructorPath(fn.path)
+end
+
+function isNonDefaultRecordConstructorPath(path::Absyn.Path)::Bool
+  path isa Absyn.QUALIFIED || return false
+  return path.name == "'constructor'" || isNonDefaultRecordConstructorPath(path.path)
+end
+
 function isDefaultRecordConstructor(fn::M_FUNCTION)::Bool
   local isConstructor::Bool
   isConstructor = begin

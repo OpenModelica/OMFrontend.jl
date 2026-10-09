@@ -4882,10 +4882,10 @@ function evalSize(
     index = toInteger(index_exp)
     (dim, _, ty_err) = typeExpDim(exp, index, ORIGIN_CLASS, info)
     checkSizeTypingError(ty_err, exp, index, info)
-    outExp = sizeExp(dim)
+    outExp = evalExp_impl(sizeExp(dim), target)
   else
     (outExp, ty) = typeExp(exp, ORIGIN_CLASS, info)
-    expl = list(sizeExp(d) for d in arrayDims(ty))
+    expl = list(evalExp_impl(sizeExp(d), target) for d in arrayDims(ty))
     dim = fromInteger(listLength(expl), Variability.PARAMETER)
     outExp =
       makeArray(TYPE_ARRAY(TYPE_INTEGER(), list(dim)), expl)

@@ -1512,7 +1512,7 @@ function typeExp2(
         #=  Subscripted expressions are assumed to already be typed. =#
         e1 = P_Pointer.access(exp.exp)
         (e1, ty, variability) = typeExp(e1, origin, info)
-        exp.exp = P_Pointer.create(e1)
+        exp = MUTABLE_EXPRESSION(P_Pointer.create(e1))
         exp, typeRef.x, variabilityTypeRef.x = exp, ty, variability;exp
       end
 
@@ -1698,7 +1698,10 @@ function typeExpDim(
   if isKnown(ty)
      (dim, error) = nthDimensionBoundsChecked(ty, dimIndex)
      typedExp = SOME(exp)
-  else
+  end
+  #= A typed expression with an unknown dimension (an argument in a function, `1 .- v` with
+     `Real[:] v`) is typed again: its values may have been substituted since (omc typeExpDim). =#
+  if !isKnown(ty) || isUnknown(dim)
      e = getBindingExp(exp)
      (dim, error) = begin
       @match e begin
@@ -4366,6 +4369,11 @@ end
 function deduceIterationRangeStmt(stmt::Statement, iterator::InstNode, info::SourceInfo)::Expression
   local crefs = foldExp(stmt, (e, acc) -> fold(e, (e2, acc2) -> collectIteratorCrefs(e2, iterator, acc2), acc),
                         Tuple{ComponentRef, Int}[])
+  return deduceIterationRange(crefs, iterator, info)
+end
+
+function deduceIterationRangeExp(@nospecialize(exp::Expression), iterator::InstNode, info::SourceInfo)::Expression
+  local crefs = fold(exp, (e, acc) -> collectIteratorCrefs(e, iterator, acc), Tuple{ComponentRef, Int}[])
   return deduceIterationRange(crefs, iterator, info)
 end
 

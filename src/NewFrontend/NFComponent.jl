@@ -1126,6 +1126,10 @@ function setClassInstance(classInst::InstNode, component::Component)
 end
 
 function classInstance(component::Component)
+  #= An iterator over records (`for r in rs`) has the record class as its class (omc Component.classInstance). =#
+  if component.tag == CT_ITERATOR && isvariant(component.ty, TYPE_COMPLEX)
+    return complexNode(component.ty)
+  end
   return component.classInst
 end
 

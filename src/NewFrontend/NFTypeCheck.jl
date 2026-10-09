@@ -144,8 +144,29 @@ function checkBinaryOperation(
          Op.POW_EW => begin
            checkBinaryOperationPowEW(exp1, type1, exp2, type2, info)
          end
+         #= Typed operators: an already typed expression is typed again after its operands
+            changed (size() of a function argument during evaluation; omc checkBinaryOperation). =#
+         Op.ADD_SCALAR_ARRAY || Op.ADD_ARRAY_SCALAR => begin
+           checkBinaryOperationEW(exp1, type1, exp2, type2, Op.ADD, info)
+         end
+         Op.SUB_SCALAR_ARRAY || Op.SUB_ARRAY_SCALAR => begin
+           checkBinaryOperationEW(exp1, type1, exp2, type2, Op.SUB, info)
+         end
+         Op.MUL_SCALAR_ARRAY || Op.MUL_ARRAY_SCALAR || Op.MUL_VECTOR_MATRIX || Op.MUL_MATRIX_VECTOR ||
+         Op.SCALAR_PRODUCT || Op.MATRIX_PRODUCT => begin
+           checkBinaryOperationMul(exp1, type1, exp2, type2, info)
+         end
+         Op.DIV_SCALAR_ARRAY || Op.DIV_ARRAY_SCALAR => begin
+           checkBinaryOperationDiv(exp1, type1, exp2, type2, info, true)
+         end
+         Op.POW_SCALAR_ARRAY || Op.POW_ARRAY_SCALAR => begin
+           checkBinaryOperationPowEW(exp1, type1, exp2, type2, info)
+         end
+         Op.POW_MATRIX => begin
+           checkBinaryOperationPow(exp1, type1, exp2, type2, info)
+         end
          _ =>  begin
-           @error "checkBinaryOperation" typeof(operator.op) toString(operator.op)
+           Error.addInternalError("checkBinaryOperation got operator " + symbol(operator), info)
            fail()
          end
        end

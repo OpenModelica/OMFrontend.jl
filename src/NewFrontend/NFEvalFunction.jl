@@ -799,7 +799,7 @@ function assignVariable(@nospecialize(variable::Expression), @nospecialize(value
         ()
       end
 
-      (CREF_EXPRESSION(cref = WILD(__)), _) =>
+      (CREF_EXPRESSION(cref = COMPONENT_REF_WILD(__)), _) =>
         begin
           ()
         end
