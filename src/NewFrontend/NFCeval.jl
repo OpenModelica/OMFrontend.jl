@@ -1030,10 +1030,14 @@ function makeRecordFieldBindingFromParent(
     indicesToKeep = nodesIncludingSplitSubs(cref)
     exp = map(exp, (x) -> expandNonListedSplitIndices(x, indicesToKeep))
   else
-    #= Try parent instead=#
+    #= Try parent instead. Its record's fields are not evaluated (evalExp_impl keeps a record
+       expression's fields): the field is, as the branch above (a record field of a field set
+       by a record constructor: Buildings' borefield conDat.mBorFie_flow_nominal, mBor*nBor
+       with nBor = size(cooBor, 1), had stayed 0.3*size(...)). =#
     exp = makeRecordFieldBindingFromParent(parent_cr, target);
     exp = applySubscripts(subs, exp);
     exp = recordElement(firstName(cref), exp);
+    exp = evalExp(exp, target)
   end
   return exp
 end
