@@ -1323,6 +1323,7 @@ function redeclareClasses(tree::ClassTree, parent::InstNode) ::ClassTree
   local redecl_node::InstNode
   local cls::Class
   local mod::Modifier
+  local cc_mod::Modifier
    () = begin
     @match tree begin
       CLASS_TREE_INSTANTIATED_TREE(__)  => begin
@@ -1331,8 +1332,8 @@ function redeclareClasses(tree::ClassTree, parent::InstNode) ::ClassTree
            cls = getClass(resolveOuter(cls_node))
            mod = getModifier(cls)
           if isRedeclare(mod)
-            @match MODIFIER_REDECLARE(element = redecl_node, mod = mod) = mod
-            cls_node = redeclareClass(redecl_node, cls_node, mod, constrainingClassMod(definition(cls_node), parent))
+            @match MODIFIER_REDECLARE(element = redecl_node, outerMod = mod, constrainingMod = cc_mod) = mod
+            cls_node = redeclareClass(redecl_node, cls_node, mod, elementConstrainingMod(definition(cls_node), parent, cc_mod))
             P_Pointer.update(cls_ptr, cls_node)
           end
         end
@@ -1392,16 +1393,17 @@ function redeclareComponentElement(redeclareComp::Pointer{InstNode}, replaceable
   outComp
 end
 
-#= The constraining clause's modifier of a replaceable class (omc: getConstrainingMod), in the
-   scope declaring it: applied to the class redeclaring it (MLS 7.3.2), below that class's own
-   modifiers (omc: Class.ccMod). Buildings DHC: `replaceable model Model_pipDisRet = ...
-   constrainedby PartialTwoPortInterface(redeclare final package Medium = MediumRet, ...)`,
-   redeclared without a medium, had kept PartialMedium. =#
-function constrainingClassMod(def::SCode.Element, parent::InstNode)::Modifier
+#= The constraining clause's modifier of a replaceable element (omc: getConstrainingMod), in the
+   scope declaring it, below the redeclare's own constraining modifier: applied to the element
+   redeclaring it (MLS 7.3.2), below that element's own modifiers (omc: Class.ccMod). Buildings
+   DHC: `replaceable model Model_pipDisRet = ... constrainedby PartialTwoPortInterface(redeclare
+   final package Medium = MediumRet, ...)`, redeclared without a medium, had kept PartialMedium. =#
+function elementConstrainingMod(def::SCode.Element, parent::InstNode, outerMod::Modifier)::Modifier
   local cc_smod = SCodeUtil.getConstrainingMod(def)
-  SCodeUtil.isEmptyMod(cc_smod) && return MODIFIER_NOMOD()
+  SCodeUtil.isEmptyMod(cc_smod) && return outerMod
   local nm = SCodeUtil.elementName(def)
-  return create(cc_smod, nm, SCOPE_CLASS(nm), nil, parent)
+  local scope = def isa SCode.CLASS ? SCOPE_CLASS(nm) : SCOPE_COMPONENT(nm)
+  return merge(outerMod, create(cc_smod, nm, scope, nil, parent))
 end
 
 #= A class's element modifier with its own constraining clause's below it, unless the class was
@@ -1546,9 +1548,8 @@ function instComponent(node::InstNode,
   local comp_node::InstNode
   local rdcl_node::InstNode
   local outer_mod::Modifier
+  local inner_mod::Modifier
   local cc_mod::Modifier = innerMod
-  local cc_smod::SCode.Mod
-  local nameStr::String
   local parentNode::InstNode
   comp_node = resolveOuter(node)
   comp = component(comp_node)
@@ -1562,15 +1563,12 @@ function instComponent(node::InstNode,
   @match COMPONENT_DEF(definition = def, modifier = outer_mod) = comp
   if isRedeclare(outer_mod)
     checkOuterComponentMod(outer_mod, def, comp_node)
-    comp_node = instComponentDef(def::SCode.COMPONENT, MODIFIER_NOMOD(), MODIFIER_NOMOD(),
+    @match MODIFIER_REDECLARE(element = rdcl_node, innerMod = inner_mod, outerMod = outer_mod,
+                              constrainingMod = cc_mod) = outer_mod
+    comp_node = instComponentDef(def::SCode.COMPONENT, MODIFIER_NOMOD(), inner_mod,
                      DEFAULT_ATTR, useBinding, comp_node, parentNode,
                      instLevel, attributeRef, originalAttr, #=isRedeclared =# true)::InstNode
-    @match MODIFIER_REDECLARE(element = rdcl_node, mod = outer_mod) = outer_mod
-    cc_smod = SCodeUtil.getConstrainingMod(def)
-    if ! SCodeUtil.isEmptyMod(cc_smod)
-      nameStr = name(node)
-      cc_mod = create(cc_smod, nameStr, SCOPE_COMPONENT(nameStr), nil, parentNode)
-    end
+    cc_mod = merge(elementConstrainingMod(def, parentNode, cc_mod), innerMod)
     outer_mod = merge(getModifier(rdcl_node), outer_mod)
     rdcl_node = setModifier(outer_mod, rdcl_node)
     comp_node = redeclareComponent(rdcl_node, node, MODIFIER_NOMOD(), cc_mod, attributes, node, instLevel, attributeRef)

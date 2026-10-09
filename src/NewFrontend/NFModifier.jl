@@ -334,13 +334,20 @@ function merge(outerMod::Modifier, innerMod::Modifier, name::String = "")
       end
 
       (MODIFIER_REDECLARE(__), MODIFIER_MODIFIER(__)) => begin
-        mod = merge(outerMod.mod, innerMod)
-        MODIFIER_REDECLARE(outerMod.finalPrefix, outerMod.eachPrefix, outerMod.element, mod)
+        #= A modifier inside the redeclare is for the original declaration only (Buildings DX
+           coils: `wetCoi(datCoi = datCoi)` under `wetCoi(redeclare final ... datCoi = datCoi)`). =#
+        MODIFIER_REDECLARE(outerMod.finalPrefix, outerMod.eachPrefix, outerMod.element,
+                           merge(outerMod.innerMod, innerMod), outerMod.outerMod, outerMod.constrainingMod)
       end
 
       (MODIFIER_MODIFIER(__), MODIFIER_REDECLARE(__)) => begin
-        mod = merge(outerMod, innerMod.mod)
-        MODIFIER_REDECLARE(innerMod.finalPrefix, innerMod.eachPrefix, innerMod.element, mod)
+        MODIFIER_REDECLARE(innerMod.finalPrefix, innerMod.eachPrefix, innerMod.element,
+                           innerMod.innerMod, merge(outerMod, innerMod.outerMod), innerMod.constrainingMod)
+      end
+
+      (MODIFIER_REDECLARE(__), MODIFIER_REDECLARE(__)) where (isEmpty(outerMod.constrainingMod) && !isEmpty(innerMod.constrainingMod)) => begin
+        MODIFIER_REDECLARE(outerMod.finalPrefix, outerMod.eachPrefix, outerMod.element,
+                           outerMod.innerMod, outerMod.outerMod, innerMod.constrainingMod)
       end
 
       (MODIFIER_REDECLARE(__), _) => begin
@@ -468,6 +475,14 @@ function addParent_work(name::String, parentNode::InstNode, mod::Modifier)
         else
           lmod
         end
+      end
+
+      MODIFIER_REDECLARE(eachPrefix = SCode.NOT_EACH(__)) => begin
+        #= The original declaration's modifier is split over the array parent as well (omc:
+           propagateSubMod). Buildings DX coils: uacp[nSta](per = datCoi.sta.nomVal) under
+           uacp(redeclare final ... per). =#
+        MODIFIER_REDECLARE(mod.finalPrefix, mod.eachPrefix, mod.element,
+                           addParent_work(name, parentNode, mod.innerMod), mod.outerMod, mod.constrainingMod)
       end
 
       _ => begin
@@ -640,7 +655,8 @@ function create(mod::SCode.REDECL,
   if isClass(node)
     partialInstClass(node)
   end
-  MODIFIER_REDECLARE(mod.finalPrefix, mod.eachPrefix, node, MODIFIER_NOMOD())
+  MODIFIER_REDECLARE(mod.finalPrefix, mod.eachPrefix, node, MODIFIER_NOMOD(), MODIFIER_NOMOD(),
+                     instConstrainingMod(elem, scope))
 end
 
 function create(mod::SCode.MOD,
