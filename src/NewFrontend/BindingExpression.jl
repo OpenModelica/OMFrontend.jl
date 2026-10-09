@@ -491,7 +491,10 @@ function recordElement(elementName::String, @nospecialize(recordExp::Expression)
         index = lookupComponentIndex(elementName, getClass(node))
         expV = Expression[nthRecordElement(index, e) for e in recordExp.elements]
         ty = liftArrayLeft(typeOf(expV[1]), fromInteger(length(expV)))
-        makeArray(ty, expV; literal=recordExp.literal)
+        #= Literal only if the fields are: an evaluated record keeps its fields unevaluated (read
+           later), the array of records is literal. Buildings ElectricChillerParallel:
+           fill(perCHWPum, numChi)'s pressure.V_flow stayed mCHW_flow_nominal/1000*{...} in sum(). =#
+        makeArray(ty, expV; literal = recordExp.literal && all(isLiteral, expV))
       end
 
       BINDING_EXP(__)  => begin

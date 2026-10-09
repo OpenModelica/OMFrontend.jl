@@ -538,7 +538,7 @@ end
    {true, false, false, false} then assert(...)` for hex.ele[1]: computeFlowResistance of the
    elements' array modifiers). A cref without them (the array itself) keeps the value. =#
 function _subscriptByEnclosingElements(@nospecialize(exp::Expression), cref::ComponentRef, extra::Int,
-                                       evalSubscripts::Bool)::Expression
+                                       evalSubscripts::Bool, readsOwnElement::Bool)::Expression
   local subs = Subscript[]
   local cr = rest(cref)
   while !isEmpty(cr)
@@ -554,10 +554,40 @@ function _subscriptByEnclosingElements(@nospecialize(exp::Expression), cref::Com
     depth += 1
     x = Base.first(x.elements)
   end
-  (length(subs) >= extra && depth >= extra) || return exp
+  depth >= extra || return exp
+  if length(subs) < extra
+    #= No element subscripts: in an element's own context (a binding in the elements' shared
+       class, evaluated once for all) every element's value when they are all the same. Buildings
+       ElectricChillerParallel: pum[num](per = per), per = fill(perCHWPum, numChi), WMot_nominal's
+       `power.P[1] > eps` read {P, P} and P[1] picked a pump ({0.0} > eps). =#
+    readsOwnElement || return exp
+    local shared = _sharedElementValue(value, extra)
+    return shared === nothing ? exp : shared
+  end
   local own = subs[end - extra + 1:end]
   evalSubscripts && (own = Subscript[evalSubscript(s) for s in own])
   return applySubscripts(list(own...), value)
+end
+
+#= The value every element of `extra` enclosing arrays has, or nothing when they differ. =#
+function _sharedElementValue(@nospecialize(value::Expression), extra::Int)::Union{Expression, Nothing}
+  local x = value
+  for _ in 1:extra
+    (x isa ARRAY_EXPRESSION && !isempty(x.elements)) || return nothing
+    local first_el = x.elements[1]
+    all(e -> isEqual(e, first_el), x.elements) || return nothing
+    x = first_el
+  end
+  return x
+end
+
+#= Whether a cref without its enclosing elements' subscripts reads its own element (its type
+   has not their dimensions: a binding in the elements' shared class) rather than the array
+   (`bld.m_flow_nominal` read from outside, typed over bld). =#
+function _readsOwnElement(cref::ComponentRef, @nospecialize(defaultExp::Expression), compType::NFType,
+                          extra::Int)::Bool
+  local own = dimensionCount(compType) - count(isScalar, getSubscripts(cref))
+  return dimensionCount(typeOf(defaultExp)) < own + extra
 end
 
 function evalComponentBinding2(
@@ -636,7 +666,8 @@ function evalComponentBinding2(
             comp = setBinding(binding, comp)
             node = updateComponent!(comp, node)
           else
-            exp = _subscriptByEnclosingElements(exp, cref, extra, evalSubscripts)
+            exp = _subscriptByEnclosingElements(exp, cref, extra, evalSubscripts,
+                                                _readsOwnElement(cref, defaultExp, getType(comp), extra))
           end
         end
         (exp, true)
@@ -648,7 +679,8 @@ function evalComponentBinding2(
            per), each element's `per.haveWMot_nominal` the array {false, true}): its element. =#
         local cexp = binding.bindingExp
         local extra = _valueDimensionCount(cexp) - dimensionCount(getType(comp))
-        extra > 0 && (cexp = _subscriptByEnclosingElements(cexp, cref, extra, evalSubscripts))
+        extra > 0 && (cexp = _subscriptByEnclosingElements(cexp, cref, extra, evalSubscripts,
+                                                           _readsOwnElement(cref, defaultExp, getType(comp), extra)))
         (cexp, true)
       end
 
