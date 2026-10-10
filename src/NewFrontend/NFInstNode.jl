@@ -1031,9 +1031,9 @@ function isInner(node::InstNode)
 end
 
 function isOutput(node::InstNode)
-  local isOutput::Bool
+  local res::Bool
 
-   isOutput = begin
+   res = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
         isOutput(_compVal(node))
@@ -1044,13 +1044,13 @@ function isOutput(node::InstNode)
       end
     end
   end
-  isOutput
+  res
 end
 
 function isInput(node::InstNode)
-  local isInput::Bool
+  local res::Bool
 
-   isInput = begin
+   res = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
         isInput(_compVal(node))
@@ -1061,7 +1061,7 @@ function isInput(node::InstNode)
       end
     end
   end
-  isInput
+  res
 end
 
 function scopePathClass(node::InstNode, ty::InstNodeType, includeRoot::Bool, accumPath::Absyn.Path)
@@ -1659,8 +1659,8 @@ function setParent(@nospecialize(parent::InstNode), node::InstNode)::InstNode
 end
 
 function topComponent(node::InstNode)
-  local topComponent::InstNode
-   topComponent = begin
+  local res::InstNode
+   res = begin
     @match node begin
       COMPONENT_NODE(parent = EMPTY_NODE(__))  => begin
         node
@@ -1670,7 +1670,7 @@ function topComponent(node::InstNode)
       end
     end
   end
-  topComponent
+  res
 end
 
 function topScope(node::InstNode)
@@ -2201,9 +2201,9 @@ function isBaseClass(node::InstNode)
 end
 
 function isClass(node::InstNode)
-  local isClass::Bool
+  local res::Bool
 
-   isClass = begin
+   res = begin
     @match node begin
       CLASS_NODE(__)  => begin
         true
@@ -2218,7 +2218,7 @@ function isClass(node::InstNode)
       end
     end
   end
-  isClass
+  res
 end
 
 function fromComponent(name::String, component::Component, parent::InstNode)

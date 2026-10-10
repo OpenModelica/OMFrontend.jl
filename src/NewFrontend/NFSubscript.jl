@@ -1208,8 +1208,8 @@ function isEqual(subscript1::Subscript, subscript2::Subscript)::Bool
 end
 
 function isScalarLiteral(sub::Subscript)::Bool
-  local isScalarLiteral::Bool
-   isScalarLiteral = begin
+  local res::Bool
+   res = begin
     @match sub begin
       SUBSCRIPT_INDEX(__) => begin
         isScalarLiteral(sub.index)
@@ -1219,7 +1219,7 @@ function isScalarLiteral(sub::Subscript)::Bool
       end
     end
   end
-  return isScalarLiteral
+  return res
 end
 
 function isScalar(sub::Subscript)::Bool

@@ -1145,9 +1145,9 @@ end
 
 """ #= Returns true for all the builtin scalar types such as Integer, Real, etc. =#"""
 @nospecializeinfer function isScalarBuiltin(ty::M_Type)::Bool
-  local isScalarBuiltin::Bool
+  local res::Bool
 
-  @assign isScalarBuiltin = begin
+  @assign res = begin
     @match ty begin
       TYPE_INTEGER(__) => begin
         true
@@ -1186,7 +1186,7 @@ end
       end
     end
   end
-  return isScalarBuiltin
+  return res
 end
 
 function isNumeric(ty::M_Type)::Bool
