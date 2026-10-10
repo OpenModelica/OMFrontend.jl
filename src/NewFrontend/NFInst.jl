@@ -1514,12 +1514,15 @@ function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMo
 end
 
 function redeclareEnum(redeclareClass::Class, originalClass::Class, prefixes::Prefixes, outerMod::Modifier, redeclareNode::InstNode, originalNode::InstNode) ::Class
-  local redeclaredClass::Class = redeclareClass
+  #= Expanded, so that a short class of an enumeration (`redeclare type AE = E`) is one (omc). =#
+  expand(redeclareNode)
+  local redeclaredClass::Class = getClass(redeclareNode)
 
   @assign redeclaredClass = begin
     local lits1::List{String}
     local lits2::List{String}
     @match (redeclaredClass, originalClass) begin
+
       (PARTIAL_BUILTIN(ty = TYPE_ENUMERATION(literals = lits1)), PARTIAL_BUILTIN(ty = TYPE_ENUMERATION(literals = lits2)))  => begin
         if ! (listEmpty(lits2) || ListUtil.isEqualOnTrue(lits1, lits2, stringEq))
           Error.addMultiSourceMessage(Error.REDECLARE_ENUM_NON_SUBTYPE, list(name(originalNode)), list(InstNode_info(redeclareNode), InstNode_info(originalNode)))
@@ -1528,6 +1531,12 @@ function redeclareEnum(redeclareClass::Class, originalClass::Class, prefixes::Pr
         @assign redeclaredClass.prefixes = prefixes
         @assign redeclaredClass.modifier = merge(outerMod, redeclaredClass.modifier)
         redeclaredClass
+      end
+
+      #= Redeclare enumeration(:) as another enumeration type (a short class of one,
+         `redeclare type AE = E`; omc). =#
+      (_, PARTIAL_BUILTIN(ty = TYPE_ENUMERATION(literals = Nil(__)))) where {isEnumerationType(redeclareNode)} => begin
+        mergeModifier(outerMod, setPrefixes(prefixes, redeclaredClass))
       end
 
       _  => begin
