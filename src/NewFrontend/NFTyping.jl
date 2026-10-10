@@ -3089,6 +3089,12 @@ function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)::InstNod
         ()
       end
 
+      #= A class of a basic type (`type MyReal extends Real`, through `connector RealInput = input
+         MyReal`): its components are the type's attributes (omc; omc ConnectExtendsBuiltin1). =#
+      INSTANCED_CLASS(__) where {isBasic(arrayElementType(cls.ty))} => begin
+        ()
+      end
+
       INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = components)) => begin
         #= The class's own sections are typed under the class claim; the
            component loop runs after release so subtree fan-out stays possible. =#
