@@ -7831,15 +7831,19 @@ function lookupModInMod(name::String, mod::SCode.Mod)::SCode.Mod
 end
 
 """Check if a class definition has equation or algorithm sections."""
-function classDefHasSections(classDef::SCode.ClassDef)::Bool
+#= Whether the class definition directly contains any sections (with checkExternal, also an
+   external declaration); omc SCodeUtil.classDefHasSections. =#
+function classDefHasSections(classDef::SCode.ClassDef, checkExternal::Bool = false)::Bool
   local hasSections::Bool
   hasSections = @match classDef begin
     SCode.PARTS() => begin
       !(listEmpty(classDef.normalEquationLst) &&
         listEmpty(classDef.initialEquationLst) &&
         listEmpty(classDef.normalAlgorithmLst) &&
-        listEmpty(classDef.initialAlgorithmLst))
+        listEmpty(classDef.initialAlgorithmLst) &&
+        (!checkExternal || isNone(classDef.externalDecl)))
     end
+    SCode.CLASS_EXTENDS() => classDefHasSections(classDef.composition, checkExternal)
     _ => false
   end
   return hasSections

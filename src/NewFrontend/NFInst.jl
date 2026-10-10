@@ -698,7 +698,9 @@ function makeExternalObjectType(tree::ClassTree, node::InstNode) ::ComplexType
         =#
         if arrayLength(tree.exts) > 1
           for ext in tree.exts
-            if name(ext) != "ExternalObject"
+            #= A base class without elements is allowed (`extends Icon`, a package with an
+               annotation only; omc ExternalObject5). =#
+            if name(ext) != "ExternalObject" && recursiveElementCount(classTree(getClass(ext))) != 0
               @match CLASS_NODE(nodeType = BASE_CLASS(definition = SCode.EXTENDS(baseClassPath = base_path))) = ext
               Error.addSourceMessage(Error.EXTERNAL_OBJECT_INVALID_ELEMENT, list(name(node), "extends " + AbsynUtil.pathString(base_path)), InstNode_info(ext))
               fail()
@@ -3218,8 +3220,13 @@ function instSections2(parts::SCode.ClassDef, scope::InstNode, sections::Section
     #= Plain conditionals instead of matching on a constructed tuple; the
        non-PARTS case keeps its MatchFailure via the single-record match. =#
     if sections isa SECTIONS_EXTERNAL
-      Error.addSourceMessage(Error.MULTIPLE_SECTIONS_IN_FUNCTION, list(name(scope)), InstNode_info(scope))
-      fail()
+      #= An inherited external declaration: an error only with sections of this class's own
+         (omc; `function f extends base_f; end f;` with base_f external, omc FunctionSections5). =#
+      if SCodeUtil.classDefHasSections(parts, true)
+        Error.addSourceMessage(Error.MULTIPLE_SECTIONS_IN_FUNCTION, list(name(scope)), InstNode_info(scope))
+        fail()
+      end
+      return sections
     end
     @match SCode.PARTS(__) = parts
     if isSome(parts.externalDecl)

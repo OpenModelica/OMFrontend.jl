@@ -240,6 +240,18 @@ function extendsCount(tree::ClassTree)::Int
   return count
 end
 
+#= The classes and components of a tree and of its base classes (omc ClassTree.recursiveElementCount). =#
+function recursiveElementCount(tree::ClassTree)::Int
+  local count = classCount(tree) + componentCount(tree)
+  local exts = tree.exts   # (nothing for a flat or empty tree)
+  if exts !== nothing
+    for ext in exts
+      count += recursiveElementCount(classTree(getClass(ext)))
+    end
+  end
+  return count
+end
+
 function componentCount(tree::ClassTree)
   @match tree begin
     CLASS_TREE_PARTIAL_TREE(__) => begin
