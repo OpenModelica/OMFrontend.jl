@@ -367,6 +367,10 @@ function partialInstClass(node::InstNode) ::InstNode
       NOT_INSTANTIATED(__)  => begin
         c = partialInstClass2(definition(node), node)
         node = updateClass(c, node)
+        if c isa PARTIAL_CLASS && isvariant(c.elements, CLASS_TREE_PARTIAL_TREE) && !isempty(c.elements.imports)
+          c = PARTIAL_CLASS(initImports(c.elements, node), c.modifier, c.prefixes)
+          node = updateClass(c, node)
+        end
         ()
       end
       _  => begin
