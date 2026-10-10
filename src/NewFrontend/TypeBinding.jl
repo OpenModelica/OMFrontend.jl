@@ -278,6 +278,11 @@ function typeBindingPayload!(
     end
   end
 
+  if componentDisabled
+    #= omc: a component deleted by a false condition is not typed further; its binding stays
+       untyped (it can call a partial function: omc PartialFunction2). =#
+    return updateComponent!(c, node)
+  end
   checkBindingEach(c.binding)
   local originFlag = setFlag(origin, ORIGIN_BINDING)
   local typedBinding::Binding = typeBinding(binding, originFlag, tyRef, varRef)
