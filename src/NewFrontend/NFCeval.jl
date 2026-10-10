@@ -5055,7 +5055,7 @@ function evalRecordElement(exp::RECORD_ELEMENT_EXPRESSION, target::EvalTarget)
   e = evalExp_impl(e, target)
   try
     result =
-      bindingExpMap(e, @closure (x) -> _recordElementOf(x, index, exp.ty))
+      bindingExpMap(e, @closure (x) -> _recordElementOf(x, index, exp.ty, exp.fieldName))
   catch
     Error.assertion(
       false,
@@ -5074,11 +5074,14 @@ end
 
 #= The field of a record, or of each record of an array of records (Buildings' chillers'
    perChi[numChi]: its records' nCapFunT). =#
-function _recordElementOf(@nospecialize(x::Expression), index::Int, @nospecialize(ty::M_Type))::Expression
+function _recordElementOf(@nospecialize(x::Expression), index::Int, @nospecialize(ty::M_Type), fieldName::String)::Expression
   if x isa ARRAY_EXPRESSION
     local ety = isArray(ty) ? unliftArray(ty) : ty
-    return ARRAY_EXPRESSION(ty, Expression[_recordElementOf(el, index, ety) for el in x.elements], x.literal)
+    return ARRAY_EXPRESSION(ty, Expression[_recordElementOf(el, index, ety, fieldName) for el in x.elements], x.literal)
   end
+  #= A record (array) variable is not evaluated (evalCref): its field is the field's cref,
+     sliced over the array (r3.r2.r.x, omc SlicedCref2). =#
+  x isa CREF_EXPRESSION && return recordElement(fieldName, x)
   return evalRecordElement2(x, index)
 end
 
