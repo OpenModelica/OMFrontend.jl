@@ -174,6 +174,17 @@ function evaluateDimension(dim::Dimension)::Dimension
   @assign outDim = begin
     local e::Expression
     @match dim begin
+      DIMENSION_EXP(__) where {contains(dim.exp, isIterator)} => begin
+        #= A dimension depending on a for-loop iterator (x[:, 1:i] in a for-equation): only its
+           constants are evaluated (omc evaluateDimension; omc FuncBuiltinFill3). =#
+        e = evaluateExp(dim.exp, Variability.STRUCTURAL_PARAMETER)
+        if referenceEq(e, dim.exp)
+          dim
+        else
+          fromExp(e, dim.var)
+        end
+      end
+
       DIMENSION_EXP(__) => begin
         e = evalExp(dim.exp, EVALTARGET_IGNORE_ERRORS())
         if referenceEq(e, dim.exp)
