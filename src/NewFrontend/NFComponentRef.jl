@@ -904,6 +904,9 @@ function transferSubscripts(srcCref::ComponentRef, dstCref::ComponentRef)::Compo
     dstCref
   elseif isvariant(dstCref, COMPONENT_REF_EMPTY)
     dstCref
+  elseif isvariant(dstCref, COMPONENT_REF_WILD)
+    #= `(x, _) = f(time)` in a component (omc FunctionMultiOutput5). =#
+    dstCref
   elseif isvariant(dstCref, COMPONENT_REF_CREF) && dstCref.origin == Origin.ITERATOR
     dstCref
   elseif isvariant(srcCref, COMPONENT_REF_CREF) && isvariant(dstCref, COMPONENT_REF_CREF) && dstCref.origin == Origin.CREF
@@ -911,7 +914,10 @@ function transferSubscripts(srcCref::ComponentRef, dstCref::ComponentRef)::Compo
     COMPONENT_REF_CREF(dstCref.node, dstCref.subscripts, dstCref.ty, dstCref.origin, restCref)
   elseif isvariant(srcCref, COMPONENT_REF_CREF) && isvariant(dstCref, COMPONENT_REF_CREF) && refEqual(srcCref.node, dstCref.node)
     local rc = transferSubscripts(srcCref.restCref, dstCref.restCref)
-    COMPONENT_REF_CREF(dstCref.node, srcCref.subscripts, dstCref.ty, dstCref.origin, rc)
+    #= omc 1.27: subscripts are not removed unless there are some to replace them with (an already
+       flattened cref with a prefix without subscripts keeps its own). =#
+    local subs = listEmpty(srcCref.subscripts) ? dstCref.subscripts : srcCref.subscripts
+    COMPONENT_REF_CREF(dstCref.node, subs, dstCref.ty, dstCref.origin, rc)
   elseif isvariant(srcCref, COMPONENT_REF_CREF) && isvariant(dstCref, COMPONENT_REF_CREF)
     transferSubscripts(srcCref.restCref, dstCref)
   else
