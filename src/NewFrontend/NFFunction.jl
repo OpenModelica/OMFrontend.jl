@@ -727,6 +727,10 @@ function isSpecialBuiltin(fn::M_FUNCTION)::Bool
             true
           end
 
+          "promote" => begin
+            true
+          end
+
           "root" => begin
             true
           end

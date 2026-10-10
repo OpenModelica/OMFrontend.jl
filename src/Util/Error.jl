@@ -2225,6 +2225,14 @@ const ARG_TYPE_MISMATCH =
     Gettext.gettext("Type mismatch for positional argument %s in %s(%s=%s). The argument has type:\\n  %s\\nexpected type:\\n  %s"),
   )::ErrorTypes.Message
 
+const INVALID_NUMBER_OF_DIMENSIONS_FOR_PROMOTE =
+  ErrorTypes.MESSAGE(
+    366,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("The second argument '%s' of promote may not be smaller than the number of dimensions (%s) of the first argument."),
+  )::ErrorTypes.Message
+
 const OP_OVERLOAD_MULTIPLE_VALID =
   ErrorTypes.MESSAGE(
     270,
