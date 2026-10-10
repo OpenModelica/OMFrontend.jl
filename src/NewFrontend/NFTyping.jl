@@ -1036,9 +1036,8 @@ function typeDimension2(
       end
     end
   end
-  #=  Other kinds of dimensions are already typed.
-  =#
-  verifyDimension(dimension, component, info)
+  #=  Other kinds of dimensions are already typed. Negative dimensions are checked when
+     flattening (omc verifyDimensions in NFFlatten). =#
   return dimension
 end
 

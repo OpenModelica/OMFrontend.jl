@@ -483,6 +483,10 @@ function flattenSimpleComponent(
   cmt = comp.comment
   info = comp.info
   var = comp_attr.variability
+  #= Negative dimensions are checked when flattening, a deleted component's are not (omc). =#
+  for d in arrayDims(ty)
+    verifyDimension(d, comp_node, info)
+  end
   #@info "Flatten simple... $(toString(n))"
   if isSome(outerBinding)
     @match SOME(binding) = outerBinding
@@ -691,6 +695,9 @@ function flattenComplexComponent(
   if listEmpty(dims)
     (vars, sections) = flattenClass(cls, name, visibility, opt_binding, vars, sections, nil)
   else
+    for d in dims
+      verifyDimension(d, node, InstNode_info(node))
+    end
     (vars, sections) = flattenArray(cls, dims, name, visibility, opt_binding, vars, sections, nil)
   end
   return (vars, sections)
