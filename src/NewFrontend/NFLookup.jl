@@ -433,9 +433,11 @@ function lookupLocalSimpleName(n::String, scope::InstNode)
   if isvariant(scope, EMPTY_NODE)
     throw("Lookup Error: Attempted to lookup '$n'. However, it was not found in the given scope.")
   end
-  entryInfo = @match ENTRY_INFO(node, isImport) = lookupElement(n, getClass(scope))
-  node = resolveInner(node)
-  return entryInfo#(node, isImport)
+  @match ENTRY_INFO(node, isImport) = lookupElement(n, getClass(scope))
+  #= The inner of an outer element (omc; the resolved node had been dropped, the outer returned:
+     `outer model M = A` found as an inner/outer node, omc InnerOuterClass1). =#
+  local inner_node = resolveInner(node)
+  return inner_node === node ? ENTRY_INFO(node, isImport) : ENTRY_INFO(inner_node, isImport)
 end
 
 
@@ -927,6 +929,37 @@ function generateInner(outerNode::InstNode, topScope::InstNode)
   end
 end
 
+#= The generated inner with its type path fully qualified from the scope of its outer (the class
+   it is declared in), or nothing when that lookup fails. The outer's parent can be a component
+   (`a` for `outer B b` in A a, B local to A; omc InnerOuterMissing8): then its declared class,
+   looked up from its own parent (a definition, so the path is A.B, not the instance path a.B;
+   the instance is not set while a is being instantiated). =#
+function _qualifyGeneratedInnerType(innerNode::InstNode, origScope::InstNode)::Union{InstNode, Nothing}
+  isComponent(innerNode) || return innerNode
+  local comp = component(innerNode)
+  isvariant(comp, COMPONENT_DEF) || return innerNode
+  local def = comp.definition
+  (def isa SCode.COMPONENT && def.typeSpec isa Absyn.TPATH) || return innerNode
+  try
+    local scope = origScope
+    if isComponent(origScope)
+      #= Its declaration from its parent class's definition (a component being instantiated has
+         no SCode definition of its own). =#
+      local pscope = parent(origScope)
+      local cdef = SCodeUtil.getElementNamed(name(origScope), definition(classScope(pscope)))
+      (cdef isa SCode.COMPONENT && cdef.typeSpec isa Absyn.TPATH) || return nothing
+      scope = lookupClassName(cdef.typeSpec.path, pscope, cdef.info, false)
+    end
+    local resolvedNode = lookupClassName(def.typeSpec.path, scope, def.info, false)
+    def = SCode.COMPONENT(def.name, def.prefixes, def.attributes,
+                          Absyn.TPATH(scopePath(resolvedNode), def.typeSpec.arrayDim),
+                          def.modifications, def.comment, def.condition, def.info)
+    return updateComponent!(COMPONENT_DEF(def, comp.modifier), innerNode)
+  catch
+    return nothing
+  end
+end
+
 function generateInner2(outerNode::InstNode, topScope::InstNode)
   local innerNode::InstNode
   local cache::CachedData
@@ -947,24 +980,8 @@ function generateInner2(outerNode::InstNode, topScope::InstNode)
              relative to the outer's original scope (e.g. Modelica.StateGraph).
              After setParent moves the node to the top-level model, this relative
              path would be looked up in the wrong scope. =#
-          try
-            local origScope = parent(outerNode)
-            local comp = component(innerNode)
-            if isvariant(comp, COMPONENT_DEF)
-              local def = comp.definition
-              if def isa SCode.COMPONENT && def.typeSpec isa Absyn.TPATH
-                local resolvedNode = lookupClassName(def.typeSpec.path, origScope, def.info, false)
-                local qualPath = scopePath(resolvedNode)
-                def = SCode.COMPONENT(def.name, def.prefixes, def.attributes,
-                  Absyn.TPATH(qualPath, def.typeSpec.arrayDim),
-                  def.modifications, def.comment, def.condition, def.info)
-                innerNode = updateComponent!(COMPONENT_DEF(def, comp.modifier), innerNode)
-              end
-            end
-          catch e
-            #= If lookup fails, proceed with the original relative path.
-               The error will surface later during instComponent. =#
-          end
+          local qualified = _qualifyGeneratedInnerType(innerNode, parent(outerNode))
+          qualified === nothing || (innerNode = qualified)
           innerNode = setParent(cache.rootClass, innerNode)
           local addedInner = NodeTree.add(cache.addedInner, nameStr, innerNode)
           cache = C_TOP_SCOPE(addedInner, cache.rootClass)

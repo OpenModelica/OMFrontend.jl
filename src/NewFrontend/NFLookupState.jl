@@ -251,6 +251,10 @@ function nodeState(node::InstNode)::LookupState
     state = LOOKUP_STATE_COMP()
   elseif isvariant(node, CLASS_NODE) || isvariant(node, COMPONENT_NODE)
     state = elementState(definition(node))
+  elseif isvariant(node, INNER_OUTER_NODE)
+    #= An outer class linked to its inner (`outer model M = A` with `inner model M = B`): the
+       inner's (omc: elementState of its definition; omc InnerOuterClass1). =#
+    state = nodeState(node.innerNode)
   else
     state = LOOKUP_STATE_ERROR(LOOKUP_STATE_BEGIN()) #fail()
   end
