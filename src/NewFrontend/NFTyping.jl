@@ -884,7 +884,17 @@ function typeDimension2(
         dim
       end
 
-     DIMENSION_UNKNOWN(__) where {(flagSet(origin, ORIGIN_FUNCTION))} => begin
+      #= Dimensions in a function can be flexible (non-output component, or an output without a
+         binding) or determined by the call arguments: keep them unknown (omc typeDimension). =#
+      DIMENSION_UNKNOWN(__) where {flagSet(origin, ORIGIN_FUNCTION) &&
+                                   ((isUnbound(binding) && isOutput(component)) || !isOutput(component))} => begin
+        dimension
+      end
+
+      #= An output's dimension whose binding depends on e.g. an input can't be determined here,
+         the call typing does it (omc typeDimension). =#
+      DIMENSION_UNKNOWN(__) where {flagSet(origin, ORIGIN_FUNCTION) && hasExp(binding) &&
+                                   contains(getBindingExp(getExp(binding)), isCref)} => begin
         dimension
       end
 
