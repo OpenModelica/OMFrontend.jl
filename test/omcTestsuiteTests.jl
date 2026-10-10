@@ -3,7 +3,7 @@ Tests from OpenModelica's flattening testsuite (omc v1.27.1, testsuite/flattenin
 OSMC-PL as this package), copied unchanged as OmcTestsuite/<dir>_<file>. Each file is flattened as omc
 flattens it (the class named by `// name:`, by `-i=` in `// cflags:`, or else the file's last top-level
 class) and its variables are compared by name with omc's flat model in the file (`// Result:` ...
-`// endResult`).
+`// endResult`). A test with `// status: incorrect` must be rejected.
 =#
 
 const OMC_TESTSUITE_DIR = joinpath(@__DIR__, "OmcTestsuite")
@@ -106,10 +106,16 @@ end
   for file in sort(filter(endswith(".mo"), readdir(OMC_TESTSUITE_DIR; join = true)))
     @testset "$(basename(file))" begin
       local source = read(file, String)
-      local scode = OMFrontend.translateToSCode(OMFrontend.parseFile(file))
-      local (fm, _) = OMFrontend.instantiateSCodeToFM(omcTestClass(source), scode)
-      local ours = omcFlatVariables(replace(OMFrontend.Frontend.toString(fm), "\\n" => "\n"))
-      @test ours == omcFlatVariables(omcExpectedFlat(source))
+      if occursin(r"^//\s*status:\s*incorrect"m, source)
+        #= omc rejects the model: so must we. =#
+        @test_throws Exception OMFrontend.instantiateSCodeToFM(omcTestClass(source),
+                                                               OMFrontend.translateToSCode(OMFrontend.parseFile(file)))
+      else
+        local scode = OMFrontend.translateToSCode(OMFrontend.parseFile(file))
+        local (fm, _) = OMFrontend.instantiateSCodeToFM(omcTestClass(source), scode)
+        local ours = omcFlatVariables(replace(OMFrontend.Frontend.toString(fm), "\\n" => "\n"))
+        @test ours == omcFlatVariables(omcExpectedFlat(source))
+      end
     end
   end
 end
