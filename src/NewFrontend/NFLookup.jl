@@ -511,8 +511,21 @@ function lookupFirstIdent(name::String, scope::InstNode, lookupStateRef::Ref{Loo
   local node::Union{InstNode,Nothing}
   local selfReference::Bool = false
   node = lookupSimpleBuiltinName(name)
-  if node !== nothing
+  if node !== nothing && name == "Clock"
+    #= omc 1.27: Clock is a class of the builtin library, found by the scope lookup, so a
+       class of the model named Clock shadows it (omc Clock5: record Clock; Clock c = Clock(1)).
+       Here a builtin name: the model's scopes first. =#
+    try
+      local (found, self) = lookupSimpleName(name, scope)
+      node = found
+      selfReference = self
+    catch
+    end
+  end
+  if node !== nothing && node === NFBuiltin.BUILTIN_DICT[name]
     state = LOOKUP_STATE_PREDEF_CLASS()
+  elseif node !== nothing
+    state = nodeState(node)
   else
     (node, selfReference) = lookupSimpleName(name, scope)
     state = nodeState(node)
