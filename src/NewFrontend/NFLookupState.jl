@@ -161,6 +161,12 @@ end
   elseif currentState isa LOOKUP_STATE_COMP_COMP
     if elementState isa LOOKUP_STATE_COMP
       return LOOKUP_STATE_COMP_COMP()
+    elseif elementState isa LOOKUP_STATE_FUNC
+      #= omc 1.27 (where a component in a component stays COMP): a function through a chain
+         of components, b.a.f(1) (omc FuncViaComp3). =#
+      return LOOKUP_STATE_COMP_FUNC()
+    elseif elementState isa LOOKUP_STATE_CLASS || elementState isa LOOKUP_STATE_PACKAGE
+      return LOOKUP_STATE_COMP_CLASS()
     else
       return LOOKUP_STATE_ERROR(LOOKUP_STATE_COMP_COMP())
     end
