@@ -207,11 +207,14 @@ function checkDuplicates2(
   local kept::InstNode
   local dup::InstNode
 
+  #= All removed by `break`. =#
+  isNone(entry.node) && return tree
   @match SOME(kept) = entry.node
   if entry.ty != DuplicateTree.EntryType.REDECLARE
     for c in entry.children
       @match SOME(dup) = c.node
-      checkIdentical(kept, dup)
+      #= Removed by `break` (omc checkDuplicates2). =#
+      isvariant(dup, EMPTY_NODE) || checkIdentical(kept, dup)
     end
   end
   return tree
@@ -1140,6 +1143,7 @@ function instantiate(
           end
       end
       reverse!(local_comps)
+      breakComponents(instance, comps, ltree, dups)
       #=  Sanity check.
       =#
       if comp_idx != compCount + 1
@@ -1191,6 +1195,11 @@ function instantiate(
         end
         tree = CLASS_TREE_FLAT_TREE(tree.tree, tree.classes, old_comps, tree.imports, tree.duplicates)
         cls = PARTIAL_BUILTIN(cls.ty, tree, cls.modifier, cls.prefixes, cls.restriction)
+        #= A builtin type's attributes cannot be broken (`extends Real(break start)`, omc). =#
+        for bm in getBreakModsInExtend(instance)
+          Error.addSourceMessage(Error.NON_BREAKABLE_ELEMENT, list(bm.ident), bm.mod.info)
+          fail()
+        end
         compCount = length(old_comps)
       end
     PARTIAL_BUILTIN(__) => begin
@@ -1565,6 +1574,76 @@ end
   Checks that a class used as outer is valid, i.e. is a short class
   definition with no modifier.
 """
+#= The component break modifiers of a base class node (`extends A(break x)`), none for any other
+   node (omc ClassTree.getBreakModsInExtend). =#
+function getBreakModsInExtend(extendsNode::InstNode)::Vector{SCode.SubMod}
+  local breaks = SCode.SubMod[]
+  isvariant(extendsNode, CLASS_NODE) || return breaks
+  local ty = nodeType(extendsNode)
+  isvariant(ty, DERIVED_CLASS) && (ty = ty.ty)
+  isvariant(ty, BASE_CLASS) || return breaks
+  local def = ty.definition
+  (def isa SCode.EXTENDS && def.modifications isa SCode.MOD) || return breaks
+  for sm in def.modifications.subModLst
+    sm.mod isa SCode.BREAK_COMPONENT && push!(breaks, sm)
+  end
+  return breaks
+end
+
+#= Applies the component break modifiers of a base class: each broken component becomes an empty
+   node (omc ClassTree.breakComponents). =#
+function breakComponents(node::InstNode, components::Vector{Pointer{InstNode}}, tree::LookupTree.Tree,
+                         duplicates::DuplicateTree.Tree)::Nothing
+  local break_mods = getBreakModsInExtend(node)
+  isempty(break_mods) && return nothing
+  for bm in break_mods
+    local info = bm.mod.info
+    #= The duplicate tree first, then the lookup tree. =#
+    local entries = LookupTree.Entry[]
+    local opt_dentry = DuplicateTree.getOpt(duplicates, bm.ident)
+    if isSome(opt_dentry)
+      local dentry = Util.getOption(opt_dentry)
+      push!(entries, dentry.entry)
+      append!(entries, [c.entry for c in dentry.children])
+    elseif haskey(tree, bm.ident)
+      push!(entries, tree[bm.ident])
+    end
+    #= The element must exist and not be an imported name (modifiers do not apply to those). =#
+    if isempty(entries) || all(LookupTree.isImport, entries)
+      Error.addSourceMessage(Error.MISSING_MODIFIED_ELEMENT, list(bm.ident, name(node)), info)
+      fail()
+    end
+    for e in entries
+      if !(e isa LookupTree.COMPONENT)
+        Error.addSourceMessage(Error.NON_BREAKABLE_ELEMENT, list(bm.ident), info)
+        fail()
+      end
+      checkIsBreakable(P_Pointer.access(components[e.index]), node, info)
+      P_Pointer.update(components[e.index], EMPTY_NODE())
+    end
+  end
+  return nothing
+end
+
+#= A broken component must be a model, block or connector (omc ClassTree.checkIsBreakable). =#
+function checkIsBreakable(node::InstNode, scope::InstNode, info::SourceInfo)::Nothing
+  local restriction::SCode.Restriction = SCode.R_CLASS()
+  local def = definition(node)
+  if def isa SCode.COMPONENT && def.typeSpec isa Absyn.TPATH
+    try
+      local cls_node = lookupName(def.typeSpec.path, scope, Ref{LookupState}(LOOKUP_STATE_BEGIN()), false)
+      restriction = SCodeUtil.getClassRestriction(definition(cls_node))
+    catch
+      restriction = SCode.R_CLASS()
+    end
+  end
+  if !(restriction isa SCode.R_MODEL || restriction isa SCode.R_BLOCK || restriction isa SCode.R_CONNECTOR)
+    Error.addMultiSourceMessage(Error.NON_BREAKABLE_COMPONENT, list(name(node)), list(info, InstNode_info(node)))
+    fail()
+  end
+  return nothing
+end
+
 function checkOuterClass(outerCls::InstNode)
   local def::SCode.ClassDef
 
@@ -1671,11 +1750,41 @@ function replaceDuplicates2(
         kept = P_Pointer.access(resolveEntryPtr(entry.entry, tree))
         entry = replaceDuplicates4(entry, kept)
     elseif entry.ty == DuplicateTree.EntryType.DUPLICATE
-        kept = P_Pointer.access(node_ptr)
-        local children = DuplicateTree.DUPLICATE_TREE_ENTRY[replaceDuplicates3(c, kept, tree) for c in entry.children]
-        entry = DuplicateTree.DUPLICATE_TREE_ENTRY(entry.entry, SOME(kept), children, entry.ty)
+        #= The first element not removed by `break` is kept and replaces the other duplicates;
+           broken ones stay empty and go last (omc replaceDuplicates2). =#
+        local entries = DuplicateTree.DUPLICATE_TREE_ENTRY[]
+        local broken = DuplicateTree.DUPLICATE_TREE_ENTRY[]
+        kept = EMPTY_NODE()
+        for e in _duplicateEntryList(entry)
+          local node = P_Pointer.access(resolveEntryPtr(e.entry, tree))
+          local flat = DuplicateTree.DUPLICATE_TREE_ENTRY(e.entry, SOME(node), DuplicateTree.DUPLICATE_TREE_ENTRY[], e.ty)
+          if isvariant(node, EMPTY_NODE)
+            push!(broken, flat)
+          else
+            isvariant(kept, EMPTY_NODE) && (kept = node)
+            push!(entries, flat)
+          end
+        end
+        for e in entries
+          P_Pointer.update(resolveEntryPtr(e.entry, tree), kept)
+        end
+        entry = if isempty(entries)
+          DuplicateTree.DUPLICATE_TREE_ENTRY(entry.entry, NONE(), DuplicateTree.DUPLICATE_TREE_ENTRY[], entry.ty)
+        else
+          DuplicateTree.DUPLICATE_TREE_ENTRY(entries[1].entry, entries[1].node, vcat(entries[2:end], broken), entry.ty)
+        end
     end
   return entry
+end
+
+#= A duplicate entry and its children, depth first (omc DuplicateTree.entryToList). =#
+function _duplicateEntryList(entry::DuplicateTree.DUPLICATE_TREE_ENTRY,
+                             out::Vector{DuplicateTree.DUPLICATE_TREE_ENTRY} = DuplicateTree.DUPLICATE_TREE_ENTRY[])::Vector{DuplicateTree.DUPLICATE_TREE_ENTRY}
+  push!(out, entry)
+  for c in entry.children
+    _duplicateEntryList(c, out)
+  end
+  return out
 end
 
 function getRedeclareChain(

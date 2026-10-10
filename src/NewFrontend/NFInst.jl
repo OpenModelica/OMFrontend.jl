@@ -1292,7 +1292,11 @@ function applyModifier(modifier::Modifier, cls::ClassTree, clsName::String) ::Cl
             Error.addSourceMessage(Error.MISSING_MODIFIED_ELEMENT, list(name(mod), clsName), Modifier_info(mod))
             fail()
           end
+          local found = false
           for node_ptr in node_ptrs
+            #= A component removed by `break` (omc applyModifier). =#
+            isvariant(P_Pointer.access(node_ptr), EMPTY_NODE) && continue
+            found = true
             node = resolveOuter(P_Pointer.access(node_ptr))
             if isComponent(node)
               local n2 = componentApply(node, mergeModifier, mod)
@@ -1309,6 +1313,10 @@ function applyModifier(modifier::Modifier, cls::ClassTree, clsName::String) ::Cl
               node = clearPackageCache(node)
               P_Pointer.update(node_ptr, node)
             end
+          end
+          if !found
+            Error.addSourceMessage(Error.MISSING_MODIFIED_ELEMENT, list(name(mod), clsName), Modifier_info(mod))
+            fail()
           end
         end
         ()
@@ -1546,6 +1554,8 @@ function instComponent(node::InstNode,
   local inner_mod::Modifier
   local cc_mod::Modifier = innerMod
   local parentNode::InstNode
+  #= A component removed by `break` (omc instComponent). =#
+  isvariant(node, EMPTY_NODE) && return node
   comp_node = resolveOuter(node)
   comp = component(comp_node)
   parentNode = parent(comp_node)
@@ -2431,9 +2441,91 @@ function dumpInstDiagnostics(modelName::String; topN::Int = 20)
   println()
 end
 
+#= Connect breaks (`extends A(break connect(a, b))`) apply to the connects of the base class and of
+   its own base classes, not to those of components' classes (omc instExpressions). =#
+mutable struct ConnectBreakEntry
+  hasMatch::Bool
+  mod::SCode.BREAK_CONNECT
+end
+
+const ConnectBreaks = Dict{Tuple{String, String}, ConnectBreakEntry}
+
+#= Shared empty table: never mutated (appendConnectBreaks copies before adding). =#
+const NO_CONNECT_BREAKS = ConnectBreaks()
+
+#= The table with the connect breaks of a base class node added (both orders of the connectors),
+   and the new entries, checked for a matching connect once its sections are instantiated (omc
+   ConnectBreakTree.appendBreaksInNode). =#
+function appendConnectBreaks(node::InstNode, breaks::ConnectBreaks)::Tuple{ConnectBreaks, Vector{ConnectBreakEntry}}
+  local news = ConnectBreakEntry[]
+  isvariant(node, CLASS_NODE) || return (breaks, news)
+  local ty = nodeType(node)
+  isvariant(ty, DERIVED_CLASS) && (ty = ty.ty)
+  isvariant(ty, BASE_CLASS) || return (breaks, news)
+  local def = ty.definition
+  (def isa SCode.EXTENDS && def.modifications isa SCode.MOD) || return (breaks, news)
+  for sm in def.modifications.subModLst
+    sm.mod isa SCode.BREAK_CONNECT || continue
+    local entry = ConnectBreakEntry(false, sm.mod)
+    push!(news, entry)
+    #= The inherited table is shared with the enclosing class: copy it before the first addition. =#
+    length(news) == 1 && (breaks = copy(breaks))
+    local lhs = AbsynUtil.printComponentRefStr(sm.mod.lhs)
+    local rhs = AbsynUtil.printComponentRefStr(sm.mod.rhs)
+    breaks[(lhs, rhs)] = entry
+    breaks[(rhs, lhs)] = entry
+  end
+  return (breaks, news)
+end
+
+#= Whether a connect-equation is broken; marks its entry as matched. A connect involving a broken
+   component is not a match (it goes with the component; omc ConnectBreakTree.isConnectBroken). =#
+function isConnectBroken(lhs::Absyn.ComponentRef, rhs::Absyn.ComponentRef, scope::InstNode,
+                         breaks::ConnectBreaks)::Bool
+  isempty(breaks) && return false
+  local entry = get(breaks, (AbsynUtil.printComponentRefStr(lhs), AbsynUtil.printComponentRefStr(rhs)), nothing)
+  entry === nothing && return false
+  (_isBrokenComponent(lhs, scope) || _isBrokenComponent(rhs, scope)) && return false
+  entry.hasMatch = true
+  return true
+end
+
+#= Whether the cref's first part names a component of the scope removed by `break`; a name that
+   is not there is not (its connect gets the lookup error). =#
+function _isBrokenComponent(cref::Absyn.ComponentRef, scope::InstNode)::Bool
+  isvariant(scope, CLASS_NODE) || return false
+  local tree = classTree(getClass(scope))
+  local entry = get(lookupTree(tree), AbsynUtil.crefFirstIdent(cref), nothing)
+  entry isa LookupTree.COMPONENT || return false
+  return isvariant(nthComponent(entry.index, tree), EMPTY_NODE)
+end
+
+function checkUnmatchedConnectBreaks(entries::Vector{ConnectBreakEntry})::Nothing
+  for e in entries
+    if !e.hasMatch
+      Error.addSourceMessage(Error.UNMATCHED_BREAK_CONNECT,
+        list(AbsynUtil.printComponentRefStr(e.mod.lhs), AbsynUtil.printComponentRefStr(e.mod.rhs)), e.mod.info)
+      fail()
+    end
+  end
+  return nothing
+end
+
+#= The connect breaks of the sections being instantiated by this task (set by instSections2). =#
+_connectBreaks()::ConnectBreaks = get(task_local_storage(), :NFConnectBreaks, NO_CONNECT_BREAKS)::ConnectBreaks
+
+#= A connect removed by a connect break, or involving a component removed by a component break
+   (omc instEEquation drops both). =#
+function _isBrokenConnect(@nospecialize(eq::SCode.EEquation), scope::InstNode, breaks::ConnectBreaks)::Bool
+  eq isa SCode.EQ_CONNECT || return false
+  isConnectBroken(eq.crefLeft, eq.crefRight, scope, breaks) && return true
+  return _isBrokenComponent(eq.crefLeft, scope) || _isBrokenComponent(eq.crefRight, scope)
+end
+
 function instExpressions(node::InstNode,
                          scope::InstNode = node,
-                         sections::Sections = SECTIONS_EMPTY())
+                         sections::Sections = SECTIONS_EMPTY(),
+                         connectBreaks::ConnectBreaks = NO_CONNECT_BREAKS)
   INST_EXPR_DEPTH[] += 1
   if INST_EXPR_DEPTH[] > INST_EXPR_DEPTH_LIMIT
     nodeName = try name(node) catch; "<unknown>" end
@@ -2483,10 +2575,11 @@ function instExpressions(node::InstNode,
     end
 
     EXPANDED_CLASS(elements = cls_tree)  => begin
+      local (connect_breaks, local_connect_breaks) = appendConnectBreaks(node, connectBreaks)
       #=  Instantiate expressions in the extends nodes.
       =#
       for ext in getExtends(cls_tree)
-        sections = instExpressions(ext, ext, sections)
+        sections = instExpressions(ext, ext, sections, connect_breaks)
       end
       #=  Instantiate expressions in the local components.
       =#
@@ -2498,7 +2591,8 @@ function instExpressions(node::InstNode,
       node = updateClass(cls, node)
       #=  Instantiate local equation/algorithm sections.
       =#
-      sections = instSections(node, scope, sections, isFunction(cls.restriction))
+      sections = instSections(node, scope, sections, isFunction(cls.restriction), connect_breaks)
+      checkUnmatchedConnectBreaks(local_connect_breaks)
       ty = makeComplexType(cls.restriction, node, cls)
       inst_cls = INSTANCED_CLASS(ty, cls.elements, sections, cls.restriction)
       node = updateClass(inst_cls, node)
@@ -2647,6 +2741,8 @@ function instBuiltinAttributeModifier(attribute::Modifier, node::InstNode)
 end
 
 function instComponentExpressions(componentArg::InstNode)::InstNode
+  #= A component removed by `break` (omc). =#
+  isvariant(componentArg, EMPTY_NODE) && return componentArg
   local node::InstNode = resolveOuter(componentArg)
   local c::Component = component(node)
   local dims::Vector{Dimension}
@@ -2716,6 +2812,10 @@ function instBinding(bindingVar::Binding)
   bindingVar = begin
     local bind_exp::Expression
     @match bindingVar begin
+      #= Removed by a break (`x = break`, Modelica 3.6): unbound (omc instBinding). =#
+      RAW_BINDING(__) where {bindingVar.bindingExp isa Absyn.BREAK} => begin
+        EMPTY_BINDING
+      end
       RAW_BINDING(__)  => begin
         bind_exp = instExp(bindingVar.bindingExp, bindingVar.scope, bindingVar.info)
         #= TODO: Convert the array in binding exp to a vector =#
@@ -3054,16 +3154,17 @@ function instPartEvalFunction(func::Absyn.ComponentRef, funcArgs::Absyn.Function
   outExp
 end
 
-function instSections(node::InstNode, scope::InstNode, sections::Sections, isFunction::Bool) ::Sections
+function instSections(node::InstNode, scope::InstNode, sections::Sections, isFunction::Bool,
+                      connectBreaks::ConnectBreaks = NO_CONNECT_BREAKS) ::Sections
   local el::SCode.Element = definition(node)
   local def::SCode.ClassDef
   @assign sections = begin
     @match el begin
       SCode.CLASS(classDef = SCode.PARTS(__))  => begin
-        instSections2(el.classDef, scope, sections, isFunction)
+        instSections2(el.classDef, scope, sections, isFunction, connectBreaks)
       end
       SCode.CLASS(classDef = SCode.CLASS_EXTENDS(composition = def && SCode.PARTS(__)))  => begin
-        instSections2(def, scope, sections, isFunction)
+        instSections2(def, scope, sections, isFunction, connectBreaks)
       end
       _  => begin
         sections
@@ -3073,7 +3174,8 @@ function instSections(node::InstNode, scope::InstNode, sections::Sections, isFun
   sections
 end
 
-function instSections2(parts::SCode.ClassDef, scope::InstNode, sections::Sections, isFunction::Bool) ::Sections
+function instSections2(parts::SCode.ClassDef, scope::InstNode, sections::Sections, isFunction::Bool,
+                       connectBreaks::ConnectBreaks = NO_CONNECT_BREAKS) ::Sections
   sections = begin
     local eq::Vector{Equation}
     local ieq::Vector{Equation}
@@ -3098,7 +3200,7 @@ function instSections2(parts::SCode.ClassDef, scope::InstNode, sections::Section
         ORIGIN_CLASS
       end
       iorigin = setFlag(origin, ORIGIN_INITIAL)
-      eq = instEquations(parts.normalEquationLst, scope, origin)
+      eq = task_local_storage(() -> instEquations(parts.normalEquationLst, scope, origin), :NFConnectBreaks, connectBreaks)
       ieq = instEquations(parts.initialEquationLst, scope, iorigin)
       alg = instAlgorithmSections(parts.normalAlgorithmLst, scope, origin)
       ialg = instAlgorithmSections(parts.initialAlgorithmLst, scope, iorigin)
@@ -3170,7 +3272,8 @@ function checkExternalDeclLanguage(language::String, info::SourceInfo)
 end
 
 function instEquations(scodeEql::List{<:SCode.Equation}, scope::InstNode, origin::ORIGIN_Type)
-  instEql = Equation[instEquation(eq, scope, origin) for eq in scodeEql]
+  local breaks = _connectBreaks()
+  instEql = Equation[instEquation(eq, scope, origin) for eq in scodeEql if !_isBrokenConnect(eq.eEquation, scope, breaks)]
   return instEql
 end
 
@@ -3183,7 +3286,8 @@ function instEquation(scodeEq::SCode.Equation, scope::InstNode, origin::ORIGIN_T
 end
 
 function instEEquations(scodeEql::List{SCode.EEquation}, scope::InstNode, origin::ORIGIN_Type)
-  instEql = Equation[instEEquation(eq, scope, origin) for eq in scodeEql]
+  local breaks = _connectBreaks()
+  instEql = Equation[instEEquation(eq, scope, origin) for eq in scodeEql if !_isBrokenConnect(eq, scope, breaks)]
   return instEql
 end
 
@@ -3465,6 +3569,8 @@ function updateImplicitVariabilityCls(cls::Class, evalAllParams::Bool)::Nothing
 end
 
 function updateImplicitVariabilityComp(node::InstNode, evalAllParams::Bool)::Nothing
+  #= A component removed by `break` (omc). =#
+  isvariant(node, EMPTY_NODE) && return nothing
   if isvariant(node, INNER_OUTER_NODE)
     local resolved::InstNode = resolveOuter(node)
     return updateImplicitVariabilityComp(resolved, evalAllParams)::Nothing

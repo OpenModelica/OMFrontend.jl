@@ -161,6 +161,8 @@ function typeComponentBindingRef(inComponent::InstNode,
                                  typeChildren::Bool,
                                  tyRef::Ref{NFType},
                                  varRef::Ref{VariabilityType})
+  #= A component removed by `break` (omc). =#
+  isvariant(inComponent, EMPTY_NODE) && return inComponent
   local n = resolveOuter(inComponent)
   local is_self = referenceEq(n, inComponent)
   local c = component(n)
@@ -172,6 +174,8 @@ function typeComponentBindingRef(inComponent::InstNode,
                                  origin::ORIGIN_Type,
                                  tyRef::Ref{NFType},
                                  varRef::Ref{VariabilityType})
+  #= A component removed by `break` (omc). =#
+  isvariant(inComponent, EMPTY_NODE) && return inComponent
   local n = resolveOuter(inComponent)
   local is_self = referenceEq(n, inComponent)
   local c = component(n)
@@ -331,6 +335,8 @@ end
 @noinline  function typeComponentBinding(inComponent::InstNode,
                                          origin::ORIGIN_Type,
                                          typeChildren::Bool)
+  #= A component removed by `break` (omc). =#
+  isvariant(inComponent, EMPTY_NODE) && return inComponent
   local n = resolveOuter(inComponent)
   local is_self = referenceEq(n, inComponent)
   if _parallelTypingActive()

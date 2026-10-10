@@ -541,6 +541,8 @@ function typeComponent(inComponent::InstNode, origin::ORIGIN_Type)::NFType
 end
 
 function typeComponentNode(inComponent::InstNode, origin::ORIGIN_Type)::Tuple{InstNode,NFType}
+  #= A component removed by `break` (omc). =#
+  isvariant(inComponent, EMPTY_NODE) && return (inComponent, TYPE_UNKNOWN())
   local depthRef = _typeDepthRef()
   depthRef[] += 1
   local currentDepth = depthRef[]
@@ -3435,6 +3437,8 @@ end
 
 function typeComponentSections(c::InstNode, origin::ORIGIN_Type)::InstNode
   local comp::Component
+  #= A component removed by `break` (omc). =#
+  isvariant(c, EMPTY_NODE) && return c
 
   local node = resolveOuter(c)
   local is_self = referenceEq(node, c)
