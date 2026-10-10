@@ -1144,6 +1144,10 @@ function nodeVariability(cref::ComponentRef)::VariabilityType
       COMPONENT_REF_CREF(node = COMPONENT_NODE(__)) => begin
         variability(component(cref.node))
       end
+      #= A class, e.g. a function passed as a functional argument (omc). =#
+      COMPONENT_REF_CREF(node = CLASS_NODE(__)) => begin
+        Variability.CONSTANT
+      end
       _ => begin
         Variability.CONTINUOUS
       end

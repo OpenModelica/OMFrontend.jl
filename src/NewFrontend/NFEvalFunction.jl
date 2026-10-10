@@ -297,6 +297,12 @@ function createReplacements(fn::M_Function, args::Vector{Expression})::ReplTree.
   for (j,i) in enumerate(fn.inputs)
     arg = rest_args[j]
     repl = addInputReplacement(i, arg, repl)
+    #= A function pointer argument: calls to the parameter's function are calls to it (omc). =#
+    if isFunctionPointerExp(arg)
+      for pfn in _cachedFuncsOrEmpty(i)
+        repl = ReplTree.add(repl, pfn.node, arg)
+      end
+    end
   end
   #=
   Add outputs and local variables to the replacement tree. These do need to
@@ -490,12 +496,73 @@ function applyReplacements2(repl::ReplTree.Tree, @nospecialize(exp::Expression))
       CREF_EXPRESSION(__) => begin
         applyReplacementCref(repl, exp.cref, exp)
       end
+      CALL_EXPRESSION(__) => begin
+        applyReplacementCall(repl, exp.call, exp)
+      end
+      UNBOX_EXPRESSION(__) => begin
+        exp.exp
+      end
       _ => begin
         exp
       end
     end
   end
   return exp
+end
+
+#= A function pointer: a cref to a function, or a function partial application (omc). =#
+function isFunctionPointerExp(@nospecialize(exp::Expression))::Bool
+  return (exp isa CREF_EXPRESSION && isvariant(exp.ty, TYPE_FUNCTION)) || exp isa PARTIAL_FUNCTION_APPLICATION_EXPRESSION
+end
+
+#= The functions cached on a node's class, none when it has no function cache. =#
+function _cachedFuncsOrEmpty(node::InstNode)::Vector{M_FUNCTION}
+  local cache = getFuncCache(classScope(node))
+  return cache isa C_FUNCTION ? M_FUNCTION[f for f in cache.funcs] : M_FUNCTION[]
+end
+
+#= A call of a function given as a function pointer argument: a call of the function it points
+   to, with the partial application's arguments merged in (omc applyReplacementCall). =#
+function applyReplacementCall(repl::ReplTree.Tree, call::Call, @nospecialize(exp::Expression))::Expression
+  @match call begin
+    TYPED_CALL(__) => begin
+      local repl_exp = ReplTree.tryGet(repl, call.fn.node)
+      repl_exp === nothing && return exp
+      if repl_exp isa CREF_EXPRESSION && isvariant(repl_exp.ty, TYPE_FUNCTION)
+        local fn = repl_exp.ty.fn
+        local args = mergeFunctionApplicationArgs(call.fn, call.arguments, fn, Expression[], String[])
+        return CALL_EXPRESSION(TYPED_CALL(fn, call.ty, call.var, args, call.attributes))
+      elseif repl_exp isa PARTIAL_FUNCTION_APPLICATION_EXPRESSION
+        local fn = Base.first(getCachedFuncs(node(repl_exp.fn)))
+        local args = mergeFunctionApplicationArgs(call.fn, call.arguments, fn,
+                                                  Expression[a for a in repl_exp.args], String[n for n in repl_exp.argNames])
+        return CALL_EXPRESSION(TYPED_CALL(fn, call.ty, call.var, args, call.attributes))
+      end
+      return exp
+    end
+    _ => begin
+      return exp
+    end
+  end
+end
+
+#= The arguments of a call of newFn replacing one of oldFn: newFn's defaults, oldFn's arguments by
+   name, then the partial application's named ones (omc mergeFunctionApplicationArgs). =#
+function mergeFunctionApplicationArgs(oldFn::M_FUNCTION, oldArgs::Vector{Expression}, newFn::M_FUNCTION,
+                                      newArgs::Vector{Expression}, argNames::Vector{String})::Vector{Expression}
+  local arg_map = Dict{String, Expression}()
+  for sl in newFn.slots
+    if isSome(sl.default)
+      arg_map[sl.name] = unbox(Util.getOption(sl.default))
+    end
+  end
+  for (k, i) in enumerate(oldFn.inputs)
+    arg_map[name(i)] = unbox(oldArgs[k])
+  end
+  for (k, n) in enumerate(argNames)
+    arg_map[n] = unbox(newArgs[k])
+  end
+  return Expression[arg_map[name(i)] for i in newFn.inputs]
 end
 
 function applyReplacementCref(

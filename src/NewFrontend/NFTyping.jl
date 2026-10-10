@@ -2135,7 +2135,7 @@ end
       local crefRestCref = typeCref2(cref.restCref, origin, Ref{VariabilityType}(Variability.CONSTANT), info, false)
       @assign cref.ty = crefTy
       @assign cref.restCref = crefRestCref
-      variabilityTypeRef.x = Variability.CONTINUOUS
+      variabilityTypeRef.x = Variability.CONSTANT
       cref
     end
 
