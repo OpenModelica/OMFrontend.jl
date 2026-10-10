@@ -1560,7 +1560,8 @@ function instComponent(node::InstNode,
                        useBinding::Bool,
                        instLevel::Int,
                        attributeRef::Ref{Attributes},
-                       originalAttr = NONE())::InstNode
+                       originalAttr = NONE();
+                       propagatedParents::List{InstNode} = Nil{InstNode}())::InstNode
   local comp::Component
   local def::SCode.COMPONENT
   local comp_node::InstNode
@@ -1583,6 +1584,7 @@ function instComponent(node::InstNode,
   @match COMPONENT_DEF(definition = def, modifier = outer_mod) = comp
   if isRedeclare(outer_mod)
     checkOuterComponentMod(outer_mod, def, comp_node)
+    local rdcl_parents = outer_mod.propagatedParents
     @match MODIFIER_REDECLARE(element = rdcl_node, innerMod = inner_mod, outerMod = outer_mod,
                               constrainingMod = cc_mod) = outer_mod
     comp_node = instComponentDef(def::SCode.COMPONENT, MODIFIER_NOMOD(), inner_mod,
@@ -1591,7 +1593,8 @@ function instComponent(node::InstNode,
     cc_mod = merge(elementConstrainingMod(def, parentNode, cc_mod), innerMod)
     outer_mod = merge(getModifier(rdcl_node), outer_mod)
     rdcl_node = setModifier(outer_mod, rdcl_node)
-    comp_node = redeclareComponent(rdcl_node, node, MODIFIER_NOMOD(), cc_mod, attributes, node, instLevel, attributeRef)
+    comp_node = redeclareComponent(rdcl_node, node, MODIFIER_NOMOD(), cc_mod, attributes, node, instLevel, attributeRef;
+                                   propagatedParents = rdcl_parents)
   else
     comp_node = instComponentDef(def::SCode.COMPONENT,
                      outer_mod,
@@ -1602,7 +1605,8 @@ function instComponent(node::InstNode,
                      parentNode,
                      instLevel,
                      attributeRef,
-                     originalAttr)::InstNode
+                     originalAttr;
+                     propagatedParents = propagatedParents)::InstNode
   end
   return isvariant(node, INNER_OUTER_NODE) ? INNER_OUTER_NODE(node.innerNode, comp_node) : comp_node
 end
@@ -1617,7 +1621,8 @@ function instComponentDef(component::SCode.COMPONENT,
                           instLevel::Int,
                           attributeRef::Ref{Attributes},
                           originalAttr = NONE(),
-                          isRedeclared::Bool = false)::InstNode
+                          isRedeclared::Bool = false;
+                          propagatedParents::List{InstNode} = Nil{InstNode}())::InstNode
   local decl_mod::Modifier
   local mod::Modifier
   local cc_mod::Modifier
@@ -1628,6 +1633,11 @@ function instComponentDef(component::SCode.COMPONENT,
   local ty_node::InstNode
   local res::Restriction
   decl_mod = fromElement(component, nil, parentNode)
+  #= A redeclared element's own bindings get the arrays of components its redeclare was split over,
+     outermost first (omc instComponentDef: Modifier.propagateSubs(mod, propagatedSubs)). =#
+  for p in listReverse(propagatedParents)
+    decl_mod = addParent(p, decl_mod)
+  end
   cc_mod = instConstrainingMod(component, parentNode)
   mod = merge(decl_mod, cc_mod)
   mod = merge(mod, innerMod)
@@ -1734,7 +1744,8 @@ function updateComponentConnectorType(attributes::Attributes, restriction::Restr
   attributes
 end
 
-function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, outerMod::Modifier, constrainingMod::Modifier, outerAttr::Attributes, redeclaredNode::InstNode, instLevel::Int, attributeRef::Ref{Attributes})
+function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, outerMod::Modifier, constrainingMod::Modifier, outerAttr::Attributes, redeclaredNode::InstNode, instLevel::Int, attributeRef::Ref{Attributes};
+                            propagatedParents::List{InstNode} = Nil{InstNode}())
   local orig_comp::Component
   local rdcl_comp::Component
   local new_comp::Component
@@ -1757,7 +1768,8 @@ function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, out
   rdcl_node = setNodeType(rdcl_type, redeclareNode)
   rdcl_node = copyInstancePtr(originalNode, rdcl_node)
   rdcl_node = updateComponent!(component(redeclareNode), rdcl_node)
-  rdcl_node = instComponent(rdcl_node, outerAttr, constrainingMod, true, instLevel, attributeRef, SOME(getAttributes(orig_comp)))
+  rdcl_node = instComponent(rdcl_node, outerAttr, constrainingMod, true, instLevel, attributeRef, SOME(getAttributes(orig_comp));
+                            propagatedParents = propagatedParents)
   rdcl_comp = component(rdcl_node)
   new_comp = begin
     @match (orig_comp, rdcl_comp) begin

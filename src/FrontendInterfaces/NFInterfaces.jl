@@ -396,7 +396,9 @@ include("../NewFrontend/NFModTable.jl")
   MODIFIER_NOMOD()
   #= innerMod: modifiers inside the redeclare, for the original declaration only; outerMod: those
      outside it, for the redeclared element; constrainingMod: the redeclare's constraining clause (omc). =#
-  MODIFIER_REDECLARE(finalPrefix::SCode.Final, eachPrefix::SCode.Each, element::InstNode, innerMod::NFModifier, outerMod::NFModifier, constrainingMod::NFModifier)
+  #= propagatedParents: the arrays of components the modifier was split over (innermost first; omc
+     propagatedSubs), the parents of the redeclared element's own bindings. =#
+  MODIFIER_REDECLARE(finalPrefix::SCode.Final, eachPrefix::SCode.Each, element::InstNode, innerMod::NFModifier, outerMod::NFModifier, constrainingMod::NFModifier, propagatedParents::Any = nil)
   MODIFIER_MODIFIER(name::String, finalPrefix::SCode.Final, eachPrefix::SCode.Each, binding::NFBindingImpl, subModifiers::ModTable.Tree, info::SourceInfo)
 end
 
