@@ -181,16 +181,14 @@ function makeRecordExp(clsNode::InstNode)::Expression
   local ty::M_Type
   local ty_node::InstNode
   local fields::Vector{InstNode}
-  local args::List{Expression}
   @assign cls = getClass(clsNode)
-  @match (@match TYPE_COMPLEX(complexTy = COMPLEX_RECORD(ty_node)) = ty) =
-    getType(cls, clsNode)
+  #= (A nested @match bound ty in MetaModelica's scope, an UndefVarError that getImplicitBinding
+     swallowed: a record input never got its fields' defaults; omc RecordBinding8.) =#
+  ty = getType(cls, clsNode)
+  @match TYPE_COMPLEX(complexTy = COMPLEX_RECORD(ty_node)) = ty
   @assign fields = getComponents(classTree(cls))
-  @assign args = List(
-    getExp(getImplicitBinding(component(f)))
-    for f in fields
-  )
-  @assign exp = makeRecord(scopePath(ty_node), ty, args)
+  local args = Expression[getExp(getImplicitBinding(component(f))) for f in fields]
+  exp = makeRecord(scopePath(ty_node), ty, args)
   return exp
 end
 
