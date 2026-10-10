@@ -855,19 +855,11 @@ function typeDimension2(
     =#
     @match dimension begin
       DIMENSION_UNTYPED(isProcessing = true) => begin
-        #=  Only give an error if we're not in a function.
-        =#
+        #= Outside a function the dimension is left as it is, which is fine if it isn't used
+           (a record binding typed again while its field's dimension is typed, omc DimSize5);
+           a use is a cycle, reported by typeCrefDim (omc checkCyclicDimension). =#
         if flagNotSet(origin, ORIGIN_FUNCTION)
-          Error.addSourceMessage(
-            Error.CYCLIC_DIMENSIONS,
-            list(
-              String(index),
-              name(component),
-              toString(dimension.dimension),
-            ),
-            info,
-          )
-          fail()
+          return dimension
         end
         #=  TODO: Tell the user which variables are involved in the loop (can be
         =#
@@ -1904,6 +1896,15 @@ function typeCrefDim2(cref::ComponentRef,
   return (dim, error)
 end
 
+#= A dimension still being typed when it is used: a dependency loop (omc checkCyclicDimension). =#
+function checkCyclicDimension(dim::Dimension, component::InstNode, index::Int, info::SourceInfo)::Nothing
+  if isvariant(dim, DIMENSION_UNTYPED) && dim.isProcessing
+    Error.addSourceMessage(Error.CYCLIC_DIMENSIONS, list(String(index), name(component), toString(dim.dimension)), info)
+    fail()
+  end
+  return nothing
+end
+
 """
   Types dimension `index` of a single cref component if the index falls within
   its dimensions. Returns (dimension or nothing, dimension count of the node).
@@ -1929,6 +1930,7 @@ function typeCrefDimNode(node::InstNode, index::Int, origin::ORIGIN_Type)::Tuple
           origin,
           c.info,
         ))
+        checkCyclicDimension(dim, node, index, c.info)
         return (dim, dim_count)
       end
       return (nothing, dim_count)
