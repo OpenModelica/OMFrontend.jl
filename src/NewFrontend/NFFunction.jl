@@ -1351,6 +1351,12 @@ function lookupSlotInArray(slotName::String, slots::Vector{<:Slot})::Option{Slot
   return i === nothing ? NONE() : SOME(slots[i])
 end
 
+function _isFunctionComponent(@nospecialize(n::InstNode))::Bool
+  isComponent(n) || return false
+  local p = explicitParent(n)
+  return isClass(p) && isFunction(p)
+end
+
 function evaluateSlotExp_traverser(
   exp::Expression,
   slots::Vector{<:Slot},
@@ -1366,7 +1372,11 @@ function evaluateSlotExp_traverser(
           restCref = COMPONENT_REF_EMPTY(__),
         ),
       ) => begin
-        slot = lookupSlotInArray(firstName(cref), slots)
+        #= Only a function's own component is an input (omc lookupSlotInArray by node): a default
+           from a modifier outside it (`redeclare function func = f(x = x)`, x the model's
+           parameter) reads the model's x, not the input it is the default of (omc
+           FuncDefaultArg7). =#
+        slot = _isFunctionComponent(node(cref)) ? lookupSlotInArray(firstName(cref), slots) : NONE()
         if isSome(slot)
           Util.tuple31(fillDefaultSlot(Util.getOption(slot), slots, info))
         else
@@ -1394,6 +1404,27 @@ function evaluateSlotExp(
   return outExp
 end
 
+#= A typed call's variability from its arguments, as matchTypedNormalCall computes it (applied
+   after the arguments changed, children first). =#
+function _callVariabilityFromArgs(@nospecialize(exp::Expression))::Expression
+  return @match exp begin
+    CALL_EXPRESSION(call = c && TYPED_CALL(__)) => begin
+      local fn = c.fn
+      local var = (isImpure(fn) || isOMImpure(fn)) ? Variability.PARAMETER : Variability.CONSTANT
+      for a in c.arguments
+        var = variabilityMax(var, variability(a))
+      end
+      if var == Variability.PARAMETER && isExternal(fn)
+        var = Variability.NON_STRUCTURAL_PARAMETER
+      elseif isDiscrete(c.ty) && var == Variability.CONTINUOUS
+        var = Variability.IMPLICITLY_DISCRETE
+      end
+      var == c.var ? exp : CALL_EXPRESSION(TYPED_CALL(fn, c.ty, var, c.arguments, c.attributes))
+    end
+    _ => exp
+  end
+end
+
 function fillDefaultSlot2(slot::Slot, slots::Vector{<:Slot}, info::SourceInfo)::TypedArg
   local outArg::TypedArg
 
@@ -1419,6 +1450,9 @@ function fillDefaultSlot2(slot::Slot, slots::Vector{<:Slot}, info::SourceInfo)::
         @assign slot.evalStatus = SlotEvalStatus.EVALUATING
         arrayUpdate(slots, slot.index, slot)
         @assign exp = evaluateSlotExp(Util.getOption(slot.default), slots, info)
+        #= Its calls take the variability of the arguments put in (omc types the default again:
+           `input Real x = f2(dim)` in f(3) is constant, not dim's; omc FuncDefaultArg5). =#
+        exp = map(exp, _callVariabilityFromArgs)
         @assign outArg = (
           exp,
           typeOf(exp),
