@@ -227,7 +227,8 @@ P_Pointer.createImmutable(data::InstNode) = P_Pointer.Pointer{InstNode}(data)
   DIMENSION_BOOLEAN()
   DIMENSION_INTEGER(size::Int = 0, var::VariabilityType = Int8(0))
   DIMENSION_UNTYPED(dimension::NFExpression, isProcessing::Bool = false)
-  DIMENSION_RAW_DIM(dim::Absyn.Subscript)
+  #= scope: where the dimension was declared (omc RAW_DIM(dim, scope)); nothing: the component's parent. =#
+  DIMENSION_RAW_DIM(dim::Absyn.Subscript, scope::Any = nothing)
 end
 
 # Boxed CLASS_NODE.cls payload. The node itself is rebuilt functionally while

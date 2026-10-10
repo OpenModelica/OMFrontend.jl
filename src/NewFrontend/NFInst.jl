@@ -1634,8 +1634,10 @@ function instComponentDef(component::SCode.COMPONENT,
   mod = merge(outerMod, mod)
   mod = addParent(node, mod)
   checkOuterComponentMod(mod, component, node)
+  #= Each dimension with its declaration's scope (omc): a redeclared component's (`A a(redeclare
+     Real x[n])`) is the modifier's, not the class it replaces the element of (omc RedeclareDim1). =#
   local dims = listEmpty(component.attributes.arrayDims) ? EMPTY_RAW_DIMS :
-               Dimension[DIMENSION_RAW_DIM(d) for d in component.attributes.arrayDims]
+               Dimension[DIMENSION_RAW_DIM(d, parentNode) for d in component.attributes.arrayDims]
   bindingVar = if useBinding
     binding(mod)
   else
@@ -2213,7 +2215,8 @@ function instDimension(dimension::Dimension, scope::InstNode, info::SourceInfo) 
             end
 
             Absyn.SUBSCRIPT(__)  => begin
-              exp = instExp(dim.subscript, scope, info)
+              local dim_scope = dimension.scope
+              exp = instExp(dim.subscript, dim_scope === nothing ? scope : dim_scope::InstNode, info)
               DIMENSION_UNTYPED(exp, false)
             end
           end
