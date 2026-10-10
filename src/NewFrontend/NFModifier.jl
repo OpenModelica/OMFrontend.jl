@@ -334,13 +334,20 @@ function merge(outerMod::Modifier, innerMod::Modifier, name::String = "")
       end
 
       (MODIFIER_REDECLARE(__), MODIFIER_MODIFIER(__)) => begin
-        mod = merge(outerMod.mod, innerMod)
-        MODIFIER_REDECLARE(outerMod.finalPrefix, outerMod.eachPrefix, outerMod.element, mod)
+        #= A modifier inside the redeclare is for the original declaration only (Buildings DX
+           coils: `wetCoi(datCoi = datCoi)` under `wetCoi(redeclare final ... datCoi = datCoi)`). =#
+        MODIFIER_REDECLARE(outerMod.finalPrefix, outerMod.eachPrefix, outerMod.element,
+                           merge(outerMod.innerMod, innerMod), outerMod.outerMod, outerMod.constrainingMod)
       end
 
       (MODIFIER_MODIFIER(__), MODIFIER_REDECLARE(__)) => begin
-        mod = merge(outerMod, innerMod.mod)
-        MODIFIER_REDECLARE(innerMod.finalPrefix, innerMod.eachPrefix, innerMod.element, mod)
+        MODIFIER_REDECLARE(innerMod.finalPrefix, innerMod.eachPrefix, innerMod.element,
+                           innerMod.innerMod, merge(outerMod, innerMod.outerMod), innerMod.constrainingMod)
+      end
+
+      (MODIFIER_REDECLARE(__), MODIFIER_REDECLARE(__)) where (isEmpty(outerMod.constrainingMod) && !isEmpty(innerMod.constrainingMod)) => begin
+        MODIFIER_REDECLARE(outerMod.finalPrefix, outerMod.eachPrefix, outerMod.element,
+                           outerMod.innerMod, outerMod.outerMod, innerMod.constrainingMod)
       end
 
       (MODIFIER_REDECLARE(__), _) => begin
@@ -414,7 +421,7 @@ function Modifier_info(modifier::Modifier)
       end
 
       MODIFIER_REDECLARE(__) => begin
-        info(modifier.element)
+        SCodeUtil.elementInfo(modifier.element)
       end
 
       _ => begin
@@ -468,6 +475,14 @@ function addParent_work(name::String, parentNode::InstNode, mod::Modifier)
         else
           lmod
         end
+      end
+
+      MODIFIER_REDECLARE(eachPrefix = SCode.NOT_EACH(__)) => begin
+        #= The original declaration's modifier is split over the array parent as well (omc:
+           propagateSubMod). Buildings DX coils: uacp[nSta](per = datCoi.sta.nomVal) under
+           uacp(redeclare final ... per). =#
+        MODIFIER_REDECLARE(mod.finalPrefix, mod.eachPrefix, mod.element,
+                           addParent_work(name, parentNode, mod.innerMod), mod.outerMod, mod.constrainingMod)
       end
 
       _ => begin
@@ -640,7 +655,8 @@ function create(mod::SCode.REDECL,
   if isClass(node)
     partialInstClass(node)
   end
-  MODIFIER_REDECLARE(mod.finalPrefix, mod.eachPrefix, node, MODIFIER_NOMOD())
+  MODIFIER_REDECLARE(mod.finalPrefix, mod.eachPrefix, node, MODIFIER_NOMOD(), MODIFIER_NOMOD(),
+                     instConstrainingMod(elem, scope))
 end
 
 function create(mod::SCode.MOD,
@@ -695,70 +711,32 @@ end
   This is allowed as long as the two modifiers doesn't modify the same
   element, otherwise it's an error.
 """
-function mergeLocal(
-  mod1::Modifier,
-  mod2::Modifier,
-  name::String = "",
-  scope::ModifierScope = nothing,
-  prefix::Vector{String} = String[],
-  )::Modifier
-  local mod::Modifier
-  local comp_name::String
+#= The prefix is the path of the enclosing modifiers, innermost first (omc). =#
+function mergeLocal(mod1::Modifier, mod2::Modifier, key::String, scope::ModifierScope,
+                    prefix::List{String} = nil)::Modifier
+  @match (mod1, mod2) begin
+    (MODIFIER_MODIFIER(__), MODIFIER_MODIFIER(binding = UNBOUND(__))) => begin
+      #= The second modifier has no binding, use the binding from the first. =#
+      MODIFIER_MODIFIER(mod1.name, mod1.finalPrefix, mod1.eachPrefix, mod1.binding,
+                        ModTable.join(mod1.subModifiers, mod2.subModifiers, scope, Cons{String}(mod1.name, prefix)),
+                        mod1.info)
+    end
 
-  mod = begin
-    @match (mod1, mod2) begin
-      (MODIFIER_MODIFIER(__), MODIFIER_MODIFIER(binding = UNBOUND(__))) => begin
-        #=  The second modifier has no binding, use the binding from the first.
-        =#
-        #local prefixV = mod1.name <| prefix
-        push!(prefix, mod1.name)
-        #@debug "Value of $lst"
-        local mod1SubModifiers = ModTable.join(
-          mod1.subModifiers,
-          mod2.subModifiers,
-          scope,
-          prefix)
-        MODIFIER_MODIFIER(mod1.name,
-                          mod1.finalPrefix,
-                          mod1.eachPrefix,
-                          mod1.binding,
-                          mod1SubModifiers,
-                          mod1.info)
-      end
-      (MODIFIER_MODIFIER(binding = UNBOUND(__)), MODIFIER_MODIFIER(__)) => begin
-        #=  The first modifier has no binding, use the binding from the second.
-        =#
-        #local lst = mod1.name <| prefix
-        push!(prefix, mod1.name)
-        #@debug "Value of $lst"
-        local mod2SubModifiers = ModTable.join(
-          mod2.subModifiers,
-          mod1.subModifiers,
-          scope,
-          prefix)
-        MODIFIER_MODIFIER(mod2.name,
-                          mod2.finalPrefix,
-                          mod2.eachPrefix,
-                          mod2.binding,
-                          mod2SubModifiers,
-                          mod2.info)
-      end
+    (MODIFIER_MODIFIER(binding = UNBOUND(__)), MODIFIER_MODIFIER(__)) => begin
+      #= The first modifier has no binding, use the binding from the second. =#
+      MODIFIER_MODIFIER(mod2.name, mod2.finalPrefix, mod2.eachPrefix, mod2.binding,
+                        ModTable.join(mod2.subModifiers, mod1.subModifiers, scope, Cons{String}(mod1.name, prefix)),
+                        mod2.info)
+    end
 
-      _ => begin
-        #=  Both modifiers modify the same element, give duplicate modification error.
-        =#
-        comp_name =
-          stringDelimitList(listReverse(_cons(P_Modifier.name(mod1), prefix)), ".")
-        Error.addMultiSourceMessage(
-          Error.DUPLICATE_MODIFICATIONS,
-          list(comp_name, P_ModifierScope.toString(scope)),
-          list(P_Modifier.info(mod1), P_Modifier.info(mod2)),
-        )
-        fail()
-      end
+    _ => begin
+      #= Both modifiers modify the same element. =#
+      local comp_name = stringDelimitList(listReverse(Cons{String}(name(mod1), prefix)), ".")
+      Error.addMultiSourceMessage(Error.DUPLICATE_MODIFICATIONS, list(comp_name, toString(scope)),
+                                  list(Modifier_info(mod1), Modifier_info(mod2)))
+      fail()
     end
   end
-  return mod
 end
 
 """

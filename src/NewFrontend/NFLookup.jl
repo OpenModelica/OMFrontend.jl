@@ -402,23 +402,24 @@ end
 """
   Attempts to lookup a simple name in some module.
 """
-function lookupSimpleName(nameStr::String, scope::InstNode)
+#= The node, and whether it is an enclosing class found by its own name (a self reference:
+   `extends P.A.B` inside P.A; omc lookupSimpleName), which lookup must not instantiate again. =#
+function lookupSimpleName(nameStr::String, scope::InstNode)::Tuple{InstNode, Bool}
   local node::InstNode
   local cur_scope::InstNode = scope
   for i in 1:Global.recursionDepthLimit
     @match ENTRY_INFO(node, _) = lookupLocalSimpleName(nameStr, cur_scope)
     if node !== EMPTY_NODE()
-      return node
+      return (node, false)
     end
     if nameStr == name(cur_scope) && isClass(cur_scope)
-      node = cur_scope
-      return node
+      return (cur_scope, true)
     end
     cur_scope = parentScope(cur_scope)
   end
   #@error "Failed to lookup simple name for $nameStr in scope:$scope"
   Error.addSourceMessage(Error.LOOKUP_VARIABLE_ERROR, list(nameStr, scopeName(scope)), info)
-  return EMPTY_NODE
+  return (EMPTY_NODE(), false)
 end
 
 
@@ -457,12 +458,13 @@ function lookupName(name::Absyn.Path, scope::InstNode, lookupStateRef::Ref{Looku
   node = begin
     @match name begin
       Absyn.IDENT(__)  => begin
-        lookupFirstIdent(name.name, scope, lookupStateRef)
+        Base.first(lookupFirstIdent(name.name, scope, lookupStateRef))
       end
       Absyn.QUALIFIED(__)  => begin
-        node = lookupFirstIdent(name.name, scope, lookupStateRef)
+        local self_reference::Bool
+        (node, self_reference) = lookupFirstIdent(name.name, scope, lookupStateRef)
         state = lookupStateRef.x
-        lookupLocalName(name.path, node, state, lookupStateRef, checkAccessViolations, refEqual(node, scope); isRedeclared = isRedeclared)
+        lookupLocalName(name.path, node, state, lookupStateRef, checkAccessViolations, self_reference; isRedeclared = isRedeclared)
       end
       Absyn.FULLYQUALIFIED(__)  => begin
         lookupName(name.path, topScope(scope), lookupStateRef, checkAccessViolations; isRedeclared = isRedeclared)
@@ -482,14 +484,15 @@ function lookupNames(name::Absyn.Path, scope::InstNode, lookupStateRef::Ref{Look
     #=  Simple name, look it up in the given scope. =#
     @match name begin
       Absyn.IDENT(__)  => begin
-        node = lookupFirstIdent(name.name, scope, lookupStateRef)
+        node = Base.first(lookupFirstIdent(name.name, scope, lookupStateRef))
         state = lookupStateRef.x
         return Cons{InstNode}(node, nil)
       end
       Absyn.QUALIFIED(__)  => begin
-        node = lookupFirstIdent(name.name, scope, lookupStateRef)
+        local self_reference::Bool
+        (node, self_reference) = lookupFirstIdent(name.name, scope, lookupStateRef)
         state = lookupStateRef.x
-        return lookupLocalNames(name.path, node, Cons{InstNode}(node, nil), state, lookupStateRef, refEqual(node, scope))
+        return lookupLocalNames(name.path, node, Cons{InstNode}(node, nil), state, lookupStateRef, self_reference)
       end
 
       Absyn.FULLYQUALIFIED(__)  => begin
@@ -503,18 +506,19 @@ function lookupNames(name::Absyn.Path, scope::InstNode, lookupStateRef::Ref{Look
 end
 
 """ Looks up the first part of a name. """
-function lookupFirstIdent(name::String, scope::InstNode, lookupStateRef::Ref{LookupState})::InstNode
+function lookupFirstIdent(name::String, scope::InstNode, lookupStateRef::Ref{LookupState})::Tuple{InstNode, Bool}
   local state::LookupState
   local node::Union{InstNode,Nothing}
+  local selfReference::Bool = false
   node = lookupSimpleBuiltinName(name)
   if node !== nothing
     state = LOOKUP_STATE_PREDEF_CLASS()
   else
-    node = lookupSimpleName(name, scope)
+    (node, selfReference) = lookupSimpleName(name, scope)
     state = nodeState(node)
   end
   lookupStateRef.x = state
-  node
+  return (node, selfReference)
 end
 
 """

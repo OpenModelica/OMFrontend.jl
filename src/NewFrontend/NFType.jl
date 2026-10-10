@@ -1597,6 +1597,7 @@ function unliftArrayN(N::Int, ty::M_Type)::M_Type
   local el_ty::M_Type
   local dims::List{Dimension}
 
+  N == 0 && return ty
   @match TYPE_ARRAY(el_ty, dims) = ty
   for i = 1:N
     dims = listRest(dims)

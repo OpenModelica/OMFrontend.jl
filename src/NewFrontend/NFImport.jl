@@ -70,7 +70,7 @@ function printImportError(imp1::Import, imp2::Import)
       end
     end
   end
-  return Error.addSourceMessage(err_msg, list(name(imp2)), info(imp2))
+  return Error.addSourceMessage(err_msg, list(name(imp2)), Import_info(imp2))
 end
 
 function instUnqualified(

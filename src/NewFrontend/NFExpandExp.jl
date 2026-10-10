@@ -99,17 +99,13 @@ function expandGeneric(@nospecialize(exp::Expression))::Tuple{Expression, Bool}
   return (outExp, expanded)
 end
 
-function expandCast(@nospecialize(exp::Expression), ty::M_Type)::Tuple{Expression, Bool}
-  local expanded::Bool
-  local outExp::Expression
-
-   (outExp, expanded) = expand(exp)
-  if expanded
-    @assign outExp = typeCast(outExp, ty)
-  else
-    @assign outExp = exp
+#= Not expanded: the whole cast (as omc's expandCast); it was the operand alone. =#
+function expandCast(exp::CAST_EXPRESSION)::Tuple{Expression, Bool}
+  local (operand, expanded) = expand(exp.exp)
+  if expanded && !referenceEq(exp.exp, operand)
+    return (typeCast(operand, exp.ty), true)
   end
-  return (outExp, expanded)
+  return (exp, expanded)
 end
 
 function makeLogicalUnaryOp(@nospecialize(exp1::Expression), op::Operator)::Expression
@@ -117,23 +113,15 @@ function makeLogicalUnaryOp(@nospecialize(exp1::Expression), op::Operator)::Expr
   return exp
 end
 
-function expandLogicalUnary(@nospecialize(exp::Expression), op::Operator)::Tuple{Expression, Bool}
-  local expanded::Bool
-  local outExp::Expression
-
-  local scalar_op::Operator
-
-   (outExp, expanded) = expand(exp)
-  @assign scalar_op = scalarize(op)
+#= Not expanded (an operand of unknown size, in a function): the whole
+   expression, operator included (as omc's expandLogicalUnary). =#
+function expandLogicalUnary(exp::LUNARY_EXPRESSION)::Tuple{Expression, Bool}
+  local (operand, expanded) = expand(exp.exp)
   if expanded
-    @assign outExp = mapArrayElements(
-      outExp,
-      (e) -> makeLogicalUnaryOp(e, scalar_op),
-    )
-  else
-    @assign outExp = exp
+    local scalar_op = scalarize(exp.operator)
+    return (mapArrayElements(operand, (e) -> makeLogicalUnaryOp(e, scalar_op)), true)
   end
-  return (outExp, expanded)
+  return (exp, false)
 end
 
 function makeLBinaryOp(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression))::Expression
@@ -174,19 +162,17 @@ function expandLogicalBinary(@nospecialize(exp::Expression))::Tuple{Expression, 
   return (outExp, expanded)
 end
 
-function expandUnary(@nospecialize(exp::Expression), op::Operator)::Tuple{Expression, Bool}
-  local expanded::Bool
-  local outExp::Expression
-  local scalar_op::Operator
-  (outExp, expanded) = expand(exp)
-  scalar_op = scalarize(op)
+#= Not expanded (an operand of unknown size, in a function): the whole
+   expression, operator included (as omc's expandUnary). It was the operand
+   alone, so -x of such an array lost its sign: Buildings' finiteLineSource
+   integrand, exp(-dis.*dis*u^2), grew instead of decaying. =#
+function expandUnary(exp::UNARY_EXPRESSION)::Tuple{Expression, Bool}
+  local (operand, expanded) = expand(exp.exp)
   if expanded
-    @assign outExp = mapArrayElements(
-      outExp,
-      (expArg) -> simplifyUnaryOp(expArg, scalar_op),
-    )
+    local scalar_op = scalarize(exp.operator)
+    return (mapArrayElements(operand, (expArg) -> simplifyUnaryOp(expArg, scalar_op)), true)
   end
-  return (outExp, expanded)
+  return (exp, false)
 end
 
 function expandBinaryPowMatrix2(@nospecialize(matrix::Expression), n::Int)::Expression
@@ -809,7 +795,10 @@ function expandBuiltinGeneric(call::Call)::Tuple{Expression, Bool}
   local arg::Expression
   local args::List{Expression}
   local expl::List{Expression}
-  @match TYPED_CALL(fn, ty, var, Cons{Expression}(arg, T), attr) = call
+  #= The arguments are a Vector (the Cons pattern never matched: der(x), pre(x) of an array
+     fell back to a subscripted call). =#
+  @match TYPED_CALL(fn, ty, var, _, attr) = call
+  arg = call.arguments[1]
   ty = arrayElementType(ty)
   @match (arg, true) = expand(arg)
   outExp = expandBuiltinGeneric2(arg, fn, ty, var, attr)
@@ -895,8 +884,10 @@ function expand(
         expandBuiltinGeneric(call)
       end
 
+      #= fill/identity/zeros/ones with sizes that are not literals (a function's local:
+         MSL Polynomials.roots' [identity(n - 1), zeros(n - 1)]) stay calls, as omc's expandGeneric =#
       "fill" => begin
-        expandBuiltinFill(args)
+        all(isLiteral, args[2:end]) ? expandBuiltinFill(args) : (CALL_EXPRESSION(call), false)
       end
 
       "previous" => begin
@@ -912,15 +903,15 @@ function expand(
       end
 
       "identity" => begin
-        expandBuiltinIdentity(args)
+        all(isLiteral, args) ? expandBuiltinIdentity(args) : (CALL_EXPRESSION(call), false)
       end
 
       "zeros" => begin
-        expandBuiltinZeros(args)
+        all(isLiteral, args) ? expandBuiltinZeros(args) : (CALL_EXPRESSION(call), false)
       end
 
       "ones" => begin
-        expandBuiltinOnes(args)
+        all(isLiteral, args) ? expandBuiltinOnes(args) : (CALL_EXPRESSION(call), false)
       end
     end
   end
@@ -1234,7 +1225,7 @@ end
       end
 
       UNARY_EXPRESSION(__) => begin
-        expandUnary(exp.exp, exp.operator)
+        expandUnary(exp)
       end
 
       LBINARY_EXPRESSION(__) => begin
@@ -1242,7 +1233,7 @@ end
       end
 
       LUNARY_EXPRESSION(__) => begin
-        expandLogicalUnary(exp.exp, exp.operator)
+        expandLogicalUnary(exp)
       end
 
       RELATION_EXPRESSION(__) => begin
@@ -1250,7 +1241,7 @@ end
       end
 
       CAST_EXPRESSION(__) => begin
-        expandCast(exp.exp, exp.ty)
+        expandCast(exp)
       end
 
       _ => begin

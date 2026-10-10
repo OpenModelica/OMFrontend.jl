@@ -207,8 +207,10 @@ function fromDim(dim::Dimension)::RangeIterator
         RANGEITERATOR_ARRAY_RANGE(makeEnumLiterals(ty))
       end
 
+      #= RangeIterator_fromExp: fromExp is Subscript's in this namespace (a SUBSCRIPT_UNTYPED
+         where an iterator was expected) =#
       DIMENSION_EXP(__) => begin
-        fromExp(dim.exp)
+        RangeIterator_fromExp(dim.exp)
       end
 
       _ => begin
@@ -274,6 +276,18 @@ function RangeIterator_fromExp(exp::Expression)::RangeIterator
         stop = REAL_EXPRESSION(rstop),
       ) => begin
         RANGEITERATOR_REAL_RANGE(rstart, 1.0, 0, Util.realRangeSize(rstart, 1.0, rstop))
+      end
+
+      #= false:true, true:true, false:false, or empty (true:false), as omc. =#
+      RANGE_EXPRESSION(
+        start = BOOLEAN_EXPRESSION(__),
+        stop = BOOLEAN_EXPRESSION(__),
+      ) => begin
+        local bvals::List{Expression} = nil
+        for b in (true, false)
+          exp.start.value <= b <= exp.stop.value && (bvals = Cons{Expression}(BOOLEAN_EXPRESSION(b), bvals))
+        end
+        RANGEITERATOR_ARRAY_RANGE(bvals)
       end
 
       RANGE_EXPRESSION(

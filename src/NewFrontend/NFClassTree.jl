@@ -404,17 +404,12 @@ function applyLocalComponents_inst(tree::ClassTree,
      is write-then-read scratch within one instComponent call, never carried
      between siblings. =#
   if parallelInstEnabled(length(plainIndices))
-    local parentTok = get(task_local_storage(), :OMF_ROOT, 0)::Int
-    @sync for i in plainIndices
-      local tok = parentTok == 0 ? i : parentTok
-      Threads.@spawn begin
-        task_local_storage(:OMF_ROOT, tok)
-        local ptr = @inbounds tree.components[i]::Pointer{InstNode}
-        local arg = P_Pointer.access(ptr)
-        local node = instComponent(arg, attributes, MODIFIER_NOMOD(), useBinding,
-                                   instLevel, Ref{Attributes}(attributeRef.x), NONE())::InstNode
-        referenceEq(node, arg) || P_Pointer.update(ptr, node)
-      end
+    _parallelFor(plainIndices) do i
+      local ptr = @inbounds tree.components[i]::Pointer{InstNode}
+      local arg = P_Pointer.access(ptr)
+      local node = instComponent(arg, attributes, MODIFIER_NOMOD(), useBinding,
+                                 instLevel, Ref{Attributes}(attributeRef.x), NONE())::InstNode
+      referenceEq(node, arg) || P_Pointer.update(ptr, node)
     end
   else
     for i in plainIndices
@@ -1310,9 +1305,13 @@ function addElementsToFlatTree(elements::List{<:InstNode}, tree::ClassTree)::Cla
   local comp_idx::Int
   local lentry::LookupTree.Entry
   @match CLASS_TREE_FLAT_TREE(ltree, cls_arr, comp_arr, imports, duplicates) = tree
-  #= Append to copies so the input tree's arrays are not mutated. =#
+  #= Append to copies so the input tree's arrays are not mutated, nor its lookup tree (a
+     Dict here, added to in place: OMC's is persistent). The class of the expandable
+     connectors of one class is shared; one connector's elements went to the other's
+     lookup (Buildings' VAVReheat control buses: an index past the components). =#
   local new_cls_arr = copy(cls_arr)
   local new_comp_arr = copy(comp_arr)
+  ltree = copy(ltree)
   cls_idx = arrayLength(cls_arr)
   comp_idx = arrayLength(comp_arr)
   for e in elements
@@ -1664,7 +1663,7 @@ function checkOuterClass(outerCls::InstNode)
           Error.addSourceMessage(
             Error.OUTER_ELEMENT_MOD,
             list(SCodeDump.printModStr(def.modifications), name(outerCls)),
-            info(outerCls),
+            InstNode_info(outerCls),
           )
           fail()
         end
@@ -1675,7 +1674,7 @@ function checkOuterClass(outerCls::InstNode)
           Error.addSourceMessage(
             Error.OUTER_LONG_CLASS,
             list(name(outerCls)),
-            info(outerCls),
+            InstNode_info(outerCls),
           )
           fail()
         end
@@ -1704,7 +1703,7 @@ function linkInnerOuter(outerNode::InstNode, scope::InstNode)::InstNode
         name(outerNode),
         typeName(outerNode),
       ),
-      list(info(outerNode), info(inner_node)),
+      list(InstNode_info(outerNode), InstNode_info(inner_node)),
     )
     fail()
   end
@@ -1804,13 +1803,13 @@ function getRedeclareChain(
           Error.addSourceMessage(
             Error.CLASS_EXTENDS_TARGET_NOT_FOUND,
             list(name(node)),
-            info(node),
+            InstNode_info(node),
           )
         else
           Error.addSourceMessage(
             Error.REDECLARE_NONEXISTING_ELEMENT,
             list(name(node)),
-            info(node),
+            InstNode_info(node),
           )
         end
         fail()
@@ -2119,7 +2118,8 @@ function expandExtends(
       end
 
       _ => begin
-        return (tree, DuplicateTree.new())
+        #= Not expanded (omc returns the tree unchanged). =#
+        return tree
       end
     end
   end
@@ -2467,29 +2467,29 @@ function addImportConflict(
         =#
         entry = begin
           @match (imp1, imp2) begin
-            (Import.UNRESOLVED_IMPORT(__), Import.UNRESOLVED_IMPORT(__)) => begin
+            (UNRESOLVED_IMPORT(__), UNRESOLVED_IMPORT(__)) => begin
               #=  Two qualified imports of the same name gives an error.
               =#
               arrayUpdate(
                 imports,
                 oldEntry.index,
-                Import.CONFLICTING_IMPORT(imp1, imp2),
+                CONFLICTING_IMPORT(imp1, imp2),
               )
               oldEntry
             end
 
-            (Import.RESOLVED_IMPORT(__), Import.RESOLVED_IMPORT(__)) => begin
+            (RESOLVED_IMPORT(__), RESOLVED_IMPORT(__)) => begin
               #=  A name imported from several unqualified imports gives an error.
               =#
               arrayUpdate(
                 imports,
                 oldEntry.index,
-                Import.CONFLICTING_IMPORT(imp1, imp2),
+                CONFLICTING_IMPORT(imp1, imp2),
               )
               oldEntry
             end
 
-            (Import.UNRESOLVED_IMPORT(__), _) => begin
+            (UNRESOLVED_IMPORT(__), _) => begin
               newEntry
             end
 
@@ -2543,7 +2543,7 @@ function addEnumConflict(
   Error.addSourceMessage(
     Error.DOUBLE_DECLARATION_OF_ELEMENTS,
     list(name(literal)),
-    info(literal),
+    InstNode_info(literal),
   )
   fail()
   return entry

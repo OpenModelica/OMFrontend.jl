@@ -139,7 +139,7 @@ function isExactVectorized(mk::FunctionMatchKind)::Bool
 
   @assign b = begin
     @match mk begin
-      VECTORIZED_MATCH_KIND(baseMatch = EXACT(__)) => begin
+      VECTORIZED_MATCH_KIND(baseMatch = EXACT_MATCH_KIND(__)) => begin
         true
       end
       _ => begin
@@ -226,11 +226,8 @@ function isVectorized(mf::MatchedFunction)::Bool
   return b
 end
 
-function getExactVectorizedMatches(
-  matchedFunctions::List{<:MatchedFunction},
-)::List{MatchedFunction}
-  local outFuncs::List{MatchedFunction} =
-    list(mf for mf in matchedFunctions if isExactVectorized(mf.mk))
+function getExactVectorizedMatches(matchedFunctions::Vector{MatchedFunction})::Vector{MatchedFunction}
+  local outFuncs::Vector{MatchedFunction} = MatchedFunction[mf for mf in matchedFunctions if isExactVectorized(mf.mk)]
   return outFuncs
 end
 
@@ -515,10 +512,20 @@ function toDAE(fn::M_FUNCTION, def::DAE.FunctionDefinition)::DAE.Function
     impr,
     ity,
     unused_inputs,
-    ElementSource.createElementSource(info(fn.node)),
+    ElementSource.createElementSource(InstNode_info(fn.node)),
     SCodeUtil.getElementComment(definition(fn.node)),
   )
   return daeFn
+end
+
+#= An operator record's constructor: 'constructor' in its path (omc isNonDefaultRecordConstructor). =#
+function isNonDefaultRecordConstructor(fn::M_FUNCTION)::Bool
+  return isNonDefaultRecordConstructorPath(fn.path)
+end
+
+function isNonDefaultRecordConstructorPath(path::Absyn.Path)::Bool
+  path isa Absyn.QUALIFIED || return false
+  return path.name == "'constructor'" || isNonDefaultRecordConstructorPath(path.path)
 end
 
 function isDefaultRecordConstructor(fn::M_FUNCTION)::Bool
@@ -1250,7 +1257,10 @@ function matchArgs(
     (arg_exp, arg_ty, arg_var) = arg
     @match _cons(input_node, inputs) = inputs
     @assign comp = component(input_node)
-    if arg_var > variability(comp)
+    #= A record's default constructor takes values of any variability: its inputs are the
+       fields, whose parameter prefix is not the input's (Buildings' ClimaticConstants.Generic
+       built from a function's locals). =#
+    if arg_var > variability(comp) && !isDefaultRecordConstructor(func)
       # Error.addSourceMessage(
       #   Error.FUNCTION_SLOT_VARIABILITY,
       #   list(
@@ -1332,18 +1342,13 @@ function matchArgs(
   return (args, funcMatchKind)
 end
 
+#= The slot of that name. It was always none: ArrayUtil.getMemberOnTrue returns (slot, index),
+   and the bare catch took the failed assignment for a missing slot, so a default reading
+   another input kept the function's own input (MSL WallFriction's `crossArea = pi*diameter^2/4`
+   a continuous binding of a parameter: Buildings' FixedResistances). =#
 function lookupSlotInArray(slotName::String, slots::Vector{<:Slot})::Option{Slot}
-  local outSlot::Option{Slot}
-
-  local slot::Slot
-
-  try
-    @assign slot = ArrayUtil.getMemberOnTrue(slotName, slots, P_Slot.hasName)
-    @assign outSlot = SOME(slot)
-  catch
-    @assign outSlot = NONE()
-  end
-  return outSlot
+  local i = findfirst(slot -> slot.name == slotName, slots)
+  return i === nothing ? NONE() : SOME(slots[i])
 end
 
 function evaluateSlotExp_traverser(
@@ -2005,7 +2010,12 @@ function getCachedFuncs(inNode::InstNode)
 end
 
 function instFunction3(fnNode::InstNode)::InstNode
-  fnNode = instantiateN1(fnNode, EMPTY_NODE())
+  #= A partial function is instantiated too (omc: instPartial = true). A redeclared
+     component's original declaration may look up its partial default package
+     (PartialMedium), whose constants call its partial functions (setState_pTX through
+     h_default); skipped, the function's own class node got the expressions (got
+     non-instantiated function, Buildings DHC). =#
+  fnNode = instantiateN1(fnNode, EMPTY_NODE(), true)
   cacheInitFunc(fnNode)
   instExpressions(fnNode)
   return fnNode
@@ -2625,8 +2635,8 @@ function paramDirection(@nospecialize(componentArg::InstNode))::DirectionType
   if isFlowOrStream(cty)
     Error.addSourceMessage(
       Error.INNER_OUTER_FORMAL_PARAMETER,
-      list(ConnectortoString(cty), name(componentArg)),
-      info(componentArg),
+      list(toString(cty), name(componentArg)),
+      InstNode_info(componentArg),
     )
     fail()
   end

@@ -71,6 +71,30 @@ const NFModelicaBuiltinCache = Dict()
 """
 const LIBRARY_CACHE = Dict{String, SCode.Program}()
 
+#= A loaded library's top-level package name => its directory (of package.mo), for
+   modelica:// URIs (an external function's IncludeDirectory, loadResource). =#
+const LIBRARY_ROOTS = Dict{String, String}()
+
+"""
+    resolveModelicaURI(uri) -> String
+
+The file path of a `modelica://Package.Sub/path` URI (a sub-package is a directory of its
+library's), of a `file://` URI, or the string itself.
+"""
+function resolveModelicaURI(uri::AbstractString)::String
+  local m = match(r"^modelica://([^/]+)(/.*)?$"i, uri)
+  if m === nothing
+    startswith(lowercase(uri), "file://") && return String(uri[8:end])
+    return String(uri)
+  end
+  local parts = split(m.captures[1], ".")
+  local root = get(LIBRARY_ROOTS, String(parts[1]), nothing)
+  root === nothing && error("resolveModelicaURI: library $(parts[1]) of $(uri) is not loaded")
+  local dir = joinpath(root, parts[2:end]...)
+  local rest = m.captures[2] === nothing ? "" : String(lstrip(m.captures[2], '/'))
+  return isempty(rest) ? dir : joinpath(dir, rest)
+end
+
 """
   The cache keys of the libraries a cached library uses (its `uses` annotation), as
   `loadInstalledLibrary` loaded them; `libraryClosure` adds them to a flattening.
@@ -476,6 +500,7 @@ function loadLibrary(libraryPath::String; name::Union{String, Nothing} = nothing
     firstClass.name
   end
   LIBRARY_CACHE[cacheKey] = scodeProg
+  LIBRARY_ROOTS[listHead(scodeProg).name] = dirname(abspath(libraryPath))
   @info "Loaded library '$cacheKey' from $libraryPath"
   return cacheKey
 end
@@ -904,6 +929,7 @@ function loadInstalledLibrary(name::String;
       error("Library '$name' version '$version' not found. Available: $(map(e -> e.version, entries))")
     entries[idx]
   end
+  LIBRARY_ROOTS[name] = isdir(entry.path) ? String(rstrip(entry.path, '/')) : dirname(entry.path)
   local cleanVer = replace(split(entry.version, "+")[1], "." => "_")
   local cacheKey = isempty(cleanVer) ? name : string(name, "_", cleanVer)
   if forceReload

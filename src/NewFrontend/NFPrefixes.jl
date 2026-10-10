@@ -202,20 +202,12 @@ function setPresent(cty::T)::T where {T <: Integer}
   return cty
 end
 
+#= A connector type's prefix (omc ConnectorType.toString). =#
 function toString(cty::T)::String where {T <: Integer}
-  local str::String
-  if intBitAnd(cty, ConnectorType.FLOW) > 0
-    @assign str = "flow string(cty)"
-  elseif intBitAnd(cty, ConnectorType.STREAM) > 0
-    @assign str = "stream string(cty)"
-  elseif intBitAnd(cty, ConnectorType.EXPANDABLE) > 0
-    @assign str = "expandable string(cty)"
-  elseif intBitAnd(cty, ConnectorType.POTENTIAL) > 0
-    @assign str = "potential string(cty)"
-  else
-    str = "Unspecified"
-  end
-  return str
+  intBitAnd(cty, ConnectorType.FLOW) > 0 && return "flow"
+  intBitAnd(cty, ConnectorType.STREAM) > 0 && return "stream"
+  intBitAnd(cty, ConnectorType.EXPANDABLE) > 0 && return "expandable"
+  return ""
 end
 
 function unparse(cty::T)::String where {T <: Integer}
@@ -971,7 +963,7 @@ function printPrefixError(outerPrefix::String, innerPrefix::String, node::InstNo
   Error.addSourceMessage(
     Error.INVALID_TYPE_PREFIX,
     list(outerPrefix, typeName(node), name(node), innerPrefix),
-    info(node),
+    InstNode_info(node),
   )
   return fail()
 end

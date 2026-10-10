@@ -970,20 +970,12 @@ function unquoteIdentifier(str::String) ::String
 end
 
 """Returns the maximum integer that can be represent using this version of the compiler"""
-function intMaxLit() ::Int
-  local outInt::Int
+#= As omc's runtime (meta_modelica_builtin.c): LONG_MAX / 2. =#
+intMaxLit()::Int = typemax(Int) ÷ 2
 
-  @error "TODO: Defined in the runtime"
-  outInt
-end
-
-"""Returns the maximum integer that can be represent using this version of the compiler"""
-function realMaxLit() ::AbstractFloat
-  local outReal::AbstractFloat
-
-  @error "TODO: Defined in the runtime"
-  outReal
-end
+"""Returns the maximum real that can be represent using this version of the compiler"""
+#= As omc's runtime: DBL_MAX / 2048, in case a solver adds eps to it. =#
+realMaxLit()::Float64 = floatmax(Float64) / 2048
 
 """
   Handles modelica: and file: URI's. The result is an absolute path on the local system.

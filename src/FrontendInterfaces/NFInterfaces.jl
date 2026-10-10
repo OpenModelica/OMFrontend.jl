@@ -393,7 +393,9 @@ include("../NewFrontend/NFModTable.jl")
 
 @T_Uniontype NFModifier begin
   MODIFIER_NOMOD()
-  MODIFIER_REDECLARE(finalPrefix::SCode.Final, eachPrefix::SCode.Each, element::InstNode, mod::NFModifier)
+  #= innerMod: modifiers inside the redeclare, for the original declaration only; outerMod: those
+     outside it, for the redeclared element; constrainingMod: the redeclare's constraining clause (omc). =#
+  MODIFIER_REDECLARE(finalPrefix::SCode.Final, eachPrefix::SCode.Each, element::InstNode, innerMod::NFModifier, outerMod::NFModifier, constrainingMod::NFModifier)
   MODIFIER_MODIFIER(name::String, finalPrefix::SCode.Final, eachPrefix::SCode.Each, binding::NFBindingImpl, subModifiers::ModTable.Tree, info::SourceInfo)
 end
 

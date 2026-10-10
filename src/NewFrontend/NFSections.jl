@@ -276,19 +276,20 @@ function prependAlgorithm(
   @assign sections = begin
     @match sections begin
       SECTIONS(__) => begin
+        #= Vectors, appended as in prependEquation. =#
         if isInitial
-          sections.initialAlgorithms = _cons(alg, sections.initialAlgorithms)
+          push!(sections.initialAlgorithms, alg)
         else
-          sections.algorithms = _cons(alg, sections.algorithms)
+          push!(sections.algorithms, alg)
         end
         sections
       end
 
-      EMPTY(__) => begin
+      SECTIONS_EMPTY(__) => begin
         if isInitial
-          SECTIONS(nil, nil, nil, list(alg))
+          SECTIONS(Equation[], Equation[], Algorithm[], Algorithm[alg])
         else
-          SECTIONS(nil, nil, list(alg), nil)
+          SECTIONS(Equation[], Equation[], Algorithm[alg], Algorithm[])
         end
       end
 

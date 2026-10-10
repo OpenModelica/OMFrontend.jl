@@ -444,10 +444,7 @@ function scalarize(subscript::Subscript, dimension::Dimension)::List{Subscript}
       end
 
       SUBSCRIPT_WHOLE(__) => begin
-        P_RangeIterator.RangeIterator.map(
-          P_RangeIterator.RangeIterator.fromDim(dimension),
-          makeIndex,
-        )
+        map(fromDim(dimension), makeIndex)
       end
     end
   end
@@ -1308,4 +1305,13 @@ function isSplit(sub::Subscript)
     SPLIT_INDEX(__) => true
   end
   return res
+end
+
+#= Whether the subscript is the iterator (omc Subscript.equalsIterator). =#
+function equalsIterator(sub::Subscript, iterator::InstNode)::Bool
+  @match sub begin
+    SUBSCRIPT_UNTYPED(exp = CREF_EXPRESSION(cref = cref)) => refEqual(iterator, node(cref))
+    SUBSCRIPT_INDEX(index = CREF_EXPRESSION(cref = cref)) => refEqual(iterator, node(cref))
+    _ => false
+  end
 end

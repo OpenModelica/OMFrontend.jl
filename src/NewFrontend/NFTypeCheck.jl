@@ -144,8 +144,29 @@ function checkBinaryOperation(
          Op.POW_EW => begin
            checkBinaryOperationPowEW(exp1, type1, exp2, type2, info)
          end
+         #= Typed operators: an already typed expression is typed again after its operands
+            changed (size() of a function argument during evaluation; omc checkBinaryOperation). =#
+         Op.ADD_SCALAR_ARRAY || Op.ADD_ARRAY_SCALAR => begin
+           checkBinaryOperationEW(exp1, type1, exp2, type2, Op.ADD, info)
+         end
+         Op.SUB_SCALAR_ARRAY || Op.SUB_ARRAY_SCALAR => begin
+           checkBinaryOperationEW(exp1, type1, exp2, type2, Op.SUB, info)
+         end
+         Op.MUL_SCALAR_ARRAY || Op.MUL_ARRAY_SCALAR || Op.MUL_VECTOR_MATRIX || Op.MUL_MATRIX_VECTOR ||
+         Op.SCALAR_PRODUCT || Op.MATRIX_PRODUCT => begin
+           checkBinaryOperationMul(exp1, type1, exp2, type2, info)
+         end
+         Op.DIV_SCALAR_ARRAY || Op.DIV_ARRAY_SCALAR => begin
+           checkBinaryOperationDiv(exp1, type1, exp2, type2, info, true)
+         end
+         Op.POW_SCALAR_ARRAY || Op.POW_ARRAY_SCALAR => begin
+           checkBinaryOperationPowEW(exp1, type1, exp2, type2, info)
+         end
+         Op.POW_MATRIX => begin
+           checkBinaryOperationPow(exp1, type1, exp2, type2, info)
+         end
          _ =>  begin
-           @error "checkBinaryOperation" typeof(operator.op) toString(operator.op)
+           Error.addInternalError("checkBinaryOperation got operator " + symbol(operator), info)
            fail()
          end
        end
@@ -469,11 +490,11 @@ function checkOverloadedBinaryArrayAddSub2(
           @assign ty2 = arrayElementType(type2)
           try
              (_, ty) = matchOverloadedBinaryOperator(
-              EMPTY(ty1),
+              EMPTY_EXPRESSION(ty1),
               ty1,
               var1,
               op,
-              EMPTY(ty2),
+              EMPTY_EXPRESSION(ty2),
               ty2,
               var2,
               candidates,
@@ -974,11 +995,11 @@ function checkOverloadedBinaryArrayEW2(
       @assign ty2 = arrayElementType(type2)
       try
          (_, ty) = matchOverloadedBinaryOperator(
-          EMPTY(ty1),
+          EMPTY_EXPRESSION(ty1),
           ty1,
           var1,
           op,
-          EMPTY(ty2),
+          EMPTY_EXPRESSION(ty2),
           ty2,
           var2,
           candidates,
@@ -2692,7 +2713,9 @@ function matchComplexTypes(
           for i = 1:arrayLength(comps1)
             @assign comp1 = component(comps1[i])
             @assign comp2 = component(comps2[i])
-            if isTyped(comp2)
+            #= Both typed: an untyped field's type is its element type (under parallel typing
+               another task's record: sta of Stage[1] read as Stage, a binding type mismatch). =#
+            if isTyped(comp1) && isTyped(comp2)
                (_, _, mk) = matchTypes(
                 getType(comp1),
                 getType(comp2),
@@ -3532,7 +3555,7 @@ end
     local dim_exp::Expression
     local var::VariabilityType
     @match (startExp, stopExp) begin
-      (P_Expression.BOOLEAN_EXPRESSION(__), P_Expression.BOOLEAN_EXPRESSION(__)) => begin
+      (BOOLEAN_EXPRESSION(__), BOOLEAN_EXPRESSION(__)) => begin
         @assign sz = if startExp.value == stopExp.value
           1
         elseif (startExp.value < stopExp.value)
@@ -3704,7 +3727,7 @@ function printBindingTypeError(
   @assign comp_info = InstNode_info(component)
   return if isScalar(bindingType) && isArray(componentType)
     Error.addMultiSourceMessage(
-      Error.MODIFIER_NON_TYPE_ARRAY_ERROR,
+      Error.MODIFIER_NON_ARRAY_TYPE_ERROR,
       list(toString(binding), name),
       list(binding_info, comp_info),
     )

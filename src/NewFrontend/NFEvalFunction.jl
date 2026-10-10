@@ -98,6 +98,27 @@ function evaluate(fn::M_Function, args::Vector{Expression})::Expression
   return result
 end
 
+#= A function's evaluation depth in this task (EVAL_RECURSION_LIMIT), keyed by its call counter,
+   which the copies of a function share. The counter itself was shared by the tasks of the
+   parallel typing, and its read-then-write updates lost counts: it ended at 2 to 5, not 0, in
+   flat models (Buildings' CoolingCoilHumidifyingHeating_ClosedLoop), a drift that would fail an
+   evaluation that does not recurse once it reached the limit. =#
+@inline function _evalDepths()::IdDict{Any, Int}
+  local tls = task_local_storage()
+  local d = get(tls, :OMF_EVAL_DEPTHS, nothing)
+  if d === nothing
+    d = IdDict{Any, Int}()
+    tls[:OMF_EVAL_DEPTHS] = d
+  end
+  return d::IdDict{Any, Int}
+end
+
+#= Sets the depth; the entry goes at 0 (the table holds the functions being evaluated). =#
+@inline function _setEvalDepth!(depths::IdDict{Any, Int}, counter::Pointer, depth::Int)::Nothing
+  depth > 0 ? (depths[counter] = depth) : delete!(depths, counter)
+  return nothing
+end
+
 function evaluateNormal(fn::M_Function, args::Vector{Expression})::Expression
   local result::Expression
   local fn_body::Vector{Statement}
@@ -108,22 +129,23 @@ function evaluateNormal(fn::M_Function, args::Vector{Expression})::Expression
   local call_counter::Pointer = fn.callCounter
   local ctrl::FlowControlType
   #=
-  Functions contain a mutable call counter that's increased by one at the
+  The function's evaluation depth in this task is increased by one at the
   start of each evaluation, and decreased by one when the evalution is
   finished. This is used to limit the number of recursive functions calls.
   =#
-  call_count = P_Pointer.access(call_counter) + 1
+  local depths = _evalDepths()
+  call_count = get(depths, call_counter, 0) + 1
   limit = _evalRecursionLimit()
   if call_count > limit
-    Pointer.update(call_counter, 0)
+    _setEvalDepth!(depths, call_counter, 0)
     Error.addSourceMessage(
       Error.EVAL_RECURSION_LIMIT_REACHED,
       list(String(limit), AbsynUtil.pathString(name(fn))),
-      info(fn.node),
+      InstNode_info(fn.node),
     )
     fail()
   end
-  P_Pointer.update(call_counter, call_count)
+  _setEvalDepth!(depths, call_counter, call_count)
   try
     fn_body = getBody(fn)
     repl = createReplacements(fn, args)
@@ -136,7 +158,7 @@ function evaluateNormal(fn::M_Function, args::Vector{Expression})::Expression
       fail()
     end
   catch e
-    P_Pointer.update(call_counter, call_count - 1)
+    _setEvalDepth!(depths, call_counter, call_count - 1)
     fail()
   end
   #=  TODO: Also apply replacements to the replacements themselves, i.e. the
@@ -144,7 +166,7 @@ function evaluateNormal(fn::M_Function, args::Vector{Expression})::Expression
          sorted by dependencies first.
   Make sure we always decrease the call counter even if the evaluation fails.
   =#
-  P_Pointer.update(call_counter, call_count - 1)
+  _setEvalDepth!(depths, call_counter, call_count - 1)
   return result
 end
 
@@ -155,7 +177,7 @@ function evaluateExternal(fn::M_Function, args::Vector{Expression})::Expression
   local lang::String
   local output_ref::ComponentRef
   local ann::Option{SCode.Annotation}
-  local ext_args::Vector{Expression}
+  local ext_args::List{Expression}
 
   @match SECTIONS_EXTERNAL(
     name = name,
@@ -605,7 +627,7 @@ function assertAssignedOutput(outputNode::InstNode, @nospecialize(value::Express
         Error.addSourceMessage(
           Error.UNASSIGNED_FUNCTION_OUTPUT,
           list(name(outputNode)),
-          info(outputNode),
+          InstNode_info(outputNode),
         )
         fail()
       end
@@ -777,7 +799,7 @@ function assignVariable(@nospecialize(variable::Expression), @nospecialize(value
         ()
       end
 
-      (CREF_EXPRESSION(cref = WILD(__)), _) =>
+      (CREF_EXPRESSION(cref = COMPONENT_REF_WILD(__)), _) =>
         begin
           ()
         end
@@ -823,6 +845,9 @@ function assignArrayElement(
   local idx::Int
   local subs
   local vals
+  #= A variable's binding (fill(0.0, n), zeros(n)) is not evaluated when its cell is made:
+     the element assignment needs the array (Buildings.Fluid.Movers.BaseClasses.Euler). =#
+  arrayExp isa ARRAY_EXPRESSION || (arrayExp = evalExp(arrayExp))
   result = begin
     @match (arrayExp, subscripts) begin
       (
@@ -1465,7 +1490,7 @@ end
 function evaluateExternal2(
   name::String,
   fn::M_Function,
-  args::List{<:Expression},
+  args::Vector{Expression},
   extArgs::List{<:Expression},
 )::Expression
   local result::Expression
@@ -1487,77 +1512,82 @@ function evaluateExternal3(name::String, args::List{<:Expression})
   return  () = begin
     @match name begin
       "dgeev" => begin
-        EvalFunctionExt.Lapack_dgeev(args)
+        Lapack_dgeev(args)
         ()
       end
 
       "dgegv" => begin
-        EvalFunctionExt.Lapack_dgegv(args)
+        Lapack_dgegv(args)
         ()
       end
 
       "dgels" => begin
-        EvalFunctionExt.Lapack_dgels(args)
+        Lapack_dgels(args)
         ()
       end
 
       "dgelsx" => begin
-        EvalFunctionExt.Lapack_dgelsx(args)
+        Lapack_dgelsx(args)
         ()
       end
 
       "dgelsy" => begin
-        EvalFunctionExt.Lapack_dgelsy(args)
+        Lapack_dgelsy(args)
         ()
       end
 
       "dgesv" => begin
-        EvalFunctionExt.Lapack_dgesv(args)
+        Lapack_dgesv(args)
         ()
       end
 
       "dgglse" => begin
-        EvalFunctionExt.Lapack_dgglse(args)
+        Lapack_dgglse(args)
         ()
       end
 
       "dgtsv" => begin
-        EvalFunctionExt.Lapack_dgtsv(args)
+        Lapack_dgtsv(args)
         ()
       end
 
       "dgbsv" => begin
-        EvalFunctionExt.Lapack_dgtsv(args)
+        Lapack_dgbsv(args)
         ()
       end
 
       "dgesvd" => begin
-        EvalFunctionExt.Lapack_dgesvd(args)
+        Lapack_dgesvd(args)
         ()
       end
 
       "dgetrf" => begin
-        EvalFunctionExt.Lapack_dgetrf(args)
+        Lapack_dgetrf(args)
         ()
       end
 
       "dgetrs" => begin
-        EvalFunctionExt.Lapack_dgetrs(args)
+        Lapack_dgetrs(args)
         ()
       end
 
       "dgetri" => begin
-        EvalFunctionExt.Lapack_dgetri(args)
+        Lapack_dgetri(args)
         ()
       end
 
       "dgeqpf" => begin
-        EvalFunctionExt.Lapack_dgeqpf(args)
+        Lapack_dgeqpf(args)
         ()
       end
 
       "dorgqr" => begin
-        EvalFunctionExt.Lapack_dorgqr(args)
+        Lapack_dorgqr(args)
+        ()
+      end
+
+      "dhseqr" => begin
+        Lapack_dhseqr(args)
         ()
       end
     end

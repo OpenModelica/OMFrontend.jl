@@ -33,24 +33,15 @@
 *
 */ =#
 
-module NFEvalFunctionExt
+#= LAPACK routines called by the frontend's function evaluation (omc: NFEvalFunctionExt.mo):
+   the external call's arguments evaluated, Lapack's routine called, its outputs assigned. =#
 
-using MetaModelica
-using ExportAll
-
-import ..P_NFExpression
-P_Expression = P_NFExpression
-Expression = P_NFExpression.NFExpression
-
-import ..NFEvalFunction
-EvalFunction = NFEvalFunction
-import ..NFEvalFunction.assignVariable
-import ..NFCeval
-Ceval = NFCeval
-import ..P_NFType
-P_M_Type = P_NFType
-M_Type = NFType
-import ..Lapack
+#= The external call's arguments, as many as the routine takes (omc matches the list's shape). =#
+function _extArgs(args::List{<:Expression}, n::Int)::Vector{Expression}
+  local v = Base.collect(Expression, args)
+  length(v) == n || fail()
+  return v
+end
 
 function Lapack_dgeev(args::List{<:Expression})
   local jobvl::Expression
@@ -82,7 +73,7 @@ function Lapack_dgeev(args::List{<:Expression})
   local WR::List{AbstractFloat}
   local WI::List{AbstractFloat}
 
-  @match list(jobvl, jobvr, n, a, lda, wr, wi, vl, ldvl, vr, ldvr, work, lwork, info) = args
+  (jobvl, jobvr, n, a, lda, wr, wi, vl, ldvl, vr, ldvr, work, lwork, info) = _extArgs(args, 14)
   @assign JOBVL = evaluateExtStringArg(jobvl)
   @assign JOBVR = evaluateExtStringArg(jobvr)
   @assign N = evaluateExtIntArg(n)
@@ -139,25 +130,7 @@ function Lapack_dgegv(args::List{<:Expression})
   local ALPHAI::List{AbstractFloat}
   local BETA::List{AbstractFloat}
 
-  @match list(
-    jobvl,
-    jobvr,
-    n,
-    a,
-    lda,
-    b,
-    ldb,
-    alphar,
-    alphai,
-    beta,
-    vl,
-    ldvl,
-    vr,
-    ldvr,
-    work,
-    lwork,
-    info,
-  ) = args
+  (jobvl, jobvr, n, a, lda, b, ldb, alphar, alphai, beta, vl, ldvl, vr, ldvr, work, lwork, info) = _extArgs(args, 17)
   @assign JOBVL = evaluateExtStringArg(jobvl)
   @assign JOBVR = evaluateExtStringArg(jobvr)
   @assign N = evaluateExtIntArg(n)
@@ -204,7 +177,7 @@ function Lapack_dgels(args::List{<:Expression})
   local B::List{List{AbstractFloat}}
   local WORK::List{AbstractFloat}
 
-  @match list(trans, m, n, nrhs, a, lda, b, ldb, work, lwork, info) = args
+  (trans, m, n, nrhs, a, lda, b, ldb, work, lwork, info) = _extArgs(args, 11)
   @assign TRANS = evaluateExtStringArg(trans)
   @assign M = evaluateExtIntArg(m)
   @assign N = evaluateExtIntArg(n)
@@ -249,9 +222,9 @@ function Lapack_dgelsx(args::List{<:Expression})
   local WORK::List{AbstractFloat}
 
   if listLength(args) == 12
-    @match list(m, n, nrhs, a, lda, b, ldb, jpvt, rcond, rank, work, info) = args
+    (m, n, nrhs, a, lda, b, ldb, jpvt, rcond, rank, work, info) = _extArgs(args, 12)
   else
-    @match list(m, n, nrhs, a, lda, b, ldb, jpvt, rcond, rank, work, _, info) = args
+    (m, n, nrhs, a, lda, b, ldb, jpvt, rcond, rank, work, _, info) = _extArgs(args, 13)
   end
   #=  Some older versions of the MSL calls dgelsx with an extra lwork argument.
   =#
@@ -302,7 +275,7 @@ function Lapack_dgelsy(args::List{<:Expression})
   local RCOND::AbstractFloat
   local WORK::List{AbstractFloat}
 
-  @match list(m, n, nrhs, a, lda, b, ldb, jpvt, rcond, rank, work, lwork, info) = args
+  (m, n, nrhs, a, lda, b, ldb, jpvt, rcond, rank, work, lwork, info) = _extArgs(args, 13)
   @assign M = evaluateExtIntArg(m)
   @assign N = evaluateExtIntArg(n)
   @assign NRHS = evaluateExtIntArg(nrhs)
@@ -342,7 +315,7 @@ function Lapack_dgesv(args::List{<:Expression})
   local B::List{List{AbstractFloat}}
   local IPIV::List{Int}
 
-  @match list(n, nrhs, a, lda, ipiv, b, ldb, info) = args
+  (n, nrhs, a, lda, ipiv, b, ldb, info) = _extArgs(args, 8)
   @assign N = evaluateExtIntArg(n)
   @assign NRHS = evaluateExtIntArg(nrhs)
   @assign A = evaluateExtRealMatrixArg(a)
@@ -384,7 +357,7 @@ function Lapack_dgglse(args::List{<:Expression})
   local WORK::List{AbstractFloat}
   local X::List{AbstractFloat}
 
-  @match list(m, n, p, a, lda, b, ldb, c, d, x, work, lwork, info) = args
+  (m, n, p, a, lda, b, ldb, c, d, x, work, lwork, info) = _extArgs(args, 13)
   @assign M = evaluateExtIntArg(m)
   @assign N = evaluateExtIntArg(n)
   @assign P = evaluateExtIntArg(p)
@@ -425,7 +398,7 @@ function Lapack_dgtsv(args::List{<:Expression})
   local DU::List{AbstractFloat}
   local B::List{List{AbstractFloat}}
 
-  @match list(n, nrhs, dl, d, du, b, ldb, info) = args
+  (n, nrhs, dl, d, du, b, ldb, info) = _extArgs(args, 8)
   @assign N = evaluateExtIntArg(n)
   @assign NRHS = evaluateExtIntArg(nrhs)
   @assign DL = evaluateExtRealArrayArg(dl)
@@ -463,7 +436,7 @@ function Lapack_dgbsv(args::List{<:Expression})
   local B::List{List{AbstractFloat}}
   local IPIV::List{Int}
 
-  @match list(n, kl, ku, nrhs, ab, ldab, ipiv, b, ldb, info) = args
+  (n, kl, ku, nrhs, ab, ldab, ipiv, b, ldb, info) = _extArgs(args, 10)
   @assign N = evaluateExtIntArg(n)
   @assign KL = evaluateExtIntArg(kl)
   @assign KU = evaluateExtIntArg(ku)
@@ -509,7 +482,7 @@ function Lapack_dgesvd(args::List{<:Expression})
   local S::List{AbstractFloat}
   local WORK::List{AbstractFloat}
 
-  @match list(jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, info) = args
+  (jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, info) = _extArgs(args, 14)
   @assign JOBU = evaluateExtStringArg(jobu)
   @assign JOBVT = evaluateExtStringArg(jobvt)
   @assign M = evaluateExtIntArg(m)
@@ -544,7 +517,7 @@ function Lapack_dgetrf(args::List{<:Expression})
   local A::List{List{AbstractFloat}}
   local IPIV::List{Int}
 
-  @match list(m, n, a, lda, ipiv, info) = args
+  (m, n, a, lda, ipiv, info) = _extArgs(args, 6)
   @assign M = evaluateExtIntArg(m)
   @assign N = evaluateExtIntArg(n)
   @assign A = evaluateExtRealMatrixArg(a)
@@ -575,7 +548,7 @@ function Lapack_dgetrs(args::List{<:Expression})
   local B::List{List{AbstractFloat}}
   local IPIV::List{Int}
 
-  @match list(trans, n, nrhs, a, lda, ipiv, b, ldb, info) = args
+  (trans, n, nrhs, a, lda, ipiv, b, ldb, info) = _extArgs(args, 9)
   @assign TRANS = evaluateExtStringArg(trans)
   @assign N = evaluateExtIntArg(n)
   @assign NRHS = evaluateExtIntArg(nrhs)
@@ -605,7 +578,7 @@ function Lapack_dgetri(args::List{<:Expression})
   local IPIV::List{Int}
   local WORK::List{AbstractFloat}
 
-  @match list(n, a, lda, ipiv, work, lwork, info) = args
+  (n, a, lda, ipiv, work, lwork, info) = _extArgs(args, 7)
   @assign N = evaluateExtIntArg(n)
   @assign A = evaluateExtRealMatrixArg(a)
   @assign LDA = evaluateExtIntArg(lda)
@@ -636,7 +609,7 @@ function Lapack_dgeqpf(args::List{<:Expression})
   local WORK::List{AbstractFloat}
   local TAU::List{AbstractFloat}
 
-  @match list(m, n, a, lda, jpvt, tau, work, info) = args
+  (m, n, a, lda, jpvt, tau, work, info) = _extArgs(args, 8)
   @assign M = evaluateExtIntArg(m)
   @assign N = evaluateExtIntArg(n)
   @assign A = evaluateExtRealMatrixArg(a)
@@ -670,7 +643,7 @@ function Lapack_dorgqr(args::List{<:Expression})
   local TAU::List{AbstractFloat}
   local WORK::List{AbstractFloat}
 
-  @match list(m, n, k, a, lda, tau, work, lwork, info) = args
+  (m, n, k, a, lda, tau, work, lwork, info) = _extArgs(args, 9)
   @assign M = evaluateExtIntArg(m)
   @assign N = evaluateExtIntArg(n)
   @assign K = evaluateExtIntArg(k)
@@ -685,8 +658,43 @@ function Lapack_dorgqr(args::List{<:Expression})
   return assignVariable(info, makeInteger(INFO))
 end
 
+function Lapack_dhseqr(args::List{<:Expression})
+  local job::Expression
+  local compz::Expression
+  local n::Expression
+  local ilo::Expression
+  local ihi::Expression
+  local h::Expression
+  local ldh::Expression
+  local wr::Expression
+  local wi::Expression
+  local z::Expression
+  local ldz::Expression
+  local work::Expression
+  local lwork::Expression
+  local info::Expression
+  local H::List{List{AbstractFloat}}
+  local Z::List{List{AbstractFloat}}
+  local WR::List{AbstractFloat}
+  local WI::List{AbstractFloat}
+  local WORK::List{AbstractFloat}
+  local INFO::Int
+
+  (job, compz, n, ilo, ihi, h, ldh, wr, wi, z, ldz, work, lwork, info) = _extArgs(args, 14)
+  (H, WR, WI, Z, WORK, INFO) = Lapack.dhseqr(evaluateExtStringArg(job), evaluateExtStringArg(compz),
+    evaluateExtIntArg(n), evaluateExtIntArg(ilo), evaluateExtIntArg(ihi), evaluateExtRealMatrixArg(h),
+    evaluateExtIntArg(ldh), evaluateExtRealMatrixArg(z), evaluateExtIntArg(ldz),
+    evaluateExtRealArrayArg(work), evaluateExtIntArg(lwork))
+  assignVariableExt(h, makeRealMatrix(H))
+  assignVariable(wr, makeRealArray(WR))
+  assignVariable(wi, makeRealArray(WI))
+  assignVariableExt(z, makeRealMatrix(Z))
+  assignVariable(work, makeRealArray(WORK))
+  return assignVariable(info, makeInteger(INFO))
+end
+
 function evaluateExtIntArg(@nospecialize(arg::Expression))::Int
-  local value::Int = getExtIntValue(Ceval.evalExp(arg))
+  local value::Int = getExtIntValue(evalExp(arg))
   return value
 end
 
@@ -699,7 +707,7 @@ function getExtIntValue(@nospecialize(exp::Expression))::Int
         exp.value
       end
 
-      EMPTY(__) => begin
+      EMPTY_EXPRESSION(__) => begin
         0
       end
     end
@@ -708,7 +716,7 @@ function getExtIntValue(@nospecialize(exp::Expression))::Int
 end
 
 function evaluateExtRealArg(@nospecialize(arg::Expression))::AbstractFloat
-  local value::AbstractFloat = getExtRealValue(Ceval.evalExp(arg))
+  local value::AbstractFloat = getExtRealValue(evalExp(arg))
   return value
 end
 
@@ -721,7 +729,7 @@ function getExtRealValue(@nospecialize(exp::Expression))::AbstractFloat
         exp.value
       end
 
-      EMPTY(__) => begin
+      EMPTY_EXPRESSION(__) => begin
         0.0
       end
     end
@@ -730,7 +738,7 @@ function getExtRealValue(@nospecialize(exp::Expression))::AbstractFloat
 end
 
 function evaluateExtStringArg(@nospecialize(arg::Expression))::String
-  local value::String = getExtStringValue(Ceval.evalExp(arg))
+  local value::String = getExtStringValue(evalExp(arg))
   return value
 end
 
@@ -743,7 +751,7 @@ function getExtStringValue(@nospecialize(exp::Expression))::String
         exp.value
       end
 
-      EMPTY(__) => begin
+      EMPTY_EXPRESSION(__) => begin
         ""
       end
     end
@@ -752,49 +760,35 @@ function getExtStringValue(@nospecialize(exp::Expression))::String
 end
 
 function evaluateExtIntArrayArg(@nospecialize(arg::Expression))::List{Int}
-  local value::List{Int}
-
-  local expl::List{Expression}
-
-  @assign expl = arrayElements(Ceval.evalExp(arg))
-  @assign value = list(getExtIntValue(e) for e in expl)
+  local value::List{Int} = nil
+  for e in Iterators.reverse(arrayElements(evalExp(arg)))
+    value = Cons{Int}(getExtIntValue(e), value)
+  end
   return value
 end
 
 function evaluateExtRealArrayArg(@nospecialize(arg::Expression))::List{AbstractFloat}
-  local value::List{AbstractFloat}
+  return _extRealList(arrayElements(evalExp(arg)))
+end
 
-  local expl::List{Expression}
-
-  @assign expl = arrayElements(Ceval.evalExp(arg))
-  @assign value = list(getExtRealValue(e) for e in expl)
+function _extRealList(expl::Vector{Expression})::List{AbstractFloat}
+  local value::List{AbstractFloat} = nil
+  for e in Iterators.reverse(expl)
+    value = Cons{AbstractFloat}(getExtRealValue(e), value)
+  end
   return value
 end
 
+#= A matrix argument as a list of rows; a vector is a matrix of one column (some external
+   functions do not tell them apart). =#
 function evaluateExtRealMatrixArg(@nospecialize(arg::Expression))::List{List{AbstractFloat}}
-  local value::List{List{AbstractFloat}}
-
-  local expl::List{Expression}
-  local ty::M_Type
-
-  @match ARRAY_EXPRESSION(ty = ty, elements = expl) = Ceval.evalExp(arg)
-  #=  Some external functions don't make a difference between vectors and
-  =#
-  #=  matrices, so if the argument is a vector we convert it into a matrix.
-  =#
-  @assign value = begin
-    @match dimensionCount(ty) begin
-      1 => begin
-        list(list(getExtRealValue(e)) for e in expl)
-      end
-
-      2 => begin
-        list(
-          list(getExtRealValue(e) for e in arrayElements(row))
-          for row in expl
-        )
-      end
-    end
+  local value::List{List{AbstractFloat}} = nil
+  local array = evalExp(arg)
+  array isa ARRAY_EXPRESSION || fail()
+  local vector = dimensionCount(array.ty) == 1
+  for e in Iterators.reverse(array.elements)
+    local row = vector ? Cons{AbstractFloat}(getExtRealValue(e), nil) : _extRealList(arrayElements(e))
+    value = Cons{List{AbstractFloat}}(row, value)
   end
   return value
 end
@@ -832,5 +826,3 @@ function assignVariableExt(@nospecialize(variable::Expression), @nospecialize(va
   return assignVariable(variable, exp)
 end
 
-@exportAll()
-end

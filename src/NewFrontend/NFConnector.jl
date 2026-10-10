@@ -64,13 +64,12 @@ const ScalarizeSettingType = Int
 scalarizeCref(cref::ComponentRef)::List{ComponentRef} = scalarize(cref)
 
 """Splits a connector into its primitive components."""
+#= Connection sets hold scalars also when not scalarizing (NF_SCALARIZE off): connects in
+   for-loops are unrolled per element, so flows added as whole arrays (NONE) never met the
+   connected elements and unconnected-flow equations  covered connected elements. =#
 function split(
   conn::Connector,
-  scalarize::ScalarizeSettingType = if Flags.isSet(Flags.NF_SCALARIZE)
-    ScalarizeSetting.ALL
-  else
-    ScalarizeSetting.NONE
-  end,
+  scalarize::ScalarizeSettingType = ScalarizeSetting.ALL,
 )::List{Connector}
   local connl::List{Connector}
 

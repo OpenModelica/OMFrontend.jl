@@ -1150,7 +1150,7 @@ function scopePath(node::InstNode; includeRoot::Bool = false #= Whether to inclu
       end
 
       IMPLICIT_SCOPE(__)  => begin
-        scopePath(node.parentScope, includeRoot)
+        scopePath(node.parentScope; includeRoot = includeRoot)
       end
 
       _  => begin
@@ -2066,25 +2066,20 @@ function isRef(node::InstNode)
   isRef
 end
 
-function isComponent(node::InstNode)
-  local isComponent::Bool
+function isComponent(node::InstNode)::Bool
+  @match node begin
+    COMPONENT_NODE(__)  => begin
+      true
+    end
 
-   isComponent = begin
-    @match node begin
-      COMPONENT_NODE(__)  => begin
-        true
-      end
+    INNER_OUTER_NODE(__)  => begin
+      isComponent(node.innerNode)
+    end
 
-      INNER_OUTER_NODE(__)  => begin
-        isComponent(node.innerNode)
-      end
-
-      _  => begin
-        false
-      end
+    _  => begin
+      false
     end
   end
-  isComponent
 end
 
 function isFunction(node::InstNode)

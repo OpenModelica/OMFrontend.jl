@@ -965,7 +965,7 @@ function instClassDef(cls::EXPANDED_DERIVED,
   @match EXPANDED_DERIVED(baseClass = base_node) = getClass(node)
   #=  Merge outer modifiers and attributes.
   =#
-  mod = fromElement(definition(node), list(node), rootParent(node))
+  mod = withConstrainingMod(fromElement(definition(node), list(node), rootParent(node)), node, rootParent(node))
   outer_mod = merge(outerMod, addParent(node, cls.modifier))
   mod = merge(outer_mod, mod)
   #strMod = toString(mod, true)
@@ -1019,7 +1019,7 @@ function instClassDef(cls::EXPANDED_CLASS,
   inst_cls = getClass(node)
   cls_tree = inst_cls.elements
   #=  Fetch modification on the class definition (for class extends). =#
-  mod = fromElement(definition(node), nil, par)
+  mod = withConstrainingMod(fromElement(definition(node), nil, par), node, par)
   #=  Merge with any outer modifications. =#
   outer_mod = merge(outerMod, cls.modifier)
   mod = merge(outer_mod, mod)
@@ -1033,7 +1033,7 @@ function instClassDef(cls::EXPANDED_CLASS,
     also be handled here, but since each component is only instantiated once
     it's more efficient to apply the redeclare when instantiating them instead.
   =#
-  redeclareClasses(cls_tree)
+  redeclareClasses(cls_tree, par)
   #=  Instantiate the extends nodes. =#
   mapExtends(cls_tree, attributes, useBinding, ExtendsVisibility.PUBLIC, instLevel + 1, attributeRef)
   applyLocalComponents(cls_tree, attributes, useBinding, instLevel + 1, attributeRef)
@@ -1305,7 +1305,7 @@ function applyModifier(modifier::Modifier, cls::ClassTree, clsName::String) ::Cl
               end
             else
               if isOnlyOuter(node)
-                Error.addSourceMessage(Error.OUTER_ELEMENT_MOD, list(toString(mod, false), name(mod)), info(mod))
+                Error.addSourceMessage(Error.OUTER_ELEMENT_MOD, list(toString(mod, false), name(mod)), Modifier_info(mod))
                 fail()
               end
               partialInstClass(node)
@@ -1326,11 +1326,12 @@ function applyModifier(modifier::Modifier, cls::ClassTree, clsName::String) ::Cl
   cls
 end
 
-function redeclareClasses(tree::ClassTree) ::ClassTree
+function redeclareClasses(tree::ClassTree, parent::InstNode) ::ClassTree
   local cls_node::InstNode
   local redecl_node::InstNode
   local cls::Class
   local mod::Modifier
+  local cc_mod::Modifier
    () = begin
     @match tree begin
       CLASS_TREE_INSTANTIATED_TREE(__)  => begin
@@ -1339,8 +1340,8 @@ function redeclareClasses(tree::ClassTree) ::ClassTree
            cls = getClass(resolveOuter(cls_node))
            mod = getModifier(cls)
           if isRedeclare(mod)
-            @match MODIFIER_REDECLARE(element = redecl_node, mod = mod) = mod
-            cls_node = redeclareClass(redecl_node, cls_node, mod)
+            @match MODIFIER_REDECLARE(element = redecl_node, outerMod = mod, constrainingMod = cc_mod) = mod
+            cls_node = redeclareClass(redecl_node, cls_node, mod, elementConstrainingMod(definition(cls_node), parent, cc_mod))
             P_Pointer.update(cls_ptr, cls_node)
           end
         end
@@ -1395,12 +1396,39 @@ function redeclareComponentElement(redeclareComp::Pointer{InstNode}, replaceable
   repl_node = P_Pointer.access(replaceableComp)
   repl_node = instComponent(repl_node, DEFAULT_ATTR, MODIFIER_NOMOD(), true, instLevel, Ref{Attributes}(DEFAULT_ATTR))
   P_Pointer.update(replaceableComp, repl_node)
-  rdcl_node = redeclareComponent(rdcl_node, repl_node, MODIFIER_NOMOD(), MODIFIER_NOMOD(), DEFAULT_ATTR, rdcl_node, instLevel)
+  rdcl_node = redeclareComponent(rdcl_node, repl_node, MODIFIER_NOMOD(), MODIFIER_NOMOD(), DEFAULT_ATTR, rdcl_node, instLevel,
+                                 Ref{Attributes}(DEFAULT_ATTR))
    outComp = P_Pointer.create(rdcl_node)
   outComp
 end
 
-function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMod::Modifier) ::InstNode
+#= The constraining clause's modifier of a replaceable element (omc: getConstrainingMod), in the
+   scope declaring it, below the redeclare's own constraining modifier: applied to the element
+   redeclaring it (MLS 7.3.2), below that element's own modifiers (omc: Class.ccMod). Buildings
+   DHC: `replaceable model Model_pipDisRet = ... constrainedby PartialTwoPortInterface(redeclare
+   final package Medium = MediumRet, ...)`, redeclared without a medium, had kept PartialMedium. =#
+function elementConstrainingMod(def::SCode.Element, parent::InstNode, outerMod::Modifier)::Modifier
+  local cc_smod = SCodeUtil.getConstrainingMod(def)
+  SCodeUtil.isEmptyMod(cc_smod) && return outerMod
+  local nm = SCodeUtil.elementName(def)
+  local scope = def isa SCode.CLASS ? SCOPE_CLASS(nm) : SCOPE_COMPONENT(nm)
+  return merge(outerMod, create(cc_smod, nm, scope, nil, parent))
+end
+
+#= A class's element modifier with its own constraining clause's below it, unless the class was
+   redeclared (it got the original's in redeclareClass); omc: instElementModifier. Buildings
+   Obsolete DHC: `replaceable model BorefieldType = OneUTube constrainedby
+   PartialBorefield(borFieDat = datBorFie, ...)`, not redeclared, left borFieDat unbound. =#
+function withConstrainingMod(mod::Modifier, node::InstNode, scope::InstNode)::Modifier
+  _isRedeclaredClassType(nodeType(node)) && return mod
+  return merge(mod, instConstrainingMod(definition(node), scope))
+end
+
+_isRedeclaredClassType(ty::InstNodeType)::Bool =
+  isvariant(ty, REDECLARED_CLASS) || (isvariant(ty, DERIVED_CLASS) && _isRedeclaredClassType(ty.ty))
+
+function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMod::Modifier,
+                        constrainingMod::Modifier = MODIFIER_NOMOD()) ::InstNode
   local redeclaredNode::InstNode
   local orig_node::InstNode
   local orig_cls::Class
@@ -1440,22 +1468,16 @@ function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMo
           setPrefixes(prefs, orig_cls)
         end
 
-        (EXPANDED_CLASS(__), PARTIAL_CLASS(__))  => begin
-          #=  Class extends of a long class declaration. =#
+        (EXPANDED_CLASS(__), PARTIAL_CLASS(__)) || (EXPANDED_DERIVED(__), PARTIAL_CLASS(__))  => begin
+          #=  Class extends of a long or a short class declaration (`replaceable function f = .f`,
+              omc redeclareClass): the original is the base class of the redeclaring one. =#
            node_ty = BASE_CLASS(parent(orig_node), definition(orig_node))
            orig_node = setNodeType(node_ty, orig_node)
           @assign begin
             rdcl_cls.elements = setClassExtends(orig_node, rdcl_cls.elements)
-            rdcl_cls.modifier = merge(outerMod, rdcl_cls.modifier)
+            rdcl_cls.modifier = merge(outerMod, merge(rdcl_cls.modifier, constrainingMod))
             rdcl_cls.prefixes = prefs
           end
-          rdcl_cls
-        end
-
-        (EXPANDED_DERIVED(__), PARTIAL_CLASS(__))  => begin
-          #=  Class extends of a short class declaration.
-          =#
-          @assign rdcl_cls.prefixes = prefs
           rdcl_cls
         end
 
@@ -1474,7 +1496,7 @@ function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMo
 
         (_, PARTIAL_CLASS(__))  => begin
           @assign rdcl_cls.prefixes = prefs
-          @assign rdcl_cls.modifier = merge(outerMod, rdcl_cls.modifier)
+          @assign rdcl_cls.modifier = merge(outerMod, merge(rdcl_cls.modifier, constrainingMod))
           rdcl_cls
         end
 
@@ -1529,9 +1551,8 @@ function instComponent(node::InstNode,
   local comp_node::InstNode
   local rdcl_node::InstNode
   local outer_mod::Modifier
+  local inner_mod::Modifier
   local cc_mod::Modifier = innerMod
-  local cc_smod::SCode.Mod
-  local nameStr::String
   local parentNode::InstNode
   #= A component removed by `break` (omc instComponent). =#
   isvariant(node, EMPTY_NODE) && return node
@@ -1547,15 +1568,12 @@ function instComponent(node::InstNode,
   @match COMPONENT_DEF(definition = def, modifier = outer_mod) = comp
   if isRedeclare(outer_mod)
     checkOuterComponentMod(outer_mod, def, comp_node)
-    comp_node = instComponentDef(def::SCode.COMPONENT, MODIFIER_NOMOD(), MODIFIER_NOMOD(),
+    @match MODIFIER_REDECLARE(element = rdcl_node, innerMod = inner_mod, outerMod = outer_mod,
+                              constrainingMod = cc_mod) = outer_mod
+    comp_node = instComponentDef(def::SCode.COMPONENT, MODIFIER_NOMOD(), inner_mod,
                      DEFAULT_ATTR, useBinding, comp_node, parentNode,
                      instLevel, attributeRef, originalAttr, #=isRedeclared =# true)::InstNode
-    @match MODIFIER_REDECLARE(element = rdcl_node, mod = outer_mod) = outer_mod
-    cc_smod = SCodeUtil.getConstrainingMod(def)
-    if ! SCodeUtil.isEmptyMod(cc_smod)
-      nameStr = name(node)
-      cc_mod = create(cc_smod, nameStr, SCOPE_COMPONENT(nameStr), nil, parentNode)
-    end
+    cc_mod = merge(elementConstrainingMod(def, parentNode, cc_mod), innerMod)
     outer_mod = merge(getModifier(rdcl_node), outer_mod)
     rdcl_node = setModifier(outer_mod, rdcl_node)
     comp_node = redeclareComponent(rdcl_node, node, MODIFIER_NOMOD(), cc_mod, attributes, node, instLevel, attributeRef)
@@ -1660,7 +1678,7 @@ function instConstrainingMod(element::SCode.Element, parent::InstNode) ::Modifie
     local smod::SCode.Mod
     @match element begin
       SCode.CLASS(prefixes = SCode.PREFIXES(replaceablePrefix = SCode.REPLACEABLE(cc = SOME(SCode.CONSTRAINCLASS(modifier = smod)))))  => begin
-        create(smod, element.name, cope.CLASS(element.name), nil, parent)
+        create(smod, element.name, SCOPE_CLASS(element.name), nil, parent)
       end
       SCode.COMPONENT(prefixes = SCode.PREFIXES(replaceablePrefix = SCode.REPLACEABLE(cc = SOME(SCode.CONSTRAINCLASS(modifier = smod)))))  => begin
         create(smod, element.name, SCOPE_COMPONENT(element.name), nil, parent)
@@ -1968,7 +1986,7 @@ function mergeRedeclaredComponentAttributes(origAttr::Attributes, redeclAttr::At
     cty_fs = intBitAnd(cty, ConnectorType.FLOW_STREAM_MASK)
     if rcty_fs > 0
       if cty_fs > 0 && rcty_fs != cty_fs
-        printRedeclarePrefixError(node, ConnectorType.toString(rcty), ConnectorType.toString(cty))
+        printRedeclarePrefixError(node, toString(rcty), toString(cty))
       end
     end
     if rpar != Parallelism.NON_PARALLEL
@@ -2098,7 +2116,7 @@ function instTypeSpec(typeSpec::Absyn.TPATH,
                       isRedeclared::Bool = false)::InstNode
   local node::InstNode = lookupClassName(typeSpec.path, scope, info; isRedeclared = isRedeclared)
   if instLevel >= 100
-    checkRecursiveDefinition(node, parent, limitReached = true)
+    checkRecursiveDefinition(node, parent, true)
   end
   node = expand(node)
   instClass(node, modifier, attributes, attributeRef, useBinding, instLevel, parent)
@@ -2235,6 +2253,42 @@ end
 
 _parallelTypingActive() = PARALLEL_INST[] && Threads.nthreads() >= 2
 
+#= Sibling fan-out: body(i) for each index in its own task. A task's error messages go to the
+   spawning task's buffer, and its failure is rethrown as itself: serially a MetaModelica failure
+   is control flow callers catch; wrapped it was a TaskFailedException without its message
+   (OpenModelica testsuite: Extends3, Connect12, InvertedPendulumTotal). =#
+function _parallelFor(body::Function, indices::AbstractVector{Int})::Nothing
+  local parentTok = get(task_local_storage(), :OMF_ROOT, 0)::Int
+  local parent = current_task()
+  try
+    @sync for i in indices
+      local idx = i
+      local tok = parentTok == 0 ? idx : parentTok
+      Threads.@spawn begin
+        task_local_storage(:OMF_ROOT, tok)
+        try
+          body(idx)
+        finally
+          ErrorExt.moveMessagesToParentThread(parent)
+        end
+      end
+    end
+  catch e
+    local inner = e
+    while true
+      if inner isa CompositeException && !isempty(inner.exceptions)
+        inner = Base.first(inner.exceptions)
+      elseif inner isa TaskFailedException
+        inner = inner.task.result
+      else
+        break
+      end
+    end
+    throw(inner)
+  end
+  return nothing
+end
+
 #= Per-task count of claims currently held. Fan-out while holding a claim can
    deadlock: the spawning task waits at @sync while a worker waits on the held
    claim. Fan-out sites therefore require _noClaimsHeld(). =#
@@ -2269,7 +2323,9 @@ end
 #= Runaway backstops. Atomic so they are safe to bump from parallel instantiation
    workers; the depth guard uses the per-stack `instLevel` parameter instead. =#
 const INST_CLASS_TOTAL_CALLS = Threads.Atomic{Int}(0)
-const INST_CLASS_TOTAL_CALLS_LIMIT = 200_000
+#= Per instantiation. Large models need far more than the depth: Buildings' VAVReheat
+   ASHRAE2006 and DualFanDualDuct went over 200_000 at instLevel 1-2. =#
+const INST_CLASS_TOTAL_CALLS_LIMIT = 10_000_000
 const REINSTANTIATION_COUNT = Threads.Atomic{Int}(0)
 const REINSTANTIATION_CLASSES = Dict{String, Int}()
 const _REINST_CLASSES_LOCK = ReentrantLock()
@@ -2279,6 +2335,8 @@ function resetInstDiagnostics()
   Threads.atomic_xchg!(REINSTANTIATION_COUNT, 0)
   lock(() -> empty!(REINSTANTIATION_CLASSES), _REINST_CLASSES_LOCK)
   lock(() -> empty!(_INLINE_BODY_INFO_CACHE), _INLINE_BODY_INFO_LOCK)
+  #= Keyed by the top scope of one instantiation: kept, it holds every earlier model's instance tree. =#
+  lock(() -> empty!(_NO_EVENT_FN_CACHE), _INST_SHARED_LOCK)
   INST_EXPR_DEPTH[] = 0
   empty!(CLASS_PTR_WRITES)
   empty!(COMPONENT_PTR_WRITES)
@@ -2507,7 +2565,7 @@ function instExpressions(node::InstNode,
       elseif SCodeUtil.hasBooleanNamedAnnotationInClass(definition(node), BUILTIN_PREFIX)
         ty = TYPE_COMPLEX(node, COMPLEX_CLASS())
       else
-        Error.addSourceMessage(Error.MISSING_TYPE_BASETYPE, list(name(node)), infoInstNode_info(node))
+        Error.addSourceMessage(Error.MISSING_TYPE_BASETYPE, list(name(node)), InstNode_info(node))
         fail()
       end
       cls_tree = flatten(cls_tree)
@@ -3129,7 +3187,7 @@ function instSections2(parts::SCode.ClassDef, scope::InstNode, sections::Section
     #= Plain conditionals instead of matching on a constructed tuple; the
        non-PARTS case keeps its MatchFailure via the single-record match. =#
     if sections isa SECTIONS_EXTERNAL
-      Error.addSourceMessage(Error.MULTIPLE_SECTIONS_IN_FUNCTION, list(name(scope)), info(scope))
+      Error.addSourceMessage(Error.MULTIPLE_SECTIONS_IN_FUNCTION, list(name(scope)), InstNode_info(scope))
       fail()
     end
     @match SCode.PARTS(__) = parts
@@ -3573,7 +3631,7 @@ function isStructuralComponent(component::Component, compAttrs::Attributes, comp
        isStructural = false
     elseif ! hasBinding(compNode)
       if ! evalAllParams && ! Flags.getConfigBool(Flags.CHECK_MODEL)
-        Error.addSourceMessage(Error.UNBOUND_PARAMETER_EVALUATE_TRUE, list(name(compNode)), info(compNode))
+        Error.addSourceMessage(Error.UNBOUND_PARAMETER_EVALUATE_TRUE, list(name(compNode)), InstNode_info(compNode))
       end
        isStructural = false
     elseif isBindingNotFixed(compBinding, #= requireFinal = =# false)
@@ -3601,6 +3659,17 @@ function isBindingNotFixed(binding::Binding, requireFinal::Bool, maxDepth::Int =
   isNotFixed
 end
 
+#= The binding of the component's type attribute `attrName`, or an empty binding (omc
+   Component.getTypeAttributeBinding). =#
+function getTypeAttributeBinding(comp::Component, attrName::String)::Binding
+  local cls_node = classInstance(comp)
+  (cls_node === nothing || isvariant(cls_node, EMPTY_NODE)) && return EMPTY_BINDING
+  @match ENTRY_INFO(attr_node, _) = lookupElement(attrName, getClass(cls_node))
+  (isvariant(attr_node, EMPTY_NODE) || !isComponent(attr_node)) && return EMPTY_BINDING
+  local attr_comp = component(attr_node)
+  return attr_comp.tag == CT_TYPE_ATTRIBUTE ? getBinding(attr_comp) : EMPTY_BINDING
+end
+
 function isComponentBindingNotFixed(comp::Component, node::InstNode, requireFinal::Bool, maxDepth::Int, isRecordB::Bool = false) ::Bool
   local isNotFixed::Bool
 
@@ -3616,7 +3685,8 @@ function isComponentBindingNotFixed(comp::Component, node::InstNode, requireFina
       if isComponent(parentNode) && isRecord(parentNode)
         isNotFixed = isComponentBindingNotFixed(component(parentNode), parentNode, requireFinal, maxDepth, true)
       else
-        isNotFixed = true
+        #= Fixed by its start value (`parameter Boolean b(start = true)`, omc). =#
+        isNotFixed = isBindingNotFixed(getTypeAttributeBinding(comp, "start"), requireFinal, maxDepth)
       end
     end
   else

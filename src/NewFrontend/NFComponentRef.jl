@@ -521,6 +521,43 @@ function toFlatString_impl(cref::ComponentRef, strl::List{<:String}; inFunction 
   return strl
 end
 
+#= Not scalarizing (omc's Base Modelica NOT_SCALARIZED with records): one quoted dotted name
+   with all subscripts at the end ('r.p.v'[1], the declared 'r.p.v'[3] indexed), a record
+   part closes the quoted name ('con.material'.'x'); iterators are quoted too ('i'). =#
+function _toFlatStringNotScalarized(cref::ComponentRef)::String
+  local parts = ComponentRef[]
+  local cr = cref
+  while isvariant(cr, COMPONENT_REF_CREF)
+    pushfirst!(parts, cr)
+    cr = cr.restCref
+  end
+  if length(parts) == 1 && name(parts[1].node) == "time"
+    return "time"
+  end
+  local buf = IOBuffer()
+  local subs = Subscript[]
+  print(buf, "'")
+  for (k, p) in enumerate(parts)
+    print(buf, name(p.node))
+    append!(subs, p.subscripts)
+    if k < length(parts)
+      if isRecord(arrayElementType(p.ty))
+        print(buf, "'")
+        if !isempty(subs)
+          print(buf, toFlatStringList(list(subs...)))
+          empty!(subs)
+        end
+        print(buf, ".'")
+      else
+        print(buf, ".")
+      end
+    end
+  end
+  print(buf, "'")
+  isempty(subs) || print(buf, toFlatStringList(list(subs...)))
+  return String(take!(buf))
+end
+
 function toFlatString(cref::ComponentRef; inFunction = false)
   local str::String
   local cr::ComponentRef
@@ -532,6 +569,9 @@ function toFlatString(cref::ComponentRef; inFunction = false)
     return "_"
   elseif isvariant(cref, COMPONENT_REF_EMPTY)
     return ""
+  end
+  if !inFunction && !Flags.isSet(Flags.NF_SCALARIZE)
+    return _toFlatStringNotScalarized(cref)
   end
   #= Iterator variables (loop vars like i in 'for i in ...') must not be quoted =#
   if isIterator(cref)
@@ -1013,6 +1053,9 @@ function hasSubscripts(cref::ComponentRef)::Bool
   return hs
 end
 
+#= Only the parts written in the reference, not its scope (omc: mergeSubscripts, applyToScope
+   false). max(power.P) of a one-element P in an array of records' shared class became
+   perPum[1].power.P (Buildings DataCenters: {0.0} > eps). =#
 function applySubscripts2(subscripts::List{<:Subscript},
                           cref::ComponentRef,
                           )::Tuple{List{Subscript}, ComponentRef}
@@ -1020,7 +1063,7 @@ function applySubscripts2(subscripts::List{<:Subscript},
     local rest_cref::ComponentRef
     local cref_subs::List{Subscript}
     @match cref begin
-      COMPONENT_REF_CREF(subscripts = cref_subs) => begin
+      COMPONENT_REF_CREF(subscripts = cref_subs) where cref.origin == Origin.CREF => begin
          (subscripts, rest_cref) = applySubscripts2(subscripts, cref.restCref)
         if !listEmpty(subscripts)
           (cref_subs, subscripts) = mergeList(

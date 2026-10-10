@@ -154,18 +154,19 @@ end
 end
 
 """
- Attempts to evaluate an expression.
- Continues if it fails
+ Attempts to evaluate an expression: the value, or the expression itself when it cannot be
+ evaluated; the messages of the failed attempt are dropped (omc tryEvalExp).
 """
-@nospecializeinfer function tryEvalExp(@nospecialize(exp::Expression))
-  local outExp = exp
+@nospecializeinfer function tryEvalExp(@nospecialize(exp::Expression), target::EvalTarget = EVALTARGET_IGNORE_ERRORS())::Expression
+  ErrorExt.setCheckpoint("NFCeval.tryEvalExp")
   try
-    outExp = evalExp(exp)
-  catch
+    exp = evalExp(exp, target)
+  catch e
+    e isa InterruptException && rethrow()
   end
-  return outExp
+  ErrorExt.rollBack("NFCeval.tryEvalExp")
+  return exp
 end
-
 
 """
   Evaluates an expression.
@@ -498,12 +499,96 @@ function evalComponentBinding(
 )::Expression #= The expression returned if the binding couldn't be evaluated =#
   #= Typing plus evaluated-flag write-back must be atomic per node under
      parallel typing. =#
-  if _parallelTypingActive()
-    return _withClaim(
-      () -> evalComponentBinding2(node, cref, defaultExp, target, evalSubscripts),
-      _refId(resolveOuter(node)))
+  local id = _refId(resolveOuter(node))
+  #= A binding this task is evaluating, read again within itself: not evaluated there. Field
+     by field acyclic, whole records read each other (Buildings' Templates: pla.cfg, through
+     pla.THeaWatSup_nominal and datAll.pla.ctl.cfg, back to pla.cfg): a recursion without end,
+     a stack overflow that killed the process. =#
+  local evaluating = _evaluatingBindings()
+  id in evaluating && return defaultExp
+  push!(evaluating, id)
+  try
+    if _parallelTypingActive()
+      return _withClaim(() -> evalComponentBinding2(node, cref, defaultExp, target, evalSubscripts), id)
+    end
+    return evalComponentBinding2(node, cref, defaultExp, target, evalSubscripts)
+  finally
+    delete!(evaluating, id)
   end
-  return evalComponentBinding2(node, cref, defaultExp, target, evalSubscripts)
+end
+
+#= The component bindings the current task is evaluating (evalComponentBinding). =#
+_evaluatingBindings()::Set{UInt64} = get!(() -> Set{UInt64}(), task_local_storage(), :NFCevalEvaluatingBindings)::Set{UInt64}
+
+#= The dimensions of an evaluated value: an array literal's nesting under any binding info
+   (its type can be the element's: `abs(dp_nominal)` evaluated over the array modifier). =#
+function _valueDimensionCount(@nospecialize(exp::Expression))::Int
+  local e = stripBindingInfo(exp)
+  local depth = 0
+  local x = e
+  while x isa ARRAY_EXPRESSION && !isempty(x.elements)
+    depth += 1
+    x = Base.first(x.elements)
+  end
+  return max(depth, dimensionCount(typeOf(e)))
+end
+
+#= An evaluated value over the enclosing component arrays (`extra` dimensions more than the
+   component), for one element: subscripted by the cref's innermost enclosing parts. Each element's
+   if-equation condition had been the whole array (Buildings' counter-flow coils, `if
+   {true, false, false, false} then assert(...)` for hex.ele[1]: computeFlowResistance of the
+   elements' array modifiers). A cref without them (the array itself) keeps the value. =#
+function _subscriptByEnclosingElements(@nospecialize(exp::Expression), cref::ComponentRef, extra::Int,
+                                       evalSubscripts::Bool, readsOwnElement::Bool)::Expression
+  local subs = Subscript[]
+  local cr = rest(cref)
+  while !isEmpty(cr)
+    for s in reverse(Base.collect(getSubscripts(cr)))
+      pushfirst!(subs, s)
+    end
+    cr = rest(cr)
+  end
+  local value = stripBindingInfo(exp)
+  local depth = 0
+  local x = value
+  while x isa ARRAY_EXPRESSION && !isempty(x.elements)
+    depth += 1
+    x = Base.first(x.elements)
+  end
+  depth >= extra || return exp
+  if length(subs) < extra
+    #= No element subscripts: in an element's own context (a binding in the elements' shared
+       class, evaluated once for all) every element's value when they are all the same. Buildings
+       ElectricChillerParallel: pum[num](per = per), per = fill(perCHWPum, numChi), WMot_nominal's
+       `power.P[1] > eps` read {P, P} and P[1] picked a pump ({0.0} > eps). =#
+    readsOwnElement || return exp
+    local shared = _sharedElementValue(value, extra)
+    return shared === nothing ? exp : shared
+  end
+  local own = subs[end - extra + 1:end]
+  evalSubscripts && (own = Subscript[evalSubscript(s) for s in own])
+  return applySubscripts(list(own...), value)
+end
+
+#= The value every element of `extra` enclosing arrays has, or nothing when they differ. =#
+function _sharedElementValue(@nospecialize(value::Expression), extra::Int)::Union{Expression, Nothing}
+  local x = value
+  for _ in 1:extra
+    (x isa ARRAY_EXPRESSION && !isempty(x.elements)) || return nothing
+    local first_el = x.elements[1]
+    all(e -> isEqual(e, first_el), x.elements) || return nothing
+    x = first_el
+  end
+  return x
+end
+
+#= Whether a cref without its enclosing elements' subscripts reads its own element (its type
+   has not their dimensions: a binding in the elements' shared class) rather than the array
+   (`bld.m_flow_nominal` read from outside, typed over bld). =#
+function _readsOwnElement(cref::ComponentRef, @nospecialize(defaultExp::Expression), compType::NFType,
+                          extra::Int)::Bool
+  local own = dimensionCount(compType) - count(isScalar, getSubscripts(cref))
+  return dimensionCount(typeOf(defaultExp)) < own + extra
 end
 
 function evalComponentBinding2(
@@ -570,17 +655,34 @@ function evalComponentBinding2(
             #= rethrow(), not throw(e): no new backtrace (a throw costs 0.5-2 ms on macOS). =#
             rethrow()
           end
-          #= Update the binding and set is as evaluated =#
-          @assign binding.bindingExp = exp
-          @assign binding.evaluated = true
-          comp = setBinding(binding, comp)
-          node = updateComponent!(comp, node)
+          #= Update the binding and set is as evaluated; not a value with more dimensions than
+             the component (a binding in an array of components evaluated in its class, which
+             the elements share, its references to the elements' array modifiers whole: every
+             element's binding became the array, Buildings' PressureDrop[nRes] resSeries,
+             dp_nominal_pos = abs(dp_nominal) evaluated for an if-equation's condition). =#
+          local extra = _valueDimensionCount(exp) - dimensionCount(getType(comp))
+          if extra <= 0
+            @assign binding.bindingExp = exp
+            @assign binding.evaluated = true
+            comp = setBinding(binding, comp)
+            node = updateComponent!(comp, node)
+          else
+            exp = _subscriptByEnclosingElements(exp, cref, extra, evalSubscripts,
+                                                _readsOwnElement(cref, defaultExp, getType(comp), extra))
+          end
         end
         (exp, true)
       end
 
       CEVAL_BINDING(__) => begin
-        (binding.bindingExp, true)
+        #= Over the enclosing component arrays too (a record field's value from its parent's,
+           the parent bound to an array of records: Buildings' Templates pumps, pum[nPum](per =
+           per), each element's `per.haveWMot_nominal` the array {false, true}): its element. =#
+        local cexp = binding.bindingExp
+        local extra = _valueDimensionCount(cexp) - dimensionCount(getType(comp))
+        extra > 0 && (cexp = _subscriptByEnclosingElements(cexp, cref, extra, evalSubscripts,
+                                                           _readsOwnElement(cref, defaultExp, getType(comp), extra)))
+        (cexp, true)
       end
 
       UNBOUND(__) => begin
@@ -598,8 +700,36 @@ function evalComponentBinding2(
   =#
   if evaluated
      exp = subscriptEvaluatedBinding(exp, cref, evalSubscripts)
+     exp = _liftToCrefDims(exp, defaultExp)
   end
   return exp
+end
+
+#= The value of a cref over an array of components, with the cref's dimensions (omc: liftExp).
+   A cref naming the array (`bld.m_flow_nominal`, no subscript on bld) reads every element:
+   - a binding propagated from a modifier on the array (a BINDING_EXP over its elements) is
+     the plain array; a builtin call mapped it per element (sum of each element);
+   - the elements' shared class binding (propagated through no dimension) is one value for
+     all, lifted to the cref's dimensions; sum had summed the scalar.
+   Buildings DHC: mDis_flow_nominal = sum(bld.m_flow_nominal)*1.2, read by a dimension. In an
+   element's own context the cref has fewer dimensions than the value: kept for the mapping. =#
+function _liftToCrefDims(@nospecialize(exp::Expression), @nospecialize(defaultExp::Expression))::Expression
+  exp isa BINDING_EXP || dimensionCount(typeOf(exp)) < dimensionCount(typeOf(defaultExp)) || return exp
+  local value = exp
+  while value isa BINDING_EXP
+    value = value.exp
+  end
+  contains(value, isBindingExp) && return exp
+  local cref_ty = typeOf(defaultExp)
+  local diff = dimensionCount(cref_ty) - dimensionCount(typeOf(value))
+  diff == 0 && return value
+  diff > 0 || return exp
+  local lift = Base.collect(Dimension, arrayDims(cref_ty))[1:diff]
+  all(d -> isKnown(d), lift) || return exp
+  for d in reverse(lift)
+    value = Base.first(liftArray(d, value))
+  end
+  return value
 end
 
 function flattenBindingExp(@nospecialize(exp::Expression))::Expression
@@ -793,7 +923,10 @@ function evalComponentStartBinding(
       =#
       UNTYPED_BINDING(__) => begin
         binding = typeBinding(binding, ORIGIN_BINDING)
-        exp = evalExp_impl(binding.bindingExp, target)
+        #= evalExp, as omc: the value without the start modifier's propagation
+           (BINDING_EXP), which applies per element; as the component's value the
+           propagated start of r[3](start = {...}) vectorized from_nxy(r, ...). =#
+        exp = evalExp(binding.bindingExp, target)
         if !referenceEq(exp, binding.bindingExp)
           setStartBinding!(start_node, binding, exp)
         end
@@ -801,7 +934,7 @@ function evalComponentStartBinding(
       end
 
       TYPED_BINDING(__) => begin
-        exp = evalExp_impl(binding.bindingExp, target)
+        exp = evalExp(binding.bindingExp, target)
         if !referenceEq(exp, binding.bindingExp)
           setStartBinding!(start_node, binding, exp)
         end
@@ -930,10 +1063,14 @@ function makeRecordFieldBindingFromParent(
     indicesToKeep = nodesIncludingSplitSubs(cref)
     exp = map(exp, (x) -> expandNonListedSplitIndices(x, indicesToKeep))
   else
-    #= Try parent instead=#
+    #= Try parent instead. Its record's fields are not evaluated (evalExp_impl keeps a record
+       expression's fields): the field is, as the branch above (a record field of a field set
+       by a record constructor: Buildings' borefield conDat.mBorFie_flow_nominal, mBor*nBor
+       with nBor = size(cooBor, 1), had stayed 0.3*size(...)). =#
     exp = makeRecordFieldBindingFromParent(parent_cr, target);
     exp = applySubscripts(subs, exp);
     exp = recordElement(firstName(cref), exp);
+    exp = evalExp(exp, target)
   end
   return exp
 end
@@ -1120,30 +1257,18 @@ function evalRangeExp(@nospecialize(rangeExp::Expression))::Expression
   return exp
 end
 
-function evalRangeReal(
-  start::Float64,
-  step::Float64,
-  stop::Float64,
-)::Vector{REAL_EXPRESSION}
-  local result::Vector{Expression}
-  local steps::Int
-  steps = Util.realRangeSize(start, step, stop)
-  #=  Real ranges are tricky, make sure that start and stop are reproduced
-  =#
-  #=  exactly if they are part of the range.
-  =#
-  if steps == 0
-     result = REAL_EXPRESSION[]
-  elseif steps == 1
-    result = REAL_EXPRESSION[REAL_EXPRESSION(start)]
-  else
-     result = REAL_EXPRESSION[REAL_EXPRESSION(stop)]
-    for i = (steps - 2):(-1):1
-      result = REAL_EXPRESSION[REAL_EXPRESSION(start + i * step), result]
-    end
-    result = REAL_EXPRESSION[REAL_EXPRESSION(start), result]
+function evalRangeReal(start::Float64, step::Float64, stop::Float64)::Vector{Expression}
+  local steps::Int = Util.realRangeSize(start, step, stop)
+  #=  Real ranges are tricky, make sure that start and stop are reproduced exactly if they are
+      part of the range. =#
+  steps == 0 && return Expression[]
+  steps == 1 && return Expression[REAL_EXPRESSION(start)]
+  local result = Vector{Expression}(undef, steps)
+  result[1] = REAL_EXPRESSION(start)
+  for i in 1:(steps - 2)
+    result[i + 1] = REAL_EXPRESSION(start + i * step)
   end
-  reverse!(result)
+  result[steps] = REAL_EXPRESSION(stop)
   return result
 end
 
@@ -1300,7 +1425,16 @@ function evalBinaryOp_dispatch(
   return exp
 end
 
+#= An Integer with a Real: both as Reals, as typing would have cast them (a function body
+   evaluated with Integer arguments, an Integer literal in a Real array: Buildings' Movers). =#
+@inline function _mixedAsReal(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))
+  exp1 isa INTEGER_EXPRESSION && exp2 isa REAL_EXPRESSION && return (REAL_EXPRESSION(Float64(exp1.value)), exp2)
+  exp1 isa REAL_EXPRESSION && exp2 isa INTEGER_EXPRESSION && return (exp1, REAL_EXPRESSION(Float64(exp2.value)))
+  return (exp1, exp2)
+end
+
 function evalBinaryAdd(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Expression
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local exp::Expression
 
    exp = begin
@@ -1346,6 +1480,7 @@ function evalBinaryAdd(@nospecialize(exp1::Expression), @nospecialize(exp2::Expr
 end
 
 function evalBinarySub(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Expression
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local exp::Expression
 
    exp = begin
@@ -1389,6 +1524,7 @@ function evalBinarySub(@nospecialize(exp1::Expression), @nospecialize(exp2::Expr
 end
 
 function evalBinaryMul(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Expression
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local exp::Expression
 
    exp = begin
@@ -1438,6 +1574,7 @@ function evalBinaryMul(@nospecialize(exp1::Expression), @nospecialize(exp2::Expr
 end
 
 function evalBinaryDiv(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression), target::EvalTarget)::Expression
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local exp::Expression
 
    exp = begin
@@ -1496,6 +1633,7 @@ function evalBinaryDiv(@nospecialize(exp1::Expression), @nospecialize(exp2::Expr
 end
 
 function evalBinaryPow(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Expression
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local exp::Expression
 
    exp = begin
@@ -1852,6 +1990,15 @@ function evalLogicBinaryOp(
    (max_prop_exp, max_prop_count) =
     mostPropagatedSubExpBinary(exp1, exp2)
   if max_prop_count >= 0
+    #= The second operand evaluated first, so that it too is taken per element: evaluated
+       lazily, within each element's pass, it was the whole array again, a cross product
+       (Buildings' movers over per[nPum]: `sum(pressure.V_flow) > eps and sum(pressure.dp) >
+       eps` gave {{true, true}, {true, true}}). Where it cannot be evaluated, lazily as before. =#
+    local e2 = _evalOrNothing(exp2, target)
+    if e2 !== nothing
+      exp2 = e2
+      (max_prop_exp, max_prop_count) = mostPropagatedSubExpBinary(exp1, exp2)
+    end
      exp = bindingExpMap2(
       LBINARY_EXPRESSION(exp1, op, exp2),
       (binaryExpArg) -> evalLogicBinaryExp(binaryExpArg, target),
@@ -1862,6 +2009,16 @@ function evalLogicBinaryOp(
      exp = evalLogicBinaryOp_dispatch(exp1, op, exp2, target)
   end
   return exp
+end
+
+#= The value of exp, or nothing where its evaluation fails (a MetaModelica failure). =#
+function _evalOrNothing(@nospecialize(exp::Expression), target::EvalTarget)::Union{Expression, Nothing}
+  try
+    return evalExp_impl(exp, target)
+  catch e
+    e isa MetaModelica.MetaModelicaException || rethrow()
+    return nothing
+  end
 end
 
 function evalLogicBinaryExp(@nospecialize(binaryExp::Expression), target::EvalTarget)::Expression
@@ -2129,6 +2286,7 @@ function evalRelationOp_dispatch(
 end
 
 function evalRelationLess(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Bool
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local res::Bool
 
    res = begin
@@ -2174,6 +2332,7 @@ function evalRelationLess(@nospecialize(exp1::Expression), @nospecialize(exp2::E
 end
 
 function evalRelationLessEq(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Bool
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local res::Bool
 
    res = begin
@@ -2219,6 +2378,7 @@ function evalRelationLessEq(@nospecialize(exp1::Expression), @nospecialize(exp2:
 end
 
 function evalRelationGreater(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Bool
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local res::Bool
 
    res = begin
@@ -2264,6 +2424,7 @@ function evalRelationGreater(@nospecialize(exp1::Expression), @nospecialize(exp2
 end
 
 function evalRelationGreaterEq(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Bool
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local res::Bool
 
    res = begin
@@ -2309,6 +2470,7 @@ function evalRelationGreaterEq(@nospecialize(exp1::Expression), @nospecialize(ex
 end
 
 function evalRelationEqual(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Bool
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local res::Bool
 
    res = begin
@@ -2354,6 +2516,7 @@ function evalRelationEqual(@nospecialize(exp1::Expression), @nospecialize(exp2::
 end
 
 function evalRelationNotEqual(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Bool
+  (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local res::Bool
 
    res = begin
@@ -2610,7 +2773,7 @@ function ceval(
         evalBuiltinInteger(Base.first(args))
       end
 
-      "Int" => begin
+      "Integer" => begin
         evalBuiltinIntegerEnum(Base.first(args))
       end
 
@@ -2894,7 +3057,7 @@ function evalBuiltinAtan2(args::Union{List{Expression}, Vector{Expression}})::Ex
   if length(args) == 2
     @match REAL_EXPRESSION(value = y) = Base.first(args)
     @match REAL_EXPRESSION(value = x) = Base.last(args)
-    result = REAL_EXPRESSION(atan2(y, x))
+    result = REAL_EXPRESSION(atan(y, x))
   else
     printWrongArgsError(getInstanceName(), args, sourceInfo())
     fail()
@@ -3496,7 +3659,7 @@ function evalBuiltinMin(args::Union{List{Expression}, Vector{Expression}}, fn::M
   elseif nArgs == 1
     e1 = Base.first(args)
     @match ARRAY_EXPRESSION(ty = ty) = e1
-    result = fold(e1, evalBuiltinMin2, EMPTY(ty))
+    result = fold(e1, evalBuiltinMin2, EMPTY_EXPRESSION(ty))
     if isEmpty(result)
       result = CALL_EXPRESSION(makeTypedCall(
         fn,
@@ -3556,7 +3719,7 @@ function evalBuiltinMin2(@nospecialize(exp1::Expression), @nospecialize(exp2::Ex
         exp2
       end
 
-      (_, EMPTY(__)) => begin
+      (_, EMPTY_EXPRESSION(__)) => begin
         exp1
       end
 
@@ -4384,7 +4547,7 @@ function evalInferredClock(args::List{Expression})::Expression
    result = begin
     @match args begin
       nil() => begin
-        CLKCONST(P_Expression.P_ClockKind.Expression.INFERRED_CLOCK())
+        CLKCONST_EXPRESSION(INFERRED_CLOCK())
       end
 
       _ => begin
@@ -4406,7 +4569,7 @@ function evalRationalClock(args::List{Expression})::Expression
       interval &&
       INTEGER_EXPRESSION(__) <| resolution &&
       INTEGER_EXPRESSION(__) <| nil() => begin
-        CLKCONST(P_Expression.P_ClockKind.Expression.INTEGER_CLOCK(
+        CLKCONST_EXPRESSION(INTEGER_CLOCK(
           interval,
           resolution,
         ))
@@ -4428,7 +4591,7 @@ function evalRealClock(args::List{Expression})::Expression
     local interval::Expression
     @match args begin
       interval && REAL_EXPRESSION(__) <| nil() => begin
-        CLKCONST(P_Expression.P_ClockKind.REAL_EXPRESSION_CLOCK(
+        CLKCONST_EXPRESSION(REAL_CLOCK(
           interval,
         ))
       end
@@ -4452,7 +4615,7 @@ function evalBooleanClock(args::List{Expression})::Expression
       condition &&
       BOOLEAN_EXPRESSION(__) <| interval &&
       REAL_EXPRESSION(__) <| nil() => begin
-        CLKCONST(P_Expression.P_ClockKind.BOOLEAN_EXPRESSION_CLOCK(
+        CLKCONST_EXPRESSION(BOOLEAN_CLOCK(
           condition,
           interval,
         ))
@@ -4475,9 +4638,9 @@ function evalSolverClock(args::List{Expression})::Expression
     local solver::Expression
     @match args begin
       c &&
-      CLKCONST(__) <| solver &&
+      CLKCONST_EXPRESSION(__) <| solver &&
       STRING_EXPRESSION(__) <| nil() => begin
-        CLKCONST(P_Expression.P_ClockKind.Expression.SOLVER_CLOCK(
+        CLKCONST_EXPRESSION(SOLVER_CLOCK(
           c,
           solver,
         ))
@@ -4532,15 +4695,7 @@ function evalArrayConstructor2(
   local ty::M_Type
 
    (e, ranges, iters) = createIterationRanges(exp, iterators)
-  #=  Precompute all the types we're going to need for the arrays created.
-  =#
-   ty = typeOf(e)
-  for r in ranges
-     ty =
-      liftArrayLeftList(ty, arrayDims(typeOf(r)))
-     types = Cons{NFType}(ty, types)
-  end
-   result = evalArrayConstructor3(e, ranges, iters, types)
+   result = evalArrayConstructor3(e, ranges, iters)
   return result
 end
 
@@ -4555,29 +4710,31 @@ function createIterationRanges(
   local range::Expression
   local iter::Pointer{Expression}
 
+  #= The iterator is also replaced in the ranges collected so far, which may use it (`j in 1:i,
+     i in 1:4`); the ranges are evaluated when their loop starts (omc createIterationRanges). =#
   for i in iterators
      (node, range) = i
      iter = P_Pointer.create(INTEGER_EXPRESSION(0), Expression)
+     ranges = list(replaceIterator(r, node, MUTABLE_EXPRESSION(iter)) for r in ranges)
      exp = replaceIterator(
       exp,
       node,
       MUTABLE_EXPRESSION(iter),
     )
      iters = _cons(iter, iters)
-     ranges = _cons(evalExp_impl(range, EVALTARGET_IGNORE_ERRORS()), ranges)
+     ranges = _cons(range, ranges)
   end
   return (exp, ranges, iters)
 end
 
+#= The arrays' types from their elements (a range can depend on an enclosing iterator; omc
+   evalArrayConstructor2). =#
 function evalArrayConstructor3(
   exp::Expression,
   ranges::List{Expression},
   iterators::List{<:Pointer{Expression}},
-  types::List{<:M_Type},
 )::Expression
-  local result::Expression
   local range::Expression
-  local e::Expression
   local ranges_rest::List{Expression}
   local expV::Vector{Expression} = Expression[]
   local iter::Pointer{Expression}
@@ -4585,22 +4742,24 @@ function evalArrayConstructor3(
   local range_iter::ExpressionIterator
   local value::Expression
   local ty::M_Type
-  local rest_ty::List{M_Type}
   if listEmpty(ranges)
-    result = evalExp_impl(exp, EVALTARGET_IGNORE_ERRORS())
-  else
-    @match _cons(range, ranges_rest) = ranges
-    @match _cons(iter, iters_rest) = iterators
-    @match _cons(ty, rest_ty) = types
-    range_iter = fromExpToExpressionIterator(range)
-    while hasNext(range_iter)
-      (range_iter, value) = next(range_iter)
-      P_Pointer.update(iter, value)
-      push!(expV, evalArrayConstructor3(exp, ranges_rest, iters_rest, rest_ty))#expl = _cons(evalArrayConstructor3(exp, ranges_rest, iters_rest, rest_ty), expl)
-    end
-    result = makeArray(ty, expV, literal = true)
+    return evalExp_impl(exp, EVALTARGET_IGNORE_ERRORS())
   end
-  return result
+  @match _cons(range, ranges_rest) = ranges
+  @match _cons(iter, iters_rest) = iterators
+  range_iter = fromExpToExpressionIterator(evalExp_impl(range, EVALTARGET_IGNORE_ERRORS()))
+  while hasNext(range_iter)
+    (range_iter, value) = next(range_iter)
+    P_Pointer.update(iter, value)
+    push!(expV, evalArrayConstructor3(exp, ranges_rest, iters_rest))
+  end
+  ty = if isempty(expV)
+    liftArrayLeftList(typeOf(exp), ListUtil.mapFlat(ranges_rest, r -> arrayDims(typeOf(r)), Dimension))
+  else
+    typeOf(expV[1])
+  end
+  ty = liftArrayLeft(ty, fromInteger(length(expV)))
+  return makeArray(ty, expV, literal = true)
 end
 
 function evalReduction(
@@ -4610,11 +4769,10 @@ function evalReduction(
 )::Expression
   local result::Expression
 
-   result = evalExpPartial(exp)
-   result = bindingExpMap(
-    result,
-    (fn, iterators) -> evalReduction2(fn = fn, iterators = iterators),
-  )
+  #= evalExpPartial returns (exp, evaluated); evalReduction2 with fn and iterators fixed
+     (a partial application in the Modelica original). =#
+  (result, _) = evalExpPartial(exp)
+  result = bindingExpMap(result, (e) -> evalReduction2(fn, e, iterators))
   return result
 end
 
@@ -4632,8 +4790,9 @@ function evalReduction2(
   local red_fn::Function
   local ty::M_Type
 
+   #= The type before the iterators are replaced by their (Integer-initialized) values. =#
+   ty = typeOf(exp)
    (e, ranges, iters) = createIterationRanges(exp, iterators)
-   ty = typeOf(e)
    (red_fn, default_exp) = begin
     @match AbsynUtil.pathString(name(fn)) begin
       "sum" => begin
@@ -4691,10 +4850,10 @@ function evalReduction3(
   else
     @match _cons(range, ranges_rest) = ranges
     @match _cons(iter, iters_rest) = iterators
-     range_iter = P_ExpressionIterator.ExpressionIterator.fromExp(range)
-     result = foldExp
-    while P_ExpressionIterator.ExpressionIterator.hasNext(range_iter)
-       (range_iter, value) = P_ExpressionIterator.ExpressionIterator.next(range_iter)
+    range_iter = fromExpToExpressionIterator(evalExp_impl(range, EVALTARGET_IGNORE_ERRORS()))
+    result = foldExp
+    while hasNext(range_iter)
+      (range_iter, value) = next(range_iter)
       P_Pointer.update(iter, value)
        result = evalReduction3(exp, ranges_rest, iters_rest, result, fn)
     end
@@ -4721,10 +4880,10 @@ function evalSize(
     index = toInteger(index_exp)
     (dim, _, ty_err) = typeExpDim(exp, index, ORIGIN_CLASS, info)
     checkSizeTypingError(ty_err, exp, index, info)
-    outExp = sizeExp(dim)
+    outExp = evalExp_impl(sizeExp(dim), target)
   else
     (outExp, ty) = typeExp(exp, ORIGIN_CLASS, info)
-    expl = list(sizeExp(d) for d in arrayDims(ty))
+    expl = list(evalExp_impl(sizeExp(d), target) for d in arrayDims(ty))
     dim = fromInteger(listLength(expl), Variability.PARAMETER)
     outExp =
       makeArray(TYPE_ARRAY(TYPE_INTEGER(), list(dim)), expl)
@@ -4780,7 +4939,7 @@ function evalRecordElement(exp::RECORD_ELEMENT_EXPRESSION, target::EvalTarget)
   e = evalExp_impl(e, target)
   try
     result =
-      bindingExpMap(e, @closure (x) -> evalRecordElement2(x, index))
+      bindingExpMap(e, @closure (x) -> _recordElementOf(x, index, exp.ty))
   catch
     Error.assertion(
       false,
@@ -4788,11 +4947,23 @@ function evalRecordElement(exp::RECORD_ELEMENT_EXPRESSION, target::EvalTarget)
       sourceInfo(),
     )
   end
-  return result
+  #= A record expression's fields are not evaluated (evalExp_impl): the field is, as it
+     is read (a record constructor's array constructor argument: Buildings' Movers). =#
+  return evalExp_impl(result, target)
 end
 
 function evalRecordElement2(exp::RECORD_EXPRESSION, index::Int)
   exp.elements[index]
+end
+
+#= The field of a record, or of each record of an array of records (Buildings' chillers'
+   perChi[numChi]: its records' nCapFunT). =#
+function _recordElementOf(@nospecialize(x::Expression), index::Int, @nospecialize(ty::M_Type))::Expression
+  if x isa ARRAY_EXPRESSION
+    local ety = isArray(ty) ? unliftArray(ty) : ty
+    return ARRAY_EXPRESSION(ty, Expression[_recordElementOf(el, index, ety) for el in x.elements], x.literal)
+  end
+  return evalRecordElement2(x, index)
 end
 
 function printUnboundError(component::Component, target::EvalTarget, @nospecialize(exp::Expression))
@@ -4862,11 +5033,12 @@ function printUnboundError(component::Component, target::EvalTarget, @nospeciali
   end
 end
 
-function printWrongArgsError(evalFunc::String, args::List{Expression}, info::SourceInfo)
+#= args: the List (list(arg) builds e.g. a Cons{CALL_EXPRESSION}) or Vector the evalBuiltin* functions take. =#
+function printWrongArgsError(evalFunc::String, args::Union{List{<:Expression}, Vector{<:Expression}}, info::SourceInfo)
   return Error.addInternalError(
     evalFunc +
-    " got invalid arguments " +
-    ListUtil.toString(args, toString, "", "(", ", ", ")", true),
+    " got invalid arguments (" +
+    stringDelimitList(list(toString(a) for a in args), ", ") + ")",
     info,
   )
 end
@@ -4875,24 +5047,38 @@ end
   Custom reimplementation of evalCat
   @author johti17
 """
+#= An argument of cat along dim: its subexpressions at depth dim as an array of dim
+   dimensions; one of fewer dimensions gets trailing ones (Modelica's promote, a vector a column). =#
+function _catPart(@nospecialize(e::Expression), dim::Int)::Array{Expression}
+  local sizes = Int[]
+  local level = Expression[e]
+  for _ in 1:dim
+    all(x -> x isa ARRAY_EXPRESSION, level) || break
+    local n = length(level[1].elements)
+    all(x -> length(x.elements) == n, level) || fail()
+    push!(sizes, n)
+    level = Expression[y for x in level for y in x.elements]
+  end
+  while length(sizes) < dim
+    push!(sizes, 1)
+  end
+  #= level is in row-major order of sizes =#
+  return Base.permutedims(Base.reshape(level, Tuple(Base.reverse(sizes))), Tuple(dim:-1:1))
+end
+
 function evalCat(dim::Int,
                  exps::Vector{Expression},
                  getArrayContents::Function,
                  toString::Function)::Tuple{Vector{Expression}, List{Int}}
   if dim > 1
-    local jlmatrix = modelicaMatrixToJuliaMatrix(exps)::Matrix{ARRAY_EXPRESSION}
-    local matrixCat = Base.cat(jlmatrix; dims = dim)
-    local outExps = jlMatrixToModelicaArrayExpVector(matrixCat)
-    #= Convert the outExps to a flat array =#
-    local outDims = list(length(outExps), length(Base.first(outExps).elements))
-    local outExpsAsVector = Base.map((x) -> x.elements, outExps)
-    local outExpFlat = Expression[]
-    for vec in outExpsAsVector
-      for e in vec
-        push!(outExpFlat, e)
-      end
-    end
-    local outDims = list(length(outExps), length(Base.first(outExps).elements))
+    #= omc's ExpressionBasics.evalCat: each argument as an array of its subexpressions at depth
+       dim, concatenated along dim; the result in row-major order with its first dim sizes. The
+       former version took the arguments' rows as one matrix (wrong beyond two matrices of rows)
+       and failed on a vector argument ([identity(n - 1), zeros(n - 1)], Polynomials.roots). =#
+    local parts = Array{Expression}[_catPart(e, dim) for e in exps]
+    local c = Base.cat(parts...; dims = dim)
+    local outExpFlat = Vector{Expression}(Base.vec(Base.permutedims(c, Tuple(dim:-1:1))))
+    local outDims = list(Base.size(c)...)
   else
     local outExpsAsVector = Base.map(x-> x.elements, exps)
     local outExpFlat = Expression[]

@@ -91,6 +91,10 @@ end
     include("frontendResultTest.jl")
   end
 
+  @testset "Arrays kept (no scalarization)" begin
+    include("keepArraysTests.jl")
+  end
+
   include("omcTestsuiteTests.jl")
 
   @testset "Algorithm-level for-loop unrolling" begin
@@ -111,6 +115,10 @@ end
 
   @testset "Separate instantiation" begin
     include("separateFlattenTests.jl")
+  end
+
+  @testset "Parallel typing" begin
+    include("parallelTypingTests.jl")
   end
 
   #=

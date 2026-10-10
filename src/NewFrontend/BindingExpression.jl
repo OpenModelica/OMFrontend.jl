@@ -155,28 +155,21 @@ end
 function vectorize(@nospecialize(exp::Expression), dims::List{<:Dimension}, func::FuncT, accumSubs::List{<:Subscript} = nil)
   local outExp::Expression
   local iter::RangeIterator
-  local dim::Dimension
-  local rest_dims::List{Dimension}
-  local expl::Vector{Expression}
   local e::Expression
   if listEmpty(dims)
-    local tmp = accumSubs
-    accumSubs = nil
-    while tmp !== nil
-      @match Cons{Subscript}(t, tmp) = tmp
-      accumSumbs = Cons{Subscript}{t, accumSubs}
-    end
-     outExp = func(exp, accumSubs)
+    #= The subscripts were accumulated innermost first (omc's vectorize). =#
+    outExp = func(exp, listReverse(accumSubs))
   else
-    expl = Expression[]
-    @match Cons{Dimensions}(dim, rest_dims) = dims
+    local expl = Expression[]
+    local dim = listHead(dims)
+    local rest_dims = listRest(dims)
     iter = fromDim(dim)
     while hasNext(iter)
       (iter, e) = next(iter)
       e = vectorize(exp, rest_dims, func, Cons{Subscript}(SUBSCRIPT_INDEX(e), accumSubs))
       push!(expl, e)
     end
-    outExp = makeExpArray(expl)
+    outExp = makeArray(liftArrayLeft(typeOf(expl[1]), fromInteger(length(expl))), expl)
   end
   outExp
 end
@@ -394,17 +387,18 @@ function nthRecordElement(index::Int, @nospecialize(recordExp::Expression)) ::Ex
         recordExp.elements[index]
       end
 
-      ARRAY_EXPRESSION(elements =  nil(), ty = TYPE_ARRAY(elementType = TYPE_COMPLEX(cls = node)))  => begin
+      ARRAY_EXPRESSION(ty = TYPE_ARRAY(elementType = TYPE_COMPLEX(cls = node))) where (isempty(recordExp.elements))  => begin
         makeEmptyArray(getType(nthComponent(index, getClass(node))))
       end
 
       ARRAY_EXPRESSION(__)  => begin
         expV = Expression[nthRecordElement(index, e) for e in recordExp.elements]
-        makeArray(setArrayElementType(recordExp.ty, typeOf(first(expV))), expV)
+        makeArray(liftArrayLeft(typeOf(expV[1]), fromInteger(length(expV))), expV)
       end
 
       RECORD_ELEMENT_EXPRESSION(ty = TYPE_ARRAY(elementType = TYPE_COMPLEX(cls = node)))  => begin
          node = nthComponent(index, getClass(node))
+        _typeRecordExpField!(node, recordExp)
         RECORD_ELEMENT_EXPRESSION(recordExp, index, name(node), liftArrayLeftList(getType(node), arrayDims(recordExp.ty)))
       end
 
@@ -416,11 +410,41 @@ function nthRecordElement(index::Int, @nospecialize(recordExp::Expression)) ::Ex
       _  => begin
         @match TYPE_COMPLEX(cls = node) = typeOf(recordExp)
          node = nthComponent(index, getClass(node))
+        _typeRecordExpField!(node, recordExp)
         RECORD_ELEMENT_EXPRESSION(recordExp, index, name(node), getType(node))
       end
     end
   end
   outExp
+end
+
+#= A field of a record component not typed yet is typed here, as a reference to it would be: its
+   type before had no dimensions (the element type). Under parallel typing a record component is
+   typed before its fields, which other tasks type; its field's binding then had type Real for
+   Real[3] (Buildings' fan records, `per = perFan`: an unknown dimension in typeDimension). =#
+function _typeRecordField!(field::InstNode, recordCref::ComponentRef)::Nothing
+  isComponent(field) && isvariant(component(resolveOuter(field)), UNTYPED_COMPONENT) || return nothing
+  local origin = isvariant(recordCref, COMPONENT_REF_CREF) && isFunction(explicitParent(node(recordCref))) ?
+    ORIGIN_FUNCTION : ORIGIN_CLASS
+  typeComponent(field, origin)
+  return nothing
+end
+
+#= The same for a field read through a record element or a subscripted record, found through
+   the reference the expression reads (Buildings DX coils: datCoi.sta.perCur.EIRFunFF, sta an
+   array of records, had type Real[1]: sta's dimension without its own). =#
+function _typeRecordExpField!(field::InstNode, @nospecialize(recordExp::Expression))::Nothing
+  local exp = recordExp
+  while !(exp isa CREF_EXPRESSION)
+    if exp isa RECORD_ELEMENT_EXPRESSION
+      exp = exp.recordExp
+    elseif exp isa SUBSCRIPTED_EXP_EXPRESSION
+      exp = exp.exp
+    else
+      return nothing
+    end
+  end
+  return _typeRecordField!(field, exp.cref)
 end
 
 """  Returns the field with the given name in a record expression. If the
@@ -449,6 +473,7 @@ function recordElement(elementName::String, @nospecialize(recordExp::Expression)
         local entryInfo  = lookupElement(elementName, cls_tree)
         node = entryInfo.node
         @assert entryInfo.isImport == false "Entry info was not an import."
+        _typeRecordField!(node, recordExp.cref)
         ty = getType(node)
         cref = prefixCref(node, ty, nil, recordExp.cref)
         ty = liftArrayLeftList(ty, arrayDims(recordExp.ty))
@@ -466,7 +491,10 @@ function recordElement(elementName::String, @nospecialize(recordExp::Expression)
         index = lookupComponentIndex(elementName, getClass(node))
         expV = Expression[nthRecordElement(index, e) for e in recordExp.elements]
         ty = liftArrayLeft(typeOf(expV[1]), fromInteger(length(expV)))
-        makeArray(ty, expV; literal=recordExp.literal)
+        #= Literal only if the fields are: an evaluated record keeps its fields unevaluated (read
+           later), the array of records is literal. Buildings ElectricChillerParallel:
+           fill(perCHWPum, numChi)'s pressure.V_flow stayed mCHW_flow_nominal/1000*{...} in sum(). =#
+        makeArray(ty, expV; literal = recordExp.literal && all(isLiteral, expV))
       end
 
       BINDING_EXP(__)  => begin
@@ -488,7 +516,11 @@ function recordElement(elementName::String, @nospecialize(recordExp::Expression)
         @match TYPE_COMPLEX(cls = node) = arrayElementType(ty)
          cls = getClass(node)
          index = lookupComponentIndex(elementName, cls)
-         ty = liftArrayRightList(getType(nthComponent(index, cls)), arrayDims(ty))
+         node = nthComponent(index, cls)
+         _typeRecordExpField!(node, recordExp)
+         #= The record array's dimensions first (omc: liftArrayLeftList): f[6] of sta[1] is
+            Real[1, 6], not Real[6, 1] (a field's size deduced from it was sta's). =#
+         ty = liftArrayLeftList(getType(node), arrayDims(ty))
         RECORD_ELEMENT_EXPRESSION(recordExp, index, elementName, ty)
       end
     end
@@ -507,13 +539,11 @@ function tupleElement(@nospecialize(exp::Expression), ty::M_Type, index::Int) ::
 
       ARRAY_EXPRESSION(__)  => begin
         ety = unliftArray(ty)
-        expElements = list(tupleElement(e, ety, index) for e in exp.elements)
-        ARRAY_EXPRESSION(exp.ty, expElements, exp.literal)
+        ARRAY_EXPRESSION(exp.ty, Expression[tupleElement(e, ety, index) for e in exp.elements], exp.literal)
       end
 
       BINDING_EXP(__)  => begin
-        local f = @closure (ty, index) -> tupleElement(ty = ty, index = index)
-        bindingExpMap(exp, f)
+        bindingExpMap(exp, e -> tupleElement(e, ty, index))
       end
 
       _  => begin
@@ -957,10 +987,10 @@ function hasArrayCall(@nospecialize(exp::Expression)) ::Bool
   hasArrayCall
 end
 
+#= The only element of an array of one element. =#
 function arrayScalarElement(@nospecialize(arrayExp::Expression)) ::Expression
-  local scalarExp::Expression
-  @match ARRAY_EXPRESSION(elements = list(scalarExp)) = arrayExp
-  scalarExp
+  (arrayExp isa ARRAY_EXPRESSION && length(arrayExp.elements) == 1) || fail()
+  return arrayExp.elements[1]
 end
 
 @nospecializeinfer function arrayScalarElements_impl(@nospecialize(exp::Expression), elements::List{<:Expression}) ::List{Expression}
@@ -1115,7 +1145,7 @@ function makeMinValue(ty::M_Type) ::Expression
       end
 
       TYPE_ARRAY(__)  => begin
-        makeArray(ty, ArrayUtil.fill(makeMaxValue(unliftArray(ty)), size(listHead(ty.dimensions))), literal = true)
+        fillType(ty, makeMinValue(arrayElementType(ty)))
       end
     end
   end
@@ -1144,7 +1174,7 @@ function makeMaxValue(ty::M_Type) ::Expression
       end
 
       TYPE_ARRAY(__)  => begin
-        ARRAY_EXPRESSION(ty, ListUtil.fill(makeMaxValue(unliftArray(ty)), size(listHead(ty.dimensions))), literal = true)
+        fillType(ty, makeMaxValue(arrayElementType(ty)))
       end
     end
   end
@@ -1165,7 +1195,7 @@ function makeOne(ty::M_Type) ::Expression
       end
 
       TYPE_ARRAY(__)  => begin
-        ARRAY_EXPRESSION(ty, ListUtil.fill(makeZero(unliftArray(ty)), size(listHead(ty.dimensions))), literal = true)
+        fillType(ty, makeOne(arrayElementType(ty)))
       end
     end
   end
@@ -1199,7 +1229,7 @@ function makeZero(ty::M_Type) ::Expression
       end
 
       TYPE_ARRAY(__)  => begin
-        ARRAY_EXPRESSION(ty, ListUtil.fill(makeZero(unliftArray(ty)), size(listHead(ty.dimensions))), literal = true)
+        fillType(ty, makeZero(arrayElementType(ty)))
       end
 
       TYPE_COMPLEX(__)  => begin
@@ -1554,12 +1584,12 @@ function arrayAllEqual2(@nospecialize(arrayExp::Expression), @nospecialize(eleme
 
    allEqual = begin
     @match arrayExp begin
-      ARRAY_EXPRESSION(elements = ARRAY_EXPRESSION(__) <| _)  => begin
-        ListUtil.map1BoolAnd(arrayExp.elements, arrayAllEqual2, element)
+      ARRAY_EXPRESSION(__) where (!isempty(arrayExp.elements) && arrayExp.elements[1] isa ARRAY_EXPRESSION)  => begin
+        all(e -> arrayAllEqual2(e, element), arrayExp.elements)
       end
 
       ARRAY_EXPRESSION(__)  => begin
-        ListUtil.map1BoolAnd(arrayExp.elements, isEqual, element)
+        all(e -> isEqual(e, element), arrayExp.elements)
       end
 
       _  => begin
@@ -1595,7 +1625,7 @@ end
    exp = begin
     @match arrayExp begin
       ARRAY_EXPRESSION(__)  => begin
-        arrayFirstScalar(listHead(arrayExp.elements))
+        arrayFirstScalar(arrayExp.elements[1])
       end
 
       _  => begin
@@ -4226,7 +4256,7 @@ end
    dimCount = begin
     @match exp begin
       ARRAY_EXPRESSION(ty = TYPE_UNKNOWN(__))  => begin
-        1 + dimensionCount(listHead(exp.elements))
+        1 + dimensionCount(exp.elements[1])
       end
 
       ARRAY_EXPRESSION(__)  => begin
@@ -4391,6 +4421,16 @@ function toDAERecord(ty::M_Type, path::Absyn.Path, args::List{<:Expression}) ::D
   exp
 end
 
+#= The bound arguments of `function f(b = e, ...)` in the function's input order (they are
+   in the order written; the DAE has no names: the backend places them by the inputs the
+   partial application's type no longer has). =#
+function _partialArgsInInputOrder(exp::PARTIAL_FUNCTION_APPLICATION_EXPRESSION, fn::M_Function)::Vector{Expression}
+  local position = Dict{String, Int}(name(n) => k for (k, n) in enumerate(fn.inputs))
+  local args = Expression[a for a in exp.args]
+  local order = sortperm([get(position, nm, typemax(Int)) for nm in exp.argNames])
+  return args[order]
+end
+
 @nospecializeinfer function toDAE(@nospecialize(exp::Expression))
   local dexp::DAE.Exp
   local changed::Bool = true
@@ -4534,7 +4574,8 @@ end
       PARTIAL_FUNCTION_APPLICATION_EXPRESSION(__)  => begin
         fns = typeRefCache(exp.fn)
         fn = fns[1]
-        DAE.PARTEVALFUNCTION(nameConsiderBuiltin(fn), list(toDAE(arg) for arg in exp.args), toDAE(exp.ty), toDAE(TYPE_FUNCTION(fn, FunctionType.FUNCTIONAL_VARIABLE)))
+        DAE.PARTEVALFUNCTION(nameConsiderBuiltin(fn), list(toDAE(arg) for arg in _partialArgsInInputOrder(exp, fn)),
+                             toDAE(exp.ty), toDAE(TYPE_FUNCTION(fn, FunctionType.FUNCTIONAL_VARIABLE)))
       end
 
       BINDING_EXP(__)  => begin
@@ -5479,7 +5520,9 @@ end
 function applyIndexExpArray(@nospecialize(exp::Expression), @nospecialize(index::Expression), restSubscripts::List{<:Subscript}) ::Expression
   local outExp::Expression
   local expl::Vector{Expression}
-  if isScalarLiteral(index)
+  #= An index out of bounds is left as a subscripted expression: someone else's problem, and
+     maybe fine (a branch not taken; omc applyIndexExpArray). =#
+  if isScalarLiteral(index) && !(exp isa ARRAY_EXPRESSION && !(1 <= toInteger(index) <= length(exp.elements)))
     @match ARRAY_EXPRESSION(elements = expl) = exp
      outExp = applySubscripts(restSubscripts, arrayGet(expl, toInteger(index)))
   elseif isBindingExp(index)
@@ -5722,8 +5765,8 @@ function makeRealMatrix(values::List{<:List{<:AbstractFloat}}) ::Expression
      exp = makeEmptyArray(ty)
   else
      ty = TYPE_ARRAY(TYPE_REAL(), list(fromInteger(listLength(listHead(values)))))
-     expl = Expression[makeArray(ty, list(REAL_EXPRESSION(v) for v in row), literal = true) for row in values]
-     ty = liftArrayLeft(ty, fromInteger(listLength(expl)))
+     expl = Expression[makeArray(ty, Expression[REAL_EXPRESSION(v) for v in row], literal = true) for row in values]
+     ty = liftArrayLeft(ty, fromInteger(length(expl)))
      exp = makeArray(ty, expl, literal = true)
   end
   exp
@@ -5745,7 +5788,7 @@ end
 
 function makeEmptyArray(ty::M_Type)
   local outExp::Expression
-   outExp = ARRAY_EXPRESSION(ty, nil, true)
+   outExp = ARRAY_EXPRESSION(ty, Expression[], true)
   outExp
 end
 
@@ -6067,8 +6110,9 @@ end
         typeOf(exp.operator)
       end
 
+      #= Boolean, over the operands' dimensions (the operator's type is the operands'; omc). =#
       RELATION_EXPRESSION(__)  => begin
-        typeOf(exp.operator)
+        copyDims(typeOf(exp.operator), TYPE_BOOLEAN())
       end
 
       IF_EXPRESSION(__)  => begin
@@ -6695,8 +6739,8 @@ function toDebugString(ick::ClockKind) ::String
   ock
 end
 
-function toDAE(ick::ClockKind) ::DAE.P_ClockKind
-  local ock::DAE.P_ClockKind
+function toDAE(ick::ClockKind) ::DAE.ClockKind
+  local ock::DAE.ClockKind
 
    ock = begin
     local i::Expression

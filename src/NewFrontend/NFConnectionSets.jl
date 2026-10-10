@@ -406,9 +406,34 @@ function extractSets(sets::Sets)
   assignedSets = Sets(nodes, sets.elements, sets.nodeCount);
   #@debug "Sets after extractSets $(string(assignedSets))"
   #@debug "Sets array: $(toString(setsArray))"
-  #= !Remove potentially empty sets! =#
+  #= !Remove potentially empty sets! The roots get the indices of their sets
+     after (findSetArrayIndex). =#
+  local newIndex = zeros(Int, length(setsArray))
+  local kept = 0
+  for (i, s) in enumerate(setsArray)
+    s isa Nil && continue
+    kept += 1
+    newIndex[i] = kept
+  end
+  for i in 1:sets.nodeCount
+    nodes[i] < 0 && newIndex[-nodes[i]] > 0 && (nodes[i] = -newIndex[-nodes[i]])
+  end
   filter!((s)-> !(s isa Nil), setsArray)
   return (setsArray, assignedSets)
+end
+
+"""
+  The index in extractSets' array of the set the entry belongs to; 0 for an entry
+  in no set. The sets are the ones extractSets assigned (a root holds its set's
+  index, negated). DisjointSets.findSetArrayIndex in OMC.
+"""
+function findSetArrayIndex(entry::Entry, sets::Sets)::Int
+  local idx::Int = get(sets.elements, entry, 0)
+  idx > 0 || return 0
+  while sets.nodes[idx] > 0
+    idx = sets.nodes[idx]
+  end
+  return -sets.nodes[idx]
 end
 
 function toString(setsArr::Vector{Int64})

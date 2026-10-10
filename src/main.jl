@@ -108,9 +108,15 @@ include("./Util/Global.jl")
 include("./Util/Settings.jl")
 include("./Util/Print.jl")
 include("./Util/Util.jl")
+include("./Util/Lapack.jl")
 include("./Util/StringUtil.jl")
 include("./Util/Flags.jl")
 include("./Util/FlagsUtil.jl")
+#= omc's Config, as far as the frontend asks it. The language standard is the latest (omc's
+   default), so Modelica 3.3's synchronous features are allowed (Clock, hold, sample, ...). =#
+module Config
+  synchronousFeaturesAllowed()::Bool = true
+end
 include("./Util/ExecStat.jl")
 include("./Util/IOStreamExt.jl")
 include("./Util/IOStream.jl")
@@ -249,6 +255,7 @@ include("./NewFrontend/BindingExpression!.jl")
 
 include("./Util/ModelicaExternalC.jl")
 include("./NewFrontend/NFEvalFunction.jl")
+include("./NewFrontend/NFEvalFunctionExt.jl")
 
 include("./NewFrontend/NFCall.jl")
 

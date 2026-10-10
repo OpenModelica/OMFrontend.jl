@@ -174,12 +174,12 @@ function sortConnections(
         Error.addSourceMessageAndFail(
           Error.EXPANDABLE_NON_EXPANDABLE_CONNECTION,
           list(
-            Connector.toString(if is_expandable1
+            toString(if is_expandable1
               c1
             else
               c2
             end),
-            Connector.toString(if is_expandable1
+            toString(if is_expandable1
               c2
             else
               c1
@@ -192,7 +192,7 @@ function sortConnections(
       if is_undeclared1 && is_undeclared2
         Error.addSourceMessageAndFail(
           Error.UNDECLARED_CONNECTION,
-          list(Connector.toString(c1), Connector.toString(c2)),
+          list(toString(c1), toString(c2)),
           Connector_getInfo(c1),
         )
       else
@@ -430,6 +430,11 @@ function markComponentPresent(node::InstNode)
     cty = setPresent(cty)
     comp = setConnectorType(cty, comp)
     node = updateComponent!(comp, node)
+    #= Its children too (a declared connector in an expandable bus, `connect(bus.c, c)`: c's
+       potentials and flows; omc markComponentPresent). =#
+    if isComplex(getType(comp))
+      applyComponents(classTree(getClass(classInstance(comp))), markComponentPresent)
+    end
   end
   return node
 end

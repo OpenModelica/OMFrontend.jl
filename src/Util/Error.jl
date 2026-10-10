@@ -888,6 +888,14 @@ const EVAL_LOOP_LIMIT_REACHED =
     Gettext.gettext("The loop iteration limit (--evalLoopLimit=%s) was exceeded during evaluation."),
   )::ErrorTypes.Message
 
+const PARTIAL_FUNCTION_CALL =
+  ErrorTypes.MESSAGE(
+    376,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Called function '%s' is partial."),
+  )::ErrorTypes.Message
+
 const LOOKUP_IN_PARTIAL_CLASS =
   ErrorTypes.MESSAGE(
     107,

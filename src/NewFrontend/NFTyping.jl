@@ -220,18 +220,12 @@ function typeComponents2(cls::InstNode, origin::ORIGIN_Type)::InstNode
          walk a shared FLAT_TREE concurrently, so the (rare) inner-outer
          write-back is claimed. =#
       if parallelInstEnabled(length(cls_tree.components))
-        local parentTok = get(task_local_storage(), :OMF_ROOT, 0)::Int
-        @sync for i in eachindex(cls_tree.components)
-          local idx = i
-          local tok = parentTok == 0 ? idx : parentTok
-          Threads.@spawn begin
-            task_local_storage(:OMF_ROOT, tok)
-            local compNode = @inbounds cls_tree.components[idx]
-            local node, _ = typeComponentNode(compNode, origin)
-            if node !== compNode
-              _withClaim(_refId(cls)) do
-                @inbounds cls_tree.components[idx] = node
-              end
+        _parallelFor(eachindex(cls_tree.components)) do idx
+          local compNode = @inbounds cls_tree.components[idx]
+          local node, _ = typeComponentNode(compNode, origin)
+          if node !== compNode
+            _withClaim(_refId(cls)) do
+              @inbounds cls_tree.components[idx] = node
             end
           end
         end
@@ -617,6 +611,16 @@ function typeComponentPayload!(
   return ty
 end
 
+#= An untyped component's type, its dimensions typed, without typing its children or installing
+   the type (omc typeComponent with typeChildren = false). =#
+function _componentTypeOnly(inComponent::InstNode, origin::ORIGIN_Type)::NFType
+  local node = resolveOuter(inComponent)
+  local c = component(node)
+  typeDimensions(c.dimensions, node, c.binding, origin, c.info)
+  local ty = isEmpty(c.classInst) ? TYPE_UNKNOWN() : typeClassType(c.classInst, c.binding, origin, inComponent)
+  return liftArrayLeftList(ty, arrayList(c.dimensions))
+end
+
 function typeComponentChildren!(node::InstNode, origin::ORIGIN_Type)::Nothing
   local c = component(node)
   local classInst = typeComponents(c.classInst, origin)
@@ -723,13 +727,12 @@ end
   )
 end
 
-#= An iteration range given as an array (`for i in {1, 3}`, MLS 10.4.1.2):
-   typed as an expression, as OpenModelica's typeIterator types any range;
-   the range method above types a range expression (there was no method for
-   an array: a MethodError). =#
+#= Any other iteration range, an array (`for i in {1, 3}`, MLS 10.4.1.2) or an array
+   cref or call (`for x in v`): typed as an expression, as OpenModelica's typeIterator
+   types any range; the method above types a range expression. =#
 @nospecializeinfer function typeIterator(
   @nospecialize(iterator::InstNode),
-  @nospecialize(range::ARRAY_EXPRESSION),
+  @nospecialize(range::Expression),
   @nospecialize(origin::ORIGIN_Type),
   structural::Bool = false
   )::Tuple{Expression, NFType, VariabilityType}
@@ -738,7 +741,7 @@ end
   if structural && var > Variability.PARAMETER
     Error.addSourceMessageAndFail(Error.NON_PARAMETER_ITERATOR_RANGE, list(toString(exp)), info)
   end
-  isVector(ty) || Error.addSourceMessageAndFail(Error.FOR_EXPRESSION_ERROR, list(toString(exp), toString(ty)), info)
+  isVector(ty) || Error.addSourceMessageAndFail(Error.FOR_EXPRESSION_TYPE_ERROR, list(toString(exp), toString(ty)), info)
   updateComponent!(ITERATOR_COMPONENT(arrayElementType(ty), var, info), iterator)
   return (exp, ty, var)
 end
@@ -764,7 +767,7 @@ end
   #=  The iteration range must be a vector expression. =#
   if !isVector(ty)
     Error.addSourceMessageAndFail(
-        Error.FOR_EXPRESSION_ERROR,
+        Error.FOR_EXPRESSION_TYPE_ERROR,
       list(toString(exp), toString(ty)),
       info,
     )
@@ -814,6 +817,9 @@ function typeDimension(
     info::SourceInfo,
   )
 end
+
+#= The `:` dimensions the current task is deducing from bindings, by component and index. =#
+_deducingDimensions()::Set{Tuple{UInt64, Int}} = get!(() -> Set{Tuple{UInt64, Int}}(), task_local_storage(), :NFTypingDeducingDimensions)::Set{Tuple{UInt64, Int}}
 
 function typeDimension2(
   dimensions::Vector{Dimension},
@@ -895,6 +901,17 @@ function typeDimension2(
         If the dimension is unknown in a function, keep it unknown.
           If the dimension is unknown in a class, try to infer it from the components binding.
         =#
+        #= A binding that needs the dimension itself (`Real c[:] = fill(0, size(c, 1))`) is a
+           cyclic dimension, not a recursion without end (omc marks the dimension as being typed).
+           Marked per component: instances can share a dimension vector. =#
+        local key = (_refId(component), index)
+        local deducing = _deducingDimensions()
+        if key in deducing
+          Error.addSourceMessage(Error.CYCLIC_DIMENSIONS, list(String(index), name(component), ":"), info)
+          fail()
+        end
+        push!(deducing, key)
+        try
         b = binding
         parent_dims = 0
         if isUnbound(binding)
@@ -1014,6 +1031,9 @@ function typeDimension2(
               dim
             end
           end
+        end
+        finally
+          delete!(deducing, key)
         end
         arrayUpdate(dimensions, index, dim)
         dim
@@ -1154,7 +1174,9 @@ function getRecordElementBinding(componentVar::InstNode)::Tuple{Binding, Int}
     if isUnbound(parent_binding)
        (binding, parentDims) = getRecordElementBinding(parent)
     else
-       binding = typeBinding(parent_binding, ORIGIN_CLASS)
+       #= Typed for a dimension: crefs into other components type those without their
+          children (omc getRecordElementBinding, typeCref2). =#
+       binding = typeBinding(parent_binding, setFlag(ORIGIN_CLASS, ORIGIN_DIMENSION))
       if !referenceEq(parent_binding, binding)
         parent = componentApply(parent, setBinding, binding)
       end
@@ -1198,7 +1220,8 @@ function checkComponentBindingVariability(
       ),
       Binding_getInfo(binding),
     )
-    return 404
+    #= An error (omc fails here); this returned 404, an InexactError for the Int8 variability. =#
+    fail()
   end
   #=  Mark parameters that have a structural cref as binding as also
   =#
@@ -1520,7 +1543,7 @@ function typeExp2(
         #=  Subscripted expressions are assumed to already be typed. =#
         e1 = P_Pointer.access(exp.exp)
         (e1, ty, variability) = typeExp(e1, origin, info)
-        exp.exp = P_Pointer.create(e1)
+        exp = MUTABLE_EXPRESSION(P_Pointer.create(e1))
         exp, typeRef.x, variabilityTypeRef.x = exp, ty, variability;exp
       end
 
@@ -1706,7 +1729,10 @@ function typeExpDim(
   if isKnown(ty)
      (dim, error) = nthDimensionBoundsChecked(ty, dimIndex)
      typedExp = SOME(exp)
-  else
+  end
+  #= A typed expression with an unknown dimension (an argument in a function, `1 .- v` with
+     `Real[:] v`) is typed again: its values may have been substituted since (omc typeExpDim). =#
+  if !isKnown(ty) || isUnknown(dim)
      e = getBindingExp(exp)
      (dim, error) = begin
       @match e begin
@@ -1758,7 +1784,7 @@ function typeArrayDim(
   if dimIndex < 1
      dim = DIMENSION_UNKNOWN()
      error =
-      P_TypingError.OUT_OF_BOUNDS(dimensionCount(arrayExp))
+      OUT_OF_BOUNDS(dimensionCount(arrayExp))
   else
      (dim, error) = typeArrayDim2(arrayExp, dimIndex)
   end
@@ -1780,7 +1806,7 @@ function typeArrayDim2(
       end
 
       (ARRAY_EXPRESSION(__), _) => begin
-        typeArrayDim2(listHead(arrayExp.elements), dimIndex - 1, dimCount + 1)
+        typeArrayDim2(arrayExp.elements[1], dimIndex - 1, dimCount + 1)
       end
 
       _ => begin
@@ -1789,7 +1815,7 @@ function typeArrayDim2(
         #=  expression can be empty, so just traverse into the first element.
         =#
          dim = DIMENSION_UNKNOWN()
-         error = P_TypingError.OUT_OF_BOUNDS(dimCount)
+         error = OUT_OF_BOUNDS(dimCount)
         (dim, error)
       end
     end
@@ -2070,7 +2096,13 @@ end
         else
           ORIGIN_CLASS
         end
-      node_ty = typeComponent(cref.node, node_origin) #NOTE: Removed barrier here(!)
+      #= A prefix of a cref in a dimension: its type only, children untyped (they may need
+         this dimension; omc typeComponent with typeChildren = false). =#
+      node_ty = if !firstPart && flagSet(origin, ORIGIN_DIMENSION) && isvariant(component(resolveOuter(cref.node)), UNTYPED_COMPONENT)
+        _componentTypeOnly(cref.node, node_origin)
+      else
+        typeComponent(cref.node, node_origin)
+      end
       (subs, subs_var) =
         typeSubscripts(cref.subscripts, node_ty, cref, origin, info)
       rest_cr = typeCref2(cref.restCref, origin, variabilityTypeRef, info, false)
@@ -2089,7 +2121,7 @@ end
       fns = typeNodeCache(cref.node)
       fn = fns[1]
       local crefTy = TYPE_FUNCTION(fn, FunctionType.FUNCTION_REFERENCE)
-      local crefRestCref = typeCref2(cref.restCref, origin, info, false)
+      local crefRestCref = typeCref2(cref.restCref, origin, Ref{VariabilityType}(Variability.CONSTANT), info, false)
       @assign cref.ty = crefTy
       @assign cref.restCref = crefRestCref
       variabilityTypeRef.x = Variability.CONTINUOUS
@@ -2329,7 +2361,10 @@ function typeArrayRef(
   local arrayType::NFType = TYPE_UNKNOWN()
   local arrayExp::Expression
   local numberOfElements = length(elements)::Int
-  local expV::Vector{T} = Vector{T}(undef, numberOfElements)
+  #= The typed elements go to a new vector: the untyped expression's elements are shared (a
+     binding typed by two tasks found the other's typed record elements, which do not type:
+     Buildings DX VariableSpeedEnergyPlus under parallel typing). =#
+  local expV::Vector{Expression} = Vector{Expression}(undef, numberOfElements)
   local var::VariabilityType
   local ty1::NFType = TYPE_UNKNOWN()
   local ty2::NFType
@@ -2361,15 +2396,15 @@ function typeArrayRef(
     else
       ty1 = ty3
     end
-    elements[i] = exp::T
+    expV[i] = exp
     tys[i] = ty2
   end
   for i in 1:numberOfElements
-    local e = elements[i]::T
+    local e = expV[i]
     ty2 = tys[i]
     exp = matchTypesRef(ty2, ty1, e, tyRef, mkRef, #=allowUnknown =# true)
     mk = mkRef.x
-    elements[i] = exp
+    expV[i] = exp
     if true ## !Config.getGraphicsExpMode()
       if isIncompatibleMatch(mk)
         Error.addSourceMessage(
@@ -2387,8 +2422,8 @@ function typeArrayRef(
     end
   end
   #=  forget errors when handling annotations =#
-  arrayType = liftArrayLeft(ty1, fromExpList(elements))
-  arrayExp = makeArray(arrayType, elements)::ARRAY_EXPRESSION
+  arrayType = liftArrayLeft(ty1, fromExpList(expV))
+  arrayExp = makeArray(arrayType, expV)::ARRAY_EXPRESSION
   arrayTypeRef.x = arrayType
   variabilityTypeRef.x = variability
   return arrayExp
@@ -2548,14 +2583,17 @@ function typeMatrixComma(
            ty = ty2
         end
       end
-       tys = Cons{NFType}(ty1, tys)
+       tys2[i] = ty1
        variability = variabilityMax(variability, var)
        n = max(n, dimensionCount(ty))
     end
+    #= Each element with its own type (omc reverses both lists; the elements here are in
+       order, their types were the reversed list: `[a, 2]` matched a with Integer and 2 with
+       Real, the 2 left an Integer in a Real matrix, sum() of it failed). =#
     pos = n + 1
     local i = 1
     for e in expl
-      @match Cons{NFType}(ty1, tys) = tys
+      ty1 = tys2[i]
        pos = pos - 1
       if dimensionCount(ty1) != n
          (e, ty1) = promote(e, ty1, n)
@@ -3011,7 +3049,10 @@ function evaluateCondition(
 
   local cond_exp::Expression
 
-  cond_exp = evalExp(condExp, EVALTARGET_GENERIC(info))
+  #= The condition's values only: a condition on the parameters of an array of components
+     evaluates to an array of binding expressions, one per element (Buildings' conduction
+     layers), which arrayAllEqual and arrayFirstScalar do not look into. =#
+  cond_exp = stripBindingInfo(evalExp(condExp, EVALTARGET_GENERIC(info)))
   if arrayAllEqual(cond_exp)
      cond_exp = arrayFirstScalar(cond_exp)
   end
@@ -3057,18 +3098,12 @@ function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)::InstNod
           classNode = typeOwnSections!(classNode, originArg)
         end
         if parallelInstEnabled(length(components))
-          local parentTok = get(task_local_storage(), :OMF_ROOT, 0)::Int
-          @sync for i in eachindex(components)
-            local idx = i
-            local tok = parentTok == 0 ? idx : parentTok
-            Threads.@spawn begin
-              task_local_storage(:OMF_ROOT, tok)
-              local compNode = @inbounds components[idx]
-              local node = typeComponentSections(compNode, originArg)
-              if node !== compNode
-                _withClaim(_refId(classNode)) do
-                  @inbounds components[idx] = node
-                end
+          _parallelFor(eachindex(components)) do idx
+            local compNode = @inbounds components[idx]
+            local node = typeComponentSections(compNode, originArg)
+            if node !== compNode
+              _withClaim(_refId(classNode)) do
+                @inbounds components[idx] = node
               end
             end
           end
@@ -3148,7 +3183,7 @@ function typeOwnSections!(classNode::InstNode, originArg::ORIGIN_Type)::InstNode
           Error.TRANS_VIOLATION,
           list(
             name(classNode),
-            P_Restriction.Restriction.toString(cls.restriction),
+            toString(cls.restriction),
             "external declaration",
           ),
           InstNode_info(classNode),
@@ -3361,7 +3396,7 @@ function makeDefaultExternalCall(extDecl::Sections, fnNode::InstNode)::Sections
         #=  be a reference to the function's output. Otherwise leave it as empty.
         =#
         if single_output
-          @match list(node) = fn.outputs
+           node = listHead(fn.outputs)
            ty = getType(node)
            extDecl.outputRef = fromNode(node, ty)
         end
@@ -3477,17 +3512,8 @@ end
 
       EQUATION_FOR(__) => begin
         info = sourceInfo() #DAE.emptyElementSource -John
-        if isSome(eq.range)
-          @match SOME(e1) = eq.range
-          (e1, _, _) = typeIterator(eq.iterator, e1, origin, true)
-        else
-          Error.assertion(
-            false,
-            getInstanceName() + ": missing support for implicit iteration range",
-            sourceInfo(),
-          )
-          fail()
-        end
+        e1 = isSome(eq.range) ? Util.getOption(eq.range) : deduceIterationRangeEq(eq, eq.iterator, info)
+        (e1, _, _) = typeIterator(eq.iterator, e1, origin, true)
         next_origin = setFlag(origin, ORIGIN_FOR)
         body = Equation[typeEquation(e, next_origin) for e in eq.body]
         EQUATION_FOR(eq.iterator, SOME(e1), body, eq.source)
@@ -3842,17 +3868,8 @@ end
 
       ALG_FOR(__) => begin
         info = AbsynUtil.dummyInfo #DAE.ElementSource_getInfo(st.source)
-        if isSome(st.range)
-          @match SOME(e1) = st.range
-          (e1, _, _) = typeIterator(st.iterator, e1, origin, false)
-        else
-          Error.assertion(
-            false,
-            getInstanceName() + ": missing support for implicit iteration range",
-            sourceInfo(),
-          )
-          fail()
-        end
+        e1 = isSome(st.range) ? Util.getOption(st.range) : deduceIterationRangeStmt(st, st.iterator, info)
+        (e1, _, _) = typeIterator(st.iterator, e1, origin, false)
         next_origin = setFlag(origin, ORIGIN_FOR)
         body = typeStatements(st.body, next_origin)
         ALG_FOR(st.iterator, SOME(e1), body, st.source)
@@ -4117,16 +4134,22 @@ end
         if isFalse(_evalCond)
           continue
         end
-        cond = _evalCond
-        _condKnown = isTrue(cond)
+        #= Anything but true keeps the condition: in an array of components it is the
+           elements' values ({true, false, false}), for the flattening to pick per element. =#
+        if isTrue(_evalCond)
+          cond = _evalCond
+          _condKnown = true
+        end
       catch
         #= If evaluation fails, fall through to normal branch typing =#
       end
     end
     if _condKnown
-      #= True branch: type directly, let any errors propagate =#
+      #= True branch: type directly, let any errors propagate; the branches after it are
+         never taken (CDL Reals.MatrixMax: the else branch's sizes do not fit) =#
       eql = Equation[typeEquation(e, next_origin) for e in eql]
       push!(bl2, makeBranch(cond, eql, var))
+      break
     else
       ErrorExt.setCheckpoint(getInstanceName())
       try
@@ -4154,10 +4177,14 @@ end
     for b in bl
        bl2 = begin
         @match b begin
+          #= A condition with a for-loop iterator is kept: the iterator has no value here. =#
           EQUATION_BRANCH(
             __,
-          ) where {(b.conditionVar <= Variability.STRUCTURAL_PARAMETER)} => begin
-            @assign b.condition = evalExp(b.condition)
+          ) where {(b.conditionVar <= Variability.STRUCTURAL_PARAMETER && !contains(b.condition, isIterator))} => begin
+            local evCond = evalExp(b.condition)
+            #= an array of components' values ({true, false}) keeps the condition: the
+               vectorized equation is unrolled and its branch picked per element =#
+            isBoolean(evCond) && (@assign b.condition = evCond)
             if isFalse(b.condition)
               bl2
             else
@@ -4368,4 +4395,79 @@ function typeReinit(
     fail()
   end
   return (crefExp, exp)
+end
+
+#= A for-loop without a range (`for i loop x[i] = ...`) iterates over the dimensions the iterator
+   subscripts in its body: lower bound to end of that dimension (omc deduceIterationRange*). =#
+function deduceIterationRangeEq(@nospecialize(eq::Equation), iterator::InstNode, info::SourceInfo)::Expression
+  local crefs = foldExp(eq, (e, acc) -> fold(e, (e2, acc2) -> collectIteratorCrefs(e2, iterator, acc2), acc),
+                        Tuple{ComponentRef, Int}[])
+  return deduceIterationRange(crefs, iterator, info)
+end
+
+function deduceIterationRangeStmt(stmt::Statement, iterator::InstNode, info::SourceInfo)::Expression
+  local crefs = foldExp(stmt, (e, acc) -> fold(e, (e2, acc2) -> collectIteratorCrefs(e2, iterator, acc2), acc),
+                        Tuple{ComponentRef, Int}[])
+  return deduceIterationRange(crefs, iterator, info)
+end
+
+function deduceIterationRangeExp(@nospecialize(exp::Expression), iterator::InstNode, info::SourceInfo)::Expression
+  local crefs = fold(exp, (e, acc) -> collectIteratorCrefs(e, iterator, acc), Tuple{ComponentRef, Int}[])
+  return deduceIterationRange(crefs, iterator, info)
+end
+
+#= The reference parts the iterator subscripts, with the subscripted dimension's index. =#
+function collectIteratorCrefs(@nospecialize(exp::Expression), iterator::InstNode,
+                              crefs::Vector{Tuple{ComponentRef, Int}})::Vector{Tuple{ComponentRef, Int}}
+  exp isa CREF_EXPRESSION || return crefs
+  local cref::ComponentRef = exp.cref
+  local subs::List{Subscript}
+  while isvariant(cref, COMPONENT_REF_CREF)
+    (cref, subs) = stripSubscripts(cref)
+    local index = 1
+    for sub in subs
+      equalsIterator(sub, iterator) && push!(crefs, (cref, index))
+      index += 1
+    end
+    cref = rest(cref)
+  end
+  return crefs
+end
+
+function deduceIterationRange(crefs::Vector{Tuple{ComponentRef, Int}}, iterator::InstNode, info::SourceInfo)::Expression
+  if isempty(crefs)
+    Error.addSourceMessage(Error.IMPLICIT_ITERATOR_NOT_FOUND_IN_LOOP_BODY, list(name(iterator)), info)
+    fail()
+  end
+  for k in 2:length(crefs)
+    checkImplicitRangesEqual(crefs[k - 1], crefs[k], info)
+  end
+  local (cr, index) = crefs[1]
+  local dim = nthDimension(getType(node(cr)), index)
+  return RANGE_EXPRESSION(TYPE_UNKNOWN(), lowerBoundExp(dim), NONE(), endExp(dim, cr, index))
+end
+
+#= Two subscripted dimensions are the same, or one is size() of the other (omc
+   deduceIterationRange2, Dimension.isEqualKnownSize). =#
+function checkImplicitRangesEqual(range1::Tuple{ComponentRef, Int}, range2::Tuple{ComponentRef, Int}, info::SourceInfo)
+  local (cref1, index1) = range1
+  local (cref2, index2) = range2
+  local node1 = node(cref1)
+  local node2 = node(cref2)
+  (index1 == index2 && refEqual(node1, node2)) && return
+  local dim1 = nthDimension(getType(node1), index1)
+  local dim2 = nthDimension(getType(node2), index2)
+  local isSizeOf = (dim::Dimension, n::InstNode, i::Int) -> begin
+    isvariant(dim, DIMENSION_EXP) || return false
+    local e = dim.exp
+    e isa SIZE_EXPRESSION && e.exp isa CREF_EXPRESSION && refEqual(node(e.exp.cref), n) &&
+      isSome(e.dimIndex) && Util.getOption(e.dimIndex) isa INTEGER_EXPRESSION &&
+      Util.getOption(e.dimIndex).value == i
+  end
+  if !(isSizeOf(dim1, node2, index2) || isSizeOf(dim2, node1, index1) || isEqualKnown(dim1, dim2))
+    Error.addSourceMessage(Error.INCOMPATIBLE_IMPLICIT_RANGES,
+      list(string(index1), toString(cref1), string(index2), toString(cref2)), info)
+    fail()
+  end
+  return nothing
 end

@@ -92,6 +92,42 @@ function makeConnectors(
   return connectors
 end
 
+#= The element crefs of a variable name whose parts have array types (r.p.i of a component
+   array r: r[1].p.i, r[2].p.i, ...). Unlike ExpandExp.expandCref this also expands the
+   scope parts of the name. =#
+function _expandArrayParts(cref::ComponentRef)::Vector{ComponentRef}
+  if !isvariant(cref, COMPONENT_REF_CREF)
+    return ComponentRef[cref]
+  end
+  local rests = _expandArrayParts(cref.restCref)
+  local dims = arrayDims(cref.ty)
+  local out = ComponentRef[]
+  if !listEmpty(cref.subscripts) || listEmpty(dims)
+    for rest in rests
+      push!(out, COMPONENT_REF_CREF(cref.node, cref.subscripts, cref.ty, cref.origin, rest))
+    end
+    return out
+  end
+  local subLists = Any[nil]
+  for dim in Iterators.reverse(Base.collect(dims))
+    local next_lists = Any[]
+    local range_iter = fromDim(dim)
+    local vals = Expression[]
+    while hasNext(range_iter)
+      (range_iter, v) = next(range_iter)
+      push!(vals, v)
+    end
+    for v in vals, l in subLists
+      push!(next_lists, Cons{Subscript}(SUBSCRIPT_INDEX(v), l))
+    end
+    subLists = next_lists
+  end
+  for rest in rests, subs in subLists
+    push!(out, COMPONENT_REF_CREF(cref.node, subs, cref.ty, cref.origin, rest))
+  end
+  return out
+end
+
 function collect(flatModel::FlatModel)::Tuple{FlatModel, Connections}
   local conns::Connections = new()
   local comp::Component
@@ -114,14 +150,25 @@ function collect(flatModel::FlatModel)::Tuple{FlatModel, Connections}
   for var in flatModel.variables
     comp = component(node(var.name))
     if isFlow(comp)
-      c1 = fromFacedCref(
-        var.name,
-        var.ty,
-        Face.INSIDE,
-        #=ElementSource.createElementSource(P_Component.info(comp)),=#
-        DAE.emptyElementSource
-      )
-      @assign conns = addFlow(c1, conns)
+      if Flags.isSet(Flags.NF_SCALARIZE) || !isArray(var.ty)
+        c1 = fromFacedCref(
+          var.name,
+          var.ty,
+          Face.INSIDE,
+          #=ElementSource.createElementSource(P_Component.info(comp)),=#
+          DAE.emptyElementSource
+        )
+        @assign conns = addFlow(c1, conns)
+      else
+        #= Not scalarizing: an array flow variable, also one whose dimensions are on a prefix
+           part (r.p.i of a component array r), is added per element like the connects
+           (r[1].p.i); Connector.split only expands the last part's dimensions. =#
+        local elty = arrayElementType(var.ty)
+        for cr in _expandArrayParts(var.name)
+          c1 = fromFacedCref(cr, elty, Face.INSIDE, DAE.emptyElementSource)
+          @assign conns = addFlow(c1, conns)
+        end
+      end
     end
   end
   #=  Collect all connects.

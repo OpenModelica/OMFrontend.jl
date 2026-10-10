@@ -429,13 +429,14 @@ function simplifyArrayConstructor(call::Call)
   return outExp
 end
 
-function simplifySize(sizeExp::Expression)
-   sizeExp = begin
+#= The argument is not named sizeExp: that is Dimension's size expression, called below. =#
+function simplifySize(sizeCall::Expression)
+   sizeCall = begin
     local exp::Expression
     local index::Expression
     local dim::Dimension
     local dims::List{Dimension}
-    @match sizeExp begin
+    @match sizeCall begin
       SIZE_EXPRESSION(exp, SOME(index)) => begin
         index = simplify(index)
         if isLiteral(index)
@@ -454,8 +455,8 @@ function simplifySize(sizeExp::Expression)
         exp
       end
       SIZE_EXPRESSION(__) => begin
-         dims = arrayDims(typeOf(sizeExp.exp))
-        if listUtil.all(dims, (x, y=true) -> isKnown(x, y))
+         dims = arrayDims(typeOf(sizeCall.exp))
+        if ListUtil.all(dims, d -> isKnown(d, true))
            exp = makeArray(
             TYPE_ARRAY(
               TYPE_INTEGER(),
@@ -464,13 +465,13 @@ function simplifySize(sizeExp::Expression)
             Expression[sizeExp(d) for d in dims],
           )
         else
-           exp = sizeExp
+           exp = sizeCall
         end
         exp
       end
     end
   end
-  return sizeExp
+  return sizeCall
 end
 
 #= Reuse `orig` when the fallback would rebuild the identical binary (same

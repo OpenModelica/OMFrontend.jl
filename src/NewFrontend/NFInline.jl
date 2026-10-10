@@ -258,6 +258,7 @@ function inlineCall(call::Call, top = nothing)::Expression
                         (exp) -> map(exp, (exp) -> replaceCrefNode(exp, i, arg)))
         end
         local outExp = getOutputExp(stmt, listHead(outputs), call)
+        _hasVaryingSlice(outExp) && return CALL_EXPRESSION(call)
         top === nothing ? outExp : _noEventRelations(outExp, top)
       end
 
@@ -267,6 +268,16 @@ function inlineCall(call::Call, top = nothing)::Expression
     end
   end
   return exp
+end
+
+#= Whether `exp` slices an array with bounds that vary (above parameter variability): `x[1:n]`
+   with n a discrete of the model (Buildings' temporalSuperposition,
+   `QAgg_flow[1:curCel]*kappa[1:curCel]`) is an array of varying size, which only a function
+   body may have; inlined, its type was the element's and the scalar product's expansion
+   failed (MatchFailure on a cref). =#
+function _hasVaryingSlice(exp::Expression)::Bool
+  return contains(exp, e -> e isa CREF_EXPRESSION &&
+    any(s -> s isa SUBSCRIPT_SLICE && variability(s.slice) > Variability.PARAMETER, subscriptsAllFlat(e.cref)))
 end
 
 #= MLS 8.5: relations in a function body never generate events ("all
@@ -302,6 +313,34 @@ function _noEventRelations(exp::Expression, top::InstNode)::Expression
   return map(exp, wrap)
 end
 
+#= The body's subscripts on an argument. In an array of components (arrays kept) the
+   argument `vPhase.theta` has the element type and an unsubscripted prefix (iterated
+   later), which applySubscripts fills first: `theta[1]` became `vPhase[1].theta`
+   (Buildings' three-phase sources: `{vPhase[1].theta[1]} = 2*pi*f*time`). There they go
+   on the argument's own part. =#
+function _applySubscriptsToArgument(subs::List{<:Subscript}, value::Expression)::Expression
+  if !listEmpty(subs) && value isa CREF_EXPRESSION && isvariant(value.cref, COMPONENT_REF_CREF) &&
+     _freeDimensions(value.cref) > dimensionCount(value.ty)
+    local cr = value.cref
+    local (crSubs, rest) = mergeList(subs, cr.subscripts, dimensionCount(cr.ty))
+    if listEmpty(rest)
+      return CREF_EXPRESSION(subscript(value.ty, subs),
+                             COMPONENT_REF_CREF(cr.node, crSubs, cr.ty, cr.origin, cr.restCref))
+    end
+  end
+  return applySubscripts(subs, value)
+end
+
+#= The dimensions of a cref's parts not subscripted. =#
+function _freeDimensions(cr::ComponentRef)::Int
+  local n = 0
+  while isvariant(cr, COMPONENT_REF_CREF)
+    n += dimensionCount(cr.ty) - listLength(cr.subscripts)
+    cr = cr.restCref
+  end
+  return n
+end
+
 function replaceCrefNode(exp::Expression, node::InstNode, value::Expression)::Expression
   local ty::M_Type
   local repl_ty::M_Type
@@ -313,7 +352,7 @@ function replaceCrefNode(exp::Expression, node::InstNode, value::Expression)::Ex
     end
     if refEqual(node, basePart.node)
       local cref_parts = toListReverse(cr)
-      local result = applySubscripts(basePart.subscripts, value)
+      local result = _applySubscriptsToArgument(basePart.subscripts, value)
       local fieldParts = listRest(cref_parts)
       for fieldCr in fieldParts
         result = makeImmutable(result)
