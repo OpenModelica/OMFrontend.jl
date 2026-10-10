@@ -520,6 +520,97 @@ end
 #= The component bindings the current task is evaluating (evalComponentBinding). =#
 _evaluatingBindings()::Set{UInt64} = get!(() -> Set{UInt64}(), task_local_storage(), :NFCevalEvaluatingBindings)::Set{UInt64}
 
+#= The element context of binding evaluation (omc 1.27: split subscripts, SPLIT_PROXY/SPLIT_INDEX,
+   which this port does not have): the crefs naming an element of an array of components
+   (`pendulum[1].string.r`) whose bindings the current task is evaluating. A binding read inside
+   such a binding has a cref without the element's subscripts (`L` in `string(r = {0, L, 0})` of
+   `Pendulum[n] pendulum(L = lengths)`); its value propagated from the array's modifier is
+   subscripted by the element the context names (subscriptEvaluatedBinding2), not the whole array
+   (MSL MultiBody shape, omc CevalBinding8: a final record parameter evaluated per element). =#
+_elementContext()::Vector{ComponentRef} =
+  get!(() -> ComponentRef[], task_local_storage(), :NFCevalElementContext)::Vector{ComponentRef}
+
+_isEmptyContext()::Bool = isempty(_elementContext())
+
+#= Counts the reads that took their element from the context: a binding evaluated with one is that
+   element's value and is not cached in the component the elements share. =#
+_elementContextUses()::Base.RefValue{Int} =
+  get!(() -> Ref(0), task_local_storage(), :NFCevalElementContextUses)::Base.RefValue{Int}
+
+#= Whether a cref has subscripts on an enclosing part (names an element of an array of components). =#
+function _hasEnclosingSubscripts(cref::ComponentRef)::Bool
+  isEmpty(cref) && return false
+  local cr = rest(cref)
+  while !isEmpty(cr)
+    listEmpty(getSubscripts(cr)) || return true
+    cr = rest(cr)
+  end
+  return false
+end
+
+#= The subscripts of a cref's enclosing parts (outermost first), an array part without them taking
+   the element context's subscripts of its node; nothing when the context has none for one. =#
+function _enclosingContextSubscripts(cref::ComponentRef)::Union{Vector{Subscript}, Nothing}
+  _isEmptyContext() && return nothing
+  local subs = Subscript[]
+  local cr = rest(cref)
+  local used = false
+  while !isEmpty(cr)
+    local own = getSubscripts(cr)
+    if listEmpty(own) && dimensionCount(getType(node(cr))) > 0
+      own = _contextSubscriptsOf(node(cr))
+      listEmpty(own) && return nothing
+      used = true
+    end
+    for s in reverse(Base.collect(own))
+      pushfirst!(subs, s)
+    end
+    cr = rest(cr)
+  end
+  return used ? subs : nothing
+end
+
+#= The subscripts the innermost element context has on a node, or nil. =#
+function _contextSubscriptsOf(n::InstNode)::List{Subscript}
+  local ctx = _elementContext()
+  for i in length(ctx):-1:1
+    local cr = ctx[i]
+    while !isEmpty(cr)
+      if refEqual(node(cr), n)
+        local s = getSubscripts(cr)
+        listEmpty(s) || return s
+        break
+      end
+      cr = rest(cr)
+    end
+  end
+  return nil
+end
+
+#= The subscripts the element context gives the binding parents left over by a cref without
+   them (outermost first, as subscriptEvaluatedBinding2 collects them), or nil. =#
+function _elementContextSubscripts(parents::List{InstNode})::List{Subscript}
+  local ctx = _elementContext()
+  for i in length(ctx):-1:1
+    local cr = ctx[i]
+    while !isEmpty(cr) && !refEqual(node(cr), listHead(parents))
+      cr = rest(cr)
+    end
+    isEmpty(cr) && continue
+    local subs::List{Subscript} = nil
+    local ps = parents
+    while !listEmpty(ps) && !isEmpty(cr) && refEqual(listHead(ps), node(cr))
+      subs = listAppend(getSubscripts(cr), subs)
+      ps = listRest(ps)
+      cr = rest(cr)
+    end
+    listEmpty(subs) && continue
+    _elementContextUses()[] += 1
+    return subs
+  end
+  return nil
+end
+
 #= The dimensions of an evaluated value: an array literal's nesting under any binding info
    (its type can be the element's: `abs(dp_nominal)` evaluated over the array modifier). =#
 function _valueDimensionCount(@nospecialize(exp::Expression))::Int
@@ -562,6 +653,15 @@ function _subscriptByEnclosingElements(@nospecialize(exp::Expression), cref::Com
        ElectricChillerParallel: pum[num](per = per), per = fill(perCHWPum, numChi), WMot_nominal's
        `power.P[1] > eps` read {P, P} and P[1] picked a pump ({0.0} > eps). =#
     readsOwnElement || return exp
+    #= Read inside the binding of a named element (`pendulum.L` in pendulum[1].string.r's
+       binding): that element's (see _elementContext). =#
+    local csubs = _enclosingContextSubscripts(cref)
+    if csubs !== nothing && length(csubs) >= extra
+      local cown = csubs[end - extra + 1:end]
+      evalSubscripts && (cown = Subscript[evalSubscript(s) for s in cown])
+      _elementContextUses()[] += 1
+      return applySubscripts(list(cown...), value)
+    end
     local shared = _sharedElementValue(value, extra)
     return shared === nothing ? exp : shared
   end
@@ -643,7 +743,12 @@ function evalComponentBinding2(
         if binding.evaluated
            exp = binding.bindingExp
         else
-          #= Try to evaluate the binding =#
+          #= Try to evaluate the binding, in the element context of the cref (see _elementContext). =#
+          local ctx = _elementContext()
+          local in_element = _hasEnclosingSubscripts(cref)
+          in_element && push!(ctx, cref)
+          local uses = _elementContextUses()
+          local uses0 = uses[]
           try
             exp = evalExp_impl(binding.bindingExp, target)
           catch e
@@ -654,7 +759,10 @@ function evalComponentBinding2(
             end
             #= rethrow(), not throw(e): no new backtrace (a throw costs 0.5-2 ms on macOS). =#
             rethrow()
+          finally
+            in_element && pop!(ctx)
           end
+          local per_element = uses[] != uses0
           #= Update the binding and set is as evaluated; not a value with more dimensions than
              the component (a binding in an array of components evaluated in its class, which
              the elements share, its references to the elements' array modifiers whole: every
@@ -662,10 +770,13 @@ function evalComponentBinding2(
              dp_nominal_pos = abs(dp_nominal) evaluated for an if-equation's condition). =#
           local extra = _valueDimensionCount(exp) - dimensionCount(getType(comp))
           if extra <= 0
-            @assign binding.bindingExp = exp
-            @assign binding.evaluated = true
-            comp = setBinding(binding, comp)
-            node = updateComponent!(comp, node)
+            #= Not when it read the element context: one element's value, not the shared one's. =#
+            if !per_element
+              @assign binding.bindingExp = exp
+              @assign binding.evaluated = true
+              comp = setBinding(binding, comp)
+              node = updateComponent!(comp, node)
+            end
           else
             exp = _subscriptByEnclosingElements(exp, cref, extra, evalSubscripts,
                                                 _readsOwnElement(cref, defaultExp, getType(comp), extra))
@@ -817,6 +928,11 @@ function subscriptEvaluatedBinding2(
                 break
               end
                cr_node = node(cr)
+            end
+            #= Parents the cref has no parts for (a binding read inside an element's binding):
+               their subscripts from the element context. =#
+            if isEmpty(cr) && !listEmpty(parents) && !_isEmptyContext()
+              subs = listAppend(_elementContextSubscripts(parents), subs)
             end
             if evalSubscripts
               subs = list(evalSubscript(s) for s in subs)
