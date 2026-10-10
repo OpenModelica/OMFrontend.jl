@@ -239,13 +239,16 @@ function addNestedExpandableConnectorsToSets(
   if listEmpty(ecl1) && listEmpty(ecl2)
     return csets
   end
+  #= The nested ones' own nested expandable connectors too (omc; omc ExpandableConnector8). =#
+  local conns::List{Connection} = nil
   for ec1 in ecl1
      (ecl2, oec) =
       ListUtil.deleteMemberOnTrue(ec1, ecl2, isNodeNameEqual)
     if isSome(oec)
-      @assign csets = addConnectionToSets(ec1, Util.getOption(oec), csets)
+      conns = _cons(CONNECTION(ec1, Util.getOption(oec)), conns)
     end
   end
+  @assign csets = addExpandableConnectorsToSets(conns, csets)
   return csets
 end
 

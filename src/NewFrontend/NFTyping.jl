@@ -3687,7 +3687,7 @@ end
   =#
   #=  the connection handling.
   =#
-  if !(isExpandableConnector(lhs_ty) || isExpandableConnector(rhs_ty))
+  if !(isExpandableConnector(arrayElementType(lhs_ty)) || isExpandableConnector(arrayElementType(rhs_ty)))
     (lhs, rhs, _, mk) =
        matchExpressions(lhs, lhs_ty, rhs, rhs_ty, true#=allowUnknown = true=#)
     if isIncompatibleMatch(mk)
