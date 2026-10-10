@@ -2068,6 +2068,16 @@ function instFunction2(
         (fnNode, false)
       end
 
+      #= An enumeration type name used as an operator: its conversion operator
+         E(Integer) => E (omc instFunction2). =#
+      SCode.CLASS(__) where {isEnumerationType(fnNode)} => begin
+        local conv = makeEnumConversionOp(fnNode)
+        conv = setNodeType(ROOT_CLASS(parent), conv)
+        conv = instFunction3(conv)
+        fnNode = cacheAddFunc(fnNode, new(fnPath, conv), false)
+        (fnNode, false)
+      end
+
       SCode.CLASS(__) => begin
         if SCodeUtil.isOperator(def)
           checkOperatorRestrictions(fnNode)
@@ -2096,6 +2106,55 @@ function instFunction2(
     end
   end
   return (fnNode, specialBuiltin)
+end
+
+#= The conversion operator of an enumeration type, E(index) (omc makeEnumConversionOp):
+     function $E "Automatically generated conversion operator for E"
+       input Integer index;
+       output E value;
+     algorithm
+       assert(index >= 1 and index <= n, "Enumeration index '" + String(index) + "' out of bounds in call to E()");
+       value := ...;
+     end $E;
+   omc selects the literal with {E.l1, ..., E.ln}[index]; here an if-chain over the literals, which
+   the DAE conversion and the backend take (they have no subscripted expressions). The class is
+   named $E so that E inside it is the type; the function keeps the call's path. =#
+function makeEnumConversionOp(enumNode::InstNode)::InstNode
+  local info = InstNode_info(enumNode)
+  local enum_name = name(enumNode)
+  local elem = definition(resolveInner(lastBaseClass(enumNode)))
+  @match SCode.CLASS(classDef = SCode.ENUMERATION(enumLst = lits)) = elem
+  local lits_v = Base.collect(lits)
+  local n = length(lits_v)
+  local index = Absyn.CREF(Absyn.CREF_IDENT("index", nil))
+  local params = list(
+    SCode.COMPONENT("index", SCode.defaultPrefixes, SCode.defaultInputAttr,
+                    Absyn.TPATH(Absyn.IDENT("Integer"), NONE()), SCode.NOMOD(), SCode.noComment, NONE(), info),
+    SCode.COMPONENT("value", SCode.defaultPrefixes, SCode.defaultOutputAttr,
+                    Absyn.TPATH(Absyn.IDENT(enum_name), NONE()), SCode.NOMOD(), SCode.noComment, NONE(), info),
+  )
+  local in_range = Absyn.LBINARY(Absyn.RELATION(index, Absyn.GREATEREQ(), Absyn.INTEGER(1)), Absyn.AND(),
+                                 Absyn.RELATION(index, Absyn.LESSEQ(), Absyn.INTEGER(n)))
+  local message = Absyn.BINARY(Absyn.STRING("Enumeration index '"), Absyn.ADD(),
+    Absyn.BINARY(Absyn.CALL(Absyn.CREF_IDENT("String", nil), Absyn.FUNCTIONARGS(list(index), nil), nil),
+                 Absyn.ADD(), Absyn.STRING("' out of bounds in call to " * enum_name * "()")))
+  local level = Absyn.CREF(Absyn.CREF_QUAL("AssertionLevel", nil, Absyn.CREF_IDENT("error", nil)))
+  local assign = k -> list(SCode.ALG_ASSIGN(Absyn.CREF(Absyn.CREF_IDENT("value", nil)),
+    Absyn.CREF(Absyn.CREF_QUAL(enum_name, nil, Absyn.CREF_IDENT(lits_v[k].literal, nil))), SCode.noComment, info))
+  local is_k = k -> Absyn.RELATION(index, Absyn.EQUAL(), Absyn.INTEGER(k))
+  local select = if n == 1
+    assign(1)
+  else
+    list(SCode.ALG_IF(is_k(1), assign(1), list(((is_k(k), assign(k)) for k in 2:n-1)...), assign(n),
+                      SCode.noComment, info))
+  end
+  local stmts = SCode.ALG_ASSERT(in_range, message, level, SCode.noComment, info) <| select
+  local fn_def = SCode.PARTS(params, nil, nil, list(SCode.ALGORITHM(stmts)), nil, nil, nil, NONE())
+  local fn_elem = SCode.CLASS("\$" * enum_name, SCode.defaultPrefixes, SCode.NOT_ENCAPSULATED(),
+                              SCode.NOT_PARTIAL(), SCode.R_FUNCTION(SCode.FR_NORMAL_FUNCTION(false)), fn_def,
+                              SCode.COMMENT(NONE(), SOME("Automatically generated conversion operator for " * enum_name)),
+                              info)
+  return new(fn_elem, parentScope(enumNode, true))
 end
 
 """Instantiates the given InstNode as a function."""

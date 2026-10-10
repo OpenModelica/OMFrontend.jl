@@ -353,6 +353,15 @@ function isPartial(node::InstNode)
   isPartial
 end
 
+#= Whether a class node is an enumeration type (`type E = enumeration(...)`, or a short class of
+   one); omc InstNode.isEnumerationType. =#
+function isEnumerationType(node::InstNode)::Bool
+  return @match node begin
+    CLASS_NODE(__) => isEnumeration(getType(P_Pointer.access(node.cls), node))
+    _ => false
+  end
+end
+
 function isBuiltin(node::InstNode)
   local isBuiltin::Bool
    isBuiltin = begin
@@ -1699,6 +1708,16 @@ end
   the enclosing class. In the case of a component it is the enclosing class of
   the component's type.
 """
+#= The parent scope, a redeclared class's being the one of the class it replaces (omc
+   parentScope(node, ignoreRedeclare = true)). =#
+function parentScope(@nospecialize(node::InstNode), ignoreRedeclare::Bool)
+  ignoreRedeclare || return parentScope(node)
+  return @match node begin
+    CLASS_NODE(nodeType = REDECLARED_CLASS(parent = scope)) => scope
+    _ => parentScope(node)
+  end
+end
+
 function parentScope(@nospecialize(node::InstNode))
   local scope::InstNode
   scope = begin

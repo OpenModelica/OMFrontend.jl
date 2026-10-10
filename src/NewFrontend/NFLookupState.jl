@@ -635,10 +635,11 @@ function isCallableComponent(node::InstNode)::Bool
 end
 
 function isCallableType(node::InstNode)::Bool
-  local callable::Bool
   local def::SCode.Element = definition(node)
-  @assign callable = SCodeUtil.isRecord(def) || SCodeUtil.isOperator(def)
-  return callable
+  (SCodeUtil.isRecord(def) || SCodeUtil.isOperator(def)) && return true
+  #= omc: an enumeration type is called as its conversion operator E(index) (instFunction2). =#
+  isClass(node) || return false
+  return isEnumerationType(expand(resolveInner(node)))
 end
 
 function assertImport(
