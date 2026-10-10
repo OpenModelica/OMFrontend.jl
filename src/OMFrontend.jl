@@ -65,6 +65,9 @@ packageRoot()::String = something(pkgdir(@__MODULE__), normpath(joinpath(@__DIR_
   This cache is initialized when the module is loaded.
 """
 const NFModelicaBuiltinCache = Dict()
+#= The builtin library is parsed into the package image (precompilation.jl): a change to it
+   recompiles the package. =#
+include_dependency(joinpath(@__DIR__, "..", "lib", "NFModelicaBuiltin.mo"))
 
 """
   This cache contains libraries for later use.

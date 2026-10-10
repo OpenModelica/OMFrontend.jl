@@ -1671,7 +1671,7 @@ function instComponentDef(component::SCode.COMPONENT,
   ty_attr = attributeRef.x
   local ty = getClass(ty_node)
   #=  Update the component's variability based on its type (e.g. Integer is discrete). =#
-  ty_attr = updateComponentVariability(ty_attr, ty, ty_node)
+  ty_attr = updateComponentVariability(ty_attr, ty, ty_node, isFunction(parent_res), component.comment)
   #=  Update the component's connector type now that we have its type. =#
   res = restriction(getClass(ty_node))
   ty_attr = updateComponentConnectorType(ty_attr, res, isRedeclared, node)
@@ -2078,14 +2078,32 @@ function printRedeclarePrefixError(node::InstNode, prefix1::String, prefix2::Str
   Error.addSourceMessageAndFail(Error.REDECLARE_MISMATCHED_PREFIX, list(prefix1, name(node), prefix2), InstNode_info(node))
 end
 
-function updateComponentVariability(attr::Attributes, cls::Class, clsNode::InstNode) ::Attributes
+function updateComponentVariability(attr::Attributes, cls::Class, clsNode::InstNode,
+                                    inFunction::Bool = false, comment::SCode.Comment = SCode.noComment)::Attributes
   local var::VariabilityType = attr.variability
   if referenceEq(attr, DEFAULT_ATTR) && isDiscreteClass(clsNode)
     attr = IMPL_DISCRETE_ATTR
   elseif var == Variability.CONTINUOUS && isDiscreteClass(clsNode)
     attr.variability = Variability.IMPLICITLY_DISCRETE
+  elseif var < Variability.CONTINUOUS && inFunction && attr.direction != Direction.NONE &&
+         !_hasFunctionVariabilityAnnotation(comment)
+    #= omc Attributes.updateVariability: variability prefixes on function parameters have no
+       semantic meaning; removed, so that e.g. a `constant input` is not evaluated, and an argument
+       of any variability matches it (omc FunctionParamVariability: f(time)). A new value: the
+       attributes can be a shared constant (CONSTANT_ATTR). =#
+    attr = ATTRIBUTES(attr.connectorType, attr.parallelism, Variability.CONTINUOUS, attr.direction,
+                      attr.innerOuter, attr.isFinal, attr.isRedeclare, attr.isReplaceable,
+                      attr.isStructuralMode)
   end
   attr
+end
+
+function _hasFunctionVariabilityAnnotation(comment::SCode.Comment)::Bool
+  return @match comment begin
+    SCode.COMMENT(annotation_ = SOME(ann)) =>
+      !SCodeUtil.isEmptyMod(SCodeUtil.lookupAnnotation(ann, "__OpenModelica_functionVariability"))
+    _ => false
+  end
 end
 
 function isDiscreteClass(clsNode::InstNode) ::Bool

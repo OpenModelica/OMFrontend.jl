@@ -424,7 +424,7 @@ function symmetric<T> "Returns a symmetric matrix"
 end symmetric;
 
 function smooth<RealArrayOrRecord> "Indicate smoothness of expression"
-  parameter input Integer p;
+  parameter input Integer p annotation(__OpenModelica_functionVariability=true);
   input RealArrayOrRecord expr;
   output RealArrayOrRecord s;
   external "builtin";
@@ -521,8 +521,8 @@ function sample = $overload(OMC_NO_CLOCK.sample, OMC_CLOCK.sample)
 
 package OMC_NO_CLOCK
         impure function sample "Overloaded operator to either trigger time events or to convert between continuous-time and clocked-time representation"
-          parameter input Real start;
-          parameter input Real interval;
+          parameter input Real start annotation(__OpenModelica_functionVariability=true);
+          parameter input Real interval annotation(__OpenModelica_functionVariability=true);
           output Boolean b;
           external "builtin";
           annotation(Documentation(info="<html>
@@ -545,8 +545,8 @@ end OMC_CLOCK;
 
 function shiftSample<__Any> "First activation of clock is shifted in time"
   input __Any u;
-  parameter input Integer shiftCounter(min = 0);
-  parameter input Integer resolution(min = 1) = 1;
+  parameter input Integer shiftCounter(min = 0) annotation(__OpenModelica_functionVariability=true);
+  parameter input Integer resolution(min = 1) = 1 annotation(__OpenModelica_functionVariability=true);
   output __Any c;
   external "builtin";
   annotation(__OpenModelica_builtin=true, __OpenModelica_UnboxArguments=true, version="Modelica 3.3", Documentation(info="<html>
@@ -556,8 +556,8 @@ end shiftSample;
 
 function backSample<__Any> "First activation of clock is shifted in time before activation of u"
   input __Any u;
-  parameter input Integer backCounter(min = 0);
-  parameter input Integer resolution(min = 1) = 1;
+  parameter input Integer backCounter(min = 0) annotation(__OpenModelica_functionVariability=true);
+  parameter input Integer resolution(min = 1) = 1 annotation(__OpenModelica_functionVariability=true);
   output __Any c;
   external "builtin";
   annotation(__OpenModelica_builtin=true, __OpenModelica_UnboxArguments=true, version="Modelica 3.3", Documentation(info="<html>
@@ -719,7 +719,7 @@ encapsulated package Connections
 
   function potentialRoot
     input VariableName node;
-    parameter input Integer priority = 0;
+    parameter input Integer priority = 0 annotation(__OpenModelica_functionVariability=true);
     external "builtin";
     annotation(__OpenModelica_builtin=true);
   end potentialRoot;
@@ -849,8 +849,8 @@ function spatialDistribution "Not yet implemented"
   input Real in1;
   input Real x;
   input Boolean positiveVelocity;
-  parameter input Real initialPoints[:](each min = 0, each max = 1) = {0.0, 1.0};
-  parameter input Real initialValues[size(initialPoints, 1)] = {0.0, 0.0};
+  parameter input Real initialPoints[:](each min = 0, each max = 1) = {0.0, 1.0} annotation(__OpenModelica_functionVariability=true);
+  parameter input Real initialValues[size(initialPoints, 1)] = {0.0, 0.0} annotation(__OpenModelica_functionVariability=true);
   output Real out0;
   output Real out1;
 external "builtin";
@@ -1033,7 +1033,7 @@ package Internal "Contains internal implementations, e.g. overloaded builtin fun
 
   function rationalClock
     input Integer intervalCounter(min=0);
-    parameter input Integer resolution(min = 1) = 1;
+    parameter input Integer resolution(min = 1) = 1 annotation(__OpenModelica_functionVariability=true);
     output Clock c;
     external "builtin";
   end rationalClock;
@@ -1060,7 +1060,7 @@ package Internal "Contains internal implementations, e.g. overloaded builtin fun
 
   impure function subSampleExpression<__Any>
     input __Any u;
-    parameter input Integer factor(min=0)=0;
+    parameter input Integer factor(min=0)=0 annotation(__OpenModelica_functionVariability=true);
     output __Any y;
     external "builtin" y=subSample(u,factor);
     annotation(__OpenModelica_UnboxArguments=true);
@@ -1068,14 +1068,14 @@ package Internal "Contains internal implementations, e.g. overloaded builtin fun
 
   impure function subSampleClock
     input Clock u;
-    parameter input Integer factor(min=0)=0;
+    parameter input Integer factor(min=0)=0 annotation(__OpenModelica_functionVariability=true);
     output Clock y;
     external "builtin" y=subSample(u,factor);
   end subSampleClock;
 
   impure function superSampleExpression<__Any>
     input __Any u;
-    parameter input Integer factor(min=0)=0;
+    parameter input Integer factor(min=0)=0 annotation(__OpenModelica_functionVariability=true);
     output __Any y;
     external "builtin" y=superSample(u,factor);
     annotation(__OpenModelica_UnboxArguments=true);
@@ -1083,14 +1083,14 @@ package Internal "Contains internal implementations, e.g. overloaded builtin fun
 
   impure function superSampleClock
     input Clock u;
-    parameter input Integer factor(min=0)=0;
+    parameter input Integer factor(min=0)=0 annotation(__OpenModelica_functionVariability=true);
     output Clock y;
     external "builtin" y=superSample(u,factor);
   end superSampleClock;
 
   impure function delay2
     input Real expr;
-    parameter input Real delayTime;
+    parameter input Real delayTime annotation(__OpenModelica_functionVariability=true);
     output Real value;
   algorithm
     value := delay3(expr, delayTime, delayTime);
@@ -1099,7 +1099,7 @@ package Internal "Contains internal implementations, e.g. overloaded builtin fun
 
   impure function delay3
     input Real expr, delayTime;
-    parameter input Real delayMax;
+    parameter input Real delayMax annotation(__OpenModelica_functionVariability=true);
     output Real value;
     external "builtin" value=delay(expr, delayTime, delayMax);
   end delay3;
