@@ -254,8 +254,8 @@ function flattenComponent(
   local condition::Binding
   local cls::Class
   local vis::VisibilityType
-  #=  Remove components that are only outer. =#
-  if isOnlyOuter(inComponent)
+  #=  Remove components that are only outer, and those removed by `break` (omc). =#
+  if isvariant(inComponent, EMPTY_NODE) || isOnlyOuter(inComponent)
     return (vars, sections, structuralSubModels)
   end
   comp_node = resolveOuter(inComponent)

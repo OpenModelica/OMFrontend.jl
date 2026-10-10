@@ -2619,6 +2619,17 @@ function translateArgs(args::List{<:Absyn.ElementArg})::List{SCode.SubMod}
           )
           _cons(sub, subMods)
         end
+
+        #= Selective model extension (Modelica 3.6): `break x`, parsed as connect(break, x), and
+           `break connect(a, b)` (omc translateArgs). =#
+        Absyn.INHERITANCEBREAK(cnct = Absyn.EQ_CONNECT(connector1 = Absyn.CREF_IDENT(name = "break"),
+                                                       connector2 = Absyn.CREF_IDENT(name = name))) => begin
+          _cons(SCode.NAMEMOD(name, SCode.BREAK_COMPONENT(arg.info)), subMods)
+        end
+
+        Absyn.INHERITANCEBREAK(cnct = Absyn.EQ_CONNECT(connector1 = cr1, connector2 = cr2)) => begin
+          _cons(SCode.NAMEMOD("", SCode.BREAK_CONNECT(cr1, cr2, arg.info)), subMods)
+        end
       end
     end
   end
