@@ -77,6 +77,7 @@ function flatten(classInst::InstNode, name::String; prefix = COMPONENT_REF_EMPTY
   sections = SECTIONS_EMPTY()
   #@debug "CALLING TOP LEVEL FLATTEN"
   cmt = SCodeUtil.getElementComment(definition(classInst))
+  isTopLevel && empty!(_deletedElementCrefs())
   (vars, sections, structuralSubmodels) = flattenClass(
     getClass(classInst),
     prefix,
@@ -266,8 +267,15 @@ function flattenComponent(
   @match c begin
     TYPED_COMPONENT(condition = condition, ty = ty) => begin
       #=  Delete the component if it has a condition that's false. =#
-      if isDeletedComponent(condition, prefix)
-        deleteComponent(inComponent)
+      local deleted::Bool
+      local per_element::Bool
+      (deleted, per_element) = isDeletedComponent(condition, prefix, comp_node)
+      if deleted
+        if per_element
+          push!(_deletedElementCrefs(), prefixCref(comp_node, TYPE_UNKNOWN(), nil, prefix))
+        else
+          deleteComponent(inComponent)
+        end
         return (vars, sections, structuralSubModels)
       end
       cls = getClass(c.classInst)
@@ -335,17 +343,49 @@ function flattenComponent(
   return (vars, sections, structuralSubModels)
 end
 
-function isDeletedComponent(condition::Binding, prefix::ComponentRef)::Bool
-  local isDeleted::Bool
+#= Components deleted in one element of an array of components, whose elements share the node
+   (`A a[3](b = {false, true, false})` with `Real x if b`): a[1].x and a[3].x, not the node
+   (omc deletedVars). Connections to them are removed (Connections.collect). =#
+_deletedElementCrefs()::Vector{ComponentRef} =
+  get!(() -> ComponentRef[], task_local_storage(), :NFFlattenDeletedElementCrefs)::Vector{ComponentRef}
 
+#= Whether a cref names (a part of) a component deleted in one element. =#
+function isInDeletedElement(cref::ComponentRef)::Bool
+  local deleted = _deletedElementCrefs()
+  isempty(deleted) && return false
+  local cr = cref
+  while !isEmpty(cr)
+    any(d -> isEqual(d, cr), deleted) && return true
+    cr = rest(cr)
+  end
+  return false
+end
+
+#= Whether a component with a condition is deleted, and whether that is for this element of the
+   enclosing arrays of components only: the condition is evaluated in the element's context, a
+   binding from the arrays' modifier read for the element (omc flattens it with the prefix). =#
+function isDeletedComponent(condition::Binding, prefix::ComponentRef, compNode::InstNode)::Tuple{Bool, Bool}
+  local isDeleted::Bool = false
+  local perElement::Bool = false
   local exp::Expression
   local cond::Binding
-
   if isBound(condition)
     cond = condition
     exp = getTypedExp(cond)
-    exp = evalExp(exp, EVALTARGET_CONDITION(Binding_getInfo(cond)))
+    local ctx = _elementContext()
+    local cref = prefixCref(compNode, TYPE_UNKNOWN(), nil, prefix)
+    local in_element = _hasEnclosingSubscripts(cref)
+    in_element && push!(ctx, cref)
+    local uses = _elementContextUses()
+    local uses0 = uses[]
+    try
+      exp = evalExp(exp, EVALTARGET_CONDITION(Binding_getInfo(cond)))
+    finally
+      in_element && pop!(ctx)
+    end
+    perElement = uses[] != uses0
     exp = stripBindingInfo(exp)
+    #=  Hack to make arrays work when all elements have the same value. =#
     if arrayAllEqual(exp)
       exp = arrayFirstScalar(exp)
     end
@@ -356,22 +396,6 @@ function isDeletedComponent(condition::Binding, prefix::ComponentRef)::Bool
         end
 
         _ => begin
-          #=  TODO: Flattening the condition works as intended here, but we can't yet
-          =#
-          #=        delete components inside array instances in a reliable way since
-          =#
-          #=        the components share the same node. I.e. we can't delete a[1].x
-          =#
-          #=        while keeping a[2].x. So for now we skip flattening the condition,
-          =#
-          #=        so that we get an error message in that case instead (because then
-          =#
-          #=        the expression will be an array instead of a scalar boolean).
-          =#
-          #= cond := flattenBinding(condition, prefix);
-          =#
-          #=  Hack to make arrays work when all elements have the same value.
-          =#
           Error.addSourceMessage(
             Error.CONDITIONAL_EXP_WITHOUT_VALUE,
             list(toString(exp)),
@@ -381,10 +405,8 @@ function isDeletedComponent(condition::Binding, prefix::ComponentRef)::Bool
         end
       end
     end
-  else
-    isDeleted = false
   end
-  return isDeleted
+  return (isDeleted, perElement)
 end
 
 """ Recursively marks components as deleted. """
