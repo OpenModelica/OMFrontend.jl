@@ -1752,6 +1752,31 @@ const MISSING_MODIFIED_ELEMENT =
     Gettext.gettext("Modified element %s not found in class %s."),
   )::ErrorTypes.Message
 
+#= Selective model extension (Modelica 3.6, omc 417-419). =#
+const NON_BREAKABLE_ELEMENT =
+  ErrorTypes.MESSAGE(
+    417,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Invalid use of break on non-component '%s'."),
+  )::ErrorTypes.Message
+
+const NON_BREAKABLE_COMPONENT =
+  ErrorTypes.MESSAGE(
+    418,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Invalid use of break on component '%s', component must be a model, block, or connector."),
+  )::ErrorTypes.Message
+
+const UNMATCHED_BREAK_CONNECT =
+  ErrorTypes.MESSAGE(
+    419,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("No matching element found for 'break connect(%s, %s)'."),
+  )::ErrorTypes.Message
+
 const INVALID_REDECLARE_IN_BASIC_TYPE =
   ErrorTypes.MESSAGE(
     215,

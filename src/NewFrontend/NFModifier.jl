@@ -663,7 +663,9 @@ function create(mod::SCode.MOD,
   else
     parents
   end
-  local n = length(mod.subModLst)
+  #= Breaks of inherited elements are not modifiers (applied by ClassTree.breakComponents and the
+     connect-break tree; omc Modifier.create). =#
+  local n = count(m -> !SCodeUtil.isBreakSubMod(m), mod.subModLst)
   if n == 0
     submod_table = ModTable.EMPTY()
   else
@@ -673,6 +675,7 @@ function create(mod::SCode.MOD,
     local tmp = mod.subModLst::List{SCode.SubMod}
     while tmp !== nil
       @match Cons{SCode.SubMod}(m, tmp) = tmp
+      SCodeUtil.isBreakSubMod(m) && continue
       submodV[i] = createSubMod(m::SCode.NAMEMOD, modScope, pars, scope)
       submodK[i] = m.ident::String
       i += 1

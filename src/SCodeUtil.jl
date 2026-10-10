@@ -5725,6 +5725,19 @@ function getClassPartialPrefix(inElement::SCode.Element)::SCode.Partial
   return outPartial
 end
 
+#= A break of an inherited component or connect-equation (Modelica 3.6; omc isBreakSubMod). =#
+function isBreakSubMod(subMod::SCode.SubMod)::Bool
+  return subMod.mod isa SCode.BREAK_COMPONENT || subMod.mod isa SCode.BREAK_CONNECT
+end
+
+function isBreakComponentSubMod(subMod::SCode.SubMod)::Bool
+  return subMod.mod isa SCode.BREAK_COMPONENT
+end
+
+function isBreakConnectSubMod(subMod::SCode.SubMod)::Bool
+  return subMod.mod isa SCode.BREAK_CONNECT
+end
+
 function getClassRestriction(inElement::SCode.Element)::SCode.Restriction
   local outRestriction::SCode.Restriction
 
