@@ -1203,6 +1203,12 @@ function typeVectorCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
       end
     end
   end
+  #=  The array might be empty even if one dimension is larger than 1,
+  in that case the result will also be an empty array.
+  =#
+  if isEmptyArray(ty)
+    vector_dim = fromInteger(0)
+  end
   ty = TYPE_ARRAY(arrayElementType(ty), list(vector_dim))
   @match [fn] = typeRefCache(fn_ref)
   callExp = CALL_EXPRESSION(makeTypedCall(fn, Expression[arg], variability, ty))
