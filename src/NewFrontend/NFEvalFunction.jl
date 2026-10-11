@@ -197,6 +197,8 @@ function evaluateExternal(fn::M_Function, args::Vector{Expression})::Expression
     error("evalfn not implemented for builtin external function: " * name)
   elseif isKnownExternalFunc(name, ann)
     result = evaluateKnownExternal(name, list(args...))
+  elseif (ffi = callExternalFunction(name, fn, args, ext_args, output_ref, ann)) !== nothing
+    result = ffi
   else
     try
       result = evaluateExternal2(name, fn, args, ext_args)
@@ -222,6 +224,83 @@ function evaluateExternal(fn::M_Function, args::Vector{Expression})::Expression
   =#
   #=  External functions that we would need to generate code for and execute. =#
   return result
+end
+
+#= An external C function called at compile time (omc callExternalFunction, through libffi): the
+   symbol from the process or from the libraries of its Library annotation; scalar Integer, Real,
+   Boolean and String arguments and an explicit return value (omc DimUnknown16:
+   `external "C" dim = strlen("aa")`). Nothing when the call is not of that form or the symbol is
+   not found. =#
+function callExternalFunction(name::String, fn::M_FUNCTION, args::Vector{Expression}, extArgs::List{Expression},
+                              outputRef::ComponentRef, ann::Option{SCode.Annotation})::Union{Expression, Nothing}
+  isEmpty(outputRef) && return nothing
+  local ret_ty = nodeType(outputRef)
+  local cret = _externalCType(ret_ty)
+  cret === nothing && return nothing
+  local vals = Any[]
+  local ctys = Any[]
+  for a in extArgs
+    local v = _externalArgValue(a, fn, args)
+    v === nothing && return nothing
+    push!(vals, v[1])
+    push!(ctys, v[2])
+  end
+  local ptr = _externalSymbol(name, ann)
+  ptr == C_NULL && return nothing
+  local r = Core.eval(@__MODULE__, Expr(:call, :ccall, ptr, cret, Expr(:tuple, ctys...), vals...))
+  return isInteger(ret_ty) ? INTEGER_EXPRESSION(Int(r)) :
+         isReal(ret_ty) ? REAL_EXPRESSION(Float64(r)) :
+         isBoolean(ret_ty) ? BOOLEAN_EXPRESSION(r != 0) :
+         STRING_EXPRESSION(r == C_NULL ? "" : unsafe_string(r))
+end
+
+#= The C type of a scalar of the external interface (Modelica Integer and Boolean are int). =#
+function _externalCType(ty::M_Type)::Any
+  isInteger(ty) && return Cint
+  isReal(ty) && return Cdouble
+  isBoolean(ty) && return Cint
+  isString(ty) && return Cstring
+  return nothing
+end
+
+#= An external call's argument: a literal, or an input given a literal value. =#
+function _externalArgValue(@nospecialize(a::Expression), fn::M_FUNCTION, args::Vector{Expression})::Union{Tuple{Any, Any}, Nothing}
+  local e = a
+  if e isa CREF_EXPRESSION
+    local k = findfirst(i -> refEqual(i, node(e.cref)), collect(fn.inputs))
+    k === nothing && return nothing
+    e = args[k]
+  end
+  e isa INTEGER_EXPRESSION && return (Cint(e.value), Cint)
+  e isa REAL_EXPRESSION && return (Float64(e.value), Cdouble)
+  e isa BOOLEAN_EXPRESSION && return (Cint(e.value ? 1 : 0), Cint)
+  e isa STRING_EXPRESSION && return (e.value, Cstring)
+  return nothing
+end
+
+#= An external function's symbol: from the libraries its Library annotation names, else the
+   process's (libc). =#
+function _externalSymbol(name::String, ann::Option{SCode.Annotation})::Ptr{Cvoid}
+  local L = Base.Libc.Libdl
+  if isSome(ann)
+    local mod = SCodeUtil.lookupAnnotationBinding(Util.getOption(ann), "Library")
+    for lib in _annotationStrings(mod)
+      local h = L.dlopen("lib" * lib, L.RTLD_LAZY; throw_error = false)
+      h === nothing && continue
+      local p = L.dlsym_e(h, name)
+      p == C_NULL || return p
+    end
+  end
+  local h = ccall(:dlopen, Ptr{Cvoid}, (Ptr{Cvoid}, Cint), C_NULL, L.RTLD_LAZY)
+  return L.dlsym_e(h, name)
+end
+
+function _annotationStrings(omod::Option{Absyn.Exp})::Vector{String}
+  isSome(omod) || return String[]
+  local mod = Util.getOption(omod)
+  mod isa Absyn.STRING && return String[mod.value]
+  mod isa Absyn.ARRAY && return String[e.value for e in mod.arrayExp if e isa Absyn.STRING]
+  return String[]
 end
 
 """
