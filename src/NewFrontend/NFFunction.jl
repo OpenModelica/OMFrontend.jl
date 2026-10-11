@@ -992,6 +992,7 @@ function typeFunctionSignature(fn::M_FUNCTION)
     @assign fn.inputs = mapFunctionNodes(fn.inputs, (c) -> typeComponentBinding(c, ORIGIN_FUNCTION))
     fnSlots = makeSlots(fn.inputs)
     checkParamTypes(fn)
+    checkPartialDerivativeTypes(fn)
     fnReturnType = makeReturnType(fn)
     fn = M_FUNCTION(
       fn.path,
@@ -1004,7 +1005,8 @@ function typeFunctionSignature(fn::M_FUNCTION)
       fn.attributes,
       fn.derivatives,
       fn.status,
-      fn.callCounter)
+      fn.callCounter,
+      fn.derivedInputs)
   end
   return fn
 end
@@ -1713,6 +1715,14 @@ function toFlatStream(fn::M_FUNCTION, s::IOStream_M.IOSTREAM)
 end
 
 function toFlatStreamHelper(fn::M_FUNCTION, s, fn_name)
+    #= A partial derivative as its declaration, function df = der(f, x) (omc toFlatStream). =#
+    if isPartialDerivative(fn)
+      local ins = Base.collect(fn.inputs)
+      s = IOStream_M.append(s, "function " * fn_name * " = der(" *
+        AbsynUtil.pathString(getDerivedFunctionName(fn)) * ", " *
+        Base.join([name(ins[i]) for i in fn.derivedInputs], ", ") * ");\n")
+      return s
+    end
     s = IOStream_M.append(s, "function ")
     s = IOStream_M.append(s, fn_name)
     s = IOStream_M.append(s, "\\n")
@@ -2137,13 +2147,60 @@ function instFunction2(
           fn.attributes,
           fnDerivatives,
           fn.status,
-          fn.callCounter)
+          fn.callCounter,
+          instPartialDerivedVars(def.classDef, fn.inputs, fn, info))
         fnNode = cacheAddFunc(fnNode, fn, specialBuiltin)
         (fnNode, specialBuiltin)
       end
     end
   end
   return (fnNode, specialBuiltin)
+end
+
+#= The inputs of a partial derivative of a function, `function df = der(f, x, y)`, by index
+   (omc instPartialDerivedVars). =#
+function instPartialDerivedVars(classDef::SCode.ClassDef, inputs::List{InstNode}, fn::M_FUNCTION, info::SourceInfo)::List{Int}
+  classDef isa SCode.PDER || return nil
+  local derivedVars = Int[]
+  local ins = Base.collect(inputs)
+  for var in classDef.derivedVariables
+    local index = findfirst(i -> name(i) == var, ins)
+    if index === nothing
+      Error.addSourceMessage(Error.PARTIAL_DERIVATIVE_INPUT_NOT_FOUND,
+        list(var, AbsynUtil.pathString(getDerivedFunctionName(fn))), info)
+      fail()
+    end
+    push!(derivedVars, index)
+  end
+  return list(derivedVars...)
+end
+
+#= The inputs a partial derivative is taken with respect to are scalar Reals (omc
+   checkPartialDerivativeTypes). =#
+function checkPartialDerivativeTypes(fn::M_FUNCTION)
+  local ins = Base.collect(fn.inputs)
+  for i in fn.derivedInputs
+    local node = ins[i]
+    local ty = getType(node)
+    if !(isReal(ty) && isScalar(ty))
+      Error.addSourceMessage(Error.PARTIAL_DERIVATIVE_INPUT_INVALID_TYPE,
+        list(name(node), AbsynUtil.pathString(getDerivedFunctionName(fn))), InstNode_info(fn.node))
+      fail()
+    end
+  end
+  return nothing
+end
+
+#= Whether a function is a partial derivative of a function, df = der(f, x) (omc). =#
+isPartialDerivative(fn::M_FUNCTION)::Bool = !listEmpty(fn.derivedInputs)
+
+#= The function a partial derivative is of: df = der(f, x) => f (omc getDerivedFunctionName). =#
+function getDerivedFunctionName(fn::M_FUNCTION)::Absyn.Path
+  local def = definition(fn.node)
+  if def isa SCode.CLASS && def.classDef isa SCode.PDER
+    return def.classDef.functionPath
+  end
+  return fn.path
 end
 
 #= The conversion operator of an enumeration type, E(index) (omc makeEnumConversionOp):

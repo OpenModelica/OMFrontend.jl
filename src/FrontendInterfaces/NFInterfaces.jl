@@ -429,6 +429,8 @@ end
   ALG_WHILE(condition::NFExpression, body::Vector{NFStatement}, source::DAE.ElementSource)
   ALG_NORETCALL(exp::NFExpression, source::DAE.ElementSource)
   ALG_TERMINATE(message::NFExpression, source::DAE.ElementSource)
+  #= reinit in an algorithm's when-statement, --allowNonStandardModelica=reinitInAlgorithms (omc). =#
+  ALG_REINIT(cref::NFExpression, reinitExp::NFExpression, source::DAE.ElementSource)
   ALG_ASSERT(condition::NFExpression, message::NFExpression, level::NFExpression, source::DAE.ElementSource)
   ALG_WHEN(branches::Vector{Tuple{NFExpression, Vector{NFStatement}}}, source::DAE.ElementSource)
   ALG_IF(branches::Vector{Tuple{NFExpression, Vector{NFStatement}}}, source::DAE.ElementSource)

@@ -2357,6 +2357,13 @@ function matchTypes_castRef(
         MatchKind.CAST
       end
 
+      #= An enumeration used as an Integer, --allowNonStandardModelica=nonStdEnumerationAsIntegers (omc). =#
+      (TYPE_ENUMERATION(__), TYPE_INTEGER(__)) where {Flags.isConfigFlagSet(Flags.ALLOW_NON_STANDARD_MODELICA, "nonStdEnumerationAsIntegers")} => begin
+        expression = typeCast(expression, expectedType)
+        refTyExp.x = expectedType
+        MatchKind.CAST
+      end
+
       (TYPE_ENUMERATION(__), TYPE_ENUMERATION_ANY(__)) => begin
         refTyExp.x = actualType
         MatchKind.CAST
@@ -3187,6 +3194,12 @@ function matchTypes_cast(
       (TYPE_INTEGER(__), TYPE_REAL(__)) => begin
         #=  Integer can be cast to Real.
         =#
+        @assign expression = typeCast(expression, expectedType)
+        (expectedType, MatchKind.CAST)
+      end
+
+      #= An enumeration used as an Integer, --allowNonStandardModelica=nonStdEnumerationAsIntegers (omc). =#
+      (TYPE_ENUMERATION(__), TYPE_INTEGER(__)) where {Flags.isConfigFlagSet(Flags.ALLOW_NON_STANDARD_MODELICA, "nonStdEnumerationAsIntegers")} => begin
         @assign expression = typeCast(expression, expectedType)
         (expectedType, MatchKind.CAST)
       end

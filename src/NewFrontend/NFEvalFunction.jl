@@ -90,6 +90,8 @@ end
 
 function evaluate(fn::M_Function, args::Vector{Expression})::Expression
   local result::Expression
+  #= A partial derivative is differentiated by the backend, not the function's body (omc). =#
+  isPartialDerivative(fn) && fail()
   if isExternal(fn)
     result = evaluateExternal(fn, args)
   else
@@ -267,7 +269,7 @@ end
 function _externalArgValue(@nospecialize(a::Expression), fn::M_FUNCTION, args::Vector{Expression})::Union{Tuple{Any, Any}, Nothing}
   local e = a
   if e isa CREF_EXPRESSION
-    local k = findfirst(i -> refEqual(i, node(e.cref)), collect(fn.inputs))
+    local k = findfirst(i -> refEqual(i, node(e.cref)), Base.collect(fn.inputs))
     k === nothing && return nothing
     e = args[k]
   end

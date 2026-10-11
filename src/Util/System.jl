@@ -165,24 +165,18 @@ function makeC89Identifier(str::String) ::String
 end
 
 function toupper(inString::String) ::String
-  local outString::String
-
-  @error "TODO: Defined in the runtime"
-  outString
+  return Base.uppercase(inString)
 end
 
 function tolower(inString::String) ::String
-  local outString::String
-
-  @error "TODO: Defined in the runtime"
-  outString
+  return Base.lowercase(inString)
 end
 
+#= Splits a string at any of the token's characters, empty pieces dropped (C strtok; omc's
+   runtime System.strtok). =#
 function strtok(string::String, token::String) ::List{String}
-  local strings::List{String}
-
-  @error "TODO: Defined in the runtime"
-  strings
+  local pieces = Base.split(string, Base.collect(token); keepempty = false)
+  return list((String(p) for p in pieces)...)
 end
 
 """

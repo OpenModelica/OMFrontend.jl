@@ -3441,6 +3441,30 @@ const ELSE_WHEN_CLOCK =
     Gettext.gettext("Clocked when equation can not contain elsewhen part."),
   )::ErrorTypes.Message
 
+const PARTIAL_DERIVATIVE_INPUT_NOT_FOUND =
+  ErrorTypes.MESSAGE(
+    404,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("'%s' in partial derivative of '%s' does not name an input parameter of the function."),
+  )::ErrorTypes.Message
+
+const PARTIAL_DERIVATIVE_INPUT_INVALID_TYPE =
+  ErrorTypes.MESSAGE(
+    405,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("'%s' in partial derivative of '%s' is not a scalar Real input parameter of the function."),
+  )::ErrorTypes.Message
+
+const REINIT_IN_ALGORITHM =
+  ErrorTypes.MESSAGE(
+    618,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Operator reinit may not be used in an algorithm section (use translation flag --allowNonStandardModelica=reinitInAlgorithms to ignore)."),
+  )::ErrorTypes.Message
+
 const REINIT_NOT_IN_WHEN =
   ErrorTypes.MESSAGE(
     563,

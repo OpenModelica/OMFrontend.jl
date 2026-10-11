@@ -367,6 +367,11 @@ function evaluateStatement(stmt::Statement, constVariability::VariabilityType)::
         stmt
       end
 
+      ALG_REINIT(__) => begin
+        @assign stmt.reinitExp = evaluateExp(stmt.reinitExp, constVariability)
+        stmt
+      end
+
       ALG_NORETCALL(__) => begin
         @assign stmt.exp = evaluateExp(stmt.exp, constVariability)
         stmt

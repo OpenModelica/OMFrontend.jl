@@ -182,7 +182,13 @@ struct M_FUNCTION <: M_Function
   derivatives::List{FunctionDerivative}
   status::Pointer
   callCounter::Pointer
+  #= The inputs a partial derivative of a function is taken with respect to, by index
+     (`function df = der(f, x)`; omc derivedInputs), empty for other functions. =#
+  derivedInputs::List{Int}
 end
+
+M_FUNCTION(path, node, inputs, outputs, locals, slots, returnType, attributes, derivatives, status, callCounter) =
+  M_FUNCTION(path, node, inputs, outputs, locals, slots, returnType, attributes, derivatives, status, callCounter, nil)
 
 include("./NewFrontend/NFInstNode.jl")
 include("./NewFrontend/NFSections.jl")

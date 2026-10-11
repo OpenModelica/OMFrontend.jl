@@ -364,6 +364,11 @@ function collectStatementFlatTypes(stmt::Statement, types::TypeTree)::TypeTree
         ()
       end
 
+      ALG_REINIT(__) => begin
+        types = collectExpFlatTypes(stmt.reinitExp, types)
+        ()
+      end
+
       ALG_NORETCALL(__) => begin
          types = collectExpFlatTypes(stmt.exp, types)
         ()

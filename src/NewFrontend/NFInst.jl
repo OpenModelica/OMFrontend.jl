@@ -482,6 +482,14 @@ function expandClass2(node::InstNode) ::InstNode
         expandClassDerived(def, cdef, node, info)
       end
 
+      #= A partial derivative of a function, function df = der(f, x): a short class definition
+         of f here (omc expandClass2); the function knows its derived inputs (instFunction2). =#
+      SCode.PDER(__)  => begin
+        expandClassDerived(def,
+          SCode.DERIVED(Absyn.TPATH(cdef.functionPath, NONE()), SCode.NOMOD(), SCode.defaultVarAttr),
+          node, info)
+      end
+
       _  => begin
         #=  A short class definition, e.g. class A = B.
         =#

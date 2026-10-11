@@ -2285,6 +2285,11 @@ end
   #=  We can have both : subscripts and : dimensions here, so we need to allow unknowns.
   =#
   (_, _, mk) = matchTypes(ty, ety, EMPTY_EXPRESSION(ty), #=allowUnknown=# true)
+  #= A cast index, an enumeration literal for an Integer dimension under
+     --allowNonStandardModelica=nonStdEnumerationAsIntegers (omc typeSubscript casts it). =#
+  if mk == MatchKind.CAST && outSubscript isa SUBSCRIPT_INDEX
+    outSubscript = SUBSCRIPT_INDEX(matchTypes(ty, ety, outSubscript.index, true)[1])
+  end
   if isIncompatibleMatch(mk)
     Error.addSourceMessage(
       Error.SUBSCRIPT_TYPE_MISMATCH,
@@ -4002,6 +4007,15 @@ end
           info,
         )
         ALG_TERMINATE(e1, st.source)
+      end
+
+      ALG_REINIT(__) => begin
+        if flagNotSet(origin, ORIGIN_WHEN)
+          Error.addSourceMessage(Error.REINIT_NOT_IN_WHEN, nil, DAE.ElementSource_getInfo(st.source))
+          fail()
+        end
+        (e1, e2) = typeReinit(st.cref, st.reinitExp, origin, st.source)
+        ALG_REINIT(e1, e2, st.source)
       end
 
       ALG_NORETCALL(__) => begin

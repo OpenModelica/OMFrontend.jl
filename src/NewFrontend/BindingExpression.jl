@@ -5890,6 +5890,10 @@ end
        (REAL_EXPRESSION(__), TYPE_REAL(__))  => begin
          exp
        end
+       #= --allowNonStandardModelica=nonStdEnumerationAsIntegers (omc). =#
+       (ENUM_LITERAL_EXPRESSION(__), TYPE_INTEGER(__)) where {Flags.isConfigFlagSet(Flags.ALLOW_NON_STANDARD_MODELICA, "nonStdEnumerationAsIntegers")}  => begin
+         INTEGER_EXPRESSION(exp.index)
+       end
        (ARRAY_EXPRESSION(ty = t, elements = el), _)  => begin
          #=  Integer can be cast to Real.
          =#

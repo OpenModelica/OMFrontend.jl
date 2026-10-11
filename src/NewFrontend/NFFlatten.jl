@@ -2123,6 +2123,11 @@ function collectStatementFuncs(@nospecialize(stmt::Statement), funcs::FunctionTr
         ()
       end
 
+      ALG_REINIT(__) => begin
+        funcs = collectExpFuncs(stmt.reinitExp, funcs)
+        ()
+      end
+
       ALG_NORETCALL(__) => begin
         funcs = collectExpFuncs(stmt.exp, funcs)
         ()

@@ -3452,6 +3452,26 @@ const FLAT_MODELICA =
     NONE(),
     Gettext.gettext("Outputs experimental flat Modelica."),
   )::ConfigFlag
+const ALLOW_NON_STANDARD_MODELICA =
+  CONFIG_FLAG(
+    136,
+    "allowNonStandardModelica",
+    NONE(),
+    EXTERNAL(),
+    STRING_LIST_FLAG(nil),
+    SOME(STRING_DESC_OPTION(list(
+      ("nonStdMultipleExternalDeclarations", Gettext.gettext("Allow several external declarations in functions.")),
+      ("nonStdEnumerationAsIntegers", Gettext.gettext("Allow enumeration as integer without casting via Integer(Enum).")),
+      ("nonStdIntegersAsEnumeration", Gettext.gettext("Allow integer as enumeration without casting via Enum(Integer).")),
+      ("nonStdDifferentCaseFileVsClassName", Gettext.gettext("Allow directory or file with different case in the name than the contained class name.")),
+      ("nonStdTopLevelOuter", Gettext.gettext("Allow top level outer.")),
+      ("protectedAccess", Gettext.gettext("Allow access of protected elements")),
+      ("reinitInAlgorithms", Gettext.gettext("Allow reinit in algorithm sections")),
+      ("unbalancedModel", Gettext.gettext("Allow models to be locally unbalanced and to have unbalanced connectors")),
+      ("implicitParameterStartAttribute", Gettext.gettext("Allow fixed parameters with no binding or start attribute")),
+    ))),
+    Gettext.gettext("Flags to allow non-standard Modelica (omc)."),
+  )::ConfigFlag
 
 """
   Loads the flags with getGlobalRoot. Assumes flags have been loaded.
@@ -3472,6 +3492,15 @@ end
 function getConfigValue(inFlag::ConfigFlag)::FlagData
   local flags = getFlags()
   return (flags::FLAGS).configFlags[inFlag.index]
+end
+
+"""Whether a string list configuration flag has the given option (omc Flags.isConfigFlagSet)."""
+function isConfigFlagSet(inFlag::ConfigFlag, option::String)::Bool
+  local flags = getFlags()
+  flags isa FLAGS || return false
+  inFlag.index <= length(flags.configFlags) || return false
+  local v = flags.configFlags[inFlag.index]
+  return v isa STRING_LIST_FLAG && listMember(option, v.data)
 end
 
 """Returns the value of a boolean configuration flag."""
