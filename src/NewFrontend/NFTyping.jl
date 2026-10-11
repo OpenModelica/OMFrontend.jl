@@ -2823,6 +2823,11 @@ end
   (expl, tyl, valr) = typeExpl(elements, next_origin, info)
    tupleType = TYPE_TUPLE(tyl, NONE())
    tupleExp = TUPLE_EXPRESSION(tupleType, expl)
+  #=  Tuples may only contain component references (omc). =#
+  if !all(isCref, expl)
+    Error.addSourceMessage(Error.TUPLE_ASSIGN_CREFS_ONLY, list(toString(tupleExp)), info)
+    fail()
+  end
    variability = if listEmpty(valr)
     Variability.CONSTANT
   else

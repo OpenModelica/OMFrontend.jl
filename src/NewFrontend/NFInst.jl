@@ -3350,6 +3350,11 @@ function instSections2(parts::SCode.ClassDef, scope::InstNode, sections::Section
     end
     @match SCode.PARTS(__) = parts
     if isSome(parts.externalDecl)
+      #= A class with an external declaration and other sections (omc). =#
+      if SCodeUtil.classDefHasSections(parts, false)
+        Error.addSourceMessage(Error.MULTIPLE_SECTIONS_IN_FUNCTION, list(name(scope)), InstNode_info(scope))
+        fail()
+      end
       instExternalDecl(Util.getOption(parts.externalDecl), scope)
     else
       origin = if isFunction
