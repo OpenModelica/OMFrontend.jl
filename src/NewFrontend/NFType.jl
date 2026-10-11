@@ -562,8 +562,7 @@ end
       end
 
       TYPE_TUPLE(__) => begin
-        "(" + stringDelimitList(ListUtil.map(ty.types, toString, String), ", ")
-        +")"
+        "(" + stringDelimitList(ListUtil.map(ty.types, toString, String), ", ") + ")"
       end
 
       TYPE_NORETCALL(__) => begin
@@ -587,8 +586,7 @@ end
       end
 
       TYPE_POLYMORPHIC(__) => begin
-        "<" + ty.name
-        +">"
+        "<" + ty.name + ">"
       end
 
       TYPE_ANY(__) => begin
@@ -717,8 +715,7 @@ end
       end
 
       TYPE_TUPLE(__) => begin
-        "(" + stringDelimitList(ListUtil.map(ty.types, toString, String), ", ")
-        +")"
+        "(" + stringDelimitList(ListUtil.map(ty.types, toString, String), ", ") + ")"
       end
 
       TYPE_NORETCALL(__) => begin
@@ -742,8 +739,7 @@ end
       end
 
       TYPE_POLYMORPHIC(__) => begin
-        "<" + ty.name
-        +">"
+        "<" + ty.name + ">"
       end
 
       TYPE_ANY(__) => begin
