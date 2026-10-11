@@ -471,8 +471,9 @@ function augmentExpandableConnector(
     )
     fail()
   end
-  cls_node = classScope(exp_node)
-  #cls_node = clone(cls_node); #Note change from upstream....
+  #= A copy: the elements of an array of components share the connector's class, each element's
+     connector is augmented (a[1].ec.y, a[2].ec.y; omc ExpandableConnector4). =#
+  cls_node = clone(classScope(exp_node))
   cls = getClass(cls_node)
   cls_tree = classTree(cls)
   #=  Go through the union of elements the expandable connector should have.
