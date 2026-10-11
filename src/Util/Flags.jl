@@ -3472,6 +3472,16 @@ const ALLOW_NON_STANDARD_MODELICA =
     ))),
     Gettext.gettext("Flags to allow non-standard Modelica (omc)."),
   )::ConfigFlag
+const LOAD_MISSING_LIBRARIES =
+  CONFIG_FLAG(
+    137,
+    "loadMissingLibraries",
+    NONE(),
+    EXTERNAL(),
+    BOOL_FLAG(true),
+    NONE(),
+    Gettext.gettext("Automatically try to load a library a model refers to but that is not loaded (omc)."),
+  )::ConfigFlag
 
 """
   Loads the flags with getGlobalRoot. Assumes flags have been loaded.

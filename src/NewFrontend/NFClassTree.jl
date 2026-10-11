@@ -1342,6 +1342,20 @@ function addElementsToFlatTree(elements::List{<:InstNode}, tree::ClassTree)::Cla
   return tree
 end
 
+#= Classes appended to an expanded class tree, the top scope's when a library is loaded on demand
+   (omc ClassTree.appendClasses). The arrays and lookup tree are copies. =#
+function appendClasses(tree::ClassTree, clsNodes::List{<:InstNode})::ClassTree
+  local partial = isvariant(tree, CLASS_TREE_PARTIAL_TREE)
+  local ltree = copy(tree.tree)
+  local new_cls_arr = copy(tree.classes)
+  for c in clsNodes
+    push!(new_cls_arr, c)
+    ltree = addLocalElement(name(c), LookupTree.CLASS(length(new_cls_arr)), tree, ltree)
+  end
+  return (partial ? CLASS_TREE_PARTIAL_TREE : CLASS_TREE_EXPANDED_TREE)(
+    ltree, new_cls_arr, tree.components, tree.exts, tree.imports, tree.duplicates)
+end
+
 """Creates a class tree for an enumeration type."""
 function fromEnumeration(
   literals::List{<:SCode.Enum},

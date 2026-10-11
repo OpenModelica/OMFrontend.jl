@@ -130,6 +130,7 @@ function __init__()
   #= Const Refs bake their precompile-time value; env-derived flags must be
      re-read at load time. =#
   Frontend.PARALLEL_INST[] = get(ENV, "OMFRONTEND_PARALLEL_INST", "true") == "true"
+  Frontend.LIBRARY_LOADER[] = _loadLibraryOnDemand
   Frontend.CACHE_INST[] = get(ENV, "OMFRONTEND_CACHE_INST", "true") == "true"
   ENABLE_EXECSTAT[] = get(ENV, "ENABLE_EXECSTAT", "false") == "true"
   builtinSCode = NFModelicaBuiltinCache["NFModelicaBuiltin"]
@@ -202,6 +203,14 @@ function instantiateSCodeToFM(elementToInstantiate::String,
     old_flags === nothing || Frontend.FlagsUtil.saveFlags(old_flags)
   end
   return (flat_model, funcs)
+end
+
+#= A library loaded when a model refers to it without loading it (omc loads it from MODELICAPATH):
+   the Modelica Standard Library 4.0.0, which holds Modelica, ModelicaServices and Complex. =#
+function _loadLibraryOnDemand(name::String)
+  name in ("Modelica", "ModelicaServices", "Complex") || return nothing
+  loadMSL(MSL_Version = "MSL_4_0_0")
+  return get(LIBRARY_CACHE, "MSL_4_0_0", nothing)
 end
 
 """

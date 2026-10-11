@@ -407,6 +407,7 @@ end
 function lookupSimpleName(nameStr::String, scope::InstNode)::Tuple{InstNode, Bool}
   local node::InstNode
   local cur_scope::InstNode = scope
+  local loaded = false
   for i in 1:Global.recursionDepthLimit
     @match ENTRY_INFO(node, _) = lookupLocalSimpleName(nameStr, cur_scope)
     if node !== EMPTY_NODE()
@@ -415,6 +416,12 @@ function lookupSimpleName(nameStr::String, scope::InstNode)::Tuple{InstNode, Boo
     if nameStr == name(cur_scope) && isClass(cur_scope)
       return (cur_scope, true)
     end
+    #= Not found in any scope: a library of that name loaded into the top scope, and looked up
+       there again (omc lookupSimpleName, loadLibrary; omc LookupLibrary1: Modelica). =#
+    if !loaded && isvariant(cur_scope, CLASS_NODE) && isvariant(cur_scope.nodeType, TOP_SCOPE)
+      loaded = true
+      loadLibrary(nameStr, cur_scope) && continue
+    end
     cur_scope = parentScope(cur_scope)
   end
   #@error "Failed to lookup simple name for $nameStr in scope:$scope"
@@ -422,6 +429,38 @@ function lookupSimpleName(nameStr::String, scope::InstNode)::Tuple{InstNode, Boo
   return (EMPTY_NODE(), false)
 end
 
+
+#= The SCode program of a library by its name, or nothing (set by OMFrontend: the Modelica
+   Standard Library; omc loads from MODELICAPATH). =#
+const LIBRARY_LOADER = Ref{Any}(nothing)
+const _LIBRARY_LOAD_LOCK = ReentrantLock()
+
+#= Loads a library into the top scope: its classes not yet there (omc loadLibrary_work). Whether
+   any was added. =#
+function loadLibrary(nameStr::String, topScope::InstNode)::Bool
+  local loader = LIBRARY_LOADER[]
+  loader === nothing && return false
+  local flags = Flags.getFlags()
+  (flags isa Flags.FLAGS && Flags.LOAD_MISSING_LIBRARIES.index <= length(flags.configFlags) &&
+   !Flags.getConfigBool(Flags.LOAD_MISSING_LIBRARIES)) && return false
+  return lock(_LIBRARY_LOAD_LOCK) do
+    #= Another task may have loaded it meanwhile. =#
+    lookupElement(nameStr, getClass(topScope)).node !== EMPTY_NODE() && return true
+    local prog = loader(nameStr)
+    prog === nothing && return false
+    local new_libs = InstNode[]
+    for c in prog
+      c isa SCode.CLASS || continue
+      lookupElement(c.name, getClass(topScope)).node === EMPTY_NODE() || continue
+      push!(new_libs, newClass(c, topScope))
+    end
+    isempty(new_libs) && return false
+    local cls = getClass(topScope)
+    cls = setClassTree(appendClasses(classTree(cls), list(new_libs...)), cls)
+    updateClass(cls, topScope)
+    return true
+  end
+end
 
 """
     Looks up a name in the given scope, without continuing the search in any
