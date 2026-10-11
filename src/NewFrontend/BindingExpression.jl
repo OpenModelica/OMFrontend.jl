@@ -5178,11 +5178,12 @@ function toInteger(@nospecialize(exp::Expression)) ::Int
         exp.value
       end
 
+      #= An index, as omc: false is 1 and true is 2 (Boolean dimensions). =#
       BOOLEAN_EXPRESSION(__)  => begin
         if exp.value
-          1
+          2
         else
-          0
+          1
         end
       end
 
