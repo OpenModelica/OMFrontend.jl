@@ -405,6 +405,13 @@ function promote
   annotation(__OpenModelica_builtin=true);
 end promote;
 
+function pure<__Any>
+  input __Any x;
+  output __Any y;
+  external "builtin";
+  annotation(__OpenModelica_builtin=true, version="Modelica 3.4");
+end pure;
+
 function transpose<T> "Transpose a matrix"
   input T a;
   output T b;

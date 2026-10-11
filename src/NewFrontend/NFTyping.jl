@@ -1549,6 +1549,17 @@ function typeExp2(
         exp, typeRef.x, variabilityTypeRef.x = typeExp(exp.exp, next_origin, info);exp
       end
 
+      #= An untyped one, `({1, 2, 3})[n]` (omc typeSubscriptedExp): the subscripts applied when
+         they can be (`(x)[n]` is x[n]). =#
+      SUBSCRIPTED_EXP_EXPRESSION(__) where {isUnknown(exp.ty)} => begin
+        local (se, sty, svar) = typeExp(exp.exp, setFlag(origin, ORIGIN_SUBEXPRESSION), info)
+        local (subs, subs_var) = typeSubscripts(exp.subscripts, sty, COMPONENT_REF_EMPTY(), origin, info)
+        exp = applySubscripts(subs, se)
+        typeRef.x = subscript(sty, subs)
+        variabilityTypeRef.x = variabilityMax(svar, subs_var)
+        exp
+      end
+
       SUBSCRIPTED_EXP_EXPRESSION(__) => begin
         exp, typeRef.x, variabilityTypeRef.x = exp, exp.ty, variability(exp);exp
       end

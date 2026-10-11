@@ -3042,6 +3042,14 @@ end
       Absyn.END(__)  => begin
         END_EXPRESSION()
       end
+
+      #= A subscripted parenthesized expression, `({1, 2, 3})[2]` (omc instExp). =#
+      Absyn.SUBSCRIPTED_EXP(__)  => begin
+        SUBSCRIPTED_EXP_EXPRESSION(
+          instExp(absynExp.exp, scope, info),
+          list((instSubscript(SUBSCRIPT_RAW_SUBSCRIPT(s), scope, info) for s in absynExp.subscripts)...),
+          TYPE_UNKNOWN())
+      end
       _  => begin
         @error "UNKNOWN EXPRESSION!"
         fail()

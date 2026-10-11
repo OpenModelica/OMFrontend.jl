@@ -164,6 +164,10 @@ end
         typePromoteCall(call, next_origin, info)
       end
 
+      "pure"  => begin
+        typePureCall(call, next_origin, info)
+      end
+
       "root"  => begin
         typeRootCall(call, next_origin, info)
       end
@@ -986,6 +990,19 @@ function typeProductCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tu
   fn = Base.first(res)
   callExp = CALL_EXPRESSION(makeTypedCall(fn, Expression[arg], variability, ty))
   (callExp, ty, variability)
+end
+
+#= pure(f(x)): the call of an impure function, made pure (omc typePureCall; the port has no
+   purity on calls: the call itself). =#
+function typePureCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+  local tcall = typeMatchNormalCall(call, origin, info)
+  local args = tcall.arguments
+  local arg = length(args) == 1 ? unbox(args[1]) : EMPTY_EXPRESSION(TYPE_UNKNOWN())
+  if !(arg isa CALL_EXPRESSION)
+    Error.addSourceMessage(Error.FUNCTION_ARGUMENT_MUST_BE, list("pure", "a function call expression"), info)
+    fail()
+  end
+  return (arg, typeOf(arg), variability(arg))
 end
 
 #= promote(A, n): A with trailing dimensions of size 1 up to n dimensions (omc typePromoteCall;

@@ -731,6 +731,10 @@ function isSpecialBuiltin(fn::M_FUNCTION)::Bool
             true
           end
 
+          "pure" => begin
+            true
+          end
+
           "root" => begin
             true
           end

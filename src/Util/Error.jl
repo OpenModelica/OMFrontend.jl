@@ -3457,6 +3457,14 @@ const PARTIAL_DERIVATIVE_INPUT_INVALID_TYPE =
     Gettext.gettext("'%s' in partial derivative of '%s' is not a scalar Real input parameter of the function."),
   )::ErrorTypes.Message
 
+const FUNCTION_ARGUMENT_MUST_BE =
+  ErrorTypes.MESSAGE(
+    394,
+    ErrorTypes.SCRIPTING(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("The argument to '%s' must be %s."),
+  )::ErrorTypes.Message
+
 const REINIT_IN_ALGORITHM =
   ErrorTypes.MESSAGE(
     618,
