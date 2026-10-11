@@ -209,9 +209,11 @@ function resolveAndEvaluate(flat_model::FlatModel, program::SCode.Program, name:
     @assign flat_model.scodeProgram = SOME(listHead(program))
     #= Resolve the connections of the current system. =#
     flat_model = resolveConnections(flat_model, name)
+    checkDeletedVarRefs(flat_model)
     dumpFlatModel(flat_model, string(name, "_", "afterResolveConnections"))
   else #= Regular system without simulation time reconfigurations =#
     @EXECSTAT "resolveConnections" flat_model = resolveConnections(flat_model, name)
+    checkDeletedVarRefs(flat_model)
     dumpFlatModel(flat_model, string(name, "_", "afterResolveConnections"))
     @EXECSTAT "evaluate" flat_model = evaluate(flat_model)
     dumpFlatModel(flat_model, string(name, "_", "afterEval"))

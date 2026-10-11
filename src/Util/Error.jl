@@ -3185,6 +3185,14 @@ const ASSIGN_ITERATOR_ERROR =
     Gettext.gettext("Assignment to iterator '%s'."),
   )::ErrorTypes.Message
 
+const INVALID_DELETED_COMPONENT_CONTEXT =
+  ErrorTypes.MESSAGE(
+    420,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("'%s' refers to a component with a false condition."),
+  )::ErrorTypes.Message
+
 const INST_INVALID_RESTRICTION =
   ErrorTypes.MESSAGE(
     525,

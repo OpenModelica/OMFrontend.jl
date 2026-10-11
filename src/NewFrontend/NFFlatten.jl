@@ -371,6 +371,61 @@ end
 _deletedElementCrefs()::Vector{ComponentRef} =
   get!(() -> ComponentRef[], task_local_storage(), :NFFlattenDeletedElementCrefs)::Vector{ComponentRef}
 
+#= omc Flatten.checkDeletedVarRefs: a reference to a component deleted by a false condition
+   is an error, unless --allowNonStandardModelica=illegalConditionalContext. Run after the
+   connections are resolved (connects to deleted components are removed there). =#
+function checkDeletedVarRefs(flatModel::FlatModel)
+  Flags.isConfigFlagSet(Flags.ALLOW_NON_STANDARD_MODELICA, "illegalConditionalContext") && return nothing
+  for var in flatModel.variables
+    checkDeletedVarRefsInBinding(var.binding, var.info)
+    for attr in var.typeAttributes
+      checkDeletedVarRefsInBinding(Util.tuple22(attr), var.info)
+    end
+  end
+  for eq in Iterators.flatten((flatModel.equations, flatModel.initialEquations))
+    local info::SourceInfo = DAE.ElementSource_getInfo(source(eq))
+    foldExp(eq, (e, arg) -> (checkDeletedVarRefsInExp(e, info); arg), nothing)
+  end
+  for alg in Iterators.flatten((flatModel.algorithms, flatModel.initialAlgorithms))
+    for stmt in alg.statements
+      local info::SourceInfo = DAE.ElementSource_getInfo(stmt.source)
+      foldExp(stmt, (e, arg) -> (checkDeletedVarRefsInExp(e, info); arg), nothing)
+    end
+  end
+  return nothing
+end
+
+function checkDeletedVarRefsInBinding(binding::Binding, info::SourceInfo)
+  isBound(binding) && checkDeletedVarRefsInExp(getTypedExp(binding), info)
+  return nothing
+end
+
+function checkDeletedVarRefsInExp(@nospecialize(exp::Expression), info::SourceInfo)
+  fold(exp, (e, arg) -> begin
+    @match e begin
+      CREF_EXPRESSION(__) where {isDeletedCref(e.cref)} => begin
+        Error.addSourceMessage(Error.INVALID_DELETED_COMPONENT_CONTEXT, list(toString(e.cref)), info)
+        fail()
+      end
+      _ => ()
+    end
+    arg
+  end, nothing)
+  return nothing
+end
+
+#= omc Flatten.isDeletedCref: the cref or one of its prefixes names a deleted component (the
+   whole node, or one element of an array of components). =#
+function isDeletedCref(cref::ComponentRef)::Bool
+  local cr::ComponentRef = cref
+  while isvariant(cr, COMPONENT_REF_CREF)
+    local n::InstNode = node(cr)
+    isComponent(n) && isDeleted(component(n)) && return true
+    cr = rest(cr)
+  end
+  return isInDeletedElement(cref)
+end
+
 #= Whether a cref names (a part of) a component deleted in one element. =#
 function isInDeletedElement(cref::ComponentRef)::Bool
   local deleted = _deletedElementCrefs()
