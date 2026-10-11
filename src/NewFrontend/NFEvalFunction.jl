@@ -135,6 +135,12 @@ function evaluateNormal(fn::M_Function, args::Vector{Expression})::Expression
   =#
   local depths = _evalDepths()
   call_count = get(depths, call_counter, 0) + 1
+  #= An overloaded record constructor called in its own evaluation (`output Complex result =
+     Complex(re = re, im = im)` in Complex.'constructor'.fromReal) stays a call, its arguments
+     evaluated, as omc's evaluation leaves it (omc OperatorOverloadSum1: the '0' operator). =#
+  if call_count > 1 && isNonDefaultRecordConstructor(fn)
+    return CALL_EXPRESSION(makeTypedCall(fn, args, Variability.CONSTANT, fn.returnType))
+  end
   limit = _evalRecursionLimit()
   if call_count > limit
     _setEvalDepth!(depths, call_counter, 0)
