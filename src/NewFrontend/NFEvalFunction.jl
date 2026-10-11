@@ -293,6 +293,16 @@ function _externalSymbol(name::String, ann::Option{SCode.Annotation})::Ptr{Cvoid
       p == C_NULL || return p
     end
   end
+  #= The process's symbols: dlopen(NULL); on Windows the C runtime's. =#
+  if Sys.iswindows()
+    for crt in ("ucrtbase", "msvcrt")
+      local hw = L.dlopen(crt; throw_error = false)
+      hw === nothing && continue
+      local pw = L.dlsym_e(hw, name)
+      pw == C_NULL || return pw
+    end
+    return C_NULL
+  end
   local h = ccall(:dlopen, Ptr{Cvoid}, (Ptr{Cvoid}, Cint), C_NULL, L.RTLD_LAZY)
   return L.dlsym_e(h, name)
 end
