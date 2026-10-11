@@ -3145,6 +3145,14 @@ const ITERATOR_NON_ARRAY =
     Gettext.gettext("Iterator %s, has type %s, but expected a 1D array expression."),
   )::ErrorTypes.Message
 
+const NF_MODIFY_PROTECTED =
+  ErrorTypes.MESSAGE(
+    396,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Protected element '%s' may not be modified, got '%s'."),
+  )::ErrorTypes.Message
+
 const PROTECTED_TRANSITION_FAILURE =
   ErrorTypes.MESSAGE(
     397,

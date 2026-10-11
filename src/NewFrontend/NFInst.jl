@@ -972,7 +972,7 @@ function instClassDef(cls::PARTIAL_BUILTIN,
       mod = fromElement(definition(node), list(node), parent(node))
       outer_mod = merge(outerMod, addParent(node, cls.modifier))
       mod = merge(outer_mod, mod)
-      applyModifier(mod, cls_tree, name(node))
+      applyModifier(mod, cls_tree, node)
       inst_cls = INSTANCED_BUILTIN(ty, cls_tree, res)
       node = updateClass(inst_cls, node)
     end
@@ -1054,8 +1054,10 @@ function instClassDef(cls::EXPANDED_CLASS,
   mod = merge(outer_mod, mod)
   #=  Apply the modifiers of extends nodes. =#
   mapExtends(cls_tree, par)
+  #=  Propagate the visibility of extends to their elements (omc). =#
+  mapExtends(cls_tree, n -> applyExtendsVisibility(n, ExtendsVisibility.PUBLIC))
   #=  Apply the modifiers of this scope. =#
-  applyModifier(mod, cls_tree, name(node))
+  applyModifier(mod, cls_tree, node)
   #=  Apply element redeclares. =#
   mapRedeclareChains(cls_tree, redeclareElements, instLevel)
   #=  Redeclare classes with redeclare modifiers. Redeclared components could
@@ -1215,7 +1217,7 @@ function modifyExtends(extendsNode::InstNode, scope::InstNode)
       end
     end
   end
-  applyModifier(ext_mod, cls_tree, name(extendsNode))
+  applyModifier(ext_mod, cls_tree, extendsNode)
   extendsNode
 end
 
@@ -1228,6 +1230,39 @@ const ExtendsVisibility::ExtendsVisabilityStruct{Int} = ExtendsVisabilityStruct(
 const ExtendsVisibilityType = Int
 
 
+
+#= omc NFInst.applyExtendsVisibility: the elements inherited through a protected extends are
+   protected, also through nested extends; done before the modifiers are applied, so that a
+   modifier on such an element is refused (applyModifier). =#
+function applyExtendsVisibility(node::InstNode, visibility::ExtendsVisibilityType)::InstNode
+  local cls::Class = getClass(node)
+  local vis::ExtendsVisibilityType = visibility
+  @match cls begin
+    EXPANDED_CLASS(elements = cls_tree && CLASS_TREE_INSTANTIATED_TREE(__)) => begin
+      if vis == ExtendsVisibility.PUBLIC && isProtectedBaseClass(node) || vis == ExtendsVisibility.DERIVED_PROTECTED
+        vis = ExtendsVisibility.PROTECTED
+      end
+      if vis == ExtendsVisibility.PROTECTED && visibility != ExtendsVisibility.PROTECTED
+        for c in cls_tree.classes
+          P_Pointer.update(c, protectClass(P_Pointer.access(c)))
+        end
+        for c in cls_tree.components
+          P_Pointer.update(c, protectComponent(P_Pointer.access(c)))
+        end
+      end
+      mapExtends(cls_tree, n -> applyExtendsVisibility(n, vis))
+    end
+    EXPANDED_DERIVED(__) => begin
+      if vis == ExtendsVisibility.PUBLIC && isProtectedBaseClass(node)
+        vis = ExtendsVisibility.DERIVED_PROTECTED
+      end
+      @assign cls.baseClass = applyExtendsVisibility(cls.baseClass, vis)
+      node = updateClass(cls, node)
+    end
+    _ => ()
+  end
+  return node
+end
 
 function instExtends(node::InstNode,
                                attributes::Attributes,
@@ -1283,7 +1318,8 @@ end
 Applies a modifier in the given scope, by splitting the modifier and merging
 each part with the relevant element in the scope.
 """
-function applyModifier(modifier::Modifier, cls::ClassTree, clsName::String) ::ClassTree
+function applyModifier(modifier::Modifier, cls::ClassTree, parent::InstNode) ::ClassTree
+  local clsName::String = name(parent)
   local mods::List{Modifier}
   local node_ptrs::List{Pointer{InstNode}}
   local node::InstNode
@@ -1328,6 +1364,12 @@ function applyModifier(modifier::Modifier, cls::ClassTree, clsName::String) ::Cl
             isvariant(P_Pointer.access(node_ptr), EMPTY_NODE) && continue
             found = true
             node = resolveOuter(P_Pointer.access(node_ptr))
+            #= omc: a protected element may only be modified from an extends clause. =#
+            if isProtected(node) && !(isExtends(parent) || isBaseClass(parent))
+              Error.addMultiSourceMessage(Error.NF_MODIFY_PROTECTED, list(name(node), toString(mod)),
+                                          list(Modifier_info(mod), InstNode_info(node)))
+              fail()
+            end
             if isComponent(node)
               local n2 = componentApply(node, mergeModifier, mod)
               if n2 !== node
