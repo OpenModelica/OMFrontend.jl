@@ -53,20 +53,6 @@ equation
 end ConnectArray1;
 """
 
-const ConnectConst1_REF = """
-class ConnectConst1
-  flow Real c1.f;
-  Real c1.e;
-  flow constant Real c2.f = 2.0;
-  constant Real c2.e = 1.0;
-equation
-  c1.e = 1.0;
-  (-c1.f) - 2.0 = 0.0;
-  c1.f = 0.0;
-  2.0 = 0.0;
-end ConnectConst1;
-"""
-
 const ConnectHierarchical1_REF = """
 class ConnectHierarchical1
   flow Real a.b.c.f;
@@ -2517,7 +2503,6 @@ end # module GeneratedConnectorTests
 
 generatedConnectorTests = Tuple[
     (GeneratedConnectorTests.ConnectArray1_REF, "ConnectArray1", "./Connectors/ConnectArray1.mo"),
-    (GeneratedConnectorTests.ConnectConst1_REF, "ConnectConst1", "./Connectors/ConnectConst1.mo"),
     (GeneratedConnectorTests.ConnectHierarchical1_REF, "ConnectHierarchical1", "./Connectors/ConnectHierarchical1.mo"),
     (GeneratedConnectorTests.ConnectHierarchical2_REF, "ConnectHierarchical2", "./Connectors/ConnectHierarchical2.mo"),
     (GeneratedConnectorTests.ConnectInner1_REF, "ConnectInner1", "./Connectors/ConnectInner1.mo"),
@@ -2558,18 +2543,21 @@ generatedConnectorTestsMSL = Tuple[
     (GeneratedConnectorTests.CGraphBug_Test_REF, "Test", "./Connectors/CGraphBug.mo"),
 ]
 
+#= Cases omc (1.27, new frontend) rejects, and so does this frontend (run as @test_throws in
+   frontendResultTest.jl). ConnectConst1 is an old-frontend test of omc (-d=-newInst). =#
+generatedConnectorTestsRejected = Tuple[
+    ("ConnectConst1", "./Connectors/ConnectConst1.mo"),
+    ("ConnectorIllegal", "./Connectors/ConnectorIllegal.mo"),
+    ("ConnectorIllegal2", "./Connectors/ConnectorIllegal2.mo"),
+    ("InitialConnection", "./Connectors/InitialConnection.mo"),
+]
+
 #=
 Cases OMC rejects but our frontend silently accepts (legality-check gap):
   - ConnectFlowEffort  (./Connectors/ConnectFlowEffort.mo)
       OMC: Error processing file: ConnectFlowEffort.mo
   - ConnectFlowEffort2  (./Connectors/ConnectFlowEffort2.mo)
       OMC: Error processing file: ConnectFlowEffort2.mo
-  - ConnectorIllegal  (./Connectors/ConnectorIllegal.mo)
-      OMC: Error processing file: ConnectorIllegal.mo
-  - ConnectorIllegal2  (./Connectors/ConnectorIllegal2.mo)
-      OMC: Error processing file: ConnectorIllegal2.mo
-  - InitialConnection  (./Connectors/InitialConnection.mo)
-      OMC: Error processing file: InitialConnection.mo
   - Units2  (./Connectors/Units2.mo)
       OMC: Error processing file: Units2.mo
 =#
