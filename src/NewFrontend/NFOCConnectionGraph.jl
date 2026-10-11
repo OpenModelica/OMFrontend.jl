@@ -172,11 +172,11 @@ function handleOverconstrainedConnections(flatModel::FlatModel,
               ConnectionsOperator.UNIQUE_ROOT  => begin
                 graph = begin
                   @match lst begin
-                    root && CREF_EXPRESSION(cref = cref) <|  nil()  => begin
+                    (root && CREF_EXPRESSION(cref = cref)) <|  nil()  => begin
                       addUniqueRoots(root, STRING_EXPRESSION(""), print_trace, graph)
                     end
 
-                    root && CREF_EXPRESSION(cref = cref) <| msg <|  nil()  => begin
+                    (root && CREF_EXPRESSION(cref = cref)) <| msg <|  nil()  => begin
                       addUniqueRoots(root, msg, print_trace, graph)
                     end
                   end

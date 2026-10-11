@@ -4706,7 +4706,7 @@ function evalRealClock(args::List{Expression})::Expression
    result = begin
     local interval::Expression
     @match args begin
-      interval && REAL_EXPRESSION(__) <| nil() => begin
+      (interval && REAL_EXPRESSION(__)) <| nil() => begin
         CLKCONST_EXPRESSION(REAL_CLOCK(
           interval,
         ))
