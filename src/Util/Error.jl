@@ -3241,6 +3241,14 @@ const NON_FIXED_CONSTANT =
     Gettext.gettext("Constant '%s' must be fixed but has 'fixed = false'"),
   )::ErrorTypes.Message
 
+const INVALID_CONNECTOR_VARIABILITY =
+  ErrorTypes.MESSAGE(
+    416,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Invalid variability %s on connector '%s'."),
+  )::ErrorTypes.Message
+
 const INST_INVALID_RESTRICTION =
   ErrorTypes.MESSAGE(
     525,

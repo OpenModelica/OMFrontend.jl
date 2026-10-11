@@ -1817,6 +1817,12 @@ function updateComponentConnectorType(attributes::Attributes, restriction::Restr
   local cty = attributes.connectorType
   if isConnectorType(cty)
     if isConnector(restriction)
+      #= omc: a connector component may not be a parameter or constant. =#
+      if attributes.variability < Variability.DISCRETE && !isBuiltin(getClass(component))
+        Error.addSourceMessage(Error.INVALID_CONNECTOR_VARIABILITY,
+          list(variabilityString(attributes.variability), name(component)), InstNode_info(component))
+        fail()
+      end
       if isExpandableConnector(restriction)
         cty = setPresent(cty)
       else
