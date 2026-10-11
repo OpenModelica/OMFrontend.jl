@@ -860,11 +860,19 @@ function instStatement(scodeStmt::SCode.Statement, scope::InstNode, origin::ORIG
       end
 
       SCode.ALG_RETURN(__)  => begin
-       ALG_RETURN(makeSource(scodeStmt.comment, scodeStmt.info))
+        if flagNotSet(origin, ORIGIN_FUNCTION)
+          Error.addSourceMessage(Error.RETURN_OUTSIDE_FUNCTION, nil, scodeStmt.info)
+          fail()
+        end
+        ALG_RETURN(makeSource(scodeStmt.comment, scodeStmt.info))
       end
 
       SCode.ALG_BREAK(__)  => begin
-       ALG_BREAK(makeSource(scodeStmt.comment, scodeStmt.info))
+        if flagNotSet(origin, ORIGIN_FOR) && flagNotSet(origin, ORIGIN_WHILE)
+          Error.addSourceMessage(Error.BREAK_OUTSIDE_LOOP, nil, scodeStmt.info)
+          fail()
+        end
+        ALG_BREAK(makeSource(scodeStmt.comment, scodeStmt.info))
       end
 
       SCode.ALG_FAILURE(__)  => begin

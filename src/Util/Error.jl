@@ -3217,6 +3217,14 @@ const DER_OF_NONDIFFERENTIABLE_EXP =
     Gettext.gettext("Argument '%s' of der is not differentiable."),
   )::ErrorTypes.Message
 
+const BREAK_OUTSIDE_LOOP =
+  ErrorTypes.MESSAGE(
+    378,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("'break' may only be used in a while- or for-loop."),
+  )::ErrorTypes.Message
+
 const INST_INVALID_RESTRICTION =
   ErrorTypes.MESSAGE(
     525,

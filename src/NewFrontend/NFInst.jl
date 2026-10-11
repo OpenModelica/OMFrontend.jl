@@ -3473,7 +3473,10 @@ function instEEquation(@nospecialize(scodeEq::SCode.EEquation), @nospecialize(sc
       end
 
       SCode.EQ_CONNECT(info = info)  => begin
-        if flagSet(origin, ORIGIN_WHEN)
+        if flagSet(origin, ORIGIN_INITIAL)
+          Error.addSourceMessage(Error.CONNECT_IN_INITIAL_EQUATION, nil, info)
+          fail()
+        elseif flagSet(origin, ORIGIN_WHEN)
           Error.addSourceMessage(Error.CONNECT_IN_WHEN, list(Dump.printComponentRefStr(scodeEq.crefLeft), Dump.printComponentRefStr(scodeEq.crefRight)), info)
           fail()
         end
