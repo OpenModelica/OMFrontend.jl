@@ -563,6 +563,10 @@ function typeComponentNode(inComponent::InstNode, origin::ORIGIN_Type)::Tuple{In
   local ty::NFType
   local node::InstNode = resolveOuter(inComponent)
   local c::Component = component(node)
+  #= An outer left uninstantiated, its inner encloses it (instComponent): the inner's type. =#
+  if isDefinition(c) && isvariant(inComponent, INNER_OUTER_NODE)
+    return (inComponent, getType(inComponent.innerNode))
+  end
   if isvariant(c, UNTYPED_COMPONENT) && _parallelTypingActive()
     #= The component's own payload is typed under its claim; the claim is
        released before typing children so subtree fan-out never @sync-waits
@@ -3469,6 +3473,8 @@ function typeComponentSections(c::InstNode, origin::ORIGIN_Type)::InstNode
   local node = resolveOuter(c)
   local is_self = referenceEq(node, c)
   comp = component(node)
+  #= An outer left uninstantiated, its inner encloses it (instComponent): no sections of its own. =#
+  isDefinition(comp) && isvariant(c, INNER_OUTER_NODE) && return c
   () = begin
     @match comp begin
       TYPED_COMPONENT(__) => begin

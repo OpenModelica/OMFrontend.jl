@@ -1580,6 +1580,14 @@ function instComponent(node::InstNode,
     checkRecursiveDefinition(classInstance(comp), comp_node, false)
     return node
   end
+  #= An outer whose inner encloses it (`inner B b` with `outer B b` in b's own elements), or
+     inside an outer of the same name being instantiated (outers whose classes hold each other's
+     outers): its instance is the inner's, instantiating it again would not end (omc
+     instComponent resolves the inner; omc InnerOuter12, InnerOuterReplaceable3). =#
+  if isvariant(node, INNER_OUTER_NODE) &&
+     (_encloses(node.innerNode, parentNode) || _outerAncestorNamed(parentNode, name(node)))
+    return node
+  end
   #=  An already instantiated component might be due to an instantiation loop, check it. =#
   @match COMPONENT_DEF(definition = def, modifier = outer_mod) = comp
   if isRedeclare(outer_mod)
@@ -1609,6 +1617,26 @@ function instComponent(node::InstNode,
                      propagatedParents = propagatedParents)::InstNode
   end
   return isvariant(node, INNER_OUTER_NODE) ? INNER_OUTER_NODE(node.innerNode, comp_node) : comp_node
+end
+
+#= Whether an outer component of the given name is among a node's instance parents. =#
+function _outerAncestorNamed(n::InstNode, nm::String)::Bool
+  local p = n
+  while !isEmpty(p)
+    isComponent(p) && name(p) == nm && isOuter(p) && return true
+    p = parent(p)
+  end
+  return false
+end
+
+#= Whether a node is one of the instance parents of another. =#
+function _encloses(outerNode::InstNode, n::InstNode)::Bool
+  local p = n
+  while !isEmpty(p)
+    refEqual(p, outerNode) && return true
+    p = parent(p)
+  end
+  return false
 end
 
 function instComponentDef(component::SCode.COMPONENT,
@@ -2793,6 +2821,8 @@ function instComponentExpressions(componentArg::InstNode)::InstNode
   isvariant(componentArg, EMPTY_NODE) && return componentArg
   local node::InstNode = resolveOuter(componentArg)
   local c::Component = component(node)
+  #= An outer left uninstantiated, its inner encloses it (instComponent). =#
+  isDefinition(c) && isvariant(componentArg, INNER_OUTER_NODE) && return componentArg
   local dims::Vector{Dimension}
   @match c begin
     UNTYPED_COMPONENT(dimensions = dims, instantiated = false) where isvariant(c.binding, UNBOUND)  => begin
