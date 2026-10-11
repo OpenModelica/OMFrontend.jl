@@ -3161,6 +3161,30 @@ const INITIAL_ALGORITHM_TRANSITION_FAILURE =
     Gettext.gettext("Initial algorithm sections are not allowed in %s."),
   )::ErrorTypes.Message
 
+const INVALID_SPECIALIZATION_FOR_BINDING_EQUATION =
+  ErrorTypes.MESSAGE(
+    400,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Component '%s' may not have a binding equation due to class specialization '%s'."),
+  )::ErrorTypes.Message
+
+const INVALID_SPECIALIZATION_IN_ASSIGNMENT =
+  ErrorTypes.MESSAGE(
+    401,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Component '%s' may not be assigned to due to class specialization '%s'."),
+  )::ErrorTypes.Message
+
+const ASSIGN_ITERATOR_ERROR =
+  ErrorTypes.MESSAGE(
+    415,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Assignment to iterator '%s'."),
+  )::ErrorTypes.Message
+
 const INST_INVALID_RESTRICTION =
   ErrorTypes.MESSAGE(
     525,

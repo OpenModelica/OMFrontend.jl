@@ -428,6 +428,35 @@ function checkClassRestriction(node::InstNode, res::Restriction)
   return nothing
 end
 
+#= omc's Restriction.toString of a class node's restriction: packages are models here
+   (fromSCode), so they are named by their SCode restriction. =#
+function restrictionName(res::Restriction, clsNode::InstNode)::String
+  local def = definition(clsNode)
+  return if def isa SCode.Element && SCodeUtil.isPackage(def)
+    "package"
+  else
+    toString(res)
+  end
+end
+
+#= omc NFInst.checkBindingRestriction: a component of a class that is not a clock, connector,
+   enumeration, external object, record or type may not have a binding. =#
+function checkBindingRestriction(res::Restriction, binding::Binding, component::InstNode, clsNode::InstNode, info::SourceInfo)
+  if isBound(binding)
+    @match res begin
+      RESTRICTION_CLOCK(__) || RESTRICTION_CONNECTOR(__) || RESTRICTION_ENUMERATION(__) ||
+      RESTRICTION_EXTERNAL_OBJECT(__) || RESTRICTION_RECORD(__) || RESTRICTION_TYPE(__) ||
+      RESTRICTION_UNKNOWN(__) => ()
+      _ => begin
+        Error.addSourceMessage(Error.INVALID_SPECIALIZATION_FOR_BINDING_EQUATION,
+          list(name(component), restrictionName(res, clsNode)), info)
+        fail()
+      end
+    end
+  end
+  return nothing
+end
+
 function assertNoEquations(equations::List{SCode.Equation}, initialEquations::List{SCode.Equation}, resName::String)
   if listEmpty(equations) && listEmpty(initialEquations)
     return nothing

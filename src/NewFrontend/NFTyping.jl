@@ -1405,6 +1405,39 @@ end
    argument on every call and @nospecializeinfer leaves the body abstractly
    inferred; together they cost ~16 allocations and ~0.8 us per expression
    node, which dominated binding typing. =#
+#= omc NFTyping.checkAssignment: no assignment to a constant, nor to a parameter outside an
+   initial algorithm; in a function, no assignment to an input. =#
+function checkAssignment(@nospecialize(lhsExp::Expression), @nospecialize(rhsExp::Expression),
+                         lhsVar::VariabilityType, origin::ORIGIN_Type, info::SourceInfo)
+  @match lhsExp begin
+    TUPLE_EXPRESSION(__) => begin
+      local i::Int = 1
+      for e in lhsExp.elements
+        checkAssignment(e, tupleElement(rhsExp, lhsExp.ty, i), variability(e), origin, info)
+        i += 1
+      end
+    end
+    CREF_EXPRESSION(__) where {flagSet(origin, ORIGIN_FUNCTION)} => begin
+      if isvariant(lhsExp.cref, COMPONENT_REF_CREF) && isInput(node(lhsExp.cref))
+        Error.addSourceMessage(Error.ASSIGN_READONLY_ERROR, list("input", toString(lhsExp.cref)), info)
+        fail()
+      end
+    end
+    _ => begin
+      if lhsVar < Variability.DISCRETE
+        if lhsVar == Variability.CONSTANT
+          Error.addSourceMessage(Error.ASSIGN_CONSTANT_ERROR, list(toString(lhsExp), toString(rhsExp)), info)
+          fail()
+        elseif flagNotSet(origin, ORIGIN_INITIAL)
+          Error.addSourceMessage(Error.ASSIGN_PARAM_ERROR, list(toString(lhsExp), toString(rhsExp)), info)
+          fail()
+        end
+      end
+    end
+  end
+  return nothing
+end
+
 function typeExp(
   exp::Expression,
   origin::ORIGIN_Type,
@@ -3908,7 +3941,7 @@ end
     @match st begin
       ALG_ASSIGNMENT(__) => begin
         info = AbsynUtil.dummyInfo#DAE.ElementSource_getInfo(st.source)
-        (e1, ty1) =
+        (e1, ty1, var1) =
           typeExp(st.lhs, setFlag(origin, ORIGIN_LHS), info)
         (e2, ty2) =
           typeExp(st.rhs, setFlag(origin, ORIGIN_RHS), info)
@@ -3929,6 +3962,7 @@ end
           )
           fail()
         end
+        checkAssignment(e1, e2, var1, origin, info)
         ALG_ASSIGNMENT(e1, e2, ty3, st.source)
       end
 

@@ -1742,6 +1742,7 @@ function instComponentDef(component::SCode.COMPONENT,
   ty_attr = updateComponentVariability(ty_attr, ty, ty_node, isFunction(parent_res), component.comment)
   #=  Update the component's connector type now that we have its type. =#
   res = restriction(getClass(ty_node))
+  checkBindingRestriction(res, bindingVar, node, ty_node, component.info)
   ty_attr = updateComponentConnectorType(ty_attr, res, isRedeclared, node)
   if ! referenceEq(attr, ty_attr)
     node = componentApply(node, setAttributes, ty_attr)
