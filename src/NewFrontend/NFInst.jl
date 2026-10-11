@@ -160,6 +160,7 @@ function instantiateRootClass(classPath::Absyn.Path, program::SCode.Program)::In
   local top::InstNode = makeTopNode(program)
   #=  Look up the class to instantiate and mark it as the root class. =#
   local cls::InstNode = lookupClassName(classPath, top, AbsynUtil.dummyInfo, false)
+  checkInstanceRestriction(cls, classPath)
   cls = setNodeType(ROOT_CLASS(EMPTY_NODE()), cls)
   #=  Initialize the storage for automatically generated inner elements. =#
   top = setInnerOuterCache(top, C_TOP_SCOPE(NodeTree.new(), cls))
@@ -167,6 +168,18 @@ function instantiateRootClass(classPath::Absyn.Path, program::SCode.Program)::In
   ExecStat.execStat("Instantiation")
   insertGeneratedInners(inst_cls, top)
   return inst_cls
+end
+
+#= omc: packages and functions cannot be instantiated as the root class. =#
+function checkInstanceRestriction(node::InstNode, path::Absyn.Path)
+  local elem::SCode.Element = definition(node)
+  if SCodeUtil.isFunction(elem) || SCodeUtil.isPackage(elem)
+    Error.addSourceMessage(Error.INST_INVALID_RESTRICTION,
+      list(AbsynUtil.pathString(path), SCodeDump.restrString(SCodeUtil.getClassRestriction(elem))),
+      InstNode_info(node))
+    fail()
+  end
+  return nothing
 end
 
 """
@@ -1055,6 +1068,7 @@ function instClassDef(cls::EXPANDED_CLASS,
   cls_tree = replaceDuplicates(cls_tree)
   checkDuplicates(cls_tree)
   node = updateClass(setClassTree(cls_tree, inst_cls), node)
+  checkClassRestriction(node, res)
   #= Update the attributes=#
   attributeRef.x = attributes
   return node

@@ -1541,7 +1541,7 @@ const ALGORITHM_TRANSITION_FAILURE =
     187,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Algorithm section is not allowed in %s."),
+    Gettext.gettext("Algorithm sections are not allowed in %s."),
   )::ErrorTypes.Message
 
 const FAILURE_TO_DEDUCE_DIMS_NO_MOD =
@@ -3143,6 +3143,22 @@ const ITERATOR_NON_ARRAY =
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
     Gettext.gettext("Iterator %s, has type %s, but expected a 1D array expression."),
+  )::ErrorTypes.Message
+
+const PROTECTED_TRANSITION_FAILURE =
+  ErrorTypes.MESSAGE(
+    397,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Protected sections are not allowed in %s."),
+  )::ErrorTypes.Message
+
+const INITIAL_ALGORITHM_TRANSITION_FAILURE =
+  ErrorTypes.MESSAGE(
+    399,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Initial algorithm sections are not allowed in %s."),
   )::ErrorTypes.Message
 
 const INST_INVALID_RESTRICTION =
