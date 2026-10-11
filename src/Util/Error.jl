@@ -3201,6 +3201,22 @@ const INVALID_DELETED_COMPONENT_CONTEXT =
     Gettext.gettext("'%s' refers to a component with a false condition."),
   )::ErrorTypes.Message
 
+const NON_DISCRETE_WHEN_CONDITION =
+  ErrorTypes.MESSAGE(
+    382,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("When-condition '%s' is not a discrete-time expression."),
+  )::ErrorTypes.Message
+
+const DER_OF_NONDIFFERENTIABLE_EXP =
+  ErrorTypes.MESSAGE(
+    369,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Argument '%s' of der is not differentiable."),
+  )::ErrorTypes.Message
+
 const INST_INVALID_RESTRICTION =
   ErrorTypes.MESSAGE(
     525,

@@ -4003,13 +4003,7 @@ end
           begin
             @match br begin
               (cond, body) => begin
-                (e1,_,_) = typeCondition(
-                  cond,
-                  origin,
-                  st.source,
-                  Error.WHEN_CONDITION_TYPE_ERROR,
-                  allowVector = true,
-                )
+                (e1,_,_) = typeWhenCondition(cond, origin, st.source, false)
                 sts1 = [typeStatement(bst, next_origin) for bst in body]
                 (e1, sts1)
               end
@@ -4346,6 +4340,23 @@ end
   return isConstant
 end
 
+#= omc NFTyping.typeWhenCondition: a when-condition must be a discrete-time expression
+   (or a clock). =#
+function typeWhenCondition(@nospecialize(condition::Expression), origin::ORIGIN_Type,
+                           source::DAE.ElementSource, allowClock::Bool)::Tuple{Expression, NFType, VariabilityType}
+  local cond::Expression
+  local ty::NFType
+  local var::VariabilityType
+  (cond, ty, var) = typeCondition(condition, origin, source, Error.WHEN_CONDITION_TYPE_ERROR,
+                                  allowVector = true, allowClock = allowClock)
+  if var > Variability.IMPLICITLY_DISCRETE && !isClock(ty)
+    Error.addSourceMessage(Error.NON_DISCRETE_WHEN_CONDITION, list(toString(condition)),
+                           DAE.ElementSource_getInfo(source))
+    fail()
+  end
+  return (cond, ty, var)
+end
+
 @nospecializeinfer function typeWhenEquation(
   @nospecialize(branches::Vector{<:Equation_Branch}),
   origin::ORIGIN_Type,
@@ -4360,14 +4371,7 @@ end
   local var::VariabilityType
   for branch in branches
     @match EQUATION_BRANCH(cond, _, body) = branch
-    (cond, ty, var) = typeCondition(
-      cond,
-      origin,
-      source,
-      Error.WHEN_CONDITION_TYPE_ERROR,
-      allowVector = true,
-      allowClock = true,
-    )
+    (cond, ty, var) = typeWhenCondition(cond, origin, source, true)
     if isClock(ty)
       if length(branches) != 1
         if referenceEq(branch, listHead(branches))

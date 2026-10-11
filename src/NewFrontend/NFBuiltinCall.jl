@@ -800,10 +800,20 @@ function typeDerCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{
   (arg, ty, variability) = typeExp(arg, origin, info)
   ety = arrayElementType(ty)
   if isInteger(ety)
-    ty = setArrayElementType(ty, TYPE_REAL())
-    arg = typeCast(arg, TYPE_REAL())
+    #= omc: only an Integer that is not discrete (a parameter or constant) is differentiable. =#
+    if variability < Variability.DISCRETE
+      ty = setArrayElementType(ty, TYPE_REAL())
+      arg = typeCast(arg, TYPE_REAL())
+    else
+      Error.addSourceMessageAndFail(Error.DER_OF_NONDIFFERENTIABLE_EXP, list(toString(arg)), info)
+    end
   elseif ! isReal(ety)
     Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list("1", toString(fn_ref), "", toString(arg), toString(ty), "Real"), info)
+  end
+  #= omc: the argument must be differentiable, i.e. not discrete, except in a discrete scope
+     (when, initial). =#
+  if variability == Variability.DISCRETE && !flagSet(origin, ORIGIN_DISCRETE_SCOPE)
+    Error.addSourceMessageAndFail(Error.DER_OF_NONDIFFERENTIABLE_EXP, list(toString(arg)), info)
   end
   fn = Base.first(typeRefCache(fn_ref))
   callExp = CALL_EXPRESSION(makeTypedCall(fn, Expression[arg], variability, ty))
