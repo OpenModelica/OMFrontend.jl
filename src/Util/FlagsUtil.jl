@@ -749,7 +749,7 @@ function printActualTypeStr(inType::List{<:String}) ::String
       end
 
       s <|  nil()  => begin
-        "the string \\" + s + "\\"
+        "the string \"" + s + "\""
       end
 
       _  => begin

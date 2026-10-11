@@ -2225,6 +2225,14 @@ const ARG_TYPE_MISMATCH =
     Gettext.gettext("Type mismatch for positional argument %s in %s(%s=%s). The argument has type:\\n  %s\\nexpected type:\\n  %s"),
   )::ErrorTypes.Message
 
+const EXPERIMENTAL_REQUIRED =
+  ErrorTypes.MESSAGE(
+    365,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("%s is an experimental feature and requires the --std=experimental flag."),
+  )::ErrorTypes.Message
+
 const INVALID_NUMBER_OF_DIMENSIONS_FOR_PROMOTE =
   ErrorTypes.MESSAGE(
     366,

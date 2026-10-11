@@ -1572,10 +1572,14 @@ const LANGUAGE_STANDARD =
         ("3.1", 31),
         ("3.2", 32),
         ("3.3", 33),
+        ("3.4", 34),
+        ("3.5", 35),
+        ("3.6", 36),
         ("latest", 1000),
+        ("experimental", 9999),
       ),
     ),
-    SOME(STRING_OPTION(list("1.x", "2.x", "3.1", "3.2", "3.3", "latest"))),
+    SOME(STRING_OPTION(list("1.x", "2.x", "3.1", "3.2", "3.3", "3.4", "3.5", "3.6", "latest", "experimental"))),
     Gettext.gettext("Sets the language standard that should be used."),
   )::ConfigFlag
 const SHOW_ERROR_MESSAGES =

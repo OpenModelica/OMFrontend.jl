@@ -115,7 +115,25 @@ include("./Util/FlagsUtil.jl")
 #= omc's Config, as far as the frontend asks it. The language standard is the latest (omc's
    default), so Modelica 3.3's synchronous features are allowed (Clock, hold, sample, ...). =#
 module Config
+  import ..Flags
   synchronousFeaturesAllowed()::Bool = true
+  #= omc's LanguageStandard; each value is its --std flag value. =#
+  module LanguageStandard
+    const V1_x = 10
+    const V2_x = 20
+    const V3_0 = 30
+    const V3_1 = 31
+    const V3_2 = 32
+    const V3_3 = 33
+    const V3_4 = 34
+    const V3_5 = 35
+    const V3_6 = 36
+    const latest = 1000
+    const experimental = 9999
+  end
+  getLanguageStandard()::Int = Flags.getConfigEnum(Flags.LANGUAGE_STANDARD)
+  languageStandardAtLeast(std::Int)::Bool = getLanguageStandard() >= std
+  languageStandardAtMost(std::Int)::Bool = getLanguageStandard() <= std
 end
 include("./Util/ExecStat.jl")
 include("./Util/IOStreamExt.jl")
