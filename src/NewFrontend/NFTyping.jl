@@ -1121,6 +1121,7 @@ end
     end
   end
   checkDimensionType(exp, ty, info)
+  local uexp = exp
   if flagNotSet(origin, ORIGIN_FUNCTION)
     if var <= Variability.PARAMETER
       exp = evalExp(
@@ -1141,6 +1142,14 @@ end
     end
   end
   if !arrayAllEqual(exp)
+    #= Ragged: a dimension that differs between the elements of the enclosing arrays of
+       components (`A arr[2](n = {2, 3})` with `Real a[n]`): its expression, evaluated for each
+       element when flattening (omc subscriptDimExp, split indices; flattenRaggedDimension). =#
+    if flagNotSet(origin, ORIGIN_FUNCTION) && exp isa ARRAY_EXPRESSION && !isLiteral(uexp)
+      dim = DIMENSION_EXP(uexp, var)
+      arrayUpdate(dimensions, index, dim)
+      return dim
+    end
     Error.addSourceMessage(
       Error.RAGGED_DIMENSION,
       list(toString(exp)),

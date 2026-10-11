@@ -343,6 +343,28 @@ function flattenComponent(
   return (vars, sections, structuralSubModels)
 end
 
+#= A ragged dimension (an expression, typeDimensionUntyped) for one element of the enclosing arrays
+   of components: evaluated in the context of the element's cref, a binding from the arrays'
+   modifier read for that element (omc: split indices resolved by the prefix). =#
+function flattenRaggedDimensions(@nospecialize(ty::M_Type), cref::ComponentRef)::M_Type
+  isArray(ty) || return ty
+  any(d -> isvariant(d, DIMENSION_EXP) && !isLiteral(d.exp), arrayDims(ty)) || return ty
+  return mapDims(ty, d -> flattenRaggedDimension(d, cref))
+end
+
+function flattenRaggedDimension(dim::Dimension, cref::ComponentRef)::Dimension
+  (isvariant(dim, DIMENSION_EXP) && !isLiteral(dim.exp)) || return dim
+  local ctx = _elementContext()
+  push!(ctx, cref)
+  local e::Expression
+  try
+    e = evalExp(dim.exp, EVALTARGET_IGNORE_ERRORS())
+  finally
+    pop!(ctx)
+  end
+  return isLiteral(e) ? fromExp(e, dim.var) : dim
+end
+
 #= Components deleted in one element of an array of components, whose elements share the node
    (`A a[3](b = {false, true, false})` with `Real x if b`): a[1].x and a[3].x, not the node
    (omc deletedVars). Connections to them are removed (Connections.collect). =#
@@ -505,6 +527,7 @@ function flattenSimpleComponent(
   cmt = comp.comment
   info = comp.info
   var = comp_attr.variability
+  ty = flattenRaggedDimensions(ty, prefixCref(comp_node, TYPE_UNKNOWN(), nil, prefix))
   #= Negative dimensions are checked when flattening, a deleted component's are not (omc). =#
   for d in arrayDims(ty)
     verifyDimension(d, comp_node, info)
@@ -651,6 +674,7 @@ function flattenComplexComponent(
   local comp_var::VariabilityType
   local binding_var::VariabilityType
   local structuralSubModels::List{FLAT_MODEL}
+  ty = flattenRaggedDimensions(ty, prefixCref(node, TYPE_UNKNOWN(), nil, prefix))
   dims = arrayDims(ty)
   binding = if isSome(outerBinding)
     Util.getOption(outerBinding)
@@ -1188,7 +1212,8 @@ end
     @match exp begin
       CREF_EXPRESSION(__) => begin
         expCref = transferSubscripts(prefix, exp.cref)
-        exp =CREF_EXPRESSION(exp.ty, expCref)
+        #= A ragged dimension of the element the cref names (flattenRaggedDimension). =#
+        exp =CREF_EXPRESSION(flattenRaggedDimensions(exp.ty, expCref), expCref)
       end
 
       BINDING_EXP(__) => begin
