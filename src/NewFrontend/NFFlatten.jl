@@ -582,6 +582,7 @@ function flattenSimpleComponent(
   cmt = comp.comment
   info = comp.info
   var = comp_attr.variability
+  checkUnspecifiedEnumType(ty, comp_node, info)
   ty = flattenRaggedDimensions(ty, prefixCref(comp_node, TYPE_UNKNOWN(), nil, prefix))
   #= Negative dimensions are checked when flattening, a deleted component's are not (omc). =#
   for d in arrayDims(ty)
@@ -632,6 +633,9 @@ function flattenSimpleComponent(
       )
     )
   end
+  if var == Variability.CONSTANT && !unfix && !isComplex(arrayElementType(ty))
+    verifyConstantBinding(name, binding, ty_attrs, info)
+  end
   vars = push!(
     vars,
     VARIABLE(
@@ -646,6 +650,39 @@ function flattenSimpleComponent(
     ),
   )
   return (vars, sections)
+end
+
+#= omc Flatten.checkUnspecifiedEnumType: a component may not have the type enumeration(:). =#
+function checkUnspecifiedEnumType(ty::NFType, node::InstNode, info::SourceInfo)
+  if isEnumeration(ty) && listEmpty(ty.literals)
+    Error.addSourceMessage(Error.UNSPECIFIED_ENUM_COMPONENT, list(name(node)), info)
+    fail()
+  end
+  return nothing
+end
+
+#= omc Flatten.verifyBinding, for constants: a constant must be fixed and have a binding.
+   omc also refuses a fixed parameter with neither binding nor start value
+   (UNBOUND_PARAMETER_ERROR); not ported here, OM.jl models may rely on it. =#
+function verifyConstantBinding(name::ComponentRef, binding::Binding, tyAttrs::Vector{Tuple{String, Binding}}, info::SourceInfo)
+  local fixed::Bool = true
+  for (attr_name, attr_binding) in tyAttrs
+    if attr_name == "fixed" && isBound(attr_binding)
+      local fixed_exp::Expression = tryEvalExp(getExp(attr_binding))
+      #= omc: a fixed that is not a Boolean literal is not checked. =#
+      fixed_exp isa BOOLEAN_EXPRESSION || return nothing
+      fixed = fixed_exp.value
+    end
+  end
+  if !fixed
+    Error.addSourceMessage(Error.NON_FIXED_CONSTANT, list(toString(name)), info)
+    fail()
+  end
+  if isUnbound(binding)
+    Error.addSourceMessage(Error.NO_CONSTANT_BINDING, list(toString(name)), info)
+    fail()
+  end
+  return nothing
 end
 
 function flattenTypeAttribute(attr::Modifier, prefix::ComponentRef)::Tuple{String, Binding}

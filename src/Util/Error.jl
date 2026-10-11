@@ -245,7 +245,7 @@ const NO_CONSTANT_BINDING =
     26,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("No constant value for variable %s in scope %s."),
+    Gettext.gettext("Constant '%s' has no value."),
   )::ErrorTypes.Message
 
 const TYPE_NOT_FROM_PREDEFINED =
@@ -3223,6 +3223,22 @@ const BREAK_OUTSIDE_LOOP =
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
     Gettext.gettext("'break' may only be used in a while- or for-loop."),
+  )::ErrorTypes.Message
+
+const UNSPECIFIED_ENUM_COMPONENT =
+  ErrorTypes.MESSAGE(
+    407,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Component '%s' has an unspecified enumeration type (enumeration(:))."),
+  )::ErrorTypes.Message
+
+const NON_FIXED_CONSTANT =
+  ErrorTypes.MESSAGE(
+    413,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Constant '%s' must be fixed but has 'fixed = false'"),
   )::ErrorTypes.Message
 
 const INST_INVALID_RESTRICTION =
