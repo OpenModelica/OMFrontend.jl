@@ -60,6 +60,7 @@ function evaluateVariable(var::Variable, constVariability::VariabilityType)::Var
     var.binding,
     variability(var) <= constVariability,
     constVariability,
+    variability(var),
   )
   if !referenceEq(binding, var.binding)
     @assign var.binding = binding
@@ -76,13 +77,18 @@ function evaluateBinding(
   binding::Binding,
   structural::Bool,
   constVariability::VariabilityType,
+  variability::VariabilityType = Variability.CONSTANT,
 )::Binding
   local exp::Expression
   local eexp::Expression
   if isBound(binding)
     @assign exp = getTypedExp(binding)
     if structural
-      @assign eexp = evalExp(exp, EVALTARGET_ATTRIBUTE(binding))
+      #= A structural parameter not evaluated in earlier stages (Evaluate=true) is not critical
+         to evaluate: kept as it is when it can't be (omc tryEvalExp; CevalBinding10, an external
+         function). A constant must be. =#
+      @assign eexp = variability > Variability.CONSTANT ?
+        tryEvalExp(exp, EVALTARGET_ATTRIBUTE(binding)) : evalExp(exp, EVALTARGET_ATTRIBUTE(binding))
     else
       @assign eexp = evaluateExp(exp, constVariability)
     end
@@ -174,6 +180,17 @@ function evaluateDimension(dim::Dimension)::Dimension
   @assign outDim = begin
     local e::Expression
     @match dim begin
+      DIMENSION_EXP(__) where {contains(dim.exp, isIterator)} => begin
+        #= A dimension depending on a for-loop iterator (x[:, 1:i] in a for-equation): only its
+           constants are evaluated (omc evaluateDimension; omc FuncBuiltinFill3). =#
+        e = evaluateExp(dim.exp, Variability.STRUCTURAL_PARAMETER)
+        if referenceEq(e, dim.exp)
+          dim
+        else
+          fromExp(e, dim.var)
+        end
+      end
+
       DIMENSION_EXP(__) => begin
         e = evalExp(dim.exp, EVALTARGET_IGNORE_ERRORS())
         if referenceEq(e, dim.exp)
@@ -347,6 +364,11 @@ function evaluateStatement(stmt::Statement, constVariability::VariabilityType)::
 
       ALG_TERMINATE(__) => begin
         @assign stmt.message = evaluateExp(stmt.message, constVariability)
+        stmt
+      end
+
+      ALG_REINIT(__) => begin
+        @assign stmt.reinitExp = evaluateExp(stmt.reinitExp, constVariability)
         stmt
       end
 

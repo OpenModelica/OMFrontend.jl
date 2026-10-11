@@ -239,13 +239,16 @@ function addNestedExpandableConnectorsToSets(
   if listEmpty(ecl1) && listEmpty(ecl2)
     return csets
   end
+  #= The nested ones' own nested expandable connectors too (omc; omc ExpandableConnector8). =#
+  local conns::List{Connection} = nil
   for ec1 in ecl1
      (ecl2, oec) =
       ListUtil.deleteMemberOnTrue(ec1, ecl2, isNodeNameEqual)
     if isSome(oec)
-      @assign csets = addConnectionToSets(ec1, Util.getOption(oec), csets)
+      conns = _cons(CONNECTION(ec1, Util.getOption(oec)), conns)
     end
   end
+  @assign csets = addExpandableConnectorsToSets(conns, csets)
   return csets
 end
 
@@ -468,8 +471,9 @@ function augmentExpandableConnector(
     )
     fail()
   end
-  cls_node = classScope(exp_node)
-  #cls_node = clone(cls_node); #Note change from upstream....
+  #= A copy: the elements of an array of components share the connector's class, each element's
+     connector is augmented (a[1].ec.y, a[2].ec.y; omc ExpandableConnector4). =#
+  cls_node = clone(classScope(exp_node))
   cls = getClass(cls_node)
   cls_tree = classTree(cls)
   #=  Go through the union of elements the expandable connector should have.

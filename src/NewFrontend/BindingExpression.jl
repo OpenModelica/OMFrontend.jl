@@ -468,7 +468,9 @@ function recordElement(elementName::String, @nospecialize(recordExp::Expression)
         recordExp.elements[index]
       end
 
-      CREF_EXPRESSION(ty = TYPE_COMPLEX(cls = node))  => begin
+      CREF_EXPRESSION(__) where {isComplex(arrayElementType(recordExp.ty))}  => begin
+        #= An array of records too: the field's cref sliced over it (r3.r2.r, omc SlicedCref2). =#
+        @match TYPE_COMPLEX(cls = node) = arrayElementType(recordExp.ty)
         cls_tree = classTree(getClass(node))
         local entryInfo  = lookupElement(elementName, cls_tree)
         node = entryInfo.node
@@ -5887,6 +5889,10 @@ end
        end
        (REAL_EXPRESSION(__), TYPE_REAL(__))  => begin
          exp
+       end
+       #= --allowNonStandardModelica=nonStdEnumerationAsIntegers (omc). =#
+       (ENUM_LITERAL_EXPRESSION(__), TYPE_INTEGER(__)) where {Flags.isConfigFlagSet(Flags.ALLOW_NON_STANDARD_MODELICA, "nonStdEnumerationAsIntegers")}  => begin
+         INTEGER_EXPRESSION(exp.index)
        end
        (ARRAY_EXPRESSION(ty = t, elements = el), _)  => begin
          #=  Integer can be cast to Real.

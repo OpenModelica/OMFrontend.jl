@@ -174,7 +174,9 @@ function endExp(dim::Dimension, cref::ComponentRef, index::Int)::Expression
       #= The dimension's expression may name a record field (V_flow[n] of a function's record
          input: pressure.n), which the function's replacements do not know: size() of the
          array instead (Buildings.Fluid.Movers.BaseClasses.Euler.power: pressure.V_flow[end]). =#
-      DIMENSION_EXP(__) where isLiteral(dim.exp) => begin
+      #= Not a ragged one (its values over the enclosing arrays of components, typeDimensionUntyped):
+         size() of the element's array. =#
+      DIMENSION_EXP(__) where {isLiteral(dim.exp) && !(dim.exp isa ARRAY_EXPRESSION)} => begin
         dim.exp
       end
 
@@ -283,8 +285,9 @@ function subscriptType(dim::Dimension)::M_Type
       DIMENSION_ENUM(__) => begin
         dim.enumType
       end
+      #= A ragged dimension's values are its elements' sizes (typeDimensionUntyped). =#
       DIMENSION_EXP(__) => begin
-        typeOf(dim.exp)
+        arrayElementType(typeOf(dim.exp))
       end
       _ => begin
         TYPE_UNKNOWN()

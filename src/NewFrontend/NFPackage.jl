@@ -125,7 +125,7 @@ function collectExpConstants_traverser(@nospecialize(exp::Expression), @nospecia
     @match exp begin
       CREF_EXPRESSION(cref = cref && COMPONENT_REF_CREF(__)) =>
         begin
-          if isPackageConstant(cref)
+          if isPackageConstant(cref) && !isFunctionPointerExp(exp)
             local typedNode = typeComponentBinding(cref.node, ORIGIN_CLASS)
             if typedNode !== cref.node
               @assign cref.node = typedNode

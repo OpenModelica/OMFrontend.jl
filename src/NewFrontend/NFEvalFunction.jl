@@ -90,6 +90,8 @@ end
 
 function evaluate(fn::M_Function, args::Vector{Expression})::Expression
   local result::Expression
+  #= A partial derivative is differentiated by the backend, not the function's body (omc). =#
+  isPartialDerivative(fn) && fail()
   if isExternal(fn)
     result = evaluateExternal(fn, args)
   else
@@ -135,6 +137,12 @@ function evaluateNormal(fn::M_Function, args::Vector{Expression})::Expression
   =#
   local depths = _evalDepths()
   call_count = get(depths, call_counter, 0) + 1
+  #= An overloaded record constructor called in its own evaluation (`output Complex result =
+     Complex(re = re, im = im)` in Complex.'constructor'.fromReal) stays a call, its arguments
+     evaluated, as omc's evaluation leaves it (omc OperatorOverloadSum1: the '0' operator). =#
+  if call_count > 1 && isNonDefaultRecordConstructor(fn)
+    return CALL_EXPRESSION(makeTypedCall(fn, args, Variability.CONSTANT, fn.returnType))
+  end
   limit = _evalRecursionLimit()
   if call_count > limit
     _setEvalDepth!(depths, call_counter, 0)
@@ -191,6 +199,8 @@ function evaluateExternal(fn::M_Function, args::Vector{Expression})::Expression
     error("evalfn not implemented for builtin external function: " * name)
   elseif isKnownExternalFunc(name, ann)
     result = evaluateKnownExternal(name, list(args...))
+  elseif (ffi = callExternalFunction(name, fn, args, ext_args, output_ref, ann)) !== nothing
+    result = ffi
   else
     try
       result = evaluateExternal2(name, fn, args, ext_args)
@@ -216,6 +226,95 @@ function evaluateExternal(fn::M_Function, args::Vector{Expression})::Expression
   =#
   #=  External functions that we would need to generate code for and execute. =#
   return result
+end
+
+#= An external C function called at compile time (omc callExternalFunction, through libffi): the
+   symbol from the process or from the libraries of its Library annotation; scalar Integer, Real,
+   Boolean and String arguments and an explicit return value (omc DimUnknown16:
+   `external "C" dim = strlen("aa")`). Nothing when the call is not of that form or the symbol is
+   not found. =#
+function callExternalFunction(name::String, fn::M_FUNCTION, args::Vector{Expression}, extArgs::List{Expression},
+                              outputRef::ComponentRef, ann::Option{SCode.Annotation})::Union{Expression, Nothing}
+  isEmpty(outputRef) && return nothing
+  local ret_ty = nodeType(outputRef)
+  local cret = _externalCType(ret_ty)
+  cret === nothing && return nothing
+  local vals = Any[]
+  local ctys = Any[]
+  for a in extArgs
+    local v = _externalArgValue(a, fn, args)
+    v === nothing && return nothing
+    push!(vals, v[1])
+    push!(ctys, v[2])
+  end
+  local ptr = _externalSymbol(name, ann)
+  ptr == C_NULL && return nothing
+  local r = Core.eval(@__MODULE__, Expr(:call, :ccall, ptr, cret, Expr(:tuple, ctys...), vals...))
+  return isInteger(ret_ty) ? INTEGER_EXPRESSION(Int(r)) :
+         isReal(ret_ty) ? REAL_EXPRESSION(Float64(r)) :
+         isBoolean(ret_ty) ? BOOLEAN_EXPRESSION(r != 0) :
+         STRING_EXPRESSION(r == C_NULL ? "" : unsafe_string(r))
+end
+
+#= The C type of a scalar of the external interface (Modelica Integer and Boolean are int). =#
+function _externalCType(ty::M_Type)::Any
+  isInteger(ty) && return Cint
+  isReal(ty) && return Cdouble
+  isBoolean(ty) && return Cint
+  isString(ty) && return Cstring
+  return nothing
+end
+
+#= An external call's argument: a literal, or an input given a literal value. =#
+function _externalArgValue(@nospecialize(a::Expression), fn::M_FUNCTION, args::Vector{Expression})::Union{Tuple{Any, Any}, Nothing}
+  local e = a
+  if e isa CREF_EXPRESSION
+    local k = findfirst(i -> refEqual(i, node(e.cref)), Base.collect(fn.inputs))
+    k === nothing && return nothing
+    e = args[k]
+  end
+  e isa INTEGER_EXPRESSION && return (Cint(e.value), Cint)
+  e isa REAL_EXPRESSION && return (Float64(e.value), Cdouble)
+  e isa BOOLEAN_EXPRESSION && return (Cint(e.value ? 1 : 0), Cint)
+  e isa STRING_EXPRESSION && return (e.value, Cstring)
+  return nothing
+end
+
+#= An external function's symbol: from the libraries its Library annotation names, else the
+   process's (libc). =#
+function _externalSymbol(name::String, ann::Option{SCode.Annotation})::Ptr{Cvoid}
+  local L = Base.Libc.Libdl
+  if isSome(ann)
+    local mod = SCodeUtil.lookupAnnotationBinding(Util.getOption(ann), "Library")
+    for lib in _annotationStrings(mod)
+      local h = L.dlopen("lib" * lib, L.RTLD_LAZY; throw_error = false)
+      h === nothing && continue
+      local p = L.dlsym_e(h, name)
+      p == C_NULL || return p
+    end
+  end
+  #= The process's symbols: dlopen(NULL); on Windows the C runtime's. =#
+  if Sys.iswindows()
+    for crt in ("ucrtbase", "msvcrt")
+      local hw = L.dlopen(crt; throw_error = false)
+      hw === nothing && continue
+      local pw = L.dlsym_e(hw, name)
+      pw == C_NULL || return pw
+    end
+    return C_NULL
+  end
+  #= jl_dlopen maps Libdl's flags to the native ones (Libdl's RTLD_LAZY is glibc's RTLD_NOLOAD). =#
+  local h = ccall(:jl_dlopen, Ptr{Cvoid}, (Ptr{Cvoid}, Cuint), C_NULL, L.RTLD_LAZY)
+  h == C_NULL && return C_NULL
+  return L.dlsym_e(h, name)
+end
+
+function _annotationStrings(omod::Option{Absyn.Exp})::Vector{String}
+  isSome(omod) || return String[]
+  local mod = Util.getOption(omod)
+  mod isa Absyn.STRING && return String[mod.value]
+  mod isa Absyn.ARRAY && return String[e.value for e in mod.arrayExp if e isa Absyn.STRING]
+  return String[]
 end
 
 """
@@ -297,6 +396,12 @@ function createReplacements(fn::M_Function, args::Vector{Expression})::ReplTree.
   for (j,i) in enumerate(fn.inputs)
     arg = rest_args[j]
     repl = addInputReplacement(i, arg, repl)
+    #= A function pointer argument: calls to the parameter's function are calls to it (omc). =#
+    if isFunctionPointerExp(arg)
+      for pfn in _cachedFuncsOrEmpty(i)
+        repl = ReplTree.add(repl, pfn.node, arg)
+      end
+    end
   end
   #=
   Add outputs and local variables to the replacement tree. These do need to
@@ -490,12 +595,73 @@ function applyReplacements2(repl::ReplTree.Tree, @nospecialize(exp::Expression))
       CREF_EXPRESSION(__) => begin
         applyReplacementCref(repl, exp.cref, exp)
       end
+      CALL_EXPRESSION(__) => begin
+        applyReplacementCall(repl, exp.call, exp)
+      end
+      UNBOX_EXPRESSION(__) => begin
+        exp.exp
+      end
       _ => begin
         exp
       end
     end
   end
   return exp
+end
+
+#= A function pointer: a cref to a function, or a function partial application (omc). =#
+function isFunctionPointerExp(@nospecialize(exp::Expression))::Bool
+  return (exp isa CREF_EXPRESSION && isvariant(exp.ty, TYPE_FUNCTION)) || exp isa PARTIAL_FUNCTION_APPLICATION_EXPRESSION
+end
+
+#= The functions cached on a node's class, none when it has no function cache. =#
+function _cachedFuncsOrEmpty(node::InstNode)::Vector{M_FUNCTION}
+  local cache = getFuncCache(classScope(node))
+  return cache isa C_FUNCTION ? M_FUNCTION[f for f in cache.funcs] : M_FUNCTION[]
+end
+
+#= A call of a function given as a function pointer argument: a call of the function it points
+   to, with the partial application's arguments merged in (omc applyReplacementCall). =#
+function applyReplacementCall(repl::ReplTree.Tree, call::Call, @nospecialize(exp::Expression))::Expression
+  @match call begin
+    TYPED_CALL(__) => begin
+      local repl_exp = ReplTree.tryGet(repl, call.fn.node)
+      repl_exp === nothing && return exp
+      if repl_exp isa CREF_EXPRESSION && isvariant(repl_exp.ty, TYPE_FUNCTION)
+        local fn = repl_exp.ty.fn
+        local args = mergeFunctionApplicationArgs(call.fn, call.arguments, fn, Expression[], String[])
+        return CALL_EXPRESSION(TYPED_CALL(fn, call.ty, call.var, args, call.attributes))
+      elseif repl_exp isa PARTIAL_FUNCTION_APPLICATION_EXPRESSION
+        local fn = Base.first(getCachedFuncs(node(repl_exp.fn)))
+        local args = mergeFunctionApplicationArgs(call.fn, call.arguments, fn,
+                                                  Expression[a for a in repl_exp.args], String[n for n in repl_exp.argNames])
+        return CALL_EXPRESSION(TYPED_CALL(fn, call.ty, call.var, args, call.attributes))
+      end
+      return exp
+    end
+    _ => begin
+      return exp
+    end
+  end
+end
+
+#= The arguments of a call of newFn replacing one of oldFn: newFn's defaults, oldFn's arguments by
+   name, then the partial application's named ones (omc mergeFunctionApplicationArgs). =#
+function mergeFunctionApplicationArgs(oldFn::M_FUNCTION, oldArgs::Vector{Expression}, newFn::M_FUNCTION,
+                                      newArgs::Vector{Expression}, argNames::Vector{String})::Vector{Expression}
+  local arg_map = Dict{String, Expression}()
+  for sl in newFn.slots
+    if isSome(sl.default)
+      arg_map[sl.name] = unbox(Util.getOption(sl.default))
+    end
+  end
+  for (k, i) in enumerate(oldFn.inputs)
+    arg_map[name(i)] = unbox(oldArgs[k])
+  end
+  for (k, n) in enumerate(argNames)
+    arg_map[n] = unbox(newArgs[k])
+  end
+  return Expression[arg_map[name(i)] for i in newFn.inputs]
 end
 
 function applyReplacementCref(

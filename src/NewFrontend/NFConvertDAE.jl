@@ -1215,6 +1215,10 @@ function convertStatement(stmt::Statement)::DAE.Statement
         DAE.STMT_ASSERT(e1, e2, e3, stmt.source)
       end
 
+      ALG_REINIT(__) => begin
+        DAE.STMT_REINIT(toDAE(stmt.cref), toDAE(stmt.reinitExp), stmt.source)
+      end
+
       ALG_TERMINATE(__) => begin
         DAE.STMT_TERMINATE(
           toDAE(stmt.message),

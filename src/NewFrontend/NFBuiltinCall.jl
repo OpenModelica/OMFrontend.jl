@@ -160,6 +160,14 @@ end
         typeProductCall(call, next_origin, info)
       end
 
+      "promote"  => begin
+        typePromoteCall(call, next_origin, info)
+      end
+
+      "pure"  => begin
+        typePureCall(call, next_origin, info)
+      end
+
       "root"  => begin
         typeRootCall(call, next_origin, info)
       end
@@ -984,6 +992,55 @@ function typeProductCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tu
   (callExp, ty, variability)
 end
 
+#= pure(f(x)): the call of an impure function, made pure (omc typePureCall; the port has no
+   purity on calls: the call itself). =#
+function typePureCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+  local tcall = typeMatchNormalCall(call, origin, info)
+  local args = tcall.arguments
+  local arg = length(args) == 1 ? unbox(args[1]) : EMPTY_EXPRESSION(TYPE_UNKNOWN())
+  if !(arg isa CALL_EXPRESSION)
+    Error.addSourceMessage(Error.FUNCTION_ARGUMENT_MUST_BE, list("pure", "a function call expression"), info)
+    fail()
+  end
+  return (arg, typeOf(arg), variability(arg))
+end
+
+#= promote(A, n): A with trailing dimensions of size 1 up to n dimensions (omc typePromoteCall;
+   omc requires --std=experimental, the port has no language standard flag). =#
+function typePromoteCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+  local variability::VariabilityType
+  local ty::M_Type
+  local callExp::Expression
+  local fn_ref::ComponentRef
+  local args::Vector{Expression}
+  local named_args::Vector{NamedArg}
+  local exp_arg::Expression
+  local n_arg::Expression
+  local exp_ty::M_Type
+  local n_ty::M_Type
+  local n_var::VariabilityType
+  local n::Int
+  @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
+  assertNoNamedParams("promote", named_args, info)
+  if length(args) != 2
+    Error.addSourceMessageAndFail(Error.NO_MATCHING_FUNCTION_FOUND_NFINST, list(toString(call), "promote(Any[...], Integer) => Any[...]"), info)
+  end
+  (exp_arg, exp_ty, variability) = typeExp(args[1], origin, info)
+  (n_arg, n_ty, n_var) = typeExp(args[2], origin, info)
+  if ! isInteger(n_ty)
+    Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list("2", "promote", "", toString(n_arg), toString(n_ty), "Integer"), info)
+  end
+  if n_var > Variability.CONSTANT
+    Error.addSourceMessageAndFail(Error.INVALID_ARGUMENT_VARIABILITY, list("2", "promote", variabilityString(Variability.CONSTANT), toString(n_arg), variabilityString(n_var)), info)
+  end
+  @match INTEGER_EXPRESSION(n) = evalExp(n_arg, EVALTARGET_GENERIC(info))
+  if n < dimensionCount(exp_ty)
+    Error.addSourceMessageAndFail(Error.INVALID_NUMBER_OF_DIMENSIONS_FOR_PROMOTE, list(String(n), String(dimensionCount(exp_ty))), info)
+  end
+  (callExp, ty) = promote(exp_arg, typeOf(exp_arg), n)
+  (callExp, ty, variability)
+end
+
 function typeSmoothCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
   local variability::VariabilityType
   local ty::M_Type
@@ -1202,6 +1259,12 @@ function typeVectorCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
         dim_found = true
       end
     end
+  end
+  #=  The array might be empty even if one dimension is larger than 1,
+  in that case the result will also be an empty array.
+  =#
+  if isEmptyArray(ty)
+    vector_dim = fromInteger(0)
   end
   ty = TYPE_ARRAY(arrayElementType(ty), list(vector_dim))
   @match [fn] = typeRefCache(fn_ref)

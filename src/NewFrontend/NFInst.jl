@@ -367,6 +367,10 @@ function partialInstClass(node::InstNode) ::InstNode
       NOT_INSTANTIATED(__)  => begin
         c = partialInstClass2(definition(node), node)
         node = updateClass(c, node)
+        if c isa PARTIAL_CLASS && isvariant(c.elements, CLASS_TREE_PARTIAL_TREE) && !isempty(c.elements.imports)
+          c = PARTIAL_CLASS(initImports(c.elements, node), c.modifier, c.prefixes)
+          node = updateClass(c, node)
+        end
         ()
       end
       _  => begin
@@ -476,6 +480,14 @@ function expandClass2(node::InstNode) ::InstNode
 
       SCode.DERIVED(__)  => begin
         expandClassDerived(def, cdef, node, info)
+      end
+
+      #= A partial derivative of a function, function df = der(f, x): a short class definition
+         of f here (omc expandClass2); the function knows its derived inputs (instFunction2). =#
+      SCode.PDER(__)  => begin
+        expandClassDerived(def,
+          SCode.DERIVED(Absyn.TPATH(cdef.functionPath, NONE()), SCode.NOMOD(), SCode.defaultVarAttr),
+          node, info)
       end
 
       _  => begin
@@ -694,7 +706,9 @@ function makeExternalObjectType(tree::ClassTree, node::InstNode) ::ComplexType
         =#
         if arrayLength(tree.exts) > 1
           for ext in tree.exts
-            if name(ext) != "ExternalObject"
+            #= A base class without elements is allowed (`extends Icon`, a package with an
+               annotation only; omc ExternalObject5). =#
+            if name(ext) != "ExternalObject" && recursiveElementCount(classTree(getClass(ext))) != 0
               @match CLASS_NODE(nodeType = BASE_CLASS(definition = SCode.EXTENDS(baseClassPath = base_path))) = ext
               Error.addSourceMessage(Error.EXTERNAL_OBJECT_INVALID_ELEMENT, list(name(node), "extends " + AbsynUtil.pathString(base_path)), InstNode_info(ext))
               fail()
@@ -1514,12 +1528,15 @@ function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMo
 end
 
 function redeclareEnum(redeclareClass::Class, originalClass::Class, prefixes::Prefixes, outerMod::Modifier, redeclareNode::InstNode, originalNode::InstNode) ::Class
-  local redeclaredClass::Class = redeclareClass
+  #= Expanded, so that a short class of an enumeration (`redeclare type AE = E`) is one (omc). =#
+  expand(redeclareNode)
+  local redeclaredClass::Class = getClass(redeclareNode)
 
   @assign redeclaredClass = begin
     local lits1::List{String}
     local lits2::List{String}
     @match (redeclaredClass, originalClass) begin
+
       (PARTIAL_BUILTIN(ty = TYPE_ENUMERATION(literals = lits1)), PARTIAL_BUILTIN(ty = TYPE_ENUMERATION(literals = lits2)))  => begin
         if ! (listEmpty(lits2) || ListUtil.isEqualOnTrue(lits1, lits2, stringEq))
           Error.addMultiSourceMessage(Error.REDECLARE_ENUM_NON_SUBTYPE, list(name(originalNode)), list(InstNode_info(redeclareNode), InstNode_info(originalNode)))
@@ -1528,6 +1545,12 @@ function redeclareEnum(redeclareClass::Class, originalClass::Class, prefixes::Pr
         @assign redeclaredClass.prefixes = prefixes
         @assign redeclaredClass.modifier = merge(outerMod, redeclaredClass.modifier)
         redeclaredClass
+      end
+
+      #= Redeclare enumeration(:) as another enumeration type (a short class of one,
+         `redeclare type AE = E`; omc). =#
+      (_, PARTIAL_BUILTIN(ty = TYPE_ENUMERATION(literals = Nil(__)))) where {isEnumerationType(redeclareNode)} => begin
+        mergeModifier(outerMod, setPrefixes(prefixes, redeclaredClass))
       end
 
       _  => begin
@@ -1545,7 +1568,8 @@ function instComponent(node::InstNode,
                        useBinding::Bool,
                        instLevel::Int,
                        attributeRef::Ref{Attributes},
-                       originalAttr = NONE())::InstNode
+                       originalAttr = NONE();
+                       propagatedParents::List{InstNode} = Nil{InstNode}())::InstNode
   local comp::Component
   local def::SCode.COMPONENT
   local comp_node::InstNode
@@ -1566,8 +1590,17 @@ function instComponent(node::InstNode,
   end
   #=  An already instantiated component might be due to an instantiation loop, check it. =#
   @match COMPONENT_DEF(definition = def, modifier = outer_mod) = comp
+  #= An outer with an inner: its instance is the inner's, it is not instantiated (omc instComponent
+     resolves the inner). Instantiating it could be a loop (`inner B b` with `outer B b` in b's
+     own elements; omc InnerOuter12, InnerOuterReplaceable3) or a partial class (omc
+     InnerOuterPartialOuter2). A modifier on it is still an error (omc checkOuterComponentMod). =#
+  if isvariant(node, INNER_OUTER_NODE) && isOnlyOuter(node)
+    checkOuterComponentMod(merge(outer_mod, merge(fromElement(def, nil, parentNode), cc_mod)), def, comp_node)
+    return node
+  end
   if isRedeclare(outer_mod)
     checkOuterComponentMod(outer_mod, def, comp_node)
+    local rdcl_parents = outer_mod.propagatedParents
     @match MODIFIER_REDECLARE(element = rdcl_node, innerMod = inner_mod, outerMod = outer_mod,
                               constrainingMod = cc_mod) = outer_mod
     comp_node = instComponentDef(def::SCode.COMPONENT, MODIFIER_NOMOD(), inner_mod,
@@ -1576,7 +1609,8 @@ function instComponent(node::InstNode,
     cc_mod = merge(elementConstrainingMod(def, parentNode, cc_mod), innerMod)
     outer_mod = merge(getModifier(rdcl_node), outer_mod)
     rdcl_node = setModifier(outer_mod, rdcl_node)
-    comp_node = redeclareComponent(rdcl_node, node, MODIFIER_NOMOD(), cc_mod, attributes, node, instLevel, attributeRef)
+    comp_node = redeclareComponent(rdcl_node, node, MODIFIER_NOMOD(), cc_mod, attributes, node, instLevel, attributeRef;
+                                   propagatedParents = rdcl_parents)
   else
     comp_node = instComponentDef(def::SCode.COMPONENT,
                      outer_mod,
@@ -1587,9 +1621,30 @@ function instComponent(node::InstNode,
                      parentNode,
                      instLevel,
                      attributeRef,
-                     originalAttr)::InstNode
+                     originalAttr;
+                     propagatedParents = propagatedParents)::InstNode
   end
   return isvariant(node, INNER_OUTER_NODE) ? INNER_OUTER_NODE(node.innerNode, comp_node) : comp_node
+end
+
+#= Whether an outer component of the given name is among a node's instance parents. =#
+function _outerAncestorNamed(n::InstNode, nm::String)::Bool
+  local p = n
+  while !isEmpty(p)
+    isComponent(p) && name(p) == nm && isOuter(p) && return true
+    p = parent(p)
+  end
+  return false
+end
+
+#= Whether a node is one of the instance parents of another. =#
+function _encloses(outerNode::InstNode, n::InstNode)::Bool
+  local p = n
+  while !isEmpty(p)
+    refEqual(p, outerNode) && return true
+    p = parent(p)
+  end
+  return false
 end
 
 function instComponentDef(component::SCode.COMPONENT,
@@ -1602,7 +1657,8 @@ function instComponentDef(component::SCode.COMPONENT,
                           instLevel::Int,
                           attributeRef::Ref{Attributes},
                           originalAttr = NONE(),
-                          isRedeclared::Bool = false)::InstNode
+                          isRedeclared::Bool = false;
+                          propagatedParents::List{InstNode} = Nil{InstNode}())::InstNode
   local decl_mod::Modifier
   local mod::Modifier
   local cc_mod::Modifier
@@ -1613,14 +1669,21 @@ function instComponentDef(component::SCode.COMPONENT,
   local ty_node::InstNode
   local res::Restriction
   decl_mod = fromElement(component, nil, parentNode)
+  #= A redeclared element's own bindings get the arrays of components its redeclare was split over,
+     outermost first (omc instComponentDef: Modifier.propagateSubs(mod, propagatedSubs)). =#
+  for p in listReverse(propagatedParents)
+    decl_mod = addParent(p, decl_mod)
+  end
   cc_mod = instConstrainingMod(component, parentNode)
   mod = merge(decl_mod, cc_mod)
   mod = merge(mod, innerMod)
   mod = merge(outerMod, mod)
   mod = addParent(node, mod)
   checkOuterComponentMod(mod, component, node)
+  #= Each dimension with its declaration's scope (omc): a redeclared component's (`A a(redeclare
+     Real x[n])`) is the modifier's, not the class it replaces the element of (omc RedeclareDim1). =#
   local dims = listEmpty(component.attributes.arrayDims) ? EMPTY_RAW_DIMS :
-               Dimension[DIMENSION_RAW_DIM(d) for d in component.attributes.arrayDims]
+               Dimension[DIMENSION_RAW_DIM(d, parentNode) for d in component.attributes.arrayDims]
   bindingVar = if useBinding
     binding(mod)
   else
@@ -1662,7 +1725,7 @@ function instComponentDef(component::SCode.COMPONENT,
   ty_attr = attributeRef.x
   local ty = getClass(ty_node)
   #=  Update the component's variability based on its type (e.g. Integer is discrete). =#
-  ty_attr = updateComponentVariability(ty_attr, ty, ty_node)
+  ty_attr = updateComponentVariability(ty_attr, ty, ty_node, isFunction(parent_res), component.comment)
   #=  Update the component's connector type now that we have its type. =#
   res = restriction(getClass(ty_node))
   ty_attr = updateComponentConnectorType(ty_attr, res, isRedeclared, node)
@@ -1717,7 +1780,8 @@ function updateComponentConnectorType(attributes::Attributes, restriction::Restr
   attributes
 end
 
-function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, outerMod::Modifier, constrainingMod::Modifier, outerAttr::Attributes, redeclaredNode::InstNode, instLevel::Int, attributeRef::Ref{Attributes})
+function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, outerMod::Modifier, constrainingMod::Modifier, outerAttr::Attributes, redeclaredNode::InstNode, instLevel::Int, attributeRef::Ref{Attributes};
+                            propagatedParents::List{InstNode} = Nil{InstNode}())
   local orig_comp::Component
   local rdcl_comp::Component
   local new_comp::Component
@@ -1740,7 +1804,8 @@ function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, out
   rdcl_node = setNodeType(rdcl_type, redeclareNode)
   rdcl_node = copyInstancePtr(originalNode, rdcl_node)
   rdcl_node = updateComponent!(component(redeclareNode), rdcl_node)
-  rdcl_node = instComponent(rdcl_node, outerAttr, constrainingMod, true, instLevel, attributeRef, SOME(getAttributes(orig_comp)))
+  rdcl_node = instComponent(rdcl_node, outerAttr, constrainingMod, true, instLevel, attributeRef, SOME(getAttributes(orig_comp));
+                            propagatedParents = propagatedParents)
   rdcl_comp = component(rdcl_node)
   new_comp = begin
     @match (orig_comp, rdcl_comp) begin
@@ -2069,14 +2134,32 @@ function printRedeclarePrefixError(node::InstNode, prefix1::String, prefix2::Str
   Error.addSourceMessageAndFail(Error.REDECLARE_MISMATCHED_PREFIX, list(prefix1, name(node), prefix2), InstNode_info(node))
 end
 
-function updateComponentVariability(attr::Attributes, cls::Class, clsNode::InstNode) ::Attributes
+function updateComponentVariability(attr::Attributes, cls::Class, clsNode::InstNode,
+                                    inFunction::Bool = false, comment::SCode.Comment = SCode.noComment)::Attributes
   local var::VariabilityType = attr.variability
   if referenceEq(attr, DEFAULT_ATTR) && isDiscreteClass(clsNode)
     attr = IMPL_DISCRETE_ATTR
   elseif var == Variability.CONTINUOUS && isDiscreteClass(clsNode)
     attr.variability = Variability.IMPLICITLY_DISCRETE
+  elseif var < Variability.CONTINUOUS && inFunction && attr.direction != Direction.NONE &&
+         !_hasFunctionVariabilityAnnotation(comment)
+    #= omc Attributes.updateVariability: variability prefixes on function parameters have no
+       semantic meaning; removed, so that e.g. a `constant input` is not evaluated, and an argument
+       of any variability matches it (omc FunctionParamVariability: f(time)). A new value: the
+       attributes can be a shared constant (CONSTANT_ATTR). =#
+    attr = ATTRIBUTES(attr.connectorType, attr.parallelism, Variability.CONTINUOUS, attr.direction,
+                      attr.innerOuter, attr.isFinal, attr.isRedeclare, attr.isReplaceable,
+                      attr.isStructuralMode)
   end
   attr
+end
+
+function _hasFunctionVariabilityAnnotation(comment::SCode.Comment)::Bool
+  return @match comment begin
+    SCode.COMMENT(annotation_ = SOME(ann)) =>
+      !SCodeUtil.isEmptyMod(SCodeUtil.lookupAnnotation(ann, "__OpenModelica_functionVariability"))
+    _ => false
+  end
 end
 
 function isDiscreteClass(clsNode::InstNode) ::Bool
@@ -2180,7 +2263,8 @@ function instDimension(dimension::Dimension, scope::InstNode, info::SourceInfo) 
             end
 
             Absyn.SUBSCRIPT(__)  => begin
-              exp = instExp(dim.subscript, scope, info)
+              local dim_scope = dimension.scope
+              exp = instExp(dim.subscript, dim_scope === nothing ? scope : dim_scope::InstNode, info)
               DIMENSION_UNTYPED(exp, false)
             end
           end
@@ -2745,6 +2829,8 @@ function instComponentExpressions(componentArg::InstNode)::InstNode
   isvariant(componentArg, EMPTY_NODE) && return componentArg
   local node::InstNode = resolveOuter(componentArg)
   local c::Component = component(node)
+  #= An outer left uninstantiated, its inner encloses it (instComponent). =#
+  isDefinition(c) && isvariant(componentArg, INNER_OUTER_NODE) && return componentArg
   local dims::Vector{Dimension}
   @match c begin
     UNTYPED_COMPONENT(dimensions = dims, instantiated = false) where isvariant(c.binding, UNBOUND)  => begin
@@ -2955,6 +3041,14 @@ end
 
       Absyn.END(__)  => begin
         END_EXPRESSION()
+      end
+
+      #= A subscripted parenthesized expression, `({1, 2, 3})[2]` (omc instExp). =#
+      Absyn.SUBSCRIPTED_EXP(__)  => begin
+        SUBSCRIPTED_EXP_EXPRESSION(
+          instExp(absynExp.exp, scope, info),
+          list((instSubscript(SUBSCRIPT_RAW_SUBSCRIPT(s), scope, info) for s in absynExp.subscripts)...),
+          TYPE_UNKNOWN())
       end
       _  => begin
         @error "UNKNOWN EXPRESSION!"
@@ -3187,8 +3281,13 @@ function instSections2(parts::SCode.ClassDef, scope::InstNode, sections::Section
     #= Plain conditionals instead of matching on a constructed tuple; the
        non-PARTS case keeps its MatchFailure via the single-record match. =#
     if sections isa SECTIONS_EXTERNAL
-      Error.addSourceMessage(Error.MULTIPLE_SECTIONS_IN_FUNCTION, list(name(scope)), InstNode_info(scope))
-      fail()
+      #= An inherited external declaration: an error only with sections of this class's own
+         (omc; `function f extends base_f; end f;` with base_f external, omc FunctionSections5). =#
+      if SCodeUtil.classDefHasSections(parts, true)
+        Error.addSourceMessage(Error.MULTIPLE_SECTIONS_IN_FUNCTION, list(name(scope)), InstNode_info(scope))
+        fail()
+      end
+      return sections
     end
     @match SCode.PARTS(__) = parts
     if isSome(parts.externalDecl)

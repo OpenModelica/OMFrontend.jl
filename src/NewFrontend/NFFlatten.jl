@@ -77,6 +77,7 @@ function flatten(classInst::InstNode, name::String; prefix = COMPONENT_REF_EMPTY
   sections = SECTIONS_EMPTY()
   #@debug "CALLING TOP LEVEL FLATTEN"
   cmt = SCodeUtil.getElementComment(definition(classInst))
+  isTopLevel && empty!(_deletedElementCrefs())
   (vars, sections, structuralSubmodels) = flattenClass(
     getClass(classInst),
     prefix,
@@ -266,8 +267,15 @@ function flattenComponent(
   @match c begin
     TYPED_COMPONENT(condition = condition, ty = ty) => begin
       #=  Delete the component if it has a condition that's false. =#
-      if isDeletedComponent(condition, prefix)
-        deleteComponent(inComponent)
+      local deleted::Bool
+      local per_element::Bool
+      (deleted, per_element) = isDeletedComponent(condition, prefix, comp_node)
+      if deleted
+        if per_element
+          push!(_deletedElementCrefs(), prefixCref(comp_node, TYPE_UNKNOWN(), nil, prefix))
+        else
+          deleteComponent(inComponent)
+        end
         return (vars, sections, structuralSubModels)
       end
       cls = getClass(c.classInst)
@@ -335,17 +343,71 @@ function flattenComponent(
   return (vars, sections, structuralSubModels)
 end
 
-function isDeletedComponent(condition::Binding, prefix::ComponentRef)::Bool
-  local isDeleted::Bool
+#= A ragged dimension (an expression, typeDimensionUntyped) for one element of the enclosing arrays
+   of components: evaluated in the context of the element's cref, a binding from the arrays'
+   modifier read for that element (omc: split indices resolved by the prefix). =#
+function flattenRaggedDimensions(@nospecialize(ty::M_Type), cref::ComponentRef)::M_Type
+  isArray(ty) || return ty
+  any(d -> isvariant(d, DIMENSION_EXP) && !isLiteral(d.exp), arrayDims(ty)) || return ty
+  return mapDims(ty, d -> flattenRaggedDimension(d, cref))
+end
 
+function flattenRaggedDimension(dim::Dimension, cref::ComponentRef)::Dimension
+  (isvariant(dim, DIMENSION_EXP) && !isLiteral(dim.exp)) || return dim
+  local ctx = _elementContext()
+  push!(ctx, cref)
+  local e::Expression
+  try
+    e = evalExp(dim.exp, EVALTARGET_IGNORE_ERRORS())
+  finally
+    pop!(ctx)
+  end
+  return isLiteral(e) ? fromExp(e, dim.var) : dim
+end
+
+#= Components deleted in one element of an array of components, whose elements share the node
+   (`A a[3](b = {false, true, false})` with `Real x if b`): a[1].x and a[3].x, not the node
+   (omc deletedVars). Connections to them are removed (Connections.collect). =#
+_deletedElementCrefs()::Vector{ComponentRef} =
+  get!(() -> ComponentRef[], task_local_storage(), :NFFlattenDeletedElementCrefs)::Vector{ComponentRef}
+
+#= Whether a cref names (a part of) a component deleted in one element. =#
+function isInDeletedElement(cref::ComponentRef)::Bool
+  local deleted = _deletedElementCrefs()
+  isempty(deleted) && return false
+  local cr = cref
+  while !isEmpty(cr)
+    any(d -> isEqual(d, cr), deleted) && return true
+    cr = rest(cr)
+  end
+  return false
+end
+
+#= Whether a component with a condition is deleted, and whether that is for this element of the
+   enclosing arrays of components only: the condition is evaluated in the element's context, a
+   binding from the arrays' modifier read for the element (omc flattens it with the prefix). =#
+function isDeletedComponent(condition::Binding, prefix::ComponentRef, compNode::InstNode)::Tuple{Bool, Bool}
+  local isDeleted::Bool = false
+  local perElement::Bool = false
   local exp::Expression
   local cond::Binding
-
   if isBound(condition)
     cond = condition
     exp = getTypedExp(cond)
-    exp = evalExp(exp, EVALTARGET_CONDITION(Binding_getInfo(cond)))
+    local ctx = _elementContext()
+    local cref = prefixCref(compNode, TYPE_UNKNOWN(), nil, prefix)
+    local in_element = _hasEnclosingSubscripts(cref)
+    in_element && push!(ctx, cref)
+    local uses = _elementContextUses()
+    local uses0 = uses[]
+    try
+      exp = evalExp(exp, EVALTARGET_CONDITION(Binding_getInfo(cond)))
+    finally
+      in_element && pop!(ctx)
+    end
+    perElement = uses[] != uses0
     exp = stripBindingInfo(exp)
+    #=  Hack to make arrays work when all elements have the same value. =#
     if arrayAllEqual(exp)
       exp = arrayFirstScalar(exp)
     end
@@ -356,22 +418,6 @@ function isDeletedComponent(condition::Binding, prefix::ComponentRef)::Bool
         end
 
         _ => begin
-          #=  TODO: Flattening the condition works as intended here, but we can't yet
-          =#
-          #=        delete components inside array instances in a reliable way since
-          =#
-          #=        the components share the same node. I.e. we can't delete a[1].x
-          =#
-          #=        while keeping a[2].x. So for now we skip flattening the condition,
-          =#
-          #=        so that we get an error message in that case instead (because then
-          =#
-          #=        the expression will be an array instead of a scalar boolean).
-          =#
-          #= cond := flattenBinding(condition, prefix);
-          =#
-          #=  Hack to make arrays work when all elements have the same value.
-          =#
           Error.addSourceMessage(
             Error.CONDITIONAL_EXP_WITHOUT_VALUE,
             list(toString(exp)),
@@ -381,10 +427,8 @@ function isDeletedComponent(condition::Binding, prefix::ComponentRef)::Bool
         end
       end
     end
-  else
-    isDeleted = false
   end
-  return isDeleted
+  return (isDeleted, perElement)
 end
 
 """ Recursively marks components as deleted. """
@@ -483,6 +527,11 @@ function flattenSimpleComponent(
   cmt = comp.comment
   info = comp.info
   var = comp_attr.variability
+  ty = flattenRaggedDimensions(ty, prefixCref(comp_node, TYPE_UNKNOWN(), nil, prefix))
+  #= Negative dimensions are checked when flattening, a deleted component's are not (omc). =#
+  for d in arrayDims(ty)
+    verifyDimension(d, comp_node, info)
+  end
   #@info "Flatten simple... $(toString(n))"
   if isSome(outerBinding)
     @match SOME(binding) = outerBinding
@@ -625,6 +674,7 @@ function flattenComplexComponent(
   local comp_var::VariabilityType
   local binding_var::VariabilityType
   local structuralSubModels::List{FLAT_MODEL}
+  ty = flattenRaggedDimensions(ty, prefixCref(node, TYPE_UNKNOWN(), nil, prefix))
   dims = arrayDims(ty)
   binding = if isSome(outerBinding)
     Util.getOption(outerBinding)
@@ -691,6 +741,9 @@ function flattenComplexComponent(
   if listEmpty(dims)
     (vars, sections) = flattenClass(cls, name, visibility, opt_binding, vars, sections, nil)
   else
+    for d in dims
+      verifyDimension(d, node, InstNode_info(node))
+    end
     (vars, sections) = flattenArray(cls, dims, name, visibility, opt_binding, vars, sections, nil)
   end
   return (vars, sections)
@@ -1159,7 +1212,8 @@ end
     @match exp begin
       CREF_EXPRESSION(__) => begin
         expCref = transferSubscripts(prefix, exp.cref)
-        exp =CREF_EXPRESSION(exp.ty, expCref)
+        #= A ragged dimension of the element the cref names (flattenRaggedDimension). =#
+        exp =CREF_EXPRESSION(flattenRaggedDimensions(exp.ty, expCref), expCref)
       end
 
       BINDING_EXP(__) => begin
@@ -2066,6 +2120,11 @@ function collectStatementFuncs(@nospecialize(stmt::Statement), funcs::FunctionTr
 
       ALG_TERMINATE(__) => begin
         funcs = collectExpFuncs(stmt.message, funcs)
+        ()
+      end
+
+      ALG_REINIT(__) => begin
+        funcs = collectExpFuncs(stmt.reinitExp, funcs)
         ()
       end
 

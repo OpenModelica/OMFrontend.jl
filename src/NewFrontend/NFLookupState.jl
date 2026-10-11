@@ -161,6 +161,12 @@ end
   elseif currentState isa LOOKUP_STATE_COMP_COMP
     if elementState isa LOOKUP_STATE_COMP
       return LOOKUP_STATE_COMP_COMP()
+    elseif elementState isa LOOKUP_STATE_FUNC
+      #= omc 1.27 (where a component in a component stays COMP): a function through a chain
+         of components, b.a.f(1) (omc FuncViaComp3). =#
+      return LOOKUP_STATE_COMP_FUNC()
+    elseif elementState isa LOOKUP_STATE_CLASS || elementState isa LOOKUP_STATE_PACKAGE
+      return LOOKUP_STATE_COMP_CLASS()
     else
       return LOOKUP_STATE_ERROR(LOOKUP_STATE_COMP_COMP())
     end
@@ -245,6 +251,10 @@ function nodeState(node::InstNode)::LookupState
     state = LOOKUP_STATE_COMP()
   elseif isvariant(node, CLASS_NODE) || isvariant(node, COMPONENT_NODE)
     state = elementState(definition(node))
+  elseif isvariant(node, INNER_OUTER_NODE)
+    #= An outer class linked to its inner (`outer model M = A` with `inner model M = B`): the
+       inner's (omc: elementState of its definition; omc InnerOuterClass1). =#
+    state = nodeState(node.innerNode)
   else
     state = LOOKUP_STATE_ERROR(LOOKUP_STATE_BEGIN()) #fail()
   end
@@ -635,10 +645,11 @@ function isCallableComponent(node::InstNode)::Bool
 end
 
 function isCallableType(node::InstNode)::Bool
-  local callable::Bool
   local def::SCode.Element = definition(node)
-  @assign callable = SCodeUtil.isRecord(def) || SCodeUtil.isOperator(def)
-  return callable
+  (SCodeUtil.isRecord(def) || SCodeUtil.isOperator(def)) && return true
+  #= omc: an enumeration type is called as its conversion operator E(index) (instFunction2). =#
+  isClass(node) || return false
+  return isEnumerationType(expand(resolveInner(node)))
 end
 
 function assertImport(

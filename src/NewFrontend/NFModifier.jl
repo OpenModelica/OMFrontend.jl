@@ -337,17 +337,20 @@ function merge(outerMod::Modifier, innerMod::Modifier, name::String = "")
         #= A modifier inside the redeclare is for the original declaration only (Buildings DX
            coils: `wetCoi(datCoi = datCoi)` under `wetCoi(redeclare final ... datCoi = datCoi)`). =#
         MODIFIER_REDECLARE(outerMod.finalPrefix, outerMod.eachPrefix, outerMod.element,
-                           merge(outerMod.innerMod, innerMod), outerMod.outerMod, outerMod.constrainingMod)
+                           merge(outerMod.innerMod, innerMod), outerMod.outerMod, outerMod.constrainingMod,
+                           outerMod.propagatedParents)
       end
 
       (MODIFIER_MODIFIER(__), MODIFIER_REDECLARE(__)) => begin
         MODIFIER_REDECLARE(innerMod.finalPrefix, innerMod.eachPrefix, innerMod.element,
-                           innerMod.innerMod, merge(outerMod, innerMod.outerMod), innerMod.constrainingMod)
+                           innerMod.innerMod, merge(outerMod, innerMod.outerMod), innerMod.constrainingMod,
+                           innerMod.propagatedParents)
       end
 
       (MODIFIER_REDECLARE(__), MODIFIER_REDECLARE(__)) where (isEmpty(outerMod.constrainingMod) && !isEmpty(innerMod.constrainingMod)) => begin
         MODIFIER_REDECLARE(outerMod.finalPrefix, outerMod.eachPrefix, outerMod.element,
-                           outerMod.innerMod, outerMod.outerMod, innerMod.constrainingMod)
+                           outerMod.innerMod, outerMod.outerMod, innerMod.constrainingMod,
+                           outerMod.propagatedParents)
       end
 
       (MODIFIER_REDECLARE(__), _) => begin
@@ -481,8 +484,11 @@ function addParent_work(name::String, parentNode::InstNode, mod::Modifier)
         #= The original declaration's modifier is split over the array parent as well (omc:
            propagateSubMod). Buildings DX coils: uacp[nSta](per = datCoi.sta.nomVal) under
            uacp(redeclare final ... per). =#
+        #= And the redeclared element's own bindings (`b(redeclare A a(x = {1, 2}))` on B b[2]:
+           x split over b; omc propagatedSubs, RedeclareMod8/10): instComponentDef. =#
         MODIFIER_REDECLARE(mod.finalPrefix, mod.eachPrefix, mod.element,
-                           addParent_work(name, parentNode, mod.innerMod), mod.outerMod, mod.constrainingMod)
+                           addParent_work(name, parentNode, mod.innerMod), mod.outerMod, mod.constrainingMod,
+                           Cons{InstNode}(parentNode, mod.propagatedParents))
       end
 
       _ => begin

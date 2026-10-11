@@ -159,6 +159,15 @@ function toFlatStream(stmt::Statement, indent::String, s; inFunction = false)
         s
       end
 
+      ALG_REINIT(__) => begin
+        s = IOStream_M.append(s, "reinit(")
+        s = IOStream_M.append(s, toFlatString(stmt.cref; inFunction = inFunction))
+        s = IOStream_M.append(s, ", ")
+        s = IOStream_M.append(s, toFlatString(stmt.reinitExp; inFunction = inFunction))
+        s = IOStream_M.append(s, ")")
+        s
+      end
+
       ALG_NORETCALL(__) => begin
         IOStream_M.append(s, toFlatString(stmt.exp; inFunction = inFunction))
       end
@@ -302,6 +311,15 @@ function toStream(stmt::Statement, indent::String, s)
         s
       end
 
+      ALG_REINIT(__) => begin
+        s = IOStream_M.append(s, "reinit(")
+        s = IOStream_M.append(s, toString(stmt.cref))
+        s = IOStream_M.append(s, ", ")
+        s = IOStream_M.append(s, toString(stmt.reinitExp))
+        s = IOStream_M.append(s, ")")
+        s
+      end
+
       ALG_NORETCALL(__) => begin
         IOStream_M.append(s, toString(stmt.exp))
       end
@@ -397,6 +415,12 @@ function foldExp(stmt::Statement, func::FoldFunc, arg::ArgT) where {ArgT}
         ()
       end
 
+      ALG_REINIT(__) => begin
+        arg = func(stmt.cref, arg)
+        arg = func(stmt.reinitExp, arg)
+        ()
+      end
+
       ALG_NORETCALL(__) => begin
         arg = func(stmt.exp, arg)
         ()
@@ -474,6 +498,12 @@ end
 
       ALG_TERMINATE(__) => begin
         reuseIfRefEqual(stmt, stmt.message, func(stmt.message), m -> ALG_TERMINATE(m, stmt.source))
+      end
+
+      ALG_REINIT(__) => begin
+        local c = func(stmt.cref)
+        local e = func(stmt.reinitExp)
+        (referenceEq(c, stmt.cref) && referenceEq(e, stmt.reinitExp)) ? stmt : ALG_REINIT(c, e, stmt.source)
       end
 
       ALG_NORETCALL(__) => begin
@@ -774,9 +804,15 @@ function instStatement(scodeStmt::SCode.Statement, scope::InstNode, origin::ORIG
        ALG_TERMINATE(exp1, makeSource(scodeStmt.comment, info))
       end
 
+      #= Only with --allowNonStandardModelica=reinitInAlgorithms; in a when-statement (typing). =#
       SCode.ALG_REINIT(info = info)  => begin
-        Error.addSourceMessage(Error.REINIT_NOT_IN_WHEN, nil, info)
-        fail()
+        if !Flags.isConfigFlagSet(Flags.ALLOW_NON_STANDARD_MODELICA, "reinitInAlgorithms")
+          Error.addSourceMessage(Error.REINIT_IN_ALGORITHM, nil, info)
+          fail()
+        end
+        exp1 = instExp(scodeStmt.cref, scope, info)
+        exp2 = instExp(scodeStmt.newValue, scope, info)
+        ALG_REINIT(exp1, exp2, makeSource(scodeStmt.comment, info))
       end
 
       SCode.ALG_NORETCALL(info = info)  => begin

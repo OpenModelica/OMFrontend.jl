@@ -227,7 +227,8 @@ P_Pointer.createImmutable(data::InstNode) = P_Pointer.Pointer{InstNode}(data)
   DIMENSION_BOOLEAN()
   DIMENSION_INTEGER(size::Int = 0, var::VariabilityType = Int8(0))
   DIMENSION_UNTYPED(dimension::NFExpression, isProcessing::Bool = false)
-  DIMENSION_RAW_DIM(dim::Absyn.Subscript)
+  #= scope: where the dimension was declared (omc RAW_DIM(dim, scope)); nothing: the component's parent. =#
+  DIMENSION_RAW_DIM(dim::Absyn.Subscript, scope::Any = nothing)
 end
 
 # Boxed CLASS_NODE.cls payload. The node itself is rebuilt functionally while
@@ -395,7 +396,9 @@ include("../NewFrontend/NFModTable.jl")
   MODIFIER_NOMOD()
   #= innerMod: modifiers inside the redeclare, for the original declaration only; outerMod: those
      outside it, for the redeclared element; constrainingMod: the redeclare's constraining clause (omc). =#
-  MODIFIER_REDECLARE(finalPrefix::SCode.Final, eachPrefix::SCode.Each, element::InstNode, innerMod::NFModifier, outerMod::NFModifier, constrainingMod::NFModifier)
+  #= propagatedParents: the arrays of components the modifier was split over (innermost first; omc
+     propagatedSubs), the parents of the redeclared element's own bindings. =#
+  MODIFIER_REDECLARE(finalPrefix::SCode.Final, eachPrefix::SCode.Each, element::InstNode, innerMod::NFModifier, outerMod::NFModifier, constrainingMod::NFModifier, propagatedParents::Any = nil)
   MODIFIER_MODIFIER(name::String, finalPrefix::SCode.Final, eachPrefix::SCode.Each, binding::NFBindingImpl, subModifiers::ModTable.Tree, info::SourceInfo)
 end
 
@@ -426,6 +429,8 @@ end
   ALG_WHILE(condition::NFExpression, body::Vector{NFStatement}, source::DAE.ElementSource)
   ALG_NORETCALL(exp::NFExpression, source::DAE.ElementSource)
   ALG_TERMINATE(message::NFExpression, source::DAE.ElementSource)
+  #= reinit in an algorithm's when-statement, --allowNonStandardModelica=reinitInAlgorithms (omc). =#
+  ALG_REINIT(cref::NFExpression, reinitExp::NFExpression, source::DAE.ElementSource)
   ALG_ASSERT(condition::NFExpression, message::NFExpression, level::NFExpression, source::DAE.ElementSource)
   ALG_WHEN(branches::Vector{Tuple{NFExpression, Vector{NFStatement}}}, source::DAE.ElementSource)
   ALG_IF(branches::Vector{Tuple{NFExpression, Vector{NFStatement}}}, source::DAE.ElementSource)

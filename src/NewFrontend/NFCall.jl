@@ -1690,8 +1690,14 @@ function typeArrayConstructor(
           (range, iter_ty, iter_var) =
             Base.inferencebarrier(typeIterator(iter, range, next_origin, is_structural)::Tuple{Expression, NFType, VariabilityType})
           if is_structural
-            range = evalExp(range, EVALTARGET_RANGE(info))
-            iter_ty = typeOf(range)
+            local erange = evalExp(range, EVALTARGET_RANGE(info))
+            #= Not a value over the enclosing arrays of components, more dimensions than the range
+               (a range of a ragged size, layers.material.nSta: each element's is its own; omc's split
+               indices evaluate it per element). =#
+            if _valueDimensionCount(erange) <= dimensionCount(iter_ty)
+              range = erange
+              iter_ty = typeOf(range)
+            end
           end
           dims = ListUtil.append_reverse(arrayDims(iter_ty), dims)
           variability = variabilityMax(variability, iter_var)

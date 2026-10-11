@@ -727,6 +727,14 @@ function isSpecialBuiltin(fn::M_FUNCTION)::Bool
             true
           end
 
+          "promote" => begin
+            true
+          end
+
+          "pure" => begin
+            true
+          end
+
           "root" => begin
             true
           end
@@ -988,6 +996,7 @@ function typeFunctionSignature(fn::M_FUNCTION)
     @assign fn.inputs = mapFunctionNodes(fn.inputs, (c) -> typeComponentBinding(c, ORIGIN_FUNCTION))
     fnSlots = makeSlots(fn.inputs)
     checkParamTypes(fn)
+    checkPartialDerivativeTypes(fn)
     fnReturnType = makeReturnType(fn)
     fn = M_FUNCTION(
       fn.path,
@@ -1000,7 +1009,8 @@ function typeFunctionSignature(fn::M_FUNCTION)
       fn.attributes,
       fn.derivatives,
       fn.status,
-      fn.callCounter)
+      fn.callCounter,
+      fn.derivedInputs)
   end
   return fn
 end
@@ -1351,6 +1361,12 @@ function lookupSlotInArray(slotName::String, slots::Vector{<:Slot})::Option{Slot
   return i === nothing ? NONE() : SOME(slots[i])
 end
 
+function _isFunctionComponent(@nospecialize(n::InstNode))::Bool
+  isComponent(n) || return false
+  local p = explicitParent(n)
+  return isClass(p) && isFunction(p)
+end
+
 function evaluateSlotExp_traverser(
   exp::Expression,
   slots::Vector{<:Slot},
@@ -1366,7 +1382,11 @@ function evaluateSlotExp_traverser(
           restCref = COMPONENT_REF_EMPTY(__),
         ),
       ) => begin
-        slot = lookupSlotInArray(firstName(cref), slots)
+        #= Only a function's own component is an input (omc lookupSlotInArray by node): a default
+           from a modifier outside it (`redeclare function func = f(x = x)`, x the model's
+           parameter) reads the model's x, not the input it is the default of (omc
+           FuncDefaultArg7). =#
+        slot = _isFunctionComponent(node(cref)) ? lookupSlotInArray(firstName(cref), slots) : NONE()
         if isSome(slot)
           Util.tuple31(fillDefaultSlot(Util.getOption(slot), slots, info))
         else
@@ -1394,6 +1414,27 @@ function evaluateSlotExp(
   return outExp
 end
 
+#= A typed call's variability from its arguments, as matchTypedNormalCall computes it (applied
+   after the arguments changed, children first). =#
+function _callVariabilityFromArgs(@nospecialize(exp::Expression))::Expression
+  return @match exp begin
+    CALL_EXPRESSION(call = c && TYPED_CALL(__)) => begin
+      local fn = c.fn
+      local var = (isImpure(fn) || isOMImpure(fn)) ? Variability.PARAMETER : Variability.CONSTANT
+      for a in c.arguments
+        var = variabilityMax(var, variability(a))
+      end
+      if var == Variability.PARAMETER && isExternal(fn)
+        var = Variability.NON_STRUCTURAL_PARAMETER
+      elseif isDiscrete(c.ty) && var == Variability.CONTINUOUS
+        var = Variability.IMPLICITLY_DISCRETE
+      end
+      var == c.var ? exp : CALL_EXPRESSION(TYPED_CALL(fn, c.ty, var, c.arguments, c.attributes))
+    end
+    _ => exp
+  end
+end
+
 function fillDefaultSlot2(slot::Slot, slots::Vector{<:Slot}, info::SourceInfo)::TypedArg
   local outArg::TypedArg
 
@@ -1419,6 +1460,9 @@ function fillDefaultSlot2(slot::Slot, slots::Vector{<:Slot}, info::SourceInfo)::
         @assign slot.evalStatus = SlotEvalStatus.EVALUATING
         arrayUpdate(slots, slot.index, slot)
         @assign exp = evaluateSlotExp(Util.getOption(slot.default), slots, info)
+        #= Its calls take the variability of the arguments put in (omc types the default again:
+           `input Real x = f2(dim)` in f(3) is constant, not dim's; omc FuncDefaultArg5). =#
+        exp = map(exp, _callVariabilityFromArgs)
         @assign outArg = (
           exp,
           typeOf(exp),
@@ -1675,6 +1719,14 @@ function toFlatStream(fn::M_FUNCTION, s::IOStream_M.IOSTREAM)
 end
 
 function toFlatStreamHelper(fn::M_FUNCTION, s, fn_name)
+    #= A partial derivative as its declaration, function df = der(f, x) (omc toFlatStream). =#
+    if isPartialDerivative(fn)
+      local ins = Base.collect(fn.inputs)
+      s = IOStream_M.append(s, "function " * fn_name * " = der(" *
+        AbsynUtil.pathString(getDerivedFunctionName(fn)) * ", " *
+        Base.join([name(ins[i]) for i in fn.derivedInputs], ", ") * ");\n")
+      return s
+    end
     s = IOStream_M.append(s, "function ")
     s = IOStream_M.append(s, fn_name)
     s = IOStream_M.append(s, "\\n")
@@ -2068,6 +2120,16 @@ function instFunction2(
         (fnNode, false)
       end
 
+      #= An enumeration type name used as an operator: its conversion operator
+         E(Integer) => E (omc instFunction2). =#
+      SCode.CLASS(__) where {isEnumerationType(fnNode)} => begin
+        local conv = makeEnumConversionOp(fnNode)
+        conv = setNodeType(ROOT_CLASS(parent), conv)
+        conv = instFunction3(conv)
+        fnNode = cacheAddFunc(fnNode, new(fnPath, conv), false)
+        (fnNode, false)
+      end
+
       SCode.CLASS(__) => begin
         if SCodeUtil.isOperator(def)
           checkOperatorRestrictions(fnNode)
@@ -2089,13 +2151,109 @@ function instFunction2(
           fn.attributes,
           fnDerivatives,
           fn.status,
-          fn.callCounter)
+          fn.callCounter,
+          instPartialDerivedVars(def.classDef, fn.inputs, fn, info))
         fnNode = cacheAddFunc(fnNode, fn, specialBuiltin)
         (fnNode, specialBuiltin)
       end
     end
   end
   return (fnNode, specialBuiltin)
+end
+
+#= The inputs of a partial derivative of a function, `function df = der(f, x, y)`, by index
+   (omc instPartialDerivedVars). =#
+function instPartialDerivedVars(classDef::SCode.ClassDef, inputs::List{InstNode}, fn::M_FUNCTION, info::SourceInfo)::List{Int}
+  classDef isa SCode.PDER || return nil
+  local derivedVars = Int[]
+  local ins = Base.collect(inputs)
+  for var in classDef.derivedVariables
+    local index = findfirst(i -> name(i) == var, ins)
+    if index === nothing
+      Error.addSourceMessage(Error.PARTIAL_DERIVATIVE_INPUT_NOT_FOUND,
+        list(var, AbsynUtil.pathString(getDerivedFunctionName(fn))), info)
+      fail()
+    end
+    push!(derivedVars, index)
+  end
+  return list(derivedVars...)
+end
+
+#= The inputs a partial derivative is taken with respect to are scalar Reals (omc
+   checkPartialDerivativeTypes). =#
+function checkPartialDerivativeTypes(fn::M_FUNCTION)
+  local ins = Base.collect(fn.inputs)
+  for i in fn.derivedInputs
+    local node = ins[i]
+    local ty = getType(node)
+    if !(isReal(ty) && isScalar(ty))
+      Error.addSourceMessage(Error.PARTIAL_DERIVATIVE_INPUT_INVALID_TYPE,
+        list(name(node), AbsynUtil.pathString(getDerivedFunctionName(fn))), InstNode_info(fn.node))
+      fail()
+    end
+  end
+  return nothing
+end
+
+#= Whether a function is a partial derivative of a function, df = der(f, x) (omc). =#
+isPartialDerivative(fn::M_FUNCTION)::Bool = !listEmpty(fn.derivedInputs)
+
+#= The function a partial derivative is of: df = der(f, x) => f (omc getDerivedFunctionName). =#
+function getDerivedFunctionName(fn::M_FUNCTION)::Absyn.Path
+  local def = definition(fn.node)
+  if def isa SCode.CLASS && def.classDef isa SCode.PDER
+    return def.classDef.functionPath
+  end
+  return fn.path
+end
+
+#= The conversion operator of an enumeration type, E(index) (omc makeEnumConversionOp):
+     function $E "Automatically generated conversion operator for E"
+       input Integer index;
+       output E value;
+     algorithm
+       assert(index >= 1 and index <= n, "Enumeration index '" + String(index) + "' out of bounds in call to E()");
+       value := ...;
+     end $E;
+   omc selects the literal with {E.l1, ..., E.ln}[index]; here an if-chain over the literals, which
+   the DAE conversion and the backend take (they have no subscripted expressions). The class is
+   named $E so that E inside it is the type; the function keeps the call's path. =#
+function makeEnumConversionOp(enumNode::InstNode)::InstNode
+  local info = InstNode_info(enumNode)
+  local enum_name = name(enumNode)
+  local elem = definition(resolveInner(lastBaseClass(enumNode)))
+  @match SCode.CLASS(classDef = SCode.ENUMERATION(enumLst = lits)) = elem
+  local lits_v = Base.collect(lits)
+  local n = length(lits_v)
+  local index = Absyn.CREF(Absyn.CREF_IDENT("index", nil))
+  local params = list(
+    SCode.COMPONENT("index", SCode.defaultPrefixes, SCode.defaultInputAttr,
+                    Absyn.TPATH(Absyn.IDENT("Integer"), NONE()), SCode.NOMOD(), SCode.noComment, NONE(), info),
+    SCode.COMPONENT("value", SCode.defaultPrefixes, SCode.defaultOutputAttr,
+                    Absyn.TPATH(Absyn.IDENT(enum_name), NONE()), SCode.NOMOD(), SCode.noComment, NONE(), info),
+  )
+  local in_range = Absyn.LBINARY(Absyn.RELATION(index, Absyn.GREATEREQ(), Absyn.INTEGER(1)), Absyn.AND(),
+                                 Absyn.RELATION(index, Absyn.LESSEQ(), Absyn.INTEGER(n)))
+  local message = Absyn.BINARY(Absyn.STRING("Enumeration index '"), Absyn.ADD(),
+    Absyn.BINARY(Absyn.CALL(Absyn.CREF_IDENT("String", nil), Absyn.FUNCTIONARGS(list(index), nil), nil),
+                 Absyn.ADD(), Absyn.STRING("' out of bounds in call to " * enum_name * "()")))
+  local level = Absyn.CREF(Absyn.CREF_QUAL("AssertionLevel", nil, Absyn.CREF_IDENT("error", nil)))
+  local assign = k -> list(SCode.ALG_ASSIGN(Absyn.CREF(Absyn.CREF_IDENT("value", nil)),
+    Absyn.CREF(Absyn.CREF_QUAL(enum_name, nil, Absyn.CREF_IDENT(lits_v[k].literal, nil))), SCode.noComment, info))
+  local is_k = k -> Absyn.RELATION(index, Absyn.EQUAL(), Absyn.INTEGER(k))
+  local select = if n == 1
+    assign(1)
+  else
+    list(SCode.ALG_IF(is_k(1), assign(1), list(((is_k(k), assign(k)) for k in 2:n-1)...), assign(n),
+                      SCode.noComment, info))
+  end
+  local stmts = SCode.ALG_ASSERT(in_range, message, level, SCode.noComment, info) <| select
+  local fn_def = SCode.PARTS(params, nil, nil, list(SCode.ALGORITHM(stmts)), nil, nil, nil, NONE())
+  local fn_elem = SCode.CLASS("\$" * enum_name, SCode.defaultPrefixes, SCode.NOT_ENCAPSULATED(),
+                              SCode.NOT_PARTIAL(), SCode.R_FUNCTION(SCode.FR_NORMAL_FUNCTION(false)), fn_def,
+                              SCode.COMMENT(NONE(), SOME("Automatically generated conversion operator for " * enum_name)),
+                              info)
+  return new(fn_elem, parentScope(enumNode, true))
 end
 
 """Instantiates the given InstNode as a function."""

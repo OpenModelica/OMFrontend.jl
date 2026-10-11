@@ -183,7 +183,9 @@ function collect(flatModel::FlatModel)::Tuple{FlatModel, Connections}
         ) => begin
           if !(
             isDeleted(lhs) ||
-            isDeleted(rhs)
+            isDeleted(rhs) ||
+            isInDeletedElement(lhs) ||
+            isInDeletedElement(rhs)
           )
             cl1 = makeConnectors(lhs, ty1, source)
             cl2 = makeConnectors(rhs, ty2, source)

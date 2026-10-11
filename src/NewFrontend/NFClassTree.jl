@@ -240,6 +240,18 @@ function extendsCount(tree::ClassTree)::Int
   return count
 end
 
+#= The classes and components of a tree and of its base classes (omc ClassTree.recursiveElementCount). =#
+function recursiveElementCount(tree::ClassTree)::Int
+  local count = classCount(tree) + componentCount(tree)
+  local exts = tree.exts   # (nothing for a flat or empty tree)
+  if exts !== nothing
+    for ext in exts
+      count += recursiveElementCount(classTree(getClass(ext)))
+    end
+  end
+  return count
+end
+
 function componentCount(tree::ClassTree)
   @match tree begin
     CLASS_TREE_PARTIAL_TREE(__) => begin
@@ -1330,6 +1342,20 @@ function addElementsToFlatTree(elements::List{<:InstNode}, tree::ClassTree)::Cla
   return tree
 end
 
+#= Classes appended to an expanded class tree, the top scope's when a library is loaded on demand
+   (omc ClassTree.appendClasses). The arrays and lookup tree are copies. =#
+function appendClasses(tree::ClassTree, clsNodes::List{<:InstNode})::ClassTree
+  local partial = isvariant(tree, CLASS_TREE_PARTIAL_TREE)
+  local ltree = copy(tree.tree)
+  local new_cls_arr = copy(tree.classes)
+  for c in clsNodes
+    push!(new_cls_arr, c)
+    ltree = addLocalElement(name(c), LookupTree.CLASS(length(new_cls_arr)), tree, ltree)
+  end
+  return (partial ? CLASS_TREE_PARTIAL_TREE : CLASS_TREE_EXPANDED_TREE)(
+    ltree, new_cls_arr, tree.components, tree.exts, tree.imports, tree.duplicates)
+end
+
 """Creates a class tree for an enumeration type."""
 function fromEnumeration(
   literals::List{<:SCode.Enum},
@@ -1521,11 +1547,9 @@ function fromSCode(
         end
 
         SCode.IMPORT(imp = Absyn.UNQUAL_IMPORT(__), info = info) => begin
-          #=  An unqualified import clause. We need to know which names are
-          =#
-          #=  imported by the clause, so it needs to be instantiated.
-          =#
-          imps = instUnqualified(e.imp, parent, info, imps)
+          #= An unqualified import clause: instantiated by initImports, once this tree is on its
+             node (omc), so that a package can import its own subpackage (omc ImportUnqualified4). =#
+          imps = Cons{Import}(UNRESOLVED_IMPORT(e.imp, parent, info), imps)
           ()
         end
 
@@ -1558,16 +1582,31 @@ function fromSCode(
   =#
   #=     ();
   =#
-  #=  Add all the imported names to the lookup tree.
-  =#
+  #= The imports are added to the lookup tree by initImports. =#
   imps_arr = listArray(imps)
-  i = 1
-  for e in imps
-    ltree = addImport(e, i, ltree, imps_arr)
-    i = i + 1
-  end
   tree = CLASS_TREE_PARTIAL_TREE(ltree, clss, comps, exts, imps_arr, dups)
   return tree
+end
+
+#= omc ClassTree.initImports: instantiates the unqualified imports (the names they import are not
+   in the clause) and adds all imports to the lookup tree; called once the tree from fromSCode is on
+   its node (partialInstClass), so `import A.Units.*` inside A finds A.Units. =#
+function initImports(tree::ClassTree, parent::InstNode)::ClassTree
+  isvariant(tree, CLASS_TREE_PARTIAL_TREE) || return tree
+  isempty(tree.imports) && return tree
+  local init_imports::List{Import} = nil
+  for imp in tree.imports
+    init_imports = @match imp begin
+      UNRESOLVED_IMPORT(imp = Absyn.UNQUAL_IMPORT(__)) => instUnqualified(imp.imp, imp.scope, imp.info, init_imports)
+      _ => Cons{Import}(imp, init_imports)
+    end
+  end
+  local imports = listArray(init_imports)
+  local ltree = tree.tree
+  for i in length(imports):-1:1
+    ltree = addImport(imports[i], i, ltree, imports)
+  end
+  return CLASS_TREE_PARTIAL_TREE(ltree, tree.classes, tree.components, tree.exts, imports, tree.duplicates)
 end
 
 """

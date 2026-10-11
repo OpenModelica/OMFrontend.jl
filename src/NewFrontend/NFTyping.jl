@@ -563,6 +563,10 @@ function typeComponentNode(inComponent::InstNode, origin::ORIGIN_Type)::Tuple{In
   local ty::NFType
   local node::InstNode = resolveOuter(inComponent)
   local c::Component = component(node)
+  #= An outer left uninstantiated, its inner encloses it (instComponent): the inner's type. =#
+  if isDefinition(c) && isvariant(inComponent, INNER_OUTER_NODE)
+    return (inComponent, getType(inComponent.innerNode))
+  end
   if isvariant(c, UNTYPED_COMPONENT) && _parallelTypingActive()
     #= The component's own payload is typed under its claim; the claim is
        released before typing children so subtree fan-out never @sync-waits
@@ -855,19 +859,11 @@ function typeDimension2(
     =#
     @match dimension begin
       DIMENSION_UNTYPED(isProcessing = true) => begin
-        #=  Only give an error if we're not in a function.
-        =#
+        #= Outside a function the dimension is left as it is, which is fine if it isn't used
+           (a record binding typed again while its field's dimension is typed, omc DimSize5);
+           a use is a cycle, reported by typeCrefDim (omc checkCyclicDimension). =#
         if flagNotSet(origin, ORIGIN_FUNCTION)
-          Error.addSourceMessage(
-            Error.CYCLIC_DIMENSIONS,
-            list(
-              String(index),
-              name(component),
-              toString(dimension.dimension),
-            ),
-            info,
-          )
-          fail()
+          return dimension
         end
         #=  TODO: Tell the user which variables are involved in the loop (can be
         =#
@@ -892,7 +888,17 @@ function typeDimension2(
         dim
       end
 
-     DIMENSION_UNKNOWN(__) where {(flagSet(origin, ORIGIN_FUNCTION))} => begin
+      #= Dimensions in a function can be flexible (non-output component, or an output without a
+         binding) or determined by the call arguments: keep them unknown (omc typeDimension). =#
+      DIMENSION_UNKNOWN(__) where {flagSet(origin, ORIGIN_FUNCTION) &&
+                                   ((isUnbound(binding) && isOutput(component)) || !isOutput(component))} => begin
+        dimension
+      end
+
+      #= An output's dimension whose binding depends on e.g. an input can't be determined here,
+         the call typing does it (omc typeDimension). =#
+      DIMENSION_UNKNOWN(__) where {flagSet(origin, ORIGIN_FUNCTION) && hasExp(binding) &&
+                                   contains(getBindingExp(getExp(binding)), isCref)} => begin
         dimension
       end
 
@@ -1044,9 +1050,8 @@ function typeDimension2(
       end
     end
   end
-  #=  Other kinds of dimensions are already typed.
-  =#
-  verifyDimension(dimension, component, info)
+  #=  Other kinds of dimensions are already typed. Negative dimensions are checked when
+     flattening (omc verifyDimensions in NFFlatten). =#
   return dimension
 end
 
@@ -1120,6 +1125,7 @@ end
     end
   end
   checkDimensionType(exp, ty, info)
+  local uexp = exp
   if flagNotSet(origin, ORIGIN_FUNCTION)
     if var <= Variability.PARAMETER
       exp = evalExp(
@@ -1140,6 +1146,14 @@ end
     end
   end
   if !arrayAllEqual(exp)
+    #= Ragged: a dimension that differs between the elements of the enclosing arrays of
+       components (`A arr[2](n = {2, 3})` with `Real a[n]`): its expression, evaluated for each
+       element when flattening (omc subscriptDimExp, split indices; flattenRaggedDimension). =#
+    if flagNotSet(origin, ORIGIN_FUNCTION) && exp isa ARRAY_EXPRESSION && !isLiteral(uexp)
+      dim = DIMENSION_EXP(uexp, var)
+      arrayUpdate(dimensions, index, dim)
+      return dim
+    end
     Error.addSourceMessage(
       Error.RAGGED_DIMENSION,
       list(toString(exp)),
@@ -1535,6 +1549,17 @@ function typeExp2(
         exp, typeRef.x, variabilityTypeRef.x = typeExp(exp.exp, next_origin, info);exp
       end
 
+      #= An untyped one, `({1, 2, 3})[n]` (omc typeSubscriptedExp): the subscripts applied when
+         they can be (`(x)[n]` is x[n]). =#
+      SUBSCRIPTED_EXP_EXPRESSION(__) where {isUnknown(exp.ty)} => begin
+        local (se, sty, svar) = typeExp(exp.exp, setFlag(origin, ORIGIN_SUBEXPRESSION), info)
+        local (subs, subs_var) = typeSubscripts(exp.subscripts, sty, COMPONENT_REF_EMPTY(), origin, info)
+        exp = applySubscripts(subs, se)
+        typeRef.x = subscript(sty, subs)
+        variabilityTypeRef.x = variabilityMax(svar, subs_var)
+        exp
+      end
+
       SUBSCRIPTED_EXP_EXPRESSION(__) => begin
         exp, typeRef.x, variabilityTypeRef.x = exp, exp.ty, variability(exp);exp
       end
@@ -1904,6 +1929,15 @@ function typeCrefDim2(cref::ComponentRef,
   return (dim, error)
 end
 
+#= A dimension still being typed when it is used: a dependency loop (omc checkCyclicDimension). =#
+function checkCyclicDimension(dim::Dimension, component::InstNode, index::Int, info::SourceInfo)::Nothing
+  if isvariant(dim, DIMENSION_UNTYPED) && dim.isProcessing
+    Error.addSourceMessage(Error.CYCLIC_DIMENSIONS, list(String(index), name(component), toString(dim.dimension)), info)
+    fail()
+  end
+  return nothing
+end
+
 """
   Types dimension `index` of a single cref component if the index falls within
   its dimensions. Returns (dimension or nothing, dimension count of the node).
@@ -1929,6 +1963,7 @@ function typeCrefDimNode(node::InstNode, index::Int, origin::ORIGIN_Type)::Tuple
           origin,
           c.info,
         ))
+        checkCyclicDimension(dim, node, index, c.info)
         return (dim, dim_count)
       end
       return (nothing, dim_count)
@@ -2124,7 +2159,7 @@ end
       local crefRestCref = typeCref2(cref.restCref, origin, Ref{VariabilityType}(Variability.CONSTANT), info, false)
       @assign cref.ty = crefTy
       @assign cref.restCref = crefRestCref
-      variabilityTypeRef.x = Variability.CONTINUOUS
+      variabilityTypeRef.x = Variability.CONSTANT
       cref
     end
 
@@ -2261,6 +2296,11 @@ end
   #=  We can have both : subscripts and : dimensions here, so we need to allow unknowns.
   =#
   (_, _, mk) = matchTypes(ty, ety, EMPTY_EXPRESSION(ty), #=allowUnknown=# true)
+  #= A cast index, an enumeration literal for an Integer dimension under
+     --allowNonStandardModelica=nonStdEnumerationAsIntegers (omc typeSubscript casts it). =#
+  if mk == MatchKind.CAST && outSubscript isa SUBSCRIPT_INDEX
+    outSubscript = SUBSCRIPT_INDEX(matchTypes(ty, ety, outSubscript.index, true)[1])
+  end
   if isIncompatibleMatch(mk)
     Error.addSourceMessage(
       Error.SUBSCRIPT_TYPE_MISMATCH,
@@ -2999,6 +3039,24 @@ end
     (tb, tb_ty, tb_var) = typeExp(tb, next_origin, info)
     (fb, fb_ty, fb_var) = typeExp(fb, next_origin, info)
     (tb2, fb2, ty, ty_match) = matchExpressions(tb, tb_ty, fb, fb_ty)
+    #= Branches of different sizes in a function, the condition known when it runs (omc: a
+       conditional array type, Type.CONDITIONAL_ARRAY; omc IfExpression11): the sizes that
+       differ are unknown, as a function's flexible sizes are. =#
+    if isIncompatibleMatch(ty_match) && flagSet(origin, ORIGIN_FUNCTION) &&
+       isArray(tb_ty) && isArray(fb_ty) && dimensionCount(tb_ty) == dimensionCount(fb_ty)
+      local tety = arrayElementType(tb_ty)
+      local fety = arrayElementType(fb_ty)
+      local cmk = matchTypes(tety, fety, EMPTY_EXPRESSION(tety), true)[3]
+      if !isIncompatibleMatch(cmk) || (isNumeric(tety) && isNumeric(fety))
+        local cdims = Dimension[isEqualKnown(d1, d2) ? d1 : DIMENSION_UNKNOWN()
+                                for (d1, d2) in zip(arrayDims(tb_ty), arrayDims(fb_ty))]
+        local ety2 = isReal(tety) || isReal(fety) ? TYPE_REAL() : tety
+        tb2 = isReal(ety2) && !isReal(tety) ? typeCast(tb, ety2) : tb
+        fb2 = isReal(ety2) && !isReal(fety) ? typeCast(fb, ety2) : fb
+        ty = liftArrayLeftList(ety2, list(cdims...))
+        ty_match = MatchKind.EXACT
+      end
+    end
     if isIncompatibleMatch(ty_match)
       if cond_var <= Variability.PARAMETER
          (ifExp, ty, var) = if evaluateCondition(cond, origin, info)
@@ -3086,6 +3144,12 @@ function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)::InstNod
    _ = begin
     @match cls begin
       INSTANCED_CLASS(restriction = RESTRICTION_TYPE(__)) => begin
+        ()
+      end
+
+      #= A class of a basic type (`type MyReal extends Real`, through `connector RealInput = input
+         MyReal`): its components are the type's attributes (omc; omc ConnectExtendsBuiltin1). =#
+      INSTANCED_CLASS(__) where {isBasic(arrayElementType(cls.ty))} => begin
         ()
       end
 
@@ -3443,6 +3507,8 @@ function typeComponentSections(c::InstNode, origin::ORIGIN_Type)::InstNode
   local node = resolveOuter(c)
   local is_self = referenceEq(node, c)
   comp = component(node)
+  #= An outer left uninstantiated, its inner encloses it (instComponent): no sections of its own. =#
+  isDefinition(comp) && isvariant(c, INNER_OUTER_NODE) && return c
   () = begin
     @match comp begin
       TYPED_COMPONENT(__) => begin
@@ -3670,7 +3736,7 @@ end
   =#
   #=  the connection handling.
   =#
-  if !(isExpandableConnector(lhs_ty) || isExpandableConnector(rhs_ty))
+  if !(isExpandableConnector(arrayElementType(lhs_ty)) || isExpandableConnector(arrayElementType(rhs_ty)))
     (lhs, rhs, _, mk) =
        matchExpressions(lhs, lhs_ty, rhs, rhs_ty, true#=allowUnknown = true=#)
     if isIncompatibleMatch(mk)
@@ -3970,6 +4036,15 @@ end
           info,
         )
         ALG_TERMINATE(e1, st.source)
+      end
+
+      ALG_REINIT(__) => begin
+        if flagNotSet(origin, ORIGIN_WHEN)
+          Error.addSourceMessage(Error.REINIT_NOT_IN_WHEN, nil, DAE.ElementSource_getInfo(st.source))
+          fail()
+        end
+        (e1, e2) = typeReinit(st.cref, st.reinitExp, origin, st.source)
+        ALG_REINIT(e1, e2, st.source)
       end
 
       ALG_NORETCALL(__) => begin

@@ -65,6 +65,9 @@ packageRoot()::String = something(pkgdir(@__MODULE__), normpath(joinpath(@__DIR_
   This cache is initialized when the module is loaded.
 """
 const NFModelicaBuiltinCache = Dict()
+#= The builtin library is parsed into the package image (precompilation.jl): a change to it
+   recompiles the package. =#
+include_dependency(joinpath(@__DIR__, "..", "lib", "NFModelicaBuiltin.mo"))
 
 """
   This cache contains libraries for later use.
@@ -127,6 +130,7 @@ function __init__()
   #= Const Refs bake their precompile-time value; env-derived flags must be
      re-read at load time. =#
   Frontend.PARALLEL_INST[] = get(ENV, "OMFRONTEND_PARALLEL_INST", "true") == "true"
+  Frontend.LIBRARY_LOADER[] = _loadLibraryOnDemand
   Frontend.CACHE_INST[] = get(ENV, "OMFRONTEND_CACHE_INST", "true") == "true"
   ENABLE_EXECSTAT[] = get(ENV, "ENABLE_EXECSTAT", "false") == "true"
   builtinSCode = NFModelicaBuiltinCache["NFModelicaBuiltin"]
@@ -190,8 +194,56 @@ function instantiateSCodeToFM(elementToInstantiate::String,
   local builtinSCode = NFModelicaBuiltinCache["NFModelicaBuiltin"]
   local program = listReverse(listAppend(builtinSCode, inProgram))
   local path = Frontend.AbsynUtil.stringPath(elementToInstantiate)
-  (flat_model, funcs, inst_cls) = Frontend.instClassInProgramFM(path, program)
+  local old_flags = applyCommandLineOptionsAnnotation(path, program)
+  local flat_model
+  local funcs
+  try
+    (flat_model, funcs, inst_cls) = Frontend.instClassInProgramFM(path, program)
+  finally
+    old_flags === nothing || Frontend.FlagsUtil.saveFlags(old_flags)
+  end
   return (flat_model, funcs)
+end
+
+#= A library loaded when a model refers to it without loading it (omc loads it from MODELICAPATH):
+   the Modelica Standard Library 4.0.0, which holds Modelica, ModelicaServices and Complex. =#
+function _loadLibraryOnDemand(name::String)
+  name in ("Modelica", "ModelicaServices", "Complex") || return nothing
+  loadMSL(MSL_Version = "MSL_4_0_0")
+  return get(LIBRARY_CACHE, "MSL_4_0_0", nothing)
+end
+
+"""
+  Sets the flags of the class's `__OpenModelica_commandLineOptions` annotation that this port has
+  (omc loadCommandLineOptionsFromModel; `--allowNonStandardModelica=...`), unless
+  --ignoreCommandLineOptionsAnnotation. Returns the flags before, or nothing when none were set.
+"""
+function applyCommandLineOptionsAnnotation(path::Frontend.Absyn.Path, program::Frontend.SCode.Program)
+  Frontend.Flags.getConfigBool(Frontend.Flags.IGNORE_COMMAND_LINE_OPTIONS_ANNOTATION) && return nothing
+  local elem = Frontend.SCodeUtil.getElementWithPath(program, path)
+  local ob = Frontend.SCodeUtil.getModifierBinding(
+    Frontend.SCodeUtil.lookupElementAnnotation(elem, "__OpenModelica_commandLineOptions"))
+  isSome(ob) || return nothing
+  local e = Frontend.Util.getOption(ob)
+  e isa Frontend.Absyn.STRING || return nothing
+  local known = Set{String}(f.name for f in Frontend.FlagsUtil.allConfigFlags)
+  local args = String[]
+  for a in split(e.value)
+    local m = match(r"^--([A-Za-z]+)(=.*)?$", a)
+    (m !== nothing && m.captures[1] in known) && push!(args, String(a))
+  end
+  isempty(args) && return nothing
+  local old_flags = Frontend.FlagsUtil.backupFlags()
+  #= One at a time: a value the port's flag does not take (--std=experimental) is skipped. =#
+  for a in args
+    Frontend.ErrorExt.setCheckpoint("applyCommandLineOptionsAnnotation")
+    try
+      Frontend.FlagsUtil.readArgs(list(a))
+    catch
+    end
+    Frontend.ErrorExt.rollBack("applyCommandLineOptionsAnnotation")
+  end
+  return old_flags
 end
 
 """

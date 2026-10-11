@@ -2225,6 +2225,14 @@ const ARG_TYPE_MISMATCH =
     Gettext.gettext("Type mismatch for positional argument %s in %s(%s=%s). The argument has type:\\n  %s\\nexpected type:\\n  %s"),
   )::ErrorTypes.Message
 
+const INVALID_NUMBER_OF_DIMENSIONS_FOR_PROMOTE =
+  ErrorTypes.MESSAGE(
+    366,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("The second argument '%s' of promote may not be smaller than the number of dimensions (%s) of the first argument."),
+  )::ErrorTypes.Message
+
 const OP_OVERLOAD_MULTIPLE_VALID =
   ErrorTypes.MESSAGE(
     270,
@@ -3431,6 +3439,38 @@ const ELSE_WHEN_CLOCK =
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
     Gettext.gettext("Clocked when equation can not contain elsewhen part."),
+  )::ErrorTypes.Message
+
+const PARTIAL_DERIVATIVE_INPUT_NOT_FOUND =
+  ErrorTypes.MESSAGE(
+    404,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("'%s' in partial derivative of '%s' does not name an input parameter of the function."),
+  )::ErrorTypes.Message
+
+const PARTIAL_DERIVATIVE_INPUT_INVALID_TYPE =
+  ErrorTypes.MESSAGE(
+    405,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("'%s' in partial derivative of '%s' is not a scalar Real input parameter of the function."),
+  )::ErrorTypes.Message
+
+const FUNCTION_ARGUMENT_MUST_BE =
+  ErrorTypes.MESSAGE(
+    394,
+    ErrorTypes.SCRIPTING(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("The argument to '%s' must be %s."),
+  )::ErrorTypes.Message
+
+const REINIT_IN_ALGORITHM =
+  ErrorTypes.MESSAGE(
+    618,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Operator reinit may not be used in an algorithm section (use translation flag --allowNonStandardModelica=reinitInAlgorithms to ignore)."),
   )::ErrorTypes.Message
 
 const REINIT_NOT_IN_WHEN =
