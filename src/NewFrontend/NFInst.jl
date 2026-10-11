@@ -1580,16 +1580,16 @@ function instComponent(node::InstNode,
     checkRecursiveDefinition(classInstance(comp), comp_node, false)
     return node
   end
-  #= An outer whose inner encloses it (`inner B b` with `outer B b` in b's own elements), or
-     inside an outer of the same name being instantiated (outers whose classes hold each other's
-     outers): its instance is the inner's, instantiating it again would not end (omc
-     instComponent resolves the inner; omc InnerOuter12, InnerOuterReplaceable3). =#
-  if isvariant(node, INNER_OUTER_NODE) &&
-     (_encloses(node.innerNode, parentNode) || _outerAncestorNamed(parentNode, name(node)))
-    return node
-  end
   #=  An already instantiated component might be due to an instantiation loop, check it. =#
   @match COMPONENT_DEF(definition = def, modifier = outer_mod) = comp
+  #= An outer with an inner: its instance is the inner's, it is not instantiated (omc instComponent
+     resolves the inner). Instantiating it could be a loop (`inner B b` with `outer B b` in b's
+     own elements; omc InnerOuter12, InnerOuterReplaceable3) or a partial class (omc
+     InnerOuterPartialOuter2). A modifier on it is still an error (omc checkOuterComponentMod). =#
+  if isvariant(node, INNER_OUTER_NODE) && isOnlyOuter(node)
+    checkOuterComponentMod(merge(outer_mod, merge(fromElement(def, nil, parentNode), cc_mod)), def, comp_node)
+    return node
+  end
   if isRedeclare(outer_mod)
     checkOuterComponentMod(outer_mod, def, comp_node)
     local rdcl_parents = outer_mod.propagatedParents
