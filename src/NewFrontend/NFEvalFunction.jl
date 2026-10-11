@@ -303,7 +303,9 @@ function _externalSymbol(name::String, ann::Option{SCode.Annotation})::Ptr{Cvoid
     end
     return C_NULL
   end
-  local h = ccall(:dlopen, Ptr{Cvoid}, (Ptr{Cvoid}, Cint), C_NULL, L.RTLD_LAZY)
+  #= jl_dlopen maps Libdl's flags to the native ones (Libdl's RTLD_LAZY is glibc's RTLD_NOLOAD). =#
+  local h = ccall(:jl_dlopen, Ptr{Cvoid}, (Ptr{Cvoid}, Cuint), C_NULL, L.RTLD_LAZY)
+  h == C_NULL && return C_NULL
   return L.dlsym_e(h, name)
 end
 
