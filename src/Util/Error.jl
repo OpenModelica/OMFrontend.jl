@@ -365,7 +365,7 @@ const REDECLARE_NON_REPLACEABLE =
     41,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Trying to redeclare %1 %2 but %1 not declared as replaceable."),
+    Gettext.gettext("Redeclaration with a new type requires '%s' to be replaceable."),
   )::ErrorTypes.Message
 
 const COMPONENT_INPUT_OUTPUT_MISMATCH =

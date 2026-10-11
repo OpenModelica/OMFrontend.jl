@@ -1108,9 +1108,10 @@ end
       flag,
       info)
     end
-    INTEGER_EXPRESSION(__) || REAL_EXPRESSION(__) || BOOLEAN_EXPRESSION(__) => begin
-      (dim, TYPE_INTEGER(), Variability.CONSTANT)
-    end
+    #= Literals keep their types: a Real or Boolean dimension is an error (checkDimensionType). =#
+    INTEGER_EXPRESSION(__) => (dim, TYPE_INTEGER(), Variability.CONSTANT)
+    REAL_EXPRESSION(__) => (dim, TYPE_REAL(), Variability.CONSTANT)
+    BOOLEAN_EXPRESSION(__) => (dim, TYPE_BOOLEAN(), Variability.CONSTANT)
     BINARY_EXPRESSION(__) => begin
       typeBinaryExpression(dim, flag, info)
     end

@@ -1466,10 +1466,12 @@ function redeclareComponentElement(redeclareComp::Pointer{InstNode}, replaceable
   local repl_node::InstNode
   rdcl_node = P_Pointer.access(redeclareComp)
   repl_node = P_Pointer.access(replaceableComp)
+  #= Read before instantiation: an instantiated component node no longer has its definition. =#
+  local repl_replaceable::Bool = isReplaceable(repl_node)
   repl_node = instComponent(repl_node, DEFAULT_ATTR, MODIFIER_NOMOD(), true, instLevel, Ref{Attributes}(DEFAULT_ATTR))
   P_Pointer.update(replaceableComp, repl_node)
   rdcl_node = redeclareComponent(rdcl_node, repl_node, MODIFIER_NOMOD(), MODIFIER_NOMOD(), DEFAULT_ATTR, rdcl_node, instLevel,
-                                 Ref{Attributes}(DEFAULT_ATTR))
+                                 Ref{Attributes}(DEFAULT_ATTR); originalReplaceable = repl_replaceable)
    outComp = P_Pointer.create(rdcl_node)
   outComp
 end
@@ -1668,7 +1670,8 @@ function instComponent(node::InstNode,
     outer_mod = merge(getModifier(rdcl_node), outer_mod)
     rdcl_node = setModifier(outer_mod, rdcl_node)
     comp_node = redeclareComponent(rdcl_node, node, MODIFIER_NOMOD(), cc_mod, attributes, node, instLevel, attributeRef;
-                                   propagatedParents = rdcl_parents)
+                                   propagatedParents = rdcl_parents,
+                                   originalReplaceable = SCodeUtil.isElementReplaceable(def))
   else
     comp_node = instComponentDef(def::SCode.COMPONENT,
                      outer_mod,
@@ -1845,8 +1848,10 @@ function updateComponentConnectorType(attributes::Attributes, restriction::Restr
   attributes
 end
 
+#= originalReplaceable: whether the original component is declared replaceable (its node no
+   longer has the definition once instantiated, so the callers read it from the SCode). =#
 function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, outerMod::Modifier, constrainingMod::Modifier, outerAttr::Attributes, redeclaredNode::InstNode, instLevel::Int, attributeRef::Ref{Attributes};
-                            propagatedParents::List{InstNode} = Nil{InstNode}())
+                            propagatedParents::List{InstNode} = Nil{InstNode}(), originalReplaceable::Bool)
   local orig_comp::Component
   local rdcl_comp::Component
   local new_comp::Component
@@ -1875,6 +1880,14 @@ function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, out
   new_comp = begin
     @match (orig_comp, rdcl_comp) begin
       (UNTYPED_COMPONENT(__), UNTYPED_COMPONENT(__))  => begin
+        #=  omc: a component that is not replaceable may only be redeclared with the same
+            type (omc Type.isEqual of the untyped types: InstNode.isSame, the same definition). =#
+        if !originalReplaceable &&
+           !referenceEq(definition(orig_comp.classInst), definition(rdcl_comp.classInst))
+          Error.addMultiSourceMessage(Error.REDECLARE_NON_REPLACEABLE, list(name(originalNode)),
+                                      list(InstNode_info(originalNode), InstNode_info(rdcl_node)))
+          fail()
+        end
         #=  Take the binding from the outer modifier, the redeclare, or the
         =#
         #=  original component, in that order of priority.
