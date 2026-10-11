@@ -3039,6 +3039,24 @@ end
     (tb, tb_ty, tb_var) = typeExp(tb, next_origin, info)
     (fb, fb_ty, fb_var) = typeExp(fb, next_origin, info)
     (tb2, fb2, ty, ty_match) = matchExpressions(tb, tb_ty, fb, fb_ty)
+    #= Branches of different sizes in a function, the condition known when it runs (omc: a
+       conditional array type, Type.CONDITIONAL_ARRAY; omc IfExpression11): the sizes that
+       differ are unknown, as a function's flexible sizes are. =#
+    if isIncompatibleMatch(ty_match) && flagSet(origin, ORIGIN_FUNCTION) &&
+       isArray(tb_ty) && isArray(fb_ty) && dimensionCount(tb_ty) == dimensionCount(fb_ty)
+      local tety = arrayElementType(tb_ty)
+      local fety = arrayElementType(fb_ty)
+      local cmk = matchTypes(tety, fety, EMPTY_EXPRESSION(tety), true)[3]
+      if !isIncompatibleMatch(cmk) || (isNumeric(tety) && isNumeric(fety))
+        local cdims = Dimension[isEqualKnown(d1, d2) ? d1 : DIMENSION_UNKNOWN()
+                                for (d1, d2) in zip(arrayDims(tb_ty), arrayDims(fb_ty))]
+        local ety2 = isReal(tety) || isReal(fety) ? TYPE_REAL() : tety
+        tb2 = isReal(ety2) && !isReal(tety) ? typeCast(tb, ety2) : tb
+        fb2 = isReal(ety2) && !isReal(fety) ? typeCast(fb, ety2) : fb
+        ty = liftArrayLeftList(ety2, list(cdims...))
+        ty_match = MatchKind.EXACT
+      end
+    end
     if isIncompatibleMatch(ty_match)
       if cond_var <= Variability.PARAMETER
          (ifExp, ty, var) = if evaluateCondition(cond, origin, info)
