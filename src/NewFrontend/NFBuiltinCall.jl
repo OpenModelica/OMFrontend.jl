@@ -872,6 +872,24 @@ function typeEdgeCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple
   (callExp, ty, variability)
 end
 
+#= omc typeMinMaxCall: the argument types min and max accept. =#
+function minMaxValidType(ty::M_Type)::Bool
+  return isReal(ty) || isInteger(ty) || isBoolean(ty) || isEnumeration(ty)
+end
+
+function minMaxInvalidArgsError(call::Call, name::String, info::SourceInfo)
+  Error.addSourceMessageAndFail(Error.NO_MATCHING_FUNCTION_FOUND_NFINST,
+    list(toString(call),
+         name + "(Real, Real) => Real\n  " +
+         name + "(Integer, Integer) => Integer\n  " +
+         name + "(Boolean, Boolean) => Boolean\n  " +
+         name + "(enumeration(:), enumeration(:)) => enumeration(:)\n  " +
+         name + "(Real[:, ...]) => Real\n  " +
+         name + "(Integer[:, ...]) => Integer\n  " +
+         name + "(Boolean[:, ...]) => Boolean\n  " +
+         name + "(enumeration(:)[:, ...]) => enumeration(:)"), info)
+end
+
 function typeMinMaxCall(name::String, call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
   local var::VariabilityType
   local ty::M_Type
@@ -896,8 +914,8 @@ function typeMinMaxCall(name::String, call::Call, origin::ORIGIN_Type, info::Sou
       [arg1]  => begin
         (arg1, ty1, var) = typeExp(arg1, origin, info)
         ty = arrayElementType(ty1)
-        if ! (isArray(ty1) && isBasic(ty))
-          Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list("1", name, "", toString(arg1), toString(ty1), "Any[:, ...]"), info)
+        if ! (isArray(ty1) && minMaxValidType(ty))
+          minMaxInvalidArgsError(call, name, info)
         end
         #=  If the argument is an array with a single element we can just
         =#
@@ -913,25 +931,18 @@ function typeMinMaxCall(name::String, call::Call, origin::ORIGIN_Type, info::Sou
       [arg1, arg2]  => begin
         (arg1, ty1, var1) = typeExp(arg1, origin, info)
         (arg2, ty2, var2) = typeExp(arg2, origin, info)
-        if ! isBasic(ty1)
-          Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list("1", name, "", toString(arg1), toString(ty1), "Any"), info)
-        end
-        if ! isBasic(ty2)
-          Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list("2", name, "", toString(arg2), toString(ty2), "Any"), info)
+        if ! (minMaxValidType(ty1) && minMaxValidType(ty2))
+          minMaxInvalidArgsError(call, name, info)
         end
         (arg1, arg2, ty, mk) = matchExpressions(arg1, ty1, arg2, ty2)
         if ! isValidArgumentMatch(mk)
-          Error.addSourceMessage(Error.NO_MATCHING_FUNCTION_FOUND_NFINST, list(toString(call),
-                                                                               name
-                                                                               + "(Any[:, ...]) => Any\n"
-                                                                               + name
-                                                                               + "(Any, Any) => Any"), info)
+          minMaxInvalidArgsError(call, name, info)
         end
         (Expression[arg1, arg2], ty, variabilityMax(var1, var2))
       end
 
       _  => begin
-        Error.addSourceMessage(Error.NO_MATCHING_FUNCTION_FOUND_NFINST, list(toString(call), name + "(Any[:, ...]) => Any\\n" + name + "(Any, Any) => Any"), info)
+        minMaxInvalidArgsError(call, name, info)
         fail()
       end
     end
