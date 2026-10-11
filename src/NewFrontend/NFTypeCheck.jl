@@ -499,7 +499,7 @@ function checkOverloadedBinaryArrayAddSub2(
               var2,
               candidates,
               info,
-              showErrors = false,
+              false, #= showErrors =#
             )
           catch
             printUnresolvableTypeError(
@@ -711,7 +711,7 @@ function checkOverloadedBinaryScalarArray2(
             var2,
             candidates,
             info,
-            showErrors = false,
+            false, #= showErrors =#
           )
         catch
           printUnresolvableTypeError(
@@ -826,7 +826,7 @@ function checkOverloadedBinaryArrayScalar2(
             var2,
             candidates,
             info,
-            showErrors = false,
+            false, #= showErrors =#
           )
         catch
           printUnresolvableTypeError(
