@@ -1020,6 +1020,9 @@ function typePromoteCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tu
   local n_ty::M_Type
   local n_var::VariabilityType
   local n::Int
+  if !Config.languageStandardAtLeast(Config.LanguageStandard.experimental)
+    Error.addSourceMessageAndFail(Error.EXPERIMENTAL_REQUIRED, list("promote"), info)
+  end
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
   assertNoNamedParams("promote", named_args, info)
   if length(args) != 2
