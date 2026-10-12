@@ -3281,6 +3281,14 @@ const MISSING_INNER_NAME_CONFLICT =
     Gettext.gettext("An inner declaration for outer element '%s' could not be found, and could not be automatically generated due to an existing declaration of that name."),
   )::ErrorTypes.Message
 
+const CYCLIC_FUNCTION_COMPONENTS =
+  ErrorTypes.MESSAGE(
+    383,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Cyclically dependent function components found: %s"),
+  )::ErrorTypes.Message
+
 const INST_INVALID_RESTRICTION =
   ErrorTypes.MESSAGE(
     525,

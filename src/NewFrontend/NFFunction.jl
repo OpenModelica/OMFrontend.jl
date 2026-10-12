@@ -976,7 +976,66 @@ function typeFunctionBody(fn::M_FUNCTION)::M_FUNCTION
   for fn_der in fn.derivatives
     typeDerivative(fn_der)
   end
+  #=  Sort the local variables based on their dependencies (omc). =#
+  @assign fn.locals = sortLocals(fn.locals, InstNode_info(fn.node))
   return fn
+end
+
+#= omc Function.sortLocals: the local components of a function in an order they can be
+   initialized in (a binding or dimension may use other locals), or an error for mutually
+   dependent ones. Locals that use no other local keep their declared order. omc also follows
+   the field bindings of a local record without a binding; not done here. =#
+function sortLocals(locals::List{InstNode}, info::SourceInfo)::List{InstNode}
+  local nodes::Vector{InstNode} = Base.collect(locals)
+  local n::Int = length(nodes)
+  n < 2 && return locals
+  local deps::Vector{Set{Int}} = [localDependencies(nodes[i], i, nodes) for i in 1:n]
+  all(isempty, deps) && return locals
+  local order::Vector{Int} = Int[]
+  local done::BitVector = falses(n)
+  local progress::Bool = true
+  while progress
+    progress = false
+    for i in 1:n
+      if !done[i] && all(d -> done[d], deps[i])
+        push!(order, i)
+        done[i] = true
+        progress = true
+      end
+    end
+  end
+  if length(order) < n
+    local cyc::String = "{" * Base.join([name(nodes[i]) for i in 1:n if !done[i]], ", ") * "}"
+    Error.addSourceMessage(Error.CYCLIC_FUNCTION_COMPONENTS, list(cyc), info)
+    fail()
+  end
+  return arrayList(nodes[order])
+end
+
+#= The other locals (indices into nodes) a local's binding and dimensions refer to, by the
+   root of each cref (omc ComponentRef.last: a in a.b.c, for local record instances). =#
+function localDependencies(compNode::InstNode, self::Int, nodes::Vector{InstNode})::Set{Int}
+  local deps::Set{Int} = Set{Int}()
+  local add_cref = (e, acc) -> begin
+    if e isa CREF_EXPRESSION && isvariant(e.cref, COMPONENT_REF_CREF)
+      local cr::ComponentRef = e.cref
+      while isvariant(cr.restCref, COMPONENT_REF_CREF)
+        cr = cr.restCref
+      end
+      local k = findfirst(m -> refEqual(m, node(cr)), nodes)
+      (k === nothing || k == self) || push!(deps, k)
+    end
+    acc
+  end
+  local b::Binding = getBinding(component(compNode))
+  hasExp(b) && fold(getExp(b), add_cref, nothing)
+  for d in arrayDims(getType(compNode))
+    @match d begin
+      DIMENSION_EXP(__) => fold(d.exp, add_cref, nothing)
+      _ => ()
+    end
+  end
+  return deps
 end
 
 """Types a function's parameters, local components and default arguments."""
