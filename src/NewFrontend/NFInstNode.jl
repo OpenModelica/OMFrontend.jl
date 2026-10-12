@@ -362,6 +362,15 @@ function isEnumerationType(node::InstNode)::Bool
   end
 end
 
+#= omc InstNode.isEncapsulated. =#
+function isEncapsulated(node::InstNode)::Bool
+  return @match node begin
+    CLASS_NODE(__) => isEncapsulated(getClass(node))
+    COMPONENT_NODE(__) => isEncapsulated(getClass(node))
+    _ => false
+  end
+end
+
 function isBuiltin(node::InstNode)
   local isBuiltin::Bool
    isBuiltin = begin

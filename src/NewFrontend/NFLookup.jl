@@ -411,14 +411,22 @@ function lookupSimpleName(nameStr::String, scope::InstNode)::Tuple{InstNode, Boo
   local node::InstNode
   local cur_scope::InstNode = scope
   local loaded = false
+  #= Past an encapsulated scope only builtin names are found (omc lookupSimpleName). =#
+  local require_builtin = false
   for i in 1:Global.recursionDepthLimit
     @match ENTRY_INFO(node, _) = lookupLocalSimpleName(nameStr, cur_scope)
-    if node !== EMPTY_NODE()
+    if node !== EMPTY_NODE() && (!require_builtin || isBuiltin(node))
       return (node, false)
     end
-    if nameStr == name(cur_scope) && isClass(cur_scope)
+    if !require_builtin && nameStr == name(cur_scope) && isClass(cur_scope)
       return (cur_scope, true)
     end
+    if !require_builtin && isEncapsulated(cur_scope)
+      require_builtin = true
+      cur_scope = topScope(cur_scope)
+      continue
+    end
+    require_builtin && isvariant(cur_scope, CLASS_NODE) && isvariant(cur_scope.nodeType, TOP_SCOPE) && break
     #= Not found in any scope: a library of that name loaded into the top scope, and looked up
        there again (omc lookupSimpleName, loadLibrary; omc LookupLibrary1: Modelica). =#
     if !loaded && isvariant(cur_scope, CLASS_NODE) && isvariant(cur_scope.nodeType, TOP_SCOPE)
@@ -427,8 +435,7 @@ function lookupSimpleName(nameStr::String, scope::InstNode)::Tuple{InstNode, Boo
     end
     cur_scope = parentScope(cur_scope)
   end
-  #@error "Failed to lookup simple name for $nameStr in scope:$scope"
-  Error.addSourceMessage(Error.LOOKUP_VARIABLE_ERROR, list(nameStr, scopeName(scope)), info)
+  #= Not found: the caller reports it (lookupNameWithError, LOOKUP_ERROR). =#
   return (EMPTY_NODE(), false)
 end
 
