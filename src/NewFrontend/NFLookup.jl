@@ -290,24 +290,27 @@ function lookupCref(cref::Absyn.ComponentRef,
   local foundCref::ComponentRef
 
   local nodeVar::InstNode
+  local in_enclosing = Ref{Bool}(false)
 
   foundCref = begin
     @match cref begin
       Absyn.CREF_IDENT(__)  => begin
-        (_, foundCref) = lookupSimpleCref(cref.name, cref.subscripts, scope, scopeRef, stateRef)
+        (_, foundCref) = lookupSimpleCref(cref.name, cref.subscripts, scope, scopeRef, stateRef, in_enclosing)
         foundScope = scopeRef.x
-        state = stateRef.x
+        state = checkCrefVariability(foundCref, in_enclosing.x, stateRef.x)
+        stateRef.x = state
         foundCref
         #(foundCref, foundScope, state)
       end
 
       Absyn.CREF_QUAL(__)  => begin
-        (nodeVar, foundCref) = lookupSimpleCref(cref.name, cref.subscripts, scope, scopeRef, stateRef)
+        (nodeVar, foundCref) = lookupSimpleCref(cref.name, cref.subscripts, scope, scopeRef, stateRef, in_enclosing)
         foundScope = scopeRef.x
         state = stateRef.x
         foundCref = lookupCrefInNode(cref.componentRef, nodeVar, foundCref, foundScope, state, scopeRef, stateRef)
         foundScope = scopeRef.x
-        state = stateRef.x
+        state = checkCrefVariability(foundCref, in_enclosing.x, stateRef.x)
+        stateRef.x = state
         foundCref
       end
 
@@ -695,12 +698,15 @@ function lookupSimpleCref(crefName::String,
                           subs::List{<:Absyn.Subscript},
                           scope::InstNode,
                           scopeRef::Ref{InstNode},
-                          stateRef::Ref{LookupState})
+                          stateRef::Ref{LookupState},
+                          inEnclosingRef::Ref{Bool})
   local state::LookupState
   local foundScope::InstNode = scope
   local cref::ComponentRef
   local node::InstNode
   local is_import::Bool
+  #= omc lookupSimpleCref's inEnclosingScope: found after leaving a non-implicit scope. =#
+  local in_enclosing::Bool = false
   #= First try the normal scope chain. Local declarations shadow builtins. =#
   for i in 1:Global.recursionDepthLimit
     try
@@ -750,14 +756,17 @@ function lookupSimpleCref(crefName::String,
       end
       state = nodeState(node)
       if state isa LOOKUP_STATE_ERROR
+        in_enclosing |= !isvariant(foundScope, IMPLICIT_SCOPE)
         foundScope = parentScope(foundScope)
         continue
       end
+      inEnclosingRef.x = in_enclosing
       cref = fromAbsyn(node, subs)
       stateRef.x = state
       scopeRef.x = foundScope
       return (node, cref)
     catch e
+      in_enclosing |= !isvariant(foundScope, IMPLICIT_SCOPE)
       foundScope = parentScope(foundScope)
       scopeRef.x = foundScope
     end
@@ -772,6 +781,19 @@ function lookupSimpleCref(crefName::String,
   end
   Error.addMessage(Error.RECURSION_DEPTH_REACHED, list(String(Global.recursionDepthLimit), scopeName(foundScope)))
   fail()
+end
+
+#= omc LookupState.checkCrefVariability: a variable found in an enclosing scope must be a
+   constant (the node the whole cref ends in). =#
+function checkCrefVariability(cref::ComponentRef, inEnclosingScope::Bool, state::LookupState)::LookupState
+  isError(state) && return state
+  if inEnclosingScope && isvariant(cref, COMPONENT_REF_CREF)
+    local n::InstNode = node(cref)
+    if isComponent(n) && !isConst(component(n))
+      return LOOKUP_STATE_ERROR(LOOKUP_STATE_NON_CONSTANT())
+    end
+  end
+  return state
 end
 
 """
@@ -909,6 +931,13 @@ function lookupCrefInNode(cref::Absyn.ComponentRef #=modification-040321=#,
   end
   local wasInnerOuter = isInnerOuterNode(n)
    (n, foundCref, foundScope) = resolveInnerCref(n, foundCref, foundScope)
+  #= omc: an element found in a class that is not a package must be encapsulated, so a
+     non-constant component there is an error (packages hold constant components only). =#
+  if isvariant(node, CLASS_NODE) && isComponent(n) && !isConst(component(n))
+    scopeRef.x = foundScope
+    stateRef.x = LOOKUP_STATE_ERROR(LOOKUP_STATE_NON_ENCAPSULATED())
+    return fromAbsyn(n, nil, foundCref)
+  end
   #= Inner/outer access bypasses protection checks. A protected outer
      declaration resolves to its matching inner, which may also be
      protected, but the access is always legal through the outer link. =#

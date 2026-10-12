@@ -3257,6 +3257,14 @@ const NON_PARAMETER_EXPRESSION_DIMENSION =
     Gettext.gettext("Expression '%s' that determines the size of dimension '%s' of '%s' is not an evaluable parameter expression."),
   )::ErrorTypes.Message
 
+const NON_CONSTANT_IN_ENCLOSING_SCOPE =
+  ErrorTypes.MESSAGE(
+    403,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Component '%s' was found in an enclosing scope but is not a constant."),
+  )::ErrorTypes.Message
+
 const INST_INVALID_RESTRICTION =
   ErrorTypes.MESSAGE(
     525,
