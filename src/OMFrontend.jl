@@ -220,7 +220,12 @@ end
 """
 function applyCommandLineOptionsAnnotation(path::Frontend.Absyn.Path, program::Frontend.SCode.Program)
   Frontend.Flags.getConfigBool(Frontend.Flags.IGNORE_COMMAND_LINE_OPTIONS_ANNOTATION) && return nothing
-  local elem = Frontend.SCodeUtil.getElementWithPath(program, path)
+  #= A class the program does not have: instantiation reports it (lookup error). =#
+  local elem = try
+    Frontend.SCodeUtil.getElementWithPath(program, path)
+  catch
+    return nothing
+  end
   local ob = Frontend.SCodeUtil.getModifierBinding(
     Frontend.SCodeUtil.lookupElementAnnotation(elem, "__OpenModelica_commandLineOptions"))
   isSome(ob) || return nothing
