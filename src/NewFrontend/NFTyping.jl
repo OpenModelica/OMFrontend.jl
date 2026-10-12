@@ -3817,20 +3817,10 @@ end
         cref = cr && COMPONENT_REF_CREF(origin = Origin.CREF),
       ) => begin
         if !isConnector(cr.node)
-          @error "Invalid connector type" list(toString(cr)) info
-          # Error.addSourceMessageAndFail(
-          #   Error.INVALID_CONNECTOR_TYPE,
-          #   list(toString(cr)),
-          #   info,
-          # )
+          Error.addSourceMessageAndFail(Error.INVALID_CONNECTOR_TYPE, list(toString(cr)), info)
         end
         if !checkConnectorForm(cr)
-          @error "Invalid connector form:" toString(cr)
-          # Error.addSourceMessageAndFail(
-          #   Error.INVALID_CONNECTOR_FORM,
-          #   list(toString(cr)),
-          #   info,
-          # )
+          Error.addSourceMessageAndFail(Error.INVALID_CONNECTOR_FORM, list(toString(cr)), info)
         end
         if subscriptsVariability(cr) > Variability.PARAMETER
            subs = subscriptsAllFlat(cr)

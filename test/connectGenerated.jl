@@ -230,27 +230,6 @@ equation
 end Top2;
 """
 
-const ConnectInnerOuter4_Top_REF = """
-class Top
-  flow Real world.subWorld.pin.i;
-  Real world.subWorld.pin.v;
-  flow Real topPin.i;
-  Real topPin.v;
-  flow Real a1.aPin.i;
-  Real a1.aPin.v;
-  flow Real a2.aPin.i;
-  Real a2.aPin.v;
-equation
-  topPin.v = a2.aPin.v;
-  topPin.v = a1.aPin.v;
-  topPin.v = world.subWorld.pin.v;
-  world.subWorld.pin.i - topPin.i - a2.aPin.i - a1.aPin.i = 0.0;
-  topPin.i = 0.0;
-  a1.aPin.i = 0.0;
-  a2.aPin.i = 0.0;
-end Top;
-"""
-
 const ConnectInnerOuterArray1_REF = """
 class ConnectInnerOuterArray1
   Real innerOuterModel.c1.e;
@@ -2511,7 +2490,6 @@ generatedConnectorTests = Tuple[
     (GeneratedConnectorTests.ConnectInnerOuter_Top_REF, "Top", "./Connectors/ConnectInnerOuter.mo"),
     (GeneratedConnectorTests.ConnectInnerOuter2_Top_REF, "Top", "./Connectors/ConnectInnerOuter2.mo"),
     (GeneratedConnectorTests.ConnectInnerOuter3_Top2_REF, "Top2", "./Connectors/ConnectInnerOuter3.mo"),
-    (GeneratedConnectorTests.ConnectInnerOuter4_Top_REF, "Top", "./Connectors/ConnectInnerOuter4.mo"),
     (GeneratedConnectorTests.ConnectInnerOuterArray1_REF, "ConnectInnerOuterArray1", "./Connectors/ConnectInnerOuterArray1.mo"),
     (GeneratedConnectorTests.ConnectParamArray_REF, "ConnectParamArray", "./Connectors/ConnectParamArray.mo"),
     (GeneratedConnectorTests.ConnectTheSameConnector_REF, "ConnectTheSameConnector", "./Connectors/ConnectTheSameConnector.mo"),
@@ -2550,6 +2528,7 @@ generatedConnectorTestsRejected = Tuple[
     ("ConnectorIllegal", "./Connectors/ConnectorIllegal.mo"),
     ("ConnectorIllegal2", "./Connectors/ConnectorIllegal2.mo"),
     ("InitialConnection", "./Connectors/InitialConnection.mo"),
+    ("Top", "./Connectors/ConnectInnerOuter4.mo"),
 ]
 
 #=
