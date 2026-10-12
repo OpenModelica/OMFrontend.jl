@@ -3726,6 +3726,7 @@ function typeEquationAssert(eq::Equation, origin::ORIGIN_Type)
     3,
     info,
   )
+  checkAssertLevel(e3, info)
   return EQUATION_ASSERT(e1, e2, e3, eq.source)
 end
 
@@ -4049,6 +4050,7 @@ end
           3,
           info,
         )
+        checkAssertLevel(e3, info)
         ALG_ASSERT(e1, e2, e3, st.source)
       end
 
@@ -4399,6 +4401,17 @@ end
   end
   whenEq = EQUATION_WHEN(accum_branches, source)
   return whenEq
+end
+
+#= omc typeAssert: the level of an assert must be a parameter expression. =#
+function checkAssertLevel(@nospecialize(level::Expression), info::SourceInfo)
+  local level_var::VariabilityType = variability(level)
+  if level_var > Variability.PARAMETER
+    Error.addSourceMessage(Error.FUNCTION_SLOT_VARIABILITY,
+      list("level", toString(level), "assert", variabilityString(level_var), "parameter"), info)
+    fail()
+  end
+  return nothing
 end
 
 function typeOperatorArg(

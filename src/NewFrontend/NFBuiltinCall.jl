@@ -1158,6 +1158,11 @@ function typeFillCall2(fnRef::ComponentRef,
   =#
   for (i,arg) in enumerate(dimensionArgs)
     (arg, arg_ty, arg_var) = typeExp(arg, origin, info)
+    if !(flagSet(origin, ORIGIN_ALGORITHM) || flagSet(origin, ORIGIN_FUNCTION)) && arg_var > Variability.PARAMETER
+      Error.addSourceMessageAndFail(Error.NON_PARAMETER_EXPRESSION_DIMENSION,
+        list(toString(arg), intString(i),
+             toString(fnRef) + "(" + Base.join([toString(e) for e in vcat(Expression[fillArg], dimensionArgs)], ", ") + ")"), info)
+    end
     if arg_var <= Variability.STRUCTURAL_PARAMETER && ! flagSet(origin, ORIGIN_FUNCTION) && ! containsIterator(arg, origin)
       arg = evalExp(arg)
       arg_ty = typeOf(arg)

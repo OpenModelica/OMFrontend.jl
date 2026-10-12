@@ -3249,6 +3249,14 @@ const INVALID_CONNECTOR_VARIABILITY =
     Gettext.gettext("Invalid variability %s on connector '%s'."),
   )::ErrorTypes.Message
 
+const NON_PARAMETER_EXPRESSION_DIMENSION =
+  ErrorTypes.MESSAGE(
+    302,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Expression '%s' that determines the size of dimension '%s' of '%s' is not an evaluable parameter expression."),
+  )::ErrorTypes.Message
+
 const INST_INVALID_RESTRICTION =
   ErrorTypes.MESSAGE(
     525,

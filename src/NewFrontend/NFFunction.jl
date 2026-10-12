@@ -1630,7 +1630,7 @@ function fillArgs(
   if pos_arg_count > slot_count
     matching = false
     return (args, matching)
-  elseif pos_arg_count == slot_count && isempty(namedArgs)
+  elseif pos_arg_count == slot_count && isempty(namedArgs) && all(positional, slots)
     matching = true
     return (args, matching)
   end
