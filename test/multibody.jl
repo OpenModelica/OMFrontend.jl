@@ -4,14 +4,22 @@ Test for the multibody components
 @testset "Modelica.Mechanics.MultiBody.Parts" begin
   @info "Modelica.Mechanics.MultiBody.Parts"
   prefix = "Modelica.Mechanics.MultiBody.Parts"
-  @test typeof(flattenModelInMSL_TST("$(prefix).Fixed")[1]) == OMFrontend.Frontend.FLAT_MODEL
-  @test typeof(flattenModelInMSL_TST("$(prefix).FixedTranslation")[1]) == OMFrontend.Frontend.FLAT_MODEL
-  @test typeof(flattenModelInMSL_TST("$(prefix).Body")[1]) == OMFrontend.Frontend.FLAT_MODEL
-  @test typeof(flattenModelInMSL_TST("$(prefix).BodyShape")[1]) == OMFrontend.Frontend.FLAT_MODEL
-  @test typeof(flattenModelInMSL_TST("$(prefix).BodyBox")[1]) == OMFrontend.Frontend.FLAT_MODEL
-  @test typeof(flattenModelInMSL_TST("$(prefix).BodyCylinder")[1]) == OMFrontend.Frontend.FLAT_MODEL
-  @test typeof(flattenModelInMSL_TST("$(prefix).PointMass")[1]) == OMFrontend.Frontend.FLAT_MODEL
-  @test typeof(flattenModelInMSL_TST("$(prefix).Mounting1D")[1]) == OMFrontend.Frontend.FLAT_MODEL
+  #= The parts declare `outer World world`: flattened on their own, omc refuses them (a
+     top-level outer) unless --allowNonStandardModelica=nonStdTopLevelOuter. =#
+  local flags = OMFrontend.Frontend.FlagsUtil.backupFlags()
+  OMFrontend.Frontend.FlagsUtil.readArgs(OMFrontend.Frontend.list("--allowNonStandardModelica=nonStdTopLevelOuter"))
+  try
+    @test typeof(flattenModelInMSL_TST("$(prefix).Fixed")[1]) == OMFrontend.Frontend.FLAT_MODEL
+    @test typeof(flattenModelInMSL_TST("$(prefix).FixedTranslation")[1]) == OMFrontend.Frontend.FLAT_MODEL
+    @test typeof(flattenModelInMSL_TST("$(prefix).Body")[1]) == OMFrontend.Frontend.FLAT_MODEL
+    @test typeof(flattenModelInMSL_TST("$(prefix).BodyShape")[1]) == OMFrontend.Frontend.FLAT_MODEL
+    @test typeof(flattenModelInMSL_TST("$(prefix).BodyBox")[1]) == OMFrontend.Frontend.FLAT_MODEL
+    @test typeof(flattenModelInMSL_TST("$(prefix).BodyCylinder")[1]) == OMFrontend.Frontend.FLAT_MODEL
+    @test typeof(flattenModelInMSL_TST("$(prefix).PointMass")[1]) == OMFrontend.Frontend.FLAT_MODEL
+    @test typeof(flattenModelInMSL_TST("$(prefix).Mounting1D")[1]) == OMFrontend.Frontend.FLAT_MODEL
+  finally
+    OMFrontend.Frontend.FlagsUtil.saveFlags(flags)
+  end
 end
 
 @testset "Testing to Flatten Modelica.Mechanics.MultiBody.Examples.Elementary..." begin
