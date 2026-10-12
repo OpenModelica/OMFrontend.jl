@@ -3265,6 +3265,22 @@ const NON_CONSTANT_IN_ENCLOSING_SCOPE =
     Gettext.gettext("Component '%s' was found in an enclosing scope but is not a constant."),
   )::ErrorTypes.Message
 
+const TOP_LEVEL_OUTER =
+  ErrorTypes.MESSAGE(
+    379,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.WARNING(),
+    Gettext.gettext("The model can't be instantiated due to top-level outer element '%s', it may only be used as part of a simulation model."),
+  )::ErrorTypes.Message
+
+const MISSING_INNER_NAME_CONFLICT =
+  ErrorTypes.MESSAGE(
+    380,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("An inner declaration for outer element '%s' could not be found, and could not be automatically generated due to an existing declaration of that name."),
+  )::ErrorTypes.Message
+
 const INST_INVALID_RESTRICTION =
   ErrorTypes.MESSAGE(
     525,

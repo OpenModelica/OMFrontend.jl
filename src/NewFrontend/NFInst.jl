@@ -3668,6 +3668,45 @@ function checkIteratorShadowing(nameArg::String, scope::InstNode, infoArg::Sourc
   end
 end
 
+#= omc NFInst.checkTopLevelOuter: an inner is generated for an outer element only when the
+   root class has nothing of that name; an outer element of the root class itself
+   (TOP_LEVEL_OUTER, a warning with --allowNonStandardModelica=nonStdTopLevelOuter) or another
+   element of that name (MISSING_INNER_NAME_CONFLICT) is an error. omc tells them apart with
+   isInner of the found node; here isOuter, see below. =#
+function checkTopLevelOuter(name::String, outerNode::InstNode, scope::InstNode)
+  local node::InstNode = try
+    Base.first(lookupSimpleName(name, scope))
+  catch
+    EMPTY_NODE()
+  end
+  isvariant(node, EMPTY_NODE) && return nothing
+  #= The root's element resolves to the generated inner itself (or is outer): the outer is the
+     root's own, TOP_LEVEL_OUTER. A declared inner of that name instead: the generated inner is
+     one this port makes although lookup finds that inner (omc generates none then); not an
+     error. =#
+  local same_def::Bool = try
+    referenceEq(definition(node), definition(outerNode))
+  catch
+    #= An instantiated component has no definition here. =#
+    false
+  end
+  local is_top_outer::Bool = isOuter(node) || same_def
+  !is_top_outer && isInner(node) && return nothing
+  if is_top_outer
+    if Flags.isConfigFlagSet(Flags.ALLOW_NON_STANDARD_MODELICA, "nonStdTopLevelOuter")
+      Error.addSourceMessage(Error.TOP_LEVEL_OUTER, list(name), InstNode_info(node))
+      return nothing
+    end
+    Error.addSourceMessage(ErrorTypes.MESSAGE(Error.TOP_LEVEL_OUTER.id, ErrorTypes.TRANSLATION(),
+                                              ErrorTypes.ERROR(), Error.TOP_LEVEL_OUTER.message),
+                           list(name), InstNode_info(node))
+  else
+    Error.addMultiSourceMessage(Error.MISSING_INNER_NAME_CONFLICT, list(name),
+                                list(InstNode_info(node), InstNode_info(outerNode)))
+  end
+  fail()
+end
+
 """
 Inner elements can be generated automatically during instantiation if they're
                    missing, and are stored in the cache of the top scope since that's easily
@@ -3695,6 +3734,7 @@ function insertGeneratedInners(node::InstNode, topScope::InstNode)
   inner_comps = nil
   for e in inner_nodes
     (name, n) = e
+    checkTopLevelOuter(name, n, node)
     Error.addSourceMessage(Error.MISSING_INNER_ADDED, list(typeName(n), name), InstNode_info(n))
     if isComponent(n)
       n = instComponent(n, DEFAULT_ATTR, MODIFIER_NOMOD(), true, 0, Ref{Attributes}(DEFAULT_ATTR))
