@@ -774,6 +774,26 @@ function getRecordBindings(binding::Binding, comps::Vector{<:InstNode})::List{Bi
   return recordBindings
 end
 
+"""
+    chooseRecordBranches(exp::Expression) -> Expression
+
+An array of records each chosen by a parameter condition (MSL 4 BaseStackData's
+`cellData[Ns, Np] = {{if anyTrue(...) then cellDataDegraded else cellDataOriginal ...}}`):
+each element the record its evaluated condition chooses, split into its fields, as omc
+evaluates those conditions. `exp` unchanged where a condition does not evaluate.
+"""
+function chooseRecordBranches(@nospecialize(exp::Expression))::Expression
+  if exp isa ARRAY_EXPRESSION
+    local elements = Expression[chooseRecordBranches(e) for e in exp.elements]
+    return all(isRecordOrRecordArray, elements) ? ARRAY_EXPRESSION(exp.ty, elements, false) : exp
+  elseif exp isa IF_EXPRESSION
+    local cond = tryEvalExp(exp.condition)
+    cond isa BOOLEAN_EXPRESSION || return exp
+    return chooseRecordBranches(splitRecordCref(cond.value ? exp.trueBranch : exp.falseBranch))
+  end
+  return exp
+end
+
 function flattenComplexComponent(
   node::InstNode,
   comp::Component,
@@ -824,9 +844,13 @@ function flattenComplexComponent(
         binding_exp = simplify(binding_exp)
       end
     else
-      binding_exp = simplify(binding_exp)
+      #= Without its binding information, as the branches above (omc's binding expressions
+         have none): a record under a BINDING_EXP was not split, its fields had no binding (MSL 4
+         CCCV_StackRC's stackData.cellDataOriginal: constant CellType has no value). =#
+      binding_exp = stripBindingInfo(simplify(binding_exp))
     end
     binding_exp = splitRecordCref(binding_exp)
+    isRecordOrRecordArray(binding_exp) || (binding_exp = chooseRecordBranches(binding_exp))
     if !isRecordOrRecordArray(binding_exp)
       name = prefixCref(node, ty, nil, prefix)
       eq = EQUATION_EQUALITY(

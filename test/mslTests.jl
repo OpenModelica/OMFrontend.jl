@@ -68,4 +68,8 @@ end
     @info "Testing Modelica.Media.Examples"
     include("media.jl")
   end
+  @testset "Batteries" begin
+    @info "Testing Modelica.Electrical.Batteries record bindings"
+    include("batteryRecords.jl")
+  end
 end
