@@ -11,4 +11,9 @@ declared a local `isIterator::Bool` that shadowed the recursive dispatch into
   @test typeof(flattenModelInMSL_TST("$(prefix).HeatExchanger.HeatExchangerSimulation")[1]) == OMFrontend.Frontend.FLAT_MODEL
   @test typeof(flattenModelInMSL_TST("$(prefix).HeatingSystem")[1]) == OMFrontend.Frontend.FLAT_MODEL
   @test typeof(flattenModelInMSL_TST("$(prefix).IncompressibleFluidNetwork")[1]) == OMFrontend.Frontend.FLAT_MODEL
+  #= ClosedVolume's portsData[if use_portsData then nPorts else 0] with use_portsData = false:
+     without scalarization the class was flattened once and vectorized over the zero
+     dimension, and its unbound portsData.diameter refused (UNBOUND_PARAMETER_ERROR). =#
+  @test typeof(flattenModelInMSL_TST("$(prefix).TraceSubstances.RoomCO2")[1]) == OMFrontend.Frontend.FLAT_MODEL
+  @test typeof(flattenModelInMSL_TST("$(prefix).TraceSubstances.RoomCO2"; scalarize = false)[1]) == OMFrontend.Frontend.FLAT_MODEL
 end

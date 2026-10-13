@@ -888,6 +888,12 @@ function flattenArray(
   local subs::List{Subscript}
   local vrs::Vector{Variable}
   local sects::Sections
+  #= Skip the array if any dimension is zero (omc): flattened once and vectorized, the
+     class brought back elements that do not exist (MSL ClosedVolume's
+     portsData[if use_portsData then nPorts else 0]: an unbound portsData.diameter). =#
+  if any(isZero, dimensions)
+    return (vars, sections)
+  end
   #=  if we don't scalarize flatten the class and vectorize it
   =#
   if !Flags.isSet(Flags.NF_SCALARIZE)

@@ -1,7 +1,7 @@
-function flattenModelInMSL_TST(modelName::String; MSL_V = "MSL_3_2_3")
+function flattenModelInMSL_TST(modelName::String; MSL_V = "MSL_3_2_3", scalarize::Bool = true)
   local key = OMFrontend.loadBundledMSL(version = MSL_V)
   local lib = OMFrontend.LIBRARY_CACHE[key]
-  (FM, cache) = OMFrontend.instantiateSCodeToFM(modelName, lib)
+  (FM, cache) = OMFrontend.instantiateSCodeToFM(modelName, lib; scalarize = scalarize)
 end
 
 """
