@@ -763,7 +763,7 @@ function lookupSimpleCref(crefName::String,
       end
       state = nodeState(node)
       if state isa LOOKUP_STATE_ERROR
-        in_enclosing |= !isvariant(foundScope, IMPLICIT_SCOPE)
+        in_enclosing |= !isvariant(foundScope, IMPLICIT_SCOPE) && !isStructuralModeScope(foundScope)
         foundScope = parentScope(foundScope)
         continue
       end
@@ -773,7 +773,7 @@ function lookupSimpleCref(crefName::String,
       scopeRef.x = foundScope
       return (node, cref)
     catch e
-      in_enclosing |= !isvariant(foundScope, IMPLICIT_SCOPE)
+      in_enclosing |= !isvariant(foundScope, IMPLICIT_SCOPE) && !isStructuralModeScope(foundScope)
       foundScope = parentScope(foundScope)
       scopeRef.x = foundScope
     end
@@ -788,6 +788,16 @@ function lookupSimpleCref(crefName::String,
   end
   Error.addMessage(Error.RECURSION_DEPTH_REACHED, list(String(Global.recursionDepthLimit), scopeName(foundScope)))
   fail()
+end
+
+#= OMFrontend's variable structure systems: the class of a structural mode (`structuralmode C c`)
+   is declared in a model and its equations use that model's variables, so leaving the mode's
+   instance for the model is not entering an enclosing scope (checkCrefVariability). =#
+function isStructuralModeScope(scope::InstNode)::Bool
+  isComponent(scope) || return false
+  local c::Component = component(scope)
+  (isvariant(c, UNTYPED_COMPONENT) || isvariant(c, TYPED_COMPONENT)) || return false
+  return getAttributes(c).isStructuralMode
 end
 
 #= omc LookupState.checkCrefVariability: a variable found in an enclosing scope must be a
