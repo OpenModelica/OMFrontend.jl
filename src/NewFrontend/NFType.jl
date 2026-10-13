@@ -774,11 +774,11 @@ end
 
   @assign arg = begin
     @match ty begin
-      ARRAY(__) => begin
+      TYPE_ARRAY(__) => begin
         ListUtil.fold(ty.dimensions, func, arg)
       end
 
-      TUPLE(__) => begin
+      TYPE_TUPLE(__) => begin
         ListUtil.fold(ty.types, (t, acc) -> foldDims(t, func, acc), arg)
       end
 
