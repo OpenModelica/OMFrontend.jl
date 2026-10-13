@@ -362,7 +362,9 @@ function isEnumerationType(node::InstNode)::Bool
   end
 end
 
-#= omc InstNode.isEncapsulated. =#
+"""
+omc InstNode.isEncapsulated.
+"""
 function isEncapsulated(node::InstNode)::Bool
   return @match node begin
     CLASS_NODE(__) => isEncapsulated(getClass(node))
@@ -2192,7 +2194,9 @@ function isUserdefinedClass(node::InstNode)
   isUserdefined
 end
 
-#= omc InstNode.isExtends: the node of an extends clause. =#
+"""
+omc InstNode.isExtends: the node of an extends clause.
+"""
 function isExtends(node::InstNode)::Bool
   return @match node begin
     CLASS_NODE(definition = SCode.EXTENDS(__)) => true

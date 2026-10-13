@@ -790,9 +790,11 @@ function lookupSimpleCref(crefName::String,
   fail()
 end
 
-#= OMFrontend's variable structure systems: the class of a structural mode (`structuralmode C c`)
-   is declared in a model and its equations use that model's variables, so leaving the mode's
-   instance for the model is not entering an enclosing scope (checkCrefVariability). =#
+"""
+OMFrontend's variable structure systems: the class of a structural mode (`structuralmode C c`)
+is declared in a model and its equations use that model's variables, so leaving the mode's
+instance for the model is not entering an enclosing scope (checkCrefVariability).
+"""
 function isStructuralModeScope(scope::InstNode)::Bool
   isComponent(scope) || return false
   local c::Component = component(scope)
@@ -800,8 +802,10 @@ function isStructuralModeScope(scope::InstNode)::Bool
   return getAttributes(c).isStructuralMode
 end
 
-#= omc LookupState.checkCrefVariability: a variable found in an enclosing scope must be a
-   constant (the node the whole cref ends in). =#
+"""
+omc LookupState.checkCrefVariability: a variable found in an enclosing scope must be a
+constant (the node the whole cref ends in).
+"""
 function checkCrefVariability(cref::ComponentRef, inEnclosingScope::Bool, state::LookupState)::LookupState
   isError(state) && return state
   if inEnclosingScope && isvariant(cref, COMPONENT_REF_CREF)

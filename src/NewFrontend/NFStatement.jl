@@ -728,8 +728,10 @@ function markStructuralParamsSubs(exp::Expression, dummy::Int) ::Int
   dummy
 end
 
-#= omc NFInst.checkAssignmentRestriction: no assignment to an iterator, nor to a component
-   of a class that is not a clock, connector, enumeration, record or type. =#
+"""
+omc NFInst.checkAssignmentRestriction: no assignment to an iterator, nor to a component
+of a class that is not a clock, connector, enumeration, record or type.
+"""
 function checkAssignmentRestriction(@nospecialize(lhs::Expression), info::SourceInfo)
   @match lhs begin
     CREF_EXPRESSION(__) where {isIterator(lhs.cref)} => begin

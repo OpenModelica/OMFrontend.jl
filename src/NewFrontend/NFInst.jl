@@ -170,7 +170,9 @@ function instantiateRootClass(classPath::Absyn.Path, program::SCode.Program)::In
   return inst_cls
 end
 
-#= omc: packages and functions cannot be instantiated as the root class. =#
+"""
+omc: packages and functions cannot be instantiated as the root class.
+"""
 function checkInstanceRestriction(node::InstNode, path::Absyn.Path)
   local elem::SCode.Element = definition(node)
   if SCodeUtil.isFunction(elem) || SCodeUtil.isPackage(elem)
@@ -1231,9 +1233,11 @@ const ExtendsVisibilityType = Int
 
 
 
-#= omc NFInst.applyExtendsVisibility: the elements inherited through a protected extends are
-   protected, also through nested extends; done before the modifiers are applied, so that a
-   modifier on such an element is refused (applyModifier). =#
+"""
+omc NFInst.applyExtendsVisibility: the elements inherited through a protected extends are
+protected, also through nested extends; done before the modifiers are applied, so that a
+modifier on such an element is refused (applyModifier).
+"""
 function applyExtendsVisibility(node::InstNode, visibility::ExtendsVisibilityType)::InstNode
   local cls::Class = getClass(node)
   local vis::ExtendsVisibilityType = visibility
@@ -1848,8 +1852,10 @@ function updateComponentConnectorType(attributes::Attributes, restriction::Restr
   attributes
 end
 
-#= originalReplaceable: whether the original component is declared replaceable (its node no
-   longer has the definition once instantiated, so the callers read it from the SCode). =#
+"""
+originalReplaceable: whether the original component is declared replaceable (its node no
+longer has the definition once instantiated, so the callers read it from the SCode).
+"""
 function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, outerMod::Modifier, constrainingMod::Modifier, outerAttr::Attributes, redeclaredNode::InstNode, instLevel::Int, attributeRef::Ref{Attributes};
                             propagatedParents::List{InstNode} = Nil{InstNode}(), originalReplaceable::Bool)
   local orig_comp::Component
@@ -3668,11 +3674,13 @@ function checkIteratorShadowing(nameArg::String, scope::InstNode, infoArg::Sourc
   end
 end
 
-#= omc NFInst.checkTopLevelOuter: an inner is generated for an outer element only when the
-   root class has nothing of that name; an outer element of the root class itself
-   (TOP_LEVEL_OUTER, a warning with --allowNonStandardModelica=nonStdTopLevelOuter) or another
-   element of that name (MISSING_INNER_NAME_CONFLICT) is an error. omc tells them apart with
-   isInner of the found node; here isOuter, see below. =#
+"""
+omc NFInst.checkTopLevelOuter: an inner is generated for an outer element only when the
+root class has nothing of that name; an outer element of the root class itself
+(TOP_LEVEL_OUTER, a warning with --allowNonStandardModelica=nonStdTopLevelOuter) or another
+element of that name (MISSING_INNER_NAME_CONFLICT) is an error. omc tells them apart with
+isInner of the found node; here isOuter, see below.
+"""
 function checkTopLevelOuter(name::String, outerNode::InstNode, scope::InstNode)
   local node::InstNode = try
     Base.first(lookupSimpleName(name, scope))

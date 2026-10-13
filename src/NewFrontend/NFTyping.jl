@@ -1406,8 +1406,10 @@ end
    argument on every call and @nospecializeinfer leaves the body abstractly
    inferred; together they cost ~16 allocations and ~0.8 us per expression
    node, which dominated binding typing. =#
-#= omc NFTyping.checkAssignment: no assignment to a constant, nor to a parameter outside an
-   initial algorithm; in a function, no assignment to an input. =#
+"""
+omc NFTyping.checkAssignment: no assignment to a constant, nor to a parameter outside an
+initial algorithm; in a function, no assignment to an input.
+"""
 function checkAssignment(@nospecialize(lhsExp::Expression), @nospecialize(rhsExp::Expression),
                          lhsVar::VariabilityType, origin::ORIGIN_Type, info::SourceInfo)
   @match lhsExp begin
@@ -4338,8 +4340,10 @@ end
   return isConstant
 end
 
-#= omc NFTyping.typeWhenCondition: a when-condition must be a discrete-time expression
-   (or a clock). =#
+"""
+omc NFTyping.typeWhenCondition: a when-condition must be a discrete-time expression
+(or a clock).
+"""
 function typeWhenCondition(@nospecialize(condition::Expression), origin::ORIGIN_Type,
                            source::DAE.ElementSource, allowClock::Bool)::Tuple{Expression, NFType, VariabilityType}
   local cond::Expression
@@ -4393,7 +4397,9 @@ end
   return whenEq
 end
 
-#= omc typeAssert: the level of an assert must be a parameter expression. =#
+"""
+omc typeAssert: the level of an assert must be a parameter expression.
+"""
 function checkAssertLevel(@nospecialize(level::Expression), info::SourceInfo)
   local level_var::VariabilityType = variability(level)
   if level_var > Variability.PARAMETER

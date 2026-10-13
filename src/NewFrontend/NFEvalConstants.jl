@@ -122,10 +122,12 @@ function evaluateExp(@nospecialize(exp::Expression), constVariability::Variabili
   return outExp
 end
 
-#= omc EvalConstants evaluates a constant with a real target, so an unbound one is
-   UNBOUND_CONSTANT (Ceval.printUnboundError); here evaluation ignores Ceval errors, so that case
-   is checked on its own: a typed constant with no binding, not a record (whose fields may be
-   bound) nor a field of a component, and no start value. =#
+"""
+omc EvalConstants evaluates a constant with a real target, so an unbound one is
+UNBOUND_CONSTANT (Ceval.printUnboundError); here evaluation ignores Ceval errors, so that case
+is checked on its own: a typed constant with no binding, not a record (whose fields may be
+bound) nor a field of a component, and no start value.
+"""
 function checkConstantHasValue(cref::ComponentRef)
   isvariant(cref, COMPONENT_REF_CREF) || return nothing
   local n::InstNode = node(cref)

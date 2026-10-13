@@ -371,9 +371,11 @@ end
 _deletedElementCrefs()::Vector{ComponentRef} =
   get!(() -> ComponentRef[], task_local_storage(), :NFFlattenDeletedElementCrefs)::Vector{ComponentRef}
 
-#= omc Flatten.checkDeletedVarRefs: a reference to a component deleted by a false condition
-   is an error, unless --allowNonStandardModelica=illegalConditionalContext. Run after the
-   connections are resolved (connects to deleted components are removed there). =#
+"""
+omc Flatten.checkDeletedVarRefs: a reference to a component deleted by a false condition
+is an error, unless --allowNonStandardModelica=illegalConditionalContext. Run after the
+connections are resolved (connects to deleted components are removed there).
+"""
 function checkDeletedVarRefs(flatModel::FlatModel)
   Flags.isConfigFlagSet(Flags.ALLOW_NON_STANDARD_MODELICA, "illegalConditionalContext") && return nothing
   for var in flatModel.variables
@@ -414,8 +416,10 @@ function checkDeletedVarRefsInExp(@nospecialize(exp::Expression), info::SourceIn
   return nothing
 end
 
-#= omc Flatten.isDeletedCref: the cref or one of its prefixes names a deleted component (the
-   whole node, or one element of an array of components). =#
+"""
+omc Flatten.isDeletedCref: the cref or one of its prefixes names a deleted component (the
+whole node, or one element of an array of components).
+"""
 function isDeletedCref(cref::ComponentRef)::Bool
   local cr::ComponentRef = cref
   while isvariant(cr, COMPONENT_REF_CREF)
@@ -646,7 +650,9 @@ function flattenSimpleComponent(
   return (vars, sections)
 end
 
-#= omc Flatten.checkUnspecifiedEnumType: a component may not have the type enumeration(:). =#
+"""
+omc Flatten.checkUnspecifiedEnumType: a component may not have the type enumeration(:).
+"""
 function checkUnspecifiedEnumType(ty::NFType, node::InstNode, info::SourceInfo)
   if isEnumeration(ty) && listEmpty(ty.literals)
     Error.addSourceMessage(Error.UNSPECIFIED_ENUM_COMPONENT, list(name(node)), info)
@@ -655,11 +661,13 @@ function checkUnspecifiedEnumType(ty::NFType, node::InstNode, info::SourceInfo)
   return nothing
 end
 
-#= omc Flatten.verifyBinding: a constant must be fixed and have a binding; a fixed parameter
-   needs a binding or a start value. MLS 8.6: the start value can serve as the binding, with a
-   diagnostic; 3.7: the fallback value cannot. With
-   --allowNonStandardModelica=implicitParameterStartAttribute a parameter with neither gets its
-   type's default value (makeDefaultValue). Returns the variable's binding. =#
+"""
+omc Flatten.verifyBinding: a constant must be fixed and have a binding; a fixed parameter
+needs a binding or a start value. MLS 8.6: the start value can serve as the binding, with a
+diagnostic; 3.7: the fallback value cannot. With
+--allowNonStandardModelica=implicitParameterStartAttribute a parameter with neither gets its
+type's default value (makeDefaultValue). Returns the variable's binding.
+"""
 function verifyBinding(v::Variable, var::VariabilityType)::Binding
   local name::String = toString(v.name)
   if var > Variability.CONSTANT && isBound(v.binding)
@@ -698,7 +706,9 @@ function verifyBinding(v::Variable, var::VariabilityType)::Binding
   return v.binding
 end
 
-#= A type attribute of the variable, evaluated (omc verifyBinding's eval_binding); nothing if unbound. =#
+"""
+A type attribute of the variable, evaluated (omc verifyBinding's eval_binding); nothing if unbound.
+"""
 function evaluatedTypeAttribute(attr::String, v::Variable)::Union{Expression, Nothing}
   local b::Binding = lookupTypeAttribute(attr, v)
   return isBound(b) ? tryEvalExp(getExp(b)) : nothing

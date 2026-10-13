@@ -1454,8 +1454,10 @@ function isScalarLiteral(@nospecialize(exp::Expression)) ::Bool
   literal
 end
 
-#= omc Expression.isNonNegative: true if exp is known to be >= 0 (a cref's min attribute is not
-   looked up here). =#
+"""
+omc Expression.isNonNegative: true if exp is known to be >= 0 (a cref's min attribute is not
+looked up here).
+"""
 function isNonNegative(@nospecialize(exp::Expression))::Bool
   @match exp begin
     INTEGER_EXPRESSION(__) => begin
@@ -1476,8 +1478,10 @@ function isNonNegative(@nospecialize(exp::Expression))::Bool
   end
 end
 
-#= omc Expression.isNonPositive: true if exp is known to be <= 0 (a cref's max attribute is not
-   looked up here). =#
+"""
+omc Expression.isNonPositive: true if exp is known to be <= 0 (a cref's max attribute is not
+looked up here).
+"""
 function isNonPositive(@nospecialize(exp::Expression))::Bool
   @match exp begin
     INTEGER_EXPRESSION(__) => begin
@@ -1498,8 +1502,10 @@ function isNonPositive(@nospecialize(exp::Expression))::Bool
   end
 end
 
-#= omc Expression.makeDefaultValue: a value of type ty for a variable without a start value:
-   0 (min if min >= 0, max if max <= 0), "", false, the first enumeration literal (min if given). =#
+"""
+omc Expression.makeDefaultValue: a value of type ty for a variable without a start value:
+0 (min if min >= 0, max if max <= 0), "", false, the first enumeration literal (min if given).
+"""
 function makeDefaultValue(ty::NFType, min::Union{Expression, Nothing} = nothing,
                           max::Union{Expression, Nothing} = nothing)::Expression
   if isInteger(ty) || isReal(ty)

@@ -981,10 +981,12 @@ function typeFunctionBody(fn::M_FUNCTION)::M_FUNCTION
   return fn
 end
 
-#= omc Function.sortLocals: the local components of a function in an order they can be
-   initialized in (a binding or dimension may use other locals), or an error for mutually
-   dependent ones. Locals that use no other local keep their declared order. omc also follows
-   the field bindings of a local record without a binding; not done here. =#
+"""
+omc Function.sortLocals: the local components of a function in an order they can be
+initialized in (a binding or dimension may use other locals), or an error for mutually
+dependent ones. Locals that use no other local keep their declared order. omc also follows
+the field bindings of a local record without a binding; not done here.
+"""
 function sortLocals(locals::List{InstNode}, info::SourceInfo)::List{InstNode}
   local nodes::Vector{InstNode} = Base.collect(locals)
   local n::Int = length(nodes)
@@ -1012,8 +1014,10 @@ function sortLocals(locals::List{InstNode}, info::SourceInfo)::List{InstNode}
   return arrayList(nodes[order])
 end
 
-#= The other locals (indices into nodes) a local's binding and dimensions refer to, by the
-   root of each cref (omc ComponentRef.last: a in a.b.c, for local record instances). =#
+"""
+The other locals (indices into nodes) a local's binding and dimensions refer to, by the
+root of each cref (omc ComponentRef.last: a in a.b.c, for local record instances).
+"""
 function localDependencies(compNode::InstNode, self::Int, nodes::Vector{InstNode})::Set{Int}
   local deps::Set{Int} = Set{Int}()
   local add_cref = (e, acc) -> begin

@@ -388,9 +388,11 @@ function fromSCode(sres::SCode.Restriction)::Restriction
   return res
 end
 
-#= omc's Restriction.checkClass: the sections and elements the class specialization does not
-   allow. Packages are models here (fromSCode), so they are told apart by their SCode
-   restriction. The deprecation warnings for plain classes are not ported. =#
+"""
+omc's Restriction.checkClass: the sections and elements the class specialization does not
+allow. Packages are models here (fromSCode), so they are told apart by their SCode
+restriction. The deprecation warnings for plain classes are not ported.
+"""
 function checkClassRestriction(node::InstNode, res::Restriction)
   local def::SCode.Element = definition(node)
   local cdef::SCode.ClassDef = SCodeUtil.getClassBody(def)
@@ -428,8 +430,10 @@ function checkClassRestriction(node::InstNode, res::Restriction)
   return nothing
 end
 
-#= omc's Restriction.toString of a class node's restriction: packages are models here
-   (fromSCode), so they are named by their SCode restriction. =#
+"""
+omc's Restriction.toString of a class node's restriction: packages are models here
+(fromSCode), so they are named by their SCode restriction.
+"""
 function restrictionName(res::Restriction, clsNode::InstNode)::String
   local def = definition(clsNode)
   return if def isa SCode.Element && SCodeUtil.isPackage(def)
@@ -439,8 +443,10 @@ function restrictionName(res::Restriction, clsNode::InstNode)::String
   end
 end
 
-#= omc NFInst.checkBindingRestriction: a component of a class that is not a clock, connector,
-   enumeration, external object, record or type may not have a binding. =#
+"""
+omc NFInst.checkBindingRestriction: a component of a class that is not a clock, connector,
+enumeration, external object, record or type may not have a binding.
+"""
 function checkBindingRestriction(res::Restriction, binding::Binding, component::InstNode, clsNode::InstNode, info::SourceInfo)
   if isBound(binding)
     @match res begin

@@ -4,10 +4,12 @@ function flattenModelInMSL_TST(modelName::String; MSL_V = "MSL_3_2_3")
   (FM, cache) = OMFrontend.instantiateSCodeToFM(modelName, lib)
 end
 
-#= f() with --allowNonStandardModelica=options (comma-separated), the flags restored afterwards.
-   For components flattened on their own, which omc refuses without them: nonStdTopLevelOuter for
-   an outer of the component itself, implicitParameterStartAttribute for a parameter that gets its
-   value where the component is used (it then takes its type's default). =#
+"""
+f() with --allowNonStandardModelica=options (comma-separated), the flags restored afterwards.
+For components flattened on their own, which omc refuses without them: nonStdTopLevelOuter for
+an outer of the component itself, implicitParameterStartAttribute for a parameter that gets its
+value where the component is used (it then takes its type's default).
+"""
 function withNonStandardModelica(f::Function, options::String)
   local flags = OMFrontend.Frontend.FlagsUtil.backupFlags()
   OMFrontend.Frontend.FlagsUtil.readArgs(OMFrontend.Frontend.list("--allowNonStandardModelica=" * options))

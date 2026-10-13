@@ -53,9 +53,11 @@ function verify(flatModel::FlatModel)
 #  return execStat(getInstanceName())
 end
 
-#= omc's subscript bounds check (VerifyModel.checkSubscriptBounds): literal subscripts of
-   crefs against known dimensions, in bindings, equations (shallow, as omc's
-   Equation.applyExpShallow) and statements. =#
+"""
+omc's subscript bounds check (VerifyModel.checkSubscriptBounds): literal subscripts of
+crefs against known dimensions, in bindings, equations (shallow, as omc's
+Equation.applyExpShallow) and statements.
+"""
 function verifyVariable(var::Variable)
   verifyBindingBounds(var.binding)
   for attr in var.typeAttributes

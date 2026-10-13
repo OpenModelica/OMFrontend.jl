@@ -882,7 +882,9 @@ function typeEdgeCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple
   (callExp, ty, variability)
 end
 
-#= omc typeMinMaxCall: the argument types min and max accept. =#
+"""
+omc typeMinMaxCall: the argument types min and max accept.
+"""
 function minMaxValidType(ty::M_Type)::Bool
   return isReal(ty) || isInteger(ty) || isBoolean(ty) || isEnumeration(ty)
 end
