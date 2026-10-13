@@ -229,21 +229,6 @@ equation
 end ConnectInnerOuterArray1;
 """
 
-const ConnectParamArray_REF = """
-class ConnectParamArray
-  parameter Real c1.e[1];
-  parameter Real c1.e[2];
-  parameter Real c1.e[3];
-  parameter Real c2.e[1];
-  parameter Real c2.e[2];
-  parameter Real c2.e[3];
-equation
-  assert(c2.e[1] == c1.e[1], "Connected constants/parameters must be equal", AssertionLevel.error);
-  assert(c1.e[2] == c2.e[2], "Connected constants/parameters must be equal", AssertionLevel.error);
-  assert(c1.e[3] == c2.e[3], "Connected constants/parameters must be equal", AssertionLevel.error);
-end ConnectParamArray;
-"""
-
 const ConnectTheSameConnector_REF = """
 class ConnectTheSameConnector
   flow Real c1.i;
@@ -2467,7 +2452,6 @@ generatedConnectorTests = Tuple[
     (GeneratedConnectorTests.ConnectInnerOuter2_Top_REF, "Top", "./Connectors/ConnectInnerOuter2.mo"),
     (GeneratedConnectorTests.ConnectInnerOuter3_Top2_REF, "Top2", "./Connectors/ConnectInnerOuter3.mo"),
     (GeneratedConnectorTests.ConnectInnerOuterArray1_REF, "ConnectInnerOuterArray1", "./Connectors/ConnectInnerOuterArray1.mo"),
-    (GeneratedConnectorTests.ConnectParamArray_REF, "ConnectParamArray", "./Connectors/ConnectParamArray.mo"),
     (GeneratedConnectorTests.ConnectTheSameConnector_REF, "ConnectTheSameConnector", "./Connectors/ConnectTheSameConnector.mo"),
     (GeneratedConnectorTests.ConnectTwoSources_REF, "ConnectTwoSources", "./Connectors/ConnectTwoSources.mo"),
     (GeneratedConnectorTests.ConnectTypes_REF, "ConnectTypes", "./Connectors/ConnectTypes.mo"),
@@ -2498,7 +2482,8 @@ generatedConnectorTestsMSL = Tuple[
 ]
 
 #= Cases omc (1.27, new frontend) rejects, and so does this frontend (run as @test_throws in
-   frontendResultTest.jl). ConnectConst1 is an old-frontend test of omc (-d=-newInst). =#
+   frontendResultTest.jl). ConnectConst1 and ConnectParamArray (parameters without a value) are
+   old-frontend tests of omc (-d=-newInst). =#
 generatedConnectorTestsRejected = Tuple[
     ("ConnectConst1", "./Connectors/ConnectConst1.mo"),
     ("ConnectorIllegal", "./Connectors/ConnectorIllegal.mo"),
@@ -2506,6 +2491,7 @@ generatedConnectorTestsRejected = Tuple[
     ("InitialConnection", "./Connectors/InitialConnection.mo"),
     ("Top", "./Connectors/ConnectInnerOuter4.mo"),
     ("ConnectInner2", "./Connectors/ConnectInner2.mo"),
+    ("ConnectParamArray", "./Connectors/ConnectParamArray.mo"),
 ]
 
 #=

@@ -8,6 +8,10 @@ class) and its variables are compared by name with omc's flat model in the file 
 
 const OMC_TESTSUITE_DIR = joinpath(@__DIR__, "OmcTestsuite")
 
+#= Old-frontend tests (-d=-newInst) whose model omc 1.27's new frontend rejects, as this frontend
+   does: MyPointsInst2 has parameters without a value (UNBOUND_PARAMETER_ERROR). =#
+const OMC_NEW_FRONTEND_REJECTS = Set(["declarations_MyPointsInst2.mo"])
+
 const OMC_TOP_CLASS = r"^(?:(?:partial|encapsulated|final|expandable|operator|impure|pure)\s+)*(?:class|model|block|connector|record|package|function|type|operator\s+record)\s+([A-Za-z_]\w*)"m
 
 #= A declaration: its type's dimensions (captures[1]) and its name with subscripts (captures[2]). =#
@@ -106,7 +110,7 @@ end
   for file in sort(filter(endswith(".mo"), readdir(OMC_TESTSUITE_DIR; join = true)))
     @testset "$(basename(file))" begin
       local source = read(file, String)
-      if occursin(r"^//\s*status:\s*incorrect"m, source)
+      if occursin(r"^//\s*status:\s*incorrect"m, source) || basename(file) in OMC_NEW_FRONTEND_REJECTS
         #= omc rejects the model: so must we. =#
         @test_throws Exception OMFrontend.instantiateSCodeToFM(omcTestClass(source),
                                                                OMFrontend.translateToSCode(OMFrontend.parseFile(file)))

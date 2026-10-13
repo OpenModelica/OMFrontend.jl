@@ -12,5 +12,7 @@
     @test typeof(flattenModelInMSL_TST("Modelica.Blocks.Continuous.Der")[1]) == OMFrontend.Frontend.FLAT_MODEL
     @test typeof(flattenModelInMSL_TST("Modelica.Blocks.Continuous.LowpassButterworth")[1]) == OMFrontend.Frontend.FLAT_MODEL
     @test typeof(flattenModelInMSL_TST("Modelica.Blocks.Continuous.CriticalDamping")[1]) == OMFrontend.Frontend.FLAT_MODEL
-    @test typeof(flattenModelInMSL_TST("Modelica.Blocks.Continuous.Filter")[1]) == OMFrontend.Frontend.FLAT_MODEL
+    #= Filter's f_cut has no default value. =#
+    @test typeof(withNonStandardModelica(() -> flattenModelInMSL_TST("Modelica.Blocks.Continuous.Filter"),
+                                         "implicitParameterStartAttribute")[1]) == OMFrontend.Frontend.FLAT_MODEL
   end
