@@ -119,4 +119,22 @@ testArrayEq = (testArrayEqReference, "TestArrayEq", "./Equations/TestArrayEq.mo"
 testEvalCat1 = (testEvalCat1Reference, "TestEvalCat.TestEvalCat1", "./Equations/TestEvalCat.mo")
 simpleAgenticTest = (simpleAgenticTestReference, "SimpleAgenticTest", "./Equations/SimpleAgenticTest.mo")
 #= If you make a new test add it to this array. =#
-equationTests = [circle, arrayfancy, ifEquationDer, testArrayEq, testEvalCat1, simpleAgenticTest]
+#= pre of an array is pre of each element, as omc: pre, edge and change were declared
+   impure in the builtin library, so ExpandExp did not expand them element-wise and gave
+   pre({reset[1], reset[2]})[1] (MSL StateGraph's MultiSwitch: pre(reset) = fill(false, nReset)). =#
+preArrayReference = "class PreArray
+  Boolean reset[1];
+  Boolean reset[2];
+  Boolean y;
+initial equation
+  pre(reset[1]) = false;
+  pre(reset[2]) = false;
+equation
+  y = edge(reset[1]) or change(reset[2]);
+  reset[1] = time > 0.5;
+  reset[2] = time > 0.7;
+end PreArray;
+"
+preArray = (preArrayReference, "PreArray", "./Equations/PreArray.mo")
+
+equationTests = [circle, arrayfancy, ifEquationDer, testArrayEq, testEvalCat1, simpleAgenticTest, preArray]
