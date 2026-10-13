@@ -10,6 +10,9 @@ only their target (Models/FuncEvalAssign.mo):
 - r[3]: a callee's output bound to its input does not write the caller's record
   (73 at run time; a field assignment to a bound record output is not evaluated at
   compile time, so the call stays).
+- c: a record output whose field b is assigned only under a condition: b has no value
+  (fixed = false, as omc); the output's cells were returned, and the empty field
+  reached the DAE as #EMPTY# (MSL Spice3 Graetz).
 =#
 
 funcEvalAssignReference = "class TestFuncEvalAssign
@@ -29,6 +32,8 @@ funcEvalAssignReference = "class TestFuncEvalAssign
   parameter Real r[1] = 3.0;
   parameter Real r[2] = 3.0;
   parameter Real r[3] = FuncEvalAssign.callerSetX(3.0);
+  final parameter Real c.a = 2.0;
+  final parameter Real c.b(fixed = false);
   Real h;
 equation
   der(h) = 0.0;
