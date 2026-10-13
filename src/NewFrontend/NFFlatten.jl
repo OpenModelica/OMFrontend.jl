@@ -633,22 +633,16 @@ function flattenSimpleComponent(
       )
     )
   end
-  if var == Variability.CONSTANT && !unfix && !isComplex(arrayElementType(ty))
-    verifyConstantBinding(name, binding, ty_attrs, info)
+  local v::Variable = VARIABLE(name, ty, binding, visibility, comp_attr, ty_attrs, cmt, info)
+  #= The binding a constant or a fixed parameter needs (omc: not in checkModel or the API). =#
+  if var < Variability.DISCRETE && !unfix && !isComplex(arrayElementType(ty)) &&
+     !(Flags.isSet(Flags.NF_API) || Flags.getConfigBool(Flags.CHECK_MODEL))
+    local verified::Binding = verifyBinding(v, var)
+    if verified !== binding
+      v = VARIABLE(name, ty, verified, visibility, comp_attr, ty_attrs, cmt, info)
+    end
   end
-  vars = push!(
-    vars,
-    VARIABLE(
-      name,
-      ty,
-      binding,
-      visibility,
-      comp_attr,
-      ty_attrs,
-      cmt,
-      info,
-    ),
-  )
+  vars = push!(vars, v)
   return (vars, sections)
 end
 
@@ -661,28 +655,53 @@ function checkUnspecifiedEnumType(ty::NFType, node::InstNode, info::SourceInfo)
   return nothing
 end
 
-#= omc Flatten.verifyBinding, for constants: a constant must be fixed and have a binding.
-   omc also refuses a fixed parameter with neither binding nor start value
-   (UNBOUND_PARAMETER_ERROR); not ported here, OM.jl models may rely on it. =#
-function verifyConstantBinding(name::ComponentRef, binding::Binding, tyAttrs::Vector{Tuple{String, Binding}}, info::SourceInfo)
+#= omc Flatten.verifyBinding: a constant must be fixed and have a binding; a fixed parameter
+   needs a binding or a start value. MLS 8.6: the start value can serve as the binding, with a
+   diagnostic; 3.7: the fallback value cannot. With
+   --allowNonStandardModelica=implicitParameterStartAttribute a parameter with neither gets its
+   type's default value (makeDefaultValue). Returns the variable's binding. =#
+function verifyBinding(v::Variable, var::VariabilityType)::Binding
+  local name::String = toString(v.name)
+  if var > Variability.CONSTANT && isBound(v.binding)
+    return v.binding
+  end
   local fixed::Bool = true
-  for (attr_name, attr_binding) in tyAttrs
-    if attr_name == "fixed" && isBound(attr_binding)
-      local fixed_exp::Expression = tryEvalExp(getExp(attr_binding))
-      #= omc: a fixed that is not a Boolean literal is not checked. =#
-      fixed_exp isa BOOLEAN_EXPRESSION || return nothing
-      fixed = fixed_exp.value
+  local fixed_binding::Binding = lookupTypeAttribute("fixed", v)
+  if isBound(fixed_binding)
+    local fixed_exp::Expression = tryEvalExp(getExp(fixed_binding))
+    #= omc: a fixed that is not a Boolean literal is not checked. =#
+    fixed_exp isa BOOLEAN_EXPRESSION || return v.binding
+    fixed = fixed_exp.value
+  end
+  if var == Variability.CONSTANT
+    if !fixed
+      Error.addSourceMessage(Error.NON_FIXED_CONSTANT, list(name), v.info)
+      fail()
+    end
+    if isUnbound(v.binding)
+      Error.addSourceMessage(Error.NO_CONSTANT_BINDING, list(name), v.info)
+      fail()
+    end
+  elseif fixed && isUnbound(v.binding)
+    local start_binding::Binding = lookupTypeAttribute("start", v)
+    if isBound(start_binding)
+      Error.addSourceMessage(Error.UNBOUND_PARAMETER_WITH_START_VALUE_WARNING,
+                             list(name, toString(start_binding)), v.info)
+    else
+      Error.addSourceMessage(Error.UNBOUND_PARAMETER_ERROR, list(name), v.info)
+      Flags.isConfigFlagSet(Flags.ALLOW_NON_STANDARD_MODELICA, "implicitParameterStartAttribute") || fail()
+      local start_exp::Expression = makeDefaultValue(v.ty, evaluatedTypeAttribute("min", v),
+                                                     evaluatedTypeAttribute("max", v))
+      return FLAT_BINDING(start_exp, variability(start_exp))
     end
   end
-  if !fixed
-    Error.addSourceMessage(Error.NON_FIXED_CONSTANT, list(toString(name)), info)
-    fail()
-  end
-  if isUnbound(binding)
-    Error.addSourceMessage(Error.NO_CONSTANT_BINDING, list(toString(name)), info)
-    fail()
-  end
-  return nothing
+  return v.binding
+end
+
+#= A type attribute of the variable, evaluated (omc verifyBinding's eval_binding); nothing if unbound. =#
+function evaluatedTypeAttribute(attr::String, v::Variable)::Union{Expression, Nothing}
+  local b::Binding = lookupTypeAttribute(attr, v)
+  return isBound(b) ? tryEvalExp(getExp(b)) : nothing
 end
 
 function flattenTypeAttribute(attr::Modifier, prefix::ComponentRef)::Tuple{String, Binding}

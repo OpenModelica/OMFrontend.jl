@@ -3009,11 +3009,11 @@ const UNBOUND_PARAMETER_WITH_START_VALUE_WARNING =
     Gettext.gettext("Parameter %s has no value, and is fixed during initialization (fixed=true), using available start value (start=%s) as default value."),
   )::ErrorTypes.Message
 
-const UNBOUND_PARAMETER_WARNING =
+const UNBOUND_PARAMETER_ERROR =
   ErrorTypes.MESSAGE(
     500,
     ErrorTypes.TRANSLATION(),
-    ErrorTypes.WARNING(),
+    ErrorTypes.ERROR(),
     Gettext.gettext("Parameter %s has neither value nor start value, and is fixed during initialization (fixed=true)."),
   )::ErrorTypes.Message
 
