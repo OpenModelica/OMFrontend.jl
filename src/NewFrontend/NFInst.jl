@@ -160,6 +160,7 @@ function instantiateRootClass(classPath::Absyn.Path, program::SCode.Program)::In
   local top::InstNode = makeTopNode(program)
   #=  Look up the class to instantiate and mark it as the root class. =#
   local cls::InstNode = lookupClassName(classPath, top, AbsynUtil.dummyInfo, false)
+  checkInstanceRestriction(cls, classPath)
   cls = setNodeType(ROOT_CLASS(EMPTY_NODE()), cls)
   #=  Initialize the storage for automatically generated inner elements. =#
   top = setInnerOuterCache(top, C_TOP_SCOPE(NodeTree.new(), cls))
@@ -167,6 +168,20 @@ function instantiateRootClass(classPath::Absyn.Path, program::SCode.Program)::In
   ExecStat.execStat("Instantiation")
   insertGeneratedInners(inst_cls, top)
   return inst_cls
+end
+
+"""
+omc: packages and functions cannot be instantiated as the root class.
+"""
+function checkInstanceRestriction(node::InstNode, path::Absyn.Path)
+  local elem::SCode.Element = definition(node)
+  if SCodeUtil.isFunction(elem) || SCodeUtil.isPackage(elem)
+    Error.addSourceMessage(Error.INST_INVALID_RESTRICTION,
+      list(AbsynUtil.pathString(path), SCodeDump.restrString(SCodeUtil.getClassRestriction(elem))),
+      InstNode_info(node))
+    fail()
+  end
+  return nothing
 end
 
 """
@@ -196,9 +211,11 @@ function resolveAndEvaluate(flat_model::FlatModel, program::SCode.Program, name:
     @assign flat_model.scodeProgram = SOME(listHead(program))
     #= Resolve the connections of the current system. =#
     flat_model = resolveConnections(flat_model, name)
+    checkDeletedVarRefs(flat_model)
     dumpFlatModel(flat_model, string(name, "_", "afterResolveConnections"))
   else #= Regular system without simulation time reconfigurations =#
     @EXECSTAT "resolveConnections" flat_model = resolveConnections(flat_model, name)
+    checkDeletedVarRefs(flat_model)
     dumpFlatModel(flat_model, string(name, "_", "afterResolveConnections"))
     @EXECSTAT "evaluate" flat_model = evaluate(flat_model)
     dumpFlatModel(flat_model, string(name, "_", "afterEval"))
@@ -957,7 +974,7 @@ function instClassDef(cls::PARTIAL_BUILTIN,
       mod = fromElement(definition(node), list(node), parent(node))
       outer_mod = merge(outerMod, addParent(node, cls.modifier))
       mod = merge(outer_mod, mod)
-      applyModifier(mod, cls_tree, name(node))
+      applyModifier(mod, cls_tree, node)
       inst_cls = INSTANCED_BUILTIN(ty, cls_tree, res)
       node = updateClass(inst_cls, node)
     end
@@ -1039,8 +1056,10 @@ function instClassDef(cls::EXPANDED_CLASS,
   mod = merge(outer_mod, mod)
   #=  Apply the modifiers of extends nodes. =#
   mapExtends(cls_tree, par)
+  #=  Propagate the visibility of extends to their elements (omc). =#
+  mapExtends(cls_tree, n -> applyExtendsVisibility(n, ExtendsVisibility.PUBLIC))
   #=  Apply the modifiers of this scope. =#
-  applyModifier(mod, cls_tree, name(node))
+  applyModifier(mod, cls_tree, node)
   #=  Apply element redeclares. =#
   mapRedeclareChains(cls_tree, redeclareElements, instLevel)
   #=  Redeclare classes with redeclare modifiers. Redeclared components could
@@ -1055,6 +1074,7 @@ function instClassDef(cls::EXPANDED_CLASS,
   cls_tree = replaceDuplicates(cls_tree)
   checkDuplicates(cls_tree)
   node = updateClass(setClassTree(cls_tree, inst_cls), node)
+  checkClassRestriction(node, res)
   #= Update the attributes=#
   attributeRef.x = attributes
   return node
@@ -1199,7 +1219,7 @@ function modifyExtends(extendsNode::InstNode, scope::InstNode)
       end
     end
   end
-  applyModifier(ext_mod, cls_tree, name(extendsNode))
+  applyModifier(ext_mod, cls_tree, extendsNode)
   extendsNode
 end
 
@@ -1212,6 +1232,41 @@ const ExtendsVisibility::ExtendsVisabilityStruct{Int} = ExtendsVisabilityStruct(
 const ExtendsVisibilityType = Int
 
 
+
+"""
+omc NFInst.applyExtendsVisibility: the elements inherited through a protected extends are
+protected, also through nested extends; done before the modifiers are applied, so that a
+modifier on such an element is refused (applyModifier).
+"""
+function applyExtendsVisibility(node::InstNode, visibility::ExtendsVisibilityType)::InstNode
+  local cls::Class = getClass(node)
+  local vis::ExtendsVisibilityType = visibility
+  @match cls begin
+    EXPANDED_CLASS(elements = cls_tree && CLASS_TREE_INSTANTIATED_TREE(__)) => begin
+      if vis == ExtendsVisibility.PUBLIC && isProtectedBaseClass(node) || vis == ExtendsVisibility.DERIVED_PROTECTED
+        vis = ExtendsVisibility.PROTECTED
+      end
+      if vis == ExtendsVisibility.PROTECTED && visibility != ExtendsVisibility.PROTECTED
+        for c in cls_tree.classes
+          P_Pointer.update(c, protectClass(P_Pointer.access(c)))
+        end
+        for c in cls_tree.components
+          P_Pointer.update(c, protectComponent(P_Pointer.access(c)))
+        end
+      end
+      mapExtends(cls_tree, n -> applyExtendsVisibility(n, vis))
+    end
+    EXPANDED_DERIVED(__) => begin
+      if vis == ExtendsVisibility.PUBLIC && isProtectedBaseClass(node)
+        vis = ExtendsVisibility.DERIVED_PROTECTED
+      end
+      @assign cls.baseClass = applyExtendsVisibility(cls.baseClass, vis)
+      node = updateClass(cls, node)
+    end
+    _ => ()
+  end
+  return node
+end
 
 function instExtends(node::InstNode,
                                attributes::Attributes,
@@ -1267,7 +1322,8 @@ end
 Applies a modifier in the given scope, by splitting the modifier and merging
 each part with the relevant element in the scope.
 """
-function applyModifier(modifier::Modifier, cls::ClassTree, clsName::String) ::ClassTree
+function applyModifier(modifier::Modifier, cls::ClassTree, parent::InstNode) ::ClassTree
+  local clsName::String = name(parent)
   local mods::List{Modifier}
   local node_ptrs::List{Pointer{InstNode}}
   local node::InstNode
@@ -1312,6 +1368,12 @@ function applyModifier(modifier::Modifier, cls::ClassTree, clsName::String) ::Cl
             isvariant(P_Pointer.access(node_ptr), EMPTY_NODE) && continue
             found = true
             node = resolveOuter(P_Pointer.access(node_ptr))
+            #= omc: a protected element may only be modified from an extends clause. =#
+            if isProtected(node) && !(isExtends(parent) || isBaseClass(parent))
+              Error.addMultiSourceMessage(Error.NF_MODIFY_PROTECTED, list(name(node), toString(mod)),
+                                          list(Modifier_info(mod), InstNode_info(node)))
+              fail()
+            end
             if isComponent(node)
               local n2 = componentApply(node, mergeModifier, mod)
               if n2 !== node
@@ -1408,10 +1470,12 @@ function redeclareComponentElement(redeclareComp::Pointer{InstNode}, replaceable
   local repl_node::InstNode
   rdcl_node = P_Pointer.access(redeclareComp)
   repl_node = P_Pointer.access(replaceableComp)
+  #= Read before instantiation: an instantiated component node no longer has its definition. =#
+  local repl_replaceable::Bool = isReplaceable(repl_node)
   repl_node = instComponent(repl_node, DEFAULT_ATTR, MODIFIER_NOMOD(), true, instLevel, Ref{Attributes}(DEFAULT_ATTR))
   P_Pointer.update(replaceableComp, repl_node)
   rdcl_node = redeclareComponent(rdcl_node, repl_node, MODIFIER_NOMOD(), MODIFIER_NOMOD(), DEFAULT_ATTR, rdcl_node, instLevel,
-                                 Ref{Attributes}(DEFAULT_ATTR))
+                                 Ref{Attributes}(DEFAULT_ATTR); originalReplaceable = repl_replaceable)
    outComp = P_Pointer.create(rdcl_node)
   outComp
 end
@@ -1610,7 +1674,8 @@ function instComponent(node::InstNode,
     outer_mod = merge(getModifier(rdcl_node), outer_mod)
     rdcl_node = setModifier(outer_mod, rdcl_node)
     comp_node = redeclareComponent(rdcl_node, node, MODIFIER_NOMOD(), cc_mod, attributes, node, instLevel, attributeRef;
-                                   propagatedParents = rdcl_parents)
+                                   propagatedParents = rdcl_parents,
+                                   originalReplaceable = SCodeUtil.isElementReplaceable(def))
   else
     comp_node = instComponentDef(def::SCode.COMPONENT,
                      outer_mod,
@@ -1728,6 +1793,7 @@ function instComponentDef(component::SCode.COMPONENT,
   ty_attr = updateComponentVariability(ty_attr, ty, ty_node, isFunction(parent_res), component.comment)
   #=  Update the component's connector type now that we have its type. =#
   res = restriction(getClass(ty_node))
+  checkBindingRestriction(res, bindingVar, node, ty_node, component.info)
   ty_attr = updateComponentConnectorType(ty_attr, res, isRedeclared, node)
   if ! referenceEq(attr, ty_attr)
     node = componentApply(node, setAttributes, ty_attr)
@@ -1758,6 +1824,12 @@ function updateComponentConnectorType(attributes::Attributes, restriction::Restr
   local cty = attributes.connectorType
   if isConnectorType(cty)
     if isConnector(restriction)
+      #= omc: a connector component may not be a parameter or constant. =#
+      if attributes.variability < Variability.DISCRETE && !isBuiltin(getClass(component))
+        Error.addSourceMessage(Error.INVALID_CONNECTOR_VARIABILITY,
+          list(variabilityString(attributes.variability), name(component)), InstNode_info(component))
+        fail()
+      end
       if isExpandableConnector(restriction)
         cty = setPresent(cty)
       else
@@ -1780,8 +1852,12 @@ function updateComponentConnectorType(attributes::Attributes, restriction::Restr
   attributes
 end
 
+"""
+originalReplaceable: whether the original component is declared replaceable (its node no
+longer has the definition once instantiated, so the callers read it from the SCode).
+"""
 function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, outerMod::Modifier, constrainingMod::Modifier, outerAttr::Attributes, redeclaredNode::InstNode, instLevel::Int, attributeRef::Ref{Attributes};
-                            propagatedParents::List{InstNode} = Nil{InstNode}())
+                            propagatedParents::List{InstNode} = Nil{InstNode}(), originalReplaceable::Bool)
   local orig_comp::Component
   local rdcl_comp::Component
   local new_comp::Component
@@ -1810,6 +1886,14 @@ function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, out
   new_comp = begin
     @match (orig_comp, rdcl_comp) begin
       (UNTYPED_COMPONENT(__), UNTYPED_COMPONENT(__))  => begin
+        #=  omc: a component that is not replaceable may only be redeclared with the same
+            type (omc Type.isEqual of the untyped types: InstNode.isSame, the same definition). =#
+        if !originalReplaceable &&
+           !referenceEq(definition(orig_comp.classInst), definition(rdcl_comp.classInst))
+          Error.addMultiSourceMessage(Error.REDECLARE_NON_REPLACEABLE, list(name(originalNode)),
+                                      list(InstNode_info(originalNode), InstNode_info(rdcl_node)))
+          fail()
+        end
         #=  Take the binding from the outer modifier, the redeclare, or the
         =#
         #=  original component, in that order of priority.
@@ -3291,6 +3375,11 @@ function instSections2(parts::SCode.ClassDef, scope::InstNode, sections::Section
     end
     @match SCode.PARTS(__) = parts
     if isSome(parts.externalDecl)
+      #= A class with an external declaration and other sections (omc). =#
+      if SCodeUtil.classDefHasSections(parts, false)
+        Error.addSourceMessage(Error.MULTIPLE_SECTIONS_IN_FUNCTION, list(name(scope)), InstNode_info(scope))
+        fail()
+      end
       instExternalDecl(Util.getOption(parts.externalDecl), scope)
     else
       origin = if isFunction
@@ -3414,7 +3503,10 @@ function instEEquation(@nospecialize(scodeEq::SCode.EEquation), @nospecialize(sc
       end
 
       SCode.EQ_CONNECT(info = info)  => begin
-        if flagSet(origin, ORIGIN_WHEN)
+        if flagSet(origin, ORIGIN_INITIAL)
+          Error.addSourceMessage(Error.CONNECT_IN_INITIAL_EQUATION, nil, info)
+          fail()
+        elseif flagSet(origin, ORIGIN_WHEN)
           Error.addSourceMessage(Error.CONNECT_IN_WHEN, list(Dump.printComponentRefStr(scodeEq.crefLeft), Dump.printComponentRefStr(scodeEq.crefRight)), info)
           fail()
         end
@@ -3583,6 +3675,47 @@ function checkIteratorShadowing(nameArg::String, scope::InstNode, infoArg::Sourc
 end
 
 """
+omc NFInst.checkTopLevelOuter: an inner is generated for an outer element only when the
+root class has nothing of that name; an outer element of the root class itself
+(TOP_LEVEL_OUTER, a warning with --allowNonStandardModelica=nonStdTopLevelOuter) or another
+element of that name (MISSING_INNER_NAME_CONFLICT) is an error. omc tells them apart with
+isInner of the found node; here isOuter, see below.
+"""
+function checkTopLevelOuter(name::String, outerNode::InstNode, scope::InstNode)
+  local node::InstNode = try
+    Base.first(lookupSimpleName(name, scope))
+  catch
+    EMPTY_NODE()
+  end
+  isvariant(node, EMPTY_NODE) && return nothing
+  #= The root's element resolves to the generated inner itself (or is outer): the outer is the
+     root's own, TOP_LEVEL_OUTER. A declared inner of that name instead: the generated inner is
+     one this port makes although lookup finds that inner (omc generates none then); not an
+     error. =#
+  local same_def::Bool = try
+    referenceEq(definition(node), definition(outerNode))
+  catch
+    #= An instantiated component has no definition here. =#
+    false
+  end
+  local is_top_outer::Bool = isOuter(node) || same_def
+  !is_top_outer && isInner(node) && return nothing
+  if is_top_outer
+    if Flags.isConfigFlagSet(Flags.ALLOW_NON_STANDARD_MODELICA, "nonStdTopLevelOuter")
+      Error.addSourceMessage(Error.TOP_LEVEL_OUTER, list(name), InstNode_info(node))
+      return nothing
+    end
+    Error.addSourceMessage(ErrorTypes.MESSAGE(Error.TOP_LEVEL_OUTER.id, ErrorTypes.TRANSLATION(),
+                                              ErrorTypes.ERROR(), Error.TOP_LEVEL_OUTER.message),
+                           list(name), InstNode_info(node))
+  else
+    Error.addMultiSourceMessage(Error.MISSING_INNER_NAME_CONFLICT, list(name),
+                                list(InstNode_info(node), InstNode_info(outerNode)))
+  end
+  fail()
+end
+
+"""
 Inner elements can be generated automatically during instantiation if they're
                    missing, and are stored in the cache of the top scope since that's easily
                    accessible during lookup. This function copies any such inner elements into
@@ -3609,6 +3742,7 @@ function insertGeneratedInners(node::InstNode, topScope::InstNode)
   inner_comps = nil
   for e in inner_nodes
     (name, n) = e
+    checkTopLevelOuter(name, n, node)
     Error.addSourceMessage(Error.MISSING_INNER_ADDED, list(typeName(n), name), InstNode_info(n))
     if isComponent(n)
       n = instComponent(n, DEFAULT_ATTR, MODIFIER_NOMOD(), true, 0, Ref{Attributes}(DEFAULT_ATTR))

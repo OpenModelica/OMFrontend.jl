@@ -387,3 +387,133 @@ function fromSCode(sres::SCode.Restriction)::Restriction
   end
   return res
 end
+
+"""
+omc's Restriction.checkClass: the sections and elements the class specialization does not
+allow. Packages are models here (fromSCode), so they are told apart by their SCode
+restriction. The deprecation warnings for plain classes are not ported.
+"""
+function checkClassRestriction(node::InstNode, res::Restriction)
+  local def::SCode.Element = definition(node)
+  local cdef::SCode.ClassDef = SCodeUtil.getClassBody(def)
+  local is_package::Bool = SCodeUtil.isPackage(def)
+  @match cdef begin
+    SCode.PARTS(__) => begin
+      if is_package
+        #= All components in a package must be constants. =#
+        assertOnlyConstantComponents(cdef.elementLst, node)
+        assertNoEquations(cdef.normalEquationLst, cdef.initialEquationLst, "package")
+        assertNoAlgorithms(cdef.normalAlgorithmLst, cdef.initialAlgorithmLst, "package")
+      else
+        @match res begin
+          RESTRICTION_RECORD(__) || RESTRICTION_TYPE(__) || RESTRICTION_CONNECTOR(__) => begin
+            #= Records, types and connectors may only contain public sections. =#
+            assertNoProtected(cdef.elementLst, toString(res))
+            assertNoEquations(cdef.normalEquationLst, cdef.initialEquationLst, toString(res))
+            assertNoAlgorithms(cdef.normalAlgorithmLst, cdef.initialAlgorithmLst, toString(res))
+          end
+          RESTRICTION_FUNCTION(__) => begin
+            #= Functions may not contain equations or initial algorithms. =#
+            assertNoEquations(cdef.normalEquationLst, cdef.initialEquationLst, toString(res))
+            assertNoInitialAlgorithms(cdef.initialAlgorithmLst, toString(res))
+          end
+          RESTRICTION_OPERATOR(__) => begin
+            assertNoEquations(cdef.normalEquationLst, cdef.initialEquationLst, toString(res))
+            assertNoAlgorithms(cdef.normalAlgorithmLst, cdef.initialAlgorithmLst, toString(res))
+          end
+          _ => ()
+        end
+      end
+    end
+    _ => ()
+  end
+  return nothing
+end
+
+"""
+omc's Restriction.toString of a class node's restriction: packages are models here
+(fromSCode), so they are named by their SCode restriction.
+"""
+function restrictionName(res::Restriction, clsNode::InstNode)::String
+  local def = definition(clsNode)
+  return if def isa SCode.Element && SCodeUtil.isPackage(def)
+    "package"
+  else
+    toString(res)
+  end
+end
+
+"""
+omc NFInst.checkBindingRestriction: a component of a class that is not a clock, connector,
+enumeration, external object, record or type may not have a binding.
+"""
+function checkBindingRestriction(res::Restriction, binding::Binding, component::InstNode, clsNode::InstNode, info::SourceInfo)
+  if isBound(binding)
+    @match res begin
+      RESTRICTION_CLOCK(__) || RESTRICTION_CONNECTOR(__) || RESTRICTION_ENUMERATION(__) ||
+      RESTRICTION_EXTERNAL_OBJECT(__) || RESTRICTION_RECORD(__) || RESTRICTION_TYPE(__) ||
+      RESTRICTION_UNKNOWN(__) => ()
+      _ => begin
+        Error.addSourceMessage(Error.INVALID_SPECIALIZATION_FOR_BINDING_EQUATION,
+          list(name(component), restrictionName(res, clsNode)), info)
+        fail()
+      end
+    end
+  end
+  return nothing
+end
+
+function assertNoEquations(equations::List{SCode.Equation}, initialEquations::List{SCode.Equation}, resName::String)
+  if listEmpty(equations) && listEmpty(initialEquations)
+    return nothing
+  end
+  local eq::SCode.Equation = listHead(if listEmpty(equations) initialEquations else equations end)
+  Error.addSourceMessage(Error.EQUATION_TRANSITION_FAILURE, list(resName), SCodeUtil.getEquationInfo(eq.eEquation))
+  fail()
+end
+
+function assertNoAlgorithms(algorithms::List{SCode.AlgorithmSection}, initialAlgorithms::List{SCode.AlgorithmSection}, resName::String)
+  local alg_opt::Option{SCode.AlgorithmSection} = ListUtil.findOption(algorithms, SCodeUtil.isNonEmptyAlgorithm)
+  if isNone(alg_opt)
+    alg_opt = ListUtil.findOption(initialAlgorithms, SCodeUtil.isNonEmptyAlgorithm)
+  end
+  if isSome(alg_opt)
+    local alg::SCode.AlgorithmSection = Util.getOption(alg_opt)
+    Error.addSourceMessage(Error.ALGORITHM_TRANSITION_FAILURE, list(resName), SCodeUtil.getStatementInfo(listHead(alg.statements)))
+    fail()
+  end
+  return nothing
+end
+
+function assertNoInitialAlgorithms(algs::List{SCode.AlgorithmSection}, resName::String)
+  for alg in algs
+    if !listEmpty(alg.statements)
+      Error.addSourceMessage(Error.INITIAL_ALGORITHM_TRANSITION_FAILURE, list(resName), SCodeUtil.getStatementInfo(listHead(alg.statements)))
+      fail()
+    end
+  end
+  return nothing
+end
+
+function assertNoProtected(elements::List{SCode.Element}, resName::String)
+  for e in elements
+    if SCodeUtil.isElementProtected(e)
+      Error.addSourceMessage(Error.PROTECTED_TRANSITION_FAILURE, list(resName), SCodeUtil.elementInfo(e))
+      fail()
+    end
+  end
+  return nothing
+end
+
+function assertOnlyConstantComponents(elements::List{SCode.Element}, clsNode::InstNode)
+  for e in elements
+    @match e begin
+      SCode.COMPONENT(__) where {!SCodeUtil.isConstant(SCodeUtil.attrVariability(e.attributes))} => begin
+        Error.addSourceMessage(Error.PACKAGE_VARIABLE_NOT_CONSTANT, list(e.name, name(clsNode)), e.info)
+        fail()
+      end
+      _ => ()
+    end
+  end
+  return nothing
+end

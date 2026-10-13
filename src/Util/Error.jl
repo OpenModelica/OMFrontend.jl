@@ -245,7 +245,7 @@ const NO_CONSTANT_BINDING =
     26,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("No constant value for variable %s in scope %s."),
+    Gettext.gettext("Constant '%s' has no value."),
   )::ErrorTypes.Message
 
 const TYPE_NOT_FROM_PREDEFINED =
@@ -365,7 +365,7 @@ const REDECLARE_NON_REPLACEABLE =
     41,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Trying to redeclare %1 %2 but %1 not declared as replaceable."),
+    Gettext.gettext("Redeclaration with a new type requires '%s' to be replaceable."),
   )::ErrorTypes.Message
 
 const COMPONENT_INPUT_OUTPUT_MISMATCH =
@@ -1541,7 +1541,7 @@ const ALGORITHM_TRANSITION_FAILURE =
     187,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Algorithm section is not allowed in %s."),
+    Gettext.gettext("Algorithm sections are not allowed in %s."),
   )::ErrorTypes.Message
 
 const FAILURE_TO_DEDUCE_DIMS_NO_MOD =
@@ -3009,11 +3009,11 @@ const UNBOUND_PARAMETER_WITH_START_VALUE_WARNING =
     Gettext.gettext("Parameter %s has no value, and is fixed during initialization (fixed=true), using available start value (start=%s) as default value."),
   )::ErrorTypes.Message
 
-const UNBOUND_PARAMETER_WARNING =
+const UNBOUND_PARAMETER_ERROR =
   ErrorTypes.MESSAGE(
     500,
     ErrorTypes.TRANSLATION(),
-    ErrorTypes.WARNING(),
+    ErrorTypes.ERROR(),
     Gettext.gettext("Parameter %s has neither value nor start value, and is fixed during initialization (fixed=true)."),
   )::ErrorTypes.Message
 
@@ -3143,6 +3143,150 @@ const ITERATOR_NON_ARRAY =
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
     Gettext.gettext("Iterator %s, has type %s, but expected a 1D array expression."),
+  )::ErrorTypes.Message
+
+const NF_MODIFY_PROTECTED =
+  ErrorTypes.MESSAGE(
+    396,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Protected element '%s' may not be modified, got '%s'."),
+  )::ErrorTypes.Message
+
+const PROTECTED_TRANSITION_FAILURE =
+  ErrorTypes.MESSAGE(
+    397,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Protected sections are not allowed in %s."),
+  )::ErrorTypes.Message
+
+const INITIAL_ALGORITHM_TRANSITION_FAILURE =
+  ErrorTypes.MESSAGE(
+    399,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Initial algorithm sections are not allowed in %s."),
+  )::ErrorTypes.Message
+
+const INVALID_SPECIALIZATION_FOR_BINDING_EQUATION =
+  ErrorTypes.MESSAGE(
+    400,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Component '%s' may not have a binding equation due to class specialization '%s'."),
+  )::ErrorTypes.Message
+
+const INVALID_SPECIALIZATION_IN_ASSIGNMENT =
+  ErrorTypes.MESSAGE(
+    401,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Component '%s' may not be assigned to due to class specialization '%s'."),
+  )::ErrorTypes.Message
+
+const ASSIGN_ITERATOR_ERROR =
+  ErrorTypes.MESSAGE(
+    415,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Assignment to iterator '%s'."),
+  )::ErrorTypes.Message
+
+const INVALID_DELETED_COMPONENT_CONTEXT =
+  ErrorTypes.MESSAGE(
+    420,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("'%s' refers to a component with a false condition."),
+  )::ErrorTypes.Message
+
+const NON_DISCRETE_WHEN_CONDITION =
+  ErrorTypes.MESSAGE(
+    382,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("When-condition '%s' is not a discrete-time expression."),
+  )::ErrorTypes.Message
+
+const DER_OF_NONDIFFERENTIABLE_EXP =
+  ErrorTypes.MESSAGE(
+    369,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Argument '%s' of der is not differentiable."),
+  )::ErrorTypes.Message
+
+const BREAK_OUTSIDE_LOOP =
+  ErrorTypes.MESSAGE(
+    378,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("'break' may only be used in a while- or for-loop."),
+  )::ErrorTypes.Message
+
+const UNSPECIFIED_ENUM_COMPONENT =
+  ErrorTypes.MESSAGE(
+    407,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Component '%s' has an unspecified enumeration type (enumeration(:))."),
+  )::ErrorTypes.Message
+
+const NON_FIXED_CONSTANT =
+  ErrorTypes.MESSAGE(
+    413,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Constant '%s' must be fixed but has 'fixed = false'"),
+  )::ErrorTypes.Message
+
+const INVALID_CONNECTOR_VARIABILITY =
+  ErrorTypes.MESSAGE(
+    416,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Invalid variability %s on connector '%s'."),
+  )::ErrorTypes.Message
+
+const NON_PARAMETER_EXPRESSION_DIMENSION =
+  ErrorTypes.MESSAGE(
+    302,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Expression '%s' that determines the size of dimension '%s' of '%s' is not an evaluable parameter expression."),
+  )::ErrorTypes.Message
+
+const NON_CONSTANT_IN_ENCLOSING_SCOPE =
+  ErrorTypes.MESSAGE(
+    403,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Component '%s' was found in an enclosing scope but is not a constant."),
+  )::ErrorTypes.Message
+
+const TOP_LEVEL_OUTER =
+  ErrorTypes.MESSAGE(
+    379,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.WARNING(),
+    Gettext.gettext("The model can't be instantiated due to top-level outer element '%s', it may only be used as part of a simulation model."),
+  )::ErrorTypes.Message
+
+const MISSING_INNER_NAME_CONFLICT =
+  ErrorTypes.MESSAGE(
+    380,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("An inner declaration for outer element '%s' could not be found, and could not be automatically generated due to an existing declaration of that name."),
+  )::ErrorTypes.Message
+
+const CYCLIC_FUNCTION_COMPONENTS =
+  ErrorTypes.MESSAGE(
+    383,
+    ErrorTypes.TRANSLATION(),
+    ErrorTypes.ERROR(),
+    Gettext.gettext("Cyclically dependent function components found: %s"),
   )::ErrorTypes.Message
 
 const INST_INVALID_RESTRICTION =

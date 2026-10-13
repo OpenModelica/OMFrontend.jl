@@ -34,10 +34,151 @@
 */ =#
 
 function verify(flatModel::FlatModel)
+  for var in flatModel.variables
+    verifyVariable(var)
+  end
   for eq in flatModel.equations
     verifyEquation(eq)
+    verifyEquationBounds(eq)
+  end
+  for ieq in flatModel.initialEquations
+    verifyEquation(ieq)
+    verifyEquationBounds(ieq)
+  end
+  for alg in Iterators.flatten((flatModel.algorithms, flatModel.initialAlgorithms))
+    for stmt in alg.statements
+      verifyStatementBounds(stmt)
+    end
   end
 #  return execStat(getInstanceName())
+end
+
+"""
+omc's subscript bounds check (VerifyModel.checkSubscriptBounds): literal subscripts of
+crefs against known dimensions, in bindings, equations (shallow, as omc's
+Equation.applyExpShallow) and statements.
+"""
+function verifyVariable(var::Variable)
+  verifyBindingBounds(var.binding)
+  for attr in var.typeAttributes
+    verifyBindingBounds(Util.tuple22(attr))
+  end
+  return nothing
+end
+
+function verifyBindingBounds(binding::Binding)
+  if isBound(binding)
+    checkSubscriptBounds(getTypedExp(binding), Binding_getInfo(binding))
+  end
+  return nothing
+end
+
+function verifyEquationBounds(eq::Equation)
+  local info::SourceInfo = DAE.ElementSource_getInfo(source(eq))
+  @match eq begin
+    EQUATION_EQUALITY(__) || EQUATION_CONNECT(__) => begin
+      checkSubscriptBounds(eq.lhs, info)
+      checkSubscriptBounds(eq.rhs, info)
+    end
+    EQUATION_FOR(__) => begin
+      isSome(eq.range) && checkSubscriptBounds(Util.getOption(eq.range), info)
+    end
+    EQUATION_IF(__) || EQUATION_WHEN(__) => begin
+      for b in eq.branches
+        @match b begin
+          EQUATION_BRANCH(__) => checkSubscriptBounds(b.condition, info)
+          _ => ()
+        end
+      end
+    end
+    EQUATION_ASSERT(__) => begin
+      checkSubscriptBounds(eq.condition, info)
+      checkSubscriptBounds(eq.message, info)
+      checkSubscriptBounds(eq.level, info)
+    end
+    EQUATION_TERMINATE(__) => checkSubscriptBounds(eq.message, info)
+    EQUATION_REINIT(__) => begin
+      checkSubscriptBounds(eq.cref, info)
+      checkSubscriptBounds(eq.reinitExp, info)
+    end
+    EQUATION_NORETCALL(__) => checkSubscriptBounds(eq.exp, info)
+    _ => ()
+  end
+  return nothing
+end
+
+function verifyStatementBounds(stmt::Statement)
+  local info::SourceInfo = DAE.ElementSource_getInfo(stmt.source)
+  @match stmt begin
+    ALG_ASSIGNMENT(__) => begin
+      checkSubscriptBounds(stmt.lhs, info)
+      checkSubscriptBounds(stmt.rhs, info)
+    end
+    ALG_FOR(__) => begin
+      isSome(stmt.range) && checkSubscriptBounds(Util.getOption(stmt.range), info)
+      foreach(verifyStatementBounds, stmt.body)
+    end
+    ALG_IF(__) || ALG_WHEN(__) => begin
+      for b in stmt.branches
+        checkSubscriptBounds(Util.tuple21(b), info)
+        foreach(verifyStatementBounds, Util.tuple22(b))
+      end
+    end
+    ALG_WHILE(__) => begin
+      checkSubscriptBounds(stmt.condition, info)
+      foreach(verifyStatementBounds, stmt.body)
+    end
+    ALG_ASSERT(__) => begin
+      checkSubscriptBounds(stmt.condition, info)
+      checkSubscriptBounds(stmt.message, info)
+      checkSubscriptBounds(stmt.level, info)
+    end
+    ALG_TERMINATE(__) => checkSubscriptBounds(stmt.message, info)
+    ALG_REINIT(__) => begin
+      checkSubscriptBounds(stmt.cref, info)
+      checkSubscriptBounds(stmt.reinitExp, info)
+    end
+    ALG_NORETCALL(__) => checkSubscriptBounds(stmt.exp, info)
+    _ => ()
+  end
+  return nothing
+end
+
+function checkSubscriptBounds(@nospecialize(exp::Expression), info::SourceInfo)
+  fold(exp, (e, arg) -> begin
+    @match e begin
+      CREF_EXPRESSION(__) => checkSubscriptBoundsCref(e.cref, info)
+      _ => ()
+    end
+    arg
+  end, nothing)
+  return nothing
+end
+
+function checkSubscriptBoundsCref(cref::ComponentRef, info::SourceInfo)
+  @match cref begin
+    COMPONENT_REF_CREF(subscripts = subs) where {!listEmpty(subs) && isArray(cref.ty)} => begin
+      local dims::List{Dimension} = arrayDims(cref.ty)
+      local index::Int = 1
+      for s in subs
+        listEmpty(dims) && break
+        local d::Dimension = listHead(dims)
+        dims = listRest(dims)
+        if isScalarLiteral(s) && isKnown(d)
+          local int_sub::Int = toInteger(s)
+          if int_sub < 1 || int_sub > size(d)
+            Error.addSourceMessage(Error.ARRAY_INDEX_OUT_OF_BOUNDS,
+              list(toString(s), intString(index), toString(d), firstName(cref)), info)
+            fail()
+          end
+        end
+        index += 1
+      end
+      checkSubscriptBoundsCref(cref.restCref, info)
+    end
+    _ => ()
+  end
+  return nothing
 end
 
 function expandCrefSet(crefs::List{<:ComponentRef})

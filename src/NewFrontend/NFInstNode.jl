@@ -362,6 +362,17 @@ function isEnumerationType(node::InstNode)::Bool
   end
 end
 
+"""
+omc InstNode.isEncapsulated.
+"""
+function isEncapsulated(node::InstNode)::Bool
+  return @match node begin
+    CLASS_NODE(__) => isEncapsulated(getClass(node))
+    COMPONENT_NODE(__) => isEncapsulated(getClass(node))
+    _ => false
+  end
+end
+
 function isBuiltin(node::InstNode)
   local isBuiltin::Bool
    isBuiltin = begin
@@ -2181,6 +2192,17 @@ function isUserdefinedClass(node::InstNode)
     end
   end
   isUserdefined
+end
+
+"""
+omc InstNode.isExtends: the node of an extends clause.
+"""
+function isExtends(node::InstNode)::Bool
+  return @match node begin
+    CLASS_NODE(definition = SCode.EXTENDS(__)) => true
+    CLASS_NODE(nodeType = BASE_CLASS(definition = SCode.EXTENDS(__))) => true
+    _ => false
+  end
 end
 
 function isBaseClass(node::InstNode)

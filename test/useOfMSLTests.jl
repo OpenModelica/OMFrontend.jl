@@ -20,11 +20,13 @@
     true
   end
 
+  #= TransmissionLine is a component: r, l, c and length are set where it is used. =#
   @test true == begin
     key = OMFrontend.loadBundledMSL(version = "3.2.3")
-    res = OMFrontend.flattenModelWithLibraries("TransmissionLine",
-                                               "./MSL_Use/TransmissionLine.mo";
-                                               libraries = [key])
+    res = withNonStandardModelica("implicitParameterStartAttribute") do
+      OMFrontend.flattenModelWithLibraries("TransmissionLine", "./MSL_Use/TransmissionLine.mo";
+                                           libraries = [key])
+    end
     println(OMFrontend.toString(first(res)))
     true
   end

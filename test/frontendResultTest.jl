@@ -113,6 +113,11 @@ runTestsDefinedInVector(arrayTests0, "Testing scalarization of equational loops 
 include("connectGenerated.jl")
 runTestsDefinedInVector(generatedConnectorTests,
                         "Connector regression tests (auto-generated from unused .mo files)")
+@testset "Connector models omc rejects" begin
+  for (cls, file) in generatedConnectorTestsRejected
+    @test_throws Exception flattenFM(cls, file)
+  end
+end
 runTestsDefinedInVector(bindingExpTests, "BINDING_EXP constant evaluation in function bodies")
 runTestsDefinedInVector(funcEvalAssignTests, "Assignments in functions evaluated at compile time")
 runTestsDefinedInVector(stringEvalTests, "String() of constants, as OpenModelica formats them")

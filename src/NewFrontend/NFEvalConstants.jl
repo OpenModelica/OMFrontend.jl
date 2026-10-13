@@ -122,6 +122,31 @@ function evaluateExp(@nospecialize(exp::Expression), constVariability::Variabili
   return outExp
 end
 
+"""
+omc EvalConstants evaluates a constant with a real target, so an unbound one is
+UNBOUND_CONSTANT (Ceval.printUnboundError); here evaluation ignores Ceval errors, so that case
+is checked on its own: a typed constant with no binding, not a record (whose fields may be
+bound) nor a field of a component, and no start value.
+"""
+function checkConstantHasValue(cref::ComponentRef)
+  isvariant(cref, COMPONENT_REF_CREF) || return nothing
+  local n::InstNode = node(cref)
+  isComponent(n) || return nothing
+  #= A field of a component (a record instance) may get its value from the parent's binding
+     (omc makeComponentBinding). =#
+  (isvariant(cref.restCref, COMPONENT_REF_CREF) && isComponent(node(cref.restCref))) && return nothing
+  local comp::Component = component(n)
+  @match comp begin
+    TYPED_COMPONENT(__) => ()
+    _ => return nothing
+  end
+  isUnbound(getBinding(comp)) || return nothing
+  isRecord(arrayElementType(getType(comp))) && return nothing
+  isSome(evalComponentStartBinding(n, comp, cref, EVALTARGET_IGNORE_ERRORS(), false)) && return nothing
+  Error.addSourceMessage(Error.UNBOUND_CONSTANT, list(toString(cref)), InstNode_info(n))
+  fail()
+end
+
 function evaluateExpTraverser(
   exp::Expression,
   constVariability::VariabilityType,
@@ -142,6 +167,7 @@ function evaluateExpTraverser(
         ty = outExp.ty
         #=  Evaluate constants and structural parameters.=#
         if nodeVariability(cref) <= constVariability
+          nodeVariability(cref) == Variability.CONSTANT && checkConstantHasValue(cref)
           @assign outExp = evalCref(
             cref,
             outExp,

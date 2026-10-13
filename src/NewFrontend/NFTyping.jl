@@ -1108,9 +1108,10 @@ end
       flag,
       info)
     end
-    INTEGER_EXPRESSION(__) || REAL_EXPRESSION(__) || BOOLEAN_EXPRESSION(__) => begin
-      (dim, TYPE_INTEGER(), Variability.CONSTANT)
-    end
+    #= Literals keep their types: a Real or Boolean dimension is an error (checkDimensionType). =#
+    INTEGER_EXPRESSION(__) => (dim, TYPE_INTEGER(), Variability.CONSTANT)
+    REAL_EXPRESSION(__) => (dim, TYPE_REAL(), Variability.CONSTANT)
+    BOOLEAN_EXPRESSION(__) => (dim, TYPE_BOOLEAN(), Variability.CONSTANT)
     BINARY_EXPRESSION(__) => begin
       typeBinaryExpression(dim, flag, info)
     end
@@ -1405,6 +1406,41 @@ end
    argument on every call and @nospecializeinfer leaves the body abstractly
    inferred; together they cost ~16 allocations and ~0.8 us per expression
    node, which dominated binding typing. =#
+"""
+omc NFTyping.checkAssignment: no assignment to a constant, nor to a parameter outside an
+initial algorithm; in a function, no assignment to an input.
+"""
+function checkAssignment(@nospecialize(lhsExp::Expression), @nospecialize(rhsExp::Expression),
+                         lhsVar::VariabilityType, origin::ORIGIN_Type, info::SourceInfo)
+  @match lhsExp begin
+    TUPLE_EXPRESSION(__) => begin
+      local i::Int = 1
+      for e in lhsExp.elements
+        checkAssignment(e, tupleElement(rhsExp, lhsExp.ty, i), variability(e), origin, info)
+        i += 1
+      end
+    end
+    CREF_EXPRESSION(__) where {flagSet(origin, ORIGIN_FUNCTION)} => begin
+      if isvariant(lhsExp.cref, COMPONENT_REF_CREF) && isInput(node(lhsExp.cref))
+        Error.addSourceMessage(Error.ASSIGN_READONLY_ERROR, list("input", toString(lhsExp.cref)), info)
+        fail()
+      end
+    end
+    _ => begin
+      if lhsVar < Variability.DISCRETE
+        if lhsVar == Variability.CONSTANT
+          Error.addSourceMessage(Error.ASSIGN_CONSTANT_ERROR, list(toString(lhsExp), toString(rhsExp)), info)
+          fail()
+        elseif flagNotSet(origin, ORIGIN_INITIAL)
+          Error.addSourceMessage(Error.ASSIGN_PARAM_ERROR, list(toString(lhsExp), toString(rhsExp)), info)
+          fail()
+        end
+      end
+    end
+  end
+  return nothing
+end
+
 function typeExp(
   exp::Expression,
   origin::ORIGIN_Type,
@@ -2790,6 +2826,11 @@ end
   (expl, tyl, valr) = typeExpl(elements, next_origin, info)
    tupleType = TYPE_TUPLE(tyl, NONE())
    tupleExp = TUPLE_EXPRESSION(tupleType, expl)
+  #=  Tuples may only contain component references (omc). =#
+  if !all(isCref, expl)
+    Error.addSourceMessage(Error.TUPLE_ASSIGN_CREFS_ONLY, list(toString(tupleExp)), info)
+    fail()
+  end
    variability = if listEmpty(valr)
     Variability.CONSTANT
   else
@@ -3687,6 +3728,7 @@ function typeEquationAssert(eq::Equation, origin::ORIGIN_Type)
     3,
     info,
   )
+  checkAssertLevel(e3, info)
   return EQUATION_ASSERT(e1, e2, e3, eq.source)
 end
 
@@ -3777,20 +3819,10 @@ end
         cref = cr && COMPONENT_REF_CREF(origin = Origin.CREF),
       ) => begin
         if !isConnector(cr.node)
-          @error "Invalid connector type" list(toString(cr)) info
-          # Error.addSourceMessageAndFail(
-          #   Error.INVALID_CONNECTOR_TYPE,
-          #   list(toString(cr)),
-          #   info,
-          # )
+          Error.addSourceMessageAndFail(Error.INVALID_CONNECTOR_TYPE, list(toString(cr)), info)
         end
         if !checkConnectorForm(cr)
-          @error "Invalid connector form:" toString(cr)
-          # Error.addSourceMessageAndFail(
-          #   Error.INVALID_CONNECTOR_FORM,
-          #   list(toString(cr)),
-          #   info,
-          # )
+          Error.addSourceMessageAndFail(Error.INVALID_CONNECTOR_FORM, list(toString(cr)), info)
         end
         if subscriptsVariability(cr) > Variability.PARAMETER
            subs = subscriptsAllFlat(cr)
@@ -3908,7 +3940,7 @@ end
     @match st begin
       ALG_ASSIGNMENT(__) => begin
         info = AbsynUtil.dummyInfo#DAE.ElementSource_getInfo(st.source)
-        (e1, ty1) =
+        (e1, ty1, var1) =
           typeExp(st.lhs, setFlag(origin, ORIGIN_LHS), info)
         (e2, ty2) =
           typeExp(st.rhs, setFlag(origin, ORIGIN_RHS), info)
@@ -3929,6 +3961,7 @@ end
           )
           fail()
         end
+        checkAssignment(e1, e2, var1, origin, info)
         ALG_ASSIGNMENT(e1, e2, ty3, st.source)
       end
 
@@ -3969,13 +4002,7 @@ end
           begin
             @match br begin
               (cond, body) => begin
-                (e1,_,_) = typeCondition(
-                  cond,
-                  origin,
-                  st.source,
-                  Error.WHEN_CONDITION_TYPE_ERROR,
-                  allowVector = true,
-                )
+                (e1,_,_) = typeWhenCondition(cond, origin, st.source, false)
                 sts1 = [typeStatement(bst, next_origin) for bst in body]
                 (e1, sts1)
               end
@@ -4015,6 +4042,7 @@ end
           3,
           info,
         )
+        checkAssertLevel(e3, info)
         ALG_ASSERT(e1, e2, e3, st.source)
       end
 
@@ -4312,6 +4340,25 @@ end
   return isConstant
 end
 
+"""
+omc NFTyping.typeWhenCondition: a when-condition must be a discrete-time expression
+(or a clock).
+"""
+function typeWhenCondition(@nospecialize(condition::Expression), origin::ORIGIN_Type,
+                           source::DAE.ElementSource, allowClock::Bool)::Tuple{Expression, NFType, VariabilityType}
+  local cond::Expression
+  local ty::NFType
+  local var::VariabilityType
+  (cond, ty, var) = typeCondition(condition, origin, source, Error.WHEN_CONDITION_TYPE_ERROR,
+                                  allowVector = true, allowClock = allowClock)
+  if var > Variability.IMPLICITLY_DISCRETE && !isClock(ty)
+    Error.addSourceMessage(Error.NON_DISCRETE_WHEN_CONDITION, list(toString(condition)),
+                           DAE.ElementSource_getInfo(source))
+    fail()
+  end
+  return (cond, ty, var)
+end
+
 @nospecializeinfer function typeWhenEquation(
   @nospecialize(branches::Vector{<:Equation_Branch}),
   origin::ORIGIN_Type,
@@ -4326,14 +4373,7 @@ end
   local var::VariabilityType
   for branch in branches
     @match EQUATION_BRANCH(cond, _, body) = branch
-    (cond, ty, var) = typeCondition(
-      cond,
-      origin,
-      source,
-      Error.WHEN_CONDITION_TYPE_ERROR,
-      allowVector = true,
-      allowClock = true,
-    )
+    (cond, ty, var) = typeWhenCondition(cond, origin, source, true)
     if isClock(ty)
       if length(branches) != 1
         if referenceEq(branch, listHead(branches))
@@ -4355,6 +4395,19 @@ end
   end
   whenEq = EQUATION_WHEN(accum_branches, source)
   return whenEq
+end
+
+"""
+omc typeAssert: the level of an assert must be a parameter expression.
+"""
+function checkAssertLevel(@nospecialize(level::Expression), info::SourceInfo)
+  local level_var::VariabilityType = variability(level)
+  if level_var > Variability.PARAMETER
+    Error.addSourceMessage(Error.FUNCTION_SLOT_VARIABILITY,
+      list("level", toString(level), "assert", variabilityString(level_var), "parameter"), info)
+    fail()
+  end
+  return nothing
 end
 
 function typeOperatorArg(

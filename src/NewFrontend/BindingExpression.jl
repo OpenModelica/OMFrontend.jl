@@ -1454,6 +1454,79 @@ function isScalarLiteral(@nospecialize(exp::Expression)) ::Bool
   literal
 end
 
+"""
+omc Expression.isNonNegative: true if exp is known to be >= 0 (a cref's min attribute is not
+looked up here).
+"""
+function isNonNegative(@nospecialize(exp::Expression))::Bool
+  @match exp begin
+    INTEGER_EXPRESSION(__) => begin
+      exp.value >= 0
+    end
+    REAL_EXPRESSION(__) => begin
+      exp.value >= 0.0
+    end
+    CAST_EXPRESSION(__) => begin
+      isNonNegative(exp.exp)
+    end
+    UNARY_EXPRESSION(__) => begin
+      isNonPositive(exp.exp)
+    end
+    _ => begin
+      false
+    end
+  end
+end
+
+"""
+omc Expression.isNonPositive: true if exp is known to be <= 0 (a cref's max attribute is not
+looked up here).
+"""
+function isNonPositive(@nospecialize(exp::Expression))::Bool
+  @match exp begin
+    INTEGER_EXPRESSION(__) => begin
+      exp.value <= 0
+    end
+    REAL_EXPRESSION(__) => begin
+      exp.value <= 0.0
+    end
+    CAST_EXPRESSION(__) => begin
+      isNonPositive(exp.exp)
+    end
+    UNARY_EXPRESSION(__) => begin
+      isNonNegative(exp.exp)
+    end
+    _ => begin
+      false
+    end
+  end
+end
+
+"""
+omc Expression.makeDefaultValue: a value of type ty for a variable without a start value:
+0 (min if min >= 0, max if max <= 0), "", false, the first enumeration literal (min if given).
+"""
+function makeDefaultValue(ty::NFType, min::Union{Expression, Nothing} = nothing,
+                          max::Union{Expression, Nothing} = nothing)::Expression
+  if isInteger(ty) || isReal(ty)
+    min !== nothing && isNonNegative(min) && return min
+    max !== nothing && isNonPositive(max) && return max
+    return isInteger(ty) ? INTEGER_EXPRESSION(0) : REAL_EXPRESSION(0.0)
+  elseif isString(ty)
+    return STRING_EXPRESSION("")
+  elseif isBoolean(ty)
+    return BOOLEAN_EXPRESSION(false)
+  elseif isEnumeration(ty)
+    min !== nothing && return min
+    return ENUM_LITERAL_EXPRESSION(ty, listHead(ty.literals), 1)
+  elseif isArray(ty)
+    return fillType(ty, makeDefaultValue(arrayElementType(ty)))
+  elseif isTuple(ty)
+    return TUPLE_EXPRESSION(ty, arrayList(Expression[makeDefaultValue(t) for t in ty.types]))
+  end
+  error("makeDefaultValue: no default value of type " * toString(ty))
+end
+
 function isNegative(@nospecialize(exp::Expression)) ::Bool
   local negative::Bool
 
@@ -5178,11 +5251,12 @@ function toInteger(@nospecialize(exp::Expression)) ::Int
         exp.value
       end
 
+      #= An index, as omc: false is 1 and true is 2 (Boolean dimensions). =#
       BOOLEAN_EXPRESSION(__)  => begin
         if exp.value
-          1
+          2
         else
-          0
+          1
         end
       end
 

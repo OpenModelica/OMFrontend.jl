@@ -40,6 +40,12 @@
   end
   @Record LOOKUP_STATE_IMPORT begin
   end
+  #= omc: a non-constant component found in an enclosing scope. =#
+  @Record LOOKUP_STATE_NON_CONSTANT begin
+  end
+  #= omc: a non-constant component looked up in a class that is not a package. =#
+  @Record LOOKUP_STATE_NON_ENCAPSULATED begin
+  end
   @Record LOOKUP_STATE_PREDEF_CLASS begin
   end
   @Record LOOKUP_STATE_PREDEF_COMP begin
@@ -565,6 +571,18 @@ end
           Error.IMPORT_IN_COMPOSITE_NAME, list(name_str, toString(lookupName)),
           info,
         )
+        fail()
+      end
+
+      (LOOKUP_STATE_ERROR(errorState = LOOKUP_STATE_NON_CONSTANT(__)), _) => begin
+        Error.addMultiSourceMessage(Error.NON_CONSTANT_IN_ENCLOSING_SCOPE, list(name(node)),
+                                    list(InstNode_info(node), info))
+        fail()
+      end
+
+      (LOOKUP_STATE_ERROR(errorState = LOOKUP_STATE_NON_ENCAPSULATED(__)), _) => begin
+        Error.addMultiSourceMessage(Error.NON_ENCAPSULATED_CLASS_ACCESS, list(name(parent(node)), name(node)),
+                                    list(InstNode_info(node), info))
         fail()
       end
 

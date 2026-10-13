@@ -108,8 +108,7 @@ function printExpOtionStr(expOpt::Option{<:DAE.Exp})::String
     local exp::DAE.Exp
     @match expOpt begin
       SOME(exp) => begin
-        "SOME(" + ExpressionDump.printExpStr(exp)
-        +")"
+        "SOME(" + ExpressionDump.printExpStr(exp) + ")"
       end
 
       _ => begin

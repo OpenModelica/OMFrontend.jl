@@ -371,6 +371,65 @@ end
 _deletedElementCrefs()::Vector{ComponentRef} =
   get!(() -> ComponentRef[], task_local_storage(), :NFFlattenDeletedElementCrefs)::Vector{ComponentRef}
 
+"""
+omc Flatten.checkDeletedVarRefs: a reference to a component deleted by a false condition
+is an error, unless --allowNonStandardModelica=illegalConditionalContext. Run after the
+connections are resolved (connects to deleted components are removed there).
+"""
+function checkDeletedVarRefs(flatModel::FlatModel)
+  Flags.isConfigFlagSet(Flags.ALLOW_NON_STANDARD_MODELICA, "illegalConditionalContext") && return nothing
+  for var in flatModel.variables
+    checkDeletedVarRefsInBinding(var.binding, var.info)
+    for attr in var.typeAttributes
+      checkDeletedVarRefsInBinding(Util.tuple22(attr), var.info)
+    end
+  end
+  for eq in Iterators.flatten((flatModel.equations, flatModel.initialEquations))
+    local info::SourceInfo = DAE.ElementSource_getInfo(source(eq))
+    foldExp(eq, (e, arg) -> (checkDeletedVarRefsInExp(e, info); arg), nothing)
+  end
+  for alg in Iterators.flatten((flatModel.algorithms, flatModel.initialAlgorithms))
+    for stmt in alg.statements
+      local info::SourceInfo = DAE.ElementSource_getInfo(stmt.source)
+      foldExp(stmt, (e, arg) -> (checkDeletedVarRefsInExp(e, info); arg), nothing)
+    end
+  end
+  return nothing
+end
+
+function checkDeletedVarRefsInBinding(binding::Binding, info::SourceInfo)
+  isBound(binding) && checkDeletedVarRefsInExp(getTypedExp(binding), info)
+  return nothing
+end
+
+function checkDeletedVarRefsInExp(@nospecialize(exp::Expression), info::SourceInfo)
+  fold(exp, (e, arg) -> begin
+    @match e begin
+      CREF_EXPRESSION(__) where {isDeletedCref(e.cref)} => begin
+        Error.addSourceMessage(Error.INVALID_DELETED_COMPONENT_CONTEXT, list(toString(e.cref)), info)
+        fail()
+      end
+      _ => ()
+    end
+    arg
+  end, nothing)
+  return nothing
+end
+
+"""
+omc Flatten.isDeletedCref: the cref or one of its prefixes names a deleted component (the
+whole node, or one element of an array of components).
+"""
+function isDeletedCref(cref::ComponentRef)::Bool
+  local cr::ComponentRef = cref
+  while isvariant(cr, COMPONENT_REF_CREF)
+    local n::InstNode = node(cr)
+    isComponent(n) && isDeleted(component(n)) && return true
+    cr = rest(cr)
+  end
+  return isInDeletedElement(cref)
+end
+
 #= Whether a cref names (a part of) a component deleted in one element. =#
 function isInDeletedElement(cref::ComponentRef)::Bool
   local deleted = _deletedElementCrefs()
@@ -527,6 +586,7 @@ function flattenSimpleComponent(
   cmt = comp.comment
   info = comp.info
   var = comp_attr.variability
+  checkUnspecifiedEnumType(ty, comp_node, info)
   ty = flattenRaggedDimensions(ty, prefixCref(comp_node, TYPE_UNKNOWN(), nil, prefix))
   #= Negative dimensions are checked when flattening, a deleted component's are not (omc). =#
   for d in arrayDims(ty)
@@ -577,20 +637,81 @@ function flattenSimpleComponent(
       )
     )
   end
-  vars = push!(
-    vars,
-    VARIABLE(
-      name,
-      ty,
-      binding,
-      visibility,
-      comp_attr,
-      ty_attrs,
-      cmt,
-      info,
-    ),
-  )
+  local v::Variable = VARIABLE(name, ty, binding, visibility, comp_attr, ty_attrs, cmt, info)
+  #= The binding a constant or a fixed parameter needs (omc: not in checkModel or the API). =#
+  if var < Variability.DISCRETE && !unfix && !isComplex(arrayElementType(ty)) &&
+     !(Flags.isSet(Flags.NF_API) || Flags.getConfigBool(Flags.CHECK_MODEL))
+    local verified::Binding = verifyBinding(v, var)
+    if verified !== binding
+      v = VARIABLE(name, ty, verified, visibility, comp_attr, ty_attrs, cmt, info)
+    end
+  end
+  vars = push!(vars, v)
   return (vars, sections)
+end
+
+"""
+omc Flatten.checkUnspecifiedEnumType: a component may not have the type enumeration(:).
+"""
+function checkUnspecifiedEnumType(ty::NFType, node::InstNode, info::SourceInfo)
+  if isEnumeration(ty) && listEmpty(ty.literals)
+    Error.addSourceMessage(Error.UNSPECIFIED_ENUM_COMPONENT, list(name(node)), info)
+    fail()
+  end
+  return nothing
+end
+
+"""
+omc Flatten.verifyBinding: a constant must be fixed and have a binding; a fixed parameter
+needs a binding or a start value. MLS 8.6: the start value can serve as the binding, with a
+diagnostic; 3.7: the fallback value cannot. With
+--allowNonStandardModelica=implicitParameterStartAttribute a parameter with neither gets its
+type's default value (makeDefaultValue). Returns the variable's binding.
+"""
+function verifyBinding(v::Variable, var::VariabilityType)::Binding
+  local name::String = toString(v.name)
+  if var > Variability.CONSTANT && isBound(v.binding)
+    return v.binding
+  end
+  local fixed::Bool = true
+  local fixed_binding::Binding = lookupTypeAttribute("fixed", v)
+  if isBound(fixed_binding)
+    local fixed_exp::Expression = tryEvalExp(getExp(fixed_binding))
+    #= omc: a fixed that is not a Boolean literal is not checked. =#
+    fixed_exp isa BOOLEAN_EXPRESSION || return v.binding
+    fixed = fixed_exp.value
+  end
+  if var == Variability.CONSTANT
+    if !fixed
+      Error.addSourceMessage(Error.NON_FIXED_CONSTANT, list(name), v.info)
+      fail()
+    end
+    if isUnbound(v.binding)
+      Error.addSourceMessage(Error.NO_CONSTANT_BINDING, list(name), v.info)
+      fail()
+    end
+  elseif fixed && isUnbound(v.binding)
+    local start_binding::Binding = lookupTypeAttribute("start", v)
+    if isBound(start_binding)
+      Error.addSourceMessage(Error.UNBOUND_PARAMETER_WITH_START_VALUE_WARNING,
+                             list(name, toString(start_binding)), v.info)
+    else
+      Error.addSourceMessage(Error.UNBOUND_PARAMETER_ERROR, list(name), v.info)
+      Flags.isConfigFlagSet(Flags.ALLOW_NON_STANDARD_MODELICA, "implicitParameterStartAttribute") || fail()
+      local start_exp::Expression = makeDefaultValue(v.ty, evaluatedTypeAttribute("min", v),
+                                                     evaluatedTypeAttribute("max", v))
+      return FLAT_BINDING(start_exp, variability(start_exp))
+    end
+  end
+  return v.binding
+end
+
+"""
+A type attribute of the variable, evaluated (omc verifyBinding's eval_binding); nothing if unbound.
+"""
+function evaluatedTypeAttribute(attr::String, v::Variable)::Union{Expression, Nothing}
+  local b::Binding = lookupTypeAttribute(attr, v)
+  return isBound(b) ? tryEvalExp(getExp(b)) : nothing
 end
 
 function flattenTypeAttribute(attr::Modifier, prefix::ComponentRef)::Tuple{String, Binding}

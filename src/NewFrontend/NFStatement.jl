@@ -728,6 +728,39 @@ function markStructuralParamsSubs(exp::Expression, dummy::Int) ::Int
   dummy
 end
 
+"""
+omc NFInst.checkAssignmentRestriction: no assignment to an iterator, nor to a component
+of a class that is not a clock, connector, enumeration, record or type.
+"""
+function checkAssignmentRestriction(@nospecialize(lhs::Expression), info::SourceInfo)
+  @match lhs begin
+    CREF_EXPRESSION(__) where {isIterator(lhs.cref)} => begin
+      Error.addSourceMessage(Error.ASSIGN_ITERATOR_ERROR, list(toString(lhs.cref)), info)
+      fail()
+    end
+    CREF_EXPRESSION(__) where {isvariant(lhs.cref, COMPONENT_REF_CREF) && isComponent(node(lhs.cref))} => begin
+      local comp_node::InstNode = node(lhs.cref)
+      local res::Restriction = restriction(getClass(comp_node))
+      @match res begin
+        RESTRICTION_CLOCK(__) || RESTRICTION_CONNECTOR(__) || RESTRICTION_ENUMERATION(__) ||
+        RESTRICTION_RECORD(__) || RESTRICTION_TYPE(__) || RESTRICTION_UNKNOWN(__) => ()
+        _ => begin
+          Error.addSourceMessage(Error.INVALID_SPECIALIZATION_IN_ASSIGNMENT,
+            list(name(comp_node), restrictionName(res, classScope(comp_node))), info)
+          fail()
+        end
+      end
+    end
+    TUPLE_EXPRESSION(__) => begin
+      for e in lhs.elements
+        checkAssignmentRestriction(e, info)
+      end
+    end
+    _ => ()
+  end
+  return nothing
+end
+
 function instStatement(scodeStmt::SCode.Statement, scope::InstNode, origin::ORIGIN_Type)::Statement
   local statement::Statement
   statement = begin
@@ -744,6 +777,7 @@ function instStatement(scodeStmt::SCode.Statement, scope::InstNode, origin::ORIG
     @match scodeStmt begin
       SCode.ALG_ASSIGN(info = info) => begin
         exp1 = instExp(scodeStmt.assignComponent, scope, info)
+        checkAssignmentRestriction(exp1, info)
         exp2 = instExp(scodeStmt.value, scope, info)
         ALG_ASSIGNMENT(exp1, exp2, TYPE_UNKNOWN(), makeSource(scodeStmt.comment, info))
       end
@@ -828,11 +862,19 @@ function instStatement(scodeStmt::SCode.Statement, scope::InstNode, origin::ORIG
       end
 
       SCode.ALG_RETURN(__)  => begin
-       ALG_RETURN(makeSource(scodeStmt.comment, scodeStmt.info))
+        if flagNotSet(origin, ORIGIN_FUNCTION)
+          Error.addSourceMessage(Error.RETURN_OUTSIDE_FUNCTION, nil, scodeStmt.info)
+          fail()
+        end
+        ALG_RETURN(makeSource(scodeStmt.comment, scodeStmt.info))
       end
 
       SCode.ALG_BREAK(__)  => begin
-       ALG_BREAK(makeSource(scodeStmt.comment, scodeStmt.info))
+        if flagNotSet(origin, ORIGIN_FOR) && flagNotSet(origin, ORIGIN_WHILE)
+          Error.addSourceMessage(Error.BREAK_OUTSIDE_LOOP, nil, scodeStmt.info)
+          fail()
+        end
+        ALG_BREAK(makeSource(scodeStmt.comment, scodeStmt.info))
       end
 
       SCode.ALG_FAILURE(__)  => begin

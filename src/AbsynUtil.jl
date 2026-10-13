@@ -5431,8 +5431,7 @@ function withinString(w1::Within)::String
       end
 
       WITHIN(p1) => begin
-        "within " + pathString(p1)
-        +";"
+        "within " + pathString(p1) + ";"
       end
     end
   end

@@ -53,20 +53,6 @@ equation
 end ConnectArray1;
 """
 
-const ConnectConst1_REF = """
-class ConnectConst1
-  flow Real c1.f;
-  Real c1.e;
-  flow constant Real c2.f = 2.0;
-  constant Real c2.e = 1.0;
-equation
-  c1.e = 1.0;
-  (-c1.f) - 2.0 = 0.0;
-  c1.f = 0.0;
-  2.0 = 0.0;
-end ConnectConst1;
-"""
-
 const ConnectHierarchical1_REF = """
 class ConnectHierarchical1
   flow Real a.b.c.f;
@@ -127,29 +113,6 @@ equation
   a.my.f = 10.0 + a.my.e;
   b.a.my.f = 10.0 + b.a.my.e;
 end ConnectInner1;
-"""
-
-const ConnectInner2_REF = """
-class ConnectInner2
-  Real global.e;
-  flow Real global.f;
-  Real b.a.my.e;
-  flow Real b.a.my.f;
-  Real a.my.e;
-  flow Real a.my.f;
-  Real global.e;
-  flow Real global.f;
-equation
-  b.a.my.e = a.my.e;
-  b.a.my.e = global.e;
-  (-b.a.my.f) - a.my.f - global.f = 0.0;
-  global.f = 0.0;
-  b.a.my.f = 0.0;
-  a.my.f = 0.0;
-  global.e = 10.0;
-  a.my.f = 10.0 + a.my.e;
-  b.a.my.f = 10.0 + b.a.my.e;
-end ConnectInner2;
 """
 
 const ConnectInner3_REF = """
@@ -244,27 +207,6 @@ equation
 end Top2;
 """
 
-const ConnectInnerOuter4_Top_REF = """
-class Top
-  flow Real world.subWorld.pin.i;
-  Real world.subWorld.pin.v;
-  flow Real topPin.i;
-  Real topPin.v;
-  flow Real a1.aPin.i;
-  Real a1.aPin.v;
-  flow Real a2.aPin.i;
-  Real a2.aPin.v;
-equation
-  topPin.v = a2.aPin.v;
-  topPin.v = a1.aPin.v;
-  topPin.v = world.subWorld.pin.v;
-  world.subWorld.pin.i - topPin.i - a2.aPin.i - a1.aPin.i = 0.0;
-  topPin.i = 0.0;
-  a1.aPin.i = 0.0;
-  a2.aPin.i = 0.0;
-end Top;
-"""
-
 const ConnectInnerOuterArray1_REF = """
 class ConnectInnerOuterArray1
   Real innerOuterModel.c1.e;
@@ -285,21 +227,6 @@ equation
   lowerLevelModel[1].c.f = 0.0;
   lowerLevelModel[2].c.f = 0.0;
 end ConnectInnerOuterArray1;
-"""
-
-const ConnectParamArray_REF = """
-class ConnectParamArray
-  parameter Real c1.e[1];
-  parameter Real c1.e[2];
-  parameter Real c1.e[3];
-  parameter Real c2.e[1];
-  parameter Real c2.e[2];
-  parameter Real c2.e[3];
-equation
-  assert(c2.e[1] == c1.e[1], "Connected constants/parameters must be equal", AssertionLevel.error);
-  assert(c1.e[2] == c2.e[2], "Connected constants/parameters must be equal", AssertionLevel.error);
-  assert(c1.e[3] == c2.e[3], "Connected constants/parameters must be equal", AssertionLevel.error);
-end ConnectParamArray;
 """
 
 const ConnectTheSameConnector_REF = """
@@ -2517,18 +2444,14 @@ end # module GeneratedConnectorTests
 
 generatedConnectorTests = Tuple[
     (GeneratedConnectorTests.ConnectArray1_REF, "ConnectArray1", "./Connectors/ConnectArray1.mo"),
-    (GeneratedConnectorTests.ConnectConst1_REF, "ConnectConst1", "./Connectors/ConnectConst1.mo"),
     (GeneratedConnectorTests.ConnectHierarchical1_REF, "ConnectHierarchical1", "./Connectors/ConnectHierarchical1.mo"),
     (GeneratedConnectorTests.ConnectHierarchical2_REF, "ConnectHierarchical2", "./Connectors/ConnectHierarchical2.mo"),
     (GeneratedConnectorTests.ConnectInner1_REF, "ConnectInner1", "./Connectors/ConnectInner1.mo"),
-    (GeneratedConnectorTests.ConnectInner2_REF, "ConnectInner2", "./Connectors/ConnectInner2.mo"),
     (GeneratedConnectorTests.ConnectInner3_REF, "ConnectInner3", "./Connectors/ConnectInner3.mo"),
     (GeneratedConnectorTests.ConnectInnerOuter_Top_REF, "Top", "./Connectors/ConnectInnerOuter.mo"),
     (GeneratedConnectorTests.ConnectInnerOuter2_Top_REF, "Top", "./Connectors/ConnectInnerOuter2.mo"),
     (GeneratedConnectorTests.ConnectInnerOuter3_Top2_REF, "Top2", "./Connectors/ConnectInnerOuter3.mo"),
-    (GeneratedConnectorTests.ConnectInnerOuter4_Top_REF, "Top", "./Connectors/ConnectInnerOuter4.mo"),
     (GeneratedConnectorTests.ConnectInnerOuterArray1_REF, "ConnectInnerOuterArray1", "./Connectors/ConnectInnerOuterArray1.mo"),
-    (GeneratedConnectorTests.ConnectParamArray_REF, "ConnectParamArray", "./Connectors/ConnectParamArray.mo"),
     (GeneratedConnectorTests.ConnectTheSameConnector_REF, "ConnectTheSameConnector", "./Connectors/ConnectTheSameConnector.mo"),
     (GeneratedConnectorTests.ConnectTwoSources_REF, "ConnectTwoSources", "./Connectors/ConnectTwoSources.mo"),
     (GeneratedConnectorTests.ConnectTypes_REF, "ConnectTypes", "./Connectors/ConnectTypes.mo"),
@@ -2558,18 +2481,25 @@ generatedConnectorTestsMSL = Tuple[
     (GeneratedConnectorTests.CGraphBug_Test_REF, "Test", "./Connectors/CGraphBug.mo"),
 ]
 
+#= Cases omc (1.27, new frontend) rejects, and so does this frontend (run as @test_throws in
+   frontendResultTest.jl). ConnectConst1 and ConnectParamArray (parameters without a value) are
+   old-frontend tests of omc (-d=-newInst). =#
+generatedConnectorTestsRejected = Tuple[
+    ("ConnectConst1", "./Connectors/ConnectConst1.mo"),
+    ("ConnectorIllegal", "./Connectors/ConnectorIllegal.mo"),
+    ("ConnectorIllegal2", "./Connectors/ConnectorIllegal2.mo"),
+    ("InitialConnection", "./Connectors/InitialConnection.mo"),
+    ("Top", "./Connectors/ConnectInnerOuter4.mo"),
+    ("ConnectInner2", "./Connectors/ConnectInner2.mo"),
+    ("ConnectParamArray", "./Connectors/ConnectParamArray.mo"),
+]
+
 #=
 Cases OMC rejects but our frontend silently accepts (legality-check gap):
   - ConnectFlowEffort  (./Connectors/ConnectFlowEffort.mo)
       OMC: Error processing file: ConnectFlowEffort.mo
   - ConnectFlowEffort2  (./Connectors/ConnectFlowEffort2.mo)
       OMC: Error processing file: ConnectFlowEffort2.mo
-  - ConnectorIllegal  (./Connectors/ConnectorIllegal.mo)
-      OMC: Error processing file: ConnectorIllegal.mo
-  - ConnectorIllegal2  (./Connectors/ConnectorIllegal2.mo)
-      OMC: Error processing file: ConnectorIllegal2.mo
-  - InitialConnection  (./Connectors/InitialConnection.mo)
-      OMC: Error processing file: InitialConnection.mo
   - Units2  (./Connectors/Units2.mo)
       OMC: Error processing file: Units2.mo
 =#

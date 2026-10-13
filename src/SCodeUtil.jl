@@ -4921,8 +4921,18 @@ end
 function isElementProtected(inElement::SCode.Element)::Bool
   local outIsProtected::Bool
 
-  @assign outIsProtected = !visibilityBool(prefixesVisibility(elementPrefixes(inElement)))
+  @assign outIsProtected = !visibilityBool(elementVisibility(inElement))
   return outIsProtected
+end
+
+function elementVisibility(element::SCode.Element)::SCode.Visibility
+  return @match element begin
+    SCode.IMPORT(__) => element.visibility
+    SCode.EXTENDS(__) => element.visibility
+    SCode.CLASS(__) => prefixesVisibility(element.prefixes)
+    SCode.COMPONENT(__) => prefixesVisibility(element.prefixes)
+    SCode.DEFINEUNIT(__) => element.visibility
+  end
 end
 
 function isElementEncapsulated(inElement::SCode.Element)::Bool
@@ -7849,11 +7859,14 @@ function classDefHasSections(classDef::SCode.ClassDef, checkExternal::Bool = fal
   return hasSections
 end
 
-"""Get the class body (ClassDef) from a CLASS element."""
+"""The class body (ClassDef) of a CLASS element; for a class extends, the definition it contains."""
 function getClassBody(elem::SCode.Element)::SCode.ClassDef
   local classDef::SCode.ClassDef
   @match SCode.CLASS(classDef = classDef) = elem
-  return classDef
+  return @match classDef begin
+    SCode.CLASS_EXTENDS(__) => classDef.composition
+    _ => classDef
+  end
 end
 
 """Check if an algorithm section is non-empty."""

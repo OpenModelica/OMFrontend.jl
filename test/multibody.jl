@@ -4,14 +4,18 @@ Test for the multibody components
 @testset "Modelica.Mechanics.MultiBody.Parts" begin
   @info "Modelica.Mechanics.MultiBody.Parts"
   prefix = "Modelica.Mechanics.MultiBody.Parts"
-  @test typeof(flattenModelInMSL_TST("$(prefix).Fixed")[1]) == OMFrontend.Frontend.FLAT_MODEL
-  @test typeof(flattenModelInMSL_TST("$(prefix).FixedTranslation")[1]) == OMFrontend.Frontend.FLAT_MODEL
-  @test typeof(flattenModelInMSL_TST("$(prefix).Body")[1]) == OMFrontend.Frontend.FLAT_MODEL
-  @test typeof(flattenModelInMSL_TST("$(prefix).BodyShape")[1]) == OMFrontend.Frontend.FLAT_MODEL
-  @test typeof(flattenModelInMSL_TST("$(prefix).BodyBox")[1]) == OMFrontend.Frontend.FLAT_MODEL
-  @test typeof(flattenModelInMSL_TST("$(prefix).BodyCylinder")[1]) == OMFrontend.Frontend.FLAT_MODEL
-  @test typeof(flattenModelInMSL_TST("$(prefix).PointMass")[1]) == OMFrontend.Frontend.FLAT_MODEL
-  @test typeof(flattenModelInMSL_TST("$(prefix).Mounting1D")[1]) == OMFrontend.Frontend.FLAT_MODEL
+  #= The parts declare `outer World world`, and PointMass's m has no default: flattened on
+     their own, omc refuses them unless both non-standard options are given. =#
+  withNonStandardModelica("nonStdTopLevelOuter,implicitParameterStartAttribute") do
+    @test typeof(flattenModelInMSL_TST("$(prefix).Fixed")[1]) == OMFrontend.Frontend.FLAT_MODEL
+    @test typeof(flattenModelInMSL_TST("$(prefix).FixedTranslation")[1]) == OMFrontend.Frontend.FLAT_MODEL
+    @test typeof(flattenModelInMSL_TST("$(prefix).Body")[1]) == OMFrontend.Frontend.FLAT_MODEL
+    @test typeof(flattenModelInMSL_TST("$(prefix).BodyShape")[1]) == OMFrontend.Frontend.FLAT_MODEL
+    @test typeof(flattenModelInMSL_TST("$(prefix).BodyBox")[1]) == OMFrontend.Frontend.FLAT_MODEL
+    @test typeof(flattenModelInMSL_TST("$(prefix).BodyCylinder")[1]) == OMFrontend.Frontend.FLAT_MODEL
+    @test typeof(flattenModelInMSL_TST("$(prefix).PointMass")[1]) == OMFrontend.Frontend.FLAT_MODEL
+    @test typeof(flattenModelInMSL_TST("$(prefix).Mounting1D")[1]) == OMFrontend.Frontend.FLAT_MODEL
+  end
 end
 
 @testset "Testing to Flatten Modelica.Mechanics.MultiBody.Examples.Elementary..." begin
