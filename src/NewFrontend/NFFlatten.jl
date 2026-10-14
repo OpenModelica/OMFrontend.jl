@@ -124,13 +124,25 @@ function flatten(classInst::InstNode, name::String; prefix = COMPONENT_REF_EMPTY
 end
 
 function collectFunctions(flatModel::FlatModel, name::String)::FunctionTree
-  local funcs::FunctionTree
-  funcs = FunctionTreeImpl.new()
+  return collectModelFuncs(flatModel, FunctionTreeImpl.new())
+end
+
+"""
+    collectModelFuncs(flatModel::FlatModel, funcs::FunctionTree) -> FunctionTree
+
+The functions `flatModel` calls, with those of its structural modes (`structuralSubmodels`):
+a mode is a flat model of its own, and the backend generates its code with the model's
+functions (a table in a mode was an undefined function).
+"""
+function collectModelFuncs(flatModel::FlatModel, funcs::FunctionTree)::FunctionTree
   funcs = ArrayUtil.fold(flatModel.variables, collectComponentFuncs, funcs)
   funcs = ArrayUtil.fold(flatModel.equations, collectEquationFuncs, funcs)
   funcs = ArrayUtil.fold(flatModel.initialEquations, collectEquationFuncs, funcs)
   funcs = ArrayUtil.fold(flatModel.algorithms, collectAlgorithmFuncs, funcs)
   funcs = ArrayUtil.fold(flatModel.initialAlgorithms, collectAlgorithmFuncs, funcs)
+  for mode in flatModel.structuralSubmodels
+    funcs = collectModelFuncs(mode, funcs)
+  end
   return funcs
 end
 
@@ -774,6 +786,26 @@ function getRecordBindings(binding::Binding, comps::Vector{<:InstNode})::List{Bi
   return recordBindings
 end
 
+"""
+    chooseRecordBranches(exp::Expression) -> Expression
+
+An array of records each chosen by a parameter condition (MSL 4 BaseStackData's
+`cellData[Ns, Np] = {{if anyTrue(...) then cellDataDegraded else cellDataOriginal ...}}`):
+each element the record its evaluated condition chooses, split into its fields, as omc
+evaluates those conditions. `exp` unchanged where a condition does not evaluate.
+"""
+function chooseRecordBranches(@nospecialize(exp::Expression))::Expression
+  if exp isa ARRAY_EXPRESSION
+    local elements = Expression[chooseRecordBranches(e) for e in exp.elements]
+    return all(isRecordOrRecordArray, elements) ? ARRAY_EXPRESSION(exp.ty, elements, false) : exp
+  elseif exp isa IF_EXPRESSION
+    local cond = tryEvalExp(exp.condition)
+    cond isa BOOLEAN_EXPRESSION || return exp
+    return chooseRecordBranches(splitRecordCref(cond.value ? exp.trueBranch : exp.falseBranch))
+  end
+  return exp
+end
+
 function flattenComplexComponent(
   node::InstNode,
   comp::Component,
@@ -824,9 +856,13 @@ function flattenComplexComponent(
         binding_exp = simplify(binding_exp)
       end
     else
-      binding_exp = simplify(binding_exp)
+      #= Without its binding information, as the branches above (omc's binding expressions
+         have none): a record under a BINDING_EXP was not split, its fields had no binding (MSL 4
+         CCCV_StackRC's stackData.cellDataOriginal: constant CellType has no value). =#
+      binding_exp = stripBindingInfo(simplify(binding_exp))
     end
     binding_exp = splitRecordCref(binding_exp)
+    isRecordOrRecordArray(binding_exp) || (binding_exp = chooseRecordBranches(binding_exp))
     if !isRecordOrRecordArray(binding_exp)
       name = prefixCref(node, ty, nil, prefix)
       eq = EQUATION_EQUALITY(
@@ -888,6 +924,12 @@ function flattenArray(
   local subs::List{Subscript}
   local vrs::Vector{Variable}
   local sects::Sections
+  #= Skip the array if any dimension is zero (omc): flattened once and vectorized, the
+     class brought back elements that do not exist (MSL ClosedVolume's
+     portsData[if use_portsData then nPorts else 0]: an unbound portsData.diameter). =#
+  if any(isZero, dimensions)
+    return (vars, sections)
+  end
   #=  if we don't scalarize flatten the class and vectorize it
   =#
   if !Flags.isSet(Flags.NF_SCALARIZE)

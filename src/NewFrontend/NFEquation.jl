@@ -901,6 +901,10 @@ end
       EQUATION_NORETCALL(__) => begin
         eq.source
       end
+      #= checkDeletedVarRefs reads every equation's source (an agentic model's MatchFailure) =#
+      EQUATION_RECONFIGURE(__) => begin
+        eq.source
+      end
     end
   end
   return sourceVar

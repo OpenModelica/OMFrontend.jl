@@ -73,10 +73,20 @@ function collectConstants(flatModel::FlatModel, functions::FunctionTree)::FlatMo
     constants,
   )
   constants = FunctionTreeImpl.fold(functions, collectFuncConstants, constants)
-  vars = Variable[Variable_fromCref(c) for c in ConstantsSetImpl.listKeys(constants)]
+  vars = Variable[_withValueBinding(Variable_fromCref(c)) for c in ConstantsSetImpl.listKeys(constants)]
   @assign flatModel.variables = vcat(vars, flatModel.variables)
 #  execStat(getInstanceName()) TODO
   return flatModel
+end
+
+#= A collected constant's value as its binding: a record constant without a binding of its own
+   (`constant DataRecord CH4(name = "CH4", ...)`) has the one the constant evaluation built from
+   its fields (CEVAL_BINDING), which the conversion for the backend drops as temporary: the
+   backend got MSL SingleGasesData.CH4 without a value, while Medium.data[1] read it. =#
+function _withValueBinding(var::Variable)::Variable
+  isvariant(var.binding, CEVAL_BINDING) || return var
+  @assign var.binding = FLAT_BINDING(getBindingExp(var.binding.bindingExp), Variability.CONSTANT)
+  return var
 end
 
 function replaceConstants(

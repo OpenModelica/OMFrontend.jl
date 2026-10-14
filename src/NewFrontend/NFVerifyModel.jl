@@ -66,8 +66,12 @@ function verifyVariable(var::Variable)
   return nothing
 end
 
+#= A CEVAL_BINDING is a value: the binding the constant evaluation made for a record
+   without one from its fields (NFCeval.makeComponentBinding), which a collected package
+   constant keeps (MSL SimpleNaturalGas's SingleGasesData.C2H6). getTypedExp has no case
+   for it, and it has no subscripts to check. =#
 function verifyBindingBounds(binding::Binding)
-  if isBound(binding)
+  if isBound(binding) && !isvariant(binding, CEVAL_BINDING)
     checkSubscriptBounds(getTypedExp(binding), Binding_getInfo(binding))
   end
   return nothing

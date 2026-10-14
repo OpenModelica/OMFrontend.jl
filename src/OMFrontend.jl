@@ -177,6 +177,39 @@ function instantiateSCodeToDAE(elementToInstantiate::String, inProgram::SCode.Pr
   Frontend.instClassInProgram(path, program)
 end
 
+#= The classes a model with recompilation directives was instantiated with, beside its own
+   top-level class (its libraries, the other classes of its file), by that class's name: its
+   recompilation instantiates the modified class with them (recompilationProgram). =#
+const RECOMPILATION_PROGRAMS = Dict{String, SCode.Program}()
+const RECOMPILATION_PROGRAMS_LOCK = ReentrantLock()
+
+"""
+    keepRecompilationProgram!(flatModel::Frontend.FlatModel, inProgram::SCode.Program) -> Nothing
+
+For a model with recompilation directives (its `scodeProgram`, the class a recompilation
+modifies), the other classes of `inProgram` (recompilationProgram).
+"""
+function keepRecompilationProgram!(flatModel::Frontend.FlatModel, inProgram::SCode.Program)::Nothing
+  local metaModel = flatModel.scodeProgram
+  metaModel isa SOME || return nothing
+  local name = Frontend.SCodeUtil.elementName(metaModel.data)
+  local others = SCode.Element[cls for cls in inProgram if Frontend.SCodeUtil.elementName(cls) != name]
+  lock(RECOMPILATION_PROGRAMS_LOCK) do
+    RECOMPILATION_PROGRAMS[name] = arrayList(others)
+  end
+  return nothing
+end
+
+"""
+    recompilationProgram(className::String) -> SCode.Program
+
+The classes the model of the top-level class `className` was instantiated with beside it
+(keepRecompilationProgram!): with the modified class, the program of its recompilation.
+"""
+function recompilationProgram(className::String)::SCode.Program
+  return lock(() -> get(RECOMPILATION_PROGRAMS, className, nil), RECOMPILATION_PROGRAMS_LOCK)
+end
+
 """
   Instantiates and translates to the flat model representation
   The element to instantiate should be provided in the following format:
@@ -202,6 +235,7 @@ function instantiateSCodeToFM(elementToInstantiate::String,
   finally
     old_flags === nothing || Frontend.FlagsUtil.saveFlags(old_flags)
   end
+  keepRecompilationProgram!(flat_model, inProgram)
   return (flat_model, funcs)
 end
 

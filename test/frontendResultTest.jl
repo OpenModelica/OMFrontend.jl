@@ -74,7 +74,9 @@ tst = [tank,
 equationTests = [circle,
                  arrayfancy,
                  ifEquationDer,
-                 testArrayEq]
+                 testArrayEq,
+                 simpleAgenticTest,
+                 preArray]
 
 function runTestsDefinedInVector(tests::Vector, testSetDesc)
   @testset "$testSetDesc" begin

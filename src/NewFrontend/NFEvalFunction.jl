@@ -768,14 +768,18 @@ function createResult(repl::ReplTree.Tree, outputs::List{<:InstNode})::Expressio
   local expl::List{Expression}
   local types::List{M_Type}
   local e::Expression
+  #= The outputs as values, their cells detached (OpenModelica evaluates the fields): a
+     record output's fields stayed cells, and one never assigned (MSL Spice3's
+     diodeCalcTempDependencies sets m_tBrkdwnV only for a given breakdown voltage) was not
+     seen as empty where the binding is split, then reached the DAE as #EMPTY#. =#
   if listLength(outputs) == 1
-    exp = evalExp(ReplTree.get(repl, listHead(outputs)))
+    exp = detachCells(evalExp(ReplTree.get(repl, listHead(outputs))))
     assertAssignedOutput(listHead(outputs), exp)
   else
     expl = nil
     types = nil
     for o in outputs
-      e = evalExp(ReplTree.get(repl, o))
+      e = detachCells(evalExp(ReplTree.get(repl, o)))
       assertAssignedOutput(o, e)
       expl = Cons{Expression}(e, expl)
     end

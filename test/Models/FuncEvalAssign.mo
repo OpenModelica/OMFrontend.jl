@@ -97,6 +97,24 @@ package FuncEvalAssign
     y := r1.x + 10 * r2.x;
   end callerSetX;
 
+  record Calc
+    Real a;
+    Real b;
+  end Calc;
+
+  // b is set only under a condition (MSL Spice3's diodeCalcTempDependencies sets
+  // m_tBrkdwnV only for a given breakdown voltage): unassigned, it has no value.
+  function calc
+    input Real u;
+    input Boolean setB;
+    output Calc c;
+  algorithm
+    c.a := 2 * u;
+    if setB then
+      c.b := 3 * u;
+    end if;
+  end calc;
+
   constant Real C[2] = {1, 2};
   constant Real w1 = writeCopy(C);
   constant Real w2 = writeCopy(C);
@@ -108,6 +126,7 @@ model TestFuncEvalAssign
   parameter Real rows[2, 2] = FuncEvalAssign.zerosRows(2);
   parameter Real w[3] = {FuncEvalAssign.w1, FuncEvalAssign.w2, FuncEvalAssign.c1};
   parameter Real r[3] = {FuncEvalAssign.recordCopy(3), FuncEvalAssign.arrayOfRecords(3), FuncEvalAssign.callerSetX(3)};
+  final parameter FuncEvalAssign.Calc c = FuncEvalAssign.calc(1, false);
   Real h;
 equation
   der(h) = 0;

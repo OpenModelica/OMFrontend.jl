@@ -149,7 +149,7 @@ annotation(__OpenModelica_builtin=true, Documentation(info="<html>
 </html>"));
 end semiLinear;
 
-impure function edge "Indicate rising edge"
+function edge "Indicate rising edge"
   input Boolean b;
   output Boolean edgeEvent;
   // TODO: Ceval parameters? Needed to remove the builtin handler
@@ -493,7 +493,7 @@ function noEvent "Turn off event triggering"
 </html>"));
 end noEvent;
 
-impure function pre<PodCref> "Refer to left limit"
+function pre<PodCref> "Refer to left limit"
   discrete input PodCref y;
   output PodCref p;
   external "builtin";
@@ -502,7 +502,7 @@ impure function pre<PodCref> "Refer to left limit"
 </html>"));
 end pre;
 
-impure function change<PodCref> "Indicate discrete variable changing"
+function change<PodCref> "Indicate discrete variable changing"
   discrete input PodCref y;
   output Boolean p;
   external "builtin";

@@ -644,8 +644,14 @@ end
 
   #=  e / 1 = e
   =#
+  #=  0 / e = 0 for a scalar e that is not a literal, as omc's ExpressionSimplify does (MSL 4.1.0
+      HeatingNPN_NORGate: Taur = 0 leaves `cbc = 0.0/(NR*vt_t)*exlin2(...)`, a coefficient of der(vbc)
+      that is zero but kept the derivative, and the system was structurally singular).
+  =#
   if isOne(exp2)
      outExp = exp1
+  elseif isZero(exp1) && !isLiteral(exp2) && isScalar(typeOf(op))
+     outExp = makeZero(typeOf(op))
   else
      outExp = reuseBinary(orig, exp1, op, exp2)
   end
