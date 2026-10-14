@@ -75,6 +75,7 @@ equationTests = [circle,
                  arrayfancy,
                  ifEquationDer,
                  testArrayEq,
+                 simpleAgenticTest,
                  preArray]
 
 function runTestsDefinedInVector(tests::Vector, testSetDesc)
