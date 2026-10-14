@@ -200,6 +200,21 @@ function instantiateExpressions(inst_cls::InstNode, name::String)
 end
 
 """
+    modelTopLevelClass(program::SCode.Program, name::String) -> SCode.Element
+
+The top-level class of `program` the model `name` is in, the SCode a recompilation modifies. Not
+the program's head: the program is reversed, its head is the input's last class (Modelica for a
+model using the MSL).
+"""
+function modelTopLevelClass(program::SCode.Program, name::String)::SCode.Element
+  local top = String(Base.split(name, ".")[1])
+  for cls in program
+    SCodeUtil.elementName(cls) == top && return cls
+  end
+  error("the model $name: no top-level class $top in its program")
+end
+
+"""
   Resolves connections and evaluates constants. Models with recompilation
   directives keep the SCode program in the flat model. The if-equations of
   dynamic overconstrained connectors (DOCC) are resolved with the connections
@@ -208,7 +223,7 @@ end
 function resolveAndEvaluate(flat_model::FlatModel, program::SCode.Program, name::String)::FlatModel
   local recompilationEnabled = recompilationDirectiveExists(flat_model.equations)
   if recompilationEnabled
-    @assign flat_model.scodeProgram = SOME(listHead(program))
+    @assign flat_model.scodeProgram = SOME(modelTopLevelClass(program, name))
     #= Resolve the connections of the current system. =#
     flat_model = resolveConnections(flat_model, name)
     checkDeletedVarRefs(flat_model)

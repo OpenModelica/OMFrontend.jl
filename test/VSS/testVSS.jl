@@ -19,3 +19,11 @@ end
   res = flattenFM("ModeFunction", "./VSS/ModeFunction.mo")
   @test [OMFrontend.Frontend.AbsynUtil.pathString(f.path) for f in OMFrontend.cacheToFunctionList(res[2])] == ["twice"]
 end
+
+#= The class a recompilation modifies is the model's (the reversed program's head was the
+   input's last class: Modelica for a model using the MSL), the other classes are kept for it =#
+@testset "The SCode of a model with recompilation" begin
+  res = flattenFM("GrowFirst", "./VSS/RecompilationTwoClasses.mo")
+  @test OMFrontend.Frontend.SCodeUtil.elementName(res[1].scodeProgram.data) == "GrowFirst"
+  @test [OMFrontend.Frontend.SCodeUtil.elementName(c) for c in OMFrontend.recompilationProgram("GrowFirst")] == ["Other"]
+end
