@@ -4539,7 +4539,7 @@ end
       end
 
       CLKCONST_EXPRESSION(__)  => begin
-        DAE.CLKCONST_EXPRESSION(toDAE(exp.clk))
+        DAE.CLKCONST(toDAE(exp.clk))
       end
 
       CREF_EXPRESSION(__)  => begin
