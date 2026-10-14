@@ -777,7 +777,7 @@ end
 """
     chooseRecordBranches(exp::Expression) -> Expression
 
-The binding of a parameter: an array of records each chosen by a parameter condition (MSL 4 BaseStackData's
+An array of records each chosen by a parameter condition (MSL 4 BaseStackData's
 `cellData[Ns, Np] = {{if anyTrue(...) then cellDataDegraded else cellDataOriginal ...}}`):
 each element the record its evaluated condition chooses, split into its fields, as omc
 evaluates those conditions. `exp` unchanged where a condition does not evaluate.
@@ -850,10 +850,7 @@ function flattenComplexComponent(
       binding_exp = stripBindingInfo(simplify(binding_exp))
     end
     binding_exp = splitRecordCref(binding_exp)
-    #= A parameter's (a variable's if-expression stays an equation: MSL QuasiStatic
-       SMPM_FieldWeakening's singleToMultiPhase y did not initialize as its field bindings). =#
-    (isRecordOrRecordArray(binding_exp) || comp_var > Variability.PARAMETER) ||
-      (binding_exp = chooseRecordBranches(binding_exp))
+    isRecordOrRecordArray(binding_exp) || (binding_exp = chooseRecordBranches(binding_exp))
     if !isRecordOrRecordArray(binding_exp)
       name = prefixCref(node, ty, nil, prefix)
       eq = EQUATION_EQUALITY(
