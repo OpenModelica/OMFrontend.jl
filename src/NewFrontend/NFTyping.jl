@@ -620,6 +620,11 @@ end
 function _componentTypeOnly(inComponent::InstNode, origin::ORIGIN_Type)::NFType
   local node = resolveOuter(inComponent)
   local c = component(node)
+  #= Typed meanwhile by another task (parallel typing: the caller read it untyped), its
+     dimensions are in its type: as the caller for a typed one. Read once more here, a typed
+     component's `dimensions` is nothing (OM.jl's CyclicRecordBindings test: typeDimensions(::Nothing, ...),
+     in 2 of 4 fresh suite runs). =#
+  isvariant(c, UNTYPED_COMPONENT) || return typeComponent(inComponent, origin)
   typeDimensions(c.dimensions, node, c.binding, origin, c.info)
   local ty = isEmpty(c.classInst) ? TYPE_UNKNOWN() : typeClassType(c.classInst, c.binding, origin, inComponent)
   return liftArrayLeftList(ty, arrayList(c.dimensions))
