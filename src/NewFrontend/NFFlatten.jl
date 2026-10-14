@@ -124,13 +124,25 @@ function flatten(classInst::InstNode, name::String; prefix = COMPONENT_REF_EMPTY
 end
 
 function collectFunctions(flatModel::FlatModel, name::String)::FunctionTree
-  local funcs::FunctionTree
-  funcs = FunctionTreeImpl.new()
+  return collectModelFuncs(flatModel, FunctionTreeImpl.new())
+end
+
+"""
+    collectModelFuncs(flatModel::FlatModel, funcs::FunctionTree) -> FunctionTree
+
+The functions `flatModel` calls, with those of its structural modes (`structuralSubmodels`):
+a mode is a flat model of its own, and the backend generates its code with the model's
+functions (a table in a mode was an undefined function).
+"""
+function collectModelFuncs(flatModel::FlatModel, funcs::FunctionTree)::FunctionTree
   funcs = ArrayUtil.fold(flatModel.variables, collectComponentFuncs, funcs)
   funcs = ArrayUtil.fold(flatModel.equations, collectEquationFuncs, funcs)
   funcs = ArrayUtil.fold(flatModel.initialEquations, collectEquationFuncs, funcs)
   funcs = ArrayUtil.fold(flatModel.algorithms, collectAlgorithmFuncs, funcs)
   funcs = ArrayUtil.fold(flatModel.initialAlgorithms, collectAlgorithmFuncs, funcs)
+  for mode in flatModel.structuralSubmodels
+    funcs = collectModelFuncs(mode, funcs)
+  end
   return funcs
 end
 
