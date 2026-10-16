@@ -4539,7 +4539,7 @@ end
       end
 
       CLKCONST_EXPRESSION(__)  => begin
-        DAE.CLKCONST_EXPRESSION(toDAE(exp.clk))
+        DAE.CLKCONST(toDAE(exp.clk))
       end
 
       CREF_EXPRESSION(__)  => begin
@@ -6782,6 +6782,23 @@ function toString(ck::ClockKind) ::String
   end
    str = "Clock(" + str + ")"
   str
+end
+
+"""
+    toFlatString(ck::ClockKind) -> String
+
+A clock as flat Modelica, `Clock(...)` with its expressions as flat Modelica (omc
+ClockKind.toFlatString): the flat model of a model with a Clock had no method for it.
+"""
+function toFlatString(ck::ClockKind)::String
+  local args = @match ck begin
+    INFERRED_CLOCK(__) => ""
+    INTEGER_CLOCK(e1, e2) => toFlatString(e1) + ", " + toFlatString(e2)
+    REAL_CLOCK(e1) => toFlatString(e1)
+    BOOLEAN_CLOCK(e1, e2) => toFlatString(e1) + ", " + toFlatString(e2)
+    SOLVER_CLOCK(e1, e2) => toFlatString(e1) + ", " + toFlatString(e2)
+  end
+  return "Clock(" + args + ")"
 end
 
 function toDebugString(ick::ClockKind) ::String
