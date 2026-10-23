@@ -109,6 +109,10 @@ end
     include("whenVerifyTests.jl")
   end
 
+  @testset "Instance names" begin
+    include("instanceNameTests.jl")
+  end
+
   @testset "JSON exporter" begin
     include("jsonExportTests.jl")
   end

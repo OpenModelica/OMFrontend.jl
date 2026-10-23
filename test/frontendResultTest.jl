@@ -9,6 +9,7 @@ include("connect.jl")
 include("arrayTests.jl")
 include("bindingExpTests.jl")
 include("funcEvalAssignTests.jl")
+include("trigRoundingTests.jl")
 include("stringEvalTests.jl")
 import ..ConnectTests
 
@@ -122,5 +123,6 @@ runTestsDefinedInVector(generatedConnectorTests,
 end
 runTestsDefinedInVector(bindingExpTests, "BINDING_EXP constant evaluation in function bodies")
 runTestsDefinedInVector(funcEvalAssignTests, "Assignments in functions evaluated at compile time")
+runTestsDefinedInVector(trigRoundingTests, "sin, cos and tan of multiples of pi evaluated to zero")
 runTestsDefinedInVector(stringEvalTests, "String() of constants, as OpenModelica formats them")
 #= End Connector tests =#

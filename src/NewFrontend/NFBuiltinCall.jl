@@ -1992,13 +1992,24 @@ function typeNoEventCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tu
   (callExp, ty, variability)
 end
 
+"""
+getInstanceName(): the simulated model's name and the instance's path in it, as omc's
+INCLUDING_ROOT scope (MLS 3.7.4: `Vehicle.engine.controller` for MyLib.Vehicle). The full class
+path of the root (scopePath with includeRoot) was `Modelica.Blocks.Examples.Noise.Dryden
+ContinuousTurbulence.whiteNoise`: every MSL noise block's automatic local seed, a hash of the name,
+differed from omc's, and with it each random sequence.
+"""
 function typeGetInstanceName(call::Call) ::Tuple{Expression, M_Type, VariabilityType}
   local var::VariabilityType = Variability.CONSTANT
   local ty::M_Type = TYPE_STRING()
   local result::Expression
   local scope::InstNode
   @match UNTYPED_CALL(call_scope = scope) = call
-  result = STRING_EXPRESSION(AbsynUtil.pathString(scopePath(scope, includeRoot = true)))
+  local full = listArray(AbsynUtil.pathToStringList(scopePath(scope, includeRoot = true)))
+  local relative = listArray(AbsynUtil.pathToStringList(scopePath(scope, includeRoot = false)))
+  #= in a component: the root class's own name, then its path; in the root class itself (both paths full): its name =#
+  local name = length(full) > length(relative) ? vcat(full[length(full) - length(relative)], relative) : [last(full)]
+  result = STRING_EXPRESSION(Base.join(name, "."))
   (result, ty, var)
 end
 

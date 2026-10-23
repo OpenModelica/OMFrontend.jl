@@ -3304,13 +3304,25 @@ function evalBuiltinCosh(@nospecialize(arg::Expression))::Expression
   return result
 end
 
+"""
+    roundingZero(value, arg)
+
+A sine, cosine or tangent value within its argument's rounding of zero is zero: the argument is
+a multiple of π (of π/2 for the cosine) up to the rounding of its own computation. sin(2π) gave
+-2.4e-16, and MSL's symmetrical-component matrices folded such values into equation coefficients
+(QuasiStatic IMC_DOL's zero-sequence current, `-1.6e-16 * i[3].im`) that tearing then divided by.
+"""
+function roundingZero(value::T, arg::T)::T where {T <: AbstractFloat}
+  return abs(value) <= 4 * eps(arg) ? zero(T) : value
+end
+
 function evalBuiltinCos(@nospecialize(arg::Expression))::Expression
   local result::Expression
 
    result = begin
     @match arg begin
       REAL_EXPRESSION(__) => begin
-        REAL_EXPRESSION(cos(arg.value))
+        REAL_EXPRESSION(roundingZero(cos(arg.value), arg.value))
       end
 
       _ => begin
@@ -4117,7 +4129,7 @@ function evalBuiltinSin(@nospecialize(arg::Expression))::Expression
    result = begin
     @match arg begin
       REAL_EXPRESSION(__) => begin
-        REAL_EXPRESSION(sin(arg.value))
+        REAL_EXPRESSION(roundingZero(sin(arg.value), arg.value))
       end
 
       _ => begin
@@ -4398,7 +4410,7 @@ function evalBuiltinTan(@nospecialize(arg::Expression))::Expression
    result = begin
     @match arg begin
       REAL_EXPRESSION(__) => begin
-        REAL_EXPRESSION(tan(arg.value))
+        REAL_EXPRESSION(roundingZero(tan(arg.value), arg.value))
       end
 
       _ => begin
