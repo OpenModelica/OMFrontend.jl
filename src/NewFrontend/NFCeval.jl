@@ -4535,7 +4535,8 @@ function resolveModelicaUri(uri::String)::String
     return uri
   end
   local packageName = rest[1:slashIdx-1]
-  local resourcePath = rest[slashIdx+1:end]
+  #= the URI's path in the platform's separators (Windows: Resources\data.txt, not Resources/data.txt) =#
+  local resourcePath = joinpath(Base.split(rest[slashIdx+1:end], "/")...)
   #= The directory the library was loaded from (OMFrontend.LIBRARY_ROOTS: an installed library, a package directory
      given by path), wherever that is =#
   local roots = getglobal(Base.moduleroot(@__MODULE__), :LIBRARY_ROOTS)
