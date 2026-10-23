@@ -15,7 +15,7 @@ deliberately low-level; for higher-level use cases, prefer OM.jl.
 ## Library Coverage
 
 The flattening pipeline has been validated against the full Modelica Standard
-Library. Both MSL 3.2.3 and MSL 4.0.0 are bundled and ready to use without
+Library. Both MSL 3.2.3 and MSL 4.1.0 are bundled and ready to use without
 any additional installation. Models from every major MSL sub-package
 (Blocks, Mechanics, Electrical, Fluid, Media, and MultiBody) flatten
 correctly and produce verified flat Modelica output.
@@ -101,7 +101,7 @@ is accepted when no exact match exists (e.g. `"4.1"` matches `"4.1.0"`).
 Load the MSL once, then flatten any model against it:
 
 ```julia
-mslKey = OMFrontend.loadInstalledLibrary("Modelica"; version = "4.0.0")
+mslKey = OMFrontend.loadInstalledLibrary("Modelica"; version = "4.1.0")
 
 (FM, funcs) = OMFrontend.flattenModelWithLibraries(
   "Modelica.Electrical.Analog.Examples.AD_DA_conversion",

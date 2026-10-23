@@ -68,6 +68,11 @@ const NFModelicaBuiltinCache = Dict()
 #= The builtin library is parsed into the package image (precompilation.jl): a change to it
    recompiles the package. =#
 include_dependency(joinpath(@__DIR__, "..", "lib", "NFModelicaBuiltin.mo"))
+#= The bundled MSL files too: the precompile workload parses MSL 4.1.0 into LIBRARY_CACHE, which the package image
+   keeps; without this a corrected bundle was not read until something else recompiled the package. =#
+for f in readdir(joinpath(@__DIR__, "..", "lib", "Modelica"); join = true)
+  endswith(f, ".mo") && include_dependency(f)
+end
 
 """
   This cache contains libraries for later use.
@@ -240,11 +245,11 @@ function instantiateSCodeToFM(elementToInstantiate::String,
 end
 
 #= A library loaded when a model refers to it without loading it (omc loads it from MODELICAPATH):
-   the Modelica Standard Library 4.0.0, which holds Modelica, ModelicaServices and Complex. =#
+   the Modelica Standard Library 4.1.0, which holds Modelica, ModelicaServices and Complex. =#
 function _loadLibraryOnDemand(name::String)
   name in ("Modelica", "ModelicaServices", "Complex") || return nothing
-  loadMSL(MSL_Version = "MSL_4_0_0")
-  return get(LIBRARY_CACHE, "MSL_4_0_0", nothing)
+  loadMSL(MSL_Version = "MSL_4_1_0")
+  return get(LIBRARY_CACHE, "MSL_4_1_0", nothing)
 end
 
 """
@@ -403,8 +408,8 @@ function exportSCodeRepresentationToFile(fileName::String, contents::List{SCode.
 end
 
 #= Pretty-print an MSL/library cache key for user-facing log lines.
-   `"MSL_3_2_3"` becomes `"Modelica 3.2.3"`, `"Modelica_4_0_0"` becomes
-   `"Modelica 4.0.0"`. Falls back to the raw key when the pattern does not
+   `"MSL_3_2_3"` becomes `"Modelica 3.2.3"`, `"Modelica_4_1_0"` becomes
+   `"Modelica 4.1.0"`. Falls back to the raw key when the pattern does not
    match. =#
 function _displayMSLKey(key::AbstractString)::String
   m = match(r"^(?:MSL|Modelica)[_:](\d+)[_.](\d+)[_.](\d+)$", String(key))
@@ -429,7 +434,7 @@ end
 
 Returns the flat representation of a modelica model along with the functions used and define by the model.
 See the keyword argument for specifying MSL version.
-Valid versions are 3.2.3 and 4.0.0.
+Valid versions are 3.2.3 and 4.1.0.
 
 When `forceReload` is true, any cached MSL under this version key is dropped
 and the standard library is reparsed and re-translated from disk. This is useful
@@ -509,7 +514,7 @@ end
 Currently 3.2.3 is the default version.
 
 Available versions are:
-4.0.0
+4.1.0
 3.2.3
 """
 function loadMSL(; MSL_Version)
@@ -531,7 +536,7 @@ function loadMSL(; MSL_Version)
       _saveLibCache(MSL_Version, contentHash)
       return scodeMSL
     catch e
-      @info "Failed loading the Modelica Standard Library. Valid versions are 3.2.3 and 4.0.0"
+      @info "Failed loading the Modelica Standard Library. Valid versions are 3.2.3 and 4.1.0"
       @info "Continue instantiating the model until the next error."
     end
   end
@@ -543,7 +548,7 @@ end
 Load the Modelica Standard Library from the bundled `lib/Modelica/` files,
 independent of any OpenModelica installation. Returns the cache key.
 
-`version` may be given as `"3.2.3"`, `"4.0.0"`, or the already-normalised
+`version` may be given as `"3.2.3"`, `"4.1.0"`, or the already-normalised
 form `"MSL_3_2_3"`. The returned key can be passed to `flattenModelWithLibraries`
 or `instantiateSCodeToFM`.
 
@@ -886,11 +891,42 @@ function _rebuildClassWithElements(cls::SCode.Element, newEls)::SCode.Element
 end
 
 """
+    omjlLibraryDir() -> String
+
+The directory `installLibrary` installs libraries into: `~/OMJL/libraries`, on Windows `%APPDATA%\\OMJL\\libraries`.
+"""
+omjlLibraryDir()::String = Sys.iswindows() ? joinpath(_appData(), "OMJL", "libraries") : joinpath(homedir(), "OMJL", "libraries")
+
+"""
+    openModelicaLibraryDir() -> String
+
+OpenModelica's directory of installed libraries (its package manager's): `~/.openmodelica/libraries`, on Windows
+`%APPDATA%\\.openmodelica\\libraries`.
+"""
+openModelicaLibraryDir()::String =
+  Sys.iswindows() ? joinpath(_appData(), ".openmodelica", "libraries") : joinpath(homedir(), ".openmodelica", "libraries")
+
+"""
+Windows' roaming application data directory (`%APPDATA%`).
+"""
+_appData()::String = get(ENV, "APPDATA", joinpath(homedir(), "AppData", "Roaming"))
+
+"""
+    libraryDirectories() -> Vector{String}
+
+The directories of installed libraries `libraries` searches, in order: OM.jl's (`omjlLibraryDir`), then
+OpenModelica's (`openModelicaLibraryDir`).
+"""
+libraryDirectories()::Vector{String} = [omjlLibraryDir(), openModelicaLibraryDir()]
+
+"""
     libraries(; installDir = nothing) -> Dict{String, Vector{NamedTuple}}
 
-Discover Modelica libraries available for loading. Searches two locations:
+Discover Modelica libraries available for loading. Searches, in order:
 
-1. The OpenModelica installation directory (default `~/.openmodelica/libraries/`).
+1. The directories of installed libraries (`libraryDirectories`): OM.jl's, `~/OMJL/libraries` (`installLibrary`
+   installs there), then OpenModelica's, `~/.openmodelica/libraries` (on Windows both under `%APPDATA%`). Only
+   `installDir` when it is given.
 2. The bundled `lib/Modelica/` directory inside this package, excluding the
    pre-packaged `MSL_*` single-file variants.
 
@@ -913,9 +949,8 @@ function libraries(; installDir::Union{String, Nothing} = nothing)
       result[name] = [entry]
     end
   end
-  local omDir = installDir !== nothing ? installDir :
-                joinpath(homedir(), ".openmodelica", "libraries")
-  if isdir(omDir)
+  for omDir in (installDir !== nothing ? [installDir] : libraryDirectories())
+    isdir(omDir) || continue
     for entry in sort(readdir(omDir))
       local fullPath = joinpath(omDir, entry)
       isdir(fullPath) || continue
@@ -1031,30 +1066,114 @@ function loadInstalledLibrary(name::String;
     @info "Library '$cacheKey' already cached."
     return cacheKey
   end
+  #= the libraries it uses, resolved before it is parsed: a missing one stops the load here, by name, not as a
+     MatchFailure of the flattening later =#
+  local resolved = autodeps ? _resolveDependencies(name, entry, installDir) : Tuple{String, Symbol, String}[]
   if isdir(entry.path)
     loadPackageDirectory(entry.path; name = cacheKey)
   else
     loadLibrary(entry.path; name = cacheKey)
   end
   if autodeps
-    local deps = _parseUsesDeps(entry.path)
-    local avail2 = libraries(; installDir = installDir)
     local depKeys = String[]
-    for (depName, depVer) in deps
-      if haskey(avail2, depName)
-        try
-          push!(depKeys, loadInstalledLibrary(depName; version = depVer, autodeps = true,
-                                              installDir = installDir))
-        catch e
-          @warn "Could not auto-load dependency '$depName $depVer' for '$name': $e"
-        end
-      else
-        @info "Dependency '$depName $depVer' declared by '$name' is not in the discovered library list."
+    for (depName, source, depVer) in resolved
+      local depKey = try
+        source === :bundled ? loadBundledMSL(version = depVer) :
+          loadInstalledLibrary(depName; version = depVer, autodeps = true, installDir = installDir)
+      catch e
+        error("Library '$name $(entry.version)' uses '$depName $depVer', which could not be loaded: " *
+              sprint(showerror, e))
       end
+      depKey in depKeys || push!(depKeys, depKey)
     end
     LIBRARY_DEPENDENCIES[cacheKey] = depKeys
   end
   return cacheKey
+end
+
+"""
+The MSL versions bundled as single files (`lib/Modelica/MSL_X_Y_Z.mo`), e.g. `["3.2.3", "4.1.0"]`.
+"""
+function _bundledMSLVersions()::Vector{String}
+  local dir = joinpath(packageRoot(), "lib", "Modelica")
+  isdir(dir) || return String[]
+  local versions = String[]
+  for f in readdir(dir)
+    local m = match(r"^MSL_(\d+)_(\d+)_(\d+)\.mo$", f)
+    m === nothing || push!(versions, join(m.captures, "."))
+  end
+  return versions
+end
+
+"""
+A library version as a VersionNumber for ordering (`"4.1.0+maint.om"` is 4.1.0); `v"0"` when it is none.
+"""
+_versionOf(version::AbstractString)::VersionNumber =
+  something(tryparse(VersionNumber, String(first(split(version, "+")))), v"0")
+
+"""
+The packages of the MSL, which a bundled MSL file holds together.
+"""
+const MSL_PACKAGES = ("Modelica", "ModelicaServices", "Complex")
+
+"""
+    _resolveDependency(depName, depVer, avail) -> Union{Nothing, Tuple{Symbol, String}}
+
+Where the library `depName`, used in version `depVer`, comes from: `(:installed, version)` for an installed version
+matching exactly or as a prefix, else the newest installed one of the same major version (libraries keep their
+interface within a major version: MSL 4.1.0 for a `uses` of 4.0.0); `(:bundled, version)` for a package of the MSL
+from the bundled MSL of that major version; `nothing` when there is none.
+"""
+function _resolveDependency(depName::String, depVer::String, avail::AbstractDict)::Union{Nothing, Tuple{Symbol, String}}
+  local entries = get(avail, depName, nothing)
+  local major = first(split(depVer, "."))
+  if entries !== nothing
+    local exact = findfirst(e -> e.version == depVer, entries)
+    exact === nothing && (exact = findfirst(e -> startswith(e.version, depVer), entries))
+    exact === nothing || return (:installed, entries[exact].version)
+    local compatible = filter(e -> first(split(e.version, ".")) == major, entries)
+    if !isempty(compatible)
+      local newest = compatible[argmax(map(e -> _versionOf(e.version), compatible))]
+      @info "'$depName $depVer' is not installed: the installed $(newest.version) of the same major version is used"
+      return (:installed, newest.version)
+    end
+  end
+  if depName in MSL_PACKAGES
+    local bundled = filter(v -> first(split(v, ".")) == major, _bundledMSLVersions())
+    if !isempty(bundled)
+      local v = bundled[argmax(map(_versionOf, bundled))]
+      v == depVer || @info "'$depName $depVer' is not installed: the bundled MSL $v is used"
+      return (:bundled, v)
+    end
+  end
+  return nothing
+end
+
+"""
+    _resolveDependencies(name, entry, installDir) -> Vector{Tuple{String, Symbol, String}}
+
+The libraries the `uses` annotation of `entry` (a library from `libraries`) names, each with where it comes from
+(`_resolveDependency`): `(name, :installed | :bundled, version)`. An error naming every one that is missing and how
+to install it.
+"""
+function _resolveDependencies(name::String, entry::NamedTuple, installDir::Union{String, Nothing})::Vector{Tuple{String, Symbol, String}}
+  local avail = libraries(; installDir = installDir)
+  local resolved = Tuple{String, Symbol, String}[]
+  local absent = String[]
+  for (depName, depVer) in sort(collect(_parseUsesDeps(entry.path)))
+    local r = _resolveDependency(depName, depVer, avail)
+    if r === nothing
+      local have = haskey(avail, depName) ? " (installed: $(join(map(e -> e.version, avail[depName]), ", ")))" : ""
+      push!(absent, "$depName $depVer$have")
+    else
+      push!(resolved, (depName, r[1], r[2]))
+    end
+  end
+  isempty(absent) && return resolved
+  local dir = installDir !== nothing ? installDir : omjlLibraryDir()
+  error("Library '$name $(entry.version)' uses libraries that are not installed: $(join(absent, "; ")). " *
+        "Install them (installLibrary(name; version, url), OpenModelica's package manager, or a folder " *
+        "'<Name> <version>' with its package.mo in $dir), or load it with autodeps = false.")
 end
 
 """
@@ -1084,57 +1203,158 @@ const _LIBRARY_REGISTRY = Dict{String, @NamedTuple{url::String, tag_prefix::Stri
 )
 
 """
-    installLibrary(name; version, dest = nothing) -> String
+    installLibrary(name; version, url = nothing, tag = nothing, subdir = nothing, dest = nothing) -> String
 
-Download and install a Modelica library into the OpenModelica library directory
-(`~/.openmodelica/libraries/` by default, or `dest` if given).
+Download and install the Modelica library `name` into OM.jl's library directory (`omjlLibraryDir()`:
+`~/OMJL/libraries`, on Windows `%APPDATA%\\OMJL\\libraries`; or `dest`) as `<dest>/<name> <version>/`, from its git
+repository at a release tag. After installation `libraries()` discovers it and `loadInstalledLibrary` loads it.
+git runs without prompts: a repository that asks for credentials (GitHub's answer for one that does not exist)
+fails with git's message.
 
-The library is shallow-cloned from its upstream git repository at the requested
-version tag, and the Modelica package subdirectory is extracted into
-`<dest>/<Name> <version>/`. After installation `libraries()` will discover it
-and `loadInstalledLibrary` can load it.
+- `version` is required.
+- `url`: the git repository (a GitHub URL, or any URL or path `git clone` takes). Without it, a registered library
+  ($(sort(collect(keys(_LIBRARY_REGISTRY))))) comes from its registered repository.
+- `tag`: the release tag; by default `v<version>`, then `<version>` (a registered library: its own prefix).
+- `subdir`: the package's folder in the repository; by default the folder `name` with a `package.mo`, else the
+  repository's root when its `package.mo` is the package `name`.
 
-`version` is required. `dest` overrides the install directory.
-
-Currently registered libraries: $(sort(collect(keys(_LIBRARY_REGISTRY)))).
+Checked: the folder holds the package `name` (else nothing is installed), and its `version` annotation is `version`
+(a warning when not). The libraries its `uses` annotation names are listed, each as available or missing.
 
 # Example
 ```julia
 OMFrontend.installLibrary("Buildings"; version = "13.0.0")
+OMFrontend.installLibrary("ExternData"; version = "3.0.4", url = "https://github.com/modelica-3rdparty/ExternData.mo")
 key = OMFrontend.loadInstalledLibrary("Buildings")
 ```
 """
 function installLibrary(name::String;
                         version::Union{String, Nothing} = nothing,
-                        dest::Union{String, Nothing} = nothing)
-  if !haskey(_LIBRARY_REGISTRY, name)
-    error("Unknown library '$name'. Registered: $(sort(collect(keys(_LIBRARY_REGISTRY))))")
-  end
+                        url::Union{String, Nothing} = nothing,
+                        tag::Union{String, Nothing} = nothing,
+                        subdir::Union{String, Nothing} = nothing,
+                        dest::Union{String, Nothing} = nothing)::String
   version === nothing && error("`version` is required for installLibrary; e.g. version=\"13.0.0\"")
-  local reg  = _LIBRARY_REGISTRY[name]
-  local installDir = dest !== nothing ? dest :
-                     joinpath(homedir(), ".openmodelica", "libraries")
+  local reg = get(_LIBRARY_REGISTRY, name, nothing)
+  url === nothing && reg === nothing &&
+    error("Unknown library '$name'. Registered: $(sort(collect(keys(_LIBRARY_REGISTRY)))); " *
+          "for another, pass `url`, its git repository")
+  local repo = url !== nothing ? url : reg.url
+  local tags = tag !== nothing ? [tag] : (url === nothing ? [reg.tag_prefix * version] : ["v" * version, version])
+  local pkgSubdir = subdir !== nothing ? subdir : (url === nothing ? reg.pkg_subdir : nothing)
+  local installDir = dest !== nothing ? dest : omjlLibraryDir()
   mkpath(installDir)
-  local tag       = reg.tag_prefix * version
-  local dirName   = "$name $version"
+  local dirName = "$name $version"
   local targetDir = joinpath(installDir, dirName)
   if isdir(targetDir) && isfile(joinpath(targetDir, "package.mo"))
     @info "Library '$dirName' already installed at $targetDir"
     return targetDir
   end
-  @info "Cloning $name $version from $(reg.url) (tag $tag)..."
+  Sys.which("git") === nothing && error("installLibrary clones with git, which is not on the PATH")
   local tmpDir = mktempdir()
   try
-    run(`git clone --depth=1 --branch=$tag --single-branch $(reg.url) $tmpDir`)
-    local srcDir = isempty(reg.pkg_subdir) ? tmpDir : joinpath(tmpDir, reg.pkg_subdir)
-    isdir(srcDir) ||
-      error("Package subdirectory '$(reg.pkg_subdir)' not found in cloned repo.")
+    local clone = joinpath(tmpDir, "repo")
+    local cloned = nothing
+    local gitError = ""
+    for t in tags
+      @info "Cloning $name $version from $repo (tag $t)..."
+      local err = IOBuffer()
+      local cmd = addenv(`git clone --quiet --depth=1 --branch=$t --single-branch $repo $clone`,
+                         "GIT_TERMINAL_PROMPT" => "0", "GCM_INTERACTIVE" => "never")
+      if success(pipeline(cmd; stdout = devnull, stderr = err))
+        cloned = t
+        break
+      end
+      gitError = strip(String(take!(err)))
+      rm(clone; recursive = true, force = true)
+    end
+    cloned === nothing &&
+      error("Could not clone $repo at tag $(join(tags, " or ")): $(isempty(gitError) ? "git failed" : last(split(gitError, '\n'))). " *
+            "Check the URL (a repository that does not exist, or a private one, asks for credentials), and that " *
+            "the tag exists (`tag` names another)")
+    local srcDir = pkgSubdir !== nothing ? (isempty(pkgSubdir) ? clone : joinpath(clone, pkgSubdir)) :
+                   _findPackageDirectory(clone, name, repo, cloned)
+    isfile(joinpath(srcDir, "package.mo")) ||
+      error("No package.mo in '$(relpath(srcDir, clone))' of $repo at tag $cloned")
+    local found = _packageName(joinpath(srcDir, "package.mo"))
+    found == name ||
+      error("The package in '$(relpath(srcDir, clone))' of $repo is '$found', not '$name'; nothing installed")
+    local declared = _packageVersion(joinpath(srcDir, "package.mo"))
+    declared === nothing || declared == version ||
+      @warn "Library '$name' installed as version $version, but its package declares version $declared"
     cp(srcDir, targetDir; force = true)
     @info "Installed '$dirName' to $targetDir"
+    _reportDependencies(name, targetDir, dest)
   finally
     rm(tmpDir; recursive = true, force = true)
   end
   return targetDir
+end
+
+"""
+The folder of the package `name` in a clone: `<clone>/<name>` with a package.mo, else the clone itself when its
+package.mo is the package `name`. An error listing the folders with a package.mo otherwise.
+"""
+function _findPackageDirectory(clone::String, name::String, repo::String, tag::String)::String
+  isfile(joinpath(clone, name, "package.mo")) && return joinpath(clone, name)
+  isfile(joinpath(clone, "package.mo")) && _packageName(joinpath(clone, "package.mo")) == name && return clone
+  local candidates = String[]
+  for (root, dirs, files) in walkdir(clone)
+    occursin(".git", root) && continue
+    "package.mo" in files && push!(candidates, relpath(root, clone))
+    length(candidates) >= 10 && break
+  end
+  error("No package '$name' (a folder with its package.mo) in $repo at tag $tag; pass `subdir`. " *
+        "Folders with a package.mo: $(isempty(candidates) ? "none" : join(candidates, ", "))")
+end
+
+"""
+The name of the package a package.mo defines (its first `package` after an optional `within`), or "".
+"""
+function _packageName(pkgMo::String)::String
+  local text = replace(read(pkgMo, String), r"//[^\n]*" => "", r"/\*.*?\*/"s => "")
+  local m = match(r"^\s*(?:within[^;]*;\s*)?(?:encapsulated\s+)?(?:partial\s+)?package\s+(\w+)", text)
+  return m === nothing ? "" : String(m.captures[1])
+end
+
+"""
+The `version` annotation of a package.mo (outside its `uses` and `conversion` annotations), or nothing.
+"""
+function _packageVersion(pkgMo::String)::Union{Nothing, String}
+  local text = read(pkgMo, String)
+  for keyword in ("uses", "conversion")
+    while (m = match(Regex("\\b" * keyword * "\\s*\\("), text)) !== nothing
+      local depth = 1
+      local i = m.offset + length(m.match)
+      while i <= lastindex(text) && depth > 0
+        text[i] == '(' && (depth += 1)
+        text[i] == ')' && (depth -= 1)
+        i = nextind(text, i)
+      end
+      text = text[1:prevind(text, m.offset)] * text[i:end]
+    end
+  end
+  local v = match(r"\bversion\s*=\s*\"([^\"]+)\"", text)
+  return v === nothing ? nothing : String(v.captures[1])
+end
+
+"""
+The libraries the `uses` annotation of an installed library names, each logged as available (where from) or
+missing; looked up as `loadInstalledLibrary` will (`installDir`: nothing for the default directories).
+"""
+function _reportDependencies(name::String, path::String, installDir::Union{String, Nothing})::Nothing
+  local deps = _parseUsesDeps(path)
+  isempty(deps) && return nothing
+  local avail = libraries(; installDir = installDir)
+  for (depName, depVer) in sort(collect(deps))
+    local r = _resolveDependency(depName, depVer, avail)
+    if r === nothing
+      @warn "'$name' uses '$depName $depVer', which is not installed: install it before loading '$name'"
+    else
+      @info "'$name' uses '$depName $depVer': $(r[1]) $(r[2])"
+    end
+  end
+  return nothing
 end
 
 """

@@ -72,8 +72,8 @@ function workload()
   GC.enable(true)
   #= End preamble =#
   #= Load the Modelica Standard Library =#
-  @info "Loading Version 4.0.0 of the Modelica Standard Library"
-  local MSL_V_STARTUP  = "MSL_4_0_0"
+  @info "Loading Version 4.1.0 of the Modelica Standard Library"
+  local MSL_V_STARTUP  = "MSL_4_1_0"
   initLoadMSL(MSL_Version= MSL_V_STARTUP)
   #=
   Instantiate the HelloWorld module
@@ -113,12 +113,12 @@ function workload()
   for p in precompile_model_names
     @info "Translating: $(p)"
     try
-      @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+      @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
     catch e
       @warn "Precompilation workload failed for $(p)" exception=(e, catch_backtrace())
     end
   end
-  precompile_libraryAsScode = OMFrontend.LIBRARY_CACHE["MSL_4_0_0"]
+  precompile_libraryAsScode = OMFrontend.LIBRARY_CACHE["MSL_4_1_0"]
   precompile_prefix = "Modelica.Mechanics.Rotational.Examples"
   precompile_model_names = [
     "RollingWheel",
@@ -129,7 +129,7 @@ function workload()
   for p in precompile_model_names
     @info "Translating: $(string(precompile_prefix, ".", p))"
     try
-      @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+      @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
     catch e
       @warn "Precompilation workload failed for $(p)" exception=(e, catch_backtrace())
     end
@@ -147,7 +147,7 @@ function workload()
   for p in precompile_model_names
     @info "Translating: $(string(precompile_prefix, ".", p))"
     try
-      @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+      @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
     catch e
       @warn "Precompilation workload failed for $(p)" exception=(e, catch_backtrace())
     end
@@ -163,7 +163,7 @@ function workload()
   for p in precompile_model_names
     @info "Translating: $(string(precompile_prefix, ".", p))"
     try
-      @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+      @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
     catch e
       @warn "Precompilation workload failed for $(p)" exception=(e, catch_backtrace())
     end
