@@ -1,6 +1,9 @@
 /*
   Loads the MSL as a single file.
+  Then check it against the library's sources: omc 1.27.1's printer writes an element-wise operator after an
+  integer literal without a space (1 ./ x as 1./x), which reads back as 1.0 / x. Find them in the sources with
+  grep -rnE '[0-9] +\.[*/^]' and restore the space in the written file (MSL 4.1.0: Media.Incompressible's invTK).
 */
-installPackage(Modelica, "4.0", exactMatch=false);
-loadModel(Modelica, {"4.0"});getErrorString();
-writeFile("msl_4_0.mo", list())
+loadModel(Modelica, {"4.1.0"}); getErrorString();
+getVersion(Modelica); getVersion(ModelicaServices); getVersion(Complex);
+writeFile("MSL_4_1_0.mo", list()); getErrorString();

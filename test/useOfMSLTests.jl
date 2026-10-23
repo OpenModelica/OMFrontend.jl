@@ -33,11 +33,20 @@
 
   #= Expandable-connector buses at scale (control buses with virtual elements). =#
   @test begin
-    key = OMFrontend.loadBundledMSL(version = "4.0.0")
+    key = OMFrontend.loadBundledMSL(version = "4.1.0")
     lib = OMFrontend.LIBRARY_CACHE[key]
     (fm, _) = OMFrontend.instantiateSCodeToFM(
       "Modelica.Mechanics.MultiBody.Examples.Systems.RobotR3.FullRobot", lib)
     length(fm.equations) > 4000
+  end
+
+  #= The bundle as omc wrote it had `1./tableViscosity[:, 1]` for the source's `1 ./ tableViscosity[:,1]`
+     (Media.Incompressible's invTK), read as 1.0 divided by an array: TestGlycol did not flatten. =#
+  @test begin
+    key = OMFrontend.loadBundledMSL(version = "4.1.0")
+    (fm, _) = OMFrontend.instantiateSCodeToFM("Modelica.Media.Incompressible.Examples.TestGlycol",
+                                              OMFrontend.LIBRARY_CACHE[key])
+    !isempty(fm.variables)
   end
 end
 

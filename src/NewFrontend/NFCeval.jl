@@ -4536,6 +4536,14 @@ function resolveModelicaUri(uri::String)::String
   end
   local packageName = rest[1:slashIdx-1]
   local resourcePath = rest[slashIdx+1:end]
+  #= The directory the library was loaded from (OMFrontend.LIBRARY_ROOTS: an installed library, a package directory
+     given by path), wherever that is =#
+  local roots = getglobal(Base.moduleroot(@__MODULE__), :LIBRARY_ROOTS)
+  local top = Base.first(Base.split(packageName, "."))
+  if haskey(roots, top)
+    local fromRoot = joinpath(roots[top], Base.split(packageName, ".")[2:end]..., resourcePath)
+    isfile(fromRoot) && return fromRoot
+  end
   #= Search in OMFrontend bundled lib directory =#
   local packagePath = something(pkgdir(@__MODULE__), normpath(joinpath(@__DIR__, "..", "..")))
   local libDir = joinpath(packagePath, "lib", packageName)
@@ -4543,9 +4551,9 @@ function resolveModelicaUri(uri::String)::String
   if isfile(resolved)
     return resolved
   end
-  #= Search in openmodelica libraries cache =#
-  local omLibDir = joinpath(homedir(), ".openmodelica", "libraries")
-  if isdir(omLibDir)
+  #= Search the directories of installed libraries (OM.jl's, then OpenModelica's: OMFrontend.libraryDirectories) =#
+  for omLibDir in getglobal(Base.moduleroot(@__MODULE__), :libraryDirectories)()
+    isdir(omLibDir) || continue
     for entry in readdir(omLibDir)
       if startswith(entry, packageName)
         local candidate = joinpath(omLibDir, entry, resourcePath)

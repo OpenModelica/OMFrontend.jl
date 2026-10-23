@@ -115,7 +115,7 @@ Standard Library when --msl is given.
 
 Options:
   --file PATH        Modelica source file containing the model.
-  --msl  VERSION     MSL version to load (e.g. 3.2.3, 4.0.0). When set, the
+  --msl  VERSION     MSL version to load (e.g. 3.2.3, 4.1.0). When set, the
                      model is looked up inside the MSL after loading.
   --out  PATH        Write the flat Modelica string to PATH instead of stdout.
   --no-scalarize     Skip array scalarization (kept as array equations).

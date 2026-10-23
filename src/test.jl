@@ -62,7 +62,7 @@ begin
   GC.enable(true)
 end;
 
-function flattenModelInMSL_TST(modelName::String; MSL_V = "MSL_4_0_0", scalarize = true)
+function flattenModelInMSL_TST(modelName::String; MSL_V = "MSL_4_1_0", scalarize = true)
   local mslSCode
   if !haskey(OMFrontend.LIBRARY_CACHE, MSL_V)
     mslSCode = OMFrontend.initLoadMSL(MSL_Version= MSL_V)
@@ -85,7 +85,7 @@ end
 # @info "Precompiling...."
 # for p in precompile_model_names
 #     @info "Translating: $(p)"
-#     @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+#     @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
 #     @info "Done!"
 #   end
 # @info "Done"
@@ -98,7 +98,7 @@ end
 # @info "Precompiling...."
 # for p in precompile_model_names
 #     @info "Translating: $(p)"
-#     @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+#     @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
 #     @info "Done!"
 #   end
 # @info "Done"
@@ -128,7 +128,7 @@ end
 # @info "Precompiling...."
 # for p in precompile_model_names
 #     @info "Translating: $(p)"
-#     @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+#     @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
 #     @info "Done!"
 #   end
 # @info "Done"
@@ -163,7 +163,7 @@ for p in precompile_model_names
   @info "Translating: $(p)"
   #@time OMFrontend.Frontend.MemoryUtil.initialize(400000)
   @info "Running"
-  @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+  @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
   @info "Done!"
   end
 @info "Done"
@@ -183,7 +183,7 @@ for p in precompile_model_names
   name = string(precompile_prefix, ".", p)
   #@time OMFrontend.Frontend.MemoryUtil.initialize(400000)
   GC.gc()
-  @time flattenModelInMSL_TST(name; MSL_V = "MSL_4_0_0")
+  @time flattenModelInMSL_TST(name; MSL_V = "MSL_4_1_0")
   @info "Done!"
 end
 @info "Done"
@@ -204,11 +204,11 @@ function profileMemV6()
   precompile_prefix = "Modelica.Mechanics.MultiBody.Examples.Loops"
   p = "EngineV6"
   @info "Prerunning the engine for some data..."
-  @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+  @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
   @profilehtml begin
     for p in precompile_model_names
       @info "Translating: $(p)"
-      flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+      flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
       @info "Done!"
     end
   end
@@ -217,7 +217,7 @@ function profileMemV6()
   #PProf.Allocs.pprof()
   for p in precompile_model_names
     @info "Translating: $(p)"
-    Profile.Allocs.@profile sample_rate=0.01 flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+    Profile.Allocs.@profile sample_rate=0.01 flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
     @info "Done!"
   end
   PProf.Allocs.pprof()
@@ -231,7 +231,7 @@ function runPendulum()
 
   for p in precompile_model_names
     @info "Translating: $(p)"
-    @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+    @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
     @info "Done!"
   end
 end
@@ -244,7 +244,7 @@ function profileMemPendulum()
 
   for p in precompile_model_names
     @info "Translating: $(p)"
-    flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+    flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
     @info "Done!"
   end
 
@@ -255,7 +255,7 @@ function profileMemPendulum()
   @profilehtml begin
     for p in precompile_model_names
       @info "Translating: $(p)"
-      Profile.Allocs.@profile sample_rate=0.01 flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+      Profile.Allocs.@profile sample_rate=0.01 flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
       @info "Done!"
     end
     PProf.Allocs.pprof()
@@ -269,7 +269,7 @@ function runEngine()
   ]
   for p in precompile_model_names
     @info "Translating: $(p)"
-    @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+    @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
     @info "Done!"
   end
 end
@@ -281,7 +281,7 @@ function profileMemEngine()
   ]
   for p in precompile_model_names
     @info "Translating: $(p)"
-    flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+    flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
     @info "Done!"
   end
     precompile_prefix = "Modelica.Mechanics.MultiBody.Examples.Loops"
@@ -290,7 +290,7 @@ function profileMemEngine()
   ]
   for p in precompile_model_names
     @info "Translating: $(p)"
-    @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+    @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
     @info "Done!"
   end
 
@@ -299,7 +299,7 @@ function profileMemEngine()
   @profilehtml begin
     for p in precompile_model_names
       @info "Translating: $(p)"
-      @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+      @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
       @info "Done!"
     end
   end
@@ -310,7 +310,7 @@ function profileMemEngine()
   @info "Profiling memory..."
   for p in precompile_model_names
     @info "Translating: $(p)"
-    Profile.Allocs.@profile sample_rate=0.1 flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+    Profile.Allocs.@profile sample_rate=0.1 flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
     @info "Done!"
   end
   PProf.Allocs.pprof()
@@ -332,7 +332,7 @@ function profile2()
   @profilehtml begin
     for p in precompile_model_names
       @info "Translating: $(p)"
-      flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_0_0")
+      flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
       @info "Done!"
     end
   end
