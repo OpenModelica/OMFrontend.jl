@@ -244,12 +244,18 @@ function instantiateSCodeToFM(elementToInstantiate::String,
   return (flat_model, funcs)
 end
 
+"""
+The cache key of the MSL a model gets when it uses Modelica without loading it (`_loadLibraryOnDemand`); the package
+image keeps its parse.
+"""
+const ON_DEMAND_MSL = "MSL_4_1_0"
+
 #= A library loaded when a model refers to it without loading it (omc loads it from MODELICAPATH):
    the Modelica Standard Library 4.1.0, which holds Modelica, ModelicaServices and Complex. =#
 function _loadLibraryOnDemand(name::String)
   name in ("Modelica", "ModelicaServices", "Complex") || return nothing
-  loadMSL(MSL_Version = "MSL_4_1_0")
-  return get(LIBRARY_CACHE, "MSL_4_1_0", nothing)
+  loadMSL(MSL_Version = ON_DEMAND_MSL)
+  return get(LIBRARY_CACHE, ON_DEMAND_MSL, nothing)
 end
 
 """
@@ -532,7 +538,7 @@ function loadMSL(; MSL_Version)
       @info "Initial parsing of the MSL..."
       @time local p = parseFile(pathToLib)
       local scodeMSL = OMFrontend.translateToSCode(p)
-      global LIBRARY_CACHE[MSL_Version] = scodeMSL
+      _storeLibrary!(MSL_Version, scodeMSL)
       _saveLibCache(MSL_Version, contentHash)
       return scodeMSL
     catch e
@@ -595,7 +601,7 @@ function loadLibrary(libraryPath::String; name::Union{String, Nothing} = nothing
     local firstClass = listHead(scodeProg)
     firstClass.name
   end
-  LIBRARY_CACHE[cacheKey] = scodeProg
+  _storeLibrary!(cacheKey, scodeProg)
   LIBRARY_ROOTS[listHead(scodeProg).name] = dirname(abspath(libraryPath))
   @info "Loaded library '$cacheKey' from $libraryPath"
   return cacheKey
@@ -650,7 +656,7 @@ function _loadLibCache(cacheKey::String, contentHash::String)::Bool
     local prog = open(path, "r") do io
       Serialization.deserialize(io)
     end
-    LIBRARY_CACHE[cacheKey] = prog
+    _storeLibrary!(cacheKey, prog)
     @info "Library '$(_displayMSLKey(cacheKey))' loaded from disk cache."
     return true
   catch e
@@ -741,7 +747,7 @@ function loadPackageDirectory(dirPath::String; name::Union{String, Nothing} = no
   end
 
   #= Step 5: Store in memory cache and persist to disk =#
-  LIBRARY_CACHE[cacheKey] = list(mergedClass)
+  _storeLibrary!(cacheKey, list(mergedClass))
   @info "Loaded directory package '$cacheKey' from $dirPath ($(length(children)) classes)"
   _saveLibCache(cacheKey, contentHash)
   return cacheKey
@@ -1194,6 +1200,210 @@ function libraryClosure(keys::Vector{String})::Vector{String}
   return closure
 end
 
+"""
+The libraries loaded into the session (`useLibrary!`), by cache key, in load order: `flattenModelWithLibraries`
+(`withLoadedLibraries`) adds them and the libraries they use (`loadedLibraries`) without `libraries`, as omc sees
+the classes it loaded. `LIBRARY_CACHE`
+keeps every parse, loaded or not: the bundled MSL a model gets without loading it (`ON_DEMAND_MSL`), a library a
+call names in `libraries`.
+"""
+const LOADED_LIBRARIES = String[]
+
+"""
+    loadedLibraries() -> Vector{String}
+
+The libraries loaded into the session (`useLibrary!`): their keys in load order, each followed by the libraries it
+uses (`libraryClosure`).
+"""
+loadedLibraries()::Vector{String} = libraryClosure(LOADED_LIBRARIES)
+
+"""
+The names of the top-level classes of a program.
+"""
+function _classNames(program::SCode.Program)::Vector{String}
+  local names::Vector{String} = String[]
+  for c in program
+    c isa SCode.CLASS && push!(names, c.name)
+  end
+  return names
+end
+
+"""
+    libraryClassNames(key) -> Vector{String}
+
+The names of the top-level classes of the cached library `key` (`["Modelica", "ModelicaServices", "Complex"]` for a
+bundled MSL); none when it is not cached.
+"""
+libraryClassNames(key::String)::Vector{String} = haskey(LIBRARY_CACHE, key) ? _classNames(LIBRARY_CACHE[key]) : String[]
+
+"""
+The loaded library (`LOADED_LIBRARIES`) that loads the library `key`: `key` itself, or the first one that uses it.
+"""
+function _loadedBy(key::String)::String
+  key in LOADED_LIBRARIES && return key
+  local users::Vector{String} = filter(k -> key in libraryClosure([k]), LOADED_LIBRARIES)
+  return isempty(users) ? key : first(users)
+end
+
+"""
+How to stop using the loaded library `key`: unload it, or the loaded library that uses it.
+"""
+function _unloadHint(key::String)::String
+  local owner::String = _loadedBy(key)
+  return owner == key ? "unloadLibrary(\"$key\")" : "unloadLibrary(\"$owner\"), which uses '$key'"
+end
+
+"""
+    _checkNameClash(key, own, names) -> Nothing
+
+An error when a loaded library other than `own` (the library `key` and the ones it uses) has one of the top-level
+classes `names`: two loaded libraries may not share a top-level name (Modelica 3.2.3 and 4.1.0). It names both
+libraries and how to unload the loaded one.
+"""
+function _checkNameClash(key::String, own::Vector{String}, names::Vector{String})::Nothing
+  for other::String in loadedLibraries()
+    other in own && continue
+    local shared::Vector{String} = intersect(libraryClassNames(other), names)
+    isempty(shared) && continue
+    error("Library '$key' has the top-level class $(join(shared, ", ")), as the loaded library '$other' does: " *
+          "unload one of them first ($(_unloadHint(other))).")
+  end
+  return nothing
+end
+
+"""
+    _storeLibrary!(key, program) -> Nothing
+
+Stores a library's parse in `LIBRARY_CACHE`. Of a loaded library (`loadedLibraries`), a library loaded again: an
+error, before it is stored, when its top-level classes now clash with another loaded library's.
+"""
+function _storeLibrary!(key::String, program::SCode.Program)::Nothing
+  key in loadedLibraries() && _checkNameClash(key, libraryClosure([key]), _classNames(program))
+  LIBRARY_CACHE[key] = program
+  return nothing
+end
+
+"""
+    useLibrary!(key) -> String
+
+Loads the cached library `key` (`loadLibrary`, `loadPackageDirectory`, `loadInstalledLibrary`, `loadMSL`) into the
+session: later flattenings (`flattenModelWithLibraries`) see it and the libraries it uses (`LIBRARY_DEPENDENCIES`)
+without `libraries`. An
+error when another loaded library has one of their top-level classes (Modelica 3.2.3 and 4.1.0): it names both,
+`unloadLibrary` unloads one. A loaded library stays loaded, a new parse of it (a library file loaded again) in
+its place. Returns `key`.
+"""
+function useLibrary!(key::String)::String
+  haskey(LIBRARY_CACHE, key) || error("Library '$key' is not cached: load it first (loadLibrary, loadInstalledLibrary).")
+  key in LOADED_LIBRARIES && return key
+  local own::Vector{String} = libraryClosure([key])
+  _checkNameClash(key, own, unique(reduce(vcat, map(libraryClassNames, own))))
+  push!(LOADED_LIBRARIES, key)
+  return key
+end
+
+"""
+    unloadLibrary(key) -> Vector{String}
+
+Unloads the loaded library `key` (`useLibrary!`) and the libraries only it used: later flattenings no longer see
+them. Their parses leave `LIBRARY_CACHE` (the disk cache keeps them: loading one again is fast), but for the bundled
+MSL a model gets without loading it (`ON_DEMAND_MSL`). An error when `key` is not loaded, or is loaded only as a
+library another loaded library uses. Returns the keys no longer loaded.
+"""
+function unloadLibrary(key::String)::Vector{String}
+  local before::Vector{String} = loadedLibraries()
+  if !(key in LOADED_LIBRARIES)
+    key in before && error("Library '$key' is loaded as a library '$(_loadedBy(key))' uses: unload that one.")
+    error("Library '$key' is not loaded. Loaded: $(isempty(before) ? "none" : join(before, ", ")).")
+  end
+  filter!(!=(key), LOADED_LIBRARIES)
+  local after::Vector{String} = loadedLibraries()
+  local removed::Vector{String} = setdiff(before, after)
+  local kept::Set{String} = Set{String}(reduce(vcat, map(libraryClassNames, after); init = String[]))
+  for k::String in removed
+    for name::String in libraryClassNames(k)
+      name in kept || delete!(LIBRARY_ROOTS, name)
+    end
+    k == ON_DEMAND_MSL && continue
+    delete!(LIBRARY_CACHE, k)
+    delete!(LIBRARY_DEPENDENCIES, k)
+  end
+  return removed
+end
+
+"""
+    loadedModelica() -> Union{Nothing, String}
+
+The loaded library (`loadedLibraries`) with the top-level package `Modelica`, or `nothing`.
+"""
+function loadedModelica()::Union{Nothing, String}
+  for key::String in loadedLibraries()
+    "Modelica" in libraryClassNames(key) && return key
+  end
+  return nothing
+end
+
+"""
+    libraryVersion(key, name) -> String
+
+The `version` annotation of the top-level class `name` of the cached library `key`, else the version its key ends
+in (`Modelica_4_1_0`, `MSL_3_2_3`), else "".
+"""
+function libraryVersion(key::String, name::String)::String
+  for c in get(LIBRARY_CACHE, key, nil)
+    (c isa SCode.CLASS && c.name == name) || continue
+    local v::Option{Absyn.Exp} = Frontend.SCodeUtil.lookupElementAnnotationBinding(c, "version")
+    (isSome(v) && v.data isa Absyn.STRING) && return v.data.value
+  end
+  local m::Union{Nothing, RegexMatch} = match(r"(\d+)_(\d+)_(\d+)$", key)
+  return m === nothing ? "" : join(m.captures, ".")
+end
+
+"""
+    _checkMSLVersion(MSL_Version, key) -> Nothing
+
+An error when a call asks for another MSL version (`MSL_Version`; `nothing` asks for none) than the loaded library
+`key` with the package Modelica is: it names the loaded library and how to unload it.
+"""
+function _checkMSLVersion(MSL_Version::Union{Nothing, String}, key::String)::Nothing
+  MSL_Version === nothing && return nothing
+  local requested::String = replace(replace(MSL_Version, r"^MSL[:_]"i => ""), "_" => ".")
+  local loaded::String = libraryVersion(key, "Modelica")
+  _versionOf(requested) == _versionOf(loaded) && return nothing
+  error("MSL_Version \"$MSL_Version\" asks for Modelica $requested, but the loaded library '$key' is Modelica " *
+        "$(isempty(loaded) ? "of unknown version" : loaded): leave MSL_Version out to use it, or unload it first " *
+        "($(_unloadHint(key))).")
+end
+
+"""
+    withLoadedLibraries(program, explicit = String[]) -> SCode.Program
+
+`program` followed by the loaded libraries (`loadedLibraries`) other than `explicit` (the libraries a call names,
+with the ones they use), without the top-level classes `program` has: a model's own file comes first. An error
+when a library of `explicit` that is not loaded has a top-level class a loaded library has too.
+"""
+function withLoadedLibraries(program::SCode.Program, explicit::Vector{String} = String[])::SCode.Program
+  local loaded::Vector{String} = filter(k -> !(k in explicit), loadedLibraries())
+  isempty(loaded) && return program
+  local loadedNames::Vector{String} = reduce(vcat, map(libraryClassNames, loaded))
+  for key::String in explicit
+    local shared::Vector{String} = intersect(libraryClassNames(key), loadedNames)
+    isempty(shared) && continue
+    local other::String = first(filter(k -> !isempty(intersect(libraryClassNames(k), shared)), loaded))
+    error("Library '$key' of `libraries` has the top-level class $(join(shared, ", ")), as the loaded library " *
+          "'$other' does: leave it out to use '$other', or unload that first ($(_unloadHint(other))).")
+  end
+  local present::Set{String} = Set{String}(_classNames(program))
+  local classes::Vector{SCode.Element} = SCode.Element[]
+  for key::String in loaded
+    for c in LIBRARY_CACHE[key]
+      (c isa SCode.CLASS && c.name in present) && continue
+      push!(classes, c)
+    end
+  end
+  return listAppend(program, arrayList(classes))
+end
+
 const _LIBRARY_REGISTRY = Dict{String, @NamedTuple{url::String, tag_prefix::String, pkg_subdir::String}}(
   "Buildings" => (
     url        = "https://github.com/lbl-srg/modelica-buildings",
@@ -1362,14 +1572,20 @@ end
 
 Flatten a Modelica model combining it with one or more pre-loaded libraries.
 Libraries are looked up in `LIBRARY_CACHE` by their cache keys, followed by the
-libraries they use (`libraryClosure`). If MSL is requested, it is appended last
-(lowest priority for name resolution). `fileName` may be empty for a model of
-one of the libraries.
+libraries they use (`libraryClosure`). The libraries loaded into the session
+(`useLibrary!`, `loadedLibraries`) come along without being named. If MSL is
+requested, it is appended last (lowest priority for name resolution). `fileName`
+may be empty for a model of one of the libraries.
 
 Ordering in the combined program (leftmost = highest priority):
 1. User model code
 2. User libraries (in order of `libraries` vector)
-3. MSL (if `MSL=true`)
+3. The loaded libraries, but for the top-level classes the model's file has
+4. MSL (if `MSL=true`): a loaded library with the package Modelica, else the
+   bundled `MSL_Version` (`nothing`: 3.2.3)
+
+A library of `libraries` with a top-level class of a loaded library, and an
+`MSL_Version` of another version than a loaded Modelica's, are errors.
 
 When `forceReload=true` and `MSL=true`, the cached MSL under the requested
 version key is dropped before instantiation. User libraries in `libraries`
@@ -1379,7 +1595,7 @@ function flattenModelWithLibraries(modelName::String,
                                    fileName::String;
                                    libraries::Vector{String} = String[],
                                    MSL::Bool = false,
-                                   MSL_Version::String = "MSL:3.2.3",
+                                   MSL_Version::Union{Nothing, String} = nothing,
                                    scalarize::Bool = true,
                                    separateInstantiation::Bool = false,
                                    forceReload::Bool = false)
@@ -1389,17 +1605,22 @@ function flattenModelWithLibraries(modelName::String,
     local absynProgram = parseFile(fileName)
     translateToSCode(absynProgram)
   end
-  for libKey in libraryClosure(libraries)
+  local explicit::Vector{String} = libraryClosure(libraries)
+  for libKey in explicit
     if !haskey(LIBRARY_CACHE, libKey)
       error("Library '$libKey' not loaded. Call loadInstalledLibrary or loadLibrary first.")
     end
     combined = listAppend(combined, LIBRARY_CACHE[libKey])
   end
-  if MSL
-    local mslKey = loadBundledMSL(version = MSL_Version)
+  combined = withLoadedLibraries(combined, explicit)
+  local modelicaKey::Union{Nothing, String} = MSL ? loadedModelica() : nothing
+  if modelicaKey !== nothing
+    _checkMSLVersion(MSL_Version, modelicaKey)
+  elseif MSL
+    local mslKey = loadBundledMSL(version = something(MSL_Version, "MSL:3.2.3"))
     if forceReload
       delete!(LIBRARY_CACHE, mslKey)
-      mslKey = loadBundledMSL(version = MSL_Version)
+      mslKey = loadBundledMSL(version = something(MSL_Version, "MSL:3.2.3"))
     end
     combined = listAppend(combined, LIBRARY_CACHE[mslKey])
   end
