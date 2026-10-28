@@ -708,6 +708,7 @@ function loadPackageDirectory(dirPath::String; name::Union{String, Nothing} = no
   #= Try disk cache first — if hit, skip all parsing =#
   local cacheKey::String = name !== nothing ? name : ""
   if !isempty(cacheKey) && _loadLibCache(cacheKey, contentHash)
+    LIBRARY_ROOTS[cacheKey] = abspath(dirPath)
     return cacheKey
   end
 
@@ -718,6 +719,8 @@ function loadPackageDirectory(dirPath::String; name::Union{String, Nothing} = no
   local rootSCode = translateToSCode(rootAbsyn)
   local rootClass = listHead(rootSCode)
   local rootName = rootClass.name
+  #= its modelica:// URIs (loadResource, an external function's IncludeDirectory) resolve in this directory =#
+  LIBRARY_ROOTS[rootName] = abspath(dirPath)
   if isempty(cacheKey)
     cacheKey = rootName
     if _loadLibCache(cacheKey, contentHash)

@@ -71,6 +71,17 @@
   OMFrontend.loadInstalledLibrary("ResLib"; installDir = dest)
   @test OMFrontend.Frontend.resolveModelicaUri("modelica://ResLib/Resources/data.txt") ==
         joinpath(dest, "ResLib 1.0.0", "Resources", "data.txt")
+  #= ...and of a library loaded as a package directory, also when it comes from the disk cache =#
+  local pkgDir = joinpath(mktempdir(), "DirLib")
+  mkpath(joinpath(pkgDir, "Resources"))
+  write(joinpath(pkgDir, "package.mo"), "package DirLib\nend DirLib;\n")
+  write(joinpath(pkgDir, "Resources", "data.txt"), "1 2 3")
+  for _ in 1:2
+    delete!(OMFrontend.LIBRARY_ROOTS, "DirLib")
+    OMFrontend.loadPackageDirectory(pkgDir)
+    @test OMFrontend.Frontend.resolveModelicaUri("modelica://DirLib/Resources/data.txt") ==
+          joinpath(pkgDir, "Resources", "data.txt")
+  end
   #= the default directories: OM.jl's first (installLibrary's), then OpenModelica's =#
   @test OMFrontend.libraryDirectories() == [OMFrontend.omjlLibraryDir(), OMFrontend.openModelicaLibraryDir()]
   @test endswith(OMFrontend.omjlLibraryDir(), joinpath("OMJL", "libraries"))
