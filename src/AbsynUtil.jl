@@ -838,7 +838,7 @@ function traverseExpBidirSubExps(
           ", " +
           exitName +
           ") - Unknown expression: "
-        @assign error_msg = error_msg + Dump.printExpStr(inExp)
+        @assign error_msg = error_msg + printExp(inExp)
         Error.addMessage(Error.INTERNAL_ERROR, list(error_msg))
         fail()
       end
@@ -3307,7 +3307,7 @@ function getCrefFromExp(
 
       _ => begin
         Error.addInternalError(
-          getInstanceName() + " failed " + Dump.printExpStr(inExp),
+          getInstanceName() + " failed " + printExp(inExp),
           sourceInfo(),
         )
         fail()
@@ -6514,14 +6514,14 @@ end
 function typeSpecString(inTs::TypeSpec)::String
   local outStr::String
 
-  @assign outStr = Dump.unparseTypeSpec(inTs)
+  @assign outStr = Absyn.dumpTypeSpec(inTs)
   return outStr
 end
 
 function crefString(inCr::ComponentRef)::String
   local outStr::String
 
-  @assign outStr = Dump.printComponentRefStr(inCr)
+  @assign outStr = Absyn.dumpCref(inCr)
   return outStr
 end
 
@@ -6570,11 +6570,16 @@ function crefStringIgnoreSubs(inCr::ComponentRef)::String
   return outStr
 end
 
+"""An import clause as Modelica, without `import` and the semicolon: `SI = Modelica.Units.SI`, `A.B`, `A.B.*`,
+`A.{b, c = d}`."""
 function importString(inImp::Import)::String
-  local outStr::String
-
-  @assign outStr = Dump.unparseImportStr(inImp)
-  return outStr
+  return @match inImp begin
+    NAMED_IMPORT(__) => inImp.name + " = " + Absyn.dumpPath(inImp.path)
+    QUAL_IMPORT(__) => Absyn.dumpPath(inImp.path)
+    UNQUAL_IMPORT(__) => Absyn.dumpPath(inImp.path) + ".*"
+    GROUP_IMPORT(__) => Absyn.dumpPath(inImp.prefix) + ".{" +
+      join([g isa GROUP_IMPORT_NAME ? g.name : g.rename + " = " + g.name for g in inImp.groups], ", ") + "}"
+  end
 end
 
 """
@@ -8989,30 +8994,8 @@ function elementSpecIsComponents(es::ElementSpec)::Bool
   return isComponents
 end
 
-"""Custom IMPL John Apr 2023"""
-function printExpLst(expLst::List{Exp})
-  local buffer = IOBuffer()
-  local l = length(expLst)
-  for (i,exp) in enumerate(expLst)
-    write(buffer, printExp(exp))
-    if i != l
-      write(buffer, ",")
-    end
-  end
-  String(take!(buffer))
-end
-
-function printExp(str::STRING)
-  "\"$(str.value)\""
-end
-
-function printExp(arr::ARRAY)
-  if !isempty(arr.arrayExp)
-    "{" * printExpLst(arr.arrayExp) * "}"
-  else
-   "{/*Empty array*/}"
-  end
-end
+"""An expression as Modelica (Absyn.jl's printer)."""
+printExp(exp::Exp)::String = Absyn.dumpExp(exp)
 
 @exportAll()
 end

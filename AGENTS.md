@@ -22,7 +22,8 @@ The package is intentionally low-level. End users typically invoke it through OM
   - `NFConvertDAE.jl` — final lowering to `DAE` data structures from DAE.jl.
   - `NFPerfHelpers.jl` — `mapPreservingEq` and `reuseIfRefEqual` performance helpers.
 - `src/AbsynToSCode.jl`, `src/SCodeUtil.jl`, `src/AbsynUtil.jl` — Absyn and SCode helpers used during translation.
-- `src/GUI_API.jl`, `src/ZeroMQ.jl`, `src/Corba.jl` — IPC and GUI integration points (not part of the core flatten path).
+- `src/GUI_API.jl`, `src/Util/ZeroMQ.jl`, `src/Util/Corba.jl` — IPC and GUI integration points (not part of the core flatten path).
+- `src/componentGraphics.jl` — a component class's icon and connector placements as Modelica text (`componentGraphics`).
 - `test/` — see "Tests" below.
 
 ## Pipeline
