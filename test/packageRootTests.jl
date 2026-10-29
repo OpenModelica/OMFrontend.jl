@@ -6,10 +6,9 @@
   root = OMFrontend.packageRoot()
   @test isfile(joinpath(root, "lib", "NFModelicaBuiltin.mo"))
   @test isfile(joinpath(root, "lib", "Modelica", "MSL_3_2_3.mo"))
-  #= src/test.jl is a benchmark script, not part of the package. =#
   local users = String[]
   for (dir, _, files) in walkdir(joinpath(root, "src")), f in files
-    endswith(f, ".jl") && f != "test.jl" || continue
+    endswith(f, ".jl") || continue
     occursin("find_package(\"OMFrontend\")", read(joinpath(dir, f), String)) && push!(users, f)
   end
   @test isempty(users)

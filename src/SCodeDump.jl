@@ -41,16 +41,12 @@ using ExportAll
 
 @UniontypeDecl SCodeDumpOptions
 
-#= Note all methods in this module are not currently supported. =#
 import Absyn
 import SCode
 import ListUtil
 
 import ..Frontend.AbsynUtil
 import ..SCodeUtil
-#import ..Frontend.Dump
-#import ..Frontend.SCodeDumpTpl
-#import ..Frontend.Tpl
 
 @Uniontype SCodeDumpOptions begin
   @Record OPTIONS begin
@@ -70,180 +66,51 @@ end
 const defaultOptions =
   OPTIONS(false, false, false, false, true, true, false, false, false)::SCodeDumpOptions
 
-function programStr(
-  inProgram::SCode.Program,
-  options::SCodeDumpOptions = defaultOptions,
-)::String
-  local outString::String
-
-  @assign outString = Tpl.tplString2(SCodeDumpTpl.dumpProgram, inProgram, options)
-  return outString
-end
-
-function classDefStr(cd::SCode.ClassDef, options::SCodeDumpOptions = defaultOptions)::String
-  local outString::String
-
-  @assign outString = Tpl.tplString2(SCodeDumpTpl.dumpClassDef, cd, options)
-  return outString
-end
-
-function statementStr(
-  stmt::SCode.Statement,
-  options::SCodeDumpOptions = defaultOptions,
-)::String
-  local outString::String
-
-  @assign outString = Tpl.tplString2(SCodeDumpTpl.dumpStatement, stmt, options)
-  return outString
-end
-
-function equationStr(
-  inEEquation::SCode.EEquation,
-  options::SCodeDumpOptions = defaultOptions,
-)::String
-  local outString::String
-
-  @assign outString = Tpl.tplString2(SCodeDumpTpl.dumpEEquation, inEEquation, options)
-  return outString
-end
-
-"""Prints SCode.Mod to a string."""
+"""A modifier as Modelica: `(a = 1, each b(c = 2)) = value`; empty for none. A submodifier's prefixes
+(`each`, `final`) come before its name."""
 function printModStr(inMod::SCode.Mod, options::SCodeDumpOptions = defaultOptions)::String
-  local outString::String
-  @assign outString = Tpl.tplString2(SCodeDumpTpl.dumpModifier, inMod, options)
-  return outString
+  return dumpModifier(inMod, options)
 end
 
-"""Prints SCode.Comment to a string."""
-function printCommentAndAnnotationStr(
-  inComment::SCode.Comment,
-  options::SCodeDumpOptions = defaultOptions,
-)::String
-  local outString::String
-
-  @assign outString = Tpl.tplString2(SCodeDumpTpl.dumpComment, inComment, options)
-  return outString
+"""The annotation of an SCode comment as Modelica, `annotation(...)`; empty for none."""
+function printAnnotationStr(inComment::SCode.Comment, options::SCodeDumpOptions = defaultOptions)::String
+  local ann::Option{SCode.Annotation} = inComment.annotation_
+  return isSome(ann) ? dumpAnnotation(ann.data, options) : ""
 end
 
-"""Prints SCode.Comment.comment to a string."""
-function printCommentStr(
-  inComment::SCode.Comment,
-  options::SCodeDumpOptions = defaultOptions,
-)::String
-  local outString::String
+"""The annotations a tool draws, left out with the option `stripGraphicalAnnotations`."""
+const GRAPHICAL_ANNOTATIONS = ("Icon", "Diagram", "Placement", "Line", "IconMap", "DiagramMap")
 
-  @assign outString = begin
-    local comment::Option{String}
-    @match inComment begin
-      SCode.COMMENT(comment = comment) => begin
-        Tpl.tplString2(SCodeDumpTpl.dumpCommentStr, comment, options)
-      end
+"""An annotation as Modelica, `annotation(...)`; empty when nothing is left after the options."""
+function dumpAnnotation(annotation::SCode.ANNOTATION, options::SCodeDumpOptions)::String
+  local mod::SCode.Mod = annotation.modification
+  mod isa SCode.MOD || return ""
+  local subs::Vector{String} = String[subModStr(sm, options) for sm in mod.subModLst
+                                      if !(options.stripGraphicalAnnotations && sm.ident in GRAPHICAL_ANNOTATIONS)]
+  return isempty(subs) ? "" : "annotation(" * join(subs, ", ") * ")"
+end
 
-      _ => begin
-        ""
-      end
-    end
+"""A modifier as Modelica (`printModStr`)."""
+function dumpModifier(mod::SCode.Mod, options::SCodeDumpOptions)::String
+  if mod isa SCode.MOD
+    local subs::Vector{String} = String[subModStr(sm, options) for sm in mod.subModLst]
+    local binding::Option{Absyn.Exp} = mod.binding
+    return (isempty(subs) ? "" : "(" * join(subs, ", ") * ")") *
+           (isSome(binding) ? " = " * AbsynUtil.printExp(binding.data) : "")
+  elseif mod isa SCode.REDECL
+    return "redeclare " * unparseElementStr(mod.element, options)
   end
-  return outString
+  return ""
 end
 
-""" Prints SCode.Comment.annotation to a string. """
-function printAnnotationStr(
-  inComment::SCode.Comment,
-  options::SCodeDumpOptions = defaultOptions,
-)::String
-  local outString::String
-  @assign outString = begin
-    local annotation_::Option{SCode.Annotation}
-    @match (inComment, options) begin
-      (SCode.COMMENT(annotation_ = annotation_), _) => begin
-        #Tpl.tplString2(SCodeDumpTpl.dumpAnnotationOpt, annotation_, options) TODO
-        if isSome(annotation_)
-          @match SOME(ann) = annotation_
-          dumpAnnotation(ann, options)
-        else
-          ""
-        end
-      end
-      _ => begin
-        ""
-      end
-    end
-  end
-  return outString
+"""A submodifier as Modelica: its prefixes, name and modifier."""
+function subModStr(sm::SCode.SubMod, options::SCodeDumpOptions)::String
+  local mod::SCode.Mod = sm.mod
+  mod isa SCode.REDECL && return dumpModifier(mod, options)
+  local prefixes::String = mod isa SCode.MOD ?
+    (SCodeUtil.eachBool(mod.eachPrefix) ? "each " : "") * (SCodeUtil.finalBool(mod.finalPrefix) ? "final " : "") : ""
+  return prefixes * sm.ident * dumpModifier(mod, options)
 end
-
-"""
-Custom implementation of dumpAnnotation
-author johti17
-"""
-function dumpAnnotation(annotation::SCode.ANNOTATION, options)
-  local stripAlgorithmSections::Bool
-  local stripProtectedImports::Bool
-  local stripProtectedClasses::Bool
-  local stripProtectedComponents::Bool
-  local stripMetaRecords::Bool
-  local stripGraphicalAnnotations::Bool
-  local stripStringComments::Bool
-  local stripExternalDecl::Bool
-  local stripOutputBindings::Bool
-  #= Get options =#
-  @match OPTIONS(stripAlgorithmSections,
-                 stripProtectedImports,
-                 stripProtectedClasses,
-                 stripProtectedComponents,
-                 stripMetaRecords,
-                 stripMetaRecords,
-                 stripGraphicalAnnotations,
-                 stripStringComments,
-                 stripOutputBindings) = options
-  local modifier = annotation.modification
-  local buffer = IOBuffer()
-  write(buffer, "annotation(")
-  write(buffer, dumpModifier(modifier::SCode.Mod, options))
-  write(buffer, ")")
-  return String(take!(buffer))
-end
-
-function dumpModifier(mod::SCode.Mod, options)
-  local modifier = mod
-  local buffer = IOBuffer()
-  str = @match modifier begin
-    SCode.NOMOD(__) => ""
-    SCode.REDECL(finalPrefix, eachPrefix, element) => begin
-      if SCodeUtil.finalBool(finalPrefix)
-        write(buffer, "final ")
-      end
-      if SCodeUtil.eachBool(eachPrefix)
-        write(buffer, "each ")
-      end
-      write(buffer, "TODO: Unknown element for redeclare")
-    end
-    SCode.MOD(finalPrefix, eachPrefix, subModLst, binding, info) => begin
-      if SCodeUtil.finalBool(finalPrefix)
-        write(buffer, "final ")
-      end
-      if SCodeUtil.eachBool(eachPrefix)
-        write(buffer, "each ")
-      end
-      for (i,sm) in enumerate(subModLst)
-        local smStr = dumpModifier(sm.mod::SCode.Mod, options)
-        write(buffer, string(sm.ident, "=", smStr))
-        if i != length(subModLst)
-          write(buffer, ",")
-        end
-      end
-      if isSome(binding)
-        @match SOME(exp) = binding
-        write(buffer, AbsynUtil.printExp(exp))
-      else
-        write(buffer, string(""))
-      end
-    end
-  end
-  return String(take!(buffer))
-end
-
 
 """Prints SCode.Restriction to a string."""
 function restrString(inRestriction::SCode.Restriction)::String
@@ -371,125 +238,20 @@ function restrString(inRestriction::SCode.Restriction)::String
   return outString
 end
 
-"""Translates a SCode.Restriction to a String."""
-function restrictionStringPP(inRestriction::SCode.Restriction)::String
-  local outString::String
-
-  @assign outString = Tpl.tplString(SCodeDumpTpl.dumpRestriction, inRestriction)
-  return outString
-end
-
-const noEachStr = ""::String
-
-"""Print SCode.Element to a string."""
-function unparseElementStr(
-  inElement::SCode.Element,
-  options::SCodeDumpOptions = defaultOptions,
-)::String
-  local outString::String
-
-  @assign outString =
-    Tpl.tplString3(SCodeDumpTpl.dumpElement, inElement, noEachStr, options)
-  return outString
-end
-
-"""Print SCode.Element to a string."""
-function shortElementStr(inElement::SCode.Element)::String
-  local outString::String
-
-  @assign outString = begin
-    local str::String
-    local res::String
-    local n::String
-    local ioStr::String
-    local mod::SCode.Mod
-    local path::Absyn.Path
-    local imp::Absyn.Import
-    local io::Absyn.InnerOuter
-    local rdp::SCode.Redeclare
-    local rpp::SCode.Replaceable
-    local pp::SCode.Partial
-    @match inElement begin
-      SCode.EXTENDS(baseClassPath = path, modifications = mod) => begin
-        @assign str = AbsynUtil.pathString(path)
-        @assign str = str + printModStr(mod, defaultOptions)
-        @assign res = stringAppendList(list("extends ", str, ";"))
-        res
-      end
-
-      SCode.COMPONENT(__) => begin
-        @assign res = unparseElementStr(inElement, defaultOptions)
-        res
-      end
-
-      SCode.CLASS(prefixes = SCode.PREFIXES(__), classDef = SCode.DERIVED(__)) => begin
-        @assign res = unparseElementStr(inElement, defaultOptions)
-        res
-      end
-
-      SCode.CLASS(
-        name = n,
-        partialPrefix = pp,
-        prefixes = SCode.PREFIXES(
-          innerOuter = io,
-          redeclarePrefix = rdp,
-          replaceablePrefix = rpp,
-        ),
-        classDef = SCode.CLASS_EXTENDS(__),
-      ) => begin
-        @assign ioStr =
-          Dump.unparseInnerouterStr(io) +
-          redeclareStr(rdp) +
-          replaceablePrefixStr(rpp) +
-          partialStr(pp)
-        @assign res = stringAppendList(list(ioStr, "class extends ", n, ";"))
-        res
-      end
-
-      SCode.CLASS(
-        name = n,
-        partialPrefix = pp,
-        prefixes = SCode.PREFIXES(
-          innerOuter = io,
-          redeclarePrefix = rdp,
-          replaceablePrefix = rpp,
-        ),
-        classDef = SCode.ENUMERATION(__),
-      ) => begin
-        @assign ioStr =
-          Dump.unparseInnerouterStr(io) +
-          redeclareStr(rdp) +
-          replaceablePrefixStr(rpp) +
-          partialStr(pp)
-        @assign res = stringAppendList(list(ioStr, "class ", n, " enumeration;"))
-        res
-      end
-
-      SCode.CLASS(
-        name = n,
-        partialPrefix = pp,
-        prefixes = SCode.PREFIXES(
-          innerOuter = io,
-          redeclarePrefix = rdp,
-          replaceablePrefix = rpp,
-        ),
-      ) => begin
-        @assign ioStr =
-          Dump.unparseInnerouterStr(io) +
-          redeclareStr(rdp) +
-          replaceablePrefixStr(rpp) +
-          partialStr(pp)
-        @assign res = stringAppendList(list(ioStr, "class ", n, ";"))
-        res
-      end
-
-      SCode.IMPORT(imp = imp) => begin
-        @assign str = "import " + AbsynUtil.printImportString(imp) + ";"
-        str
-      end
-    end
+"""An element as Modelica, short (for messages): `Real x(start = 1)`, `model M`, `extends A(b = 1)`, `import A.B`."""
+function unparseElementStr(inElement::SCode.Element, options::SCodeDumpOptions = defaultOptions)::String
+  if inElement isa SCode.COMPONENT
+    return AbsynUtil.typeSpecString(inElement.typeSpec) * " " * inElement.name * printModStr(inElement.modifications, options)
+  elseif inElement isa SCode.CLASS
+    return restrString(inElement.restriction) * " " * inElement.name
+  elseif inElement isa SCode.EXTENDS
+    return "extends " * AbsynUtil.pathString(inElement.baseClassPath) * printModStr(inElement.modifications, options)
+  elseif inElement isa SCode.IMPORT
+    return "import " * AbsynUtil.importString(inElement.imp)
+  elseif inElement isa SCode.DEFINEUNIT
+    return "defineunit " * inElement.name
   end
-  return outString
+  return string(typeof(inElement))
 end
 
 function printEnumStr(en::SCode.Enum)::String

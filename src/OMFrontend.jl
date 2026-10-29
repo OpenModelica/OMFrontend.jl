@@ -1763,6 +1763,7 @@ function removeQuotesFromFlatModelica(fmStr::String)
   return String(take!(buffer))
 end
 
+include("componentGraphics.jl")
 include("GUI_API.jl")
 include("cli.jl")
 include("precompilation.jl")

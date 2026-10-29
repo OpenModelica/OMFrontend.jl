@@ -88,6 +88,10 @@ end
     @info "Skipping GUI_API tests (set OMFRONTEND_TEST_GUI_API=1 to enable)"
   end
 
+  @testset "Component graphics and the SCode/Absyn printers" begin
+    include("componentGraphicsTests.jl")
+  end
+
   # #= Check that we get the correct flat Modelica=#
   @testset "Frontend Validation test. Check that the result corresponds to existing models in the original frontend " begin
     include("frontendResultTest.jl")

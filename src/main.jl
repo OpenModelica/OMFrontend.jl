@@ -295,11 +295,6 @@ include("./NewFrontend/NFEvalConstants.jl")
 
 include("./NewFrontend/NFExpandExp.jl")
 
-#= TODO: NOT IN USE=#
-#include("./NewFrontend/NFUnit.jl")
-#include("./NewFrontend/NFHashTableCrToUnit.jl")
-#include("./NewFrontend/NFUnitCheck.jl")
-#=################# =#
 include("./NewFrontend/NFSimplifyModel.jl")
 include("./NewFrontend/NFSimplifyExp.jl")
 include("./NewFrontend/NFPackage.jl")
