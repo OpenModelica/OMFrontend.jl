@@ -51,7 +51,15 @@ end
 
 Constants = ConstantsSetImpl.Tree
 
-function collectConstants(flatModel::FlatModel, functions::FunctionTree)::FlatModel
+"""
+    collectConstants(flatModel, functions) -> (FlatModel, FunctionTree)
+
+The package constants the model and its functions read that were not substituted with their values added to the
+model as variables, and the functions their bindings call added to `functions` (`collectFunctions` ran before they
+were variables of the model: with the arrays kept, `Modelica.Constants.pi = 2 * Modelica.Math.asin(1.0)` stays
+unevaluated and its backend found no `Modelica.Math.asin`).
+"""
+function collectConstants(flatModel::FlatModel, functions::FunctionTree)::Tuple{FlatModel, FunctionTree}
   local vars::Vector{Variable} = Variable[]
   local binding::Binding
   local constants::Constants
@@ -74,9 +82,10 @@ function collectConstants(flatModel::FlatModel, functions::FunctionTree)::FlatMo
   )
   constants = FunctionTreeImpl.fold(functions, collectFuncConstants, constants)
   vars = Variable[_withValueBinding(Variable_fromCref(c)) for c in ConstantsSetImpl.listKeys(constants)]
+  functions = ArrayUtil.fold(vars, collectComponentFuncs, functions)
   @assign flatModel.variables = vcat(vars, flatModel.variables)
 #  execStat(getInstanceName()) TODO
-  return flatModel
+  return (flatModel, functions)
 end
 
 #= A collected constant's value as its binding: a record constant without a binding of its own

@@ -12,3 +12,9 @@ end
   @test_throws MetaModelica.MetaModelicaGeneralException flattenFM("WhenVerifyTest.ElsewhenDifferentVariables",
                                                                    _WHEN_VERIFY_FILE)
 end
+
+@testset "if-equations in the branches of a when-equation with elsewhen" begin
+  #= whenEquationIfCrefs took the if-equation's branches as equations (a MethodError) =#
+  (fm, _) = flattenFM("WhenVerifyTest.IfInElsewhen", _WHEN_VERIFY_FILE)
+  @test occursin("second branch", OMFrontend.toString(fm))
+end
