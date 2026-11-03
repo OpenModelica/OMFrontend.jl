@@ -1375,8 +1375,13 @@ end
     @match exp begin
       CREF_EXPRESSION(__) => begin
         expCref = transferSubscripts(prefix, exp.cref)
-        #= A ragged dimension of the element the cref names (flattenRaggedDimension). =#
-        exp =CREF_EXPRESSION(flattenRaggedDimensions(exp.ty, expCref), expCref)
+        #= A ragged dimension of the element the cref names (flattenRaggedDimension), in the cref's own type too:
+           its expansion reads that (`der(lay[1].T) = -lay[1].T` of `T[nSta]` in `lay[3]`: "invalid range lay.nSta"). =#
+        if isvariant(expCref, COMPONENT_REF_CREF)
+          expCref = COMPONENT_REF_CREF(expCref.node, expCref.subscripts, flattenRaggedDimensions(expCref.ty, expCref),
+                                       expCref.origin, expCref.restCref)
+        end
+        exp = CREF_EXPRESSION(flattenRaggedDimensions(exp.ty, expCref), expCref)
       end
 
       BINDING_EXP(__) => begin

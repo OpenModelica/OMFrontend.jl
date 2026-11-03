@@ -115,6 +115,14 @@ end
     include("whenVerifyTests.jl")
   end
 
+  @testset "Ragged arrays of components" begin
+    include("raggedComponentTests.jl")
+  end
+
+  @testset "Attribute variability" begin
+    include("attributeVariabilityTests.jl")
+  end
+
   @testset "Instance names" begin
     include("instanceNameTests.jl")
   end

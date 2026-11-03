@@ -1379,7 +1379,10 @@ function typeTypeAttribute(
       if isBound(binding)
         binding = typeBinding(binding, origin)
         binding = matchBinding(binding, ty, name, component)
-        if variability(binding) > Variability.PARAMETER
+        #= The builtin attributes have parameter variability: a discrete or continuous binding is an error outside a
+           function (omc's NFTyping.typeTypeAttribute); a non-structural parameter's is not (a parameter bound to an
+           external call: Real x(start = s), s = f(a)). =#
+        if variability(binding) >= Variability.DISCRETE && flagNotSet(origin, ORIGIN_FUNCTION)
           Error.addSourceMessage(
             Error.HIGHER_VARIABILITY_BINDING,
             list(
@@ -3075,12 +3078,11 @@ end
     )
     fail()
   end
-  if cond_var <= Variability.STRUCTURAL_PARAMETER && !contains(cond, isNonConstantIfCondition)
-    if evaluateCondition(cond, origin, info)
-       (ifExp, ty, var) = typeExp(tb, next_origin, info)
-    else
-       (ifExp, ty, var) = typeExp(fb, next_origin, info)
-    end
+  local selected::Union{Nothing, Bool} =
+    cond_var <= Variability.STRUCTURAL_PARAMETER && !contains(cond, isNonConstantIfCondition) ?
+    selectedBranch(cond, origin, info) : nothing
+  if selected !== nothing
+    (ifExp, ty, var) = typeExp(selected ? tb : fb, next_origin, info)
   else
     (tb, tb_ty, tb_var) = typeExp(tb, next_origin, info)
     (fb, fb_ty, fb_var) = typeExp(fb, next_origin, info)
@@ -3142,6 +3144,20 @@ end
   #=  If the types match, return a typed if-expression.
   =#
   return (ifExp, ty, var)
+end
+
+"""
+    selectedBranch(condExp, origin, info) -> Union{Nothing, Bool}
+
+The value of a structural if-expression's condition, for branch selection; `nothing` where it differs between the
+elements of an array of components (Buildings' conduction layers, `nSta = if lay.stateAtSurface_a or
+lay.stateAtSurface_b then 2 else 1`: each element its own): the if-expression stays, as omc's (which selects no branch
+when typing), evaluated for each element (a ragged dimension, `flattenRaggedDimension`).
+"""
+function selectedBranch(condExp::Expression, origin::ORIGIN_Type, info::SourceInfo)::Union{Nothing, Bool}
+  local values::Expression = stripBindingInfo(evalExp(condExp, EVALTARGET_GENERIC(info)))
+  (values isa ARRAY_EXPRESSION && !arrayAllEqual(values)) && return nothing
+  return evaluateCondition(condExp, origin, info)
 end
 
 function evaluateCondition(

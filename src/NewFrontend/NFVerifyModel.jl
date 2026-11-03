@@ -235,26 +235,30 @@ end
 
 """
   Checks that the left-hand sides of the given if-equation branches consists
-  of the same set of crefs, and adds that set to the given set of crefs.
+  of the same set of crefs, and adds that set to the given set of crefs (omc's
+  NFVerifyModel.whenEquationIfCrefs; the branches are the if-equation's
+  `Equation_Branch`es: an if-equation in an elsewhen was a MethodError).
 """
 function whenEquationIfCrefs(
-  branches::List{<:Equation},
+  branches::Union{List{<:Equation_Branch}, Vector{<:Equation_Branch}},
   source::DAE.ElementSource,
   crefs::List{<:ComponentRef},
 )::List{ComponentRef}
-  local crefs1::List{ComponentRef}
+  local crefs1::List{ComponentRef} = nil
   local crefs2::List{ComponentRef}
-  local rest_branches::List{P_Equation.Equation}
-  local body::List{Equation}
-  @match _cons(P_Equation.Equation.BRANCH(body = body), rest_branches) = branches
-  @assign crefs1 = whenEquationBranchCrefs(body)
-  for branch in rest_branches
-    @match P_Equation.Equation.BRANCH(body = body) = branch
-    @assign crefs2 = whenEquationBranchCrefs(body)
-    checkCrefSetEquality(crefs1, crefs2, Error.WHEN_IF_VARIABLE_MISMATCH, source)
+  local body::Vector{Equation}
+  local first::Bool = true
+  #=  All the branches must have the same set of crefs on the lhs. =#
+  for branch in branches
+    @match EQUATION_BRANCH(body = body) = branch
+    crefs2 = whenEquationBranchCrefs(body)
+    if first
+      crefs1 = crefs2
+      first = false
+    else
+      checkCrefSetEquality(crefs1, crefs2, Error.WHEN_IF_VARIABLE_MISMATCH, source)
+    end
   end
-  #=  All the branches must have the same set of crefs on the lhs.
-  =#
   @assign crefs = listAppend(crefs1, crefs)
   return crefs
 end

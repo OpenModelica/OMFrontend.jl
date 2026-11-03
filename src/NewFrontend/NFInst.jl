@@ -252,7 +252,7 @@ function simplifyAndCollect(flat_model::FlatModel, name::String, top = nothing):
   @EXECSTAT "collectFunctions" funcs = collectFunctions(flat_model, name)
   #=  Collect package constants that couldn't be substituted with their values =#
   #=  (e.g. because they where used with non-constant subscripts), and add them to the model. =#
-  @EXECSTAT "collectConstants" flat_model = collectConstants(flat_model, funcs)
+  @EXECSTAT "collectConstants" (flat_model, funcs) = collectConstants(flat_model, funcs)
   return (flat_model, funcs)
 end
 
@@ -4068,12 +4068,17 @@ function markStructuralParamsComp(component::Component, node::InstNode)::Nothing
   return markStructuralParamsComp2(node)
 end
 
+"""
+The component of `node` a structural parameter, and the parameters its binding reads, untyped or typed (an if-equation's
+condition is marked when the bindings are typed already: `R` of `if R > 0` with `R = 2 * R0`, `R0` too).
+"""
 function markStructuralParamsComp2(node::InstNode)::Nothing
   local comp::Component
   local binding::Option{Expression}
   comp = setVariability(Variability.STRUCTURAL_PARAMETER, component(node))
   node = updateComponent!(comp, node)
   binding = untypedExp(getBinding(comp))
+  isSome(binding) || (binding = typedExp(getBinding(comp)))
   if isSome(binding)
     markStructuralParamsExp(Util.getOption(binding))
   end
