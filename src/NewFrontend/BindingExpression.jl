@@ -360,7 +360,7 @@ function splitRecordCref(@nospecialize(exp::Expression)) ::Expression
         makeRecord(scopePath(cls), outExp.ty, fields)
       end
       ARRAY_EXPRESSION(__)  => begin
-        local outExpElements = list(splitRecordCref(e) for e in outExp.elements)
+        local outExpElements = Expression[splitRecordCref(e) for e in outExp.elements]
         ARRAY_EXPRESSION(outExp.ty, outExpElements, outExp.literal)
       end
       _  => begin
@@ -3632,7 +3632,7 @@ end
       end
 
       MATRIX_EXPRESSION(__)  => begin
-        MATRIX_EXPRESSION(list(list(func(e) for e in row) for row in exp.elements))
+        MATRIX_EXPRESSION(Vector{Expression}[Expression[func(e) for e in row] for row in exp.elements])
       end
 
       RANGE_EXPRESSION(step = SOME(e2))  => begin
@@ -3973,19 +3973,19 @@ end
       end
 
       ARG_TYPED_CALL(__)  => begin
-        targs = nil
-        tnargs = nil
+        targs = TypedArg[]
+        tnargs = TypedNamedArg[]
         for arg in call.arguments
            (e, t, v) = arg
           e = map(e, func)
-          targs = Cons{TypedArg}((e, t, v), targs)
+          push!(targs, (e, t, v))
         end
         for arg in call.named_args
            (s, e, t, v) = arg
           e = map(e, func)
-          tnargs = Cons{TypedNamedArg}((s, e, t, v), tnargs)
+          push!(tnargs, (s, e, t, v))
         end
-        ARG_TYPED_CALL(call.ref, listReverseInPlace(targs), listReverseInPlace(tnargs), call.call_scope)
+        ARG_TYPED_CALL(call.ref, targs, tnargs, call.call_scope)
       end
 
       TYPED_CALL(__)  => begin
@@ -4126,7 +4126,7 @@ one expression.
       end
 
       MATRIX_EXPRESSION(__)  => begin
-        MATRIX_EXPRESSION(list(list(map(e, func) for e in row) for row in exp.elements))
+        MATRIX_EXPRESSION(Vector{Expression}[Expression[map(e, func) for e in row] for row in exp.elements])
       end
 
       RANGE_EXPRESSION(step = SOME(e2))  => begin
@@ -5870,7 +5870,7 @@ end
 
 function makeExpArray(ty::NFType, expl::List{Expression}; literal::Bool = false)
   local outExp::Expression
-   outExp = ARRAY_EXPRESSION(ty, expl, literal)
+   outExp = ARRAY_EXPRESSION(ty, Expression[e for e in expl], literal)
   outExp
 end
 

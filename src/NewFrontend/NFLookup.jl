@@ -786,7 +786,7 @@ function lookupSimpleCref(crefName::String,
     scopeRef.x = topScope(scope)
     return (node, cref)
   end
-  Error.addMessage(Error.RECURSION_DEPTH_REACHED, list(String(Global.recursionDepthLimit), scopeName(foundScope)))
+  Error.addMessage(Error.RECURSION_DEPTH_REACHED, list(string(Global.recursionDepthLimit), scopeName(foundScope)))
   fail()
 end
 

@@ -101,7 +101,7 @@ function typeMatrixCommaRef(
         Error.addSourceMessageAndFail(
           Error.ARG_TYPE_MISMATCH,
           list(
-            String(pos),
+            string(pos),
             "matrix constructor ",
             "arg",
             toString(e),

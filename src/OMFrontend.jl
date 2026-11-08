@@ -110,25 +110,18 @@ end
 const LIBRARY_DEPENDENCIES = Dict{String, Vector{String}}()
 
 """
-  This function "precompiles" some of the runtime Modelica libraries.
-  While it results in some latency when importing OMFrontend, subsequent
-  use of OMFrontend to parse and work with Modelica files is faster.
-TODO:
-Improving the speed of precompilation would improve the feel of this package
-by a lot.
+  The frontend's state at load: the builtin library (parsed into the package image by the precompile workload,
+  here only when the workload did not run), the globals, the flags and the settings read from the environment.
+  No model is instantiated here: the workload compiled the frontend into the image, and a package loaded before
+  OMFrontend that invalidates that code (Plots, StaticArrays, StatsBase: 4-8 s of recompilation) is paid at the first
+  instantiation, where an image loaded later (OMBackend's, OM's) may hold the code compiled again.
 """
 function __init__()
-  packagePath = packageRoot()
-  # Load builtin library if not already in cache (e.g. when precompile workload is disabled)
+  local packagePath::String = packageRoot()
   if !haskey(NFModelicaBuiltinCache, "NFModelicaBuiltin")
-    pathToLib = packagePath * "/lib/NFModelicaBuiltin.mo"
-    builtinProg = OMParser.parseFile(pathToLib, 2)
-    builtinSCode = Frontend.AbsynToSCode.translateAbsyn2SCode(builtinProg)
-    NFModelicaBuiltinCache["NFModelicaBuiltin"] = builtinSCode
+    local builtinProg::Absyn.Program = OMParser.parseFile(packagePath * "/lib/NFModelicaBuiltin.mo", 2)
+    NFModelicaBuiltinCache["NFModelicaBuiltin"] = Frontend.AbsynToSCode.translateAbsyn2SCode(builtinProg)
   end
-  pathToTest = packagePath * "/test/Models/HelloWorld.mo"
-  p = OMParser.parseFile(pathToTest, 1)
-  s = Frontend.AbsynToSCode.translateAbsyn2SCode(p)
   Frontend.Global.initialize()
   # make sure we have all the flags loaded!
   Frontend.FlagsUtil.loadFlags()
@@ -138,10 +131,6 @@ function __init__()
   Frontend.LIBRARY_LOADER[] = _loadLibraryOnDemand
   Frontend.CACHE_INST[] = get(ENV, "OMFRONTEND_CACHE_INST", "true") == "true"
   ENABLE_EXECSTAT[] = get(ENV, "ENABLE_EXECSTAT", "false") == "true"
-  builtinSCode = NFModelicaBuiltinCache["NFModelicaBuiltin"]
-  program = listAppend(builtinSCode, s)
-  path = Frontend.AbsynUtil.stringPath("HelloWorld")
-  res1 = Frontend.instClassInProgram(path, program)
   return nothing
 end
 

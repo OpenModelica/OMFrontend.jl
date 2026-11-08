@@ -391,7 +391,7 @@ function conditionToString(condition::ConditionType)
         "zeroDerivative"
       end
       _  => begin
-        String(condition)
+        string(condition)
       end
     end
   end

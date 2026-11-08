@@ -3109,7 +3109,7 @@ function evalBuiltinAcos(@nospecialize(arg::Expression), target::EvalTarget)::Ex
           if hasInfo(target)
             Error.addSourceMessage(
               Error.ARGUMENT_OUT_OF_RANGE,
-              list(String(x), "acos", "-1 <= x <= 1"),
+              list(string(x), "acos", "-1 <= x <= 1"),
               EvalTarget_getInfo(target),
             )
           end
@@ -3148,7 +3148,7 @@ function evalBuiltinAsin(@nospecialize(arg::Expression), target::EvalTarget)::Ex
           if hasInfo(target)
             Error.addSourceMessage(
               Error.ARGUMENT_OUT_OF_RANGE,
-              list(String(x), "asin", "-1 <= x <= 1"),
+              list(string(x), "asin", "-1 <= x <= 1"),
               EvalTarget_getInfo(target),
             )
           end
@@ -3218,7 +3218,7 @@ function evalBuiltinCat(
     if hasInfo(target)
       Error.addSourceMessage(
         Error.ARGUMENT_OUT_OF_RANGE,
-        list(String(n), "cat", "1 <= x <= " + String(nd)),
+        list(string(n), "cat", "1 <= x <= " + string(nd)),
         EvalTarget_getInfo(target),
       )
     end
@@ -3399,7 +3399,7 @@ function evalBuiltinDiv(args::Vector{Expression}, target::EvalTarget)::Expressio
           if hasInfo(target)
             Error.addSourceMessage(
               Error.DIVISION_BY_ZERO,
-              list(String(ix), String(iy)),
+              list(string(ix), string(iy)),
               EvalTarget_getInfo(target),
             )
           end
@@ -3414,7 +3414,7 @@ function evalBuiltinDiv(args::Vector{Expression}, target::EvalTarget)::Expressio
             if hasInfo(target)
               Error.addSourceMessage(
                 Error.DIVISION_BY_ZERO,
-                list(String(rx), String(ry)),
+                list(string(rx), string(ry)),
                 EvalTarget_getInfo(target),
               )
             end
@@ -3575,7 +3575,7 @@ function evalBuiltinLog10(@nospecialize(arg::Expression), target::EvalTarget)::E
           if hasInfo(target)
             Error.addSourceMessage(
               Error.ARGUMENT_OUT_OF_RANGE,
-              list(String(x), "log10", "x > 0"),
+              list(string(x), "log10", "x > 0"),
               EvalTarget_getInfo(target),
             )
           end
@@ -3605,7 +3605,7 @@ function evalBuiltinLog(@nospecialize(arg::Expression), target::EvalTarget)::Exp
           if hasInfo(target)
             Error.addSourceMessage(
               Error.ARGUMENT_OUT_OF_RANGE,
-              list(String(x), "log", "x > 0"),
+              list(string(x), "log", "x > 0"),
               EvalTarget_getInfo(target),
             )
           end
@@ -3872,7 +3872,7 @@ function evalBuiltinMod(args::Vector{Expression}, target::EvalTarget)::Expressio
           if hasInfo(target)
             Error.addSourceMessage(
               Error.MODULO_BY_ZERO,
-              list(String(x.value), String(y.value)),
+              list(string(x.value), string(y.value)),
               EvalTarget_getInfo(target),
             )
           end
@@ -3886,7 +3886,7 @@ function evalBuiltinMod(args::Vector{Expression}, target::EvalTarget)::Expressio
           if hasInfo(target)
             Error.addSourceMessage(
               Error.MODULO_BY_ZERO,
-              list(String(x.value), String(y.value)),
+              list(string(x.value), string(y.value)),
               EvalTarget_getInfo(target),
             )
           end
@@ -4019,7 +4019,7 @@ function evalBuiltinRem(args::Union{List{Expression}, Vector{Expression}}, targe
           if hasInfo(target)
             Error.addSourceMessage(
               Error.REM_ARG_ZERO,
-              list(String(x.value), String(y.value)),
+              list(string(x.value), string(y.value)),
               EvalTarget_getInfo(target),
             )
           end
@@ -4033,7 +4033,7 @@ function evalBuiltinRem(args::Union{List{Expression}, Vector{Expression}}, targe
           if hasInfo(target)
             Error.addSourceMessage(
               Error.REM_ARG_ZERO,
-              list(String(x.value), String(y.value)),
+              list(string(x.value), string(y.value)),
               EvalTarget_getInfo(target),
             )
           end

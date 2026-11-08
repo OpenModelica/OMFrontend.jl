@@ -198,13 +198,13 @@ function dumpHashTableStatistics(hashTable::HashTable)
         print("\\n")
         print(
           "non-zero: " +
-          String(sum(1 for l in hvec if !listEmpty(l))) +
+          string(sum(1 for l in hvec if !listEmpty(l))) +
           "/" +
-          String(arrayLength(hvec)) +
+          string(arrayLength(hvec)) +
           "\\n",
         )
-        print("max element: " + String(max(listLength(l) for l in hvec)) + "\\n")
-        print("total entries: " + String(sum(listLength(l) for l in hvec)) + "\\n")
+        print("max element: " + string(max(listLength(l) for l in hvec)) + "\\n")
+        print("total entries: " + string(sum(listLength(l) for l in hvec)) + "\\n")
         ()
       end
     end

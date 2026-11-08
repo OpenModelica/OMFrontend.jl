@@ -653,7 +653,7 @@ function toFlatDeclarationStream(ty::NFType, s::IOStream_M.IOSTREAM)
         s = IOStream_M.append(s, "input ")
         s = IOStream_M.append(s, toString(sub))
         s = IOStream_M.append(s, " s")
-        s = IOStream_M.append(s, String(index))
+        s = IOStream_M.append(s, string(index))
         s = IOStream_M.append(s, ";\n")
         index = index + 1
       end
@@ -661,7 +661,7 @@ function toFlatDeclarationStream(ty::NFType, s::IOStream_M.IOSTREAM)
       s = IOStream_M.append(s, toString(ty.subscriptedTy))
       s = IOStream_M.append(s, " result = exp[")
       s = IOStream_M.append(s,
-                          stringDelimitList(list("s" + String(i) for i in 1:listLength(ty.subs)), ","))
+                          stringDelimitList(list("s" + string(i) for i in 1:listLength(ty.subs)), ","))
       s = IOStream_M.append(s, "];\n")
 
       s = IOStream_M.append(s, "end '")

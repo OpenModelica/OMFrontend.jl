@@ -131,9 +131,9 @@ function readableStacktraceMessages()::List{String}
   for symbol in list(stripAddresses(s) for s in getStacktraceMessages())
     if prev == ""
     elseif symbol != prev
-      @assign symbols = _cons("[bt] #" + String(prevN) + (
+      @assign symbols = _cons("[bt] #" + string(prevN) + (
         if n != prevN
-          "..." + String(n)
+          "..." + string(n)
         else
           ""
         end
@@ -145,9 +145,9 @@ function readableStacktraceMessages()::List{String}
     end
     @assign prev = symbol
   end
-  @assign symbols = _cons("[bt] #" + String(prevN) + (
+  @assign symbols = _cons("[bt] #" + string(prevN) + (
     if n != prevN
-      "..." + String(n)
+      "..." + string(n)
     else
       ""
     end

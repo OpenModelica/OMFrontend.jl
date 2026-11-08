@@ -918,7 +918,7 @@ function typeDimension2(
         local key = (_refId(component), index)
         local deducing = _deducingDimensions()
         if key in deducing
-          Error.addSourceMessage(Error.CYCLIC_DIMENSIONS, list(String(index), name(component), ":"), info)
+          Error.addSourceMessage(Error.CYCLIC_DIMENSIONS, list(string(index), name(component), ":"), info)
           fail()
         end
         push!(deducing, key)
@@ -946,7 +946,7 @@ function typeDimension2(
               =#
               Error.addSourceMessage(
                 Error.FAILURE_TO_DEDUCE_DIMS_NO_MOD,
-                list(String(index), name(component)),
+                list(string(index), name(component)),
                 info,
               )
               fail()
@@ -1008,7 +1008,7 @@ function typeDimension2(
             OUT_OF_BOUNDS(__) => begin
               Error.addSourceMessage(
                 Error.DIMENSION_DEDUCTION_FROM_BINDING_FAILURE,
-                list(String(index), name(component), toString(b)),
+                list(string(index), name(component), toString(b)),
                 info,
               )
             end
@@ -1069,7 +1069,7 @@ function verifyDimension(dimension::Dimension, component::InstNode, info::Source
         if dimension.size < 0
           Error.addSourceMessage(
             Error.NEGATIVE_DIMENSION_INDEX,
-            list(String(dimension.size), name(component)),
+            list(string(dimension.size), name(component)),
             info,
           )
           fail()
@@ -1976,7 +1976,7 @@ end
 #= A dimension still being typed when it is used: a dependency loop (omc checkCyclicDimension). =#
 function checkCyclicDimension(dim::Dimension, component::InstNode, index::Int, info::SourceInfo)::Nothing
   if isvariant(dim, DIMENSION_UNTYPED) && dim.isProcessing
-    Error.addSourceMessage(Error.CYCLIC_DIMENSIONS, list(String(index), name(component), toString(dim.dimension)), info)
+    Error.addSourceMessage(Error.CYCLIC_DIMENSIONS, list(string(index), name(component), toString(dim.dimension)), info)
     fail()
   end
   return nothing
@@ -2251,8 +2251,8 @@ function typeSubscripts(
       Error.WRONG_NUMBER_OF_SUBSCRIPTS,
       list(
         toString(cref),
-        String(listLength(subscripts)),
-        String(listLength(dims)),
+        string(listLength(subscripts)),
+        string(listLength(dims)),
       ),
       info,
     )
@@ -2417,7 +2417,7 @@ function typeArray(
         Error.addSourceMessage(
           Error.NF_ARRAY_TYPE_MISMATCH,
           list(
-            String(n),
+            string(n),
             toString(exp),
             toString(ty2),
             toString(ty1),
@@ -2494,7 +2494,7 @@ function typeArrayRef(
         Error.addSourceMessage(
           Error.NF_ARRAY_TYPE_MISMATCH,
           list(
-            String(n),
+            string(n),
             toString(exp),
             toString(ty2),
             toString(ty1),
@@ -2690,7 +2690,7 @@ function typeMatrixComma(
         Error.addSourceMessageAndFail(
           Error.ARG_TYPE_MISMATCH,
           list(
-            String(pos),
+            string(pos),
             "matrix constructor ",
             "arg",
             toString(e),
@@ -2986,9 +2986,9 @@ function checkSizeTypingError(
         Error.addSourceMessage(
           Error.INVALID_SIZE_INDEX,
           list(
-            String(index),
+            string(index),
             toString(exp),
-            String(typingError.upperBound),
+            string(typingError.upperBound),
           ),
           info,
         )

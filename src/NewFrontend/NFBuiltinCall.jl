@@ -361,10 +361,10 @@ function makeCatExp(n::Int,
     minN = min(minN, listLength(d))
   end
   if maxn != minN
-    Error.addSourceMessageAndFail(Error.NF_DIFFERENT_NUM_DIM_IN_ARGUMENTS, list(stringDelimitList(list(String(listLength(d)) for d in dimsLst), ", "), "cat"), info)
+    Error.addSourceMessageAndFail(Error.NF_DIFFERENT_NUM_DIM_IN_ARGUMENTS, list(stringDelimitList(list(string(listLength(d)) for d in dimsLst), ", "), "cat"), info)
   end
   if n < 1 || n > maxn
-    Error.addSourceMessageAndFail(Error.NF_CAT_WRONG_DIMENSION, list(String(maxn), String(n)), info)
+    Error.addSourceMessageAndFail(Error.NF_CAT_WRONG_DIMENSION, list(string(maxn), string(n)), info)
   end
   tys2 = tys
   tys3 = M_Type[]
@@ -381,7 +381,7 @@ function makeCatExp(n::Int,
     mk = mkRef.x
     ty1 = tyRef.x
     if isIncompatibleMatch(mk)
-      Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list(String(pos), "cat", "arg", toString(arg), toString(ty), toString(ty2)), info)
+      Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list(string(pos), "cat", "arg", toString(arg), toString(ty), toString(ty2)), info)
     end
     #args2 = _cons(arg2, args2)
     #tys3 = _cons(ty1, tys3)
@@ -433,7 +433,7 @@ function makeCatExp(n::Int,
     ty1 = tyRef.x
     mk = mkRef.x
     if isIncompatibleMatch(mk)
-      Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list(String(pos), "cat", "arg", toString(arg), toString(ty), toString(resTyToMatch)), info)
+      Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list(string(pos), "cat", "arg", toString(arg), toString(ty), toString(resTyToMatch)), info)
     end
     push!(res, arg2)
     push!(tys3, ty1)
@@ -513,10 +513,10 @@ function makeCatExpRef(n::Int,
     minN = min(minN, listLength(d))
   end
   if maxn != minN
-    Error.addSourceMessageAndFail(Error.NF_DIFFERENT_NUM_DIM_IN_ARGUMENTS, list(stringDelimitList(list(String(listLength(d)) for d in dimsLst), ", "), "cat"), info)
+    Error.addSourceMessageAndFail(Error.NF_DIFFERENT_NUM_DIM_IN_ARGUMENTS, list(stringDelimitList(list(string(listLength(d)) for d in dimsLst), ", "), "cat"), info)
   end
   if n < 1 || n > maxn
-    Error.addSourceMessageAndFail(Error.NF_CAT_WRONG_DIMENSION, list(String(maxn), String(n)), info)
+    Error.addSourceMessageAndFail(Error.NF_CAT_WRONG_DIMENSION, list(string(maxn), string(n)), info)
   end
   tys2 = tys
   tys3 = M_Type[]
@@ -532,7 +532,7 @@ function makeCatExpRef(n::Int,
     mk = mkRef.x
     ty1 = tyRef.x
     if isIncompatibleMatch(mk)
-      Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list(String(pos), "cat", "arg", toString(arg), toString(ty), toString(ty2)), info)
+      Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list(string(pos), "cat", "arg", toString(arg), toString(ty), toString(ty2)), info)
     end
     push!(args2, arg2)
     push!(tys3, ty1)
@@ -581,7 +581,7 @@ function makeCatExpRef(n::Int,
     ty1 = tyRef.x
     mk = mkRef.x
     if isIncompatibleMatch(mk)
-      Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list(String(pos), "cat", "arg", toString(arg), toString(ty), toString(resTyToMatch)), info)
+      Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list(string(pos), "cat", "arg", toString(arg), toString(ty), toString(resTyToMatch)), info)
     end
     push!(res, arg2)
     push!(tys3, ty1)
@@ -1061,7 +1061,7 @@ function typePromoteCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tu
   end
   @match INTEGER_EXPRESSION(n) = evalExp(n_arg, EVALTARGET_GENERIC(info))
   if n < dimensionCount(exp_ty)
-    Error.addSourceMessageAndFail(Error.INVALID_NUMBER_OF_DIMENSIONS_FOR_PROMOTE, list(String(n), String(dimensionCount(exp_ty))), info)
+    Error.addSourceMessageAndFail(Error.INVALID_NUMBER_OF_DIMENSIONS_FOR_PROMOTE, list(string(n), string(dimensionCount(exp_ty))), info)
   end
   (callExp, ty) = promote(exp_arg, typeOf(exp_arg), n)
   (callExp, ty, variability)
@@ -1246,11 +1246,11 @@ function typeScalarCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
    (arg, expanded) = expand(arg)
   @assign ty = arrayElementType(ty)
   if expanded
-    @assign args = arrayScalarElements(arg)
-    if length(args) != 1
-      Error.assertion(false, getInstanceName() + " failed to expand scalar(" + toString(arg) + ") correctly", info)
+    local elements::List{Expression} = arrayScalarElements(arg)
+    if listLength(elements) != 1
+      Error.assertion(false, getInstanceName() * " failed to expand scalar(" * toString(arg) * ") correctly", info)
     end
-    @assign callExp = args[1]
+    @assign callExp = listHead(elements)
   else
     @match Base.first(fn) = typeRefCache(fn_ref)
     @assign callExp = CALL(makeTypedCall(fn, Expression[arg], variability, ty))
@@ -1337,7 +1337,7 @@ function typeMatrixCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
     i = 3
     for dim in dims
       if isKnown(dim) && size(dim) > 1
-        Error.addSourceMessageAndFail(Error.INVALID_ARRAY_DIM_IN_CONVERSION_OP, list(String(i), "matrix", "1", toString(dim)), info)
+        Error.addSourceMessageAndFail(Error.INVALID_ARRAY_DIM_IN_CONVERSION_OP, list(string(i), "matrix", "1", toString(dim)), info)
       end
       i = i + 1
     end
@@ -1960,7 +1960,7 @@ function checkConnectionsArgument(@nospecialize(arg::Expression), ty::M_Type, fn
       end
 
       _  => begin
-        Error.addSourceMessage(Error.ARG_TYPE_MISMATCH, list(String(argIndex), toString(fnRef), "", toString(arg), toString(ty), "overconstrained type/record"), info)
+        Error.addSourceMessage(Error.ARG_TYPE_MISMATCH, list(string(argIndex), toString(fnRef), "", toString(arg), toString(ty), "overconstrained type/record"), info)
         fail()
       end
     end

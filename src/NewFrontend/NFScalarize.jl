@@ -170,7 +170,7 @@ function _elementBindings(b::Binding, elems::Vector{ComponentRef}, ndims::Int, v
   local scal = expanded ? Base.collect(arrayScalarElements(ee)) : Expression[]
   if length(scal) != length(elems)
     Error.assertion(false, getInstanceName() + " could not split the binding " + toString(e) +
-                    " over the " + String(length(elems)) + " elements of " + toString(v.name), v.info)
+                    " over the " + string(length(elems)) + " elements of " + toString(v.name), v.info)
     fail()
   end
   return Binding[FLAT_BINDING(x, var) for x in scal]
