@@ -482,11 +482,11 @@ function recordElement(elementName::String, @nospecialize(recordExp::Expression)
         CREF_EXPRESSION(ty, cref)
       end
 
-      ARRAY_EXPRESSION(elements =  nil(), ty = TYPE_ARRAY(elementType = TYPE_COMPLEX(cls = node)))  => begin
+      ARRAY_EXPRESSION(ty = TYPE_ARRAY(elementType = TYPE_COMPLEX(cls = node))) where {isempty(recordExp.elements)}  => begin
         cls = getClass(node)
         index = lookupComponentIndex(elementName, cls)
-        ty = getType(nthComponent(index, cls))
-        makeArray(ty, Expression[])
+        ty = liftArrayLeftList(getType(nthComponent(index, cls)), arrayDims(recordExp.ty))
+        makeEmptyArray(ty)
       end
 
       ARRAY_EXPRESSION(ty = TYPE_ARRAY(elementType = TYPE_COMPLEX(cls = node)))  => begin
@@ -561,8 +561,8 @@ function toScalar(@nospecialize(exp::Expression)) ::Expression
 
    outExp = begin
     @match exp begin
-      ARRAY_EXPRESSION(elements = outExp <|  nil())  => begin
-        toScalar(outExp)
+      ARRAY_EXPRESSION(__) where {length(exp.elements) == 1}  => begin
+        toScalar(exp.elements[1])
       end
 
       _  => begin
@@ -2510,389 +2510,6 @@ end
   (outExp, arg)
 end
 
-function mapFoldCref(cref::ComponentRef, @nospecialize(func::Function), arg::ArgT)  where {ArgT}
-
-  local outCref::ComponentRef
-
-   outCref = begin
-    local subs::List{Subscript}
-    local rest::ComponentRef
-    @match cref begin
-      COMPONENT_REF_CREF(origin = Origin.CREF)  => begin
-         (subs, arg) = ListUtil.map1Fold(cref.subscripts, mapFoldExp, func, arg, Subscript)
-         (rest, arg) = mapFoldCref(cref.restCref, func, arg)
-        COMPONENT_REF_CREF(cref.node, subs, cref.ty, cref.origin, rest)
-      end
-
-      _  => begin
-        cref
-      end
-    end
-  end
-  (outCref, arg)
-end
-
-@nospecializeinfer function mapFoldCallIterators(iters::List{Tuple{InstNode, Expression}}, @nospecialize(func::Function), arg::ArgT)  where {ArgT}
-  if listEmpty(iters)
-    return (iters, arg)
-  end
-
-  local outIters::List{Tuple{InstNode, Expression}} = nil
-
-  local node::InstNode
-  local exp::Expression
-  local new_exp::Expression
-
-  for i in iters
-     (node, exp) = i
-     (new_exp, arg) = mapFold(exp, func, arg)
-     outIters = Cons{Tuple{InstNode, Expression}}(if referenceEq(new_exp, exp)
-                             i
-                             else
-                             (node, new_exp)
-                             end, outIters)
-  end
-   outIters = listReverseInPlace(outIters)
-  (outIters, arg)
-end
-
-@nospecializeinfer function mapFoldCall(call::Call, @nospecialize(func::Function), foldArg::ArgT)  where {ArgT}
-  local outCall::Call
-   outCall = begin
-    local args::List{Expression}
-    local nargs::List{NamedArg}
-    local targs::List{TypedArg}
-    local tnargs::List{TypedNamedArg}
-    local s::String
-    local e::Expression
-    local t::M_Type
-    local v::VariabilityType
-    local iters::List{Tuple{InstNode, Expression}}
-    local default_exp::Option{Expression}
-    local fold_exp::Tuple{Option{Expression}, String, String}
-    local oe::Option{Expression}
-    @match call begin
-      UNTYPED_CALL(__)  => begin
-        (args, foldArg) = ListUtil.map1Fold(call.arguments, mapFold, func, foldArg, Expression)
-         nargs = nil
-        for arg in call.named_args
-           (s, e) = arg
-           (e, foldArg) = mapFold(e, func, foldArg)
-           nargs = Cons{NamedArg}((s, e), nargs)
-        end
-        UNTYPED_CALL(call.ref, args, listReverse(nargs), call.call_scope)
-      end
-
-      ARG_TYPED_CALL(__)  => begin
-         targs = nil
-         tnargs = nil
-        for arg in call.arguments
-           (e, t, v) = arg
-           (e, foldArg) = mapFold(e, func, foldArg)
-           targs = Cons{TypedArg}((e, t, v), targs)
-        end
-        for arg in call.named_args
-           (s, e, t, v) = arg
-           (e, foldArg) = mapFold(e, func, foldArg)
-           tnargs = Cons{TypedNamedArg}((s, e, t, v), tnargs)
-        end
-        ARG_TYPED_CALL(call.ref, listReverse(targs), listReverse(tnargs), call.call_scope)
-      end
-
-      TYPED_CALL(__)  => begin
-        (args, foldArg) = ListUtil.map1Fold(call.arguments, mapFold, func, foldArg, Expression)
-        TYPED_CALL(call.fn, call.ty, call.var, args, call.attributes)
-      end
-
-      UNTYPED_ARRAY_CONSTRUCTOR(__)  => begin
-        (e, foldArg) = mapFold(call.exp, func, foldArg)
-        UNTYPED_ARRAY_CONSTRUCTOR(e, call.iters)
-      end
-
-      TYPED_ARRAY_CONSTRUCTOR(__)  => begin
-         (e, foldArg) = mapFold(call.exp, func, foldArg)
-        TYPED_ARRAY_CONSTRUCTOR(call.ty, call.var, e, call.iters)
-      end
-
-      UNTYPED_REDUCTION(__)  => begin
-         (e, foldArg) = mapFold(call.exp, func, foldArg)
-        UNTYPED_REDUCTION(call.ref, e, call.iters)
-      end
-
-      TYPED_REDUCTION(__)  => begin
-         (e, foldArg) = mapFold(call.exp, func, foldArg)
-         (iters, foldArg) = mapFoldCallIterators(call.iters, func, foldArg)
-         (default_exp, foldArg) = mapFoldOpt(call.defaultExp, func, foldArg)
-        oe = Util.tuple31(call.foldExp)
-        if isSome(oe)
-           (oe, foldArg) = mapFoldOpt(oe, func, foldArg)
-          fold_exp = Util.applyTuple31(call.foldExp, (_) -> oe)
-        else
-          fold_exp = call.foldExp
-        end
-        TYPED_REDUCTION(call.fn, call.ty, call.var, e, iters, default_exp, fold_exp)
-      end
-    end
-  end
-  (outCall, foldArg)
-end
-
-function mapFoldOpt(exp::Option{Expression}, @nospecialize(func::Function), arg::ArgT)  where {ArgT}
-
-  local outExp::Option{Expression}
-
-  local e::Expression
-
-   outExp = begin
-    @match exp begin
-      SOME(e)  => begin
-         (e, arg) = mapFold(e, func, arg)
-        SOME(e)
-      end
-
-      _  => begin
-        exp
-      end
-    end
-  end
-  (outExp, arg)
-end
-
-@nospecializeinfer function mapFold(@nospecialize(exp::Expression), @nospecialize(func::Function), @nospecialize(arg::ArgT))  where {ArgT}
-  local outExp::Expression
-  outExp = begin
-    local e1::Expression
-    local e2::Expression
-    local e3::Expression
-    local e4::Expression
-    local cr::ComponentRef
-    local expl::List{Expression}
-    local call::Call
-    local subs::List{Subscript}
-    @match exp begin
-      CLKCONST_EXPRESSION(INTEGER_CLOCK(e1, e2))  => begin
-        (e3, arg) = mapFold(e1, func, arg)
-        (e4, arg) = mapFold(e2, func, arg)
-        if referenceEq(e1, e3) && referenceEq(e2, e4)
-          exp
-        else
-          CLKCONST_EXPRESSION(INTEGER_CLOCK(e3, e4))
-        end
-      end
-
-      CLKCONST_EXPRESSION(REAL_CLOCK(e1))  => begin
-        (e2, arg) = mapFold(e1, func, arg)
-        if referenceEq(e1, e2)
-          exp
-        else
-          CLKCONST_EXPRESSION(REAL_CLOCK(e2))
-        end
-      end
-
-      CLKCONST_EXPRESSION(BOOLEAN_CLOCK(e1, e2))  => begin
-        (e3, arg) = mapFold(e1, func, arg)
-        (e4, arg) = mapFold(e2, func, arg)
-        if referenceEq(e1, e3) && referenceEq(e2, e4)
-          exp
-        else
-          CLKCONST_EXPRESSION(BOOLEAN_CLOCK(e3, e4))
-        end
-      end
-
-      CLKCONST_EXPRESSION(SOLVER_CLOCK(e1, e2))  => begin
-        (e3, arg) = mapFold(e1, func, arg)
-        (e4, arg) = mapFold(e2, func, arg)
-        if referenceEq(e1, e3) && referenceEq(e2, e4)
-          exp
-        else
-          CLKCONST_EXPRESSION(SOLVER_CLOCK(e3, e4))
-        end
-      end
-
-      CREF_EXPRESSION(__)  => begin
-        (cr, arg) = mapFoldCref(exp.cref, func, arg)
-        reuseIfRefEqual(exp, exp.cref, cr, c -> CREF_EXPRESSION(exp.ty, c))
-      end
-
-      ARRAY_EXPRESSION(__)  => begin
-        (expl, arg) = ArrayUtil.map1Fold(exp.elements, mapFold, func, arg, Expression)
-        ARRAY_EXPRESSION(exp.ty, expl, exp.literal)
-      end
-
-      RANGE(step = SOME(e2))  => begin
-        (e1, arg) = mapFold(exp.start, func, arg)
-        (e4, arg) = mapFold(e2, func, arg)
-        (e3, arg) = mapFold(exp.stop, func, arg)
-        if referenceEq(exp.start, e1) && referenceEq(e2, e4) && referenceEq(exp.stop, e3)
-          exp
-        else
-          RANGE_EXPRESSION(exp.ty, e1, SOME(e4), e3)
-        end
-      end
-
-      RANGE_EXPRESSION(__)  => begin
-        (e1, arg) = mapFold(exp.start, func, arg)
-        (e3, arg) = mapFold(exp.stop, func, arg)
-        if referenceEq(exp.start, e1) && referenceEq(exp.stop, e3)
-          exp
-        else
-          RANGE_EXPRESSION(exp.ty, e1, NONE(), e3)
-        end
-      end
-
-      TUPLE_EXPRESSION(__)  => begin
-        (expl, arg) = ListUtil.map1Fold(exp.elements, mapFold, func, arg)
-        TUPLE_EXPRESSION(exp.ty, expl)
-      end
-
-      RECORD_EXPRESSION(__)  => begin
-        (expl, arg) = ArrayUtil.map1Fold(exp.elements, mapFold, func, arg)
-        RECORD_EXPRESSION(exp.path, exp.ty, expl)
-      end
-
-      CALL_EXPRESSION(__)  => begin
-        (call, arg) = mapFoldCall(exp.call, func, arg)
-        reuseIfRefEqual(exp, exp.call, call, c -> CALL_EXPRESSION(c))
-      end
-
-      SIZE_EXPRESSION(dimIndex = SOME(e2))  => begin
-        (e1, arg) = mapFold(exp.exp, func, arg)
-        (e3, arg) = mapFold(e2, func, arg)
-        if referenceEq(exp.exp, e1) && referenceEq(e2, e3)
-          exp
-        else
-          SIZE_EXPRESSION(e1, SOME(e3))
-        end
-      end
-
-      SIZE_EXPRESSION(__)  => begin
-        (e1, arg) = mapFold(exp.exp, func, arg)
-        if referenceEq(exp.exp, e1)
-          exp
-        else
-          SIZE_EXPRESSION(e1, NONE())
-        end
-      end
-
-      BINARY_EXPRESSION(__)  => begin
-        (e1, arg) = mapFold(exp.exp1, func, arg)
-        (e2, arg) = mapFold(exp.exp2, func, arg)
-        if referenceEq(exp.exp1, e1) && referenceEq(exp.exp2, e2)
-          exp
-        else
-          BINARY_EXPRESSION(e1, exp.operator, e2)
-        end
-      end
-
-      UNARY_EXPRESSION(__)  => begin
-        (e1, arg) = mapFold(exp.exp, func, arg)
-        reuseIfRefEqual(exp, exp.exp, e1, e -> UNARY_EXPRESSION(exp.operator, e))
-      end
-
-      LBINARY_EXPRESSION(__)  => begin
-        (e1, arg) = mapFold(exp.exp1, func, arg)
-        (e2, arg) = mapFold(exp.exp2, func, arg)
-        if referenceEq(exp.exp1, e1) && referenceEq(exp.exp2, e2)
-          exp
-        else
-          LBINARY_EXPRESSION(e1, exp.operator, e2)
-        end
-      end
-
-      LUNARY(__)  => begin
-        (e1, arg) = mapFold(exp.exp, func, arg)
-        reuseIfRefEqual(exp, exp.exp, e1, e -> LUNARY(exp.operator, e))
-      end
-
-      RELATION_EXPRESSION(__)  => begin
-        (e1, arg) = mapFold(exp.exp1, func, arg)
-        (e2, arg) = mapFold(exp.exp2, func, arg)
-        if referenceEq(exp.exp1, e1) && referenceEq(exp.exp2, e2)
-          exp
-        else
-          RELATION_EXPRESSION(e1, exp.operator, e2)
-        end
-      end
-
-      IF_EXPRESSION(__)  => begin
-        (e1, arg) = mapFold(exp.condition, func, arg)
-        (e2, arg) = mapFold(exp.trueBranch, func, arg)
-        (e3, arg) = mapFold(exp.falseBranch, func, arg)
-        if referenceEq(exp.condition, e1) && referenceEq(exp.trueBranch, e2) && referenceEq(exp.falseBranch, e3)
-          exp
-        else
-          IF_EXPRESSION(e1, e2, e3)
-        end
-      end
-
-      CAST_EXPRESSION(__)  => begin
-        (e1, arg) = mapFold(exp.exp, func, arg)
-        reuseIfRefEqual(exp, exp.exp, e1, e -> CAST_EXPRESSION(exp.ty, e))
-      end
-
-      UNBOX_EXPRESSION(__)  => begin
-        (e1, arg) = mapFold(exp.exp, func, arg)
-        if referenceEq(exp.exp, e1)
-          exp
-        else
-          UNBOX_EXPRESSION(e1, exp.ty)
-        end
-      end
-
-      SUBSCRIPTED_EXP_EXPRESSION(__)  => begin
-        (e1, arg) = mapFold(exp.exp, func, arg)
-        (subs, arg) = ListUtil.mapFold(exp.subscripts, (sub, a) -> mapFoldExp(sub, func, a), arg)
-        SUBSCRIPTED_EXP_EXPRESSION(e1, subs, exp.ty)
-      end
-
-      TUPLE_ELEMENT_EXPRESSION(__)  => begin
-        (e1, arg) = mapFold(exp.tupleExp, func, arg)
-        if referenceEq(exp.tupleExp, e1)
-          exp
-        else
-          TUPLE_ELEMENT_EXPRESSION(e1, exp.index, exp.ty)
-        end
-      end
-
-      RECORD_ELEMENT_EXPRESSION(__)  => begin
-        (e1, arg) = mapFold(exp.recordExp, func, arg)
-        if referenceEq(exp.recordExp, e1)
-          exp
-        else
-          RECORD_ELEMENT_EXPRESSION(e1, exp.index, exp.fieldName, exp.ty)
-        end
-      end
-
-      MUTABLE_EXPRESSION(__)  => begin
-        (e1, arg) = mapFold(P_Pointer.access(exp.exp), func, arg)
-        P_Pointer.update(exp.exp, e1)
-        exp
-      end
-
-      PARTIAL_FUNCTION_APPLICATION_EXPRESSION(__)  => begin
-        (expl, arg) = ListUtil.map1Fold(exp.args, mapFold, func, arg)
-        local expArgs = expl
-        PARTIAL_FUNCTION_APPLICATION_EXPRESSION(exp.fn, expArgs, exp.argNames, exp.ty)
-      end
-
-      BINDING_EXP(__)  => begin
-        (e1, arg) = mapFold(exp.exp, func, arg)
-        if referenceEq(exp.exp, e1)
-          exp
-        else
-          BINDING_EXP(e1, exp.expType, exp.bindingType, exp.parents, exp.isEach)
-        end
-      end
-
-      _  => begin
-        exp
-      end
-    end
-  end
-  (outExp, arg) = func(outExp, arg)
-  return (outExp, arg)
-end
-
 function applyCrefSubscript(subscript::Subscript, func::ApplyFunc)
     @match subscript begin
       SUBSCRIPT_UNTYPED(__)  => begin
@@ -3770,7 +3387,7 @@ end
       end
 
       SUBSCRIPTED_EXP_EXPRESSION(__)  => begin
-        SUBSCRIPTED_EXP_EXPRESSION(func(exp.exp), list(mapShallowExp(e, func) for e in exp.subscripts), exp.ty)
+        SUBSCRIPTED_EXP_EXPRESSION(func(exp.exp), List{Subscript}(mapShallowExp(e, func) for e in exp.subscripts), exp.ty)
       end
 
       TUPLE_ELEMENT_EXPRESSION(__)  => begin
@@ -4264,7 +3881,7 @@ one expression.
       end
 
       SUBSCRIPTED_EXP_EXPRESSION(__)  => begin
-        SUBSCRIPTED_EXP_EXPRESSION(map(exp.exp, func), list(mapExp(s, func) for s in exp.subscripts), exp.ty)
+        SUBSCRIPTED_EXP_EXPRESSION(map(exp.exp, func), List{Subscript}(mapExp(s, func) for s in exp.subscripts), exp.ty)
       end
 
       TUPLE_ELEMENT_EXPRESSION(__)  => begin
@@ -4854,7 +4471,8 @@ function toFlatSubscriptedString(@nospecialize(exp::Expression), subs::List{<:Su
   sub_tyl = list(subscriptType(d) for d in dims)
   name = subscriptedTypeName(exp_ty, sub_tyl)
   strl = list(")")
-  for s in subs
+  #= Consed from the last subscript, so that they read in order: exp, s1, s2, ... =#
+  for s in listReverse(subs)
     strl = _cons(toFlatString(s; inFunction = inFunction), strl)
     strl = _cons(",", strl)
   end
@@ -5475,10 +5093,10 @@ function applySubscriptCall(subscript::Subscript, @nospecialize(exp::Expression)
     local arg::Expression
     local ty::M_Type
     @match call begin
-      TYPED_CALL(arguments = arg <| nil()) where (isSubscriptableBuiltin(call.fn))  => begin
-        arg = applySubscript(subscript, arg, restSubscripts)
+      TYPED_CALL(__) where (length(call.arguments) == 1 && isSubscriptableBuiltin(call.fn))  => begin
+        arg = applySubscript(subscript, call.arguments[1], restSubscripts)
         ty = copyDims(typeOf(arg), call.ty)
-        CALL_EXPRESSION(TYPED_CALL(call.fn, ty, call.var, list(arg), call.attributes))
+        CALL_EXPRESSION(TYPED_CALL(call.fn, ty, call.var, Expression[arg], call.attributes))
       end
 
       TYPED_ARRAY_CONSTRUCTOR(__)  => begin
@@ -5549,8 +5167,8 @@ function applyIndexSubscriptRange(@nospecialize(rangeExp::Expression), index::Su
      outExp = applyIndexSubscriptRange2(start_exp, step_exp, stop_exp, toInteger(index_exp))
   else
     @match RANGE_EXPRESSION(ty = ty) = rangeExp
-    local subs = list(index)
-    local ty = subscript(ty, list(index))
+    local subs::List{Subscript} = Cons{Subscript}(index, nil)
+    ty = subscript(ty, subs)
     outExp = SUBSCRIPTED_EXP_EXPRESSION(rangeExp, subs, ty)
   end
   outExp
@@ -5563,7 +5181,7 @@ function applySubscriptRange(subscript::Subscript, @nospecialize(exp::Expression
   local stop_exp::Expression
   local step_exp::Option{Expression}
   local ty::M_Type
-  local expl::List{Expression}
+  local expl::Vector{Expression}
   (sub, _) = expandSlice(subscript)
   outExp = begin
     @match sub begin
@@ -5573,7 +5191,7 @@ function applySubscriptRange(subscript::Subscript, @nospecialize(exp::Expression
       SUBSCRIPT_SLICE(__)  => begin
         @match RANGE_EXPRESSION(ty = ty) = exp
         ty = TYPE_ARRAY(unliftArray(ty), list(toDimension(sub)))
-        SUBSCRIPTED_EXP_EXPRESSION(exp, list(subscript), ty)
+        SUBSCRIPTED_EXP_EXPRESSION(exp, Cons{Subscript}(subscript, nil), ty)
       end
       SUBSCRIPT_WHOLE(__)  => begin
         exp
@@ -5581,12 +5199,12 @@ function applySubscriptRange(subscript::Subscript, @nospecialize(exp::Expression
       SUBSCRIPT_EXPANDED_SLICE(__)  => begin
         expl = Expression[applyIndexSubscriptRange(exp, i) for i in sub.indices]
         @match RANGE_EXPRESSION(ty = ty) = exp
-        makeArray(liftArrayLeft(ty, fromInteger(listLength(expl))), expl)
+        makeArray(liftArrayLeft(ty, fromInteger(length(expl))), expl)
       end
       SUBSCRIPT_SPLIT_INDEX(__) => begin
         @match RANGE_EXPRESSION(ty) = exp
         ty = unliftArray(ty)
-        SUBSCRIPTED_EXP_EXPRESSION(exp, list(sub), ty, true #=TODO=#)
+        SUBSCRIPTED_EXP_EXPRESSION(exp, Cons{Subscript}(sub, nil), ty)
       end
     end
   end
@@ -5699,7 +5317,7 @@ function applyIndexSubscriptTypename(ty::M_Type, index::Subscript) ::Expression
       end
     end
   else
-    subscriptedExp = SUBSCRIPTED_EXP_EXPRESSION(TYPENAME_EXPRESSION(ty), list(index), ty)
+    subscriptedExp = SUBSCRIPTED_EXP_EXPRESSION(TYPENAME_EXPRESSION(ty), Cons{Subscript}(index, nil), ty)
   end
   subscriptedExp
 end
@@ -5708,8 +5326,8 @@ function applySubscriptTypename(subscript::Subscript, ty::M_Type) ::Expression
   local outExp::Expression
   local sub::Subscript
   local index::Int
-  local expl::List{Expression}
-  sub = expandSlice(subscript)
+  local expl::Vector{Expression}
+  (sub, _) = expandSlice(subscript)
   outExp = begin
     @match sub begin
       SUBSCRIPT_INDEX(__)  => begin
@@ -5717,7 +5335,7 @@ function applySubscriptTypename(subscript::Subscript, ty::M_Type) ::Expression
       end
 
       SUBSCRIPT_SLICE(__)  => begin
-        SUBSCRIPTED_EXP_EXPRESSION(TYPENAME_EXPRESSION(ty), list(subscript), TYPE_ARRAY(ty, list(toDimension(sub))))
+        SUBSCRIPTED_EXP_EXPRESSION(TYPENAME_EXPRESSION(ty), Cons{Subscript}(subscript, nil), TYPE_ARRAY(ty, list(toDimension(sub))))
       end
 
       SUBSCRIPT_WHOLE(__)  => begin
@@ -5726,7 +5344,7 @@ function applySubscriptTypename(subscript::Subscript, ty::M_Type) ::Expression
 
       SUBSCRIPT_EXPANDED_SLICE(__)  => begin
         expl = Expression[applyIndexSubscriptTypename(ty, i) for i in sub.indices]
-        makeArray(liftArrayLeft(ty, fromInteger(listLength(expl))), expl, literal = true)
+        makeArray(liftArrayLeft(ty, fromInteger(length(expl))), expl, literal = true)
       end
     end
   end
@@ -5802,7 +5420,7 @@ end
 
 """
 ```
-makeRecord(recordName::Absyn.Path, recordType::M_Type, fields::List{Expression})
+makeRecord(recordName::Absyn.Path, recordType::M_Type, fields::Vector{Expression})
 ```
   Creates a record expression.
 """

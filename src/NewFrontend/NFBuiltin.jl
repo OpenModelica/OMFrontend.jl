@@ -40,13 +40,13 @@ using MetaModelica.Dangerous
 using ExportAll
 
 import ..SCode
-import Absyn
+import OMParser.Absyn
 import ..AbsynUtil
 
 module Elements
 using MetaModelica
 using ExportAll
-import Absyn
+import OMParser.Absyn
 import ..SCode
 import ..AbsynUtil
 #=  Default parts of the declarations for builtin elements and types:

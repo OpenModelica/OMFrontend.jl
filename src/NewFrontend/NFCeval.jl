@@ -3670,8 +3670,8 @@ function evalBuiltinMatrix2(@nospecialize(arg::Expression), ty::M_Type)::Express
       ARRAY_EXPRESSION(__) => begin
         makeArray(
           ty,
-          list(toScalar(e) for e in arg.elements),
-          arg.literal,
+          Expression[toScalar(e) for e in arg.elements];
+          literal = arg.literal,
         )
       end
 

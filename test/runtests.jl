@@ -13,7 +13,7 @@ import Pkg
 
 Pkg.resolve()
 
-import Absyn
+import OMParser.Absyn
 import SCode
 import DAE
 using MetaModelica
@@ -76,6 +76,9 @@ end
       include("bindingMapExpTests.jl")
     end
   end
+
+  include("listVectorTests.jl")
+  include("flatModelicaFunctionTests.jl")
 
   # GUI_API tests are gated behind the OMFRONTEND_TEST_GUI_API env var while
   # an outstanding compileModel/isfile mismatch is being investigated. Set

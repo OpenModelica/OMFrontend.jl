@@ -4,7 +4,6 @@ authors = ["John Tinnerholm <johti17@liu.se>", "Martin Sjölund <martin.sjolund@
 version = "1.8.4"
 
 [deps]
-Absyn = "ce2f92e2-a952-11e9-0543-8b443f216f1d"
 ArrayUtil = "53cd29f2-c28d-11e9-1567-bd5452eeb1a0"
 DAE = "0174eeea-c361-11e9-3d0d-a9ca8048aff6"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
@@ -28,10 +27,9 @@ OMRuntimeExternalC="ada38df0-e20e-11ed-02f3-2b4b19c1ec8a"
 [compat]
 julia = "1.13"
 MetaModelica = "0.4.3, 0.5"
-OMParser = "0.2.3"
-Absyn = "1.4"
+OMParser = "1"
 ArrayUtil = "0.3.2"
 DAE = "1.2.0"
-ImmutableList = "0.4.2, 0.5"
+ImmutableList = "0.6"
 ListUtil = "0.4.1"
 SCode = "1.3"

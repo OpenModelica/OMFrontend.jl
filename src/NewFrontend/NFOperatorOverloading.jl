@@ -33,7 +33,7 @@
 *
 */ =#
 
-import Absyn
+import OMParser.Absyn
 
 function instConstructor(path::Absyn.Path, recordNode::InstNode, info::SourceInfo)::InstNode
   local ctor_ref::ComponentRef
@@ -227,7 +227,7 @@ function patchOperatorRecordConstructorBinding_traverser(
   local outExp::Expression
 
   local fn::M_Function
-  local args::List{Expression}
+  local args::Vector{Expression}
   local ty::M_Type
 
   @assign outExp = begin

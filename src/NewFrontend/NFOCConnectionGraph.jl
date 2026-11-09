@@ -1969,29 +1969,6 @@ function removeBrokenConnects(inEquations::Vector{Equation}, inConnected::FlatEd
 end
 
 """
- @author: adrpo
- adds all the equalityConstraint equations from broken connections
-"""
-function addBrokenEqualityConstraintEquations(inEquations::Vector{Equation}, inBroken::FlatEdges)
-  local outEquations::Vector{Equation}
-  outEquations = begin
-    local equalityConstraintElements::Vector{Equation}
-    local eqs::Vector{Equation}
-    @matchcontinue (inEquations, inBroken) begin
-      (_,  nil())  => begin
-        inEquations
-      end
-      _  => begin
-        equalityConstraintElements = ListUtil.flatten(ListUtil.map(inBroken, Util.tuple33))
-        eqs = vcat(equalityConstraintElements, inEquations)
-        eqs
-      end
-    end
-  end
-  outEquations
-end
-
-"""
 Identify what kind of connection operator we are dealing with based on an Absyn.Path
 Should return an object of type:
 ConnectionsOperatorType

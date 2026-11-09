@@ -1274,7 +1274,7 @@ function vectorizeCall(
             ITERATOR_COMPONENT(TYPE_INTEGER(), Variability.CONSTANT, info),
             scope,
           )
-          iters = _cons((iter, exp), iters)
+          iters = Cons{Tuple{InstNode, Expression}}((iter, exp), iters)
           exp = CREF_EXPRESSION(
             TYPE_INTEGER(),
             makeIterator(iter, TYPE_INTEGER()),

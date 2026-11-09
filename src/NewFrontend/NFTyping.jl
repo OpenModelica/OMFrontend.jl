@@ -1768,9 +1768,9 @@ end
 
   for e in listReverse(expl)
      (exp, ty, var) = typeExp(e, origin, info)
-     explTyped = _cons(exp, explTyped)
-     tyl = _cons(ty, tyl)
-     varl = _cons(var, varl)
+     explTyped = Cons{Expression}(exp, explTyped)
+     tyl = Cons{NFType}(ty, tyl)
+     varl = Cons{VariabilityType}(var, varl)
   end
   return (explTyped, tyl, varl)
 end

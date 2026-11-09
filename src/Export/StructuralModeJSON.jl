@@ -38,7 +38,7 @@ module StructuralModeJSON
 using MetaModelica
 using ..Frontend
 import JSON
-import Absyn
+import OMParser.Absyn
 
 # === ATD-mirroring typed records ===
 # These mirror docs/structural_mode_json.atd.
