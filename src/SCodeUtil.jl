@@ -43,7 +43,7 @@ const FilterFunc = Function
 const FoldFunc = Function
 const TraverseFunc = Function
 
-import SCode
+import ..SCode
 import OMParser.Absyn
 
 import ..Frontend.AbsynUtil

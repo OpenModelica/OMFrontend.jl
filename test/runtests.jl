@@ -14,8 +14,8 @@ import Pkg
 Pkg.resolve()
 
 import OMParser.Absyn
-import SCode
-import DAE
+import OMFrontend.SCode
+import OMFrontend.DAE
 using MetaModelica
 using Test
 import OMFrontend

@@ -34,8 +34,8 @@
 */ =#
 
 import OMParser.Absyn
-import SCode
-import DAE
+import ..SCode
+import ..DAE
 
 import .InstUtil
 import .ExecStat

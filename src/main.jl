@@ -46,15 +46,14 @@ using MetaModelica
 using ExportAll
 import OMParser.Absyn
 import ArrayUtil
-import DAE
+import ..DAE
 import ListUtil
-import SCode
+import ..SCode
 import PrecompileTools
 import Base.@nospecializeinfer
 #= Import the execstat macro from the enclosing module..=#
 import ..@EXECSTAT
 
-using MetaModelica:FunctionWrappers
 
 """Utility functions."""
 function toString(vec::Vector{T}) where {T}

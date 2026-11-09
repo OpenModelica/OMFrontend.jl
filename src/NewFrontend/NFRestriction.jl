@@ -304,7 +304,7 @@ function isConnector(res::Restriction)::Bool
   return isConnector
 end
 
-import DAE.ClassInf
+import ..DAE.ClassInf
 
 function toDAE(res::Restriction, path::Absyn.Path)::ClassInf.SMNode
   local state::ClassInf.SMNode

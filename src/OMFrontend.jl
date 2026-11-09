@@ -42,7 +42,8 @@ module OMFrontend
 using MetaModelica
 
 import OMParser.Absyn
-import SCode
+include("SCode/SCode.jl")
+include("DAE/DAE.jl")
 import OMParser
 import PrecompileTools
 import Distributed
@@ -606,19 +607,19 @@ end
 """
 The format of the library disk cache, part of its key (`_computeLibHash`): change it when the types of the
 serialized SCode program change. 2: the Absyn records are `OMParser.Absyn`'s (were the package Absyn.jl's).
+3: SCode is `OMFrontend.SCode` (was the package SCode.jl).
 """
-const LIB_CACHE_FORMAT = 2
+const LIB_CACHE_FORMAT = 3
 
 """
     _computeLibHash(path::String)::String
 
-The key of a library's disk cache: Julia's version, `LIB_CACHE_FORMAT`, the versions of OMParser, SCode and
+The key of a library's disk cache: Julia's version, `LIB_CACHE_FORMAT`, the versions of OMParser and
 OMFrontend (the types of the serialized program), and the paths, modification times and sizes of the library's
 `.mo` files.
 """
 function _computeLibHash(path::String)::String
-  local h::UInt64 = hash((string(VERSION), LIB_CACHE_FORMAT, pkgversion(OMParser), pkgversion(SCode),
-                          pkgversion(@__MODULE__)))
+  local h::UInt64 = hash((string(VERSION), LIB_CACHE_FORMAT, pkgversion(OMParser), pkgversion(@__MODULE__)))
   if isfile(path)
     local st = stat(path)
     h = hash((path, st.mtime, st.size), h)

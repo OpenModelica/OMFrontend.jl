@@ -42,7 +42,7 @@ using ExportAll
 @UniontypeDecl SCodeDumpOptions
 
 import OMParser.Absyn
-import SCode
+import ..SCode
 import ListUtil
 
 import ..Frontend.AbsynUtil

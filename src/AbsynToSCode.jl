@@ -39,7 +39,7 @@ using MetaModelica
 using ExportAll
 
 import OMParser.Absyn
-import SCode
+import ..SCode
 import ListUtil
 
 import ..AbsynUtil

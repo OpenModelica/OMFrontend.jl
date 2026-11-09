@@ -40,7 +40,7 @@ jobs:
       - name: Checkout sibling OM*.jl packages
         uses: JKRT/OM.jl/.github/actions/checkout-siblings@master
         with:
-          packages: ArrayUtil DAE DoubleEnded ImmutableList ListUtil MetaModelica OMParser OMRuntimeExternalC SCode
+          packages: ArrayUtil ImmutableList ListUtil MetaModelica OMParser OMRuntimeExternalC
 
       - name: Setup Julia
         uses: julia-actions/setup-julia@v2
@@ -51,7 +51,7 @@ jobs:
 
       - name: Instantiate package environment
         # Same sibling-develop dance as ci.yml: Project.toml [sources] only
-        # applies to direct deps, so transitive deps (e.g. DoubleEnded via
+        # applies to direct deps, so transitive deps (e.g. ArrayUtil via
         # ListUtil) and stale registry versions otherwise sneak in.
         shell: bash
         working-directory: OMFrontend.jl
@@ -62,14 +62,11 @@ jobs:
             Pkg.Registry.add(Pkg.RegistrySpec(url = "https://github.com/OpenModelica/OpenModelicaRegistry.git"))
             siblings = [
               "../ArrayUtil.jl",
-              "../DAE.jl",
-              "../DoubleEnded.jl",
               "../ImmutableList.jl",
               "../ListUtil.jl",
               "../MetaModelica.jl",
               "../OMParser.jl",
               "../OMRuntimeExternalC.jl",
-              "../SCode.jl",
             ]
             Pkg.develop([Pkg.PackageSpec(path = p) for p in siblings])
             Pkg.build(; verbose = true)
@@ -88,14 +85,11 @@ jobs:
             import Pkg
             siblings = [
               "../ArrayUtil.jl",
-              "../DAE.jl",
-              "../DoubleEnded.jl",
               "../ImmutableList.jl",
               "../ListUtil.jl",
               "../MetaModelica.jl",
               "../OMParser.jl",
               "../OMRuntimeExternalC.jl",
-              "../SCode.jl",
             ]
             # Develop OMFrontend together with the siblings in a single call.
             # Developing the siblings first re-resolves the docs environment

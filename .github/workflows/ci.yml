@@ -53,8 +53,8 @@ jobs:
         with:
           path: OMFrontend.jl
 
-      # Project.toml [sources] (and the transitive [sources] inside DoubleEnded
-      # / ListUtil) points at sibling working copies in ../<name>.jl. We lay
+      # Project.toml [sources] (and the transitive [sources] inside ListUtil)
+      # points at sibling working copies in ../<name>.jl. We lay
       # the siblings out alongside the main checkout so Pkg.resolve finds them.
       # The shared action checks the siblings out at the branch that matches
       # this change (the PR branch if the sibling has it, else the PR base
@@ -62,7 +62,7 @@ jobs:
       - name: Checkout sibling OM*.jl packages
         uses: JKRT/OM.jl/.github/actions/checkout-siblings@master
         with:
-          packages: ArrayUtil DAE DoubleEnded ImmutableList ListUtil MetaModelica OMParser OMRuntimeExternalC SCode
+          packages: ArrayUtil ImmutableList ListUtil MetaModelica OMParser OMRuntimeExternalC
 
       - name: Setup Julia ${{ matrix.version }}-${{ matrix.arch }}
         uses: julia-actions/setup-julia@v2
@@ -85,9 +85,9 @@ jobs:
         # PrecompileTools @compile_workload that ships with OMFrontend; this
         # mirrors what end users hit on first `using OMFrontend`.
         # We Pkg.develop every sibling because Project.toml [sources] only
-        # applies to direct deps; DoubleEnded is a transitive dep (via ListUtil)
-        # and otherwise falls back to the registry version, which has [compat]
-        # incompatible with the local ImmutableList 0.3.0.
+        # applies to direct deps; a transitive dep (ArrayUtil via ListUtil)
+        # otherwise falls back to the registry version, whose [compat] may not
+        # admit the local ImmutableList.
         shell: bash
         working-directory: OMFrontend.jl
         run: |
@@ -97,14 +97,11 @@ jobs:
             Pkg.Registry.add(Pkg.RegistrySpec(url = "https://github.com/OpenModelica/OpenModelicaRegistry.git"))
             siblings = [
               "../ArrayUtil.jl",
-              "../DAE.jl",
-              "../DoubleEnded.jl",
               "../ImmutableList.jl",
               "../ListUtil.jl",
               "../MetaModelica.jl",
               "../OMParser.jl",
               "../OMRuntimeExternalC.jl",
-              "../SCode.jl",
             ]
             Pkg.develop([Pkg.PackageSpec(path = p) for p in siblings])
             Pkg.build(; verbose = true)

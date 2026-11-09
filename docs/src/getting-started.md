@@ -28,7 +28,7 @@ program = OMFrontend.parseFile("MyModel.mo")
 ```
 
 `parseFile` invokes the OMParser bridge and returns an
-[`Absyn.Program`](https://github.com/OpenModelica/Absyn.jl). The Absyn tree is
+`OMParser.Absyn.Program`. The Absyn tree is
 the closest representation to the original textual model.
 
 ## Lowering to SCode
@@ -47,7 +47,7 @@ operate on SCode rather than Absyn.
 ```
 
 The instantiation pass elaborates the chosen model, resolves modifications,
-expands inheritance, and emits a [`DAE.DAElist`](https://github.com/OpenModelica/DAE.jl)
+expands inheritance, and emits a `OMFrontend.DAE.DAElist`
 together with the type cache used during lookup.
 
 ## Producing flat Modelica
