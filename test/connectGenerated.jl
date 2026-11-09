@@ -38,15 +38,15 @@ class ConnectArray1
   Real m2[2].c.e[2];
   Real m2[2].c.e[3];
 equation
-  m2[1].c.e[1] = m1[1].c.e[1];
+  m1[1].c.e[1] = m2[1].c.e[1];
   m1[1].c.e[2] = m2[1].c.e[2];
-  m2[1].c.e[3] = m1[1].c.e[3];
-  m2[2].c.e[1] = m1[2].c.e[1];
-  m2[2].c.e[2] = m1[2].c.e[2];
+  m1[1].c.e[3] = m2[1].c.e[3];
+  m1[2].c.e[1] = m2[2].c.e[1];
+  m1[2].c.e[2] = m2[2].c.e[2];
   m1[2].c.e[3] = m2[2].c.e[3];
-  m1[1].c.f[1] + m2[1].c.f[1] = 0.0;
+  m2[1].c.f[1] + m1[1].c.f[1] = 0.0;
   m2[1].c.f[2] + m1[1].c.f[2] = 0.0;
-  m1[1].c.f[3] + m2[1].c.f[3] = 0.0;
+  m2[1].c.f[3] + m1[1].c.f[3] = 0.0;
   m2[2].c.f[1] + m1[2].c.f[1] = 0.0;
   m2[2].c.f[2] + m1[2].c.f[2] = 0.0;
   m2[2].c.f[3] + m1[2].c.f[3] = 0.0;
@@ -64,11 +64,11 @@ class ConnectHierarchical1
   flow Real c.f = 1.0;
   Real c.e = 1.0;
 equation
-  a.c2.e = c.e;
-  a.c2.e = a.c1.e;
-  a.b.c.e = a.c1.e;
-  (-a.c1.f) + a.b.c.f = 0.0;
-  a.c2.f - c.f + a.c1.f = 0.0;
+  c.e = a.c1.e;
+  c.e = a.c2.e;
+  a.c1.e = a.b.c.e;
+  a.b.c.f - a.c1.f = 0.0;
+  a.c2.f + a.c1.f - c.f = 0.0;
   c.f = 0.0;
 end ConnectHierarchical1;
 """
@@ -85,10 +85,10 @@ class ConnectHierarchical2
   Real c.e = 1.0;
 equation
   c.e = a.c1.e;
-  (-c.f) + a.c1.f = 0.0;
-  a.b.c.e = a.c2.e;
-  a.b.c.e = a.c1.e;
-  (-a.c2.f) - a.c1.f + a.b.c.f = 0.0;
+  a.c1.f - c.f = 0.0;
+  a.c1.e = a.c2.e;
+  a.c1.e = a.b.c.e;
+  a.b.c.f - a.c1.f - a.c2.f = 0.0;
   a.c2.f = 0.0;
   c.f = 0.0;
 end ConnectHierarchical2;
@@ -103,9 +103,9 @@ class ConnectInner1
   Real a.my.e;
   flow Real a.my.f;
 equation
-  b.a.my.e = a.my.e;
-  b.a.my.e = global.e;
-  (-b.a.my.f) - a.my.f - global.f = 0.0;
+  global.e = b.a.my.e;
+  global.e = a.my.e;
+  (-global.f) - b.a.my.f - a.my.f = 0.0;
   global.f = 0.0;
   b.a.my.f = 0.0;
   a.my.f = 0.0;
@@ -124,8 +124,8 @@ class ConnectInner3
   Real a.my.e;
   flow Real a.my.f;
 equation
-  b.a.my.e = a.my.e;
-  b.a.my.e = global.c.e;
+  global.c.e = b.a.my.e;
+  global.c.e = a.my.e;
   global.c.f - b.a.my.f - a.my.f = 0.0;
   b.a.my.f = 0.0;
   a.my.f = 0.0;
@@ -146,10 +146,10 @@ class Top
   flow Real a2.aPin.i;
   Real a2.aPin.v;
 equation
-  topPin.v = a2.aPin.v;
-  topPin.v = world.v;
-  topPin.v = a1.aPin.v;
-  (-topPin.i) - world.i - a2.aPin.i - a1.aPin.i = 0.0;
+  world.v = a1.aPin.v;
+  world.v = a2.aPin.v;
+  world.v = topPin.v;
+  (-world.i) - a1.aPin.i - a2.aPin.i - topPin.i = 0.0;
   world.i = 0.0;
   topPin.i = 0.0;
   a1.aPin.i = 0.0;
@@ -170,10 +170,10 @@ class Top
   flow Real a2.aPin.i;
   Real a2.aPin.v;
 equation
-  topPin.v = a2.aPin.v;
-  topPin.v = a1.aPin.v;
-  topPin.v = world.p.v;
-  (-topPin.i) + world.p.i - a2.aPin.i - a1.aPin.i = 0.0;
+  world.p.v = a1.aPin.v;
+  world.p.v = a2.aPin.v;
+  world.p.v = topPin.v;
+  world.p.i - a1.aPin.i - a2.aPin.i - topPin.i = 0.0;
   world.n.i = 0.0;
   topPin.i = 0.0;
   a1.aPin.i = 0.0;
@@ -194,10 +194,10 @@ class Top2
   flow Real a1.a2Pin.i;
   Real a1.a2Pin.v;
 equation
-  topPin.v = world.v;
-  topPin.v = a1.a2Pin.v;
-  (-a1.a2Pin.i) - topPin.i - world.i = 0.0;
-  a1.a.aPin.v = a1.world.v;
+  world.v = a1.a2Pin.v;
+  world.v = topPin.v;
+  (-world.i) - a1.a2Pin.i - topPin.i = 0.0;
+  a1.world.v = a1.a.aPin.v;
   (-a1.world.i) - a1.a.aPin.i = 0.0;
   world.i = 0.0;
   topPin.i = 0.0;
@@ -218,11 +218,11 @@ class ConnectInnerOuterArray1
   Real lowerLevelModel[2].c.e;
   flow Real lowerLevelModel[2].c.f;
 equation
-  lowerLevelModel[2].c.e = lowerLevelModel[1].c.e;
-  lowerLevelModel[2].c.e = innerOuterModel.c1.e;
-  (-lowerLevelModel[2].c.f) + innerOuterModel.c1.f - lowerLevelModel[1].c.f = 0.0;
+  lowerLevelModel[1].c.e = innerOuterModel.c1.e;
+  lowerLevelModel[1].c.e = lowerLevelModel[2].c.e;
+  innerOuterModel.c1.f - lowerLevelModel[1].c.f - lowerLevelModel[2].c.f = 0.0;
   innerOuterModel.c1.e = innerOuterModel.c2.e;
-  (-innerOuterModel.c2.f) - innerOuterModel.c1.f = 0.0;
+  (-innerOuterModel.c1.f) - innerOuterModel.c2.f = 0.0;
   innerOuterModel.c2.f = 0.0;
   lowerLevelModel[1].c.f = 0.0;
   lowerLevelModel[2].c.f = 0.0;
@@ -236,7 +236,7 @@ class ConnectTheSameConnector
   flow Real c2.i;
   Real c2.u;
 equation
-  c2.u = c1.u;
+  c1.u = c2.u;
   (-c1.i) - c2.i = 0.0;
   c1.i = 0.0;
   c2.i = 0.0;
@@ -265,9 +265,9 @@ class ConnectTypes
   parameter Integer c.n = 1;
   constant Real c.c = 2.0;
 equation
-  a.c.d = c.d;
-  a.c.e[1] = c.e[1];
-  assert(a.c.p == c.p, "Connected constants/parameters must be equal", AssertionLevel.error);
+  c.d = a.c.d;
+  c.e[1] = a.c.e[1];
+  assert(c.p == a.c.p, "Connected constants/parameters must be equal", AssertionLevel.error);
   c.e[1] = time;
   c.d = 4;
 end ConnectTypes;
@@ -287,7 +287,7 @@ equation
   c1.e = c2.e;
   (-c1.f) - c2.f = 0.0;
   c4.e = c3.e;
-  (-c3.f) - c4.f = 0.0;
+  (-c4.f) - c3.f = 0.0;
   c1.f = 0.0;
   c2.f = 0.0;
   c3.f = 0.0;
@@ -320,13 +320,13 @@ class ConnectionOrder2
 equation
   JJczR.e = xvCSn.e;
   (-JJczR.f) - xvCSn.f = 0.0;
-  wWAqt.e = APNzi.e;
+  APNzi.e = wWAqt.e;
   (-APNzi.f) - wWAqt.f = 0.0;
   CauvN.e = Nizss.e;
-  (-Nizss.f) - CauvN.f = 0.0;
+  (-CauvN.f) - Nizss.f = 0.0;
   SsIbl.e = iCWhD.e;
   (-SsIbl.f) - iCWhD.f = 0.0;
-  xPLdp.e = hAhvy.e;
+  hAhvy.e = xPLdp.e;
   (-hAhvy.f) - xPLdp.f = 0.0;
   JJczR.f = 0.0;
   xvCSn.f = 0.0;
@@ -440,7 +440,7 @@ class MultipleInheritanceConnect
   Real e.d.port.p;
   flow Real e.d.port.f;
 equation
-  e.port.p = e.d.port.p;
+  e.d.port.p = e.port.p;
   e.port.f = 0.0;
   e.d.port.f - e.port.f = 0.0;
   e.d.port.f = e.d.port.p;
@@ -471,7 +471,7 @@ class TankHybridPI
   Real tank.h(start = 0.0, unit = "m");
 equation
   source.qOut.lflow = tank.qIn.lflow;
-  piDiscrete.cOut.act = tank.tActuator.act;
+  tank.tActuator.act = piDiscrete.cOut.act;
   tank.tSensor.val = piDiscrete.cIn.val;
   assert(tank.minV >= 0.0, "minV - minimum Valve level must be >= 0 ", AssertionLevel.error);
   der(tank.h) = (tank.qIn.lflow - tank.qOut.lflow) / tank.area;
@@ -652,11 +652,11 @@ class TanksConnectedPI
   Real piContinuous2.outCtr;
   Real piContinuous2.x;
 equation
-  tank1.qIn.lflow = source.qOut.lflow;
-  piContinuous1.cOut.act = tank1.tActuator.act;
+  source.qOut.lflow = tank1.qIn.lflow;
+  tank1.tActuator.act = piContinuous1.cOut.act;
   tank1.tSensor.val = piContinuous1.cIn.val;
   tank1.qOut.lflow = tank2.qIn.lflow;
-  piContinuous2.cOut.act = tank2.tActuator.act;
+  tank2.tActuator.act = piContinuous2.cOut.act;
   tank2.tSensor.val = piContinuous2.cIn.val;
   der(piContinuous2.x) = piContinuous2.error / piContinuous2.T;
   piContinuous2.outCtr = piContinuous2.K * (piContinuous2.error + piContinuous2.x);
@@ -685,8 +685,8 @@ class Units1
   Real p2.v(unit = "V");
   flow Real p2.i(unit = "A");
 equation
-  p2.v = p1.v;
-  (-p2.i) - p1.i = 0.0;
+  p1.v = p2.v;
+  (-p1.i) - p2.i = 0.0;
   p1.i = 0.0;
   p2.i = 0.0;
   p1.v = 0.0;

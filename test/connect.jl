@@ -23,9 +23,9 @@ const Connect2="class Connect2
   flow Real c3.f;
   Real c3.e;
 equation
-  c1.e = c2.e;
-  c1.e = c3.e;
-  (-c1.f) - c3.f - c2.f = 0.0;
+  c2.e = c3.e;
+  c2.e = c1.e;
+  (-c2.f) - c3.f - c1.f = 0.0;
   c1.f = 0.0;
   c2.f = 0.0;
   c3.f = 0.0;
@@ -91,10 +91,10 @@ const Connect7 ="class Connect7
   Real cy.r;
   flow Real cy.x = time;
 equation
-  cx.r = c[1].r;
+  c[1].r = cx.r;
   (-c[1].x) - cx.x = 0.0;
-  cy.r = c[2].r;
-  (-cy.x) - c[2].x = 0.0;
+  c[2].r = cy.r;
+  (-c[2].x) - cy.x = 0.0;
   c[1].x = 0.0;
   c[2].x = 0.0;
   cx.x = 0.0;
@@ -113,9 +113,9 @@ const Connect8 = "class Connect8
   Real cy.r;
   flow Real cy.x = time;
 equation
-  c[2].r = cx.r;
   c[2].r = cy.r;
-  (-c[2].x) - cx.x - cy.x = 0.0;
+  c[2].r = cx.r;
+  (-c[2].x) - cy.x - cx.x = 0.0;
   c[1].x = 0.0;
   c[2].x = 0.0;
   cx.x = 0.0;
@@ -127,7 +127,7 @@ const Connect9 = "class Connect9
   input Real c1.x;
   output Real c2.x;
 equation
-  c2.x = c1.x;
+  c1.x = c2.x;
 end Connect9;
 "
 const Connect10 = "class Connect10\n  input Real c1_x;\n  input Real c2_x;\nequation\n  c2_x = c1_x;\nend Connect10;\n"
@@ -145,8 +145,8 @@ const Connect15 = "class Connect15
   flow Real t2.p[2].i;
   Real t2.p[2].v;
 equation
-  t2.p[2].v = t1.p[1].v;
-  t1.p[1].i + t2.p[2].i = 0.0;
+  t1.p[1].v = t2.p[2].v;
+  t2.p[2].i + t1.p[1].i = 0.0;
   t1.p[2].i = 0.0;
   t2.p[1].i = 0.0;
 end Connect15;
@@ -163,8 +163,8 @@ const Connect17 = "class Connect17
   output Real y[4];
 equation
   x[1] = y[2];
-  y[3] = x[2];
-  y[4] = x[3];
+  x[2] = y[3];
+  x[3] = y[4];
 end Connect17;
 "
 const Connect18 = "class Connect18
@@ -180,11 +180,11 @@ const Connect18 = "class Connect18
   Real a[5].e;
   flow Real a[5].f;
 equation
-  a[3].e = a[5].e;
-  a[3].e = a[2].e;
-  a[3].e = a[1].e;
-  a[3].e = a[4].e;
-  (-a[3].f) - a[1].f - a[5].f - a[4].f - a[2].f = 0.0;
+  a[4].e = a[5].e;
+  a[4].e = a[3].e;
+  a[4].e = a[2].e;
+  a[4].e = a[1].e;
+  (-a[4].f) - a[5].f - a[3].f - a[2].f - a[1].f = 0.0;
   a[1].f = 0.0;
   a[2].f = 0.0;
   a[3].f = 0.0;
@@ -266,7 +266,7 @@ const MultipleInheritanceConnect="class MultipleInheritanceConnect
   Real e.d.port.p;
   flow Real e.d.port.f;
 equation
-  e.port.p = e.d.port.p;
+  e.d.port.p = e.port.p;
   e.port.f = 0.0;
   e.d.port.f - e.port.f = 0.0;
   e.d.port.f = e.d.port.p;
@@ -289,7 +289,7 @@ const ResistorCircuit0 = "class ElectricalComponentTest_ResistorCircuit0
   flow Real R2.n.i;
   parameter Real R2.R = 200.0;
 equation
-  R2.p.v = R1.p.v;
+  R1.p.v = R2.p.v;
   R2.p.i + R1.p.i = 0.0;
   R1.n.i = 0.0;
   R2.n.i = 0.0;
@@ -327,10 +327,10 @@ const ResistorCircuit1 = "class ElectricalComponentTest_ResistorCircuit1
   flow Real R3.n.i;
   parameter Real R3.R = 300.0;
 equation
-  R2.p.v = R3.p.v;
-  R2.p.v = R1.p.v;
+  R1.p.v = R3.p.v;
+  R1.p.v = R2.p.v;
   R1.n.i = 0.0;
-  R2.p.i + R3.p.i + R1.p.i = 0.0;
+  R3.p.i + R2.p.i + R1.p.i = 0.0;
   R2.n.i = 0.0;
   R3.n.i = 0.0;
   R3.R * R3.i = R3.v;
@@ -388,17 +388,17 @@ const SimpleCircuit = "class ElectricalComponentTest_SimpleCircuit
   Real G.p.v;
   flow Real G.p.i;
 equation
-  R2.p.v = AC.p.v;
-  R2.p.v = R1.p.v;
-  C.p.v = R1.n.v;
+  R1.p.v = R2.p.v;
+  R1.p.v = AC.p.v;
+  R1.n.v = C.p.v;
   R2.n.v = L.p.v;
-  AC.n.v = C.n.v;
-  AC.n.v = L.n.v;
   AC.n.v = G.p.v;
-  R1.n.i + C.p.i = 0.0;
+  AC.n.v = L.n.v;
+  AC.n.v = C.n.v;
+  C.p.i + R1.n.i = 0.0;
   L.p.i + R2.n.i = 0.0;
-  G.p.i + C.n.i + L.n.i + AC.n.i = 0.0;
-  R1.p.i + R2.p.i + AC.p.i = 0.0;
+  G.p.i + AC.n.i + L.n.i + C.n.i = 0.0;
+  AC.p.i + R2.p.i + R1.p.i = 0.0;
   G.p.v = 0.0;
   AC.v = AC.A * sin(AC.w * time);
   AC.v = AC.p.v - AC.n.v;
@@ -430,8 +430,8 @@ const ExpandableBus="class ExpandableBus
   output Real src.y;
   input Real sink.u;
 equation
-  sink.u = src.y;
-  sink.u = bus.x;
+  bus.x = sink.u;
+  bus.x = src.y;
   src.y = time;
 end ExpandableBus;
 "

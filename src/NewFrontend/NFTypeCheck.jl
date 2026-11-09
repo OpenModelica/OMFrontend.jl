@@ -3399,7 +3399,7 @@ function getRangeTypeInt(
         #=  Don't allow infinite ranges.
         =#
         if step == 0
-          Error.addSourceMessageAndFail(Error.RANGE_TOO_SMALL_STEP, list(String(step)), info)
+          Error.addSourceMessageAndFail(Error.RANGE_TOO_SMALL_STEP, list(string(step)), info)
         end
         fromInteger(max(
           intDiv(stopExp.value - startExp.value, step) + 1,
@@ -3498,7 +3498,7 @@ function getRangeTypeReal(
         #=  otherwise the step size is too small.
         =#
         if start == start + step
-          Error.addSourceMessageAndFail(Error.RANGE_TOO_SMALL_STEP, list(String(step)), info)
+          Error.addSourceMessageAndFail(Error.RANGE_TOO_SMALL_STEP, list(string(step)), info)
         end
         fromInteger(Util.realRangeSize(
           startExp.value,

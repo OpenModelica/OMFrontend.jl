@@ -158,7 +158,7 @@ function checkDebugFlags()
   for flag in allDebugFlags
     index = index + 1
     if flag.index != index
-      err_str = "Invalid flag '" + flag.name + "' with index " + String(flag.index) + " (expected " + String(index) + ") in Flags.allDebugFlags. Make sure that all flags are present and ordered correctly!"
+      err_str = "Invalid flag '" + flag.name + "' with index " + string(flag.index) + " (expected " + string(index) + ") in Flags.allDebugFlags. Make sure that all flags are present and ordered correctly!"
       #Error.terminateError(err_str, sourceInfo())
       println(err_str)
       println("Terminating...")
@@ -179,7 +179,7 @@ function checkConfigFlags()
   for flag in allConfigFlags
     index = index + 1
     if flag.index != index
-      err_str = "Invalid flag '" + flag.name + "' with index " + String(flag.index) + " (expected " + String(index) + ") in Flags.allConfigFlags. Make sure that all flags are present and ordered correctly!"
+      err_str = "Invalid flag '" + flag.name + "' with index " + string(flag.index) + " (expected " + string(index) + ") in Flags.allConfigFlags. Make sure that all flags are present and ordered correctly!"
       @error err_str
       @error "Terminate error: Failing."
       fail()

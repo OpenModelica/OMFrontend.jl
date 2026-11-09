@@ -750,7 +750,7 @@ function toDAE(op::Operator)::DAE.Operator #Tuple{DAE.Operator, Bool}
 
       Op.SUB_ARRAY_SCALAR => begin
         Error.addInternalError(
-          getInstanceName() + ": Don't know how to handle " + String(op.op),
+          getInstanceName() + ": Don't know how to handle " + string(op.op),
           sourceInfo(),
         )
         DAE.SUB(ty)

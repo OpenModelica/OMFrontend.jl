@@ -399,7 +399,7 @@ function bytesToReadableUnit(
   elseif bytes > maxSizeInUnit
     @assign str = String(bytes / kB, significantDigits = significantDigits) + " kB"
   else
-    @assign str = String(integer(bytes))
+    @assign str = string(integer(bytes))
   end
   return str
 end

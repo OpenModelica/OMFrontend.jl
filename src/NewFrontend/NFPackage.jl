@@ -314,10 +314,10 @@ function replaceFuncConstants(name::Absyn.Path, func::M_Function)::M_Function
          () = begin
           @match sections begin
             P_Sections.Sections.SECTIONS(__) => begin
-              @assign sections.algorithms = list(
+              @assign sections.algorithms = Algorithm[
                 P_Algorithm.Algorithm.mapExp(a, replaceExpConstants)
               for a in sections.algorithms
-              )
+              ]
               @assign cls.sections = sections
               @assign func.node = updateClass(cls, func.node)
               ()

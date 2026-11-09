@@ -165,15 +165,15 @@ function map1(
   ieqFn::EquationFn = eqFn,
   ialgFn::AlgorithmFn = algFn,
 ) where {ArgT}
-  local eq::List{Equation}
-  local ieq::List{Equation}
+  local eq::Vector{Equation}
+  local ieq::Vector{Equation}
   local alg::Vector{Algorithm}
   local ialg::Vector{Algorithm}
   () = begin
     @match sections begin
       SECTIONS(__) => begin
-        eq = list(eqFn(e, arg) for e in sections.equations)
-        ieq = list(ieqFn(e, arg) for e in sections.initialEquations)
+        eq = Equation[eqFn(e, arg) for e in sections.equations]
+        ieq = Equation[ieqFn(e, arg) for e in sections.initialEquations]
         alg = [algFn(a, arg) for a in sections.algorithms]
         ialg = [ialgFn(a, arg) for a in sections.initialAlgorithms]
         sections = SECTIONS(eq, ieq, alg, ialg)

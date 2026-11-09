@@ -3290,7 +3290,7 @@ end
 
 function checkUnsubscriptableCref(cref::ComponentRef, info::SourceInfo)
   if hasSubscripts(cref)
-    Error.addSourceMessage(Error.WRONG_NUMBER_OF_SUBSCRIPTS, list(ComponentRef.toString(cref), String(listLength(ComponentRef.getSubscripts(cref))), "0"), info)
+    Error.addSourceMessage(Error.WRONG_NUMBER_OF_SUBSCRIPTS, list(ComponentRef.toString(cref), string(listLength(ComponentRef.getSubscripts(cref))), "0"), info)
     fail()
   end
 end

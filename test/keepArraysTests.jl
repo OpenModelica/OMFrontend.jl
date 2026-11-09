@@ -3,9 +3,23 @@
    flatten gives (same variables, same equations up to their order). =#
 const KEEP_ARRAYS_FILE = "./KeepArrays/KeepArrays.mo"
 
+const _FLOW_SUM = r"^\(?-?[\w.\[\]$]+\)?(?:[-+][\w.\[\]$]+)+=0\.0$"
+
+"""
+  An equation (its text without spaces) with the terms of a connection's flow sum sorted. The
+  connection sets keep their connectors in insertion order, and the two flattens add the flows of
+  an array connector in a different order, so a sum's terms may come in a different order.
+"""
+function _canonicalEquation(eq::String)::String
+  occursin(_FLOW_SUM, eq) || return eq
+  local terms::Vector{String} = [m.match for m in eachmatch(r"\(?[-+]?[\w.\[\]$]+\)?", replace(eq, "=0.0" => ""))]
+  local signed::Vector{String} = [(startswith(t, "(-") || startswith(t, "-") ? "-" : "+") * strip(t, ['(', ')', '-', '+']) for t in terms]
+  return join(sort(signed)) * "=0.0"
+end
+
 function _flatEquationSet(fm)
   local F = OMFrontend.Frontend
-  return sort([replace(F.toString(eq), " " => "") for eq in fm.equations])
+  return sort([_canonicalEquation(replace(F.toString(eq), " " => "")) for eq in fm.equations])
 end
 
 _flatVariableSet(fm) = sort([OMFrontend.Frontend.toString(v.name) for v in fm.variables])

@@ -148,7 +148,7 @@ function evaluateNormal(fn::M_Function, args::Vector{Expression})::Expression
     _setEvalDepth!(depths, call_counter, 0)
     Error.addSourceMessage(
       Error.EVAL_RECURSION_LIMIT_REACHED,
-      list(String(limit), AbsynUtil.pathString(name(fn))),
+      list(string(limit), AbsynUtil.pathString(name(fn))),
       InstNode_info(fn.node),
     )
     fail()
@@ -1179,7 +1179,7 @@ function evaluateFor(
       if i > limit
         Error.addSourceMessage(
           Error.EVAL_LOOP_LIMIT_REACHED,
-          list(String(limit)),
+          list(string(limit)),
           DAE.ElementSource_getInfo(source),
         )
         fail()
@@ -1296,7 +1296,7 @@ function evaluateWhile(
     if i > limit
       Error.addSourceMessage(
         Error.EVAL_LOOP_LIMIT_REACHED,
-        list(String(limit)),
+        list(string(limit)),
         DAE.ElementSource_getInfo(source),
       )
       fail()
@@ -1541,10 +1541,10 @@ function evaluateKnownExternal(name::String, args::List{<:Expression})::Expressi
         dims = ModelicaExternalC.ModelicaIO_readMatrixSizes(s1, s2)
         ARRAY_EXPRESSION(
           TYPE_ARRAY(TYPE_INTEGER(), list(fromInteger(2))),
-          list(
+          Expression[
             INTEGER_EXPRESSION(dims[1]),
             INTEGER_EXPRESSION(dims[2]),
-          ),
+          ],
           true,
         )
       end

@@ -99,7 +99,7 @@ function opaqueStr(var::SimCodeVar.SimVar)::String
 
   @assign str =
     "#SimVar(index=" +
-    String(var.index) +
+    string(var.index) +
     ",name=" +
     ComponentReference.printComponentRefStr(var.name) +
     ")#"

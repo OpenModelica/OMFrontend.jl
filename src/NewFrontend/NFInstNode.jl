@@ -2311,5 +2311,5 @@ function newIterator(name::String, ty::NFType, info::SourceInfo)
 end
 
 function newIndexedIterator(index::Int, ty::NFType, info)
-  newIterator("\$i" + String(index), ty, info);
+  newIterator("\$i" + string(index), ty, info);
 end

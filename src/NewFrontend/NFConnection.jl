@@ -90,7 +90,7 @@ function split(connection::CONNECTION)::List
     @info str
 
     Error.assertion(false, getInstanceName() + " got unbalanced connection " + toString(connection) + " (lhs: " +
-      String(listLength(connectionLstLeft)) + ", rhs: " + String(listLength(connectionLstRight)) + ")", sourceInfo());
+      string(listLength(connectionLstLeft)) + ", rhs: " + string(listLength(connectionLstRight)) + ")", sourceInfo());
 
     fail();
   end
