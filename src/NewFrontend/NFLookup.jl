@@ -695,7 +695,7 @@ function lookupSimpleBuiltinCref(name::String, subs::List{T}) where {T}
     return nothing
   end
   if ! listEmpty(subs)
-    cref = setSubscripts(list(SUBSCRIPT_RAW_SUBSCRIPT(s) for s in subs), cref)
+    cref = setSubscripts(List{Subscript}(SUBSCRIPT_RAW_SUBSCRIPT(s) for s in subs), cref)
   end
   (node, cref, state)
 end

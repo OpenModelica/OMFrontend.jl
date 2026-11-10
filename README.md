@@ -71,8 +71,8 @@ scodeProgram  = OMFrontend.translateToSCode(absynProgram)
 ```
 
 To obtain the DAE form instead of FlatModelica, call `instantiateSCodeToDAE`
-on the SCode program returned by `translateToSCode`. See
-[DAE.jl](https://github.com/OpenModelica/DAE.jl) for the data structure.
+on the SCode program returned by `translateToSCode`. The data structures are
+`OMFrontend.SCode` and `OMFrontend.DAE` (`src/SCode`, `src/DAE`; formerly the packages SCode.jl and DAE.jl).
 
 ### Discovering and Loading Installed Libraries
 

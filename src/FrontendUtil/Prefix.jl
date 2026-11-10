@@ -43,8 +43,8 @@ using ExportAll
 @UniontypeDecl ComponentPrefix
 @UniontypeDecl ClassPrefix
 
-import SCode
-import DAE.ClassInf
+import ..SCode
+import ..DAE.ClassInf
 
 #= A Prefix has a component prefix and a class prefix.
 The component prefix consist of a name an a list of constant valued subscripts.

@@ -806,12 +806,12 @@ end
      TYPE_ARRAY/TYPE_TUPLE/... even when nothing changed. =#
   local retTy = @match ty begin
     TYPE_ARRAY(__) => begin
-      local changed = false
-      local newDims = nil
-      for d in ty.dimensions
-        local nd = func(d)
+      local changed::Bool = false
+      local newDims::List{Dimension} = nil
+      for d::Dimension in ty.dimensions
+        local nd::Dimension = func(d)
         changed = changed || !referenceEq(nd, d)
-        newDims = _cons(nd, newDims)
+        newDims = Cons{Dimension}(nd, newDims)
       end
       if !changed
         ty
@@ -820,12 +820,12 @@ end
       end
     end
     TYPE_TUPLE(__) => begin
-      local changed = false
-      local newTypes = nil
-      for t in ty.types
-        local nt = mapDims(t, func)
+      local changed::Bool = false
+      local newTypes::List{NFType} = nil
+      for t::NFType in ty.types
+        local nt::NFType = mapDims(t, func)
         changed = changed || !referenceEq(nt, t)
-        newTypes = _cons(nt, newTypes)
+        newTypes = Cons{NFType}(nt, newTypes)
       end
       if !changed
         ty

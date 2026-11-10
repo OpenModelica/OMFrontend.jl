@@ -74,7 +74,7 @@ import ..AbsynUtil
 import ..BaseAvlTree
 import ..Frontend.M_Type
 import ..Type
-import Absyn
+import OMParser.Absyn
 import ..toString
 
 const Key = Absyn.Path
@@ -282,19 +282,15 @@ function collectComponentFlatTypes(componentArg::InstNode, types::TypeTree)::Typ
 end
 
 function collectFunctionFlatTypes(fn::M_Function, types::TypeTree)::TypeTree
-  local body::Vector{Statement}
   types = foldComponents(
     classTree(getClass(fn.node)),
     collectComponentFlatTypes,
     types,
   )
-  #= External functions does not have a function body. =#
-  body = if ! isExternal(fn)
-    getBody(fn)
-  else
-    nil
+  #= External functions do not have a function body. =#
+  if !isExternal(fn)
+    types = ArrayUtil.fold(getBody(fn), collectStatementFlatTypes, types)
   end
-  types = ArrayUtil.fold(body, collectStatementFlatTypes, types)
   return types
 end
 
@@ -826,17 +822,6 @@ function generateSingleWrapper(
   println(buf, "end '", wrapperName, "';")
   println(buf)
   return String(take!(buf))
-end
-
-function printFlatString(
-  flatModel::FlatModel,
-  functions::List{M_Function},
-  printBindingTypes::Bool = false,
-)
-  local s
-  s = IOStream_M.create(getInstanceName(), IOStream.IOStreamType.LIST())
-  s = toFlatStream(flatModel, functions, printBindingTypes, s)
-  return IOStream_M.print(s, IOStream_M.stdOutput)
 end
 
 function toFlatString(

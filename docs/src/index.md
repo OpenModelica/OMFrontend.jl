@@ -12,11 +12,10 @@ and the wider [OM.jl](https://github.com/OpenModelica/OM.jl) toolchain.
 ## What this package does
 
 * Parses Modelica via [OMParser.jl](https://github.com/OpenModelica/OMParser.jl)
-  and produces an [Absyn](https://github.com/OpenModelica/Absyn.jl) tree.
-* Translates the abstract syntax tree to
-  [SCode](https://github.com/OpenModelica/SCode.jl).
-* Instantiates SCode into the [DAE.jl](https://github.com/OpenModelica/DAE.jl)
-  representation suitable for backend lowering.
+  and produces an Absyn tree (`OMParser.Absyn`).
+* Translates the abstract syntax tree to SCode (`OMFrontend.SCode`).
+* Instantiates SCode into the DAE representation (`OMFrontend.DAE`) or a flat
+  model for backend lowering.
 * Optionally produces flat Modelica for inspection or downstream use.
 
 ## Installation

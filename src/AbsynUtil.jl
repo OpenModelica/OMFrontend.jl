@@ -55,7 +55,7 @@ const FuncT = Function
 
 const FuncType = Function
 
-using Absyn
+using OMParser.Absyn
 
 import ListUtil
 

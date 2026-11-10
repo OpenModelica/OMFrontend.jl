@@ -35,7 +35,7 @@
 
 module ElementSource
 
-import DAE
+import ..DAE
 import ListUtil
 using MetaModelica
 

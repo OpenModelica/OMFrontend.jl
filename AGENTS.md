@@ -13,16 +13,17 @@ The package is intentionally low-level. End users typically invoke it through OM
 - `src/OMFrontend.jl` — outer module `OMFrontend`. Public API: `parseFile`, `translateToSCode`, `instantiateSCodeToFM`, `instantiateSCodeToDAE`, `flattenModel`, `flattenModelWithMSL`, `flattenModelWithLibraries`, `loadLibrary`, `loadPackageDirectory`, `useLibrary!`, `unloadLibrary`, `loadedLibraries` (the libraries loaded into the session, which `flattenModelWithLibraries` adds), `enableDumpDebug`, `disableDumpDebug`, `toString`, `toFlatModelica`, `exportDAERepresentationToFile`.
 - `src/main.jl` — inner module `Frontend`. The pipeline lives here. It includes everything under `src/Util/`, `src/FrontendUtil/`, `src/FrontendInterfaces/`, and `src/NewFrontend/`.
 - `src/Util/` — generic utilities ported from MetaModelica (Pointer, BaseHashTable, BaseAvlTree, ErrorExt, etc.). Submodules of `Frontend`.
-- `src/FrontendUtil/` — `Prefix`, `Util`, `FrontendUtil` glue.
+- `src/FrontendUtil/` — `Prefix`.
 - `src/FrontendInterfaces/` — `NFAlias`, `NFInterfaces` thin wrappers and re-exports.
 - `src/NewFrontend/` — the actual NF port (~77 files, prefix `NF`). The hot path lives here. Notable files:
   - `NFFlatten.jl`, `NFInst.jl`, `NFTyping.jl`, `NFEvalConstants.jl` — pipeline phases.
   - `NFClassTree.jl`, `NFClass.jl`, `NFComponent.jl`, `NFInstNode.jl` — class and component representation.
   - `NFExpression.jl`, `NFSubscript.jl`, `NFCall.jl`, `NFBinding.jl` — expression, call, and binding ASTs.
-  - `NFConvertDAE.jl` — final lowering to `DAE` data structures from DAE.jl.
+  - `NFConvertDAE.jl` — final lowering to the `DAE` data structures (`src/DAE`).
   - `NFPerfHelpers.jl` — `mapPreservingEq` and `reuseIfRefEqual` performance helpers.
+- `src/SCode/`, `src/DAE/` — the modules `OMFrontend.SCode` and `OMFrontend.DAE` (with `DAE.ClassInf`, `DAE.Values`), formerly the packages SCode.jl and DAE.jl; inside the package they are imported relatively (`import ..SCode`).
 - `src/AbsynToSCode.jl`, `src/SCodeUtil.jl`, `src/AbsynUtil.jl` — Absyn and SCode helpers used during translation.
-- `src/GUI_API.jl`, `src/Util/ZeroMQ.jl`, `src/Util/Corba.jl` — IPC and GUI integration points (not part of the core flatten path).
+- `src/GUI_API.jl`, `src/Util/Corba.jl` — IPC and GUI integration points (not part of the core flatten path).
 - `src/componentGraphics.jl` — a component class's icon and connector placements as Modelica text (`componentGraphics`).
 - `test/` — see "Tests" below.
 
@@ -174,5 +175,5 @@ The repository maintainer may override this on a per-task basis with an explicit
 ## Pointers Outside This Repository
 
 - Parser: `OMParser` package.
-- Absyn / SCode / DAE data structures: `Absyn.jl`, `SCode.jl`, `DAE.jl` packages.
+- Absyn / SCode / DAE data structures: `OMParser.Absyn` (the `OMParser` package), `OMFrontend.SCode`, `OMFrontend.DAE` (`src/SCode`, `src/DAE`).
 - Downstream consumer: `OMBackend.jl`, which lowers OMFrontend output to BDAE and then to MTK / DifferentialEquations.jl. Bug reports that surface as "OMBackend fails on model X" frequently trace back to malformed `DAE.Exp` or `DAE.Element` produced here. When a backend bug points at OMFrontend output, dump the `(FM, funcs)` from `flattenModel` and inspect it before editing backend code.

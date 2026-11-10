@@ -1094,16 +1094,6 @@ function applySubscripts(subscripts::List{<:Subscript}, cref::ComponentRef)::Com
   return cref
 end
 
-function addSubscript(subscript::Subscript, cref::ComponentRef)::ComponentRef
-  local rCref = @match cref begin
-    COMPONENT_REF_CREF(__) => begin
-      local subs = listAppend(cref.subscripts, list(subscript))
-      COMPONENT_REF_CREF(cref.node, subs, cref.ty, cref.origin, cref.rest_cref)
-    end
-  end
-  return rCref
-end
-
 """
   Returns the variability of the cref, with the variability of the subscripts
   taken into account.
@@ -1417,7 +1407,7 @@ function fromAbsyn(
 )::ComponentRef
   local cref::ComponentRef
   local sl::List{Subscript}
-  sl = list(SUBSCRIPT_RAW_SUBSCRIPT(s) for s in subs)
+  sl = List{Subscript}(SUBSCRIPT_RAW_SUBSCRIPT(s) for s in subs)
   cref = COMPONENT_REF_CREF(node, sl, TYPE_UNKNOWN(), Origin.CREF, restCref)
   return cref
 end

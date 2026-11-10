@@ -41,8 +41,8 @@ using ExportAll
 
 @UniontypeDecl SCodeDumpOptions
 
-import Absyn
-import SCode
+import OMParser.Absyn
+import ..SCode
 import ListUtil
 
 import ..Frontend.AbsynUtil

@@ -344,7 +344,7 @@ function expandSlice(subscript::Subscript)::Tuple{Subscript, Bool}
       SUBSCRIPT_SLICE(__) => begin
         (exp, _) = expand(subscript.slice)
         if isArray(exp)
-          outSubscript = SUBSCRIPT_EXPANDED_SLICE(list(
+          outSubscript = SUBSCRIPT_EXPANDED_SLICE(List{Subscript}(
             SUBSCRIPT_INDEX(e) for e in arrayElements(exp)
           ))
           expanded = true
@@ -409,7 +409,7 @@ function scalarizeList(
        outSubscripts = nil
       return outSubscripts
     else
-       outSubscripts = Cons{Subscript}(subs, outSubscripts)
+       outSubscripts = Cons{List{Subscript}}(subs, outSubscripts)
     end
   end
   for d in rest_dims
@@ -418,7 +418,7 @@ function scalarizeList(
        outSubscripts = nil
       return outSubscripts
     else
-      outSubscripts = Cons{Cons{Subscript}}(subs, outSubscripts)
+      outSubscripts = Cons{List{Subscript}}(subs, outSubscripts)
     end
   end
    outSubscripts = listReverse(outSubscripts)
@@ -431,16 +431,13 @@ function scalarize(subscript::Subscript, dimension::Dimension)::List{Subscript}
    subscripts = begin
     @match subscript begin
       SUBSCRIPT_INDEX(__) => begin
-        list(subscript)
+        Cons{Subscript}(subscript, nil)
       end
 
       SUBSCRIPT_SLICE(__) => begin
-        list(
-          SUBSCRIPT_INDEX(e)
-          for
-          e in
-            arrayElements(expand(subscript.slice))
-        )
+        local sliceExp::Expression
+        (sliceExp, _) = expand(subscript.slice)
+        List{Subscript}(SUBSCRIPT_INDEX(e) for e in arrayElements(sliceExp))
       end
 
       SUBSCRIPT_WHOLE(__) => begin
@@ -538,14 +535,17 @@ function simplifySlice(slice::Expression, dimension::Dimension)
   return outSubscript
 end
 
-function simplifyList(subscripts::List, dimensions::List ; trim = false)
-  local outSubscripts::List = nil
+function simplifyList(subscripts::List{<:Subscript}, dimensions::List{Dimension}; trim::Bool = false)::List{Subscript}
+  local outSubscripts::List{Subscript} = nil
   local changed::Bool = false
+  local s2::Subscript
+  local d::Dimension
+  local rest_d::List{Dimension}
   if listEmpty(dimensions)
-    for s in subscripts
+    for s::Subscript in subscripts
       s2 = simplify(s, DIMENSION_UNKNOWN())
       changed = changed || !referenceEq(s2, s)
-      outSubscripts = s2 <| outSubscripts
+      outSubscripts = Cons{Subscript}(s2, outSubscripts)
     end
     if !changed
       return subscripts
@@ -553,11 +553,11 @@ function simplifyList(subscripts::List, dimensions::List ; trim = false)
     outSubscripts = listReverseInPlace(outSubscripts)
   else
     rest_d = ListUtil.lastN(dimensions, listLength(subscripts))
-    for s in subscripts
+    for s::Subscript in subscripts
       @match d <| rest_d = rest_d;
       s2 = simplify(s, d)
       changed = changed || !referenceEq(s2, s)
-      outSubscripts = s2 <| outSubscripts
+      outSubscripts = Cons{Subscript}(s2, outSubscripts)
     end
     if trim
       outSubscripts = listReverseInPlace(ListUtil.trim(outSubscripts, isWhole))
@@ -812,48 +812,6 @@ function mapFoldExpShallowO1(subscript::Subscript, func::MapFunc, arg::ArgT) whe
   return outSubscript
 end
 
-
-function mapFoldExp(subscript::Subscript, func::MapFunc, arg::ArgT) where {ArgT}
-
-  local outSubscript::Subscript
-
-   outSubscript = begin
-    local exp::Expression
-    @match subscript begin
-      SUBSCRIPT_UNTYPED(__) => begin
-         (exp, arg) = mapFold(subscript.exp, func, arg)
-        if referenceEq(subscript.exp, exp)
-          subscript
-        else
-          SUBSCRIPT_UNTYPED(exp)
-        end
-      end
-
-      SUBSCRIPT_INDEX(__) => begin
-         (exp, arg) = mapFold(subscript.index, func, arg)
-        if referenceEq(subscript.index, exp)
-          subscript
-        else
-          fromTypedExp(exp)
-        end
-      end
-
-      SUBSCRIPT_SLICE(__) => begin
-         (exp, arg) = mapFold(subscript.slice, func, arg)
-        if referenceEq(subscript.slice, exp)
-          subscript
-        else
-          fromTypedExp(exp)
-        end
-      end
-
-      _ => begin
-        subscript
-      end
-    end
-  end
-  return (outSubscript, arg)
-end
 
 function foldExp(subscript::Subscript, func::FoldFunc, arg::ArgT) where {ArgT}
   local result = begin

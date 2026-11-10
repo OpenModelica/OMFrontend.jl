@@ -1055,7 +1055,7 @@ function vectorizeEquation(
       #=  wrap general equation into one for loop per dimension (omc's vectorizeEquationGeneric) =#
       _ => begin
         local (iters, ranges, subs) = makeIterators(prefix, dimensions)
-        local subsInOrder = listReverse(subs)
+        local subsInOrder::List{Subscript} = listReverse(subs)
         local mappedEq = mapExp(eqn, (x) -> addIterator(x, prefix, subsInOrder))
         for (iter, range) in zip(iters, ranges)
           mappedEq = EQUATION_FOR(iter, SOME(range), Equation[mappedEq], source(eqn))
@@ -1081,7 +1081,7 @@ function vectorizeAlgorithm(
   end
   #=  wrap general algorithm into one for loop per dimension (as omc's vectorizeAlgorithm) =#
   local (iters, ranges, subs) = makeIterators(prefix, dimensions)
-  local subsInOrder = listReverse(subs)
+  local subsInOrder::List{Subscript} = listReverse(subs)
   local body = mapExpList(alg.statements, (x) -> addIterator(x, prefix, subsInOrder))
   for (iter, range) in zip(iters, ranges)
     body = Statement[ALG_FOR(iter, SOME(range), body, alg.source)]

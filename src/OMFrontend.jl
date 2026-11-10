@@ -41,8 +41,9 @@ module OMFrontend
 
 using MetaModelica
 
-import Absyn
-import SCode
+import OMParser.Absyn
+include("SCode/SCode.jl")
+include("DAE/DAE.jl")
 import OMParser
 import PrecompileTools
 import Distributed
@@ -348,7 +349,7 @@ function toFlatModelica(fm, fLst::List; printBindingTypes = false)
   return s
 end
 
-function toFlatModelica(fm, fLst::Frontend.FunctionTreeImpl.NODE; printBindingTypes = false)
+function toFlatModelica(fm, fLst::Frontend.FunctionTreeImpl.Tree; printBindingTypes = false)
   s = replace(Frontend.toFlatString(fm, cacheToFunctionList(fLst), printBindingTypes), "\\n" => "\n")
   s = replace(s, "OMC_NO_CLOCK.sample" => "sample")
   s = replace(s, "'AssertionLevel'" => "AssertionLevel")
@@ -382,14 +383,15 @@ function writeFlatModelicaToFile(fm, fLst;
 end
 
 """
-  Converts the function cache represented as a tree where the path is the key into a list of functions
+    cacheToFunctionList(cache::Frontend.FunctionTreeImpl.Tree)::List{Frontend.M_FUNCTION}
+
+The functions of a function tree (the function cache, keyed by path) as a list, in the tree's
+order: OMBackend's `FunctionList`. `map` over the tree's `(path, function)` list returns a list
+whose element type is the functions' concrete type, `M_FUNCTION` (ImmutableList 0.6); the tree's
+values are typed on the abstract `M_Function`.
 """
-function cacheToFunctionList(cache)
-  fLst = OMFrontend.Frontend.FunctionTreeImpl.toList(cache)
-  fv = map(fLst) do kv
-    last(kv)
-  end
-  arrayList(fv)
+function cacheToFunctionList(cache::Frontend.FunctionTreeImpl.Tree)::List{Frontend.M_FUNCTION}
+  return map(last, Frontend.FunctionTreeImpl.toList(cache))
 end
 
 """
@@ -602,8 +604,22 @@ function _libCacheDir()::String
   return dir
 end
 
+"""
+The format of the library disk cache, part of its key (`_computeLibHash`): change it when the types of the
+serialized SCode program change. 2: the Absyn records are `OMParser.Absyn`'s (were the package Absyn.jl's).
+3: SCode is `OMFrontend.SCode` (was the package SCode.jl).
+"""
+const LIB_CACHE_FORMAT = 3
+
+"""
+    _computeLibHash(path::String)::String
+
+The key of a library's disk cache: Julia's version, `LIB_CACHE_FORMAT`, the versions of OMParser and
+OMFrontend (the types of the serialized program), and the paths, modification times and sizes of the library's
+`.mo` files.
+"""
 function _computeLibHash(path::String)::String
-  local h::UInt64 = hash(string(VERSION))
+  local h::UInt64 = hash((string(VERSION), LIB_CACHE_FORMAT, pkgversion(OMParser), pkgversion(@__MODULE__)))
   if isfile(path)
     local st = stat(path)
     h = hash((path, st.mtime, st.size), h)
