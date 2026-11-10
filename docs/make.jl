@@ -13,7 +13,7 @@ DocMeta.setdocmeta!(
 
 makedocs(
     sitename = "OMFrontend.jl",
-    modules = [OMFrontend, OMFrontend.GUI_API],
+    modules = [OMFrontend, OMFrontend.GUI_API, OMFrontend.ListUtil, OMFrontend.ArrayUtil],
     authors = "John Tinnerholm <johti17@liu.se>, Martin Sjölund <martin.sjolund@liu.se>, Adrian Pop <adrian.pop@liu.se>",
     repo = Documenter.Remotes.GitHub("OpenModelica", "OMFrontend.jl"),
     format = Documenter.HTML(;
@@ -26,6 +26,7 @@ makedocs(
         "Home" => "index.md",
         "Getting started" => "getting-started.md",
         "API reference" => "api.md",
+        "Utilities" => "utilities.md",
     ],
     warnonly = [:missing_docs, :cross_references],
 )
