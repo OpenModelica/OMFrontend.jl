@@ -61,6 +61,9 @@ function flattenFM(model, file)
 end
 
 @testset "OMFrontend tests" begin
+  #= ArrayUtil and ListUtil, formerly packages of their own: first, they are what the rest is built on. =#
+  include("ArrayUtilTests.jl")
+  include("ListUtilTests.jl")
   include("packageRootTests.jl")
   include("libraryDependencyTests.jl")
   include("loadedLibraryTests.jl")

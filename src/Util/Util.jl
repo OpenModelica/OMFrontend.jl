@@ -69,7 +69,7 @@ end
   end
 end
 
-import ListUtil
+import ..ListUtil
 
 const dummyInfo = SOURCEINFO("", false, 0, 0, 0, 0, 0.0)::SourceInfo
 

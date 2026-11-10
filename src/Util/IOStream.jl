@@ -86,7 +86,7 @@ const emptyStreamOfTypeList =
 
 import ..IOStreamExt
 
-import ListUtil
+import ..ListUtil
 
 function create(streamName::String, streamType::IOStreamType)::IOSTREAM
   local outStream::IOSTREAM

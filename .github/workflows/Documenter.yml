@@ -40,7 +40,7 @@ jobs:
       - name: Checkout sibling OM*.jl packages
         uses: JKRT/OM.jl/.github/actions/checkout-siblings@master
         with:
-          packages: ArrayUtil ImmutableList ListUtil MetaModelica OMParser OMRuntimeExternalC
+          packages: ImmutableList MetaModelica OMParser OMRuntimeExternalC
 
       - name: Setup Julia
         uses: julia-actions/setup-julia@v2
@@ -51,8 +51,8 @@ jobs:
 
       - name: Instantiate package environment
         # Same sibling-develop dance as ci.yml: Project.toml [sources] only
-        # applies to direct deps, so transitive deps (e.g. ArrayUtil via
-        # ListUtil) and stale registry versions otherwise sneak in.
+        # applies to direct deps, so transitive deps and stale registry
+        # versions otherwise sneak in.
         shell: bash
         working-directory: OMFrontend.jl
         run: |
@@ -61,9 +61,7 @@ jobs:
             Pkg.Registry.add("General")
             Pkg.Registry.add(Pkg.RegistrySpec(url = "https://github.com/OpenModelica/OpenModelicaRegistry.git"))
             siblings = [
-              "../ArrayUtil.jl",
               "../ImmutableList.jl",
-              "../ListUtil.jl",
               "../MetaModelica.jl",
               "../OMParser.jl",
               "../OMRuntimeExternalC.jl",
@@ -84,9 +82,7 @@ jobs:
           julia --project=docs -e '
             import Pkg
             siblings = [
-              "../ArrayUtil.jl",
               "../ImmutableList.jl",
-              "../ListUtil.jl",
               "../MetaModelica.jl",
               "../OMParser.jl",
               "../OMRuntimeExternalC.jl",

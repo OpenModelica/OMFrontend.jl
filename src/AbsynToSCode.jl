@@ -40,7 +40,7 @@ using ExportAll
 
 import OMParser.Absyn
 import ..SCode
-import ListUtil
+import ..ListUtil
 
 import ..AbsynUtil
 import ..SCodeUtil

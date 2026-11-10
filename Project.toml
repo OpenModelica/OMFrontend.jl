@@ -1,15 +1,13 @@
 name = "OMFrontend"
 uuid = "b10394b5-f439-4073-a0c5-e09cb00cf46c"
 authors = ["John Tinnerholm <johti17@liu.se>", "Martin Sjölund <martin.sjolund@liu.se>", "Adrian Pop <adrian.pop@liu.se>"]
-version = "2.0.0"
+version = "2.0.1"
 
 [deps]
-ArrayUtil = "53cd29f2-c28d-11e9-1567-bd5452eeb1a0"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 ExportAll = "ad2082ca-a69e-11e9-38fa-e96309a31fe4"
 ImmutableList = "4a558cac-c1ed-11e9-20da-3584bcd8709a"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
-ListUtil = "b2a72b7e-c1ef-11e9-3a87-6ddc5900c366"
 MetaModelica = "9d7f2a79-07b5-5542-8b19-c0100dda6b06"
 OMParser = "11f87224-cae7-4e99-a924-e50d12f62c59"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
@@ -26,6 +24,4 @@ OMRuntimeExternalC="ada38df0-e20e-11ed-02f3-2b4b19c1ec8a"
 julia = "1.13"
 MetaModelica = "0.4.3, 0.5"
 OMParser = "1"
-ArrayUtil = "0.3.2"
 ImmutableList = "0.6"
-ListUtil = "0.4.1"

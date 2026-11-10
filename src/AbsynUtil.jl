@@ -57,7 +57,7 @@ const FuncType = Function
 
 using OMParser.Absyn
 
-import ListUtil
+import ..ListUtil
 
 import ..Frontend.Util
 import ..Frontend.System

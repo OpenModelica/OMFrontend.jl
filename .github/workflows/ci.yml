@@ -53,7 +53,7 @@ jobs:
         with:
           path: OMFrontend.jl
 
-      # Project.toml [sources] (and the transitive [sources] inside ListUtil)
+      # Project.toml [sources]
       # points at sibling working copies in ../<name>.jl. We lay
       # the siblings out alongside the main checkout so Pkg.resolve finds them.
       # The shared action checks the siblings out at the branch that matches
@@ -62,7 +62,7 @@ jobs:
       - name: Checkout sibling OM*.jl packages
         uses: JKRT/OM.jl/.github/actions/checkout-siblings@master
         with:
-          packages: ArrayUtil ImmutableList ListUtil MetaModelica OMParser OMRuntimeExternalC
+          packages: ImmutableList MetaModelica OMParser OMRuntimeExternalC
 
       - name: Setup Julia ${{ matrix.version }}-${{ matrix.arch }}
         uses: julia-actions/setup-julia@v2
@@ -85,7 +85,7 @@ jobs:
         # PrecompileTools @compile_workload that ships with OMFrontend; this
         # mirrors what end users hit on first `using OMFrontend`.
         # We Pkg.develop every sibling because Project.toml [sources] only
-        # applies to direct deps; a transitive dep (ArrayUtil via ListUtil)
+        # applies to direct deps; a transitive dep
         # otherwise falls back to the registry version, whose [compat] may not
         # admit the local ImmutableList.
         shell: bash
@@ -96,9 +96,7 @@ jobs:
             Pkg.Registry.add("General")
             Pkg.Registry.add(Pkg.RegistrySpec(url = "https://github.com/OpenModelica/OpenModelicaRegistry.git"))
             siblings = [
-              "../ArrayUtil.jl",
               "../ImmutableList.jl",
-              "../ListUtil.jl",
               "../MetaModelica.jl",
               "../OMParser.jl",
               "../OMRuntimeExternalC.jl",

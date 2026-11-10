@@ -45,9 +45,9 @@ import OMParser
 using MetaModelica
 using ExportAll
 import OMParser.Absyn
-import ArrayUtil
+import ..ArrayUtil
 import ..DAE
-import ListUtil
+import ..ListUtil
 import ..SCode
 import PrecompileTools
 import Base.@nospecializeinfer
