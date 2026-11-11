@@ -45,9 +45,9 @@ import OMParser
 using MetaModelica
 using ExportAll
 import OMParser.Absyn
-import ArrayUtil
+import ..ArrayUtil
 import ..DAE
-import ListUtil
+import ..ListUtil
 import ..SCode
 import PrecompileTools
 import Base.@nospecializeinfer
@@ -303,9 +303,6 @@ include("./NewFrontend/NFInline.jl")
 #=  Builtin functions =#
 include("./NewFrontend/NFRangeIterator.jl")
 
-
-#= Custom memory...=#
-include("./Util/Memory.jl")
 
 #= JSON export of FlatModel (structural-mode components and templates). =#
 include("./Export/StructuralModeJSON.jl")

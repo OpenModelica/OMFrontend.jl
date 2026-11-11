@@ -55,9 +55,6 @@ function workload()
     NFModelicaBuiltinCache["NFModelicaBuiltin"] = s
     @info "Builtin Library Loaded!"
 
-    #@info "initialize cache" #Not in use at the moment...
-    #Frontend.MemoryUtil.initialize(400)
-
     #=Enable GC again.=#
     GC.enable(true)
   end

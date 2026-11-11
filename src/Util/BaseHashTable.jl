@@ -55,8 +55,8 @@ FuncValString = Function
 #=  keyEqual - A comparison function between two keys, returns true if equal.
 =#
 
-import ArrayUtil
-import ListUtil
+import ..ArrayUtil
+import ..ListUtil
 #=  Generic hashtable code below
 =#
 #=  adrpo: use a prime here (pick your poison):

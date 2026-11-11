@@ -38,7 +38,6 @@ module Settings
 using MetaModelica
 using ExportAll
 
-import Pkg
 
 #=The directory path. Can be modified. The source location, not Base.find_package,
   which returns nothing wherever OMFrontend is an indirect dependency and while the

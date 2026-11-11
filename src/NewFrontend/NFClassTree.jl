@@ -384,8 +384,6 @@ function applyComponents(tree::ClassTree, func::Function)::Nothing
   end
 end
 
-using Distributed
-
 #= Tag-branching dispatcher (5-arg). =#
 function applyLocalComponents(tree::ClassTree, attributes::Attributes, useBinding::Bool, instLevel::Int, attributeRef::Ref{Attributes})
   isvariant(tree, CLASS_TREE_INSTANTIATED_TREE) ?
@@ -468,8 +466,6 @@ function applyLocalComponentsWithInstComponentExpressions(tree::ClassTree)
   end
   return nothing
 end
-
-using Distributed
 
 function applyLocalComponents_partial(tree::ClassTree,
                                         attributes::Attributes,

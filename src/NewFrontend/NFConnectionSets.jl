@@ -43,8 +43,7 @@ module ConnectionSets
 using MetaModelica
 using ExportAll
 
-import DataStructures
-import ListUtil
+import ..ListUtil
 import Base.string
 import Base.length
 

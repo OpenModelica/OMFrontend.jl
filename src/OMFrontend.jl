@@ -42,11 +42,13 @@ module OMFrontend
 using MetaModelica
 
 import OMParser.Absyn
+#= ArrayUtil and ListUtil (formerly the packages of those names) are OMFrontend's own modules. =#
+include("ArrayUtil/ArrayUtil.jl")
+include("ListUtil/ListUtil.jl")
 include("SCode/SCode.jl")
 include("DAE/DAE.jl")
 import OMParser
 import PrecompileTools
-import Distributed
 import Serialization
 
 #= This file defines additional utility macros. =#

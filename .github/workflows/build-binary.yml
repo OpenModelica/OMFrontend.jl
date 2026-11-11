@@ -70,7 +70,7 @@ jobs:
       - name: Checkout sibling OM*.jl packages
         uses: JKRT/OM.jl/.github/actions/checkout-siblings@master
         with:
-          packages: ArrayUtil ImmutableList ListUtil MetaModelica OMParser OMRuntimeExternalC
+          packages: ImmutableList MetaModelica OMParser OMRuntimeExternalC
 
       - name: Setup Julia ${{ inputs.julia-version }}-${{ matrix.arch }}
         uses: julia-actions/setup-julia@v2
@@ -91,9 +91,7 @@ jobs:
             Pkg.Registry.add("General")
             Pkg.Registry.add(Pkg.RegistrySpec(url = "https://github.com/OpenModelica/OpenModelicaRegistry.git"))
             siblings = [
-              "../ArrayUtil.jl",
               "../ImmutableList.jl",
-              "../ListUtil.jl",
               "../MetaModelica.jl",
               "../OMParser.jl",
               "../OMRuntimeExternalC.jl",

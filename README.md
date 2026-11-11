@@ -1,6 +1,6 @@
 [![Github Action CI](https://github.com/OpenModelica/OMFrontend.jl/workflows/CI/badge.svg)](https://github.com/OpenModelica/OMFrontend.jl/actions/workflows/ci.yml)
 [![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://OpenModelica.github.io/OMFrontend.jl/dev/)
-[![License: OSMC-PL](https://img.shields.io/badge/license-OSMC--PL-lightgrey.svg)](OSMC-License.txt)
+[![License: AGPL-3.0 or OSMC-PL](https://img.shields.io/badge/license-AGPL--3.0%20or%20OSMC--PL-lightgrey.svg)](LICENSE.md)
 
 # OMFrontend.jl
 
@@ -154,7 +154,28 @@ the API reflects that low-level role.
 For questions or collaboration ideas, contact details are available on my
 [LiU page](https://liu.se/en/employee/johti17).
 
+## Documentation
+
+The documentation is built with Documenter.jl from `docs/`: the pages are the
+home page, getting started, the API reference and the utilities
+(`OMFrontend.ListUtil`, `OMFrontend.ArrayUtil`).
+
+* Online: <https://OpenModelica.github.io/OMFrontend.jl/> (the development version
+  under `/dev/`, a release under `/stable/` and `/vX.Y.Z/`).
+* In Julia: every documented function has its docstring in the help mode,
+  for example `?OMFrontend.flattenModel`; `names(OMFrontend)` lists the public names.
+* Locally, from the repository root (the HTML is written to `docs/build/`):
+
+```julia
+julia> import Pkg
+julia> Pkg.activate("docs")
+julia> Pkg.develop(path = ".")   # and the sibling packages, as in the Installation section
+julia> include("docs/make.jl")
+```
+
 ## Licenses
 
-OMFrontend.jl itself is distributed under the **OSMC Public License (OSMC-PL)**;
-see `OSMC-License.txt`.
+OMFrontend.jl is distributed under the **OSMC Public License 1.8 (OSMC-PL)** or the
+**GNU Affero General Public License version 3 (AGPL v3)**, at the recipient's choice;
+[LICENSE.md](LICENSE.md) holds both. `OMFrontend.ListUtil` and `OMFrontend.ArrayUtil`,
+formerly the packages ListUtil.jl and ArrayUtil.jl, are part of OMFrontend.jl.
