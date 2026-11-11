@@ -112,8 +112,8 @@ jobs:
         # sandboxed test environment with a different manifest hash and
         # re-precompile the entire dep graph from scratch -- including the
         # OMFrontend @compile_workload, which loads MSL_4_0_0 and is the
-        # most expensive part of the build. Test is already in [deps] so
-        # no [extras] merging is needed.
+        # most expensive part of the build. Test and Pkg ([extras]) load
+        # from the standard library, so no [extras] merging is needed.
         # --code-coverage=user emits .cov files next to user source for the
         # downstream julia-processcoverage step. Only enabled on the coverage
         # runner; the others run tests without the coverage overhead.

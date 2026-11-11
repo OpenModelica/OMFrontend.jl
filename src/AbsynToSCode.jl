@@ -47,7 +47,6 @@ import ..SCodeUtil
 import ..Util
 import ..System
 
-using Distributed
 
 const ASSERTION_LEVEL_ERROR =
   Absyn.CREF(Absyn.CREF_FULLYQUALIFIED(Absyn.CREF_QUAL(

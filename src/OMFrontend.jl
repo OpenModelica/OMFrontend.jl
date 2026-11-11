@@ -49,7 +49,6 @@ include("SCode/SCode.jl")
 include("DAE/DAE.jl")
 import OMParser
 import PrecompileTools
-import Distributed
 import Serialization
 
 #= This file defines additional utility macros. =#

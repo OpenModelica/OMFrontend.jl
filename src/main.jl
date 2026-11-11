@@ -304,9 +304,6 @@ include("./NewFrontend/NFInline.jl")
 include("./NewFrontend/NFRangeIterator.jl")
 
 
-#= Custom memory...=#
-include("./Util/Memory.jl")
-
 #= JSON export of FlatModel (structural-mode components and templates). =#
 include("./Export/StructuralModeJSON.jl")
 
