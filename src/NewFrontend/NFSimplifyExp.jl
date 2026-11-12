@@ -231,10 +231,12 @@ end
               #@info "DBG print to remove $e"
               callExp = CALL_EXPRESSION(call)
             end
-          else
-            if Flags.isSet(Flags.NF_SCALARIZE)
-              callExp = simplify(nameConsiderBuiltin(call.fn), args, call)
-            end
+          elseif scalarize
+            callExp = simplify(nameConsiderBuiltin(call.fn), args, call)
+          elseif changed
+            #= Arrays kept: the builtin call is not expanded, but it keeps its simplified arguments (an
+               iterator's MUTABLE_EXPRESSION read to its value, see expandArrayConstructor). =#
+            callExp = CALL_EXPRESSION(call)
           end
         elseif Flags.isSet(Flags.NF_EVAL_CONST_ARG_FUNCS) &&
                is_pure &&

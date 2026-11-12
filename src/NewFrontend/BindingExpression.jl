@@ -5173,6 +5173,9 @@ function applyIndexSubscriptRange(@nospecialize(rangeExp::Expression), index::Su
   if isScalarLiteral(index_exp)
     @match RANGE_EXPRESSION(start = start_exp, step = step_exp, stop = stop_exp) = rangeExp
      outExp = applyIndexSubscriptRange2(start_exp, step_exp, stop_exp, toInteger(index_exp))
+  elseif isNone(rangeExp.step) && rangeExp.start isa INTEGER_EXPRESSION && rangeExp.start.value == 1
+    #= (1:n)[i] is i (an iterator of a vectorized component array as the index) =#
+    outExp = index_exp
   else
     @match RANGE_EXPRESSION(ty = ty) = rangeExp
     local subs::List{Subscript} = Cons{Subscript}(index, nil)

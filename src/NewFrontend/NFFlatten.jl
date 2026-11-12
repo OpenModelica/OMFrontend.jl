@@ -1040,11 +1040,14 @@ function vectorizeEquation(
   local veqn::Equation
   veqn = begin
     @match eqn begin
-      #=  convert simple equality of crefs to array equality =#
+      #=  convert simple equality of crefs to array equality; not one of a subscripted cref: the subscript is the
+          instance's own (`pin_p.v = plug_p.pin[k].v` with `k` per instance), which the array equality of the
+          whole component array would read as a slice (`plugToPin_p.plug_p.pin[{1, 2, 3}].v`); and not one with a
+          cref outside the component array (`t0 = time`), which stays a scalar =#
       EQUATION_EQUALITY(
         lhs = CREF_EXPRESSION(__),
         rhs = CREF_EXPRESSION(__),
-      ) => begin
+      ) where (isVectorizedWhole(eqn.lhs.cref, prefix) && isVectorizedWhole(eqn.rhs.cref, prefix)) => begin
         EQUATION_ARRAY_EQUALITY(
           eqn.lhs,
           eqn.rhs,
@@ -1054,9 +1057,10 @@ function vectorizeEquation(
       end
       #=  wrap general equation into one for loop per dimension (omc's vectorizeEquationGeneric) =#
       _ => begin
-        local (iters, ranges, subs) = makeIterators(prefix, dimensions)
+        local (iters, ranges, subs) = makeIterators(prefix, dimensions, nextIteratorIndex(eqn))
         local subsInOrder::List{Subscript} = listReverse(subs)
-        local mappedEq = mapExp(eqn, (x) -> addIterator(x, prefix, subsInOrder))
+        local element::Equation = elementBindingEquation(eqn, dimensions, subsInOrder)
+        local mappedEq = mapExp(element, (x) -> addIterator(x, prefix, subsInOrder))
         for (iter, range) in zip(iters, ranges)
           mappedEq = EQUATION_FOR(iter, SOME(range), Equation[mappedEq], source(eqn))
         end
@@ -1067,6 +1071,22 @@ function vectorizeEquation(
   return veqn
 end
 
+"""
+    elementBindingEquation(eqn, dimensions, subscripts)
+
+`eqn` of a component array of `dimensions`, as the equation of the element at `subscripts` (the iterators of the
+vectorization). The binding equation of an array field whose value is a modifier over the whole component array
+(`C c[3](r = {f(i) for i in 1:3})` with `Real r[3]`: `c.r = {f(i) for i in 1:3}`, a `Real[3, 3]` value) has the
+component array's dimensions first in its value; the element's value is the value at the subscripts. Any other
+equation is returned as it is.
+"""
+function elementBindingEquation(eqn::Equation, dimensions::List, subscripts::List{Subscript})::Equation
+  isvariant(eqn, EQUATION_ARRAY_EQUALITY) || return eqn
+  local own::Int = listLength(arrayDims(typeOf(eqn.lhs)))
+  listLength(arrayDims(typeOf(eqn.rhs))) == own + listLength(dimensions) || return eqn
+  return EQUATION_ARRAY_EQUALITY(eqn.lhs, applySubscripts(subscripts, eqn.rhs), eqn.ty, eqn.source)
+end
+
 function vectorizeAlgorithm(
   alg::Algorithm,
   dimensions::List{Dimension},
@@ -1075,12 +1095,13 @@ function vectorizeAlgorithm(
   #=  let simple assignment as is =#
   if length(alg.statements) == 1
     local stmt = alg.statements[1]
-    if isvariant(stmt, ALG_ASSIGNMENT) && stmt.lhs isa CREF_EXPRESSION && stmt.rhs isa CREF_EXPRESSION
+    if isvariant(stmt, ALG_ASSIGNMENT) && stmt.lhs isa CREF_EXPRESSION && stmt.rhs isa CREF_EXPRESSION &&
+       isVectorizedWhole(stmt.lhs.cref, prefix) && isVectorizedWhole(stmt.rhs.cref, prefix)
       return alg
     end
   end
   #=  wrap general algorithm into one for loop per dimension (as omc's vectorizeAlgorithm) =#
-  local (iters, ranges, subs) = makeIterators(prefix, dimensions)
+  local (iters, ranges, subs) = makeIterators(prefix, dimensions, nextIteratorIndex(alg.statements))
   local subsInOrder::List{Subscript} = listReverse(subs)
   local body = mapExpList(alg.statements, (x) -> addIterator(x, prefix, subsInOrder))
   for (iter, range) in zip(iters, ranges)
@@ -1089,8 +1110,73 @@ function vectorizeAlgorithm(
   return ALGORITHM(body, alg.source)
 end
 
+"""
+    isBelow(cref, prefix)
+
+Whether `cref` is a reference to something inside the component `prefix`: one of the parts before its last is
+`prefix` (the part `mergeIterator` gives the iterators' subscripts).
+"""
+function isBelow(cref::ComponentRef, prefix::ComponentRef)::Bool
+  isvariant(cref, COMPONENT_REF_CREF) || return false
+  local rest::ComponentRef = cref.restCref
+  while isvariant(rest, COMPONENT_REF_CREF)
+    isEqual(rest, prefix) && return true
+    rest = rest.restCref
+  end
+  return false
+end
+
+"""
+    isVectorizedWhole(cref, prefix)
+
+Whether `cref`, in an equation of the component array `prefix`, is an array once the component array is vectorized
+and may stand in an array equality as it is: inside the component (`isBelow`) and without subscripts of its own.
+"""
+isVectorizedWhole(cref::ComponentRef, prefix::ComponentRef)::Bool = !hasSubscripts(cref) && isBelow(cref, prefix)
+
+"""
+    vectorizationIndex(iterator)
+
+The index `N` of an iterator `\$iN` that the vectorization of a component array made (`makeIterators`); 0 for any
+other iterator.
+"""
+function vectorizationIndex(iterator::InstNode)::Int
+  local n::String = name(iterator)
+  return startswith(n, "\$i") ? something(tryparse(Int, SubString(n, 3)), 0) : 0
+end
+
+"""
+    nextIteratorIndex(eqn)
+    nextIteratorIndex(statements)
+
+The first index free for the iterators of a vectorization around `eqn` (the statements of an algorithm): one after
+the highest of the for-loops `eqn` already is, those of the component arrays inside this one (`filter[m]` with
+`transferFunction[na]`: `\$i1` over `na`, `\$i2` over `m`). The loops are told apart by the iterators' nodes here, by
+their names in the flat model a backend reads.
+"""
+function nextIteratorIndex(@nospecialize(eqn::Equation))::Int
+  local index::Int = 1
+  while isvariant(eqn, EQUATION_FOR) && vectorizationIndex(eqn.iterator) > 0
+    index = max(index, vectorizationIndex(eqn.iterator) + 1)
+    length(eqn.body) == 1 || break
+    eqn = eqn.body[1]
+  end
+  return index
+end
+
+function nextIteratorIndex(statements::Vector{Statement})::Int
+  local index::Int = 1
+  while length(statements) == 1 && isvariant(statements[1], ALG_FOR) &&
+        vectorizationIndex(statements[1].iterator) > 0
+    index = max(index, vectorizationIndex(statements[1].iterator) + 1)
+    statements = statements[1].body
+  end
+  return index
+end
+
 function makeIterators(prefix::ComponentRef,
-                       dimensions::List{Dimension})
+                       dimensions::List{Dimension},
+                       index::Int = 1)
   #Outputs
   local iterators::List{InstNode} = nil
   local ranges::List{Expression} = nil
@@ -1100,7 +1186,6 @@ function makeIterators(prefix::ComponentRef,
   local prefix_node::InstNode
   local iter::InstNode
   local range::Expression
-  local index = 1
   local sub::Subscript
   prefix_node = node(prefix)
   for dim in dimensions
@@ -1132,27 +1217,8 @@ function addIterator_traverse(
   prefix::ComponentRef,
   subscripts::List{<:Subscript},
   )::Expression
-  local restString::String
-  local prefixString::String = toString(prefix)
-  local prefixLength::Int = stringLength(prefixString)
-  exp = begin
-    local restCref::ComponentRef
-    @match exp begin
-      CREF_EXPRESSION(
-        cref = COMPONENT_REF_CREF(restCref = restCref),
-      ) => begin
-        restString = toString(restCref)
-        if prefixLength <= stringLength(restString) &&
-           prefixString == substring(restString, 1, prefixLength)
-          @assign exp.cref = mergeIterator(exp.cref, prefix, subscripts)
-        end
-        exp
-      end
-
-      _ => begin
-        exp
-      end
-    end
+  if exp isa CREF_EXPRESSION && isBelow(exp.cref, prefix)
+    @assign exp.cref = mergeIterator(exp.cref, prefix, subscripts)
   end
   return exp
 end
