@@ -223,7 +223,10 @@ end
         =#
         if builtin
           local scalarize = Flags.isSet(Flags.NF_SCALARIZE)
-          if (is_pure && ArrayUtil.all(args, isLiteral)) && (scalarize && isScalar(call.ty))
+          #= A scalar result is evaluated with arrays kept too (omc evaluates every such call): a parameter's
+             `0.2 * div(200, 2)` stayed a call, and the backend took the event function for one of a variable
+             (MSL RealFFT1's f_max_FFT: a sample interval of 0). An array result is not: it stays the call. =#
+          if (is_pure && ArrayUtil.all(args, isLiteral)) && isScalar(call.ty)
             try
               callExp = evalCall(call, EVALTARGET_IGNORE_ERRORS())
               callExp = stripBindingInfo(callExp)
