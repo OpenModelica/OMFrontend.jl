@@ -259,6 +259,10 @@ function inlineCall(call::Call, top = nothing)::Expression
         end
         local outExp = getOutputExp(stmt, listHead(outputs), call)
         _hasVaryingSlice(outExp) && return CALL_EXPRESSION(call)
+        #= The body's package constants, as the model's own were (EvalConstants ran before this
+           inlining): MSL Media's h_TX inlined `{h_T(data[i], T) for i in 1:nX}` kept `1:Medium1.nX`
+           and `Medium1.data[i]`, a range the backend could not fold and a constant record array. =#
+        outExp = evaluateExp(outExp, Variability.CONSTANT)
         top === nothing ? outExp : _noEventRelations(outExp, top)
       end
 

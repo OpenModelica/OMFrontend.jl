@@ -1147,48 +1147,30 @@ function makeComponentBinding(
 end
 
 """
-```
-  makeRecordFieldBindingFromParent(cref::ComponentRef, target::EvalTarget)
-```
-  Updated with code from the latest frontend.
+The value of the record field `cref` without a binding, from the binding of its nearest bound parent (omc
+makeRecordFieldBindingFromParent). The field is taken from the parent's binding expression before it is evaluated,
+then evaluated once: a parent bound to another record (`stack.stackData = stackData`) gives `stackData.cellData.nRC`,
+that field's binding. Evaluated level by level, `stackData.cellData` was evaluated whole and its binding replaced by
+the value (MSL CCCV_StackRC: `stackData.cellData[1, 1].Qnom = 18000.0` for omc's `= stackData.cellDataDegraded.Qnom`).
 """
-function makeRecordFieldBindingFromParent(
-  cref::ComponentRef,
-  target::EvalTarget,
-  )::Expression
-  local exp::Expression
-  local parent_cr::ComponentRef
-  local parent_ty::M_Type
-  parent_cr = rest(cref)
-  #println("Make record fieldbinding from Parent")
-  #println(toString(cref))
-  #println(toString(parent_cr))
-  parent_ty = nodeType(parent_cr)
-  #@match true = isRecord(arrayElementType(parent_ty))
-  #= NEW =#
-  parent = node(parent_cr)
-  parent = typeComponentBinding(parent, ORIGIN_CLASS, #= typeChildren =# false)
-  comp = component(parent)
-  binding = getBinding(comp)
-  subs = getSubscripts(parent_cr)
-  if hasExp(binding)
-    exp = getExp(binding)
-    exp = applySubscripts(subs, exp)
-    exp = recordElement(firstName(cref), exp)
-    exp = evalExp(exp, target)
-    indicesToKeep = nodesIncludingSplitSubs(cref)
-    exp = map(exp, (x) -> expandNonListedSplitIndices(x, indicesToKeep))
-  else
-    #= Try parent instead. Its record's fields are not evaluated (evalExp_impl keeps a record
-       expression's fields): the field is, as the branch above (a record field of a field set
-       by a record constructor: Buildings' borefield conDat.mBorFie_flow_nominal, mBor*nBor
-       with nBor = size(cooBor, 1), had stayed 0.3*size(...)). =#
-    exp = makeRecordFieldBindingFromParent(parent_cr, target);
-    exp = applySubscripts(subs, exp);
-    exp = recordElement(firstName(cref), exp);
-    exp = evalExp(exp, target)
-  end
-  return exp
+function makeRecordFieldBindingFromParent(cref::ComponentRef, target::EvalTarget)::Expression
+  local exp::Expression = evalExp(recordFieldExpFromParent(cref), target)
+  local indicesToKeep::List{InstNode} = nodesIncludingSplitSubs(cref)
+  return map(exp, (x) -> expandNonListedSplitIndices(x, indicesToKeep))
+end
+
+"""
+The expression of the record field `cref` in the binding of its nearest bound parent, not evaluated: the parent's
+binding with the parent's subscripts and the field selected, through the parents without a binding (a record field of a
+field set by a record constructor: Buildings' borefield conDat.mBorFie_flow_nominal).
+"""
+function recordFieldExpFromParent(cref::ComponentRef)::Expression
+  local parent_cr::ComponentRef = rest(cref)
+  local parent::InstNode = typeComponentBinding(node(parent_cr), ORIGIN_CLASS, #= typeChildren =# false)
+  local binding::Binding = getBinding(component(parent))
+  local exp::Expression = hasExp(binding) ? getExp(binding) : recordFieldExpFromParent(parent_cr)
+  exp = applySubscripts(getSubscripts(parent_cr), exp)
+  return recordElement(firstName(cref), exp)
 end
 
 function makeRecordBindingExp(
