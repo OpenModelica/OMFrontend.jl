@@ -43,22 +43,30 @@ struct RANGEITERATOR_ARRAY_RANGE <: NFRangeIterator
   values::List{Expression}
 end
 
-struct RANGEITERATOR_REAL_RANGE{T0 <: AbstractFloat, T1 <: Integer} <: NFRangeIterator
-  start::T0
-  stepsize::T0
-  current::T1
-  steps::T1
+"""
+An iterator over a Real range: `steps` values `start + stepsize * current`, `current` counting from 0. The fields are
+concrete (`Float64`, `Int`), as every constructor call passes them, so a matched iterator's arithmetic is inferred: the
+type parameters they had (`T0 <: AbstractFloat`, `T1 <: Integer`) left `current + 1` a dynamic `+(::Integer, ::Int)`,
+which a package adding `+` methods invalidated with all its callers at each load (2026-11-16).
+"""
+struct RANGEITERATOR_REAL_RANGE <: NFRangeIterator
+  start::Float64
+  stepsize::Float64
+  current::Int
+  steps::Int
 end
 
-struct RANGEITERATOR_INT_STEP_RANGE{T0 <: Integer} <: NFRangeIterator
-  current::T0
-  stepsize::T0
-  last::T0
+"""An iterator over an Integer range with a step (concrete `Int` fields, see `RANGEITERATOR_REAL_RANGE`)."""
+struct RANGEITERATOR_INT_STEP_RANGE <: NFRangeIterator
+  current::Int
+  stepsize::Int
+  last::Int
 end
 
-struct RANGEITERATOR_INT_RANGE{T0 <: Integer} <: NFRangeIterator
-  current::T0
-  last::T0
+"""An iterator over an Integer range `current:last` (concrete `Int` fields, see `RANGEITERATOR_REAL_RANGE`)."""
+struct RANGEITERATOR_INT_RANGE <: NFRangeIterator
+  current::Int
+  last::Int
 end
 
 const RangeIterator = NFRangeIterator
@@ -106,22 +114,29 @@ function toList(iterator::RangeIterator)::List{Expression}
   return expl
 end
 
+"""
+    hasNext(iterator)
+
+Whether `iterator` has another value. The counters are read as `Int` (the iterators of Integer and Real ranges count
+in `Int`): read through the abstract `RangeIterator`, `iterator.current <= iterator.last` was a dynamic comparison,
+which packages adding comparison methods invalidated with its callers at each load (2026-11-16).
+"""
 function hasNext(iterator::RangeIterator)::Bool
   local hasNext::Bool
   hasNext = begin
     @match iterator begin
       RANGEITERATOR_INT_RANGE(__) => begin
-        iterator.current <= iterator.last
+        (iterator.current::Int) <= (iterator.last::Int)
       end
       RANGEITERATOR_INT_STEP_RANGE(__) => begin
-        if iterator.stepsize > 0
-          iterator.current <= iterator.last
+        if (iterator.stepsize::Int) > 0
+          (iterator.current::Int) <= (iterator.last::Int)
         else
-          iterator.current >= iterator.last
+          (iterator.current::Int) >= (iterator.last::Int)
         end
       end
       RANGEITERATOR_REAL_RANGE(__) => begin
-        iterator.current < iterator.steps
+        (iterator.current::Int) < (iterator.steps::Int)
       end
       RANGEITERATOR_ARRAY_RANGE(__) => begin
         !listEmpty(iterator.values)
@@ -146,22 +161,22 @@ function next(iterator::RangeIterator)::Tuple{RangeIterator, Expression}
   nextExp = begin
     @match iterator begin
       RANGEITERATOR_INT_RANGE(__) => begin
-        nextExp = INTEGER_EXPRESSION(iterator.current)
-        @assign iterator.current = iterator.current + 1
+        nextExp = INTEGER_EXPRESSION(iterator.current::Int)
+        @assign iterator.current = (iterator.current::Int) + 1
         nextExp
       end
 
       RANGEITERATOR_INT_STEP_RANGE(__) => begin
-        nextExp = INTEGER_EXPRESSION(iterator.current)
-        @assign iterator.current = iterator.current + iterator.stepsize
+        nextExp = INTEGER_EXPRESSION(iterator.current::Int)
+        @assign iterator.current = (iterator.current::Int) + (iterator.stepsize::Int)
         nextExp
       end
 
       RANGEITERATOR_REAL_RANGE(__) => begin
         nextExp = REAL_EXPRESSION(
-          iterator.start + iterator.stepsize * iterator.current,
+          (iterator.start::Float64) + (iterator.stepsize::Float64) * (iterator.current::Int),
         )
-        @assign iterator.current = iterator.current + 1
+        @assign iterator.current = (iterator.current::Int) + 1
         nextExp
       end
 

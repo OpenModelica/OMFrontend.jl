@@ -1079,7 +1079,7 @@ function resolveModes(graph::NFOCConnectionGraph, cbs::Vector{ConditionalBranch}
   end
   local results = [findResultGraph(g, modelNameQualified) for g in graphs]
   #= The broken connects decide which connect equations are kept: one set for all modes. =#
-  local brokenNames(r) = sort([printConnectionStr(e, "broken") for e in r[3]])
+  local brokenNames(r) = sort(String[printConnectionStr(e, "broken") for e in r[3]])
   local brokenInFirst = brokenNames(Base.first(results))
   for (m, r) in zip(modes, results)
     brokenNames(r) == brokenInFirst ||

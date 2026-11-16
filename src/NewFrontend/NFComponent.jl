@@ -104,6 +104,13 @@ end
   ComponentImpl(tag, component, literal, ty, variability, info, modifier, classInst,
     binding, condition, attributes, ann, comment, dimensions, instantiated, definition)
 
+"""
+The tag of `c` (its variant). Read through the abstract `Component`, `c.tag` is `Any`, and `c.tag == CT_X` a dynamic
+`==(::Any, ::ComponentTag)` that a package adding `==` methods (MultivariatePolynomials) invalidated, with its callers,
+at each load (2026-11-16: 995 compiled methods).
+"""
+componentTag(c::Component)::ComponentTag = (c::ComponentImpl).tag
+
 EMPTY_COMPONENT() = _comp(CT_EMPTY)
 DELETED_COMPONENT(component) = _comp(CT_DELETED; component)
 ENUM_LITERAL_COMPONENT(literal) = _comp(CT_ENUM_LITERAL; literal)
@@ -409,8 +416,8 @@ function toString(nameStr::String, component::Component)
       end
 
       UNTYPED_COMPONENT(__) => begin
-        toString(component.attributes, TYPE_UNKNOWN()) +
-          name(component.classInst) +
+        toString(component.attributes, TYPE_UNKNOWN())::String +
+          name(component.classInst)::String +
           " " +
           nameStr +
           ListUtil.toString(
@@ -421,20 +428,20 @@ function toString(nameStr::String, component::Component)
           ", ",
             "]",
             false,
-          ) +
-            toString(component.binding, " = ")
+          )::String +
+            toString(component.binding, " = ")::String
       end
 
       TYPED_COMPONENT(__) => begin
-        toString(component.attributes, component.ty) +
-          toString(component.ty) +
+        toString(component.attributes, component.ty)::String +
+          toString(component.ty)::String +
           " " +
           nameStr +
-          toString(component.binding, " = ")
+          toString(component.binding, " = ")::String
       end
 
       TYPE_ATTRIBUTE(__) => begin
-        nameStr + toString(component.modifier, false)
+        nameStr + toString(component.modifier, false)::String
       end
       _ => begin
         "UNKNOWN COMPONENT"
@@ -1127,7 +1134,7 @@ end
 
 function classInstance(component::Component)
   #= An iterator over records (`for r in rs`) has the record class as its class (omc Component.classInstance). =#
-  if component.tag == CT_ITERATOR && isvariant(component.ty, TYPE_COMPLEX)
+  if componentTag(component) === CT_ITERATOR && isvariant(component.ty, TYPE_COMPLEX)
     return complexNode(component.ty)
   end
   return component.classInst

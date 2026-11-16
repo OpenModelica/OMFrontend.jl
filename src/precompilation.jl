@@ -93,13 +93,16 @@ function workload()
   -John 2023-06-22
   =#
   @info "Testing to load MSL models"
-  function flattenModelInMSL_TST(modelName::String; MSL_V)
+  function flattenModelInMSL_TST(modelName::String; MSL_V, scalarize::Bool = true)
     if !haskey(OMFrontend.LIBRARY_CACHE, MSL_V)
       OMFrontend.initLoadMSL(MSL_Version= MSL_V)
     end
     local libraryAsScoded = OMFrontend.LIBRARY_CACHE[MSL_V]
-    (FM, cache) = OMFrontend.instantiateSCodeToFM(modelName, libraryAsScoded)
+    (FM, cache) = OMFrontend.instantiateSCodeToFM(modelName, libraryAsScoded; scalarize = scalarize)
   end
+  #= Each model is flattened scalarized and with the arrays kept (scalarize = false, OM's translate): the arrays-kept
+     path compiles code of its own (2026-11-16: the first flatten of PID_Controller in OM compiled 890 new instances
+     with a workload of scalarized flattens only). =#
   precompile_prefix = "Modelica.Electrical.Analog.Examples"
   precompile_model_names = [
     "IdealTriacCircuit",
@@ -111,6 +114,7 @@ function workload()
     @info "Translating: $(p)"
     try
       @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
+      @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0", scalarize = false)
     catch e
       @warn "Precompilation workload failed for $(p)" exception=(e, catch_backtrace())
     end
@@ -127,9 +131,18 @@ function workload()
     @info "Translating: $(string(precompile_prefix, ".", p))"
     try
       @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
+      @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0", scalarize = false)
     catch e
       @warn "Precompilation workload failed for $(p)" exception=(e, catch_backtrace())
     end
+  end
+  #= One MultiBody model with the arrays kept: frames, orientation records and their functions. =#
+  @info "Translating: Modelica.Mechanics.MultiBody.Examples.Elementary.DoublePendulum"
+  try
+    @time flattenModelInMSL_TST("Modelica.Mechanics.MultiBody.Examples.Elementary.DoublePendulum"; MSL_V = "MSL_4_1_0",
+                                scalarize = false)
+  catch e
+    @warn "Precompilation workload failed for DoublePendulum" exception=(e, catch_backtrace())
   end
 
   #= MultiBody examples commented out to speed up precompilation (nullRotation is slow)

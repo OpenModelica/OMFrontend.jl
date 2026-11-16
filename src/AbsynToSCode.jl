@@ -2755,7 +2755,7 @@ function checkTypeSpec(ts::Absyn.TypeSpec, info::SourceInfo)
 
       (Absyn.TCOMPLEX(typeSpecs = tss), _) => begin
         if listMember(
-          ts.path,
+          (ts::Absyn.TCOMPLEX).path,
           list(
             Absyn.IDENT("list"),
             Absyn.IDENT("List"),

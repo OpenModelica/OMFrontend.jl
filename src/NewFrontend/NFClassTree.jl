@@ -123,17 +123,24 @@ function isEmptyTree(tree::ClassTree)
   return isvariant(tree, CLASS_TREE_EMPTY_TREE)
 end
 
+"""
+    getComponents(tree)
+
+The components of `tree`. This accessor, `getExtends`, `getClasses` and `lookupTree` read through the concrete
+`ClassTreeImpl`: through the abstract `ClassTree` a field is `Any`, and its `convert` to the declared type a dynamic
+call that a package adding a `convert` method (Symbolics) invalidated, with the callers, at each load (2026-11-16).
+"""
 function getComponents(tree::ClassTree)
   isvariant(tree, CLASS_TREE_EMPTY_TREE) && return InstNode[]
-  local comps::Vector{InstNode} = tree.components
+  local comps::Vector{InstNode} = (tree::ClassTreeImpl).components
   return comps
 end
 
-getExtends(tree::ClassTree) = tree.exts
+getExtends(tree::ClassTree) = (tree::ClassTreeImpl).exts
 
 
 function getClasses(tree::ClassTree)
-  local clss::Vector{InstNode} = tree.classes
+  local clss::Vector{InstNode} = (tree::ClassTreeImpl).classes
   return clss
 end
 
@@ -2275,7 +2282,7 @@ function resolveImport(index::Int, tree::ClassTree)::InstNode
   local imports::Vector{Import}
   local imp::Import
   local changed::Bool
-  imports = tree.imports
+  imports = (tree::ClassTreeImpl).imports
   #=  Imports are resolved on demand, i.e. here. =#
   local isChangedImportRef = Ref{Bool}(false)
   local importTyRef = Ref{Import}(EMPTY_IMPORT())
@@ -2702,9 +2709,7 @@ function addLocalElement(
 end
 
 function lookupTree(ctree::ClassTree)::LookupTree.Tree
-  local ltree::LookupTree.Tree
-  ltree = ctree.tree
-  return ltree
+  return (ctree::ClassTreeImpl).tree::LookupTree.Tree
 end
 
 function getDuplicates(tree::ClassTree)::DuplicateTree.Tree

@@ -342,7 +342,7 @@ function evaluateStatements(
   stmts::Vector{Statement},
   constVariability::VariabilityType,
   )
-  local outStmts::Vector{Statement} = [evaluateStatement(s, constVariability) for s in stmts]
+  local outStmts::Vector{Statement} = Statement[evaluateStatement(s, constVariability) for s in stmts]
   return outStmts
 end
 
@@ -371,13 +371,13 @@ function evaluateStatement(stmt::Statement, constVariability::VariabilityType)::
 
       ALG_IF(__) => begin
         @assign stmt.branches =
-          [evaluateStmtBranch(b, constVariability) for b in stmt.branches]
+          Tuple{Expression, Vector{Statement}}[evaluateStmtBranch(b, constVariability) for b in stmt.branches]
         stmt
       end
 
       ALG_WHEN(__) => begin
         @assign stmt.branches =
-          [evaluateStmtBranch(b, constVariability) for b in stmt.branches]
+          Tuple{Expression, Vector{Statement}}[evaluateStmtBranch(b, constVariability) for b in stmt.branches]
         stmt
       end
 

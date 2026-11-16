@@ -3686,21 +3686,25 @@ end
 
       EQUATION_RECONFIGURE(__) => begin
         local info = DAE.ElementSource_getInfo(eq.source)
-        local typedConds = [begin
+        #= Loops, not comprehensions: their closures' element types were not inferred, and the widening `collect`
+           was invalidated at each load by a package's `setindex_widen_up_to` method (Unzip) (2026-11-16). =#
+        local typedConds = Expression[]
+        for cond in eq.whenConditions
           (tcond, _, _) = typeCondition(cond, origin, eq.source,
                                         Error.WHEN_CONDITION_TYPE_ERROR,
                                         allowVector = true, allowClock = true)
-          tcond
-        end for cond in eq.whenConditions]
-        local typedCons = [begin
+          push!(typedConds, tcond)
+        end
+        local typedCons = Any[]
+        for mc in eq.whenConstraints
           if isSome(mc)
             @match SOME(c) = mc
             (tc, _, _) = typeExp(c, origin, info)
-            SOME(tc)
+            push!(typedCons, SOME(tc))
           else
-            NONE()
+            push!(typedCons, NONE())
           end
-        end for mc in eq.whenConstraints]
+        end
         local typedPrompt = if isSome(eq.prompt)
           @match SOME(p) = eq.prompt
           (tp, _, _) = typeExp(p, origin, info)
@@ -3998,38 +4002,27 @@ end
       ALG_IF(__) => begin
         next_origin = setFlag(origin, ORIGIN_IF)
         cond_origin = setFlag(next_origin, ORIGIN_CONDITION)
-        tybrs = [
-          begin
-            @match br begin
-              (cond, body) => begin
-                (e1,_,_) = typeCondition(
-                  cond,
-                  cond_origin,
-                  st.source,
-                  Error.IF_CONDITION_TYPE_ERROR,
-                )
-                sts1 = [typeStatement(bst, next_origin) for bst in body]
-                (e1, sts1)
-              end
-            end
-          end for br in st.branches
-        ]
+        #= A loop, not a comprehension: the comprehension's closure boxed the typed locals it assigned, and its
+           result reached `tybrs` through a dynamic `convert` that later packages' `convert` methods invalidated at
+           each load (2026-11-16). =#
+        tybrs = Tuple{Expression, Vector{Statement}}[]
+        for br in st.branches
+          (cond, body) = br::Tuple{Expression, Vector{Statement}}
+          (e1, _, _) = typeCondition(cond, cond_origin, st.source, Error.IF_CONDITION_TYPE_ERROR)
+          push!(tybrs, (e1, Statement[typeStatement(bst, next_origin) for bst in body]))
+        end
         ALG_IF(tybrs, st.source)
       end
 
       ALG_WHEN(__) => begin
         next_origin = setFlag(origin, ORIGIN_WHEN)
-        tybrs = [
-          begin
-            @match br begin
-              (cond, body) => begin
-                (e1,_,_) = typeWhenCondition(cond, origin, st.source, false)
-                sts1 = [typeStatement(bst, next_origin) for bst in body]
-                (e1, sts1)
-              end
-            end
-          end for br in st.branches
-        ]
+        #= A loop, not a comprehension (see ALG_IF above). =#
+        tybrs = Tuple{Expression, Vector{Statement}}[]
+        for br in st.branches
+          (cond, body) = br::Tuple{Expression, Vector{Statement}}
+          (e1, _, _) = typeWhenCondition(cond, origin, st.source, false)
+          push!(tybrs, (e1, Statement[typeStatement(bst, next_origin) for bst in body]))
+        end
         ALG_WHEN(tybrs, st.source)
       end
 
@@ -4108,12 +4101,12 @@ end
           st.source,
           Error.WHILE_CONDITION_TYPE_ERROR,
         )
-         sts1 = [typeStatement(bst, origin) for bst in st.body]
+         sts1 = Statement[typeStatement(bst, origin) for bst in st.body]
         ALG_WHILE(e1, sts1, st.source)
       end
 
       ALG_FAILURE(__) => begin
-        sts1 = [typeStatement(bst, origin) for bst in st.body]
+        sts1 = Statement[typeStatement(bst, origin) for bst in st.body]
         ALG_FAILURE(sts1, st.source)
       end
 
