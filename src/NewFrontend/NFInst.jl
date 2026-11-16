@@ -1489,8 +1489,9 @@ function redeclareComponentElement(redeclareComp::Pointer{InstNode}, replaceable
   local repl_replaceable::Bool = isReplaceable(repl_node)
   repl_node = instComponent(repl_node, DEFAULT_ATTR, MODIFIER_NOMOD(), true, instLevel, Ref{Attributes}(DEFAULT_ATTR))
   P_Pointer.update(replaceableComp, repl_node)
-  rdcl_node = redeclareComponent(rdcl_node, repl_node, MODIFIER_NOMOD(), MODIFIER_NOMOD(), DEFAULT_ATTR, rdcl_node, instLevel,
-                                 Ref{Attributes}(DEFAULT_ATTR); originalReplaceable = repl_replaceable)
+  rdcl_node = redeclareComponent(rdcl_node, repl_node, MODIFIER_NOMOD(), MODIFIER_NOMOD(), DEFAULT_ATTR, rdcl_node,
+                                 true, instLevel, Ref{Attributes}(DEFAULT_ATTR);
+                                 originalReplaceable = repl_replaceable)
    outComp = P_Pointer.create(rdcl_node)
   outComp
 end
@@ -1688,7 +1689,8 @@ function instComponent(node::InstNode,
     cc_mod = merge(elementConstrainingMod(def, parentNode, cc_mod), innerMod)
     outer_mod = merge(getModifier(rdcl_node), outer_mod)
     rdcl_node = setModifier(outer_mod, rdcl_node)
-    comp_node = redeclareComponent(rdcl_node, node, MODIFIER_NOMOD(), cc_mod, attributes, node, instLevel, attributeRef;
+    comp_node = redeclareComponent(rdcl_node, node, MODIFIER_NOMOD(), cc_mod, attributes, node, useBinding, instLevel,
+                                   attributeRef;
                                    propagatedParents = rdcl_parents,
                                    originalReplaceable = SCodeUtil.isElementReplaceable(def))
   else
@@ -1871,7 +1873,9 @@ end
 originalReplaceable: whether the original component is declared replaceable (its node no
 longer has the definition once instantiated, so the callers read it from the SCode).
 """
-function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, outerMod::Modifier, constrainingMod::Modifier, outerAttr::Attributes, redeclaredNode::InstNode, instLevel::Int, attributeRef::Ref{Attributes};
+function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, outerMod::Modifier,
+                            constrainingMod::Modifier, outerAttr::Attributes, redeclaredNode::InstNode,
+                            useBinding::Bool, instLevel::Int, attributeRef::Ref{Attributes};
                             propagatedParents::List{InstNode} = Nil{InstNode}(), originalReplaceable::Bool)
   local orig_comp::Component
   local rdcl_comp::Component
@@ -1895,7 +1899,12 @@ function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, out
   rdcl_node = setNodeType(rdcl_type, redeclareNode)
   rdcl_node = copyInstancePtr(originalNode, rdcl_node)
   rdcl_node = updateComponent!(component(redeclareNode), rdcl_node)
-  rdcl_node = instComponent(rdcl_node, outerAttr, constrainingMod, true, instLevel, attributeRef, SOME(getAttributes(orig_comp));
+  #= useBinding as the original's (omc): a redeclared field of a record whose binding is above it
+     (`h(st = st)`, `st.cell` redeclared) takes its fields' values from that binding, not from its
+     class defaults (MSL CCCV_StackRC's `stack.stackData.cellDataOriginal.OCV_SOC[:, 2]` deduced
+     2 rows from the default table, the binding's has 29) =#
+  rdcl_node = instComponent(rdcl_node, outerAttr, constrainingMod, useBinding, instLevel, attributeRef,
+                            SOME(getAttributes(orig_comp));
                             propagatedParents = propagatedParents)
   rdcl_comp = component(rdcl_node)
   new_comp = begin

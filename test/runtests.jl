@@ -117,6 +117,10 @@ end
     include("replaceableTests.jl")
   end
 
+  @testset "Record bindings" begin
+    include("recordBindingTests.jl")
+  end
+
   @testset "When-equation branches" begin
     include("whenVerifyTests.jl")
   end

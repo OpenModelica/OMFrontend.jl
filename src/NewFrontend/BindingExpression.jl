@@ -441,7 +441,15 @@ function _typeRecordExpField!(field::InstNode, @nospecialize(recordExp::Expressi
     elseif exp isa SUBSCRIPTED_EXP_EXPRESSION
       exp = exp.exp
     else
-      return nothing
+      #= Another expression of records (MSL Batteries' `cellData = {{if ... then cellDataDegraded else
+         cellDataOriginal for kp in 1:Np} for ks in 1:Ns}`): typed by the first record reference in it. Untyped,
+         the field's type lacked its own dimensions, which serial typing had by its order and parallel typing
+         not always (CCCV_StackRC, 1 in 3 runs: OCV_SOC_internal deduced from a Real[3, 2]). =#
+      local first::Union{Nothing, CREF_EXPRESSION} =
+        fold(exp, (e, acc) -> (acc === nothing && e isa CREF_EXPRESSION && isComplex(arrayElementType(e.ty))) ? e : acc,
+             nothing)
+      first === nothing && return nothing
+      return _typeRecordField!(field, first.cref)
     end
   end
   return _typeRecordField!(field, exp.cref)
