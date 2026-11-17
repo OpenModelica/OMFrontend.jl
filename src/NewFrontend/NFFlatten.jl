@@ -364,8 +364,10 @@ function flattenRaggedDimensions(@nospecialize(ty::M_Type), cref::ComponentRef):
   return mapDims(ty, d -> flattenRaggedDimension(d, cref))
 end
 
+#= A dimension that reads a for-iterator (`zeros(3, a[i, 1])` in a for-equation, omc's FuncBuiltinFill3) has a size
+   per iteration, not per element: left as it is. =#
 function flattenRaggedDimension(dim::Dimension, cref::ComponentRef)::Dimension
-  (isvariant(dim, DIMENSION_EXP) && !isLiteral(dim.exp)) || return dim
+  (isvariant(dim, DIMENSION_EXP) && !isLiteral(dim.exp) && !contains(dim.exp, isIterator)) || return dim
   local ctx = _elementContext()
   push!(ctx, cref)
   local e::Expression
@@ -914,7 +916,8 @@ function flattenArray(
   binding::Option{<:Binding},
   vars::Vector{Variable},
   sections::Sections,
-  subscripts::List{<:Subscript} = nil,
+  subscripts::List{<:Subscript} = nil;
+  elementwise::Bool = false,
   )::Tuple{Vector{Variable}, Sections}
   local dim::Dimension
   local rest_dims::List{Dimension}
@@ -932,7 +935,8 @@ function flattenArray(
   end
   #=  if we don't scalarize flatten the class and vectorize it
   =#
-  if !Flags.isSet(Flags.NF_SCALARIZE)
+  if !elementwise && !Flags.isSet(Flags.NF_SCALARIZE)
+    local deletedBefore::Int = length(_deletedElementCrefs())
     (vrs, sects) = flattenClass(
       cls,
       prefix,
@@ -942,6 +946,12 @@ function flattenArray(
       SECTIONS(Equation[], Equation[], Algorithm[], Algorithm[]),
       nil #= No structural submodels =#
     )
+    #= A ragged class, an element's dimension from its own parameters (Buildings' MultiLayer lay[nLay] with
+       SingleLayer's T[nSta]: `Real[3, {2, 1, 2}] lay.T`), has no array of its variables over the elements. =#
+    if any(v -> _hasRaggedDimension(v.ty), vrs)
+      resize!(_deletedElementCrefs(), deletedBefore)
+      return _flattenRaggedArray(cls, dimensions, prefix, visibility, binding, vars, sections, subscripts)
+    end
     for v in vrs
       @assign v.ty = liftArrayLeftList(v.ty, dimensions)
       vars = push!(vars, v)
@@ -1007,11 +1017,63 @@ function flattenArray(
         binding,
         vars,
         sections,
-        Cons{SUBSCRIPT_INDEX}(SUBSCRIPT_INDEX(sub_exp), subscripts),
+        Cons{SUBSCRIPT_INDEX}(SUBSCRIPT_INDEX(sub_exp), subscripts);
+        elementwise = elementwise,
       )
     end
   end
   return (vars, sections)
+end
+
+"""
+A ragged array of components (`_hasRaggedDimension`) of a flatten with arrays kept: flattened element by element and
+scalarized, as the scalarizing flatten writes it (`Real lay[1].T[1]`, ..., `der(lay[1].T[1]) = -lay[1].T[1]`), its
+settings on meanwhile. Arrays per element (`Real[2] lay[1].T`) do not do: the backend reads a reference to an array
+kept as an element of the variable named without the reference's subscripts (`lay.T`).
+"""
+function _flattenRaggedArray(cls::Class, dimensions::List{<:Dimension}, prefix::ComponentRef, visibility::VisibilityType,
+                             binding::Option{<:Binding}, vars::Vector{Variable}, sections::Sections,
+                             subscripts::List{<:Subscript})::Tuple{Vector{Variable}, Sections}
+  local settings::Vector{Tuple{Flags.DebugFlag, Bool}} =
+    [(f, Flags.isSet(f)) for f in (Flags.NF_SCALARIZE, Flags.NF_EXPAND_OPERATIONS, Flags.NF_EXPAND_FUNC_ARGS)]
+  for (f, _) in settings
+    FlagsUtil.set(f, true)
+  end
+  try
+    local (vrs::Vector{Variable}, sects::Sections) =
+      flattenArray(cls, dimensions, prefix, visibility, binding, Variable[],
+                   SECTIONS(Equation[], Equation[], Algorithm[], Algorithm[]), subscripts; elementwise = true)
+    for v in vrs
+      scalarizeVariable(v, vars)
+    end
+    @match SECTIONS(__) = sects
+    for eq in scalarizeEquations(sects.equations)
+      sections = prependEquation(eq, sections)
+    end
+    for eq in scalarizeEquations(sects.initialEquations)
+      sections = prependEquation(eq, sections, true)
+    end
+    for alg in sects.algorithms
+      sections = prependAlgorithm(scalarizeAlgorithm(alg), sections)
+    end
+    for alg in sects.initialAlgorithms
+      sections = prependAlgorithm(scalarizeAlgorithm(alg), sections, true)
+    end
+  finally
+    for (f, value) in settings
+      FlagsUtil.set(f, value)
+    end
+  end
+  return (vars, sections)
+end
+
+"""
+Whether `ty` has a ragged dimension: its sizes per element of the enclosing arrays of components, an array
+(`flattenRaggedDimension` in the context of an array of components flattened once, `{2, 1, 2}`).
+"""
+function _hasRaggedDimension(@nospecialize(ty::M_Type))::Bool
+  isArray(ty) || return false
+  return any(d -> isvariant(d, DIMENSION_EXP) && isArray(typeOf(d.exp)), arrayDims(ty))
 end
 
 #= As omc's vectorizeEquation: the connects (and connection calls) of an arrayed component are
@@ -1511,7 +1573,9 @@ function flattenEquation(
       EQUATION_EQUALITY(__) => begin
         e1 = flattenExp(eq.lhs, prefix)
         e2 = flattenExp(eq.rhs, prefix)
-        push!(inEquations, EQUATION_EQUALITY(e1, e2, eq.ty, eq.source))
+        #= its type's ragged dimensions for the element at `prefix` (`der(T) = -T` of `T[nSta]` in `lay[1]`): later
+           evaluated for the class's node, the sizes of all the elements (`Real[{2, 1, 2}]`) =#
+        push!(inEquations, EQUATION_EQUALITY(e1, e2, flattenRaggedDimensions(eq.ty, prefix), eq.source))
       end
       EQUATION_FOR(__) => begin
         eql = if Flags.isSet(Flags.NF_SCALARIZE)

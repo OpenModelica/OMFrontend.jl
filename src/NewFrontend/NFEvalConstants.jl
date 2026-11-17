@@ -168,13 +168,20 @@ function evaluateExpTraverser(
         #=  Evaluate constants and structural parameters.=#
         if nodeVariability(cref) <= constVariability
           nodeVariability(cref) == Variability.CONSTANT && checkConstantHasValue(cref)
-          @assign outExp = evalCref(
-            cref,
-            outExp,
-            EVALTARGET_IGNORE_ERRORS(),
-            evalSubscripts = false,
-          )
-          @assign outExp = stripBindingInfo(outExp)
+          local value::Expression = stripBindingInfo(evalCref(cref, outExp, EVALTARGET_IGNORE_ERRORS(),
+                                                              evalSubscripts = false))
+          #= Arrays kept: a parameter field of a component array read in its class (`res.dp_nominal_pos` in
+             `res[3]`'s `dp = dp_nominal_pos * time`, typed Real) evaluates to the field over all the components
+             (Real[3]), an operand of a different type than the operation was typed for. Kept as the reference,
+             which the backend reads per element (a parameter stays in the flat model). Not in a scalarizing
+             flatten: there the class is flattened per element, and the field's value over the components
+             is the one structural sizes read (omc's CevalRecordArray9: `{i for i in layers.nSta}` over
+             `layers.nLay`). =#
+          if !Flags.isSet(Flags.NF_SCALARIZE) && nodeVariability(cref) > Variability.CONSTANT &&
+             dimensionCount(value) > dimensionCount(ty)
+            value = outExp
+          end
+          @assign outExp = value
           @assign outChanged = true
         elseif outChanged
           @assign outExp = CREF_EXPRESSION(

@@ -50,3 +50,35 @@ end
   @test !occursin("connect(", text)
   @test occursin("'t.g1.y'[1] = /*Equality*/'t.g2.u'[1]", text) || occursin("'t.g2.u'[1] = /*Equality*/'t.g1.y'[1]", text)
 end
+
+@testset "A parameter field of a component array read in its class: the reference kept" begin
+  #= dp_nominal_pos evaluated in the elements' shared class is the field over all of them ({2.0, 3.0, 1.0}), an
+     operand of another type than the Real the equation was typed for: kept as the reference (NFEvalConstants;
+     Buildings' PressureDrop[nRes] resSeries) =#
+  local program = OMFrontend.OMParser.parseString("""
+    package FieldThroughBinding
+      model NominalResistance
+        parameter Real dp_nominal;
+        final parameter Real dp_nominal_pos = abs(dp_nominal);
+        final parameter Boolean computeFlowResistance = dp_nominal_pos > 1e-10 annotation(Evaluate = true);
+        Real dp = dp_nominal_pos * time;
+        Real y;
+      equation
+        if computeFlowResistance then
+          y = dp / sqrt(dp_nominal_pos);
+        else
+          y = 0;
+        end if;
+      end NominalResistance;
+      model M
+        parameter Integer n = 3;
+        parameter Real dp_nominal = 1;
+        NominalResistance res[n](dp_nominal = {dp_nominal * (1 + mod(i, 3)) for i in 1:n});
+      end M;
+    end FieldThroughBinding;
+    """)
+  local (fm, _) = OMFrontend.instantiateSCodeToFM("FieldThroughBinding.M", OMFrontend.translateToSCode(program); scalarize = false)
+  local flat = OMFrontend.toString(fm)
+  @test occursin("res[\$i1].y = res[\$i1].dp / sqrt(res[\$i1].dp_nominal_pos)", flat)
+  @test !occursin("sqrt({", flat)
+end
