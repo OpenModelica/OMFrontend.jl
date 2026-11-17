@@ -2401,6 +2401,18 @@ function evalRelationOp_dispatch(
   return exp
 end
 
+"""
+The values of literal expressions, typed: read through the abstract `Expression` (the matched tuple's elements are not
+narrowed), `exp1.value > exp2.value` was a dynamic `>(::Any, ::Any)`, and packages adding comparison methods
+(CommonWorldInvalidations, Symbolics) invalidated the evaluators and their 1507 callers at each load (2026-11-16).
+The frontend makes Integer literals of `Int` and Real ones of `Float64`.
+"""
+_intOf(e::Expression)::Int = (e::INTEGER_EXPRESSION).value::Int
+_realOf(e::Expression)::Float64 = (e::REAL_EXPRESSION).value::Float64
+_boolOf(e::Expression)::Bool = (e::BOOLEAN_EXPRESSION).value::Bool
+_stringOf(e::Expression)::String = (e::STRING_EXPRESSION).value::String
+_enumIndexOf(e::Expression)::Int = (e::ENUM_LITERAL_EXPRESSION).index
+
 function evalRelationLess(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Bool
   (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local res::Bool
@@ -2408,26 +2420,26 @@ function evalRelationLess(@nospecialize(exp1::Expression), @nospecialize(exp2::E
    res = begin
     @match (exp1, exp2) begin
       (INTEGER_EXPRESSION(__), INTEGER_EXPRESSION(__)) => begin
-        exp1.value < exp2.value
+        _intOf(exp1) < _intOf(exp2)
       end
 
       (REAL_EXPRESSION(__), REAL_EXPRESSION(__)) => begin
-        exp1.value < exp2.value
+        _realOf(exp1) < _realOf(exp2)
       end
 
       (BOOLEAN_EXPRESSION(__), BOOLEAN_EXPRESSION(__)) => begin
-        exp1.value < exp2.value
+        _boolOf(exp1) < _boolOf(exp2)
       end
 
       (STRING_EXPRESSION(__), STRING_EXPRESSION(__)) => begin
-        stringCompare(exp1.value, exp2.value) < 0
+        stringCompare(_stringOf(exp1), _stringOf(exp2)) < 0
       end
 
       (
         ENUM_LITERAL_EXPRESSION(__),
         ENUM_LITERAL_EXPRESSION(__),
       ) => begin
-        exp1.index < exp2.index
+        _enumIndexOf(exp1) < _enumIndexOf(exp2)
       end
 
       _ => begin
@@ -2454,26 +2466,26 @@ function evalRelationLessEq(@nospecialize(exp1::Expression), @nospecialize(exp2:
    res = begin
     @match (exp1, exp2) begin
       (INTEGER_EXPRESSION(__), INTEGER_EXPRESSION(__)) => begin
-        exp1.value <= exp2.value
+        _intOf(exp1) <= _intOf(exp2)
       end
 
       (REAL_EXPRESSION(__), REAL_EXPRESSION(__)) => begin
-        exp1.value <= exp2.value
+        _realOf(exp1) <= _realOf(exp2)
       end
 
       (BOOLEAN_EXPRESSION(__), BOOLEAN_EXPRESSION(__)) => begin
-        exp1.value <= exp2.value
+        _boolOf(exp1) <= _boolOf(exp2)
       end
 
       (STRING_EXPRESSION(__), STRING_EXPRESSION(__)) => begin
-        stringCompare(exp1.value, exp2.value) <= 0
+        stringCompare(_stringOf(exp1), _stringOf(exp2)) <= 0
       end
 
       (
         ENUM_LITERAL_EXPRESSION(__),
         ENUM_LITERAL_EXPRESSION(__),
       ) => begin
-        exp1.index <= exp2.index
+        _enumIndexOf(exp1) <= _enumIndexOf(exp2)
       end
 
       _ => begin
@@ -2500,26 +2512,26 @@ function evalRelationGreater(@nospecialize(exp1::Expression), @nospecialize(exp2
    res = begin
     @match (exp1, exp2) begin
       (INTEGER_EXPRESSION(__), INTEGER_EXPRESSION(__)) => begin
-        exp1.value > exp2.value
+        _intOf(exp1) > _intOf(exp2)
       end
 
       (REAL_EXPRESSION(__), REAL_EXPRESSION(__)) => begin
-        exp1.value > exp2.value
+        _realOf(exp1) > _realOf(exp2)
       end
 
       (BOOLEAN_EXPRESSION(__), BOOLEAN_EXPRESSION(__)) => begin
-        exp1.value > exp2.value
+        _boolOf(exp1) > _boolOf(exp2)
       end
 
       (STRING_EXPRESSION(__), STRING_EXPRESSION(__)) => begin
-        stringCompare(exp1.value, exp2.value) > 0
+        stringCompare(_stringOf(exp1), _stringOf(exp2)) > 0
       end
 
       (
         ENUM_LITERAL_EXPRESSION(__),
         ENUM_LITERAL_EXPRESSION(__),
       ) => begin
-        exp1.index > exp2.index
+        _enumIndexOf(exp1) > _enumIndexOf(exp2)
       end
 
       _ => begin
@@ -2546,26 +2558,26 @@ function evalRelationGreaterEq(@nospecialize(exp1::Expression), @nospecialize(ex
    res = begin
     @match (exp1, exp2) begin
       (INTEGER_EXPRESSION(__), INTEGER_EXPRESSION(__)) => begin
-        exp1.value >= exp2.value
+        _intOf(exp1) >= _intOf(exp2)
       end
 
       (REAL_EXPRESSION(__), REAL_EXPRESSION(__)) => begin
-        exp1.value >= exp2.value
+        _realOf(exp1) >= _realOf(exp2)
       end
 
       (BOOLEAN_EXPRESSION(__), BOOLEAN_EXPRESSION(__)) => begin
-        exp1.value >= exp2.value
+        _boolOf(exp1) >= _boolOf(exp2)
       end
 
       (STRING_EXPRESSION(__), STRING_EXPRESSION(__)) => begin
-        stringCompare(exp1.value, exp2.value) >= 0
+        stringCompare(_stringOf(exp1), _stringOf(exp2)) >= 0
       end
 
       (
         ENUM_LITERAL_EXPRESSION(__),
         ENUM_LITERAL_EXPRESSION(__),
       ) => begin
-        exp1.index >= exp2.index
+        _enumIndexOf(exp1) >= _enumIndexOf(exp2)
       end
 
       _ => begin
@@ -2592,26 +2604,26 @@ function evalRelationEqual(@nospecialize(exp1::Expression), @nospecialize(exp2::
    res = begin
     @match (exp1, exp2) begin
       (INTEGER_EXPRESSION(__), INTEGER_EXPRESSION(__)) => begin
-        exp1.value == exp2.value
+        _intOf(exp1) == _intOf(exp2)
       end
 
       (REAL_EXPRESSION(__), REAL_EXPRESSION(__)) => begin
-        exp1.value == exp2.value
+        _realOf(exp1) == _realOf(exp2)
       end
 
       (BOOLEAN_EXPRESSION(__), BOOLEAN_EXPRESSION(__)) => begin
-        exp1.value == exp2.value
+        _boolOf(exp1) == _boolOf(exp2)
       end
 
       (STRING_EXPRESSION(__), STRING_EXPRESSION(__)) => begin
-        stringCompare(exp1.value, exp2.value) == 0
+        stringCompare(_stringOf(exp1), _stringOf(exp2)) == 0
       end
 
       (
         ENUM_LITERAL_EXPRESSION(__),
         ENUM_LITERAL_EXPRESSION(__),
       ) => begin
-        exp1.index == exp2.index
+        _enumIndexOf(exp1) == _enumIndexOf(exp2)
       end
 
       _ => begin
@@ -2638,26 +2650,26 @@ function evalRelationNotEqual(@nospecialize(exp1::Expression), @nospecialize(exp
    res = begin
     @match (exp1, exp2) begin
       (INTEGER_EXPRESSION(__), INTEGER_EXPRESSION(__)) => begin
-        exp1.value != exp2.value
+        _intOf(exp1) != _intOf(exp2)
       end
 
       (REAL_EXPRESSION(__), REAL_EXPRESSION(__)) => begin
-        exp1.value != exp2.value
+        _realOf(exp1) != _realOf(exp2)
       end
 
       (BOOLEAN_EXPRESSION(__), BOOLEAN_EXPRESSION(__)) => begin
-        exp1.value != exp2.value
+        _boolOf(exp1) != _boolOf(exp2)
       end
 
       (STRING_EXPRESSION(__), STRING_EXPRESSION(__)) => begin
-        stringCompare(exp1.value, exp2.value) != 0
+        stringCompare(_stringOf(exp1), _stringOf(exp2)) != 0
       end
 
       (
         ENUM_LITERAL_EXPRESSION(__),
         ENUM_LITERAL_EXPRESSION(__),
       ) => begin
-        exp1.index != exp2.index
+        _enumIndexOf(exp1) != _enumIndexOf(exp2)
       end
 
       _ => begin
@@ -3081,11 +3093,11 @@ function evalBuiltinAbs(@nospecialize(arg::Expression))::Expression
    result = begin
     @match arg begin
       INTEGER_EXPRESSION(__) => begin
-        INTEGER_EXPRESSION(abs(arg.value))
+        INTEGER_EXPRESSION(abs(_intOf(arg)))
       end
 
       REAL_EXPRESSION(__) => begin
-        REAL_EXPRESSION(abs(arg.value))
+        REAL_EXPRESSION(abs(_realOf(arg)))
       end
 
       _ => begin
@@ -3274,7 +3286,7 @@ function evalBuiltinCeil(@nospecialize(arg::Expression))::Expression
    result = begin
     @match arg begin
       REAL_EXPRESSION(__) => begin
-        REAL_EXPRESSION(ceil(arg.value))
+        REAL_EXPRESSION(ceil(_realOf(arg)))
       end
 
       _ => begin
@@ -3322,7 +3334,7 @@ function evalBuiltinCos(@nospecialize(arg::Expression))::Expression
    result = begin
     @match arg begin
       REAL_EXPRESSION(__) => begin
-        REAL_EXPRESSION(roundingZero(cos(arg.value), arg.value))
+        REAL_EXPRESSION(roundingZero(cos(_realOf(arg)), _realOf(arg)))
       end
 
       _ => begin
@@ -3493,7 +3505,7 @@ function evalBuiltinFloor(@nospecialize(arg::Expression))::Expression
    result = begin
     @match arg begin
       REAL_EXPRESSION(__) => begin
-        REAL_EXPRESSION(floor(arg.value))
+        REAL_EXPRESSION(floor(_realOf(arg)))
       end
 
       _ => begin
@@ -3725,7 +3737,7 @@ function evalBuiltinMax2(@nospecialize(exp1::Expression), @nospecialize(exp2::Ex
    result = begin
     @match (exp1, exp2) begin
       (INTEGER_EXPRESSION(__), INTEGER_EXPRESSION(__)) => begin
-        if exp1.value < exp2.value
+        if _intOf(exp1) < _intOf(exp2)
           exp2
         else
           exp1
@@ -3733,7 +3745,7 @@ function evalBuiltinMax2(@nospecialize(exp1::Expression), @nospecialize(exp2::Ex
       end
 
       (REAL_EXPRESSION(__), REAL_EXPRESSION(__)) => begin
-        if exp1.value < exp2.value
+        if _realOf(exp1) < _realOf(exp2)
           exp2
         else
           exp1
@@ -3741,7 +3753,7 @@ function evalBuiltinMax2(@nospecialize(exp1::Expression), @nospecialize(exp2::Ex
       end
 
       (BOOLEAN_EXPRESSION(__), BOOLEAN_EXPRESSION(__)) => begin
-        if exp1.value < exp2.value
+        if _boolOf(exp1) < _boolOf(exp2)
           exp2
         else
           exp1
@@ -3809,7 +3821,7 @@ function evalBuiltinMin2(@nospecialize(exp1::Expression), @nospecialize(exp2::Ex
    result = begin
     @match (exp1, exp2) begin
       (INTEGER_EXPRESSION(__), INTEGER_EXPRESSION(__)) => begin
-        if exp1.value > exp2.value
+        if _intOf(exp1) > _intOf(exp2)
           exp2
         else
           exp1
@@ -3817,7 +3829,7 @@ function evalBuiltinMin2(@nospecialize(exp1::Expression), @nospecialize(exp2::Ex
       end
 
       (REAL_EXPRESSION(__), REAL_EXPRESSION(__)) => begin
-        if exp1.value > exp2.value
+        if _realOf(exp1) > _realOf(exp2)
           exp2
         else
           exp1
@@ -3825,7 +3837,7 @@ function evalBuiltinMin2(@nospecialize(exp1::Expression), @nospecialize(exp2::Ex
       end
 
       (BOOLEAN_EXPRESSION(__), BOOLEAN_EXPRESSION(__)) => begin
-        if exp1.value > exp2.value
+        if _boolOf(exp1) > _boolOf(exp2)
           exp2
         else
           exp1
@@ -4073,10 +4085,10 @@ function evalBuiltinSign(@nospecialize(arg::Expression))::Expression
   result = begin
     @match arg begin
       REAL_EXPRESSION(__) => begin
-        INTEGER_EXPRESSION(if arg.value > 0
+        INTEGER_EXPRESSION(if _realOf(arg) > 0
           1
         else
-          if arg.value < 0
+          if _realOf(arg) < 0
             -1
           else
             0
@@ -4085,10 +4097,10 @@ function evalBuiltinSign(@nospecialize(arg::Expression))::Expression
       end
 
       INTEGER_EXPRESSION(__) => begin
-        INTEGER_EXPRESSION(if arg.value > 0
+        INTEGER_EXPRESSION(if _intOf(arg) > 0
           1
         else
-          if arg.value < 0
+          if _intOf(arg) < 0
             -1
           else
             0
@@ -4129,7 +4141,7 @@ function evalBuiltinSin(@nospecialize(arg::Expression))::Expression
    result = begin
     @match arg begin
       REAL_EXPRESSION(__) => begin
-        REAL_EXPRESSION(roundingZero(sin(arg.value), arg.value))
+        REAL_EXPRESSION(roundingZero(sin(_realOf(arg)), _realOf(arg)))
       end
 
       _ => begin
@@ -4410,7 +4422,7 @@ function evalBuiltinTan(@nospecialize(arg::Expression))::Expression
    result = begin
     @match arg begin
       REAL_EXPRESSION(__) => begin
-        REAL_EXPRESSION(roundingZero(tan(arg.value), arg.value))
+        REAL_EXPRESSION(roundingZero(tan(_realOf(arg)), _realOf(arg)))
       end
 
       _ => begin

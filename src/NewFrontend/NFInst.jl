@@ -3077,8 +3077,11 @@ end
       end
 
       Absyn.MATRIX(__)  => begin
+        #= the rows read from the matched MATRIX: through the abstract Absyn.Exp the comprehension was not inferred, and
+           its convert to the typed `expll` a dynamic one that packages adding `convert` methods (Symbolics,
+           StaticArrays) invalidated with its callers at each load (2026-11-16) =#
         expll = Vector{Expression}[
-          Expression[instExp(e, scope, info) for e in el] for el in absynExp.matrix]
+          Expression[instExp(e, scope, info) for e in el] for el in (absynExp::Absyn.MATRIX).matrix]
         MATRIX_EXPRESSION(expll)
       end
 
@@ -3924,7 +3927,7 @@ function getTypeAttributeBinding(comp::Component, attrName::String)::Binding
   @match ENTRY_INFO(attr_node, _) = lookupElement(attrName, getClass(cls_node))
   (isvariant(attr_node, EMPTY_NODE) || !isComponent(attr_node)) && return EMPTY_BINDING
   local attr_comp = component(attr_node)
-  return attr_comp.tag == CT_TYPE_ATTRIBUTE ? getBinding(attr_comp) : EMPTY_BINDING
+  return componentTag(attr_comp) === CT_TYPE_ATTRIBUTE ? getBinding(attr_comp) : EMPTY_BINDING
 end
 
 function isComponentBindingNotFixed(comp::Component, node::InstNode, requireFinal::Bool, maxDepth::Int, isRecordB::Bool = false) ::Bool

@@ -1924,9 +1924,9 @@ function signatureString(fn::M_FUNCTION, printTypes::Bool = true)::String
     @assign inputs = listRest(inputs)
     if isSome(s.default)
       @match SOME(def_exp) = s.default
-      @assign input_str = " = " + toString(def_exp)
+      @assign input_str = " = " + toString(def_exp)::String
     end
-    @assign input_str = s.name + input_str
+    @assign input_str = (s.name::String) + (input_str::String)
     @assign input_str = begin
       @match s.ty begin
         SlotType.POSITIONAL => begin

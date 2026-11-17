@@ -426,14 +426,14 @@ function toString(call::Call)::String
          arg_str = toString(call.exp)
          c = stringDelimitList(
           list(
-            name(Util.tuple21(iter)) +
-            " in " +
+            name(Util.tuple21(iter)) *
+            " in " *
             toString(Util.tuple22(iter))
             for iter in call.iters
           ),
           ", ",
         )
-        name + "(" + arg_str + " for " + c + ")"
+        nameStr * "(" * arg_str * " for " * c * ")"
       end
 
       TYPED_CALL(__) => begin
@@ -464,7 +464,7 @@ function toString(call::Call)::String
         #= Strings concatenate with *, and the function name is nameStr (name is the function). =#
         local nameStr = AbsynUtil.pathString(name(call.fn))
         arg_str = toString(call.exp)
-        c = Base.join([name(Util.tuple21(iter)) * " in " * toString(Util.tuple22(iter)) for iter in call.iters], ", ")
+        c = Base.join(String[name(Util.tuple21(iter)) * " in " * toString(Util.tuple22(iter)) for iter in call.iters], ", ")
         nameStr * "(" * arg_str * " for " * c * ")"
       end
     end

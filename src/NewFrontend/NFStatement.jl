@@ -470,14 +470,14 @@ end
       end
 
       ALG_IF(__) => begin
-        @assign stmt.branches = [
+        @assign stmt.branches = Tuple{Expression, Vector{Statement}}[
           (func(Util.tuple21(b)), mapExpList(Util.tuple22(b), func)) for b in stmt.branches
             ]
         stmt
       end
 
       ALG_WHEN(__) => begin
-        @assign stmt.branches = [
+        @assign stmt.branches = Tuple{Expression, Vector{Statement}}[
           (func(Util.tuple21(b)), mapExpList(Util.tuple22(b), func)) for b in stmt.branches
         ]
         stmt
@@ -538,13 +538,13 @@ end
         ()
       end
       ALG_IF(__) => begin
-        @assign stmt.branches = [
-          (Util.tuple21(b), [map(s, func) for s in Util.tuple22(b)]) for b in stmt.branches ]
+        @assign stmt.branches = Tuple{Expression, Vector{Statement}}[
+          (Util.tuple21(b), Statement[map(s, func) for s in Util.tuple22(b)]) for b in stmt.branches ]
         ()
       end
       ALG_WHEN(__) => begin
         @assign stmt.branches = Tuple{Expression, Vector{Statement}}[
-          (Util.tuple21(b), [map(s, func) for s in Util.tuple22(b)])
+          (Util.tuple21(b), Statement[map(s, func) for s in Util.tuple22(b)])
           for b in stmt.branches
         ]
         ()

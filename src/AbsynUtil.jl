@@ -6578,7 +6578,8 @@ function importString(inImp::Import)::String
     QUAL_IMPORT(__) => Absyn.dumpPath(inImp.path)
     UNQUAL_IMPORT(__) => Absyn.dumpPath(inImp.path) + ".*"
     GROUP_IMPORT(__) => Absyn.dumpPath(inImp.prefix) + ".{" +
-      join([g isa GROUP_IMPORT_NAME ? g.name : g.rename + " = " + g.name for g in inImp.groups], ", ") + "}"
+      join(String[g isa GROUP_IMPORT_NAME ? g.name : (g::GROUP_IMPORT_RENAME).rename * " = " * g.name for g in inImp.groups],
+           ", ") + "}"
   end
 end
 

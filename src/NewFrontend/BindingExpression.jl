@@ -955,7 +955,7 @@ function transposeArray(@nospecialize(arrayExp::Expression)) ::Expression
   @match ARRAY_EXPRESSION(TYPE_ARRAY(ty, Cons{Dimension}(dim1, Cons{Dimension}(dim2, rest_dims))), expl, literal) = arrayExp
   if ! isempty(expl)
     row_ty = TYPE_ARRAY(ty, Cons{Dimension}(dim1, rest_dims))
-    matrix = Vector{Expression}[e.elements  for e in expl]
+    matrix = Vector{Expression}[(e::ARRAY_EXPRESSION).elements for e in expl]
     matrix = ArrayUtil.transposeArray(matrix)
     expl = Expression[makeArray(row_ty, row, literal = literal) for row in matrix]
   end
@@ -4512,7 +4512,7 @@ end
       end
 
       STRING_EXPRESSION(__)  => begin
-        "\"" + exp.value + "\""
+        "\"" + _stringOf(exp) + "\""
       end
 
       BOOLEAN_EXPRESSION(__)  => begin
@@ -4520,7 +4520,7 @@ end
       end
 
       ENUM_LITERAL_EXPRESSION(ty = t && TYPE_ENUMERATION(__))  => begin
-        "'" + AbsynUtil.pathString(t.typePath) + "'." + exp.name
+        "'" + AbsynUtil.pathString(t.typePath) + "'." + (exp::ENUM_LITERAL_EXPRESSION).name
       end
 
       CLKCONST_EXPRESSION(clk)  => begin
@@ -4604,7 +4604,7 @@ end
       SIZE_EXPRESSION(__)  => begin
         string("size(", toFlatString(exp.exp; inFunction = inFunction)
                ,(if isSome(exp.dimIndex)
-                   ", " + toFlatString(Util.getOption(exp.dimIndex); inFunction = inFunction)
+                   ", " + toFlatString(Util.getOption(exp.dimIndex); inFunction = inFunction)::String
                  else
                    ""
                  end), ")")
@@ -4639,15 +4639,15 @@ end
       end
 
       IF_EXPRESSION(__)  => begin
-        "if " + toFlatString(exp.condition; inFunction = inFunction) + " then " + toFlatString(exp.trueBranch; inFunction = inFunction) + " else " + toFlatString(exp.falseBranch; inFunction = inFunction)
+        "if " + toFlatString(exp.condition; inFunction = inFunction)::String + " then " + toFlatString(exp.trueBranch; inFunction = inFunction)::String + " else " + toFlatString(exp.falseBranch; inFunction = inFunction)::String
       end
 
       UNBOX_EXPRESSION(__)  => begin
-        "UNBOX_EXPRESSION(" + toFlatString(exp.exp; inFunction = inFunction) + ")"
+        "UNBOX_EXPRESSION(" + toFlatString(exp.exp; inFunction = inFunction)::String + ")"
       end
 
       BOX_EXPRESSION(__)  => begin
-        "BOX_EXPRESSION(" + toFlatString(exp.exp; inFunction = inFunction) + ")"
+        "BOX_EXPRESSION(" + toFlatString(exp.exp; inFunction = inFunction)::String + ")"
       end
 
       CAST_EXPRESSION(__)  => begin
@@ -4664,12 +4664,12 @@ end
         if exp.index == 1
           toFlatString(exp.tupleExp; inFunction = inFunction)
         else
-          toFlatString(exp.tupleExp; inFunction = inFunction) + "[" + intString(exp.index) + "]"
+          toFlatString(exp.tupleExp; inFunction = inFunction)::String + "[" + intString(exp.index)::String + "]"
         end
       end
 
       RECORD_ELEMENT_EXPRESSION(__)  => begin
-        toFlatString(exp.recordExp; inFunction = inFunction) + "[field: " + exp.fieldName + "]"
+        toFlatString(exp.recordExp; inFunction = inFunction)::String + "[field: " + (exp::RECORD_ELEMENT_EXPRESSION).fieldName + "]"
       end
 
       MUTABLE_EXPRESSION(__)  => begin
@@ -4681,7 +4681,7 @@ end
       end
 
       PARTIAL_FUNCTION_APPLICATION_EXPRESSION(__)  => begin
-        "function " + toFlatString(exp.fn; inFunction = inFunction) + "(" + stringDelimitList(list(@do_threaded_for n + " = " + toFlatString(a; inFunction = inFunction) (a, n) (exp.args, exp.argNames)), ", ") + ")"
+        "function " + toFlatString(exp.fn; inFunction = inFunction)::String + "(" + stringDelimitList(list(@do_threaded_for (n::String) + " = " + toFlatString(a; inFunction = inFunction)::String (a, n) (exp.args, exp.argNames)), ", ") + ")"
       end
       _  => begin
         anyString(exp)
@@ -4706,7 +4706,7 @@ end
       end
 
       STRING_EXPRESSION(__)  => begin
-        "\"" + exp.value + "\""
+        "\"" + _stringOf(exp) + "\""
       end
 
       BOOLEAN_EXPRESSION(__)  => begin
@@ -4714,7 +4714,7 @@ end
       end
 
       ENUM_LITERAL_EXPRESSION(ty = t && TYPE_ENUMERATION(__))  => begin
-        AbsynUtil.pathString(t.typePath) + "." + exp.name
+        AbsynUtil.pathString(t.typePath) + "." + (exp::ENUM_LITERAL_EXPRESSION).name
       end
 
       CLKCONST_EXPRESSION(clk)  => begin
@@ -4766,8 +4766,8 @@ end
       end
 
       SIZE_EXPRESSION(__)  => begin
-        "size(" + toString(exp.exp) + (if isSome(exp.dimIndex)
-                                       ", " + toString(Util.getOption(exp.dimIndex))
+        "size(" + toString(exp.exp)::String + (if isSome(exp.dimIndex)
+                                       ", " + toString(Util.getOption(exp.dimIndex))::String
                                        else
                                        ""
                                        end) + ")"
@@ -4798,15 +4798,15 @@ end
       end
 
       IF_EXPRESSION(__)  => begin
-        "if " + toString(exp.condition) + " then " + toString(exp.trueBranch) + " else " + toString(exp.falseBranch)
+        "if " + toString(exp.condition)::String + " then " + toString(exp.trueBranch)::String + " else " + toString(exp.falseBranch)::String
       end
 
       UNBOX_EXPRESSION(__)  => begin
-        "UNBOX_EXPRESSION(" + toString(exp.exp) + ")"
+        "UNBOX_EXPRESSION(" + toString(exp.exp)::String + ")"
       end
 
       BOX_EXPRESSION(__)  => begin
-        "BOX_EXPRESSION(" + toString(exp.exp) + ")"
+        "BOX_EXPRESSION(" + toString(exp.exp)::String + ")"
       end
 
       CAST_EXPRESSION(__)  => begin
@@ -4818,15 +4818,15 @@ end
       end
 
       SUBSCRIPTED_EXP_EXPRESSION(__)  => begin
-        toString(exp.exp) + toStringList(exp.subscripts)
+        toString(exp.exp)::String + toStringList(exp.subscripts)::String
       end
 
       TUPLE_ELEMENT_EXPRESSION(__)  => begin
-        toString(exp.tupleExp) + "[" + intString(exp.index) + "]"
+        toString(exp.tupleExp)::String + "[" + intString(exp.index)::String + "]"
       end
 
       RECORD_ELEMENT_EXPRESSION(__)  => begin
-        toString(exp.recordExp) + "[field: " + exp.fieldName + "]"
+        toString(exp.recordExp)::String + "[field: " + (exp::RECORD_ELEMENT_EXPRESSION).fieldName + "]"
       end
 
       MUTABLE_EXPRESSION(__)  => begin
@@ -4844,9 +4844,9 @@ end
         while !listEmpty(restArgs)
           @match _cons(a, restArgs) = restArgs
           @match _cons(n, restNames) = restNames
-          argStrs = _cons(n + " = " + toString(a), argStrs)
+          argStrs = _cons((n::String) + " = " + toString(a)::String, argStrs)
         end
-        "function " + toString(exp.fn) + "(" + stringDelimitList(listReverseInPlace(argStrs), ", ") + ")"
+        "function " + toString(exp.fn)::String + "(" + stringDelimitList(listReverseInPlace(argStrs), ", ") + ")"
       end
 
       BINDING_EXP(__)  => begin
@@ -5173,6 +5173,9 @@ function applyIndexSubscriptRange(@nospecialize(rangeExp::Expression), index::Su
   if isScalarLiteral(index_exp)
     @match RANGE_EXPRESSION(start = start_exp, step = step_exp, stop = stop_exp) = rangeExp
      outExp = applyIndexSubscriptRange2(start_exp, step_exp, stop_exp, toInteger(index_exp))
+  elseif isNone(rangeExp.step) && rangeExp.start isa INTEGER_EXPRESSION && rangeExp.start.value == 1
+    #= (1:n)[i] is i (an iterator of a vectorized component array as the index) =#
+    outExp = index_exp
   else
     @match RANGE_EXPRESSION(ty = ty) = rangeExp
     local subs::List{Subscript} = Cons{Subscript}(index, nil)
@@ -6813,15 +6816,15 @@ end
         ""
       end
       RAW_BINDING(__) => begin
-        prefix + Dump.printExpStr(binding.bindingExp)
+        prefix + Dump.printExpStr(binding.bindingExp)::String
       end
 
       UNTYPED_BINDING(__) => begin
-        prefix + toFlatString(binding.bindingExp; inFunction = inFunction)
+        prefix + toFlatString(binding.bindingExp; inFunction = inFunction)::String
       end
 
       TYPED_BINDING(__) => begin
-        prefix + toFlatString(binding.bindingExp; inFunction = inFunction)
+        prefix + toFlatString(binding.bindingExp; inFunction = inFunction)::String
       end
 
       FLAT_BINDING(__) => begin

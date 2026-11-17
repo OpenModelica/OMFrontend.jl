@@ -1596,9 +1596,11 @@ function realRangeSize(
   inStop::AbstractFloat,
 )::Int
   local outSize::Int
-
-   outSize = floor(Int, (inStop - inStart) / inStep + 5e-15) + 1
-   outSize = max(outSize, 0)
+  #= Float64 operands: compiled for abstract arguments, `floor(Int, ::Any)` was a dynamic call, and a package adding a
+     `floor` method (FixedPointNumbers) invalidated this method and its 1241 callers at each load (2026-11-16) =#
+  local steps::Float64 = (Float64(inStop) - Float64(inStart)) / Float64(inStep) + 5e-15
+  outSize = floor(Int, steps) + 1
+  outSize = max(outSize, 0)
   return outSize
 end
 
