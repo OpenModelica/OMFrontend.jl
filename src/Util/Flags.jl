@@ -3533,14 +3533,6 @@ function getConfigInt(inFlag::ConfigFlag)::Int
   return outValue
 end
 
-"""Returns the value of an integer configuration flag."""
-function getConfigIntList(inFlag::ConfigFlag)::List{Integer}
-  local outValue::List{Integer}
-
-  @match INT_LIST_FLAG(data = outValue) = getConfigValue(inFlag)
-  return outValue
-end
-
 """Returns the value of a real configuration flag."""
 function getConfigReal(inFlag::ConfigFlag)::AbstractFloat
   local outValue::AbstractFloat

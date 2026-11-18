@@ -1710,24 +1710,8 @@ function instComponent(node::InstNode,
 end
 
 #= Whether an outer component of the given name is among a node's instance parents. =#
-function _outerAncestorNamed(n::InstNode, nm::String)::Bool
-  local p = n
-  while !isEmpty(p)
-    isComponent(p) && name(p) == nm && isOuter(p) && return true
-    p = parent(p)
-  end
-  return false
-end
 
 #= Whether a node is one of the instance parents of another. =#
-function _encloses(outerNode::InstNode, n::InstNode)::Bool
-  local p = n
-  while !isEmpty(p)
-    refEqual(p, outerNode) && return true
-    p = parent(p)
-  end
-  return false
-end
 
 function instComponentDef(component::SCode.COMPONENT,
                           outerMod::Modifier,

@@ -328,19 +328,6 @@ function has(key::Key, hashSet::HashSet)::Bool
   return b
 end
 
-"""Returns true if all keys are in the HashSet."""
-function hasAll(keys::List{<:Key}, hashSet::HashSet)::Bool
-  local b::Bool = true
-
-  for key in keys
-    @assign b = has(key, hashSet)
-    if !b
-      return b
-    end
-  end
-  return b
-end
-
 """Returns Key from the HashSet. Returns NONE() if not present"""
 function get(key::Key, hashSet::HashSet)::Option{Key}
   local okey::Option{Key}
@@ -398,19 +385,6 @@ function get2(
   end
   found = false
   return (index, found)
-end
-
-function printHashSet(hashSet::HashSet)
-  local printKey::FuncKeyString
-
-  @assign (_, _, _, _, (_, _, printKey)) = hashSet
-  return print(stringDelimitList(list(printKey(e) for e in hashSetList(hashSet)), "\\n"))
-end
-
-function dumpHashSet(hashSet::HashSet)
-  print("HashSet:\\n")
-  printHashSet(hashSet)
-  return print("\\n")
 end
 
 """returns the entries in the hashSet as a list of Key"""
@@ -571,29 +545,6 @@ function valueArrayClearnth(valueArray::ValueArray, pos::Int)::ValueArray
     end
   end
   return outValueArray
-end
-
-"""Retrieve the n:th Value from ValueArray, index from 0..n-1."""
-function valueArrayNth(valueArray::ValueArray, pos::Int)::Key
-  local key::Key
-
-  @assign key = begin
-    local k::Key
-    local n::Int
-    local arr::Array{Option{Key}}
-    @match (valueArray, pos) begin
-      ((n, _, arr), _) => begin
-        if !pos <= n
-          fail()
-        end
-        @match SOME(k) = arr[pos + 1]
-        k
-      end
-    end
-  end
-  #=  should be pos<n
-  =#
-  return key
 end
 
 """Retrieve the n:th Value from ValueArray, index from 0..n-1."""

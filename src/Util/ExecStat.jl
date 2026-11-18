@@ -45,12 +45,6 @@ global startTime::Float64 = time()
 global memoryInBytes::Int = 0
 global const MODELICA_GC_NUM = Base.gc_num()
 
-function execStatReset()
-  System.realtimeTick(ClockIndexes.RT_CLOCK_EXECSTAT)
-  System.realtimeTick(ClockIndexes.RT_CLOCK_EXECSTAT_CUMULATIVE)
-  return setGlobalRoot(Global.gcProfilingIndex, GC.getProfStats())
-end
-
 """
 Reset only the wall-time baseline used by `execStat` so the next `execStat`
 call reports time relative to now, not relative to module load. Cheap, no

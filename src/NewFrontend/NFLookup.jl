@@ -264,18 +264,6 @@ function lookupImport(name::Absyn.Path, scope::InstNode, info::SourceInfo)
   element
 end
 
-function lookupCrefWithError(cref::Absyn.ComponentRef, scope::InstNode, info::SourceInfo, errMsg) ::Tuple{ComponentRef, InstNode, LookupState}
-  local state::LookupState
-  local foundScope::InstNode
-  local foundCref::ComponentRef
-  try
-     (foundCref, foundScope, state) = lookupCref(cref, scope)
-  catch
-    Error.addSourceMessage(errMsg, list(Dump.printComponentRefStr(cref), scopeName(scope)), info)
-  end
-  (foundCref, foundScope, state)
-end
-
 """
   This function will look up an Absyn.ComponentRef in the given scope, and
   construct a ComponentRef from the found nodes. The scope where the first part

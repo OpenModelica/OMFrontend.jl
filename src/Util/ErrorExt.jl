@@ -41,10 +41,6 @@ using ExportAll
 
 import ..ErrorTypes
 
-function registerModelicaFormatError()
-  return @warn "TODO: Defined in the runtime"
-end
-
 #= Per-task error state. Each Julia `Task` (root task, `@async`, `@spawn`)
    gets its own message queue and checkpoint stack on first access via
    `task_local_storage()`. Concurrent frontend invocations cannot stomp on
@@ -238,16 +234,6 @@ function getNumErrorMessages()::Int
   return num
 end
 
-function getNumWarningMessages()::Int
-  local num::Int = 0
-  for m in _messages()
-    if typeof(m.id) === Severity.WARNING
-      num += 1
-    end
-  end
-  return num
-end
-
 """Returns all error messages and pops them from the message queue."""
 function getMessages()::List{ErrorTypes.TotalMessage}
   local res::List{ErrorTypes.TotalMessage} = nil
@@ -281,25 +267,6 @@ function clearMessages()
   empty!(st.sourceMessages)
   empty!(st.checkpointStack)
   return nothing
-end
-
-"""Used to rollback/delete checkpoints without considering the identifier. Used to reset the error messages after a stack overflow exception."""
-function getNumCheckpoints()::Int
-  return length(_checkpoints())
-end
-
-"""Used to rollback/delete checkpoints without considering the identifier. Used to reset the error messages after a stack overflow exception."""
-function rollbackNumCheckpoints(n::Int)
-  for _ in 1:n
-    rollBack("")
-  end
-end
-
-"""Used to rollback/delete checkpoints without considering the identifier. Used to reset the error messages after a stack overflow exception."""
-function deleteNumCheckpoints(n::Int)
-  for _ in 1:n
-    delCheckpoint("")
-  end
 end
 
 """
@@ -350,55 +317,6 @@ end
 const _POPPED_MESSAGES = Dict{Int, Any}()
 const _NEXT_POP_HANDLE = Ref(0)
 
-"""
-  rolls back error messages until the latest checkpoint,
-  returning the removed messages as opaque handles; pass them back to
-  pushMessages (re-add) or freeMessages (discard). Handles are oldest-first.
-"""
-function popCheckPoint(id::String)::List{Integer} #= unique identifier =#
-  local handles::List{Integer} = nil
-  local st = _state()
-  if !isempty(st.checkpointStack)
-    local mark = pop!(st.checkpointStack)
-    for i in (mark + 1):length(st.sourceMessages)
-      local h = (_NEXT_POP_HANDLE[] += 1)
-      _POPPED_MESSAGES[h] = st.sourceMessages[i]
-      handles = h <| handles
-    end
-    resize!(st.sourceMessages, min(mark, length(st.sourceMessages)))
-  end
-  return listReverse(handles)
-end
-
-"""Pushes stored messages back to the error queue, consuming the handles."""
-function pushMessages(handles::List{<:Integer}) #= opaque pointers from popCheckPoint =#
-  local st = _state()
-  for h in handles
-    local entry = pop!(_POPPED_MESSAGES, h, nothing)
-    entry === nothing || push!(st.sourceMessages, entry)
-  end
-  return nothing
-end
-
-"""Discards stored messages, consuming the handles."""
-function freeMessages(handles::List{<:Integer}) #= opaque pointers from popCheckPoint =#
-  for h in handles
-    delete!(_POPPED_MESSAGES, h)
-  end
-  return nothing
-end
-
-"""
-  @author: adrpo
-  This function checks if the specified checkpoint exists AT THE TOP OF THE STACK!.
-  You can use it to rollBack/delete a checkpoint, but you're
-  not sure that it exists (due to MetaModelica backtracking).
-"""
-function isTopCheckpoint(id::String)::Bool #= unique identifier =#
-  #= checkpoint ids are not stored in this port; report whether any checkpoint exists =#
-  return !isempty(_state().checkpointStack)
-end
-
 function setShowErrorMessages(inShow::Bool)
   return @warn "TODO: Defined in the runtime"
 end
@@ -443,11 +361,6 @@ function moveMessagesToParentThread()
     return nothing
   end
   return moveMessagesToParentThread(p.parent::Task)
-end
-
-"""Makes assert() and other runtime assertions print to the error buffer"""
-function initAssertionFunctions()
-  return @warn "TODO: Defined in the runtime"
 end
 
 @exportAll()

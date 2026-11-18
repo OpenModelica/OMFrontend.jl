@@ -442,19 +442,6 @@ end
 """
   Traverses all subexpressions of an Exp expression.
   Takes a function and an extra argument passed through the traversal.
-  NOTE:This function was copied from Expression.traverseExpression.
-"""
-function traverseExp(inExp::Exp, inFunc::FuncType, inArg::Type_a)::Tuple{Exp, Type_a}
-  local outArg::Type_a
-  local outExp::Exp
-
-  @assign (outExp, outArg) = traverseExpBidir(inExp, dummyTraverseExp, inFunc, inArg)
-  return (outExp, outArg)
-end
-
-"""
-  Traverses all subexpressions of an Exp expression.
-  Takes a function and an extra argument passed through the traversal.
 """
 function traverseExpTopDown(inExp::Exp, inFunc::FuncType, inArg::Type_a)::Tuple{Exp, Type_a}
   local outArg::Type_a
@@ -462,20 +449,6 @@ function traverseExpTopDown(inExp::Exp, inFunc::FuncType, inArg::Type_a)::Tuple{
 
   @assign (outExp, outArg) = traverseExpBidir(inExp, inFunc, dummyTraverseExp, inArg)
   return (outExp, outArg)
-end
-
-"""calls traverseExp on each element in the given list"""
-function traverseExpList(
-  inExpList::List{<:Exp},
-  inFunc::FuncTplToTpl,
-  inArg::Type_a,
-)::Tuple{List{Exp}, Type_a}
-  local outArg::Type_a
-  local outExpList::List{Exp}
-
-  @assign (outExpList, outArg) =
-    traverseExpListBidir(inExpList, dummyTraverseExp, inFunc, inArg)
-  return (outExpList, outArg)
 end
 
 """
@@ -1571,13 +1544,6 @@ function makeIdentPathFromString(s::String)::Path
   return p
 end
 
-function makeQualifiedPathFromStrings(s1::String, s2::String)::Path
-  local p::Path
-
-  @assign p = QUALIFIED(s1, IDENT(s2))
-  return p
-end
-
 """returns the class name of a Class as a Path"""
 function className(cl::Class)::Path
   local name::Path
@@ -1587,23 +1553,6 @@ function className(cl::Class)::Path
   @match CLASS(name = id) = cl
   @assign name = IDENT(id)
   return name
-end
-
-function isClassNamed(inName::String, inClass::Class)::Bool
-  local outIsNamed::Bool
-
-  @assign outIsNamed = begin
-    @match inClass begin
-      CLASS(__) => begin
-        inName == inClass.name
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outIsNamed
 end
 
 """
@@ -1629,65 +1578,6 @@ function elementSpecName(inElementSpec::ElementSpec)::Ident
   return outIdent
 end
 
-function isClassdef(inElement::Element)::Bool
-  local b::Bool
-
-  @assign b = begin
-    @match inElement begin
-      ELEMENT(specification = CLASSDEF(__)) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return b
-end
-
-function elementSpecificationIsClassDef(es::ElementSpec)::Bool
-  local b::Bool
-
-  @assign b = begin
-    @match es begin
-      Absyn.CLASSDEF(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return b
-end
-
-"""This function takes a Import and prints it as a flat-string."""
-function printImportString(imp::Import)::String
-  local ostring::String
-  @assign ostring = begin
-    local path::Path
-    local name::String
-    @match imp begin
-      NAMED_IMPORT(name, _) => begin
-        name
-      end
-
-      QUAL_IMPORT(path) => begin
-        @assign name = pathString(path)
-        name
-      end
-
-      UNQUAL_IMPORT(path) => begin
-        @assign name = pathString(path)
-        name
-      end
-    end
-  end
-  return ostring
-end
-
 """returns the string of an expression if it is a string constant."""
 function expString(exp::Exp)::String
   local str::String
@@ -1710,13 +1600,6 @@ function crefExp(cr::ComponentRef)::Exp
 
   @assign exp = CREF(cr)
   return exp
-end
-
-function expComponentRefStr(aexp::Exp)::String
-  local outString::String
-
-  @assign outString = printComponentRefStr(expCref(aexp))
-  return outString
 end
 
 function printComponentRefStr(cr::ComponentRef)::String
@@ -2072,20 +1955,6 @@ function pathStringDefault(path::Path)::String
   return s
 end
 
-function classNameCompare(c1::Class, c2::Class)::Int
-  local o::Int
-
-  @assign o = stringCompare(c1.name, c2.name)
-  return o
-end
-
-function classNameGreater(c1::Class, c2::Class)::Bool
-  local b::Bool
-
-  @assign b = stringCompare(c1.name, c2.name) > 0
-  return b
-end
-
 function pathCompare(ip1::Path, ip2::Path)::Int
   local o::Int
 
@@ -2176,33 +2045,6 @@ function pathCompareNoQual(ip1::Path, ip2::Path)::Int
   return o
 end
 
-"""Hashes a path."""
-function pathHashMod(path::Path, mod::Int)::Int
-  local hash::Int
-
-  #=  hash := valueHashMod(path,mod);
-  =#
-  #=  print(pathString(path) + \" => \" + intString(hash) + \"\\n\");
-  =#
-  #=  hash := stringHashDjb2Mod(pathString(path),mod);
-  =#
-  #=  TODO: stringHashDjb2 is missing a default value for the seed; add this once we bootstrapped omc so we can use that function instead of our own hack
-  =#
-  @assign hash = intAbs(intMod(pathHashModWork(path, 5381), mod))
-  return hash
-end
-
-"""
-Hash of a path that is CONSISTENT with `pathEqual`: FULLYQUALIFIED is unwrapped (pathEqual
-ignores the qualification marker), so two pathEqual paths always hash equal. Use this with
-`pathEqual` as the (hash, eq) pair for an UnorderedMap/Set keyed on `Absyn.Path`. (The
-mod-based `pathHashMod` perturbs the accumulator for FULLYQUALIFIED and is NOT consistent
-with pathEqual.)
-"""
-function pathHash(path::Path)::Int
-  return Int(signed(pathHashWork(path, UInt64(5381))))
-end
-
 function pathHashWork(path::Path, acc::UInt64)::UInt64
   return @match path begin
     FULLYQUALIFIED(p) => pathHashWork(p, acc)
@@ -2242,47 +2084,6 @@ function pathHashModWork(path::Path, acc::Int)::Int
   return hash
 end
 
-"""Returns a path converted to string or an empty string if nothing exist"""
-function optPathString(inPathOption::Option{<:Path})::String
-  local outString::String
-
-  @assign outString = begin
-    local str::Ident
-    local p::Path
-    @match inPathOption begin
-      NONE() => begin
-        ""
-      end
-
-      SOME(p) => begin
-        @assign str = pathString(p)
-        str
-      end
-    end
-  end
-  return outString
-end
-
-"""
-  Changes a path to string. Uses the input string as separator.
-  If the separtor exists in the string then it is doubled (sep _ then
-  a_b changes to a__b) before delimiting
-  (Replaces dots with that separator). And also unquotes each ident.
-"""
-function pathStringUnquoteReplaceDot(inPath::Path, repStr::String)::String
-  local outString::String
-
-  local strlst::List{String}
-  local rep_rep::String
-
-  @assign rep_rep = repStr + repStr
-  @assign strlst = pathToStringList(inPath)
-  @assign strlst = ListUtil.map2(strlst, System.stringReplace, repStr, rep_rep)
-  @assign strlst = ListUtil.map(strlst, System.unquoteIdentifier)
-  @assign outString = stringDelimitList(strlst, repStr)
-  return outString
-end
-
 """Converts a string into a qualified path."""
 function stringPath(str::String)::Path
   local qualifiedPath::Path
@@ -2316,23 +2117,6 @@ function stringListPath(paths::List{<:String})::Path
     end
   end
   return qualifiedPath
-end
-
-"""
-  Converts a list of strings into a qualified path, in reverse order.
-  Ex: {'a', 'b', 'c'} => c.b.a
-"""
-function stringListPathReversed(inStrings::List{<:String})::Path
-  local outPath::Path
-
-  local id::String
-  local rest_str::List{String}
-  local path::Path
-
-  @match _cons(id, rest_str) = inStrings
-  @assign path = IDENT(id)
-  @assign outPath = stringListPathReversed2(rest_str, path)
-  return outPath
 end
 
 function stringListPathReversed2(inStrings::List{<:String}, inAccumPath::Path)::Path
@@ -2571,25 +2355,6 @@ function prefixPath(prefix::Ident, path::Path)::Path
   return outPath
 end
 
-"""Prefixes an optional path with an identifier."""
-function prefixOptPath(prefix::Ident, optPath::Option{<:Path})::Option{Path}
-  local outPath::Option{Path}
-
-  @assign outPath = begin
-    local path::Path
-    @match (prefix, optPath) begin
-      (_, NONE()) => begin
-        SOME(IDENT(prefix))
-      end
-
-      (_, SOME(path)) => begin
-        SOME(QUALIFIED(prefix, path))
-      end
-    end
-  end
-  return outPath
-end
-
 """
   Adds a suffix to a path. Ex:
   suffixPath(a.b.c, 'd') => a.b.c.d
@@ -2647,14 +2412,6 @@ function pathSuffixOf(suffix_path::Path, path::Path)::Bool
   return res
 end
 
-"""returns true if suffix_path is a suffix of path"""
-function pathSuffixOfr(path::Path, suffix_path::Path)::Bool
-  local res::Bool
-
-  @assign res = pathSuffixOf(suffix_path, path)
-  return res
-end
-
 function pathToStringList(path::Path)::List{String}
   local outPaths::List{String}
 
@@ -2684,31 +2441,6 @@ function pathToStringListWork(path::Path, acc::List{<:String})::List{String}
     end
   end
   return outPaths
-end
-
-"""
-  Replaces the first part of a path with a replacement path:
-  (a.b.c, d.e) => d.e.b.c
-  (a, b.c.d) => b.c.d
-"""
-function pathReplaceFirstIdent(path::Path, replPath::Path)::Path
-  local outPath::Path
-
-  @assign outPath = begin
-    local p::Path
-    #=  Should not be possible to replace FQ paths
-    =#
-    @match (path, replPath) begin
-      (QUALIFIED(path = p), _) => begin
-        joinPaths(replPath, p)
-      end
-
-      (IDENT(__), _) => begin
-        replPath
-      end
-    end
-  end
-  return outPath
 end
 
 """Function for appending subscripts at end of last ident"""
@@ -3483,65 +3215,6 @@ function joinPaths(inPath1::Path, inPath2::Path)::Path
   return outPath
 end
 
-"""This function joins two paths when the first one might be NONE"""
-function joinPathsOpt(inPath1::Option{<:Path}, inPath2::Path)::Path
-  local outPath::Path
-
-  @assign outPath = begin
-    local p::Path
-    @match (inPath1, inPath2) begin
-      (NONE(), _) => begin
-        inPath2
-      end
-
-      (SOME(p), _) => begin
-        joinPaths(p, inPath2)
-      end
-    end
-  end
-  return outPath
-end
-
-function joinPathsOptSuffix(inPath1::Path, inPath2::Option{<:Path})::Path
-  local outPath::Path
-
-  @assign outPath = begin
-    local p::Path
-    @match (inPath1, inPath2) begin
-      (_, SOME(p)) => begin
-        joinPaths(inPath1, p)
-      end
-
-      _ => begin
-        inPath1
-      end
-    end
-  end
-  return outPath
-end
-
-"""
-  This function selects the second path when the first one
-  is NONE() otherwise it will select the first one.
-"""
-function selectPathsOpt(inPath1::Option{<:Path}, inPath2::Path)::Path
-  local outPath::Path
-
-  @assign outPath = begin
-    local p::Path
-    @match (inPath1, inPath2) begin
-      (NONE(), p) => begin
-        p
-      end
-
-      (SOME(p), _) => begin
-        p
-      end
-    end
-  end
-  return outPath
-end
-
 """
   author Lucian
   This function joins a path list
@@ -3596,25 +3269,6 @@ function stripLast(inPath::Path)::Path
       FULLYQUALIFIED(p) => begin
         @assign p = stripLast(p)
         FULLYQUALIFIED(p)
-      end
-    end
-  end
-  return outPath
-end
-
-function stripLastOpt(inPath::Path)::Option{Path}
-  local outPath::Option{Path}
-
-  @assign outPath = begin
-    local p::Path
-    @match inPath begin
-      IDENT(__) => begin
-        NONE()
-      end
-
-      _ => begin
-        @assign p = stripLast(inPath)
-        SOME(p)
       end
     end
   end
@@ -3736,24 +3390,6 @@ function crefToPath(inComponentRef::ComponentRef)::Path
       CREF_FULLYQUALIFIED(componentRef = c) => begin
         @assign p = crefToPath(c)
         FULLYQUALIFIED(p)
-      end
-    end
-  end
-  return outPath
-end
-
-"""
-  This function converts a ElementSpec to a Path, if possible.
-  If the ElementSpec is not EXTENDS, it will silently fail.
-"""
-function elementSpecToPath(inElementSpec::ElementSpec)::Path
-  local outPath::Path
-
-  @assign outPath = begin
-    local p::Path
-    @match inElementSpec begin
-      EXTENDS(path = p) => begin
-        p
       end
     end
   end
@@ -3893,46 +3529,6 @@ function crefFirstIdentNoSubs(inCref::ComponentRef)::Ident
     end
   end
   return outIdent
-end
-
-"""Returns true if the component reference is a simple identifier, otherwise false."""
-function crefIsIdent(inComponentRef::ComponentRef)::Bool
-  local outIsIdent::Bool
-
-  @assign outIsIdent = begin
-    @match inComponentRef begin
-      CREF_IDENT(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outIsIdent
-end
-
-"""Returns true if the component reference is a qualified identifier, otherwise false."""
-function crefIsQual(inComponentRef::ComponentRef)::Bool
-  local outIsQual::Bool
-
-  @assign outIsQual = begin
-    @match inComponentRef begin
-      CREF_QUAL(__) => begin
-        true
-      end
-
-      CREF_FULLYQUALIFIED(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outIsQual
 end
 
 """Return the last subscripts of an ComponentRef"""
@@ -4231,23 +3827,6 @@ function crefStripFirst(inComponentRef::ComponentRef)::ComponentRef
   return outComponentRef
 end
 
-function crefIsFullyQualified(inCref::ComponentRef)::Bool
-  local outIsFullyQualified::Bool
-
-  @assign outIsFullyQualified = begin
-    @match inCref begin
-      CREF_FULLYQUALIFIED(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outIsFullyQualified
-end
-
 """Makes a component reference fully qualified unless it already is."""
 function crefMakeFullyQualified(inComponentRef::ComponentRef)::ComponentRef
   local outComponentRef::ComponentRef
@@ -4359,77 +3938,6 @@ function restrString(inRestriction::Restriction)::String
   return outString
 end
 
-"""Returns the path (=name) of the last class in a program"""
-function lastClassname(inProgram::Program)::Path
-  local outPath::Path
-
-  local lst::List{Class}
-  local id::Ident
-
-  @match PROGRAM(classes = lst) = inProgram
-  @match CLASS(name = id) = ListUtil.last(lst)
-  @assign outPath = IDENT(id)
-  return outPath
-end
-
-"""Retrieves the filename where the class is stored."""
-function classFilename(inClass::Class)::String
-  local outFilename::String
-
-  @match CLASS(info = SOURCEINFO(fileName = outFilename)) = inClass
-  return outFilename
-end
-
-"""Sets the filename where the class is stored."""
-function setClassFilename(inClass::Class, fileName::String)::Class
-  local outClass::Class
-
-  @assign outClass = begin
-    local info::SourceInfo
-    local cl::Class
-    @match inClass begin
-      cl && CLASS(info = info && SOURCEINFO(__)) => begin
-        @assign info.fileName = fileName
-        @assign cl.info = info
-        cl
-      end
-    end
-  end
-  return outClass
-end
-
-"""
-  author: BZ
-  Sets the name of the class
-"""
-function setClassName(inClass::Class, newName::String)::Class
-  local outClass::Class = inClass
-
-  @assign outClass = begin
-    @match outClass begin
-      CLASS(__) => begin
-        @assign outClass.name = newName
-        outClass
-      end
-    end
-  end
-  return outClass
-end
-
-function setClassBody(inClass::Class, inBody::ClassDef)::Class
-  local outClass::Class = inClass
-
-  @assign outClass = begin
-    @match outClass begin
-      CLASS(__) => begin
-        @assign outClass.body = inBody
-        outClass
-      end
-    end
-  end
-  return outClass
-end
-
 """
   Checks if the name of a ComponentRef is
   equal to the name of another ComponentRef, including subscripts.
@@ -4471,18 +3979,6 @@ function crefEqual(iCr1::ComponentRef, iCr2::ComponentRef)::Bool
       end
     end
   end
-  return outBoolean
-end
-
-"""
-  @author: adrpo
-  a.b, a -> true
-  b.c, a -> false
-"""
-function crefFirstEqual(iCr1::ComponentRef, iCr2::ComponentRef)::Bool
-  local outBoolean::Bool
-
-  @assign outBoolean = stringEq(crefFirstIdent(iCr1), crefFirstIdent(iCr2))
   return outBoolean
 end
 
@@ -4560,42 +4056,6 @@ function crefEqualNoSubs(cr1::ComponentRef, cr2::ComponentRef)::Bool
   return outBoolean
 end
 
-"""checks if the provided parameter is a package or not"""
-function isPackageRestriction(inRestriction::Restriction)::Bool
-  local outIsPackage::Bool
-
-  @assign outIsPackage = begin
-    @match inRestriction begin
-      R_PACKAGE(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outIsPackage
-end
-
-"""checks if restriction is a function or not"""
-function isFunctionRestriction(inRestriction::Restriction)::Bool
-  local outIsFunction::Bool
-
-  @assign outIsFunction = begin
-    @match inRestriction begin
-      R_FUNCTION(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outIsFunction
-end
-
 """Returns true if two expressions are equal"""
 function expEqual(exp1::Exp, exp2::Exp)::Bool
   local equal::Bool
@@ -4651,109 +4111,7 @@ function eachEqual(each1::Each, each2::Each)::Bool
   return equal
 end
 
-"""Returns true if two FunctionArgs are equal"""
-function functionArgsEqual(args1::FunctionArgs, args2::FunctionArgs)::Bool
-  local equal::Bool
-
-  @assign equal = begin
-    local expl1::List{Exp}
-    local expl2::List{Exp}
-    @match (args1, args2) begin
-      (FUNCTIONARGS(args = expl1), FUNCTIONARGS(args = expl2)) => begin
-        ListUtil.isEqualOnTrue(expl1, expl2, expEqual)
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return equal
-end
-
-"""
-  author: adrpo
-  gets the name of the class.
-"""
-function getClassName(inClass::Class)::String
-  local outName::String
-
-  @match CLASS(name = outName) = inClass
-  return outName
-end
-
 IteratorIndexedCref = Tuple
-
-"""
-  Find all crefs in an expression which are subscripted with the given
-  iterator, and return a list of cref-Integer tuples, where the cref is the
-  index of the subscript.
-"""
-function findIteratorIndexedCrefs(
-  inExp::Exp,
-  inIterator::String,
-  inCrefs::List{<:IteratorIndexedCref} = nil,
-)::List{IteratorIndexedCref}
-  local outCrefs::List{IteratorIndexedCref}
-
-  @assign (_, outCrefs) = traverseExp(
-    inExp,
-    (inIterator) -> findIteratorIndexedCrefs_traverser(inIterator = inIterator),
-    nil,
-  )
-  @assign outCrefs = ListUtil.fold(
-    outCrefs,
-    (iteratorIndexedCrefsEqual) ->
-      ListUtil.unionEltOnTrue(inCompFunc = iteratorIndexedCrefsEqual),
-    inCrefs,
-  )
-  return outCrefs
-end
-
-"""
-  Traversal function used by deduceReductionIterationRange. Used to find crefs
-  which are subscripted by a given iterator.
-"""
-function findIteratorIndexedCrefs_traverser(
-  inExp::Exp,
-  inCrefs::List{<:IteratorIndexedCref},
-  inIterator::String,
-)::Tuple{Exp, List{IteratorIndexedCref}}
-  local outCrefs::List{IteratorIndexedCref}
-  local outExp::Exp = inExp
-
-  @assign outCrefs = begin
-    local cref::ComponentRef
-    @match inExp begin
-      CREF(componentRef = cref) => begin
-        getIteratorIndexedCrefs(cref, inIterator, inCrefs)
-      end
-
-      _ => begin
-        inCrefs
-      end
-    end
-  end
-  return (outExp, outCrefs)
-end
-
-"""Checks whether two cref-index pairs are equal."""
-function iteratorIndexedCrefsEqual(
-  inCref1::IteratorIndexedCref,
-  inCref2::IteratorIndexedCref,
-)::Bool
-  local outEqual::Bool
-
-  local cr1::ComponentRef
-  local cr2::ComponentRef
-  local idx1::Int
-  local idx2::Int
-
-  @assign (cr1, idx1) = inCref1
-  @assign (cr2, idx2) = inCref2
-  @assign outEqual = idx1 == idx2 && crefEqual(cr1, cr2)
-  return outEqual
-end
 
 """
   Checks if the given component reference is subscripted by the given iterator.
@@ -4867,13 +4225,6 @@ function pathReplaceIdent(path::Path, last::String)::Path
   return out
 end
 
-function getFileNameFromInfo(inInfo::SourceInfo)::String
-  local inFileName::String
-
-  @match SOURCEINFO(fileName = inFileName) = inInfo
-  return inFileName
-end
-
 """
   @author: adrpo
   this function returns true if the given InnerOuter
@@ -4926,24 +4277,6 @@ function isInner(io::InnerOuter)::Bool
   return isItAnInner
 end
 
-"""Returns true if the InnerOuter is INNER, false otherwise."""
-function isOnlyInner(inIO::InnerOuter)::Bool
-  local outOnlyInner::Bool
-
-  @assign outOnlyInner = begin
-    @match inIO begin
-      INNER(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outOnlyInner
-end
-
 """Returns true if the InnerOuter is OUTER, false otherwise."""
 function isOnlyOuter(inIO::InnerOuter)::Bool
   local outOnlyOuter::Bool
@@ -4960,40 +4293,6 @@ function isOnlyOuter(inIO::InnerOuter)::Bool
     end
   end
   return outOnlyOuter
-end
-
-function isInnerOuter(inIO::InnerOuter)::Bool
-  local outIsInnerOuter::Bool
-
-  @assign outIsInnerOuter = begin
-    @match inIO begin
-      INNER_OUTER(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outIsInnerOuter
-end
-
-function isNotInnerOuter(inIO::InnerOuter)::Bool
-  local outIsNotInnerOuter::Bool
-
-  @assign outIsNotInnerOuter = begin
-    @match inIO begin
-      NOT_INNER_OUTER(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outIsNotInnerOuter
 end
 
 """Returns true if two InnerOuter's are equal"""
@@ -5024,24 +4323,6 @@ function innerOuterEqual(io1::InnerOuter, io2::InnerOuter)::Bool
     end
   end
   return res
-end
-
-"""Makes a path fully qualified unless it already is."""
-function makeFullyQualified(inPath::Path)::Path
-  local outPath::Path
-
-  @assign outPath = begin
-    @match inPath begin
-      FULLYQUALIFIED(__) => begin
-        inPath
-      end
-
-      _ => begin
-        FULLYQUALIFIED(inPath)
-      end
-    end
-  end
-  return outPath
 end
 
 """Makes a path not fully qualified unless it already is."""
@@ -5302,65 +4583,11 @@ function onlyLiteralsInExpExit(
   return (outExp, outLst)
 end
 
-function makeCons(e1::Exp, e2::Exp)::Exp
-  local e::Exp
-
-  @assign e = CONS(e1, e2)
-  return e
-end
-
 function crefIdent(cr::ComponentRef)::String
   local str::String
 
   @match CREF_IDENT(str, nil) = cr
   return str
-end
-
-function unqotePathIdents(inPath::Path)::Path
-  local path::Path
-
-  @assign path =
-    stringListPath(ListUtil.map(pathToStringList(inPath), System.unquoteIdentifier))
-  return path
-end
-
-"""
-  If the given component reference is fully qualified this function removes the
-  fully qualified qualifier, otherwise does nothing.
-"""
-function unqualifyCref(inCref::ComponentRef)::ComponentRef
-  local outCref::ComponentRef
-
-  @assign outCref = begin
-    local cref::ComponentRef
-    @match inCref begin
-      CREF_FULLYQUALIFIED(componentRef = cref) => begin
-        cref
-      end
-
-      _ => begin
-        inCref
-      end
-    end
-  end
-  return outCref
-end
-
-function pathIsFullyQualified(inPath::Path)::Bool
-  local outIsQualified::Bool
-
-  @assign outIsQualified = begin
-    @match inPath begin
-      FULLYQUALIFIED(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outIsQualified
 end
 
 function pathIsIdent(inPath::Path)::Bool
@@ -5378,151 +4605,6 @@ function pathIsIdent(inPath::Path)::Bool
     end
   end
   return outIsIdent
-end
-
-function pathIsQual(inPath::Path)::Bool
-  local outIsQual::Bool
-
-  @assign outIsQual = begin
-    @match inPath begin
-      QUALIFIED(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outIsQual
-end
-
-function withinEqual(within1::Within, within2::Within)::Bool
-  local b::Bool
-
-  @assign b = begin
-    local p1::Path
-    local p2::Path
-    @match (within1, within2) begin
-      (TOP(__), TOP(__)) => begin
-        true
-      end
-
-      (WITHIN(p1), WITHIN(p2)) => begin
-        pathEqual(p1, p2)
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return b
-end
-
-function withinString(w1::Within)::String
-  local str::String
-
-  @assign str = begin
-    local p1::Path
-    @match w1 begin
-      TOP(__) => begin
-        "within ;"
-      end
-
-      WITHIN(p1) => begin
-        "within " + pathString(p1) + ";"
-      end
-    end
-  end
-  return str
-end
-
-function joinWithinPath(within_::Within, path::Path)::Path
-  local outPath::Path
-
-  @assign outPath = begin
-    local path1::Path
-    @match (within_, path) begin
-      (TOP(__), _) => begin
-        path
-      end
-
-      (WITHIN(path1), _) => begin
-        joinPaths(path1, path)
-      end
-    end
-  end
-  return outPath
-end
-
-function innerOuterStr(io::InnerOuter)::String
-  local str::String
-
-  @assign str = begin
-    @match io begin
-      INNER_OUTER(__) => begin
-        "inner outer "
-      end
-
-      INNER(__) => begin
-        "inner "
-      end
-
-      OUTER(__) => begin
-        "outer "
-      end
-
-      NOT_INNER_OUTER(__) => begin
-        ""
-      end
-    end
-  end
-  return str
-end
-
-function subscriptExpOpt(inSub::Subscript)::Option{Exp}
-  local outExpOpt::Option{Exp}
-
-  @assign outExpOpt = begin
-    local e::Exp
-    @match inSub begin
-      SUBSCRIPT(subscript = e) => begin
-        SOME(e)
-      end
-
-      NOSUB(__) => begin
-        NONE()
-      end
-    end
-  end
-  return outExpOpt
-end
-
-function crefInsertSubscriptLstLst(
-  inExp::Exp,
-  inLst::List{<:List{<:Subscript}},
-)::Tuple{Exp, List{List{Subscript}}}
-  local outLst::List{List{Subscript}}
-  local outExp::Exp
-
-  @assign (outExp, outLst) = begin
-    local cref::ComponentRef
-    local cref2::ComponentRef
-    local subs::List{List{Subscript}}
-    local e::Exp
-    @matchcontinue (inExp, inLst) begin
-      (CREF(componentRef = cref), subs) => begin
-        @assign cref2 = crefInsertSubscriptLstLst2(cref, subs)
-        (CREF(cref2), subs)
-      end
-
-      _ => begin
-        (inExp, inLst)
-      end
-    end
-  end
-  return (outExp, outLst)
 end
 
 """Helper function to crefInsertSubscriptLstLst"""
@@ -5649,48 +4731,6 @@ function isDerCref(exp::Exp)::Bool
   return b
 end
 
-function isDerCrefFail(exp::Exp)
-  return @match CALL(CREF_IDENT("der", nil), FUNCTIONARGS(list(CREF()), nil)) = exp
-end
-
-"""
-  author: adrpo
-  returns all the expressions from array dimension as a list
-  also returns if we have unknown dimensions in the array dimension
-"""
-function getExpsFromArrayDim(inAd::ArrayDim)::Tuple{Bool, List{Exp}}
-  local outExps::List{Exp}
-  local hasUnknownDimensions::Bool
-
-  @assign (hasUnknownDimensions, outExps) = getExpsFromArrayDim_tail(inAd, nil)
-  return (hasUnknownDimensions, outExps)
-end
-
-"""
-  author: adrpo
-  returns all the expressions from array dimension as a list
-  also returns if we have unknown dimensions in the array dimension
-"""
-function getExpsFromArrayDimOpt(inAdO::Option{<:ArrayDim})::Tuple{Bool, List{Exp}}
-  local outExps::List{Exp}
-  local hasUnknownDimensions::Bool
-
-  @assign (hasUnknownDimensions, outExps) = begin
-    local ad::ArrayDim
-    @match inAdO begin
-      NONE() => begin
-        (false, nil)
-      end
-
-      SOME(ad) => begin
-        @assign (hasUnknownDimensions, outExps) = getExpsFromArrayDim_tail(ad, nil)
-        (hasUnknownDimensions, outExps)
-      end
-    end
-  end
-  return (hasUnknownDimensions, outExps)
-end
-
 """
   author: adrpo
   returns all the expressions from array dimension as a list
@@ -5732,35 +4772,6 @@ function getExpsFromArrayDim_tail(
   #=  handle NOSUB
   =#
   return (hasUnknownDimensions, outExps)
-end
-
-"""
-  @author: adrpo
-  returns true if the given direction is input or output
-"""
-function isInputOrOutput(direction::Direction)::Bool
-  local isIorO::Bool #= input or output only =#
-
-  @assign isIorO = begin
-    @match direction begin
-      INPUT(__) => begin
-        true
-      end
-
-      OUTPUT(__) => begin
-        true
-      end
-
-      INPUT_OUTPUT(__) => begin
-        true
-      end
-
-      BIDIR(__) => begin
-        false
-      end
-    end
-  end
-  return isIorO #= input or output only =#
 end
 
 function isInput(inDirection::Direction)::Bool
@@ -5855,322 +4866,6 @@ function isFieldEqual(isField1::IsField, isField2::IsField)::Bool
   return outEqual
 end
 
-function pathLt(path1::Path, path2::Path)::Bool
-  local lt::Bool
-
-  @assign lt = stringCompare(pathString(path1), pathString(path2)) < 0
-  return lt
-end
-
-function pathGe(path1::Path, path2::Path)::Bool
-  local ge::Bool
-
-  @assign ge = !pathLt(path1, path2)
-  return ge
-end
-
-"""Strips out long class definitions"""
-function getShortClass(cl::Class)::Class
-  local o::Class
-
-  @assign o = begin
-    local name::Ident
-    local pa::Bool
-    local fi::Bool
-    local en::Bool
-    local re::Restriction
-    local body::ClassDef
-    local info::Info
-    @match cl begin
-      CLASS(body = PARTS(__)) => begin
-        fail()
-      end
-
-      CLASS(body = CLASS_EXTENDS(__)) => begin
-        fail()
-      end
-
-      CLASS(name, pa, fi, en, re, body, info) => begin
-        @assign body = stripClassDefComment(body)
-        CLASS(name, pa, fi, en, re, body, info)
-      end
-    end
-  end
-  return o
-end
-
-"""Strips out class definition comments."""
-function stripClassDefComment(cl::ClassDef)::ClassDef
-  local o::ClassDef
-
-  @assign o = begin
-    local enumLiterals::EnumDef
-    local typeSpec::TypeSpec
-    local attributes::ElementAttributes
-    local arguments::List{ElementArg}
-    local functionNames::List{Path}
-    local functionName::Path
-    local vars::List{Ident}
-    local typeVars::List{String}
-    local baseClassName::Ident
-    local modifications::List{ElementArg}
-    local parts::List{ClassPart}
-    local classAttrs::List{NamedArg}
-    local ann::List{Annotation}
-    @match cl begin
-      PARTS(typeVars, classAttrs, parts, ann, _) => begin
-        PARTS(typeVars, classAttrs, parts, ann, NONE())
-      end
-
-      CLASS_EXTENDS(baseClassName, modifications, _, parts, ann) => begin
-        CLASS_EXTENDS(baseClassName, modifications, NONE(), parts, ann)
-      end
-
-      DERIVED(typeSpec, attributes, arguments, _) => begin
-        DERIVED(typeSpec, attributes, arguments, NONE())
-      end
-
-      ENUMERATION(enumLiterals, _) => begin
-        ENUMERATION(enumLiterals, NONE())
-      end
-
-      OVERLOAD(functionNames, _) => begin
-        OVERLOAD(functionNames, NONE())
-      end
-
-      PDER(functionName, vars, _) => begin
-        PDER(functionName, vars, NONE())
-      end
-
-      _ => begin
-        cl
-      end
-    end
-  end
-  return o
-end
-
-"""Strips out the parts of a function definition that are not needed for the interface"""
-function getFunctionInterface(cl::Class)::Class
-  local o::Class
-
-  @assign o = begin
-    local name::Ident
-    local partialPrefix::Bool
-    local finalPrefix::Bool
-    local encapsulatedPrefix::Bool
-    local info::Info
-    local typeVars::List{String}
-    local classParts::List{ClassPart}
-    local elts::List{ElementItem}
-    local funcRest::FunctionRestriction
-    local classAttr::List{NamedArg}
-    @match cl begin
-      CLASS(
-        name,
-        partialPrefix,
-        finalPrefix,
-        encapsulatedPrefix,
-        R_FUNCTION(funcRest),
-        PARTS(typeVars, classAttr, classParts, _, _),
-        info,
-      ) => begin
-        @match (@match _cons(_, _) = elts) =
-          ListUtil.fold(listReverse(classParts), getFunctionInterfaceParts, nil)
-        CLASS(
-          name,
-          partialPrefix,
-          finalPrefix,
-          encapsulatedPrefix,
-          R_FUNCTION(funcRest),
-          PARTS(typeVars, classAttr, _cons(PUBLIC(elts), nil), nil, NONE()),
-          info,
-        )
-      end
-    end
-  end
-  return o
-end
-
-function getFunctionInterfaceParts(
-  part::ClassPart,
-  elts::List{<:ElementItem},
-)::List{ElementItem}
-  local oelts::List{ElementItem}
-
-  @assign oelts = begin
-    local elts1::List{ElementItem}
-    local elts2::List{ElementItem}
-    @match (part, elts) begin
-      (PUBLIC(elts1), elts2) => begin
-        @assign elts1 = ListUtil.filterOnTrue(elts1, filterAnnotationItem)
-        listAppend(elts1, elts2)
-      end
-
-      _ => begin
-        elts
-      end
-    end
-  end
-  return oelts
-end
-
-function filterAnnotationItem(elt::ElementItem)::Bool
-  local outB::Bool
-
-  @assign outB = begin
-    @match elt begin
-      ELEMENTITEM(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outB
-end
-
-"""Filter outs the nested classes from the class if any."""
-function filterNestedClasses(cl::Class)::Class
-  local o::Class
-
-  @assign o = begin
-    local name::Ident
-    local partialPrefix::Bool
-    local finalPrefix::Bool
-    local encapsulatedPrefix::Bool
-    local restriction::Restriction
-    local typeVars::List{String}
-    local classAttrs::List{NamedArg}
-    local classParts::List{ClassPart}
-    local annotations::List{Annotation}
-    local comment::Option{String}
-    local info::Info
-    @match cl begin
-      CLASS(
-        name,
-        partialPrefix,
-        finalPrefix,
-        encapsulatedPrefix,
-        restriction,
-        PARTS(typeVars, classAttrs, classParts, annotations, comment),
-        info,
-      ) => begin
-        @match (@match _cons(_, _) = classParts) =
-          ListUtil.fold(listReverse(classParts), filterNestedClassesParts, nil)
-        CLASS(
-          name,
-          partialPrefix,
-          finalPrefix,
-          encapsulatedPrefix,
-          restriction,
-          PARTS(typeVars, classAttrs, classParts, annotations, comment),
-          info,
-        )
-      end
-
-      _ => begin
-        cl
-      end
-    end
-  end
-  return o
-end
-
-"""Helper function for filterNestedClasses"""
-function filterNestedClassesParts(
-  classPart::ClassPart,
-  inClassParts::List{<:ClassPart},
-)::List{ClassPart}
-  local outClassPart::List{ClassPart}
-
-  @assign outClassPart = begin
-    local classParts::List{ClassPart}
-    local elts::List{ElementItem}
-    @match (classPart, inClassParts) begin
-      (PUBLIC(elts), classParts) => begin
-        @assign classPart.contents = ListUtil.filterOnFalse(elts, isElementItemClass)
-        _cons(classPart, classParts)
-      end
-
-      (PROTECTED(elts), classParts) => begin
-        @assign classPart.contents = ListUtil.filterOnFalse(elts, isElementItemClass)
-        _cons(classPart, classParts)
-      end
-
-      _ => begin
-        _cons(classPart, inClassParts)
-      end
-    end
-  end
-  return outClassPart
-end
-
-"""
-  @author: adrpo
-  returns the EXTERNAL form parts if there is any.
-  if there is none, it fails!
-"""
-function getExternalDecl(inCls::Class)::ClassPart
-  local outExternal::ClassPart
-
-  local cp::ClassPart
-  local class_parts::List{ClassPart}
-
-  @match CLASS(body = PARTS(classParts = class_parts)) = inCls
-  @assign outExternal = ListUtil.find(class_parts, isExternalPart)
-  return outExternal
-end
-
-function isExternalPart(inClassPart::ClassPart)::Bool
-  local outFound::Bool
-
-  @assign outFound = begin
-    @match inClassPart begin
-      EXTERNAL(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outFound
-end
-
-function isParts(cl::ClassDef)::Bool
-  local b::Bool
-
-  @assign b = begin
-    @match cl begin
-      PARTS(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return b
-end
-
-"""Makes a class into an ElementItem"""
-function makeClassElement(cl::Class)::ElementItem
-  local el::ElementItem
-
-  local info::Info
-  local fp::Bool
-
-  @match CLASS(finalPrefix = fp, info = info) = cl
-  @assign el =
-    ELEMENTITEM(ELEMENT(fp, NONE(), NOT_INNER_OUTER(), CLASSDEF(false, cl), info, NONE()))
-  return el
-end
-
 function componentName(c::ComponentItem)::String
   local name::String
 
@@ -6210,62 +4905,6 @@ end
 
 """
   @author:
-  returns true if expression contains initial()
-"""
-function expContainsInitial(inExp::Exp)::Bool
-  local hasInitial::Bool
-
-  @assign hasInitial = begin
-    local b::Bool
-    @matchcontinue inExp begin
-      _ => begin
-        @assign (_, b) = traverseExp(inExp, isInitialTraverseHelper, false)
-        b
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return hasInitial
-end
-
-"""
-  @author:
-  returns true if expression is initial()
-"""
-function isInitialTraverseHelper(inExp::Exp, inBool::Bool)::Tuple{Exp, Bool}
-  local outBool::Bool
-  local outExp::Exp
-
-  @assign (outExp, outBool) = begin
-    local e::Exp
-    local b::Bool
-    #=  make sure we don't have not initial()
-    =#
-    @match (inExp, inBool) begin
-      (UNARY(NOT(__), _), _) => begin
-        (inExp, inBool)
-      end
-
-      (e, _) => begin
-        @assign b = isInitial(e)
-        (e, b)
-      end
-
-      _ => begin
-        (inExp, inBool)
-      end
-    end
-  end
-  #=  we have initial
-  =#
-  return (outExp, outBool)
-end
-
-"""
-  @author:
   returns true if expression is initial()
 """
 function isInitial(inExp::Exp)::Bool
@@ -6287,33 +4926,6 @@ function isInitial(inExp::Exp)::Bool
     end
   end
   return hasReinit
-end
-
-"""Return the path of the given import."""
-function importPath(inImport::Import)::Path
-  local outPath::Path
-
-  @assign outPath = begin
-    local path::Path
-    @match inImport begin
-      NAMED_IMPORT(path = path) => begin
-        path
-      end
-
-      QUAL_IMPORT(path = path) => begin
-        path
-      end
-
-      UNQUAL_IMPORT(path = path) => begin
-        path
-      end
-
-      GROUP_IMPORT(prefix = path) => begin
-        path
-      end
-    end
-  end
-  return outPath
 end
 
 """Returns the import name of a named or qualified import."""
@@ -6395,39 +5007,6 @@ function mergeAnnotations2(
   return res
 end
 
-"""Merges an annotation into a Comment option."""
-function mergeCommentAnnotation(
-  inAnnotation::Annotation,
-  inComment::Option{<:Comment},
-)::Option{Comment}
-  local outComment::Option{Comment}
-
-  @assign outComment = begin
-    local ann::Annotation
-    local cmt::Option{String}
-    #=  No comment, create a new one.
-    =#
-    @match inComment begin
-      NONE() => begin
-        SOME(COMMENT(SOME(inAnnotation), NONE()))
-      end
-
-      SOME(COMMENT(annotation_ = NONE(), comment = cmt)) => begin
-        SOME(COMMENT(SOME(inAnnotation), cmt))
-      end
-
-      SOME(COMMENT(annotation_ = SOME(ann), comment = cmt)) => begin
-        SOME(COMMENT(SOME(mergeAnnotations(ann, inAnnotation)), cmt))
-      end
-    end
-  end
-  #=  A comment without annotation, insert the annotation.
-  =#
-  #=  A comment with annotation, merge the annotations.
-  =#
-  return outComment
-end
-
 """returns true or false if the given path is in the list of modifications"""
 function isModificationOfPath(mod::ElementArg, path::Path)::Bool
   local yes::Bool
@@ -6497,20 +5076,6 @@ function subModsInSameOrder(oldmod::ElementArg, newmod::ElementArg)::ElementArg
   return mod
 end
 
-function annotationToElementArgs(ann::Annotation)::List{ElementArg}
-  local args::List{ElementArg}
-
-  @match ANNOTATION(args) = ann
-  return args
-end
-
-function pathToTypeSpec(inPath::Path)::TypeSpec
-  local outTypeSpec::TypeSpec
-
-  @assign outTypeSpec = TPATH(inPath, NONE())
-  return outTypeSpec
-end
-
 function typeSpecString(inTs::TypeSpec)::String
   local outStr::String
 
@@ -6560,16 +5125,6 @@ function typeSpecStringNoQualNoDimsLst(inTypeSpecLst::List{<:TypeSpec})::String
   return outString
 end
 
-function crefStringIgnoreSubs(inCr::ComponentRef)::String
-  local outStr::String
-
-  local p::Path
-
-  @assign p = crefToPathIgnoreSubs(inCr)
-  @assign outStr = pathString(makeNotFullyQualified(p))
-  return outStr
-end
-
 """An import clause as Modelica, without `import` and the semicolon: `SI = Modelica.Units.SI`, `A.B`, `A.B.*`,
 `A.{b, c = d}`."""
 function importString(inImp::Import)::String
@@ -6581,82 +5136,6 @@ function importString(inImp::Import)::String
       join(String[g isa GROUP_IMPORT_NAME ? g.name : (g::GROUP_IMPORT_RENAME).rename * " = " * g.name for g in inImp.groups],
            ", ") + "}"
   end
-end
-
-"""
-  @author: adrpo
-  full Ref -> string
-  cref/path full qualified, type dims, subscripts in crefs
-"""
-function refString(inRef::Ref)::String
-  local outStr::String
-
-  @assign outStr = begin
-    local cr::ComponentRef
-    local ts::TypeSpec
-    local im::Import
-    @match inRef begin
-      RCR(cr) => begin
-        crefString(cr)
-      end
-
-      RTS(ts) => begin
-        typeSpecString(ts)
-      end
-
-      RIM(im) => begin
-        importString(im)
-      end
-    end
-  end
-  return outStr
-end
-
-"""
-  @author: adrpo
-  brief Ref -> string
-  no cref/path full qualified, no type dims, no subscripts in crefs
-"""
-function refStringBrief(inRef::Ref)::String
-  local outStr::String
-
-  @assign outStr = begin
-    local cr::ComponentRef
-    local ts::TypeSpec
-    local im::Import
-    @match inRef begin
-      RCR(cr) => begin
-        crefStringIgnoreSubs(cr)
-      end
-
-      RTS(ts) => begin
-        typeSpecStringNoQualNoDims(ts)
-      end
-
-      RIM(im) => begin
-        importString(im)
-      end
-    end
-  end
-  return outStr
-end
-
-function getArrayDimOptAsList(inArrayDim::Option{<:ArrayDim})::ArrayDim
-  local outArrayDim::ArrayDim
-
-  @assign outArrayDim = begin
-    local ad::ArrayDim
-    @match inArrayDim begin
-      SOME(ad) => begin
-        ad
-      end
-
-      _ => begin
-        nil
-      end
-    end
-  end
-  return outArrayDim
 end
 
 """Removes a variable from a variable list"""
@@ -6703,60 +5182,6 @@ function removeCrefFromCrefs(
   #=  If modifier like on comp like: T t(x=t.y) => t.y must be removed
   =#
   return outAbsynComponentRefLst
-end
-
-"""Retrieve e.g. the documentation annotation as a string from the class passed as argument."""
-function getNamedAnnotationInClass(inClass::Class, id::Path, f::ModFunc)::Option{TypeA}
-  local outString::Option{TypeA}
-
-  @assign outString = begin
-    local str::TypeA
-    local res::TypeA
-    local parts::List{ClassPart}
-    local annlst::List{ElementArg}
-    local ann::List{Annotation}
-    @matchcontinue (inClass, id, f) begin
-      (CLASS(body = PARTS(ann = ann)), _, _) => begin
-        @assign annlst = ListUtil.flatten(ListUtil.map(ann, annotationToElementArgs))
-        @match SOME(str) = getNamedAnnotationStr(annlst, id, f)
-        SOME(str)
-      end
-
-      (CLASS(body = CLASS_EXTENDS(ann = ann)), _, _) => begin
-        @assign annlst = ListUtil.flatten(ListUtil.map(ann, annotationToElementArgs))
-        @match SOME(str) = getNamedAnnotationStr(annlst, id, f)
-        SOME(str)
-      end
-
-      (CLASS(body = DERIVED(comment = SOME(COMMENT(SOME(ANNOTATION(annlst)), _)))), _, _) => begin
-        @match SOME(res) = getNamedAnnotationStr(annlst, id, f)
-        SOME(res)
-      end
-
-      (
-        CLASS(body = ENUMERATION(comment = SOME(COMMENT(SOME(ANNOTATION(annlst)), _)))),
-        _,
-        _,
-      ) => begin
-        @match SOME(res) = getNamedAnnotationStr(annlst, id, f)
-        SOME(res)
-      end
-
-      (
-        CLASS(body = OVERLOAD(comment = SOME(COMMENT(SOME(ANNOTATION(annlst)), _)))),
-        _,
-        _,
-      ) => begin
-        @match SOME(res) = getNamedAnnotationStr(annlst, id, f)
-        SOME(res)
-      end
-
-      _ => begin
-        NONE()
-      end
-    end
-  end
-  return outString
 end
 
 """Helper function to getNamedAnnotationInElementitemlist."""
@@ -6840,54 +5265,6 @@ function mapCrefParts(inCref::ComponentRef, inMapFunc::MapFunc)::ComponentRef
   return outCref
 end
 
-function opEqual(op1::Operator, op2::Operator)::Bool
-  local isEqual::Bool
-
-  @assign isEqual = valueEq(op1, op2)
-  return isEqual
-end
-
-function opIsElementWise(op::Operator)::Bool
-  local isElementWise::Bool
-
-  @assign isElementWise = begin
-    @match op begin
-      ADD_EW(__) => begin
-        true
-      end
-
-      SUB_EW(__) => begin
-        true
-      end
-
-      MUL_EW(__) => begin
-        true
-      end
-
-      DIV_EW(__) => begin
-        true
-      end
-
-      POW_EW(__) => begin
-        true
-      end
-
-      UPLUS_EW(__) => begin
-        true
-      end
-
-      UMINUS_EW(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return isElementWise
-end
-
 function dummyTraverseExp(inExp::Exp, inArg::Arg)::Tuple{Exp, Arg}
   local outArg::Arg
   local outExp::Exp
@@ -6922,281 +5299,6 @@ function getDefineUnitsInElements(elts::List{<:ElementItem})::List{Element}
   return outElts
 end
 
-"""Returns the public and protected elements in a class."""
-function getElementItemsInClass(inClass::Class)::List{ElementItem}
-  local outElements::List{ElementItem}
-
-  @assign outElements = begin
-    local parts::List{ClassPart}
-    @match inClass begin
-      CLASS(body = PARTS(classParts = parts)) => begin
-        ListUtil.mapFlat(parts, getElementItemsInClassPart)
-      end
-
-      CLASS(body = CLASS_EXTENDS(parts = parts)) => begin
-        ListUtil.mapFlat(parts, getElementItemsInClassPart)
-      end
-
-      _ => begin
-        nil
-      end
-    end
-  end
-  return outElements
-end
-
-"""Returns the public and protected elements in a class part."""
-function getElementItemsInClassPart(inClassPart::ClassPart)::List{ElementItem}
-  local outElements::List{ElementItem}
-
-  @assign outElements = begin
-    local elts::List{ElementItem}
-    @match inClassPart begin
-      PUBLIC(contents = elts) => begin
-        elts
-      end
-
-      PROTECTED(contents = elts) => begin
-        elts
-      end
-
-      _ => begin
-        nil
-      end
-    end
-  end
-  return outElements
-end
-
-function makePublicClassPartFromElementItems(elementItems::List{<:ElementItem})::ClassPart
-  local classParts::ClassPart
-
-  @assign classParts = PUBLIC(elementItems)
-  return classParts
-end
-
-function makePublicClassPartFromElementItem(ei::ElementItem)::ClassPart
-  local classParts::ClassPart
-
-  @assign classParts = PUBLIC(list(ei))
-  return classParts
-end
-
-function traverseClassComponents(inClass::Class, inFunc::FuncType, inArg::ArgT) where {ArgT}
-  local outArg::ArgT
-  local outClass::Class = inClass
-
-  @assign outClass = begin
-    local body::ClassDef
-    @match outClass begin
-      CLASS(__) => begin
-        @assign (body, outArg) = traverseClassDef(
-          outClass.body,
-          (inFunc) -> traverseClassPartComponents(inFunc = inFunc),
-          inArg,
-        )
-        if !referenceEq(body, outClass.body)
-          @assign outClass.body = body
-        end
-        outClass
-      end
-    end
-  end
-  return (outClass, outArg)
-end
-
-function traverseListGeneric(inList::List, inFunc::FuncType, inArg::ArgT) where {ArgT}
-  local outContinue::Bool = true
-  local outArg::ArgT = inArg
-  local outList::List = nil
-
-  local eq::Bool
-  local changed::Bool = false
-  local e
-  local new_e
-  local rest_e::List = inList
-
-  while !listEmpty(rest_e)
-    @match _cons(e, rest_e) = rest_e
-    @assign (new_e, outArg, outContinue) = inFunc(e, outArg)
-    @assign eq = referenceEq(new_e, e)
-    @assign outList = _cons(if eq
-      e
-    else
-      new_e
-    end, outList)
-    @assign changed = changed || !eq
-    if !outContinue
-      break
-    end
-  end
-  if changed
-    @assign outList = ListUtil.append_reverse(outList, rest_e)
-  else
-    @assign outList = inList
-  end
-  return (outList, outArg, outContinue)
-end
-
-function traverseClassPartComponents(
-  inClassPart::ClassPart,
-  inFunc::FuncType,
-  inArg::ArgT,
-) where {ArgT}
-  local outContinue::Bool = true
-  local outArg::ArgT = inArg
-  local outClassPart::ClassPart = inClassPart
-
-  @assign _ = begin
-    local items::List{ElementItem}
-    @match outClassPart begin
-      PUBLIC(__) => begin
-        @assign (items, outArg, outContinue) = traverseListGeneric(
-          outClassPart.contents,
-          (inFunc) -> traverseElementItemComponents(inFunc = inFunc),
-          inArg,
-        )
-        @assign outClassPart.contents = items
-        ()
-      end
-
-      PROTECTED(__) => begin
-        @assign (items, outArg, outContinue) = traverseListGeneric(
-          outClassPart.contents,
-          (inFunc) -> traverseElementItemComponents(inFunc = inFunc),
-          inArg,
-        )
-        @assign outClassPart.contents = items
-        ()
-      end
-
-      _ => begin
-        ()
-      end
-    end
-  end
-  return (outClassPart, outArg, outContinue)
-end
-
-function traverseElementItemComponents(
-  inItem::ElementItem,
-  inFunc::FuncType,
-  inArg::ArgT,
-) where {ArgT}
-  local outContinue::Bool
-  local outArg::ArgT
-  local outItem::ElementItem
-
-  @assign (outItem, outArg, outContinue) = begin
-    local elem::Element
-    @match inItem begin
-      ELEMENTITEM(__) => begin
-        @assign (elem, outArg, outContinue) =
-          traverseElementComponents(inItem.element, inFunc, inArg)
-        @assign outItem = if referenceEq(elem, inItem.element)
-          inItem
-        else
-          ELEMENTITEM(elem)
-        end
-        (outItem, outArg, outContinue)
-      end
-
-      _ => begin
-        (inItem, inArg, true)
-      end
-    end
-  end
-  return (outItem, outArg, outContinue)
-end
-
-function traverseElementComponents(
-  inElement::Element,
-  inFunc::FuncType,
-  inArg::ArgT,
-) where {ArgT}
-  local outContinue::Bool
-  local outArg::ArgT
-  local outElement::Element = inElement
-
-  @assign (outElement, outArg, outContinue) = begin
-    local spec::ElementSpec
-    @match outElement begin
-      ELEMENT(__) => begin
-        @assign (spec, outArg, outContinue) =
-          traverseElementSpecComponents(outElement.specification, inFunc, inArg)
-        if !referenceEq(spec, outElement.specification)
-          @assign outElement.specification = spec
-        end
-        (outElement, outArg, outContinue)
-      end
-
-      _ => begin
-        (inElement, inArg, true)
-      end
-    end
-  end
-  return (outElement, outArg, outContinue)
-end
-
-function traverseElementSpecComponents(
-  inSpec::ElementSpec,
-  inFunc::FuncType,
-  inArg::ArgT,
-) where {ArgT}
-  local outContinue::Bool
-  local outArg::ArgT
-  local outSpec::ElementSpec = inSpec
-
-  @assign (outSpec, outArg, outContinue) = begin
-    local cls::Class
-    local comps::List{ComponentItem}
-    @match outSpec begin
-      COMPONENTS(__) => begin
-        @assign (comps, outArg, outContinue) = inFunc(outSpec.components, inArg)
-        if !referenceEq(comps, outSpec.components)
-          @assign outSpec.components = comps
-        end
-        (outSpec, outArg, outContinue)
-      end
-
-      _ => begin
-        (inSpec, inArg, true)
-      end
-    end
-  end
-  return (outSpec, outArg, outContinue)
-end
-
-function traverseClassDef(inClassDef::ClassDef, inFunc::FuncType, inArg::ArgT) where {ArgT}
-  local outContinue::Bool = true
-  local outArg::ArgT = inArg
-  local outClassDef::ClassDef = inClassDef
-
-  @assign _ = begin
-    local parts::List{ClassPart}
-    @match outClassDef begin
-      PARTS(__) => begin
-        @assign (parts, outArg, outContinue) =
-          traverseListGeneric(outClassDef.classParts, inFunc, inArg)
-        @assign outClassDef.classParts = parts
-        ()
-      end
-
-      CLASS_EXTENDS(__) => begin
-        @assign (parts, outArg, outContinue) =
-          traverseListGeneric(outClassDef.parts, inFunc, inArg)
-        @assign outClassDef.parts = parts
-        ()
-      end
-
-      _ => begin
-        ()
-      end
-    end
-  end
-  return (outClassDef, outArg, outContinue)
-end
-
 function isEmptyMod(inMod::Modification)::Bool
   local outIsEmpty::Bool
 
@@ -7216,81 +5318,6 @@ function isEmptyMod(inMod::Modification)::Bool
     end
   end
   return outIsEmpty
-end
-
-function isEmptySubMod(inSubMod::ElementArg)::Bool
-  local outIsEmpty::Bool
-
-  @assign outIsEmpty = begin
-    local mod::Modification
-    @match inSubMod begin
-      MODIFICATION(modification = NONE()) => begin
-        true
-      end
-
-      MODIFICATION(modification = SOME(mod)) => begin
-        isEmptyMod(mod)
-      end
-    end
-  end
-  return outIsEmpty
-end
-
-function elementArgName(inArg::ElementArg)::Path
-  local outName::Path
-
-  @assign outName = begin
-    local e::ElementSpec
-    @match inArg begin
-      MODIFICATION(path = outName) => begin
-        outName
-      end
-
-      REDECLARATION(elementSpec = e) => begin
-        makeIdentPathFromString(elementSpecName(e))
-      end
-    end
-  end
-  return outName
-end
-
-function elementArgEqualName(inArg1::ElementArg, inArg2::ElementArg)::Bool
-  local outEqual::Bool
-
-  local name1::Path
-  local name2::Path
-
-  @assign outEqual = begin
-    @match (inArg1, inArg2) begin
-      (MODIFICATION(path = name1), MODIFICATION(path = name2)) => begin
-        pathEqual(name1, name2)
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outEqual
-end
-
-"""Creates a Msg based on a boolean value."""
-function optMsg(inShowMessage::Bool, inInfo::SourceInfo)::Msg
-  local outMsg::Msg
-
-  @assign outMsg = if inShowMessage
-    MSG(inInfo)
-  else
-    NO_MSG()
-  end
-  return outMsg
-end
-
-function makeSubscript(inExp::Exp)::Subscript
-  local outSubscript::Subscript
-
-  @assign outSubscript = SUBSCRIPT(inExp)
-  return outSubscript
 end
 
 """Splits a cref into parts."""
@@ -7318,199 +5345,6 @@ function crefExplode(
   return outCrefParts
 end
 
-"""
-  Calls the given function on each subexpression (non-recursively) of the given
-  expression, sending in the extra argument to each call.
-"""
-function traverseExpShallow(inExp::Exp, inArg::ArgT, inFunc::FuncT) where {ArgT}
-  local outExp::Exp = inExp
-
-  @assign _ = begin
-    local e1::Exp
-    local e2::Exp
-    @match outExp begin
-      BINARY(__) => begin
-        @assign outExp.exp1 = inFunc(outExp.exp1, inArg)
-        @assign outExp.exp2 = inFunc(outExp.exp2, inArg)
-        ()
-      end
-
-      UNARY(__) => begin
-        @assign outExp.exp = inFunc(outExp.exp, inArg)
-        ()
-      end
-
-      LBINARY(__) => begin
-        @assign outExp.exp1 = inFunc(outExp.exp1, inArg)
-        @assign outExp.exp2 = inFunc(outExp.exp2, inArg)
-        ()
-      end
-
-      LUNARY(__) => begin
-        @assign outExp.exp = inFunc(outExp.exp, inArg)
-        ()
-      end
-
-      RELATION(__) => begin
-        @assign outExp.exp1 = inFunc(outExp.exp1, inArg)
-        @assign outExp.exp2 = inFunc(outExp.exp2, inArg)
-        ()
-      end
-
-      IFEXP(__) => begin
-        @assign outExp.ifExp = inFunc(outExp.ifExp, inArg)
-        @assign outExp.trueBranch = inFunc(outExp.trueBranch, inArg)
-        @assign outExp.elseBranch = inFunc(outExp.elseBranch, inArg)
-        @assign outExp.elseIfBranch = list(
-          (inFunc(Util.tuple21(e), inArg), inFunc(Util.tuple22(e), inArg))
-          for e in outExp.elseIfBranch
-        )
-        ()
-      end
-
-      CALL(__) => begin
-        @assign outExp.functionArgs =
-          traverseExpShallowFuncArgs(outExp.functionArgs, inArg, inFunc)
-        ()
-      end
-
-      PARTEVALFUNCTION(__) => begin
-        @assign outExp.functionArgs =
-          traverseExpShallowFuncArgs(outExp.functionArgs, inArg, inFunc)
-        ()
-      end
-
-      ARRAY(__) => begin
-        @assign outExp.arrayExp = list(inFunc(e, inArg) for e in outExp.arrayExp)
-        ()
-      end
-
-      MATRIX(__) => begin
-        @assign outExp.matrix =
-          list(list(inFunc(e, inArg) for e in lst) for lst in outExp.matrix)
-        ()
-      end
-
-      RANGE(__) => begin
-        @assign outExp.start = inFunc(outExp.start, inArg)
-        @assign outExp.step = Util.applyOption1(outExp.step, inFunc, inArg)
-        @assign outExp.stop = inFunc(outExp.stop, inArg)
-        ()
-      end
-
-      TUPLE(__) => begin
-        @assign outExp.expressions = list(inFunc(e, inArg) for e in outExp.expressions)
-        ()
-      end
-
-      AS(__) => begin
-        @assign outExp.exp = inFunc(outExp.exp, inArg)
-        ()
-      end
-
-      CONS(__) => begin
-        @assign outExp.head = inFunc(outExp.head, inArg)
-        @assign outExp.rest = inFunc(outExp.rest, inArg)
-        ()
-      end
-
-      LIST(__) => begin
-        @assign outExp.exps = list(inFunc(e, inArg) for e in outExp.exps)
-        ()
-      end
-
-      DOT(__) => begin
-        @assign outExp.exp = inFunc(outExp.exp, inArg)
-        @assign outExp.index = inFunc(outExp.index, inArg)
-        ()
-      end
-
-      _ => begin
-        ()
-      end
-    end
-  end
-  return outExp
-end
-
-function traverseExpShallowFuncArgs(
-  inArgs::FunctionArgs,
-  inArg::ArgT,
-  inFunc::FuncT,
-) where {ArgT}
-  local outArgs::FunctionArgs = inArgs
-
-  @assign outArgs = begin
-    @match outArgs begin
-      FUNCTIONARGS(__) => begin
-        @assign outArgs.args = list(inFunc(arg, inArg) for arg in outArgs.args)
-        outArgs
-      end
-
-      FOR_ITER_FARG(__) => begin
-        @assign outArgs.exp = inFunc(outArgs.exp, inArg)
-        @assign outArgs.iterators = list(
-          traverseExpShallowIterator(it, inArg, inFunc) for it in outArgs.iterators
-        )
-        outArgs
-      end
-    end
-  end
-  return outArgs
-end
-
-function traverseExpShallowIterator(
-  inIterator::ForIterator,
-  inArg::ArgT,
-  inFunc::FuncT,
-) where {ArgT}
-  local outIterator::ForIterator
-
-  local name::String
-  local guard_exp::Option{Exp}
-  local range_exp::Option{Exp}
-
-  @match ITERATOR(name, guard_exp, range_exp) = inIterator
-  @assign guard_exp = Util.applyOption1(guard_exp, inFunc, inArg)
-  @assign range_exp = Util.applyOption1(range_exp, inFunc, inArg)
-  @assign outIterator = ITERATOR(name, guard_exp, range_exp)
-  return outIterator
-end
-
-function isElementItemClass(inElement::ElementItem)::Bool
-  local outIsClass::Bool
-
-  @assign outIsClass = begin
-    @match inElement begin
-      ELEMENTITEM(element = ELEMENT(specification = CLASSDEF(__))) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outIsClass
-end
-
-function isElementItem(inElement::ElementItem)::Bool
-  local outIsClass::Bool
-
-  @assign outIsClass = begin
-    @match inElement begin
-      ELEMENTITEM(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outIsClass
-end
-
 function isAlgorithmItem(inAlg::AlgorithmItem)::Bool
   local outIsClass::Bool
 
@@ -7526,151 +5360,6 @@ function isAlgorithmItem(inAlg::AlgorithmItem)::Bool
     end
   end
   return outIsClass
-end
-
-function isElementItemClassNamed(inName::String, inElement::ElementItem)::Bool
-  local outIsNamed::Bool
-
-  @assign outIsNamed = begin
-    local name::String
-    @match inElement begin
-      ELEMENTITEM(element = ELEMENT(specification = CLASSDEF(class_ = CLASS(name = name)))) => begin
-        name == inName
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outIsNamed
-end
-
-function isEmptyClassPart(inClassPart::ClassPart)::Bool
-  local outIsEmpty::Bool
-
-  @assign outIsEmpty = begin
-    @match inClassPart begin
-      PUBLIC(contents = nil()) => begin
-        true
-      end
-
-      PROTECTED(contents = nil()) => begin
-        true
-      end
-
-      CONSTRAINTS(contents = nil()) => begin
-        true
-      end
-
-      EQUATIONS(contents = nil()) => begin
-        true
-      end
-
-      INITIALEQUATIONS(contents = nil()) => begin
-        true
-      end
-
-      ALGORITHMS(contents = nil()) => begin
-        true
-      end
-
-      INITIALALGORITHMS(contents = nil()) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outIsEmpty
-end
-
-"""For use with traverseExp"""
-function isInvariantExpNoTraverse(e::Absyn.Exp, b::Bool)::Tuple{Absyn.Exp, Bool}
-
-  if !b
-    return (e, b)
-  end
-  @assign b = begin
-    @match e begin
-      INTEGER(__) => begin
-        true
-      end
-
-      REAL(__) => begin
-        true
-      end
-
-      STRING(__) => begin
-        true
-      end
-
-      BOOL(__) => begin
-        true
-      end
-
-      BINARY(__) => begin
-        true
-      end
-
-      UNARY(__) => begin
-        true
-      end
-
-      LBINARY(__) => begin
-        true
-      end
-
-      LUNARY(__) => begin
-        true
-      end
-
-      RELATION(__) => begin
-        true
-      end
-
-      IFEXP(__) => begin
-        true
-      end
-
-      CALL(function_ = CREF_FULLYQUALIFIED(__)) => begin
-        true
-      end
-
-      PARTEVALFUNCTION(function_ = CREF_FULLYQUALIFIED(__)) => begin
-        true
-      end
-
-      ARRAY(__) => begin
-        true
-      end
-
-      MATRIX(__) => begin
-        true
-      end
-
-      RANGE(__) => begin
-        true
-      end
-
-      CONS(__) => begin
-        true
-      end
-
-      LIST(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  #=  case CREF(CREF_FULLYQUALIFIED()) then true;
-  =#
-  return (e, b)
 end
 
 """Returns the number of parts a path consists of, e.g. A.B.C gives 3."""
@@ -7693,55 +5382,6 @@ function pathPartCount(path::Path, partsAccum::Int = 0)::Int
     end
   end
   return parts
-end
-
-function getAnnotationsFromConstraintClass(inCC::Option{<:ConstrainClass})::List{ElementArg}
-  local outElArgLst::List{ElementArg}
-
-  @assign outElArgLst = begin
-    local elementArgs::List{ElementArg}
-    @match inCC begin
-      SOME(CONSTRAINCLASS(
-        comment = SOME(COMMENT(annotation_ = SOME(ANNOTATION(elementArgs)))),
-      )) => begin
-        elementArgs
-      end
-
-      _ => begin
-        nil
-      end
-    end
-  end
-  return outElArgLst
-end
-
-function getAnnotationsFromItems(
-  inComponentItems::List{<:ComponentItem},
-  ccAnnotations::List{<:ElementArg},
-)::List{List{ElementArg}}
-  local outLst::List{List{ElementArg}} = nil
-
-  local annotations::List{Absyn.ElementArg}
-  local res::List{String}
-  local str::String
-
-  for comp in listReverse(inComponentItems)
-    @assign annotations = begin
-      @match comp begin
-        Absyn.COMPONENTITEM(
-          comment = SOME(Absyn.COMMENT(annotation_ = SOME(Absyn.ANNOTATION(annotations)))),
-        ) => begin
-          listAppend(annotations, ccAnnotations)
-        end
-
-        _ => begin
-          ccAnnotations
-        end
-      end
-    end
-    @assign outLst = _cons(annotations, outLst)
-  end
-  return outLst
 end
 
 """
@@ -7799,50 +5439,6 @@ function stripGraphicsAndInteractionModification(
   #=  collect in the first tuple
   =#
   return (outAbsynElementArgLst1, outAbsynElementArgLst2)
-end
-
-"""
-  This function traverses all classes of a program and applies a function
-  to each class. The function takes the Absyn.Class, Absyn.Path option
-  and an additional argument and returns an updated class and the
-  additional values. The Absyn.Path option contains the path to the class
-  that is traversed.
-  inputs:  (Absyn.Program,
-  Absyn.Path option,
-  ((Absyn.Class  Absyn.Path option  \\'a) => (Absyn.Class  Absyn.Path option  \\'a)),  /* rel-ation to apply */
-  \\'a, /* extra value passed to re-lation */
-  bool) /* true = traverse protected elements */
-  outputs: (Absyn.Program   Absyn.Path option  \\'a)
-"""
-function traverseClasses(
-  inProgram::Absyn.Program,
-  inPath::Option{<:Absyn.Path},
-  inFunc::FuncType,
-  inArg::Type_a,
-  inVisitProtected::Bool,
-)::Tuple{Absyn.Program, Option{Absyn.Path}, Type_a}
-  local outTpl::Tuple{Absyn.Program, Option{Absyn.Path}, Type_a}
-
-  @assign outTpl = begin
-    local classes::List{Absyn.Class}
-    local pa_1::Option{Absyn.Path}
-    local pa::Option{Absyn.Path}
-    local args_1::Type_a
-    local args::Type_a
-    local within_::Absyn.Within
-    local visitor::FuncType
-    local traverse_prot::Bool
-    local p::Absyn.Program
-    @match (inProgram, inPath, inFunc, inArg, inVisitProtected) begin
-      (p && Absyn.PROGRAM(__), pa, visitor, args, traverse_prot) => begin
-        @assign (classes, pa_1, args_1) =
-          traverseClasses2(p.classes, pa, visitor, args, traverse_prot)
-        @assign p.classes = classes
-        (p, pa_1, args_1)
-      end
-    end
-  end
-  return outTpl
 end
 
 """Helperfunction to traverseClasses."""
@@ -7983,29 +5579,6 @@ function eltsHasLocalClass(inElts::List{<:Absyn.ElementItem})::Bool
       end
 
       nil() => begin
-        false
-      end
-    end
-  end
-  return res
-end
-
-"""Returns true if class contains a local class with a supplied restriction"""
-function classHasLocalClassOfType(cl::Absyn.Class, inRestriction::Absyn.Restriction)::Bool
-  local res::Bool
-
-  @assign res = begin
-    local parts::List{Absyn.ClassPart}
-    @matchcontinue cl begin
-      Absyn.CLASS(body = Absyn.PARTS(classParts = parts)) => begin
-        partsHasLocalClassOfType(parts, inRestriction)
-      end
-
-      Absyn.CLASS(body = Absyn.CLASS_EXTENDS(parts = parts)) => begin
-        partsHasLocalClassOfType(parts, inRestriction)
-      end
-
-      _ => begin
         false
       end
     end
@@ -8593,127 +6166,6 @@ function traverseInnerClassElementspec(
 end
 
 """
-  @auhtor: johti
-  Get the typespec path in an ElementItem if it has one
-"""
-function getTypeSpecFromElementItemOpt(
-  inElementItem::Absyn.ElementItem,
-)::Option{Absyn.TypeSpec}
-  local outTypeSpec::Option{Absyn.TypeSpec}
-
-  @assign outTypeSpec = begin
-    local typeSpec::Absyn.TypeSpec
-    local specification::Absyn.ElementSpec
-    @matchcontinue inElementItem begin
-      Absyn.ELEMENTITEM(__) => begin
-        begin
-          @match inElementItem.element begin
-            Absyn.ELEMENT(specification = specification) => begin
-              begin
-                @match specification begin
-                  Absyn.COMPONENTS(typeSpec = typeSpec) => begin
-                    SOME(typeSpec)
-                  end
-                end
-              end
-            end
-          end
-        end
-      end
-
-      _ => begin
-        NONE()
-      end
-    end
-  end
-  return outTypeSpec
-end
-
-"""
-  @auhtor: johti
-  Get a ComponentItem from an ElementItem if it has one
-"""
-function getElementSpecificationFromElementItemOpt(
-  inElementItem::Absyn.ElementItem,
-)::Option{Absyn.ElementSpec}
-  local outSpec::Option{Absyn.ElementSpec}
-
-  @assign outSpec = begin
-    local specification::Absyn.ElementSpec
-    local element::Absyn.Element
-    @matchcontinue inElementItem begin
-      Absyn.ELEMENTITEM(element = element) => begin
-        begin
-          @match element begin
-            Absyn.ELEMENT(specification = specification) => begin
-              SOME(specification)
-            end
-          end
-        end
-      end
-
-      _ => begin
-        NONE()
-      end
-    end
-  end
-  return outSpec
-end
-
-"""
-  @auhtor: johti
-  Get the componentItems from a given elemSpec otherwise returns an empty list
-"""
-function getComponentItemsFromElementSpec(
-  elemSpec::Absyn.ElementSpec,
-)::List{Absyn.ComponentItem}
-  local componentItems::List{Absyn.ComponentItem}
-
-  @assign componentItems = begin
-    local components::List{Absyn.ComponentItem}
-    local importTmp::Import
-    @match elemSpec begin
-      Absyn.COMPONENTS(components = components) => begin
-        components
-      end
-
-      _ => begin
-        nil
-      end
-    end
-  end
-  #= TODO do not fail in silence
-  =#
-  return componentItems
-end
-
-"""
-  @author: johti
-  Get the componentItems from a given elementItem
-"""
-function getComponentItemsFromElementItem(
-  inElementItem::Absyn.ElementItem,
-)::List{Absyn.ComponentItem}
-  local componentItems::List{Absyn.ComponentItem}
-
-  @assign componentItems = begin
-    local elementSpec::Absyn.ElementSpec
-    @match getElementSpecificationFromElementItemOpt(inElementItem) begin
-      SOME(elementSpec) => begin
-        getComponentItemsFromElementSpec(elementSpec)
-      end
-
-      _ => begin
-        nil
-      end
-    end
-  end
-  #= TODO do not fail in silence
-  =#
-  return componentItems
-end
-
-"""
   @author johti
   Get the direction if one exists otherwise returns BIDIR()
 """
@@ -8771,228 +6223,6 @@ function isNamedPathIdent(path::Absyn.Path, name::String)::Bool
     end
   end
   return res
-end
-
-"""@author johti17: Returns true if the class restriction is uniontype"""
-function isUniontype(cls::Absyn.Class)::Bool
-  local b::Bool
-
-  @assign b = begin
-    @match cls.restriction begin
-      R_UNIONTYPE(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return b
-end
-
-"""Returns true if the class restriction is a record"""
-function classRestrictionisRecord(cls::Absyn.Class)::Bool
-  local restrictionIsRecord::Bool = false
-
-  @assign restrictionIsRecord = begin
-    @match cls begin
-      CLASS(__) => begin
-        restrictionIsRecord(cls.restriction)
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return restrictionIsRecord
-end
-
-"""Returns true if the class restriction is not a record"""
-function classRestrictionisNotRecord(cls::Absyn.Class)::Bool
-  local restrictionIsNotRecord::Bool = false
-
-  @assign restrictionIsNotRecord = !classRestrictionisRecord(cls)
-  return restrictionIsNotRecord
-end
-
-"""@Author johti17: Returns true if the given restriction is a record"""
-function restrictionIsRecord(restriction::Absyn.Restriction)::Bool
-  local isRecord::Bool
-
-  @assign isRecord = begin
-    @match restriction begin
-      R_RECORD(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return isRecord
-end
-
-"""
-  @Author johti17:
-  Returns all first level parts in a given class which are not records.
-"""
-function splitRecordsAndOtherElements(
-  cls::Absyn.Class,
-)::Tuple{List{Absyn.ClassPart}, List{Absyn.ClassPart}}
-  local nonRecordParts::List{Absyn.ClassPart} = nil
-  local recordParts::List{Absyn.ClassPart} = nil
-
-  local elementItems::List{Absyn.ElementItem} = nil
-  local nonClassDefs::List{Absyn.ElementItem}
-  local elementSpecs::List{Absyn.ElementSpec} = nil
-  local classes::List{Absyn.Class} = nil
-
-  @assign elementItems = getElementItemsInClass(cls)
-  @assign elementSpecs = Util.listOfOptionToList(ListUtil.map(
-    elementItems,
-    getElementSpecificationFromElementItemOpt,
-  ))
-  @assign classes =
-    Util.listOfOptionToList(ListUtil.map(elementSpecs, getClassFromElementSpecOpt))
-  #= /*Filter out the remaining components to be consed to nonRecordParts*/ =#
-  @assign nonClassDefs = ListUtil.map(
-    ListUtil.filterOnTrue(elementSpecs, elementSpecsIscomponentsOrImports),
-    makeElementItemFromElementSpec,
-  )
-  @assign (recordParts, nonRecordParts) = (
-    list(makePublicClassPartFromElementItems(ListUtil.map(
-      ListUtil.filterOnTrue(classes, classRestrictionisRecord),
-      makeClassElement,
-    ))),
-    list(makePublicClassPartFromElementItems(ListUtil.map(
-      ListUtil.filterOnTrue(classes, classRestrictionisNotRecord),
-      makeClassElement,
-    ))),
-  )
-  #= /* Place element items first */ =#
-  @assign nonRecordParts =
-    _cons(makePublicClassPartFromElementItems(nonClassDefs), nonRecordParts)
-  return (recordParts, nonRecordParts)
-end
-
-function makeElementItemFromElementSpec(spec::Absyn.ElementSpec)::Absyn.ElementItem
-  local ei::Absyn.ElementItem
-
-  @assign ei = Absyn.ELEMENTITEM(ELEMENT(
-    false,
-    NONE(),
-    Absyn.NOT_INNER_OUTER(),
-    spec,
-    dummyInfo,
-    NONE(),
-  ))
-  return ei
-end
-
-"""
-  Returns the class from an element spec iff the elementspec is a CLASSDEF.
-  Otherwise returns NONE.
-"""
-function getClassFromElementSpecOpt(es::ElementSpec)::Option{Absyn.Class}
-  local outClass::Option{Absyn.Class}
-
-  @assign outClass = begin
-    @match es begin
-      CLASSDEF(__) => begin
-        SOME(es.class_)
-      end
-
-      _ => begin
-        NONE()
-      end
-    end
-  end
-  return outClass
-end
-
-"""
-  @Author johti17:
-  Returns true if those local classes are functions.
-  N.B!: Only checks the first level of nesting.
-"""
-function classHasLocalClassesThatAreFunctions(cls::Absyn.Class)::Bool
-  local b::Bool
-
-  local function_restriction::Absyn.Restriction =
-    Absyn.R_FUNCTION(Absyn.FR_NORMAL_FUNCTION(Absyn.NO_PURITY()))
-
-  @assign b =
-    classHasLocalClassOfType(cls, function_restriction) ||
-    classHasLocalClassOfType(
-      cls,
-      Absyn.R_FUNCTION(Absyn.FR_NORMAL_FUNCTION(Absyn.PURE())),
-    ) ||
-    classHasLocalClassOfType(
-      cls,
-      Absyn.R_FUNCTION(Absyn.FR_NORMAL_FUNCTION(Absyn.IMPURE())),
-    ) ||
-    classHasLocalClassOfType(cls, Absyn.R_FUNCTION(FR_OPERATOR_FUNCTION())) ||
-    classHasLocalClassOfType(cls, Absyn.R_FUNCTION(FR_KERNEL_FUNCTION())) ||
-    classHasLocalClassOfType(cls, Absyn.R_FUNCTION(FR_PARALLEL_FUNCTION()))
-  return b
-end
-
-"""
-  @Author johti17:
-  Returns true if any of those local classes are a uniontype
-  N.B!: Only checks the first level of nesting.
-"""
-function classHasLocalClassesThatAreUniontypes(cls::Absyn.Class)::Bool
-  local b::Bool
-
-  local uniontype_restriction::Absyn.Restriction = Absyn.R_UNIONTYPE()
-
-  @assign b = classHasLocalClassOfType(cls, uniontype_restriction)
-  return b
-end
-
-function elementSpecsIscomponentsOrImports(es::ElementSpec)::Bool
-  local b::Bool
-
-  @assign b = elementSpecIsImport(es) || elementSpecIsComponents(es)
-  return b
-end
-
-function elementSpecIsImport(es::ElementSpec)::Bool
-  local isImport::Bool
-
-  @assign isImport = begin
-    @match es begin
-      Absyn.IMPORT(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return isImport
-end
-
-function elementSpecIsComponents(es::ElementSpec)::Bool
-  local isComponents::Bool
-
-  @assign isComponents = begin
-    @match es begin
-      Absyn.COMPONENTS(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return isComponents
 end
 
 """An expression as Modelica (Absyn.jl's printer)."""

@@ -109,12 +109,6 @@ function setOutside(conn::Connector)::Connector
   return conn
 end
 
-function isInside(conn::Connector)::Bool
-  #=  Needed due to #4502
-  =#
-  return conn.face == Face.INSIDE
-end
-
 function isOutside(conn::Connector)::Bool
   #=  Needed due to #4502
   =#

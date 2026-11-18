@@ -358,12 +358,6 @@ function isExpandableConnectorClass(cls::Class)::Bool
   return isConnector
 end
 
-function isNonexpandableConnectorClass(cls::Class)::Bool
-  local isConnector::Bool =
-    isNonexpandableConnector(restriction(cls))
-  return isConnector
-end
-
 function isConnectorClass(cls::Class)::Bool
   local isConnector::Bool = isConnector(restriction(cls))
   return isConnector
@@ -541,31 +535,6 @@ function getAttributes(cls::Class)
     end
   end
   return attr
-end
-
-function getDimensions(cls::Class)::List{Dimension}
-  local dims::List{Dimension}
-
-  @assign dims = begin
-    @match cls begin
-      INSTANCED_CLASS(__) => begin
-        arrayDims(cls.ty)
-      end
-
-      INSTANCED_BUILTIN(__) => begin
-        arrayDims(cls.ty)
-      end
-
-      TYPED_DERIVED(__) => begin
-        arrayDims(cls.ty)
-      end
-
-      _ => begin
-        nil
-      end
-    end
-  end
-  return dims
 end
 
 function hasDimensions(cls::Class)::Bool

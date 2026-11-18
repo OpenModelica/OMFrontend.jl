@@ -467,10 +467,6 @@ Base.hash(k::CrefHashKey, h::UInt) = Base.hash(hashStructural(k.cref), h)
 Base.isequal(k1::CrefHashKey, k2::CrefHashKey) = isEqual(k1.cref, k2.cref)
 
 #= hashes the cref without subscripts. Used for non-expanded variables. =#
-function hashStrip(cref::ComponentRef, mod::Int)::Int
-  local hv::Int = stringHashDjb2Mod(toStringStripImpl(cref, ""), mod)
-  return hv
-end
 
 function toStringStripImpl(cref::ComponentRef, acc::String)::String
   return begin
@@ -480,12 +476,6 @@ function toStringStripImpl(cref::ComponentRef, acc::String)::String
       _ => acc
     end
   end
-end
-
-function listToString(crs::List{<:ComponentRef})::String
-  local str::String
-  str = "{" + stringDelimitList(ListUtil.map(crs, toString), ",") + "}"
-  return str
 end
 
 const SPECIAL_SYMBOLS = Dict{String, String}("+" => "ADD", "*" => "MUL", "/" => "DIV", "-" => "SUB")
@@ -927,21 +917,6 @@ function transferSubscripts(srcCref::ComponentRef, dstCref::ComponentRef)::Compo
   return cref
 end
 
-"""Returns the subscripts of the N first parts of a cref in reverse order."""
-function subscriptsN(cref::ComponentRef, n::Int)::List{List{Subscript}}
-  local subscripts::List{List{Subscript}} = nil
-  local subs::List{Subscript}
-  local rest::ComponentRef = cref
-  for i = 1:n
-    if isEmpty(rest)
-      break
-    end
-    @match COMPONENT_REF_CREF(subscripts = subs, restCref = rest) = rest
-    subscripts = Cons{Subscript}(subs, subscripts)
-  end
-  return subscripts
-end
-
 """
   Returns all subscripts of a cref as a flat list in the correct order.
   Ex: a[1, 2].b[4].c[6, 3] => {1, 2, 4, 6, 3}
@@ -1365,11 +1340,6 @@ function makeIterator(node::InstNode, ty::NFType)::ComponentRef
   return cref
 end
 
-function fromBuiltin(node::InstNode, ty::M_Type)::ComponentRef
-  local cref::ComponentRef = COMPONENT_REF_CREF(node, nil, ty, Origin.SCOPE, COMPONENT_REF_EMPTY())
-  return cref
-end
-
 function fromAbsynCref(
   acref::Absyn.ComponentRef,
   restCref::ComponentRef = COMPONENT_REF_EMPTY(),
@@ -1456,17 +1426,6 @@ function nodesIncludingSplitSubs(cref::ComponentRef, accum::List = nil)
     end
     _ => begin
       accum
-    end
-  end
-end
-
-function hasSplitSubscripts(cref::ComponentRef)
-  res = @match cref begin
-    COMPONENT_REF_CREF(__) => begin
-      ListUtil.exist(cref.subscripts, isSplitIndex)
-    end
-    _ => begin
-      false
     end
   end
 end

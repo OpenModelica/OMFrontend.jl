@@ -63,18 +63,6 @@ function add(key, value, m::UnorderedMap)
   m.data[key] = value
 end
 
-function tryAdd(key, value, m::UnorderedMap)
-  if !haskey(m.data, key)
-    m.data[key] = value
-    return value
-  end
-  return m.data[key]
-end
-
-function addNew(key, value, m::UnorderedMap)
-  m.data[key] = value
-end
-
 function addUnique(key, value, m::UnorderedMap)
   m.data[key] = value
 end
@@ -109,25 +97,10 @@ function getOrDefault(key, m::UnorderedMap, default)
   return Base.get(m.data, key, default)
 end
 
-function getKey(key, m::UnorderedMap)
-  if haskey(m.data, key)
-    return SOME(key)
-  end
-  return nothing
-end
-
 contains(key, m::UnorderedMap) = haskey(m.data, key)
 
 function first(m::UnorderedMap)
   return Base.first(Base.values(m.data))
-end
-
-function firstKey(m::UnorderedMap)
-  return Base.first(Base.keys(m.data))
-end
-
-function keyAt(m::UnorderedMap, index::Int)
-  return collect(Base.keys(m.data))[index]
 end
 
 function valueAt(m::UnorderedMap, index::Int)
@@ -146,20 +119,8 @@ function toList(m::UnorderedMap)
   return list((k, v) for (k, v) in m.data)
 end
 
-function keyList(m::UnorderedMap)
-  return list(k for k in Base.keys(m.data))
-end
-
-function valueList(m::UnorderedMap)
-  return list(v for v in Base.values(m.data))
-end
-
 function toArray(m::UnorderedMap)
   return [(k, v) for (k, v) in m.data]
-end
-
-function keyArray(m::UnorderedMap)
-  return collect(Base.keys(m.data))
 end
 
 function valueArray(m::UnorderedMap)
@@ -196,21 +157,9 @@ function copy(m::UnorderedMap)
   return UnorderedMap(Base.copy(m.data), m.hashFn, m.eqFn)
 end
 
-function deepCopy(m::UnorderedMap, fn)
-  newData = Dict{Any,Any}()
-  for (k, v) in m.data
-    newData[k] = fn(v)
-  end
-  return UnorderedMap(newData, m.hashFn, m.eqFn)
-end
-
 function toString(m::UnorderedMap, keyFn, valFn, delimiter::String = "\n")
   entries = String["($(keyFn(k)), $(valFn(v)))" for (k, v) in m.data]
   return join(entries, delimiter)
-end
-
-function toJSON(m::UnorderedMap, keyFn, valFn)
-  return toString(m, keyFn, valFn, ", ")
 end
 
 function fromLists(keysList, valsList, hashFn, eqFn)
@@ -229,14 +178,6 @@ function merge(m1::UnorderedMap, m2::UnorderedMap, info)
     result.data[k] = v
   end
   return result
-end
-
-function subMap(m::UnorderedMap, lst)
-  sub = new(m.hashFn, m.eqFn)
-  for k in lst
-    sub.data[k] = getSafe(k, m, nothing)
-  end
-  return sub
 end
 
 function all(m::UnorderedMap, func)::Bool

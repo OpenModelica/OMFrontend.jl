@@ -375,11 +375,6 @@ function isKnown(dim::Dimension, allowExp::Bool = false)::Bool
   return known
 end
 
-function allEqualKnown(dims1::List{<:Dimension}, dims2::List{<:Dimension})::Bool
-  local allEqual::Bool = ListUtil.isEqualOnTrue(dims1, dims2, isEqualKnown)
-  return allEqual
-end
-
 function isEqualKnown(dim1::Dimension, dim2::Dimension)::Bool
   local isEqual::Bool
 

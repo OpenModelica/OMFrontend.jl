@@ -71,10 +71,6 @@ function add(elem, s::UnorderedSet)
   s.data[elem] = true
 end
 
-function addNew(elem, s::UnorderedSet)
-  s.data[elem] = true
-end
-
 function addUnique(elem, s::UnorderedSet)
   s.data[elem] = true
 end

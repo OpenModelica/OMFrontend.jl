@@ -233,33 +233,6 @@ function isDeleted(component::Component)
   return isDeleted
 end
 
-function getUnitAttribute(component::Component, defaultUnit::String = "")
-  local unitString::String
-
-  local binding::Binding
-  local unit::Expression
-
-   binding =
-    lookupAttributeBinding("unit", getClass(classInstance(component)))
-  if isUnbound(binding)
-     unitString = defaultUnit
-    return unitString
-  end
-   unit = getBindingExp(getExp(binding))
-   unitString = begin
-    @match unit begin
-      STRING_EXPRESSION(__) => begin
-        unit.value
-      end
-
-      _ => begin
-        defaultUnit
-      end
-    end
-  end
-  return unitString
-end
-
 function getFixedAttribute(component::Component)
   local fixed::Bool
   local typeAttrs::List{Modifier} = nil
@@ -341,26 +314,6 @@ function dimensionCount(@nospecialize(component::Component))
     end
   end
   return count
-end
-
-function setDimensions(dims::List{<:Dimension}, component::Component)
-   () = begin
-    @match component begin
-      UNTYPED_COMPONENT(__) => begin
-         @assign component.dimensions = listArray(dims)
-        ()
-      end
-      TYPED_COMPONENT(__) => begin
-         component.ty =
-          liftArrayLeftList(arrayElementType(component.ty), dims)
-        ()
-      end
-      _ => begin
-        ()
-      end
-    end
-  end
-  return component
 end
 
 """
@@ -754,32 +707,6 @@ function isOutput(component::Component)
   return isOutput
 end
 
-function makeInput(component::Component)
-
-  local attr::Attributes
-
-   () = begin
-    @match component begin
-      UNTYPED_COMPONENT(attributes = attr) => begin
-         @assign attr.direction = Direction.INPUT
-         @assign component.attributes = attr
-        ()
-      end
-
-      TYPED_COMPONENT(attributes = attr) => begin
-         @assign attr.direction = Direction.INPUT
-         @assign component.attributes = attr
-        ()
-      end
-
-      _ => begin
-        ()
-      end
-    end
-  end
-  return component
-end
-
 function isInput(component::Component)
   local isInput::Bool = direction(component) == Direction.INPUT
   return isInput
@@ -965,26 +892,6 @@ function getAttributes(component::Component)
     end
   end
   return attr
-end
-
-function unliftType(component::Component)
-   () = begin
-    local ty::M_Type
-    @match component begin
-      TYPED_COMPONENT(ty = TYPE_ARRAY(elementType = ty)) => begin
-         @assign component.ty = ty
-        ()
-      end
-      ITERATOR(ty = TYPE_ARRAY(elementType = ty)) => begin
-         @assign component.ty = ty
-        ()
-      end
-      _ => begin
-        ()
-      end
-    end
-  end
-  return component
 end
 
 function isTyped(component::Component)

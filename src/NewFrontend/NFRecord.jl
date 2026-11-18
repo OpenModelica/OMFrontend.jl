@@ -231,37 +231,3 @@ function collectRecordField(componentArg::InstNode, fields::List{<:Field})::List
   return fields
 end
 
-function fieldsToDAE(fields::List{<:Field})::List{String}
-  local fieldNames::List{String} = nil
-  for field in fields
-     () = begin
-      @match field begin
-        INPUT(__) => begin
-          @assign fieldNames = _cons(field.name, fieldNames)
-          ()
-        end
-        _ => begin
-          ()
-        end
-      end
-    end
-  end
-  return fieldNames
-end
-
-function foldInputFields(
-  fields::List{Field},
-  args::List,
-  func::FuncT,
-  foldArg::ArgT,
-) where {ArgT}
-  local arg
-  local rest_args::List = args
-  for field in fields
-    @match _cons(arg, rest_args) = rest_args
-    if isInput(field)
-      @assign foldArg = func(arg, foldArg)
-    end
-  end
-  return foldArg
-end

@@ -38,13 +38,6 @@ module Corba
 using MetaModelica
 using ExportAll
 
-function haveCorba()::Bool
-  local b::Bool
-
-  @error "TODO: Defined in the runtime"
-  return b
-end
-
 function setObjectReferenceFilePath(inObjectReferenceFilePath::String)
   return @error "TODO: Defined in the runtime"
 end
@@ -54,17 +47,6 @@ function setSessionName(inSessionName::String)
 end
 
 function initialize()
-  return @error "TODO: Defined in the runtime"
-end
-
-function waitForCommand()::String
-  local outString::String
-
-  @error "TODO: Defined in the runtime"
-  return outString
-end
-
-function sendreply(inString::String)
   return @error "TODO: Defined in the runtime"
 end
 

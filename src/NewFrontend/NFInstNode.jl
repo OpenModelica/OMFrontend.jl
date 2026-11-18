@@ -1622,14 +1622,6 @@ function getDerivedNode(node::InstNode)
   derived
 end
 
-function getDerivedClass(node::InstNode)
-   cls =  if isvariant(cls, CLASS_NODE)
-     getClass(getDerivedNode(node))
-   else
-     getClass(getDerivedNode(classInstance(_compVal(node))))
-   end
-end
-
 function getClass(node::InstNode)
   cls = if isvariant(node, CLASS_NODE)
     _clsVal(node)
@@ -1639,23 +1631,6 @@ function getClass(node::InstNode)
     getClass(node.innerNode)
   else
     return node#fail()
-  end
-end
-
-function setOrphanParent(parent::InstNode, node::InstNode)
-  if isvariant(node, CLASS_NODE)
-    if isvariant(node.parentScope, EMPTY_NODE)
-      CLASS_NODE(node.name, node.definition, node.visibility, node.cls,
-                 node.caches, parent, node.nodeType)
-    else
-      node
-    end
-  else
-    if isvariant(node.parent, EMPTY_NODE)
-      COMPONENT_NODE(node.name, node.visibility, node.component, parent, node.nodeType)
-    else
-      node
-    end
   end
 end
 
@@ -1967,24 +1942,6 @@ function isOperator(node::InstNode)
   op
 end
 
-"""
- @author: adrpo
-returns true if itself or any of the parents are expandable connectors
-"""
-function hasParentExpandableConnector(node::InstNode)
-  local b::Bool = isExpandableConnector(node)
-  local p::InstNode
-  p = node
-  while ! isEmpty(p)
-    p = parent(p)
-    b = boolOr(b, isExpandableConnector(p))
-    if b
-      break
-    end
-  end
-  b
-end
-
 function isExpandableConnector(node::InstNode)
   local isConnector::Bool
    isConnector = begin
@@ -2131,23 +2088,6 @@ function isFunction(node::InstNode)
     end
   end
   isFunc
-end
-
-function isDerivedClass(node::InstNode)
-  local isDerived::Bool
-
-   isDerived = begin
-    @match node begin
-      CLASS_NODE(nodeType = DERIVED_CLASS(__))  => begin
-        true
-      end
-
-      _  => begin
-        false
-      end
-    end
-  end
-  isDerived
 end
 
 #= A redeclared class counts as user-defined when the class it replaced was. =#

@@ -406,68 +406,6 @@ function dumpHashTable(t::HashTable)
   end
 end
 
-function debugDump(ht::HashTable)
-  local printKey::FuncKeyString
-  local printValue::FuncValString
-  local k::Key
-  local v::Value
-  local n::Int
-  local size::Int
-  local i::Int
-  local j::Int
-  local szBucket::Int
-  local arr::Array{Option{HashEntry}}
-  local he::HashEntry
-  local hashVector::Array{HashNode}
-
-  @assign (hashVector, (n, size, arr), szBucket, (_, _, printKey, printValue)) = ht
-  print("Debug HashTable:\\n")
-  print("szBucket: " + intString(szBucket) + "\\n")
-  print("Debug ValueArray:\\n")
-  print("number of entires: " + intString(n) + "\\n")
-  print("size: " + intString(size) + "\\n")
-  @assign i = 0
-  for entry in arr
-    @assign i = i + 1
-    if isSome(entry)
-      @match SOME(he) = entry
-      print(intString(i) + ": " + dumpTuple(he, printKey, printValue) + "\\n")
-    end
-  end
-  print("Debug HashVector:\\n")
-  @assign i = 0
-  return for node in hashVector
-    @assign i = i + 1
-    if !listEmpty(node)
-      print(intString(i) + ":")
-      for n in node
-        @assign (k, j) = n
-        print(" {" + printKey(k) + ", " + intString(j) + "}")
-      end
-      print("\\n")
-    end
-  end
-end
-
-function dumpTuple(
-  tpl::HashEntry,
-  printKey::FuncKeyString,
-  printValue::FuncValString,
-)::String
-  local str::String
-
-  local k::Key
-  local v::Value
-  local sk::String
-  local sv::String
-
-  @assign (k, v) = tpl
-  @assign sk = printKey(k)
-  @assign sv = printValue(v)
-  @assign str = stringAppendList(list("{", sk, ",{", sv, "}}"))
-  return str
-end
-
 """Returns the Value entries as a list of Values."""
 function hashTableValueList(hashTable::HashTable)::List{Value}
   local valLst::List{Value}

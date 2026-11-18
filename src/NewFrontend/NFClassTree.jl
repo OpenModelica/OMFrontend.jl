@@ -119,10 +119,6 @@ newEmptyFlatClassTree()::ClassTree =
   CLASS_TREE_FLAT_TREE(LookupTree.EMPTY(), listArray(nil), listArray(nil),
                        listArray(nil), DuplicateTree.EMPTY())
 
-function isEmptyTree(tree::ClassTree)
-  return isvariant(tree, CLASS_TREE_EMPTY_TREE)
-end
-
 """
     getComponents(tree)
 
@@ -179,23 +175,6 @@ function setClassExtends(extNode::InstNode, tree::ClassTree)::ClassTree
 
   arrayUpdate(getExtends(tree), 1, extNode)
   return tree
-end
-
-function getRedeclaredNode(name::String, tree::ClassTree)::InstNode
-  local node::InstNode
-  local entry::DuplicateTree.Entry
-  entry = DuplicateTree.get(getDuplicates(tree), name)
-  entry = entry.children[1]
-  if isSome(entry.node)
-    @match SOME(node) = entry.node
-  else
-    entry = resolveEntry(entry.entry, tree)
-    if isvariant(entry, EMPTY_NODE)
-      Error.assertion(false, getInstanceName() + " failed on " + name, sourceInfo())
-    end
-    node = entry.node
-  end
-  return node
 end
 
 function isIdentical(tree1::ClassTree, tree2::ClassTree)::Bool
@@ -527,16 +506,6 @@ function mapFoldExtends(tree::ClassTree, func::Function, arg::ArgT) where {ArgT}
   return arg
 end
 
-function foldExtends(tree::ClassTree, func::FuncT, arg::ArgT) where {ArgT}
-
-  local exts::Vector{InstNode} = getExtends(tree)
-
-  for ext in exts
-    arg = func(ext, arg)
-  end
-  return arg
-end
-
 """
   Applies a function to each extends node in the class tree, and updates
   the extends array with the returned nodes.
@@ -582,21 +551,6 @@ function mapExtends(tree::ClassTree, attributes::Attributes, useBinding::Bool, v
                                     attributeRef)::InstNode
   end
   return nothing
-end
-
-function applyExtends(tree::ClassTree, func::FuncT)
-  local exts::Vector{InstNode} = getExtends(tree)
-  return for ext in exts
-    func(ext)
-  end
-end
-
-function foldClasses(tree::ClassTree, func::FuncT, arg::ArgT) where {ArgT}
-  local clss::Vector{InstNode} = getClasses(tree)
-  for cls in clss
-    arg = func(cls, arg)
-  end
-  return arg
 end
 
 function mapClasses(tree::ClassTree, func::FuncT)
@@ -2447,46 +2401,6 @@ function lookupElementNode(name::String, classTree::ClassTree)::InstNode
   return resolveEntryNode(entry, classTree)
 end
 
-
-function addDuplicateConflict(
-  newEntry::DuplicateTree.Entry,
-  oldEntry::DuplicateTree.Entry,
-  name::String,
-)::DuplicateTree.Entry
-  local entry::DuplicateTree.Entry
-
-  #=  The previously kept entry should be either kept or dup, since it's the
-  =#
-  #=  one found during lookup. So we can ignore it here.
-  =#
-  entry = DuplicateTree.DUPLICATE_TREE_ENTRY(
-    newEntry.entry,
-    NONE(),
-    [newEntry.children[1] ; oldEntry.children],
-    DuplicateTree.EntryType.DUPLICATE,
-  )
-  return entry
-end
-
-"""Adds an entry to the duplicates tree."""
-function addDuplicate(
-  name::String,
-  duplicateEntry::LookupTree.Entry,
-  keptEntry::LookupTree.Entry,
-  duplicates::Pointer{<:DuplicateTree.Tree},
-)::Pointer{DuplicateTree.Tree}
-
-  P_Pointer.update(
-    duplicates,
-    DuplicateTree.add(
-      P_Pointer.access(duplicates),
-      name,
-      DuplicateTree.newDuplicate(keptEntry, duplicateEntry),
-      addDuplicateConflict,
-    ),
-  )
-  return duplicates
-end
 
 function addImportConflict(
   newEntry::LookupTree.Entry,

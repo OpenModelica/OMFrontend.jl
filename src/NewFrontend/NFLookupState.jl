@@ -78,37 +78,6 @@ end
   end
 end
 
-function secondIdent(name::LookupStateName)::String
-  local id::String
-  @assign id = begin
-    @match name begin
-      LOOKUP_STATE_NAME_PATH(__) => begin
-        AbsynUtil.pathSecondIdent(name.path)
-      end
-      LOOKUP_STATE_NAME_CREF(__) => begin
-        AbsynUtil.crefSecondIdent(name.cref)
-      end
-    end
-  end
-  return id
-end
-
-function firstIdent(name::LookupStateName)::String
-  local id::String
-  id = begin
-    @match name begin
-      LOOKUP_STATE_NAME_PATH(__) => begin
-        AbsynUtil.pathFirstIdent(name.path)
-      end
-
-      LOOKUP_STATE_NAME_CREF(__) => begin
-        AbsynUtil.crefFirstIdent(name.cref)
-      end
-    end
-  end
-  return id
-end
-
 function toString(name::LookupStateName)::String
   local str::String
   str = begin

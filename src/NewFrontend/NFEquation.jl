@@ -726,18 +726,6 @@ function mapExpList(eql::Vector{Equation}, func::MapExpFn)
 end
 
 
-"""
-  Map a list of equations with a least one element
-"""
-function mapList!(eql::Vector{Equation}, func::Function)
-  #eqs = Equation[map(eq, func) for eq in eql]
-  for (i, eq) in enumerate(eql)
-    eql[i] = map(eq, func)
-  end
-  return eql
-end
-
-
 function mapList(eql::Vector{Equation}, func::Function)
   eqs = Equation[map(eq, func) for eq in eql]
 end

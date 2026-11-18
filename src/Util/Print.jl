@@ -38,33 +38,6 @@ module Print
 using MetaModelica
 using ExportAll
 
-"""saves and clears content of buffer and return a handle to the saved buffer so it can be restored by restorBuf later on"""
-function saveAndClearBuf()::Int
-  local handle::Int
-
-  @error "TODO: Defined in the runtime"
-  return handle
-end
-
-function restoreBuf(handle::Int)
-  return @error "TODO: Defined in the runtime"
-end
-
-function printErrorBuf(inString::String)
-  return @error "TODO: Defined in the runtime"
-end
-
-function clearErrorBuf()
-  return @error "TODO: Defined in the runtime"
-end
-
-function getErrorString()::String
-  local outString::String
-
-  @error "TODO: Defined in the runtime"
-  return outString
-end
-
 function printBuf(inString::String)
   return @error "TODO: Defined in the runtime"
 end
@@ -79,45 +52,6 @@ function getString()::String
 
   @error "TODO: Defined in the runtime"
   return outString
-end
-
-"""Writes the buffer to a file"""
-function writeBuf(filename::String)
-  return @error "TODO: Defined in the runtime"
-end
-
-"""Writes the print buffer to the filename, with /*#modelicaLine...*/ directives converted to #line C preprocessor macros"""
-function writeBufConvertLines(filename::String)
-  return @error "TODO: Defined in the runtime"
-end
-
-"""Gets the actual length of the filled space in the print buffer."""
-function getBufLength()::Int
-  local outBufFilledLength::Int
-
-  @error "TODO: Defined in the runtime"
-  return outBufFilledLength
-end
-
-"""Prints the given number of spaces to the print buffer."""
-function printBufSpace(inNumOfSpaces::Int)
-  return @error "TODO: Defined in the runtime"
-end
-
-"""Prints one new line character to the print buffer."""
-function printBufNewLine()
-  return @error "TODO: Defined in the runtime"
-end
-
-"""
-  Tests if the last outputted character in the print buffer is a new line.
-  It is a (temporary) workaround to stringLength()'s O(n) cost.
-"""
-function hasBufNewLineAtEnd()::Bool
-  local outHasNewLineAtEnd::Bool
-
-  @error "TODO: Defined in the runtime"
-  return outHasNewLineAtEnd
 end
 
 @exportAll()

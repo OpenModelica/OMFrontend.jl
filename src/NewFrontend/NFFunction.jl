@@ -252,24 +252,6 @@ const FunctionStatusType = Int
 using MetaModelica
 using ExportAll
 
-function getLocalArguments(fn::M_FUNCTION)::List{Expression}
-  local localArgs::List{Expression} = nil
-  local binding::Binding
-  for l in fn.locals
-    if isComponent(l)
-      @assign binding = getBinding(component(l))
-      # Error.assertion(
-      #   hasExp(binding),
-      #   getInstanceName() + " got local component without binding",
-      #   sourceInfo(),
-      # )
-      localArgs = Cons{Expression}(getExp(binding), localArgs)
-    end
-  end
-  localArgs = listReverseInPlace(localArgs)
-  return localArgs
-end
-
 function isPartial(fn::M_FUNCTION)::Bool
   return isPartial(fn.node)
 end
@@ -397,14 +379,6 @@ function mapExp(
     @assign fn.node = updateClass(cls, fn.node)
   end
   return fn
-end
-
-function hasOptionalArgument(component::SCode.Element)::Bool
-  local res::Bool = SCodeUtil.hasBooleanNamedAnnotationInComponent(
-    component,
-    "__OpenModelica_optionalArgument",
-  )
-  return res
 end
 
 function hasUnboxArgsAnnotation(cmt::SCode.Comment)::Bool
@@ -1726,11 +1700,6 @@ function fillArgs(
   return (args, matching)
 end
 
-function getSlots(fn::M_FUNCTION)::List{Slot}
-  local slots::List{Slot} = fn.slots
-  return slots
-end
-
 function setReturnType(ty::M_Type, fn::M_FUNCTION)::M_FUNCTION
 
   @assign fn.returnType = ty
@@ -1867,32 +1836,6 @@ function typeString(fn::M_FUNCTION)::String
   return str
 end
 
-"""Constructs a string representing a call, for use in error messages."""
-function callString(
-  fn::M_FUNCTION,
-  posArgs::List{<:Expression},
-  namedArgs::List{<:NamedArg},
-)::String
-  local str::String
-
-  @assign str =
-    stringDelimitList(list(toString(arg) for arg in posArgs), ", ")
-  if !listEmpty(namedArgs)
-    @assign str =
-      str +
-      ", " +
-      stringDelimitList(
-        list(
-          Util.tuple21(arg) + " = " + toString(Util.tuple22(arg))
-          for arg in namedArgs
-        ),
-        ", ",
-      )
-  end
-  @assign str = AbsynUtil.pathString(fn.path) + "(" + str + ")"
-  return str
-end
-
 function candidateFuncListString(fns::List{<:M_Function})::String
   local s::String =
     stringDelimitList(list(signatureString(fn, true) for fn in fns), "\\n  ")
@@ -1991,11 +1934,6 @@ function nameConsiderBuiltin(fn::M_FUNCTION)::Absyn.Path
     end
   end
   return path
-end
-
-function setName(name::Absyn.Path, fn::M_FUNCTION)::M_FUNCTION
-  @assign fn.path = name
-  return fn
 end
 
 function name(fn::M_FUNCTION)::Absyn.Path

@@ -333,26 +333,6 @@ function makeUMinus(ty::M_Type)::Operator
   return op
 end
 
-function makeDivEW(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.DIV_EW)
-  return op
-end
-
-function makeMulEW(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.MUL_EW)
-  return op
-end
-
-function makeSubEW(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.SUB_EW)
-  return op
-end
-
-function makeAddEW(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.ADD_EW)
-  return op
-end
-
 function makePow(ty::M_Type)::Operator
   local op::Operator = OPERATOR(ty, Op.POW)
   return op

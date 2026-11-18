@@ -907,69 +907,6 @@ function scalarizeWhenStatement(
 end
 
 """
-Check whether both sides of a record equation can be expanded to field-level.
-Returns true if both LHS and RHS are component references or record expressions.
-Returns false if either side is a function call (which returns a record and
-cannot be trivially split into per-field calls).
-"""
-function canExpandRecordEquationSides(@nospecialize(lhs::Expression), @nospecialize(rhs::Expression))::Bool
-  lhs_ok = lhs isa CREF_EXPRESSION || lhs isa RECORD_EXPRESSION
-  rhs_ok = rhs isa CREF_EXPRESSION || rhs isa RECORD_EXPRESSION
-  return lhs_ok && rhs_ok
-end
-
-"""
-Expand a record equation into per-field scalar equations.
-For each field of the record type, creates a new EQUATION_EQUALITY
-with the field appended to both LHS and RHS crefs.
-The generated field equations are recursively scalarized to handle
-array-typed fields (e.g. X :: Real[2]).
-"""
-function expandRecordEquation(
-  @nospecialize(lhs::Expression),
-  @nospecialize(rhs::Expression),
-  ty::M_Type,
-  src::DAE.ElementSource,
-  equations::Vector{Equation},
-)::Vector{Equation}
-  @match TYPE_COMPLEX(cls = cls) = ty
-  local comps::Vector{InstNode} = getComponents(classTree(getClass(cls)))
-  for (i, comp) in enumerate(comps)
-    local field_ty = getType(comp)
-    local field_lhs = expandRecordFieldExp(lhs, comp, field_ty, i)
-    local field_rhs = expandRecordFieldExp(rhs, comp, field_ty, i)
-    local field_eq = EQUATION_EQUALITY(field_lhs, field_rhs, field_ty, src)
-    equations = scalarizeEquation(field_eq, equations)
-  end
-  return equations
-end
-
-"""
-Create a field-level expression from a record-level expression.
-For CREF_EXPRESSION: appends the field component to get cref.field
-For RECORD_EXPRESSION: extracts the i-th element
-"""
-function expandRecordFieldExp(
-  @nospecialize(exp::Expression),
-  fieldNode::InstNode,
-  field_ty::M_Type,
-  fieldIndex::Int,
-)::Expression
-  @match exp begin
-    CREF_EXPRESSION(__) => begin
-      local field_cr = prefixCref(fieldNode, field_ty, nil, exp.cref)
-      CREF_EXPRESSION(field_ty, field_cr)
-    end
-    RECORD_EXPRESSION(__) => begin
-      exp.elements[fieldIndex]
-    end
-    _ => begin
-      exp
-    end
-  end
-end
-
-"""
 Try to expand an EQUATION_ARRAY_EQUALITY into scalar equations.
 Handles cases where the RHS is a TYPED_ARRAY_CONSTRUCTOR (possibly wrapped
 in binary operations) and the LHS is an iterable array.

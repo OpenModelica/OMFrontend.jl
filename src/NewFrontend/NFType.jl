@@ -224,22 +224,6 @@ function enumName(ty::M_Type)::Absyn.Path
   return name
 end
 
-function setRecordFields(fields::List{<:Field}, recordType::M_Type)::M_Type
-  @assign recordType = begin
-    local rec_node::InstNode
-    @match recordType begin
-      COMPLEX(complexTy = COMPLEX_RECORD(constructor = rec_node)) => begin
-        COMPLEX(recordType.cls, COMPLEX_RECORD(rec_node, fields))
-      end
-
-      _ => begin
-        recordType
-      end
-    end
-  end
-  return recordType
-end
-
 function recordFields(recordType::M_Type)::List{Field}
   local fields::List{Field}
 
@@ -761,15 +745,6 @@ end
   return str
 end
 
-"""TODO: Modified by me. Should have a string"""
-function nthEnumLiteralAsString(ty::M_Type, index::Int)::String
-  local literal::String
-  local literals::List{String}
-  @match ENUMERATION(literals = literals) = ty
-  @assign literal = listGet(literals, index)
-  return literal
-end
-
 @nospecializeinfer function foldDims(ty::M_Type, func::FuncT, arg::ArgT) where {ArgT}
 
   @assign arg = begin
@@ -893,11 +868,6 @@ end
     end
   end
   return known
-end
-
-function dimensionDiff(ty1::M_Type, ty2::M_Type)::Int
-  local diff::Int = dimensionCount(ty1) - dimensionCount(ty2)
-  return diff
 end
 
 @nospecializeinfer function dimensionCount(ty::NFType)::Int
@@ -1616,29 +1586,6 @@ function unliftArray(ty::M_Type)::M_Type
     @assign ty = el_ty
   else
     @assign ty = TYPE_ARRAY(el_ty, dims)
-  end
-  return ty
-end
-
-"""
-  Adds array dimensions to a type on the left side, e.g.
-  listArrayLeft(Real[2, 3], [4, 5]) => Real[2, 3, 4, 5].
-"""
-function liftArrayRightList(ty::NFType, dims::List{<:Dimension})::NFType
-
-  if listEmpty(dims)
-    return ty
-  end
-  @assign ty = begin
-    @match ty begin
-      TYPE_ARRAY(__) => begin
-        TYPE_ARRAY(ty.elementType, listAppend(ty.dimensions, dims))
-      end
-
-      _ => begin
-        TYPE_ARRAY(ty, dims)
-      end
-    end
   end
   return ty
 end

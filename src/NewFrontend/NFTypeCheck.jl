@@ -56,11 +56,6 @@ function isIncompatibleMatch(kind::MatchKindType)::Bool
   return isIncompatible
 end
 
-function isExactMatch(kind::MatchKindType)::Bool
-  local isCompatible::Bool = kind == MatchKind.EXACT
-  return isCompatible
-end
-
 function isCastMatch(kind::MatchKindType)::Bool
   local isCast::Bool = kind == MatchKind.CAST
   return isCast
