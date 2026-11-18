@@ -175,8 +175,15 @@ function toFlatStream(cls::Class, clsNode::InstNode, s)
   return s
 end
 
-function makeRecordExp(clsNode::InstNode)::Expression
-  local exp::Expression
+"""
+    makeRecordExp(clsNode) -> Union{Nothing, Expression}
+
+The record expression of the record class `clsNode` from its fields' (implicit) bindings, or nothing when a field
+has no binding. That miss is common (the only caller, `getImplicitBinding`, keeps the unbound binding then) and is
+returned, not failed: a failure outside a cheap-throw scope, in a task of the parallel fan-out, records a backtrace
+(5-8 per MSL Fluid ThreeTanks).
+"""
+function makeRecordExp(clsNode::InstNode)::Union{Nothing, Expression}
   local cls::Class
   local ty::M_Type
   local ty_node::InstNode
@@ -187,9 +194,14 @@ function makeRecordExp(clsNode::InstNode)::Expression
   ty = getType(cls, clsNode)
   @match TYPE_COMPLEX(complexTy = COMPLEX_RECORD(ty_node)) = ty
   @assign fields = getComponents(classTree(cls))
-  local args = Expression[getExp(getImplicitBinding(component(f))) for f in fields]
-  exp = makeRecord(scopePath(ty_node), ty, args)
-  return exp
+  local args::Vector{Expression} = Expression[]
+  sizehint!(args, length(fields))
+  for f in fields
+    local b::Binding = getImplicitBinding(component(f))
+    hasExp(b) || return nothing
+    push!(args, getExp(b))
+  end
+  return makeRecord(scopePath(ty_node), ty, args)
 end
 
 function hasOperator(name::String, cls::Class)::Bool

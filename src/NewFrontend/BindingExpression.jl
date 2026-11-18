@@ -5292,7 +5292,7 @@ end
  Subscripts an expression with the given subscript, and then applies the
  optional list of subscripts to each element of the subscripted expression.
 """
-function applySubscript(subscript::Subscript, @nospecialize(exp::Expression), restSubscripts::List{<:Subscript} = nil) ::Expression
+function applySubscript(@nospecialize(subscript::Subscript), @nospecialize(exp::Expression), @nospecialize(restSubscripts::List{<:Subscript} = nil)) ::Expression
   local outExp::Expression
   # @info "Apply subscript:"
   # println("exp:")

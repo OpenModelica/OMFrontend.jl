@@ -1450,7 +1450,7 @@ function checkAssignment(@nospecialize(lhsExp::Expression), @nospecialize(rhsExp
 end
 
 function typeExp(
-  exp::Expression,
+  @nospecialize(exp::Expression),
   origin::ORIGIN_Type,
   info::SourceInfo
   )::Tuple
@@ -1461,7 +1461,7 @@ function typeExp(
 end
 
 function typeExp2(
-  exp::Expression,
+  @nospecialize(exp::Expression),
   origin::ORIGIN_Type,
   info::SourceInfo,
   typeRef::Ref{NFType},
@@ -1842,7 +1842,7 @@ end
    to be used on an untyped array, for a typed array it's better to just use
    e.g.  nthDimensionBoundsChecked on its type. """
 function typeArrayDim(
-  arrayExp::Expression,
+  @nospecialize(arrayExp::Expression),
   dimIndex::Int,
 )::Tuple{Dimension, TypingError}
   local error::TypingError
@@ -1861,7 +1861,7 @@ function typeArrayDim(
 end
 
 function typeArrayDim2(
-  arrayExp::Expression,
+  @nospecialize(arrayExp::Expression),
   dimIndex::Int,
   dimCount::Int = 0,
 )::Tuple{Dimension, TypingError}
@@ -2640,9 +2640,9 @@ end
 end
 
 function printRangeTypeError(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   ty1::NFType,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   ty2::NFType,
   info::SourceInfo,
 )
@@ -2946,14 +2946,14 @@ elements of an array of components (Buildings' conduction layers, `nSta = if lay
 lay.stateAtSurface_b then 2 else 1`: each element its own): the if-expression stays, as omc's (which selects no branch
 when typing), evaluated for each element (a ragged dimension, `flattenRaggedDimension`).
 """
-function selectedBranch(condExp::Expression, origin::ORIGIN_Type, info::SourceInfo)::Union{Nothing, Bool}
+function selectedBranch(@nospecialize(condExp::Expression), origin::ORIGIN_Type, info::SourceInfo)::Union{Nothing, Bool}
   local values::Expression = stripBindingInfo(evalExp(condExp, EVALTARGET_GENERIC(info)))
   (values isa ARRAY_EXPRESSION && !arrayAllEqual(values)) && return nothing
   return evaluateCondition(condExp, origin, info)
 end
 
 function evaluateCondition(
-  condExp::Expression,
+  @nospecialize(condExp::Expression),
   origin::ORIGIN_Type,
   info::SourceInfo,
 )::Bool

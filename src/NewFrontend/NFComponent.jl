@@ -821,7 +821,7 @@ function getImplicitBinding(component::Component)
   local binding::Binding
 
   local cls_node::InstNode
-  local record_exp::Expression
+  local record_exp::Union{Nothing, Expression}
 
    binding = getBinding(component)
   if isUnbound(binding)
@@ -829,10 +829,12 @@ function getImplicitBinding(component::Component)
     if isRecord(cls_node)
       try
          record_exp = makeRecordExp(cls_node)
-         binding = FLAT_BINDING(
-          record_exp,
-          variability(record_exp),
-        )
+         if record_exp !== nothing
+           binding = FLAT_BINDING(
+            record_exp,
+            variability(record_exp),
+          )
+         end
       catch
       end
     end

@@ -591,26 +591,26 @@ function lookupComponentIndex(name::String, tree::ClassTree)::Int
   return index
 end
 
+"""
+    lookupElementsPtr(name, tree) -> List{Pointer{InstNode}}
+
+The elements named `name` in `tree`: all its duplicate entries when `name` has some, else the one element.
+A name without duplicates is the common case and no failure: `DuplicateTree.getOpt`, not a `get` that throws
+(a throw outside a cheap-throw scope, in a task of the parallel fan-out, records a backtrace: 1-2 ms each,
+348 per MSL Fluid ThreeTanks).
+"""
 function lookupElementsPtr(name::String, tree::ClassTree)::List{Pointer{InstNode}}
-  local elements::List{Pointer{InstNode}}
-  local dup_entry::DuplicateTree.Entry
-  #=
-  TODO: Check if it possible not to use exception here in order to speed it up
-  -John 2025
-  =#
-  try
-    local duplicates = getDuplicates(tree)
-    if DuplicateTree.isEmpty(duplicates)
-      elements = list(lookupElementPtr(name, tree))
-      return elements
-    else
-      dup_entry = DuplicateTree.get(duplicates, name)
-      elements = resolveDuplicateEntriesPtr(dup_entry, tree)
+  local duplicates::Union{DuplicateTree.Tree, Nothing} = tree.duplicates
+  if duplicates !== nothing && !DuplicateTree.isEmpty(duplicates)
+    local dup_entry::Option{DuplicateTree.Entry} = DuplicateTree.getOpt(duplicates, name)
+    if isSome(dup_entry)
+      try
+        return resolveDuplicateEntriesPtr(Util.getOption(dup_entry), tree)
+      catch
+      end
     end
-  catch
-    elements = list(lookupElementPtr(name, tree))
   end
-  return elements
+  return list(lookupElementPtr(name, tree))
 end
 
 function lookupElementPtr(name::String, tree::ClassTree)::Pointer{InstNode}

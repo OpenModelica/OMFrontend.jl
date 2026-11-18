@@ -732,7 +732,10 @@ function findResultGraph(inGraph::NFOCConnectionGraph, modelNameQualified::Strin
         (table, connected, broken) = addConnections(table, connections)
         @assign dummyRoot = NFBuiltin.TIME_CREF
          (table, finalRoots) = addPotentialRootsToTable(table, orderedPotentialRoots, definiteRoots, dummyRoot)
-        @assign brokenConnectsViaGraphViz = generateGraphViz(modelNameQualified, definiteRoots, potentialRoots, uniqueRoots, branches, connections, finalRoots, broken)
+        # generateGraphViz turns CGRAPH_GRAPHVIZ_FILE off and returns "" unless CGRAPH_GRAPHVIZ_SHOW is set: not
+        # called otherwise, so that it is not compiled at a model's first connection graph.
+        @assign brokenConnectsViaGraphViz = Flags.isSet(Flags.CGRAPH_GRAPHVIZ_SHOW) ?
+          generateGraphViz(modelNameQualified, definiteRoots, potentialRoots, uniqueRoots, branches, connections, finalRoots, broken) : ""
         if stringEq(brokenConnectsViaGraphViz, "")
         else
           @assign userBrokenLst = Util.stringSplitAtChar(brokenConnectsViaGraphViz, "#")

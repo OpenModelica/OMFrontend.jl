@@ -202,6 +202,17 @@ struct M_FUNCTION <: M_Function
   #= The inputs a partial derivative of a function is taken with respect to, by index
      (`function df = der(f, x)`; omc derivedInputs), empty for other functions. =#
   derivedInputs::List{Int}
+  """
+  One constructor for all argument types (the default compiled one per combination of `Cons`/`Nil` lists and path
+  kinds at run time); `new` converts to the field types as the default did.
+  """
+  function M_FUNCTION(@nospecialize(path), @nospecialize(node), @nospecialize(inputs), @nospecialize(outputs),
+                      @nospecialize(locals), @nospecialize(slots), @nospecialize(returnType), @nospecialize(attributes),
+                      @nospecialize(derivatives), @nospecialize(status), @nospecialize(callCounter),
+                      @nospecialize(derivedInputs))
+    return new(path, node, inputs, outputs, locals, slots, returnType, attributes, derivatives, status, callCounter,
+               derivedInputs)
+  end
 end
 
 M_FUNCTION(path, node, inputs, outputs, locals, slots, returnType, attributes, derivatives, status, callCounter) =

@@ -375,19 +375,31 @@ function lookupInner(outerNode::InstNode, scope::InstNode)
   local prev_scope::InstNode = scope
 
   while ! isEmpty(cur_scope)
-    try
-      @match ENTRY_INFO(node, isImport) = lookupElement(nameVar, getClass(cur_scope))
-      @match false = isImport
-      innerNode = resolveOuter(node)
-      @match true = isInner(innerNode)
-      return innerNode
-    catch e
-      prev_scope = cur_scope
-      cur_scope = derivedParent(cur_scope)
-    end
+    local found::Union{Nothing, InstNode} = _lookupInnerInScope(nameVar, cur_scope)
+    found === nothing || return found
+    prev_scope = cur_scope
+    cur_scope = derivedParent(cur_scope)
   end
   innerNode = generateInner(outerNode, prev_scope)
   innerNode
+end
+
+"""
+    _lookupInnerInScope(nameVar, scope) -> Union{Nothing, InstNode}
+
+The inner element `nameVar` of `scope`, or nothing when the scope has no such element, has it as an import or
+has it but not as inner: the common case while `lookupInner` walks up the scopes, and no failure (a throw outside
+a cheap-throw scope, in a task of the parallel fan-out, records a backtrace: 234 per MSL EngineV6).
+"""
+function _lookupInnerInScope(nameVar::String, scope::InstNode)::Union{Nothing, InstNode}
+  local info::ENTRY_INFO = try
+    lookupElement(nameVar, getClass(scope))
+  catch
+    return nothing
+  end
+  info.isImport && return nothing
+  local innerNode::InstNode = resolveOuter(info.node)
+  return isInner(innerNode) ? innerNode : nothing
 end
 
 """

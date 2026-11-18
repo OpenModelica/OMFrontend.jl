@@ -1220,10 +1220,10 @@ function fillUnknownVectorizedDims(
 end
 
 function matchArgVectorized(
-  argExp::Expression,
+  @nospecialize(argExp::Expression),
   argTy::M_Type,
   inputTy::M_Type,
-  vectArg::Expression,
+  @nospecialize(vectArg::Expression),
   vectDims::List{<:Dimension},
   info::SourceInfo,
 )::Tuple{Expression, M_Type, Expression, List{Dimension}, MatchKindType}
@@ -1558,9 +1558,16 @@ function collectArgs(slots::Vector{<:Slot}, info::SourceInfo)::Tuple{Vector{Type
       SOME(a) => begin
         push!(args, a)
       end
-      #= Otherwise, try to fill the slot with its default argument. =#
+      #= Otherwise, try to fill the slot with its default argument. No default: fillDefaultSlot's message
+         without its failure (a throw outside a cheap-throw scope records a backtrace; overload candidates
+         without the argument are common, 28 per MSL Fluid ThreeTanks). =#
       _ => begin
-        push!(args, fillDefaultSlot(s, slots, info))
+        if isNone(default)
+          Error.addSourceMessage(Error.UNFILLED_SLOT, list(name), info)
+          matching = false
+        else
+          push!(args, fillDefaultSlot(s, slots, info))
+        end
       end
       _ => begin
         matching = false
