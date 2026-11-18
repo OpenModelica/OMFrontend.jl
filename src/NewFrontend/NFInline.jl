@@ -345,7 +345,7 @@ function _freeDimensions(cr::ComponentRef)::Int
   return n
 end
 
-function replaceCrefNode(exp::Expression, node::InstNode, value::Expression)::Expression
+function replaceCrefNode(@nospecialize(exp::Expression), node::InstNode, @nospecialize(value::Expression))::Expression
   local ty::M_Type
   local repl_ty::M_Type
   if exp isa CREF_EXPRESSION && isvariant(exp.cref, COMPONENT_REF_CREF)

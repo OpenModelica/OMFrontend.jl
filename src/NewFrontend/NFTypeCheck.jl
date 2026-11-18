@@ -92,11 +92,11 @@ function isValidPlugCompatibleMatch(kind::MatchKindType)::Bool
 end
 
 function checkBinaryOperation(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::M_Type,
   var1::VariabilityType,
   operator::Operator,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::M_Type,
   var2::VariabilityType,
   info::SourceInfo,
