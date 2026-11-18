@@ -1568,12 +1568,16 @@ function updateComponent!(component::Component, node::InstNode)
   node
 end
 
-function component(node::InstNode)
-  local component::Component
+"""
+The component of a component node: a `ComponentImpl` (`Component`'s only subtype; as the concrete type, so that its
+fields' reads are inferred and calls on them are not dynamic, 2026-11-18).
+"""
+function component(node::InstNode)::ComponentImpl
+  local component::ComponentImpl
    component = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        _compVal(node)
+        _compVal(node)::ComponentImpl
       end
     end
   end

@@ -1354,7 +1354,7 @@ function typeTypeAttribute(
       name =
         attribute.name +
         "." +
-        Util.tuple21(listHead(ModTable.toList(attribute.subModifiers)))
+        Util.tuple21(listHead(ModTable.toList(attribute.subModifiers)))::String
       Error.addSourceMessage(
         Error.MISSING_MODIFIED_ELEMENT,
         list(name, toString(ty)),
@@ -1388,7 +1388,7 @@ function typeTypeAttribute(
             list(
               name,
               variabilityString(Variability.PARAMETER),
-              "'" + toString(binding) + "'",
+              "'" + toString(binding)::String + "'",
               variabilityString(variability(binding)),
             ),
             Binding_getInfo(binding),
@@ -3597,7 +3597,7 @@ function typeComponentSections(c::InstNode, origin::ORIGIN_Type)::InstNode
       _ => begin
         Error.assertion(
           false,
-          getInstanceName() + " got uninstantiated component " + name(node),
+          getInstanceName() + " got uninstantiated component " + name(node)::String,
           sourceInfo(),
         )
         fail()

@@ -1309,7 +1309,7 @@ function evalRangeExp(@nospecialize(rangeExp::Expression))::Expression
         ) => begin
           #=  The compiler decided to randomly dislike using step.value here, hence istep.
           =#
-           expl = INTEGER_EXPRESSION[INTEGER_EXPRESSION(i) for i = (start.value):istep:(stop.value)]
+           expl = Expression[INTEGER_EXPRESSION(i) for i::Int = _intOf(start):istep:_intOf(stop)]
           (TYPE_INTEGER(), expl)
         end
 
@@ -1318,7 +1318,7 @@ function evalRangeExp(@nospecialize(rangeExp::Expression))::Expression
           REAL_EXPRESSION(__),
           REAL_EXPRESSION(__),
         ) => begin
-           expl = evalRangeReal(start.value, step.value, stop.value)
+           expl = evalRangeReal(_realOf(start), _realOf(step), _realOf(stop))
           (TYPE_REAL(), expl)
         end
 
@@ -1327,26 +1327,26 @@ function evalRangeExp(@nospecialize(rangeExp::Expression))::Expression
           fail()
         end
       end
-    end
+    end::Tuple{M_Type, Vector{Expression}}
   else
      (ty, expl) = begin
       @match (start, stop) begin
         (INTEGER_EXPRESSION(__), INTEGER_EXPRESSION(__)) =>
           begin
              expl =
-               INTEGER_EXPRESSION[INTEGER_EXPRESSION(i) for i = (start.value):(stop.value)]
+               Expression[INTEGER_EXPRESSION(i) for i::Int = _intOf(start):_intOf(stop)]
             (TYPE_INTEGER(), expl)
           end
 
         (REAL_EXPRESSION(__), REAL_EXPRESSION(__)) => begin
-           expl = evalRangeReal(start.value, 1.0, stop.value)
+           expl = evalRangeReal(_realOf(start), 1.0, _realOf(stop))
           (TYPE_REAL(), expl)
         end
 
         (BOOLEAN_EXPRESSION(__), BOOLEAN_EXPRESSION(__)) =>
           begin
              expl =
-              INTEGER_EXPRESSION[BOOLEAN_EXPRESSION(b) for b = (start.value):(stop.value)]
+              Expression[BOOLEAN_EXPRESSION(b) for b::Bool = _boolOf(start):_boolOf(stop)]
             (TYPE_BOOLEAN(), expl)
           end
 
@@ -1355,7 +1355,7 @@ function evalRangeExp(@nospecialize(rangeExp::Expression))::Expression
           ENUM_LITERAL_EXPRESSION(__),
         ) => begin
           expl =
-            ENUM_LITERAL_EXPRESSION[ENUM_LITERAL_EXPRESSION(ty, listGet(ty.literals, i), i) for i = (start.index):(stop.index)]
+            Expression[ENUM_LITERAL_EXPRESSION(ty, listGet(ty.literals, i), i) for i::Int = (start::ENUM_LITERAL_EXPRESSION).index:(stop::ENUM_LITERAL_EXPRESSION).index]
           (ty, expl)
         end
 
@@ -1364,7 +1364,7 @@ function evalRangeExp(@nospecialize(rangeExp::Expression))::Expression
           fail()
         end
       end
-     end
+     end::Tuple{M_Type, Vector{Expression}}
   end
   exp = makeArray(
     TYPE_ARRAY(ty, list(fromInteger(length(expl)))), expl
@@ -5206,16 +5206,27 @@ function _catPart(@nospecialize(e::Expression), dim::Int)::Array{Expression}
   local level = Expression[e]
   for _ in 1:dim
     all(x -> x isa ARRAY_EXPRESSION, level) || break
-    local n = length(level[1].elements)
-    all(x -> length(x.elements) == n, level) || fail()
+    local n::Int = length((level[1]::ARRAY_EXPRESSION).elements)
+    all(x::Expression -> length((x::ARRAY_EXPRESSION).elements) == n, level) || fail()
     push!(sizes, n)
-    level = Expression[y for x in level for y in x.elements]
+    level = Expression[y for x in level for y in (x::ARRAY_EXPRESSION).elements]
   end
   while length(sizes) < dim
     push!(sizes, 1)
   end
   #= level is in row-major order of sizes =#
-  return Base.permutedims(Base.reshape(level, Tuple(Base.reverse(sizes))), Tuple(dim:-1:1))
+  return _catPartArray(level, sizes, Val(dim))::Array{Expression}
+end
+
+"""
+    _catPartArray(level, sizes, Val(N)) -> Array{Expression, N}
+
+`level` (row-major in `sizes`) as an array of rank N in column-major order (`_catPart`). The rank as a type parameter:
+`reshape` and `permutedims` with a tuple of unknown length were dynamic calls (invalidated by packages' methods).
+"""
+function _catPartArray(level::Vector{Expression}, sizes::Vector{Int}, ::Val{N})::Array{Expression, N} where {N}
+  local dims::NTuple{N, Int} = ntuple(k::Int -> sizes[N + 1 - k], Val(N))
+  return Base.permutedims(Base.reshape(level, dims), ntuple(k::Int -> N + 1 - k, Val(N)))
 end
 
 function evalCat(dim::Int,

@@ -1110,7 +1110,7 @@ function typeNodeCache2(fn_node::InstNode)::Vector{M_FUNCTION}
   local special::Bool
   local name::String
   #@match C_FUNCTION(functions, typed, special) = getFuncCache(fn_node)
-  local cache = getFuncCache(fn_node)
+  local cache::C_FUNCTION = getFuncCache(fn_node)::C_FUNCTION
   typed = cache.typed
   functions = cache.funcs
   #=  Type the function(s) if not already done. =#

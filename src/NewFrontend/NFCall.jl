@@ -250,9 +250,9 @@ function typedString(call::Call)::String
          arg_str = stringDelimitList(
           list(
             "/*" +
-            toString(Util.tuple32(arg)) +
+            toString(Util.tuple32(arg))::String +
             "*/ " +
-            toString(Util.tuple31(arg))
+            toString(Util.tuple31(arg))::String
             for arg in call.arguments
           ),
           ", ",
