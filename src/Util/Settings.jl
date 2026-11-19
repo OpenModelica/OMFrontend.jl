@@ -49,31 +49,11 @@ function getVersionNr() ::String
  "TODO"       
 end
 
-function setCompilePath(inString::String)  
-    #= TODO: Defined in the runtime =#
-end
-
-function setCompileCommand(inString::String)  
-    #= TODO: Defined in the runtime =#
-end
-
-function getCompileCommand() ::String 
-    #= TODO: Defined in the runtime =#
-end
-
-function setTempDirectoryPath(inString::String)  
-    #= TODO: Defined in the runtime =#
-end
-
 function getTempDirectoryPath() ::String 
     #= TODO: Defined in the runtime =#
     "TODO getTempDirectoryPath"
 end
 
-
-function setInstallationDirectoryPath(path::String)  
-  global INSTALLATION_DIRECTORY_PATH = path
-end
 
 function getInstallationDirectoryPath()::String
   if INSTALLATION_DIRECTORY_PATH != nothing
@@ -85,27 +65,9 @@ function getInstallationDirectoryPath()::String
   end
 end
 
-function setModelicaPath(inString::String)  
-  #= TODO: Defined in the runtime =#
-end
-
-function getModelicaPath(runningTestsuite::Bool) ::String 
-    #= TODO: Defined in the runtime =#
-    "modelicaPath"
-end
-
 function getHomeDir(runningTestsuite::Bool) ::String 
     #= TODO: Defined in the runtime =#
     "getHomeDir"
-end
-
-function getEcho()::ModelicaInteger 
-    #= TODO: Defined in the runtime =#
-    0
-end
-
-function setEcho(echo::ModelicaInteger)  
-    #= TODO: Defined in the runtime =#
 end
 
 @exportAll()

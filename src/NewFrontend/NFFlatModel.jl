@@ -104,36 +104,6 @@ end
 
 const TypeTree = TypeTreeImpl.Tree
 
-"""
-Not currently in use.
-Added by me to treat parameters in a slightly other way
-"""
-function reconstructRecordInstanceForParameterRecord(
-  recordName::ComponentRef,
-  variables::List{<:Variable},
-  fieldCount::Int
-  )
-  local recordVar::Variable
-  local record_node::InstNode
-  local record_comp::Component
-  local record_ty::M_Type
-  record_node = node(recordName)
-  record_comp = component(record_node)
-  record_ty = nodeType(recordName)
-  record_binding = EMPTY_BINDING
-  recordVar = VARIABLE(
-    recordName,
-    record_ty,
-    record_binding,
-    visibility(record_node),
-    getAttributes(record_comp),
-    Tuple{String, Binding}[],
-    comment(record_comp),
-    InstNode_info(record_node),
-  )
-  return recordVar
-end
-
 function reconstructRecordInstance(
   recordName::ComponentRef,
   variables::List{<:Variable},

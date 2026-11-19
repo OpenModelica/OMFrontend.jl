@@ -50,60 +50,12 @@ function trim(inString::String, charsToRemove::String = " \\f\\n\\r\\t\\v") ::St
   outString
 end
 
-"""removes chars in ' \\f\\n\\r\\t\\v' from begin and end of inString"""
-function trimWhitespace(inString::String) ::String
-  local outString::String
-
-  @assign outString = trim(inString)
-  outString
-end
-
-function trimChar(inString1::String, inString2::String) ::String
-  local outString::String
-
-  @error "TODO: Defined in the runtime"
-  outString
-end
-
-"""
-  This function returns:
-  0 if inString1 == inString2
-  1 if inString1 >  inString2
-  -1 if inString1 <  inString2
-  This is different from what C strcmp
-  returns (negative values if <, positive values if >).
-  We fix negative values to -1 and positive to +1 so
-  we can pattern match on them directly in MetaModelica!
-"""
-function strcmp(inString1::String, inString2::String) ::Int
-  local outInteger::Int
-
-  @error "TODO: Defined in the runtime"
-  outInteger
-end
-
-"""Like strcmp, but also takes offset and lengths of the strings in order to avoid building them through substring"""
-function strcmp_offset(string1::String, offset1::Int, length1::Int, string2::String, offset2::Int, length2::Int) ::Int
-  local outInteger::Int
-
-  @error "TODO: Defined in the runtime"
-  outInteger
-end
-
 """locates substring searchStr in str. If succeeds return position (starting from 0), otherwise return -1"""
 function stringFind(str::String, searchStr::String) ::Int
   local outInteger::Int
 
   @error "TODO: Defined in the runtime"
   outInteger
-end
-
-"""locates substring searchStr in str. If succeeds return the string, otherwise fail"""
-function stringFindString(str::String, searchStr::String) ::String
-  local outString::String
-
-  @error "TODO: Defined in the runtime"
-  outString
 end
 
 """
@@ -164,10 +116,6 @@ function makeC89Identifier(str::String) ::String
   res
 end
 
-function toupper(inString::String) ::String
-  return Base.uppercase(inString)
-end
-
 function tolower(inString::String) ::String
   return Base.lowercase(inString)
 end
@@ -177,80 +125,6 @@ end
 function strtok(string::String, token::String) ::List{String}
   local pieces = Base.split(string, Base.collect(token); keepempty = false)
   return list((String(p) for p in pieces)...)
-end
-
-"""
-  as strtok but also includes *all* delimiters
-  split the string at delimiters into a list of strings including *all* delimiters
-  stringSplitInTokens(*a**b*, *) => {*, a, *, *, b, *}
-"""
-function strtokIncludingDelimiters(string::String, token::String) ::List{String}
-  local strings::List{String}
-
-  @error "TODO: Defined in the runtime"
-  strings
-end
-
-function setCCompiler(inString::String)
-  @error "TODO: Defined in the runtime"
-end
-
-function getCCompiler() ::String
-  local outString::String
-
-  @error "TODO: Defined in the runtime"
-  outString
-end
-
-function setCFlags(inString::String)
-  @error "TODO: Defined in the runtime"
-end
-
-function getCFlags() ::String
-  local outString::String
-
-  @error "TODO: Defined in the runtime"
-  outString
-end
-
-function setCXXCompiler(inString::String)
-  @error "TODO: Defined in the runtime"
-end
-
-function getCXXCompiler() ::String
-  local outString::String
-
-  @error "TODO: Defined in the runtime"
-  outString
-end
-
-function getOMPCCompiler() ::String
-  local outString::String
-
-  @error "TODO: Defined in the runtime"
-  outString
-end
-
-function setLinker(inString::String)
-  @error "TODO: Defined in the runtime"
-end
-
-function getLinker() ::String
-  local outString::String
-
-  @error "TODO: Defined in the runtime"
-  outString
-end
-
-function setLDFlags(inString::String)
-  @error "TODO: Defined in the runtime"
-end
-
-function getLDFlags() ::String
-  local outString::String
-
-  @error "TODO: Defined in the runtime"
-  outString
 end
 
 function loadLibrary(inLib::String, inPrintDebug::Bool) ::Int
@@ -265,14 +139,6 @@ function lookupFunction(inLibHandle::Int, inFunc::String) ::Int
 
   @error "TODO: Defined in the runtime"
   outFuncHandle
-end
-
-function freeFunction(inFuncHandle::Int, inPrintDebug::Bool)
-  @error "TODO: Defined in the runtime"
-end
-
-function freeLibrary(inLibHandle::Int, inPrintDebug::Bool)
-  @error "TODO: Defined in the runtime"
 end
 
 """ This function will write to the file given by first argument the given string """
@@ -300,40 +166,6 @@ function systemCall(command::String, outFile::String = "" #= empty file means no
   outInteger
 end
 
-"""Run the command and return the stdout as a string"""
-function popen(command::String) ::Tuple{String, Integer}
-  local status::Int
-  local contents::String
-
-  @error "TODO: Defined in the runtime"
-  (contents, status)
-end
-
-function systemCallParallel(inStrings::List{<:String}, numThreads::Int) ::List{Integer}
-  local outIntegers::List{Integer}
-
-  @error "TODO: Defined in the runtime"
-  outIntegers
-end
-
-function spawnCall(path::String #= The absolute path to the executable =#, str::String #= The list of arguments with executable =#) ::Int
-  local outInteger::Int
-
-  @error "TODO: Defined in the runtime"
-  outInteger
-end
-
-function plotCallBackDefined() ::Bool
-  local outBoolean::Bool
-
-  @error "TODO: Defined in the runtime"
-  outBoolean
-end
-
-function plotCallBack(externalWindow::Bool, filename::String, title::String, grid::String, plotType::String, logX::String, logY::String, xLabel::String, yLabel::String, x1::String, x2::String, y1::String, y2::String, curveWidth::String, curveStyle::String, legendPosition::String, footer::String, autoScale::String, variables::String)
-  @error "TODO: Defined in the runtime"
-end
-
 function cd(inString::String) ::Int
   local outInteger::Int
 
@@ -348,63 +180,11 @@ function createDirectory(inString::String) ::Bool
   outBool
 end
 
-function createTemporaryDirectory(inPrefix::String) ::String
-  local outName::String
-
-  @error "TODO: Defined in the runtime"
-  outName
-end
-
 function pwd() ::String
   local outString::String
 
   @error "TODO: Defined in the runtime"
   outString
-end
-
-"""Reads the environment variable given as string, fails if variable not found"""
-function readEnv(inString::String) ::String
-  local outString::String
-
-  @error "TODO: Defined in the runtime"
-  outString
-end
-
-function setEnv(varName::String, value::String, overwrite::Bool #= is always true on Windows, so recommended to always call it using true =#) ::Int
-  local outInteger::Int
-
-  @error "TODO: Defined in the runtime"
-  outInteger
-end
-
-function subDirectories(inString::String) ::List{String}
-  local outStringLst::List{String}
-
-  @error "TODO: Defined in the runtime"
-  outStringLst
-end
-
-function moFiles(inString::String) ::List{String}
-  local outStringLst::List{String}
-
-  @error "TODO: Defined in the runtime"
-  outStringLst
-end
-
-function mocFiles(inString::String) ::List{String}
-  local outStringLst::List{String}
-
-  @error "TODO: Defined in the runtime"
-  outStringLst
-end
-
-function getLoadModelPath(className::String, prios::List{<:String}, mps::List{<:String}, requireExactVersion::Bool = false) ::Tuple{String, String, Bool}
-  local isDir::Bool
-  local name::String
-  local dir::String
-
-  @error "TODO: Defined in the runtime"
-  (dir, name, isDir)
 end
 
 function time() ::AbstractFloat
@@ -414,101 +194,11 @@ function time() ::AbstractFloat
   outReal
 end
 
-function regularFileExists(inString::String) ::Bool
-  local outBool::Bool
-
-  @error "TODO: Defined in the runtime"
-  outBool
-end
-
-"""Removes a file, returns 0 if suceeds, implemented using remove() in stdio.h"""
-function removeFile(fileName::String) ::Int
-  local res::Int
-
-  @error "TODO: Defined in the runtime"
-  res
-end
-
 function directoryExists(inString::String) ::Bool
   local outBool::Bool
 
   @error "TODO: Defined in the runtime"
   outBool
-end
-
-function copyFile(source::String, destination::String) ::Bool
-  local outBool::Bool
-
-  @error "TODO: Defined in the runtime"
-  outBool
-end
-
-function removeDirectory(inString::String) ::Bool
-  local outBool::Bool
-
-  @assign outBool = System.removeDirectory_dispatch(inString)
-  #=  oh Windows crap: stat fails on very long paths!
-  =#
-  if ! outBool
-    if Autoconf.os == "Windows_NT"
-      @assign outBool = 0 == System.systemCall("rm -r " + inString)
-    end
-  end
-  #=  try rm as that somehow works on long paths
-  =#
-  outBool
-end
-
-function removeDirectory_dispatch(inString::String) ::Bool
-  local outBool::Bool
-
-  @error "TODO: Defined in the runtime"
-  outBool
-end
-
-function getClassnamesForSimulation() ::String
-  local outString::String
-
-  @error "TODO: Defined in the runtime"
-  outString
-end
-
-function setClassnamesForSimulation(inString::String)
-  @error "TODO: Defined in the runtime"
-end
-
-function getVariableValue(timeStamp::AbstractFloat, timeValues::List{<:AbstractFloat}, varValues::List{<:AbstractFloat}) ::AbstractFloat
-  local outValue::AbstractFloat
-
-  @error "TODO: Defined in the runtime"
-  outValue
-end
-
-"""
-  @author adrpo
-  this system function returns the modification time of a file as a
-  SOME(Real) which represents the time elapsed since the
-  Epoch (00:00:00 UTC, January 1, 1970).
-  If the file does not exist or if there is an error the returned value
-  will be NONE.
-"""
-function getFileModificationTime(fileName::String) ::Option{AbstractFloat}
-  local outValue::Option{AbstractFloat}
-
-  @error "TODO: Defined in the runtime"
-  outValue
-end
-
-"""
-  @author adrpo
-  this system function returns current time elapsed
-  since the Epoch (00:00:00 UTC, January 1, 1970).
-"""
-function getCurrentTime() ::AbstractFloat
-  local outValue::AbstractFloat
-
-  @error "TODO: Defined in the runtime"
-  outValue
 end
 
 """
@@ -528,24 +218,6 @@ function getCurrentDateTime() ::Tuple{Integer, Integer, Integer, Integer, Intege
   (sec, min, hour, mday, mon, year)
 end
 
-"""
-  returns current time in format Www Mmm dd hh:mm:ss yyyy
-  using the asctime() function in time.h (libc)
-"""
-function getCurrentTimeStr() ::String
-  local timeStr::String
-
-  @error "TODO: Defined in the runtime"
-  timeStr
-end
-
-function readFileNoNumeric(inString::String) ::String
-  local outString::String
-
-  @error "TODO: Defined in the runtime"
-  outString
-end
-
 #= TODO temporary structure introduced by Adrian=#
 global GLOBAL_MEMORY = Vector{Any}(missing, 1024)
 #= I put it as a constant for now! - John =#
@@ -556,16 +228,6 @@ global GLOBAL_MEMORY = Vector{Any}(missing, 1024)
 """
 function setHasExpandableConnectors(hasExpandable::Bool)
   GLOBAL_MEMORY[1] = hasExpandable
-end
-
-"""
-  @author: adrpo
-  retrieves the external flag that signals the
-  presence of expandable connectors in a model
-"""
-function getHasExpandableConnectors() ::Bool
-  local hasExpandable::Bool = GLOBAL_MEMORY[1]
-  hasExpandable
 end
 
 """
@@ -585,25 +247,6 @@ end
 function getHasOverconstrainedConnectors() ::Bool
   local hasOverconstrained::Bool = GLOBAL_MEMORY[2]
   hasOverconstrained
-end
-
-"""
-  @author: adrpo
-  sets the external flag that signals the
-  presence of expandable connectors in a model
-"""
-function setPartialInstantiation(isPartialInstantiation::Bool)
-  GLOBAL_MEMORY[3] = isPartialInstantiation
-end
-
-"""
-  @author: adrpo
-  retrieves the external flag that signals the
-  presence of expandable connectors in a model
-"""
-function getPartialInstantiation() ::Bool
-  local isPartialInstantiation::Bool = GLOBAL_MEMORY[3]
-  isPartialInstantiation
 end
 
 """
@@ -645,16 +288,6 @@ function setHasInnerOuterDefinitions(hasInnerOuterDefinitions::Bool)
   GLOBAL_MEMORY[6] = hasInnerOuterDefinitions
 end
 
-"""
-  @author: adrpo
-  retrieves the external flag that signals the presence
-  of inner/outer comoponent definitions in a model
-"""
-function getHasInnerOuterDefinitions() ::Bool
-  local hasInnerOuterDefinitions::Bool = GLOBAL_MEMORY[6]
-  hasInnerOuterDefinitions
-end
-
 """Sets the flag that signals use of Connections.rooted/isRoot/uniqueRootIndices."""
 function setUsesConnectionsOperators(inUses::Bool)
   GLOBAL_MEMORY[7] = inUses
@@ -664,22 +297,6 @@ end
 function getUsesConnectionsOperators()::Bool
   local outUses::Bool = GLOBAL_MEMORY[7]
   outUses
-end
-
-"""returns a tick that can be reset"""
-function tmpTick() ::Int
-  local tickNo::Int
-
-  @assign tickNo = tmpTickIndex(index = 0)
-  tickNo
-end
-
-"""
-Resets the tick so it restarts on start
-"""
-function tmpTickReset(start::Int)
-  #= same slot as tmpTick's tmpTickIndex(index = 0) =#
-  setGlobalRoot(0, start)
 end
 
 """
@@ -692,200 +309,10 @@ function tmpTickIndex(index::Int)::Int
 end
 
 """
-  returns a tick that can be reset and reserves N values in it.
-  TODO: remove me when bootstrapped (default argument index=0)
-"""
-function tmpTickIndexReserve(index::Int, reserve::Int #= current tick + reserve =#) ::Int
-  local tickNo::Int = getGlobalRoot(index)
-  setGlobalRoot(index, tickNo + reserve)
-  return tickNo
-end
-
-"""resets the tick so it restarts on start. TODO: remove me when bootstrapped (default argument index=0)"""
-function tmpTickResetIndex(start::Int, index::Int)
-  setGlobalRoot(index, start)
-end
-
-"""sets the index, like tmpTickResetIndex, but does not reset the maximum counter"""
-function tmpTickSetIndex(start::Int, index::Int)
-  setGlobalRoot(index, start)
-end
-
-"""returns the max tick since the last reset"""
-function tmpTickMaximum(index::Int) ::Int
-  local maxIndex::Int = getGlobalRoot(index)
-  return maxIndex
-end
-
-"""
-  Returns true if the current user is root.
-  Used by main to disable running omc as root as it is very dangerous.
-  Consider opening a socket and letting anyone run system() commands without authentication. As root.
-"""
-function userIsRoot() ::Bool
-  local isRoot::Bool
-
-  @error "TODO: Defined in the runtime"
-  isRoot
-end
-
-function getuid() ::Int
-  local uid::Int
-
-  @error "TODO: Defined in the runtime"
-  uid
-end
-
-"""
   Tock returns the time since the last tock; undefined if tick was never called.
   The clock index is 0-31. The function fails if the number is out of range.
 """
 const _REALTIME_CLOCKS = Dict{Int, UInt64}()
-
-function realtimeTick(clockIndex::Int)
-  _REALTIME_CLOCKS[clockIndex] = Base.time_ns()
-  nothing
-end
-
-"""
-  Tock returns the time since the last tock, undefined if tick was never called.
-  The clock index is 0-31. The function fails if the number is out of range.
-"""
-function realtimeTock(clockIndex::Int) ::AbstractFloat
-  local outTime::AbstractFloat = (Base.time_ns() - get(_REALTIME_CLOCKS, clockIndex, Base.time_ns())) / 1e9
-  outTime
-end
-
-"""
-  Clears the timer.
-  The clock index is 0-31. The function fails if the number is out of range.
-"""
-function realtimeClear(clockIndex::Int)
-  @error "TODO: Defined in the runtime"
-end
-
-"""
-  Returns the number of ticks since last clear.
-  The clock index is 0-31. The function fails if the number is out of range.
-"""
-function realtimeNtick(clockIndex::Int) ::Int
-  local n::Int
-
-  @error "TODO: Defined in the runtime"
-  n
-end
-
-"""
-  @autor: adrpo
-  this function will reset the timer to 0.
-"""
-function resetTimer()
-  @error "TODO: Defined in the runtime"
-end
-
-"""
-  @autor: adrpo
-  this function will start counting the time
-  that should be aggregated.
-"""
-function startTimer()
-  @error "TODO: Defined in the runtime"
-end
-
-"""
-  @autor: adrpo
-  this function will stop counting the time
-  that should be aggregated.
-"""
-function stopTimer()
-  @error "TODO: Defined in the runtime"
-end
-
-"""
-  @autor: adrpo
-  this function will return the time that
-  passed between the last [startTimer,stopTimer] interval.
-  Notice that if start/stop are called recursively this
-  function will return the time passed between the
-  corresponding intervals.
-  Example:
-  (start1,
-  (start2,
-  (start3, stop3) call getTimerIntervalTime -> (stop3-start3)
-  stop2) call getTimerIntervalTime -> (stop2-start2)
-  stop1)  call getTimerIntervalTime -> (stop1-start1)
-"""
-function getTimerIntervalTime() ::AbstractFloat
-  local timerIntervalTime::AbstractFloat
-
-  @error "TODO: Defined in the runtime"
-  timerIntervalTime
-end
-
-"""
-  @autor: adrpo
-  this function will return the cummulated time
-  by adding all the interval times [startTimer,stopTimer].
-  Note that if you have recursive calls to start/stop
-  this function will not return the *correct* time.
-  Example:
-  Recursive:
-  (start1, (start2, (start3, stop3) stop2) stop1)
-  getTimerCummulatedTime =
-  stop3-start3 + stop2-start2 + stop1-start1.
-  Serial:
-  (start1, stop1) (start2, stop2) (start3, stop3)
-  getTimerCummulatedTime =
-  stop3-start3 + stop2-start2 + stop1-start1.
-"""
-function getTimerCummulatedTime() ::AbstractFloat
-  local timerCummulatedTime::AbstractFloat
-
-  @error "TODO: Defined in the runtime"
-  timerCummulatedTime
-end
-
-"""
-  @autor: adrpo
-  this function will return the time
-  passed since the first call to startTimeer
-  Example:
-  (start1, (start2, (start3, stop3), stop2) ...
-  getTimerSinceFirstStartTime = timeNow-start1.
-"""
-function getTimerElapsedTime() ::AbstractFloat
-  local timerElapsedTime::AbstractFloat
-
-  @error "TODO: Defined in the runtime"
-  timerElapsedTime
-end
-
-"""
-  @autor: adrpo
-  this function will return number of
-  times start/stop was called recursively.
-  You can use this function for pretty printing.
-  Example:
-  index 0
-  (start1, index 1
-  (start2, index 2
-  (start3, index 3
-  stop3), index 2
-  stop2) index 1
-  stop1) index 0
-"""
-function getTimerStackIndex() ::Int
-  local stackIndex::Int
-
-  @error "TODO: Defined in the runtime"
-  stackIndex
-end
-
-"""creates the Globally Unique IDentifier and return it as String"""
-function getUUIDStr() ::String
-  local uuidStr::String = string(Base.UUID(Base.rand(UInt128)))
-  uuidStr
-end
 
 """
   Returns the name of the file without any leading directory path.
@@ -929,40 +356,6 @@ function unescapedString(escapedString::String) ::String
   unescapedString
 end
 
-"""
-  Calculates the C string length of the input, if the input was used as a string
-  literal in C. For example unescapedStringLength('\\\"')=1, unescapedStringLength('ab')=2.
-"""
-function unescapedStringLength(unescapedString::String) ::Int
-  local length::Int
-
-  @error "TODO: Defined in the runtime"
-  length
-end
-
-"""
-  Quoted identifiers which can use Modelica's allowed Q-CHARs need to be translated into canonical (valid c89 identifier) form
-  using ascii representations; for example,
-  '+' ->  QQ_2B_QQ
-  'xyz@d!' -> QQ_xyz40d21_QQ
-"""
-function unquoteIdentifier(str::String) ::String
-  if !startswith(str, "'") && !occursin("\$", str)
-    return str
-  end
-  local io = IOBuffer()
-  write(io, "_omcQ")
-  for c in codeunits(str)
-    if UInt8('0') <= c <= UInt8('9') || UInt8('A') <= c <= UInt8('Z') || UInt8('a') <= c <= UInt8('z')
-      write(io, c)
-    else
-      write(io, '_')
-      write(io, uppercase(string(c; base = 16, pad = 2)))
-    end
-  end
-  return String(take!(io))
-end
-
 """Returns the maximum integer that can be represent using this version of the compiler"""
 #= As omc's runtime (meta_modelica_builtin.c): LONG_MAX / 2. =#
 intMaxLit()::Int = typemax(Int) ÷ 2
@@ -970,61 +363,6 @@ intMaxLit()::Int = typemax(Int) ÷ 2
 """Returns the maximum real that can be represent using this version of the compiler"""
 #= As omc's runtime: DBL_MAX / 2048, in case a solver adds eps to it. =#
 realMaxLit()::Float64 = floatmax(Float64) / 2048
-
-"""
-  Handles modelica: and file: URI's. The result is an absolute path on the local system.
-  The result depends on the current MODELICAPATH. Sets the error buffer on failure.
-"""
-function uriToClassAndPath(uri::String) ::Tuple{String, String, String}
-  local pathname::String
-  local classname::String #= empty if file: is used =#
-  local scheme::String #= file: or modelica:, in lower-case =#
-
-  @error "TODO: Defined in the runtime"
-  (scheme #= file: or modelica:, in lower-case =#, classname #= empty if file: is used =#, pathname)
-end
-
-"""
-  Returns the standardized platform name according to the Modelica specification:
-  win32 [Microsoft Windows 32 bit]
-  win64 [Microsoft Windows 64 bit]
-  i386-pc-linux [Linux Intel 32 bit]
-  x64_86-linux  [Linux Intel 64 bit]
-  Else, the openModelicaPlatform() is returned
-"""
-function modelicaPlatform() ::String
-  local platform::String
-
-  @error "TODO: Defined in the runtime"
-  platform
-end
-
-"""
-  Returns uname -sm (with spaces replaced by dashes and only lower-case letters) on Unix platforms
-  mingw32 or mingw64 is returned for OMDev mingw
-"""
-function openModelicaPlatform() ::String
-  local platform::String
-
-  @error "TODO: Defined in the runtime"
-  platform
-end
-
-"""Returns gcc -dumpmachine"""
-function gccDumpMachine() ::String
-  local machine::String
-
-  @error "TODO: Defined in the runtime"
-  machine
-end
-
-"""Returns gcc --version"""
-function gccVersion() ::String
-  local version::String
-
-  @error "TODO: Defined in the runtime"
-  version
-end
 
 """
   # dgesv from LAPACK
@@ -1109,22 +447,6 @@ function dgesv(A::List, B::List)
   return (X, 0)
 end
 
-"""lpsolve55"""
-function lpsolve55(A::List{<:List{<:AbstractFloat}}, B::List{<:AbstractFloat}, intIndices::List{<:Integer}) ::Tuple{List{AbstractFloat}, Integer}
-  local info::Int
-  local X::List{AbstractFloat}
-
-  @error "TODO: Defined in the runtime"
-  (X, info)
-end
-
-function reopenStandardStream(_stream::Int #= stdin,stdout,stderr =#, filename::String) ::Bool
-  local success::Bool
-
-  @error "TODO: Defined in the runtime"
-  success
-end
-
 """
   The iconv() function converts one multibyte characters from one character
   set to another.
@@ -1138,12 +460,6 @@ function iconv(string::String, from::String, to::String) ::String
 end
 
 #= /* Print errors */ =#
-
-"""sprintf format string that takes one double as argument, at most `maxlen - 1` characters (as snprintf)"""
-function snprintff(format::String, maxlen::Int, val::AbstractFloat) ::String
-  local str = sprintff(format, val)
-  return length(str) < maxlen ? str : first(str, maxlen - 1)
-end
 
 """
   sprintf format string that takes one double as argument, but unlike snprintff
@@ -1163,41 +479,6 @@ function sprintff(format::String, val::AbstractFloat) ::String
   return Printf.format(Printf.Format(format), Float64(val))
 end
 
-"""Returns a value in the intervals (0,1]"""
-function realRand() ::AbstractFloat
-  local r::AbstractFloat
-
-  @error "TODO: Defined in the runtime"
-  r
-end
-
-"""
-  Returns a integer value in the interval (0,n].
-  The number of possible values is n, the maximum value n-1.
-"""
-function intRand(n::Int) ::Int
-  local i::Int
-
-  @assign i = integer(realRand() * n)
-  i
-end
-
-"""Returns a value in the interval [0,n)"""
-function intRandom(n::Int) ::Int
-  local ret::Int
-
-  @assign ret = intMod(intRandom0(), n)
-  ret
-end
-
-"""Returns a value in the intervals [0,RAND_MAX) using the C method rand()."""
-function intRandom0() ::Int
-  local ret::Int
-
-  @error "TODO: Defined in the runtime"
-  ret
-end
-
 """Choose a locale for subsequent gettext calls. Prints warnings on failures."""
 function gettextInit(locale::String = "" #= Empty string choses automatically from the environment =#)
   @error "TODO: Defined in the runtime"
@@ -1208,21 +489,6 @@ function gettext(msgid::String) ::String
   local msgstr::String = msgid
   @error "TODO: gettext Defined in the runtime"
   return msgstr
-end
-
-"""Takes any boxed input"""
-function anyStringCode(any::Any) ::String
-  local str::String
-
-  @error "TODO: Defined in the runtime"
-  str
-end
-
-function numBits() ::Int
-  local n::Int
-
-  @error "TODO: Defined in the runtime"
-  n
 end
 
 function realpath(path::String) ::String
@@ -1246,20 +512,6 @@ function getTerminalWidth() ::Int
   width
 end
 
-function fileIsNewerThan(file1::String, file2::String) ::Bool
-  local result::Bool
-
-  @error "TODO: Defined in the runtime"
-  result
-end
-
-function fileContentsEqual(file1::String, file2::String) ::Bool
-  local result::Bool
-
-  @error "TODO: Defined in the runtime"
-  result
-end
-
 function rename(source::String, dest::String) ::Bool
   local result::Bool
 
@@ -1267,52 +519,9 @@ function rename(source::String, dest::String) ::Bool
   result
 end
 
-function numProcessors() ::Int
-  local result::Int = Base.Sys.CPU_THREADS
-  result
-end
-
-"""
-  Takes a list of inputs and produces a list of Boolean (true if the function call was successful).
-  The function is called by not using forks (experimental version using threads because fork doesn't play nice). Only returns if all functions return.
-"""
-function launchParallelTasks(numThreads::Int, inData::List{TI}, func::ForkFunction)  where {TI}
-  #= serial execution; results keep the input order =#
-  local result::List = nil
-  for d in inData
-    result = cons(func(d), result)
-  end
-  result = listReverse(result)
-  result
-end
-
 """Exits the compiler at this point with the given exit status."""
 function exit(status::Int)
   @error "TODO: Defined in the runtime"
-end
-
-"""Exits the current thread with a failure."""
-function threadWorkFailed()
-  @error "TODO: Defined in the runtime"
-end
-
-function getMemorySize() ::AbstractFloat
-  local memory::AbstractFloat(unit = "MB")
-
-  @error "TODO: Defined in the runtime"
-  memory
-end
-
-"""this needs to be called first in Frontend.mo"""
-function initGarbageCollector()
-  @error "TODO: Defined in the runtime"
-end
-
-function ctime(t::AbstractFloat) ::String
-  local str::String
-
-  @error "TODO: Defined in the runtime"
-  str
 end
 
 function stat(filename::String) ::Tuple{Bool, AbstractFloat, AbstractFloat}
@@ -1331,13 +540,6 @@ function alarm(seconds::Int) ::Int
   previousAlarm
 end
 
-function covertTextFileToCLiteral(textFile::String, outFile::String, target::String #= this would be what is set for +target=msvc|gcc =#) ::Bool
-  local success::Bool
-
-  @error "TODO: Defined in the runtime"
-  success
-end
-
 function dladdr(symbol::T #= Function pointer =#)  where {T}
   local name::String = string(symbol)
   local file::String = "julia"
@@ -1346,28 +548,8 @@ function dladdr(symbol::T #= Function pointer =#)  where {T}
 end
 
 
-function relocateFunctions(fileName::String #= shared object =#, names::List{<:Tuple{<:String, String}} #= tuple of names to relocate; first is the local name and second is the name in the shared object =#) ::Bool
-  local res::Bool
-
-  @error "TODO: Defined in the runtime"
-  res
-end
-
-function fflush()
-  @error "TODO: Defined in the runtime"
-end
-
 function updateUriMapping(namesAndDirs::Array{<:String})
   @error "TODO: Defined in the runtime"
-end
-
-function getSizeOfData(data::T)  where {T}
-  local nonSharedStringSize::AbstractFloat #= The size that could be saved if String sharing was enabled =#
-  local raw_sz::AbstractFloat #= The size without granule overhead =#
-  local sz::AbstractFloat
-
-  @error "TODO: Defined in the runtime"
-  (sz, raw_sz #= The size without granule overhead =#, nonSharedStringSize #= The size that could be saved if String sharing was enabled =#)
 end
 
 # Pure-Julia stand-in for OMC's C-backed StringAllocator: a string builder over an IOBuffer.

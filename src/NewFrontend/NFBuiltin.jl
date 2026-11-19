@@ -855,31 +855,6 @@ const TIME_CREF =
   )::ComponentRef
 
 """
-  This function takes lists of component and class names and prints out a lookup tree.
-  Useful in case any attributes needs to be added to any of the builtin type.
-"""
-function makeBuiltinLookupTree(
-  name::String,
-  components::List{<:String},
-  classes::List{<:String} = nil,
-) #= Not used in the tree, only to identify the printout. =#
-  local ltree::LookupTree.= LookupTree.new()
-  local i::Int
-  i = 1
-  for comp in components
-    ltree = LookupTree.add(ltree, comp, LookupTree.COMPONENT(i))
-    i = i + 1
-  end
-  for cls in classes
-    ltree = LookupTree.add(ltree, cls, LookupTree.COMPONENT(i))
-    i = i + 1
-  end
-  print("Lookup tree for " + name + ":\\n")
-  print(anyString(ltree))
-  return print("\\n")
-end
-
-"""
 Contains the builtin class nodes of the compiler.
 """
 const BUILTIN_DICT = Dict{String, InstNode}(

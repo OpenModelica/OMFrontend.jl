@@ -136,6 +136,20 @@ function workload()
       @warn "Precompilation workload failed for $(p)" exception=(e, catch_backtrace())
     end
   end
+  #= One model from each of Batteries, QuasiStatic, Digital and Fluid (with Media): their first flatten compiled
+     0.3-0.8 s of frontend code not reached by the models above (2026-11-19, 14 MSL models in a fresh process). =#
+  for p in ("Modelica.Electrical.Batteries.Examples.BatteryDischargeCharge",
+            "Modelica.Electrical.QuasiStatic.SinglePhase.Examples.Transformer",
+            "Modelica.Electrical.Digital.Examples.Counter3",
+            "Modelica.Fluid.Examples.Tanks.EmptyTanks")
+    @info "Translating: $(p)"
+    try
+      @time flattenModelInMSL_TST(p; MSL_V = "MSL_4_1_0")
+      @time flattenModelInMSL_TST(p; MSL_V = "MSL_4_1_0", scalarize = false)
+    catch e
+      @warn "Precompilation workload failed for $(p)" exception=(e, catch_backtrace())
+    end
+  end
   #= One MultiBody model with the arrays kept: frames, orientation records and their functions. =#
   @info "Translating: Modelica.Mechanics.MultiBody.Examples.Elementary.DoublePendulum"
   try

@@ -196,82 +196,6 @@ function translateOperatorDef(
   return (outOperDef, cmt)
 end
 
-function getOperatorGivenName(inOperatorFunction::SCode.Element)::Absyn.Path
-  local outName::Absyn.Path
-
-   outName = begin
-    local name::SCode.Ident
-    @match inOperatorFunction begin
-      SCode.CLASS(name, _, _, _, SCode.R_FUNCTION(SCode.FR_OPERATOR_FUNCTION(__)), _, _, _) => begin
-        Absyn.IDENT(name)
-      end
-    end
-  end
-  return outName
-end
-
-function getOperatorQualName(
-  inOperatorFunction::SCode.Element,
-  operName::SCode.Ident,
-)::SCode.Path
-  local outName::SCode.Path
-
-   outName = begin
-    local name::SCode.Ident
-    local opname::SCode.Ident
-    @match (inOperatorFunction, operName) begin
-      (SCode.CLASS(name, _, _, _, SCode.R_FUNCTION(_), _, _, _), opname) => begin
-        AbsynUtil.joinPaths(Absyn.IDENT(opname), Absyn.IDENT(name))
-      end
-    end
-  end
-  return outName
-end
-
-function getListofQualOperatorFuncsfromOperator(inOperator::SCode.Element)::List{SCode.Path}
-  local outNames::List{SCode.Path}
-
-   outNames = begin
-    local els::List{SCode.Element}
-    local opername::SCode.Ident
-    local names::List{SCode.Path}
-    #= If operator get the list of functions in it.
-    =#
-    @match inOperator begin
-      SCode.CLASS(
-        opername,
-        _,
-        _,
-        _,
-        SCode.R_OPERATOR(__),
-        SCode.PARTS(elementLst = els),
-        _,
-        _,
-      ) => begin
-         names = ListUtil.map1(els, getOperatorQualName, opername)
-        names
-      end
-
-      SCode.CLASS(
-        opername,
-        _,
-        _,
-        _,
-        SCode.R_FUNCTION(SCode.FR_OPERATOR_FUNCTION(__)),
-        _,
-        _,
-        _,
-      ) => begin
-         names = list(Absyn.IDENT(opername))
-        names
-      end
-    end
-  end
-  #= If operator function return its name
-  =#
-  return outNames
-end
-
 function translatePurity(inPurity::Absyn.FunctionPurity)::Bool
   local outPurity::Bool
 
@@ -2284,44 +2208,6 @@ function translateCommentList(
   return outComment
 end
 
-"""turns an Absyn.Comment into an SCode.Annotation + string"""
-function translateCommentSeparate(
-  inComment::Option{<:Absyn.Comment},
-)::Tuple{Option{SCode.Annotation}, Option{String}}
-  local outStr::Option{String}
-  local outAnn::Option{SCode.Annotation}
-
-   (outAnn, outStr) = begin
-    local absann::Absyn.Annotation
-    local ann::Option{SCode.Annotation}
-    local str::String
-    @match inComment begin
-      NONE() => begin
-        (NONE(), NONE())
-      end
-
-      SOME(Absyn.COMMENT(NONE(), NONE())) => begin
-        (NONE(), NONE())
-      end
-
-      SOME(Absyn.COMMENT(NONE(), SOME(str))) => begin
-        (NONE(), SOME(str))
-      end
-
-      SOME(Absyn.COMMENT(SOME(absann), NONE())) => begin
-         ann = translateAnnotation(absann)
-        (ann, NONE())
-      end
-
-      SOME(Absyn.COMMENT(SOME(absann), SOME(str))) => begin
-         ann = translateAnnotation(absann)
-        (ann, SOME(str))
-      end
-    end
-  end
-  return (outAnn, outStr)
-end
-
 function translateEquation(
   inEquation::Absyn.Equation,
   inComment::SCode.Comment,
@@ -2484,37 +2370,6 @@ function translateIterator(
   if isSome(guard_exp)
   end
   return (outName, outRange)
-end
-
-"""function: translateElementAddinfo"""
-function translateElementAddinfo(elem::SCode.Element, nfo::SourceInfo)::SCode.Element
-  local oelem::SCode.Element
-
-   oelem = begin
-    local a1::SCode.Ident
-    local a2::Absyn.InnerOuter
-    local a3::Bool
-    local a4::Bool
-    local a5::Bool
-    local rd::Bool
-    local a6::SCode.Attributes
-    local a7::Absyn.TypeSpec
-    local a8::SCode.Mod
-    local a10::SCode.Comment
-    local a11::Option{Absyn.Exp}
-    local a13::Option{Absyn.ConstrainClass}
-    local p::SCode.Prefixes
-    @match (elem, nfo) begin
-      (SCode.COMPONENT(a1, p, a6, a7, a8, a10, a11, _), _) => begin
-        SCode.COMPONENT(a1, p, a6, a7, a8, a10, a11, nfo)
-      end
-
-      _ => begin
-        elem
-      end
-    end
-  end
-  return oelem
 end
 
 #= /* Modification management */ =#

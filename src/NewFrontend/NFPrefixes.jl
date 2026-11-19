@@ -279,10 +279,6 @@ const variabilityStrings = ["CONSTANT",
                             "IMPLICITLY_DISCRETE",
                             "CONTINUOUS",]
 
-function variabilityAsString(var::Int)
-  return variabilityStrings[var]
-end
-
 end
 
 
@@ -915,33 +911,6 @@ function visibilityToSCode(vis)::SCode.Visibility
     SCode.PROTECTED()
   end
   return scodeVis
-end
-
-function visibilityString(vis)::String
-  local str::String = if vis == Visibility.PUBLIC
-    "public"
-  else
-    "protected"
-  end
-  return str
-end
-
-function unparseVisibility(vis)::String
-  local str::String = if vis == Visibility.PROTECTED
-    "protected "
-  else
-    ""
-  end
-  return str
-end
-
-function mergeVisibility(outerVis, innerVis)::VisibilityType
-  local vis = if outerVis == Visibility.PROTECTED
-    outerVis
-  else
-    innerVis
-  end
-  return vis
 end
 
 function unparseReplaceable(repl::Replaceable)::String

@@ -520,14 +520,6 @@ function canonical(inPartition::NFHashTableCG.HashTable, inRef::ComponentRef)::C
 end
 
 """
-  Tells whether the elements belong to the same component.
-  See explanation at the top of file.
-"""
-function areInSameComponent(inPartition::NFHashTableCG.HashTable, inRef1::ComponentRef, inRef2::ComponentRef)::Bool
-  return isEqual(canonical(inPartition, inRef1), canonical(inPartition, inRef2))
-end
-
-"""
   Tries to connect two components whose elements are given. Depending
   on wheter the connection success or not (i.e are the components already connected),
   adds either inConnectionDae or inBreakDae to the list of DAE elements.
@@ -697,44 +689,6 @@ function addConnections(inTable::NFHashTableCG.HashTable, inConnections::FlatEdg
 end
 
 
-function addConnectionsJ(inTable::NFHashTableCG.HashTable, inConnections::FlatEdges)#::Tuple{NFHashTableCG.HashTable, FlatEdges, FlatEdges}
-  local outBrokenConnections::FlatEdges  = nil
-  local outConnectedConnections::FlatEdges = nil
-  local outTable::NFHashTableCG.HashTable
-  local table::NFHashTableCG.HashTable = inTable
-  local tail::FlatEdges
-  local broken1::FlatEdges
-  local broken2::FlatEdges
-  local broken::FlatEdges
-  local connected1::FlatEdges
-  local connected2::FlatEdges
-  local connected::FlatEdges
-  local e::FlatEdge
-    for ic in inConnections
-      (table, connected1, broken1) = connectComponents(table, ic)
-      outConnectedConnections = listAppend(outConnectedConnections, connected1)
-      outBrokenConnections = listAppend(outBrokenConnections, broken1)
-    end
-    return (table, outConnectedConnections, outBrokenConnections)
-end
-
-
-function addConnectionsJJ(inTable::NFHashTableCG.HashTable, inConnections::FlatEdges)#::Tuple{NFHashTableCG.HashTable, FlatEdges, FlatEdges}
-  local outBrokenConnections::Vector{FlatEdge}  = Vector{FlatEdge}()
-  local outConnectedConnections::Vector{FlatEdge} = Vector{FlatEdge}()
-  local outTable::NFHashTableCG.HashTable
-  local table::NFHashTableCG.HashTable = inTable
-  local broken1::FlatEdges
-  local connected1::FlatEdges
-  local e::FlatEdge
-    for ic in inConnections
-      (table, connected1, broken1) = connectComponents(table, ic)
-      outConnectedConnections = append!(outConnectedConnections, connected1)
-      outBrokenConnections = append!(outBrokenConnections, broken1)
-    end
-    return (table, arrayList(outConnectedConnections), arrayList(outBrokenConnections))
-end
-
 """
   Given NFOCConnectionGraph structure, breaks all connections,
   determines roots and generates a list of dae elements.
@@ -778,7 +732,10 @@ function findResultGraph(inGraph::NFOCConnectionGraph, modelNameQualified::Strin
         (table, connected, broken) = addConnections(table, connections)
         @assign dummyRoot = NFBuiltin.TIME_CREF
          (table, finalRoots) = addPotentialRootsToTable(table, orderedPotentialRoots, definiteRoots, dummyRoot)
-        @assign brokenConnectsViaGraphViz = generateGraphViz(modelNameQualified, definiteRoots, potentialRoots, uniqueRoots, branches, connections, finalRoots, broken)
+        # generateGraphViz turns CGRAPH_GRAPHVIZ_FILE off and returns "" unless CGRAPH_GRAPHVIZ_SHOW is set: not
+        # called otherwise, so that it is not compiled at a model's first connection graph.
+        @assign brokenConnectsViaGraphViz = Flags.isSet(Flags.CGRAPH_GRAPHVIZ_SHOW) ?
+          generateGraphViz(modelNameQualified, definiteRoots, potentialRoots, uniqueRoots, branches, connections, finalRoots, broken) : ""
         if stringEq(brokenConnectsViaGraphViz, "")
         else
           @assign userBrokenLst = Util.stringSplitAtChar(brokenConnectsViaGraphViz, "#")
@@ -1472,23 +1429,6 @@ function printFlatEdges(inEdges::FlatEdges)
         print(toString(c2))
         print("\n")
         printFlatEdges(tail)
-        ()
-      end
-    end
-  end
-end
-
-"""Prints the content of NFOCConnectionGraph structure."""
-function printNFOCConnectionGraph(inGraph::NFOCConnectionGraph)
-  @assign _ = begin
-    local connections::FlatEdges
-    local branches::Edges
-    @match inGraph begin
-      OCC_GRAPH(connections = connections, branches = branches)  => begin
-        print("Connections:\n")
-        printFlatEdges(connections)
-        print("Branches:\n")
-        printEdges(branches)
         ()
       end
     end

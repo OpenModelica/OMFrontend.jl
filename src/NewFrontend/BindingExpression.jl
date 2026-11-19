@@ -1029,10 +1029,6 @@ function arrayScalarElements(@nospecialize(exp::Expression)) ::List{Expression}
   elements
 end
 
-function arrayElementList(array::ARRAY_EXPRESSION)
-  return arrayList(array.elements)
-end
-
 function arrayElements(array::ARRAY_EXPRESSION)
   return array.elements
 end
@@ -1248,33 +1244,6 @@ function makeZero(ty::M_Type) ::Expression
     end
   end
   zeroExp
-end
-
-"""
-  Creates an array from the given list of dimensions, where each element is
-  the given expression. Example:
-  liftArrayList([2, 3], 1) => {{1, 1, 1}, {1, 1, 1}}
-"""
-function liftArrayList(dims::List{<:Dimension}, @nospecialize(exp::Expression)) ::Tuple{Expression, M_Type}
-  local arrayType::M_Type = typeOf(exp)
-  local expl::List{Expression}
-  local is_literal::Bool = isLiteral(exp)
-  tmp = dims
-  dims = nil
-  while tmp !== nil
-    @match Cons{Dimension}(d, tmp) =tmp
-    dims = Cons{Dimension}{d, dims}
-  end
-  while dims !== nil
-    @match Cons{Dimension}(d, dims) = dims
-    expl = nil
-    for i in 1:size(dim)
-      expl = Cons{Expression}(exp, expl)
-    end
-    arrayType = liftArrayLeft(arrayType, dim)
-    exp = makeArray(arrayType, expl, literal = is_literal)
-  end
-  (exp, arrayType)
 end
 
 """
@@ -3151,30 +3120,6 @@ function mapCrefShallow(cref::ComponentRef, @nospecialize(func::Function)) ::Com
   outCref
 end
 
-function mapCrefShallow!(cref::ComponentRef, @nospecialize(func::Function)) ::ComponentRef
-  local outCref::ComponentRef
-   outCref = begin
-    local subs::List{Subscript}
-    local rest::ComponentRef
-    @match cref begin
-      COMPONENT_REF_CREF(origin = Origin.CREF)  => begin
-        local subsV = Subscript[mapShallowExp(s, func) for s in cref.subscripts]
-        subs = arrayList(subsV)
-        rest = mapCref!(cref.restCref, func)
-        #cref.subscripts = subs
-        #cref.restCref = rest
-        COMPONENT_REF_CREF(cref.node, subs, cref.ty, cref.origin, rest)
-        #cref
-      end
-      _  => begin
-        cref
-      end
-    end
-  end
-  outCref
-end
-
-
 function mapShallowOpt(exp::Option{<:Expression}, @nospecialize(func::Function)) ::Option{Expression}
   local outExp::Option{Expression}
 
@@ -3491,30 +3436,6 @@ function mapCref(cref::ComponentRef, @nospecialize(func::Function)) ::ComponentR
     end
   end
   outCref
-end
-
-"""
-@author johti17
-"""
-function mapCref!(cref::ComponentRef, @nospecialize(func::Function)) ::ComponentRef
-  if !isvariant(cref, COMPONENT_REF_CREF)
-    return cref
-  end
-  local outCref::ComponentRef = cref
-  local subs::List{Subscript}
-  local rest::ComponentRef
-  if cref.origin == Origin.CREF
-    return cref
-  end
-  while !isvariant(cref, COMPONENT_REF_CREF) && cref.restCref.origin != Origin.CREF
-    tmp = Subscript[mapExp(s, func) for s in cref.subscripts]
-    subs = arrayList(tmp)
-    rest = cref.restCref
-    @assign cref.restCref = rest
-    @assign cref.subscripts = subs
-    cref = rest
-  end
-  return outCref
 end
 
 function mapCallIterators(iters::List{<:Tuple{<:InstNode, Expression}}, @nospecialize(func::Function)) ::List{Tuple{InstNode, Expression}}
@@ -3944,11 +3865,6 @@ one expression.
    end
   outExp = func(outExp)
   outExp
-end
-
-"""Adding an alias for map. For some reason Julia struggles to find it in certain situations."""
-function mapExpAlias(@nospecialize(exp::Expression), func::Function)
-  return map(exp, func)
 end
 
 @nospecializeinfer function dimensionCount(@nospecialize(exp::Expression))
@@ -5376,7 +5292,7 @@ end
  Subscripts an expression with the given subscript, and then applies the
  optional list of subscripts to each element of the subscripted expression.
 """
-function applySubscript(subscript::Subscript, @nospecialize(exp::Expression), restSubscripts::List{<:Subscript} = nil) ::Expression
+function applySubscript(@nospecialize(subscript::Subscript), @nospecialize(exp::Expression), @nospecialize(restSubscripts::List{<:Subscript} = nil)) ::Expression
   local outExp::Expression
   # @info "Apply subscript:"
   # println("exp:")
@@ -5446,21 +5362,6 @@ function makeRange(@nospecialize(start::Expression), step::Option{T}, @nospecial
   return RANGE_EXPRESSION(rangeTy, start, step, stop)
 end
 
-"""
-```
-makeExpArray(elements::List{<:Expression}, isLiteral::Bool = false) ::Expression
-```
-  Creates an array expression
-"""
-function makeExpArray(elements::List{<:Expression}, isLiteral::Bool = false) ::Expression
-  local exp::Expression
-  local ty::M_Type
-  ty = typeOf(listHead(elements))
-  ty = liftArrayLeft(ty, fromInteger(listLength(elements)))
-  exp = makeArray(ty, elements, literal = isLiteral)
-  exp
-end
-
 function makeRealMatrix(values::List{<:List{<:AbstractFloat}}) ::Expression
   local exp::Expression
   local ty::M_Type
@@ -5497,12 +5398,6 @@ function makeEmptyArray(ty::M_Type)
   outExp
 end
 
-function makeExpArray(ty::NFType, expl::List{Expression}; literal::Bool = false)
-  local outExp::Expression
-   outExp = ARRAY_EXPRESSION(ty, Expression[e for e in expl], literal)
-  outExp
-end
-
 """
 Generic make array function
 """
@@ -5520,17 +5415,6 @@ function makeArray(ty::NFType, expV::Vector{T}; literal::Bool = false) where {T}
   ARRAY_EXPRESSION(ty, expV, literal)
 end
 
-function updateArray!(arrayExpr::ARRAY_EXPRESSION;
-                      ty::NFType = arrayExpr.ty,
-                      elements::Vector{T}  = arrayExpr.elements,
-                      literal::Bool = false) where {T}
-  arrayExpr.elements = elements
-  arrayExpr.ty = ty
-  arrayExpr.literal = literal
-  arrayExpr
-end
-
-
 function makeInteger(value::Int)
   local exp::Expression = INTEGER_EXPRESSION(value)
   exp
@@ -5545,22 +5429,6 @@ end
 function makeReal(value::AbstractFloat)
   local exp::Expression = REAL_EXPRESSION(value)
   exp
-end
-
-function realValue(@nospecialize(exp::Expression))
-  local value::AbstractFloat
-   value = begin
-    @match exp begin
-      REAL_EXPRESSION(__)  => begin
-        exp.value
-      end
-
-      INTEGER_EXPRESSION(__)  => begin
-        intReal(exp.value)
-      end
-    end
-  end
-  value
 end
 
  """
@@ -6609,51 +6477,6 @@ end
   return arg
 end
 
-@nospecializeinfer function mapExpShallow(binding::Binding, mapFn::Function)
-  local e1::Expression
-  local e2::Expression
-  () = begin
-    @match binding begin
-      UNTYPED_BINDING(bindingExp = e1) => begin
-        e2 = mapFn(e1)
-        if !referenceEq(e1, e2)
-          binding.bindingExp = e2
-        end
-        ()
-      end
-
-      TYPED_BINDING(bindingExp = e1) => begin
-        e2 = mapFn(e1)
-        if !referenceEq(e1, e2)
-          binding.bindingExp = e2
-        end
-        ()
-      end
-
-      FLAT_BINDING(bindingExp = e1) => begin
-        e2 = mapFn(e1)
-        if !referenceEq(e1, e2)
-          binding.bindingExp = e2
-        end
-        ()
-      end
-
-      CEVAL_BINDING(bindingExp = e1) => begin
-        e2 = mapFn(e1)
-        if !referenceEq(e1, e2)
-          binding.bindingExp = e2
-        end
-        ()
-      end
-
-      _ => begin
-        ()
-      end
-    end
-  end
-  return binding
-end
-
 @nospecializeinfer function mapExp(binding::Binding, mapFn::Function)
   local e1::Expression
   local e2::Expression
@@ -7184,28 +7007,6 @@ function isRecordExp(binding::Binding)
   return isRecordExp
 end
 
-function setExp(@nospecialize(exp::Expression), binding::Binding)
-  () = begin
-    @match binding begin
-      UNTYPED_BINDING(__) => begin
-        binding.bindingExp = exp
-        ()
-      end
-
-      TYPED_BINDING(__) => begin
-        binding.bindingExp = exp
-        ()
-      end
-
-      FLAT_BINDING(__) => begin
-        binding.bindingExp = exp
-        ()
-      end
-    end
-  end
-  return binding
-end
-
 function getExp(binding::Binding)
   local exp::Expression
 
@@ -7394,84 +7195,3 @@ function fromAbsyn(
 end
 
 
-"""
-@author johti17
-"""
-function modelicaListOfListToJuliaMatrix(modelicaLstLst::List{Cons{T}}) where {T}
-  local matrix = Vector{T}[]
-  for lst in modelicaLstLst
-    push!(matrix, listArray(lst))
-  end
-  #= Convert to matrix =#
-  return hcat(matrix...)
-end
-
-
-"""
-@author johti17
-"""
-function modelicaMatrixToJuliaMatrix(modelicaMatrix::MATRIX_EXPRESSION)
-  local jlMatrix = modelicaListOfListToJuliaMatrix(modelicaMatrix.elements)
-  return jlMatrix
-end
-
-"""
-@author johti17.
-Same as modelicaMatrixToJuliaMatrix, but for matrices represented as a List of Array Expressions.
-"""
-function modelicaMatrixToJuliaMatrix(lst::Union{Cons{Expression},Vector{Expression}})
-  local matrix = Vector{Expression}[]
-  #= Convert the list of array expressions into a list of list. =#
-  for exp in lst
-    @assert exp isa ARRAY_EXPRESSION "The expressions in the list must be of type array expressions. The expression was: $(T)"
-    push!(matrix, exp.elements)
-  end
-  local jlMatrix::Matrix{ARRAY_EXPRESSION} = hcat(matrix...)
-  return Base.permutedims(jlMatrix)
-end
-
-"""
-  Converts a Matrix of expressions to a list of array expressions.
-  @johti17
-"""
-function jlMatrixToModelicaArrayExpLists(jlMatrix::Matrix{ARRAY_EXPRESSION})
-  (ncols, nrows) = Base.size(jlMatrix)
-  arrayExps::Vector{Expression} = Expression[]
-  local lstLst::List{Expression} = nil
-  for col in eachcol(jlMatrix)
-    for (i,e) in enumerate(col)
-      push!(arrayExps, e)
-    end
-    (combinedElements) = Base.reduce(vcat,
-                            Base.map(x -> x.elements, arrayExps))
-    lstLst = ARRAY_EXPRESSION(arrayExps[1].ty, combinedElements, arrayExps[1].literal) <| lstLst
-    arrayExps = Expression[]
-  end
-  lstLst = listReverse(lstLst)
-  #println("List list:\n" * toString(lstLst))
-  return lstLst
-end
-
-"""
-  Converts a Matrix of expressions to a vector of array expressions.
-  @johti17
-"""
-function jlMatrixToModelicaArrayExpVector(jlMatrix::Matrix{ARRAY_EXPRESSION})
-  (ncols, nrows) = Base.size(jlMatrix)
-  arrayExps::Vector{Expression} = Expression[]
-  local arrArr = ARRAY_EXPRESSION[]
-  for col in eachcol(jlMatrix)
-    for (i,e) in enumerate(col)
-      push!(arrayExps, e)
-    end
-    local arrayExpressionType = arrayExps[1].ty
-    local arrayExpressionLiteral = arrayExps[1].literal
-    (combinedElements) = Base.reduce(vcat,
-                                     Base.map(x -> x.elements, arrayExps))
-    push!(arrArr, ARRAY_EXPRESSION(arrayExpressionType,
-                                      combinedElements,
-                                      arrayExpressionLiteral))
-    arrayExps = Expression[]
-  end
-  return arrArr
-end

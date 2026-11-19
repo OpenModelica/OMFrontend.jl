@@ -450,21 +450,6 @@ function name(modifier::Modifier)
   return nameStr
 end
 
-function lookupModifier(modName::String, modifier::Modifier)
-  local subMod::Modifier
-  subMod = begin
-    @matchcontinue modifier begin
-      MODIFIER_MODIFIER(__) => begin
-        ModTable.get(modifier.subModifiers, modName)
-      end
-      _ => begin
-        EMPTY_MOD
-      end
-    end
-  end
-  return subMod
-end
-
 function addParent_work(name::String, parentNode::InstNode, mod::Modifier)
   local outMod::Modifier
   outMod = begin
@@ -598,49 +583,6 @@ function fromElement(
       MODIFIER_NOMOD()
     end
   end
-end
-
-function stripSCodeMod(elem::SCode.Element)
-  local mod::SCode.Mod
-  local retElem
-  mod = begin
-    local cdef::SCode.ClassDef
-    @match elem begin
-      SCode.CLASS(classDef = cdef && SCode.DERIVED(modifications = mod)) => begin
-        if !SCodeUtil.isEmptyMod(mod)
-          cdef = SCode.DERIVED(cdef.typeSpec, SCode.NOMOD(), cdef.attributes)
-          retElem = SCode.CLASS(elem.name,
-                                elem.prefixes,
-                                elem.encapsulatedPrefix,
-                                elem.partialPrefix,
-                                elem.restriction,
-                                cdef,
-                                elem.cmt,
-                                elem.info)
-        end
-        mod
-      end
-
-      SCode.COMPONENT(modifications = mod) => begin
-        if !SCodeUtil.isEmptyMod(mod)
-          retElem = SCode.COMPONENT(elem.name,
-                                    elem.prefixes,
-                                    elem.attributes,
-                                    elem.typeSpec,
-                                    SCode.NOMOD(),
-                                    elem.comment,
-                                    elem.condition,
-                                    elem.info)
-        end
-        mod
-      end
-
-      _ => begin
-        SCode.NOMOD()
-      end
-    end
-  end
-  return (retElem, mod)
 end
 
 create(mod::SCode.NOMOD,

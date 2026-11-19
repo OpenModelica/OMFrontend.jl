@@ -472,27 +472,6 @@ function expandBinaryArrayScalar(
   return (outExp, expanded)
 end
 
-function makeScalarArrayBinary_traverser(
-  exp1::Expression,
-  op::Operator,
-  exp2::Expression,
-)::Expression
-  local exp::Expression
-
-  @assign exp = begin
-    @match exp2 begin
-      ARRAY_EXPRESSION(__) => begin
-        exp2
-      end
-
-      _ => begin
-        simplifyBinaryOp(exp1, op, exp2)
-      end
-    end
-  end
-  return exp
-end
-
 function expandBinaryScalarArray(
   exp::Expression,
   scalarOp::OpType,

@@ -226,12 +226,6 @@ function addConnection(conn::Connection, conns::Connections)
   return conns
 end
 
-function fromConnectionList(connl::List{<:Connection})
-  local conns::Connections
-  conns = CONNECTIONS(connl, nil, nil)
-  return conns
-end
-
 function new()::Connections
   local conns::Connections = CONNECTIONS(nil, nil, nil)
   return conns

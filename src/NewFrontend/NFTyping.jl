@@ -1354,7 +1354,7 @@ function typeTypeAttribute(
       name =
         attribute.name +
         "." +
-        Util.tuple21(listHead(ModTable.toList(attribute.subModifiers)))
+        Util.tuple21(listHead(ModTable.toList(attribute.subModifiers)))::String
       Error.addSourceMessage(
         Error.MISSING_MODIFIED_ELEMENT,
         list(name, toString(ty)),
@@ -1388,7 +1388,7 @@ function typeTypeAttribute(
             list(
               name,
               variabilityString(Variability.PARAMETER),
-              "'" + toString(binding) + "'",
+              "'" + toString(binding)::String + "'",
               variabilityString(variability(binding)),
             ),
             Binding_getInfo(binding),
@@ -1450,7 +1450,7 @@ function checkAssignment(@nospecialize(lhsExp::Expression), @nospecialize(rhsExp
 end
 
 function typeExp(
-  exp::Expression,
+  @nospecialize(exp::Expression),
   origin::ORIGIN_Type,
   info::SourceInfo
   )::Tuple
@@ -1461,7 +1461,7 @@ function typeExp(
 end
 
 function typeExp2(
-  exp::Expression,
+  @nospecialize(exp::Expression),
   origin::ORIGIN_Type,
   info::SourceInfo,
   typeRef::Ref{NFType},
@@ -1842,7 +1842,7 @@ end
    to be used on an untyped array, for a typed array it's better to just use
    e.g.  nthDimensionBoundsChecked on its type. """
 function typeArrayDim(
-  arrayExp::Expression,
+  @nospecialize(arrayExp::Expression),
   dimIndex::Int,
 )::Tuple{Dimension, TypingError}
   local error::TypingError
@@ -1861,7 +1861,7 @@ function typeArrayDim(
 end
 
 function typeArrayDim2(
-  arrayExp::Expression,
+  @nospecialize(arrayExp::Expression),
   dimIndex::Int,
   dimCount::Int = 0,
 )::Tuple{Dimension, TypingError}
@@ -2362,78 +2362,6 @@ end
 
 
 
-function typeArray(
-  elements::Vector{T},
-  origin::ORIGIN_Type,
-  info::SourceInfo,
-  )::Tuple{ARRAY_EXPRESSION, NFType, VariabilityType} where {T <: Expression}
-  local variability::VariabilityType = Variability.CONSTANT
-  local arrayType::NFType = TYPE_UNKNOWN()
-  local arrayExp::Expression
-  local numberOfElements = length(elements)::Int
-  local expV::Vector{T} = Vector{T}(undef, numberOfElements)
-  local var::VariabilityType
-  local ty1::NFType = TYPE_UNKNOWN()
-  local ty2::NFType
-  local ty3::NFType
-  local tys::Vector{NFType} = Vector{NFType}(undef, numberOfElements)
-  local mk::MatchKindType
-  local next_origin::ORIGIN_Type
-  next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
-  local tyRef = Ref{NFType}(TYPE_UNKNOWN())
-  local varTyRef = Ref{VariabilityType}(Variability.CONSTANT)
-  local mkRef = Ref{MatchKindType}(MatchKind.NOT_COMPATIBLE)
-
-  for i in 1:numberOfElements
-    local e = elements[i]::T
-    exp = typeExp2(e, next_origin, info, tyRef, varTyRef)
-    ty2 = tyRef.x
-    var = varTyRef.x
-    variability = variabilityMax(var, variability)
-    matchTypesRef(ty2, ty1, exp, tyRef, mkRef, #=allowUnknown =# true) #@match (_, ty3, mk)
-    ty3 = tyRef.x
-    mk = mkRef.x
-    if isIncompatibleMatch(mk)
-      matchTypesRef(ty1, ty2, exp, tyRef, mkRef, #=allowUnknown =# false)
-      ty3 = tyRef.x
-      mk = mkRef.x
-      if isCompatibleMatch(mk)
-        ty1 = ty3
-      end
-    else
-      ty1 = ty3
-    end
-    elements[i] = exp::T
-    tys[i] = ty2
-  end
-  for i in 1:numberOfElements
-    local e = elements[i]::T
-    ty2 = tys[i]
-    exp = matchTypesRef(ty2, ty1, e, tyRef, mkRef, #=allowUnknown =# true)
-    mk = mkRef.x
-    elements[i] = exp
-    if true ## !Config.getGraphicsExpMode()
-      if isIncompatibleMatch(mk)
-        Error.addSourceMessage(
-          Error.NF_ARRAY_TYPE_MISMATCH,
-          list(
-            string(n),
-            toString(exp),
-            toString(ty2),
-            toString(ty1),
-          ),
-          info,
-        )
-        fail()
-      end
-    end
-  end
-  #=  forget errors when handling annotations =#
-  arrayType = liftArrayLeft(ty1, fromExpList(elements))
-  arrayExp = makeArray(arrayType, elements)::ARRAY_EXPRESSION
-  return (arrayExp, arrayType, variability)
-end
-
 function typeArrayRef(
   elements::Vector{T},
   origin::ORIGIN_Type,
@@ -2577,143 +2505,7 @@ function typeMatrixRef(
   return arrayExp
 end
 
-function typeMatrix(
-  elements::Vector{Vector{Expression}},
-  origin::ORIGIN_Type,
-  info::SourceInfo,
-  )::Tuple{Expression, NFType, VariabilityType}
-  local variability::VariabilityType = Variability.CONSTANT
-  local arrayType::NFType = TYPE_UNKNOWN()
-  local arrayExp::Expression
-  local exp::Expression
-  local expl::Vector{Expression} = Vector{Expression}(undef, length(elements))
-  local res::Vector{Expression} = Vector{Expression}(undef, length(elements))
-  local var::VariabilityType
-  local ty::NFType = TYPE_UNKNOWN()
-  local tys::Vector{NFType} = Vector{NFType}(undef, length(elements))
-  #local resTys::Vector{NFType} = NFType[]
-  local n::Int = 2
-  local next_origin::ORIGIN_Type = setFlag(origin, ORIGIN_SUBEXPRESSION)
-
-  if length(elements) > 1
-    for (i,el) in enumerate(elements)
-      (exp, ty, var) = typeMatrixComma(el, next_origin, info)
-      variability = variabilityMax(var, variability)
-      expl[i] = exp
-      tys[i] = ty
-      n = max(n, dimensionCount(ty))
-    end
-    for (i,e) in enumerate(expl)
-      ty = tys[i]
-      (e2, ty) = promote(e, ty, n)
-      tys[i] = ty #Update the type.
-      res[i] = e2
-    end
-     (arrayExp, arrayType) =
-      makeCatExp(1, res, tys, variability, info)
-  else
-     (arrayExp, arrayType, variability) =
-      typeMatrixComma(elements[1], next_origin, info)
-    if dimensionCount(arrayType) < 2
-       (arrayExp, arrayType) =
-        promote(arrayExp, arrayType, n)
-    end
-  end
-  return (arrayExp, arrayType, variability)
-end
-
 const INTEGER_EXPRESSION_0 = INTEGER_EXPRESSION(0)
-
-function typeMatrixComma(
-  elements::Vector{Expression},
-  origin::ORIGIN_Type,
-  info::SourceInfo)
-  local variability::VariabilityType = Variability.CONSTANT
-  local arrayType::NFType
-  local arrayExp::Expression
-  local exp::Expression
-  local expl::Vector{Expression} = Vector{Expression}(undef, length(elements))
-  local res::Vector{Expression} = Vector{Expression}(undef, length(elements))
-  local var::VariabilityType
-  local ty::NFType = TYPE_UNKNOWN()
-  local ty1::NFType
-  local ty2::NFType
-  local ty3::NFType
-  local tys::List{NFType} = nil
-  local tys2::Vector{NFType} = Vector{NFType}(undef, length(elements))
-  local n::Int = 2
-  local pos::Int
-  local mk::MatchKindType
-  @assert !isempty(elements)
-  if length(elements) > 1
-    local varTyRef = Ref{VariabilityType}(Variability.CONSTANT)
-    local refMatchKind = Ref{MatchKindType}(MatchKind.NOT_COMPATIBLE)
-    local tyRef = Ref{NFType}(TYPE_UNKNOWN())
-    for (i,e) in enumerate(elements)
-      exp = typeExp2(e, origin, info, tyRef, varTyRef)
-      ty1 = tyRef.x
-      var = varTyRef.x
-      expl[i] = exp
-      if isEqual(ty, TYPE_UNKNOWN())
-         ty = ty1
-      else
-         (_, _, ty2, mk) = matchExpressions(
-           INTEGER_EXPRESSION_0,
-           arrayElementType(ty1),
-           INTEGER_EXPRESSION_0,
-           arrayElementType(ty),
-         )
-        if isCompatibleMatch(mk)
-           ty = ty2
-        end
-      end
-       tys2[i] = ty1
-       variability = variabilityMax(variability, var)
-       n = max(n, dimensionCount(ty))
-    end
-    #= Each element with its own type (omc reverses both lists; the elements here are in
-       order, their types were the reversed list: `[a, 2]` matched a with Integer and 2 with
-       Real, the 2 left an Integer in a Real matrix, sum() of it failed). =#
-    pos = n + 1
-    local i = 1
-    for e in expl
-      ty1 = tys2[i]
-       pos = pos - 1
-      if dimensionCount(ty1) != n
-         (e, ty1) = promote(e, ty1, n)
-      end
-       ty2 = setArrayElementType(ty1, ty)
-      e = matchTypesRef(ty1, ty2, e, tyRef, refMatchKind)
-      ty3 = tyRef.x
-      mk = refMatchKind.x
-      if isIncompatibleMatch(mk)
-        Error.addSourceMessageAndFail(
-          Error.ARG_TYPE_MISMATCH,
-          list(
-            string(pos),
-            "matrix constructor ",
-            "arg",
-            toString(e),
-            toString(ty1),
-            toString(ty2),
-          ),
-          info,
-        )
-      end
-      res[i] = e
-      tys2[i] = ty3
-      i += 1
-    end
-    (arrayExp, arrayType) = makeCatExp(2, res, tys2, variability, info)
-  else
-    local varTyRef = Ref{VariabilityType}(Variability.CONSTANT)
-    local tyRef = Ref{NFType}(TYPE_UNKNOWN())
-    arrayExp = typeExp2(elements[1], origin, info, tyRef, varTyRef)
-    arrayType = tyRef.x
-    variability = varTyRef.x
-  end
-  return (arrayExp, arrayType, variability)
-end
 
 include("TypeRef.jl")
 
@@ -2848,9 +2640,9 @@ end
 end
 
 function printRangeTypeError(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   ty1::NFType,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   ty2::NFType,
   info::SourceInfo,
 )
@@ -3154,14 +2946,14 @@ elements of an array of components (Buildings' conduction layers, `nSta = if lay
 lay.stateAtSurface_b then 2 else 1`: each element its own): the if-expression stays, as omc's (which selects no branch
 when typing), evaluated for each element (a ragged dimension, `flattenRaggedDimension`).
 """
-function selectedBranch(condExp::Expression, origin::ORIGIN_Type, info::SourceInfo)::Union{Nothing, Bool}
+function selectedBranch(@nospecialize(condExp::Expression), origin::ORIGIN_Type, info::SourceInfo)::Union{Nothing, Bool}
   local values::Expression = stripBindingInfo(evalExp(condExp, EVALTARGET_GENERIC(info)))
   (values isa ARRAY_EXPRESSION && !arrayAllEqual(values)) && return nothing
   return evaluateCondition(condExp, origin, info)
 end
 
 function evaluateCondition(
-  condExp::Expression,
+  @nospecialize(condExp::Expression),
   origin::ORIGIN_Type,
   info::SourceInfo,
 )::Bool
@@ -3597,7 +3389,7 @@ function typeComponentSections(c::InstNode, origin::ORIGIN_Type)::InstNode
       _ => begin
         Error.assertion(
           false,
-          getInstanceName() + " got uninstantiated component " + name(node),
+          getInstanceName() + " got uninstantiated component " + name(node)::String,
           sourceInfo(),
         )
         fail()

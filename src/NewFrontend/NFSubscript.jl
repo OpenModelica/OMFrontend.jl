@@ -1257,14 +1257,6 @@ function isLiteral(sub::Subscript)
   return literal
 end
 
-function isSplit(sub::Subscript)
-  res = @match sub begin
-    SPLIT_PROXY(__) => true
-    SPLIT_INDEX(__) => true
-  end
-  return res
-end
-
 #= Whether the subscript is the iterator (omc Subscript.equalsIterator). =#
 function equalsIterator(sub::Subscript, iterator::InstNode)::Bool
   @match sub begin

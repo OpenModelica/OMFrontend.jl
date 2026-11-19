@@ -537,42 +537,6 @@ function typeBinding(inBinding::Binding, origin::Int,
 end
 
 
-function typeBindingExp(
-  exp::BINDING_EXP,
-  origin::ORIGIN_Type,
-  info::SourceInfo,
-  )::Tuple{BINDING_EXP, NFType, Int}
-  local variability::VariabilityType
-  local ty::NFType
-  local outExp::BINDING_EXP
-  local e::Expression
-  local parents::List{InstNode}
-  local is_each::Bool
-  local exp_ty::NFType
-  @match BINDING_EXP(e, _, _, parents, is_each) = exp
-  (e, exp_ty, variability) = typeExp(e, origin, info)
-  local parent_dims::Int = 0
-  if !is_each
-    for p in listRest(parents)
-      parent_dims = parent_dims + dimensionCount(getType(p))::Int
-    end
-  end
-  if parent_dims == 0
-    ty = exp_ty
-  else
-    if dimensionCount(exp_ty) >= parent_dims
-      ty = unliftArrayN(parent_dims, exp_ty)
-    end
-  end
-  #=
-  If the binding has too few dimensions we can't unlift it, but matchBinding
-  can report the error better so we silently ignore it here.
-  =#
-  outExp = BINDING_EXP(e, exp_ty, ty, parents, is_each)
-  #outExp =  updateBindingExp!(exp, e, exp_ty, ty, parents, is_each)
-  return (outExp, ty, variability)
-end
-
 function typeBindingExpRef(
   exp::BINDING_EXP,
   origin::ORIGIN_Type,

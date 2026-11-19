@@ -56,11 +56,6 @@ function isIncompatibleMatch(kind::MatchKindType)::Bool
   return isIncompatible
 end
 
-function isExactMatch(kind::MatchKindType)::Bool
-  local isCompatible::Bool = kind == MatchKind.EXACT
-  return isCompatible
-end
-
 function isCastMatch(kind::MatchKindType)::Bool
   local isCast::Bool = kind == MatchKind.CAST
   return isCast
@@ -92,11 +87,11 @@ function isValidPlugCompatibleMatch(kind::MatchKindType)::Bool
 end
 
 function checkBinaryOperation(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::M_Type,
   var1::VariabilityType,
   operator::Operator,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::M_Type,
   var2::VariabilityType,
   info::SourceInfo,
@@ -176,11 +171,11 @@ function checkBinaryOperation(
 end
 
 function checkOverloadedBinaryOperator(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::M_Type,
   var1::VariabilityType,
   op::Operator,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::M_Type,
   var2::VariabilityType,
   info::SourceInfo,
@@ -242,11 +237,11 @@ function checkOverloadedBinaryOperator(
 end
 
 function matchOverloadedBinaryOperator(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::M_Type,
   var1::VariabilityType,
   op::Operator,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::M_Type,
   var2::VariabilityType,
   candidates::Vector{M_Function},
@@ -389,11 +384,11 @@ function matchOverloadedBinaryOperator(
 end
 
 function checkBinaryOperationBoxed(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::M_Type,
   var1::VariabilityType,
   op::Operator,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::M_Type,
   var2::VariabilityType,
   info::SourceInfo,
@@ -413,11 +408,11 @@ function checkBinaryOperationBoxed(
 end
 
 function checkOverloadedBinaryArrayAddSub(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::M_Type,
   var1::VariabilityType,
   op::Operator,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::M_Type,
   var2::VariabilityType,
   candidates::Vector{M_Function},
@@ -457,11 +452,11 @@ function checkOverloadedBinaryArrayAddSub(
 end
 
 function checkOverloadedBinaryArrayAddSub2(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::M_Type,
   var1::VariabilityType,
   op::Operator,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::M_Type,
   var2::VariabilityType,
   candidates::Vector{M_Function},
@@ -553,11 +548,11 @@ function checkOverloadedBinaryArrayAddSub2(
 end
 
 function checkOverloadedBinaryArrayMul(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::M_Type,
   var1::VariabilityType,
   op::Operator,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::M_Type,
   var2::VariabilityType,
   candidates::Vector{M_Function},
@@ -651,11 +646,11 @@ function checkOverloadedBinaryArrayMul(
 end
 
 function checkOverloadedBinaryScalarArray(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::M_Type,
   var1::VariabilityType,
   op::Operator,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::M_Type,
   var2::VariabilityType,
   candidates::Vector{M_Function},
@@ -680,11 +675,11 @@ function checkOverloadedBinaryScalarArray(
 end
 
 function checkOverloadedBinaryScalarArray2(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::M_Type,
   var1::VariabilityType,
   op::Operator,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::M_Type,
   var2::VariabilityType,
   candidates::Vector{M_Function},
@@ -765,11 +760,11 @@ function checkOverloadedBinaryScalarArray2(
 end
 
 function checkOverloadedBinaryArrayScalar(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::M_Type,
   var1::VariabilityType,
   op::Operator,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::M_Type,
   var2::VariabilityType,
   candidates::Vector{M_Function},
@@ -794,11 +789,11 @@ function checkOverloadedBinaryArrayScalar(
 end
 
 function checkOverloadedBinaryArrayScalar2(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::M_Type,
   var1::VariabilityType,
   op::Operator,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::M_Type,
   var2::VariabilityType,
   candidates::Vector{M_Function},
@@ -880,11 +875,11 @@ function checkOverloadedBinaryArrayScalar2(
 end
 
 function checkOverloadedBinaryArrayDiv(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::M_Type,
   var1::VariabilityType,
   op::Operator,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::M_Type,
   var2::VariabilityType,
   candidates::Vector{M_Function},
@@ -916,11 +911,11 @@ function checkOverloadedBinaryArrayDiv(
 end
 
 function checkOverloadedBinaryArrayEW(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::M_Type,
   var1::VariabilityType,
   op::Operator,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::M_Type,
   var2::VariabilityType,
   candidates::Vector{M_Function},
@@ -962,11 +957,11 @@ function checkOverloadedBinaryArrayEW(
 end
 
 function checkOverloadedBinaryArrayEW2(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::M_Type,
   var1::VariabilityType,
   op::Operator,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::M_Type,
   var2::VariabilityType,
   candidates::Vector{M_Function},
@@ -1078,10 +1073,10 @@ end
 
 function implicitConstructAndMatch(
   candidates::Vector{M_Function},
-  inExp1::Expression,
+  @nospecialize(inExp1::Expression),
   inType1::M_Type,
   op::Operator,
-  inExp2::Expression,
+  @nospecialize(inExp2::Expression),
   inType2::M_Type,
   info::SourceInfo,
   )::Tuple{Expression, M_Type}
@@ -1176,9 +1171,9 @@ function implicitConstructAndMatch(
 end
 
 function implicitConstructAndMatch2(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::M_Type,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   paramType1::M_Type,
   paramInfo1::SourceInfo,
   paramType2::M_Type,
@@ -1231,9 +1226,9 @@ function implicitConstructAndMatch2(
 end
 
 function checkBinaryOperationAdd(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::M_Type,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::M_Type,
   info::SourceInfo,
 )::Tuple{Expression, M_Type}
@@ -1275,9 +1270,9 @@ function checkBinaryOperationAdd(
 end
 
 function checkBinaryOperationSub(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::M_Type,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::M_Type,
   info::SourceInfo,
 )::Tuple{Expression, M_Type}
@@ -1422,9 +1417,9 @@ end
 end
 
 function checkBinaryOperationDiv(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::NFType,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::NFType,
   info::SourceInfo,
   isElementWise::Bool,
@@ -1494,9 +1489,9 @@ function checkBinaryOperationDiv(
 end
 
 function checkBinaryOperationPow(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::NFType,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::NFType,
   info::SourceInfo,
 )::Tuple{Expression, NFType}
@@ -1535,9 +1530,9 @@ function checkBinaryOperationPow(
 end
 
 function checkBinaryOperationPowEW(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::NFType,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::NFType,
   info::SourceInfo,
 )::Tuple{Expression, NFType}
@@ -1601,9 +1596,9 @@ function checkBinaryOperationPowEW(
 end
 
 function checkBinaryOperationEW(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::NFType,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::NFType,
   elemOp::OpType,
   info::SourceInfo,
@@ -1687,7 +1682,7 @@ function checkBinaryOperationEW(
 end
 
 function checkUnaryOperation(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::NFType,
   var1::VariabilityType,
   operator::Operator,
@@ -1726,7 +1721,7 @@ function checkUnaryOperation(
 end
 
 function checkOverloadedUnaryOperator(
-  inExp1::Expression,
+  @nospecialize(inExp1::Expression),
   inType1::NFType,
   var::VariabilityType,
   inOp::Operator,
@@ -1794,11 +1789,11 @@ function checkOverloadedUnaryOperator(
 end
 
 function checkLogicalBinaryOperation(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::NFType,
   var1::VariabilityType,
   operator::Operator,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::NFType,
   var2::VariabilityType,
   info::SourceInfo,
@@ -1829,7 +1824,7 @@ function checkLogicalBinaryOperation(
 end
 
 function checkLogicalUnaryOperation(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::NFType,
   var1::VariabilityType,
   operator::Operator,
@@ -1856,11 +1851,11 @@ function checkLogicalUnaryOperation(
 end
 
 function checkRelationOperation(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::NFType,
   var1::VariabilityType,
   operator::Operator,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::NFType,
   var2::VariabilityType,
   origin::ORIGIN_Type,
@@ -1934,7 +1929,7 @@ function checkRelationOperation(
 end
 
 function printUnresolvableTypeError(
-  exp::Expression,
+  @nospecialize(exp::Expression),
   types::List{<:NFType},
   info::SourceInfo,
   printError::Bool = true,
@@ -2104,11 +2099,11 @@ function matchExpressions2(
 end
 
 @nospecializeinfer function matchTypes(
-  @nospecialize(actualType::T1),
-  @nospecialize(expectedType::T2),
-  @nospecialize(expression::T3),
+  @nospecialize(actualType::NFType),
+  @nospecialize(expectedType::NFType),
+  @nospecialize(expression::Expression),
   allowUnknown::Bool = false,
-  )::Tuple{Expression, NFType, Int} where {T1 <: NFType, T2 <: NFType, T3 <: Expression}
+  )::Tuple{Expression, NFType, Int}
   local matchKind::MatchKindType
   local compatibleType::NFType
   #=  Return true if the references are the same. =#
@@ -2220,11 +2215,11 @@ end
 function matchTypesRef(
   actualType::T1,
   expectedType::T2,
-  expression::T3,
+  @nospecialize(expression::Expression),
   refTyExp::Ref{NFType},
   refMatchKind::Ref{MatchKindType},
   allowUnknown::Bool = false,
-  )::Expression where {T1 <: NFType, T2 <: NFType, T3 <: Expression}
+  )::Expression where {T1 <: NFType, T2 <: NFType}
   local matchKind::MatchKindType
   local compatibleType::NFType
   #=  Return true if the references are the same. =#
@@ -2340,7 +2335,7 @@ end
 function matchTypes_castRef(
   actualType::NFType,
   expectedType::NFType,
-  expression::Expression,
+  @nospecialize(expression::Expression),
   refTyExp::Ref{NFType},
   refMatchKind::Ref{MatchKindType},
   allowUnknown::Bool = false,
@@ -2473,9 +2468,9 @@ end
 
 
 function matchExpressions_cast(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::NFType,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::NFType,
   allowUnknown::Bool,
 )::Tuple{Expression, Expression, NFType, MatchKindType}
@@ -2597,7 +2592,7 @@ end
 function matchComplexTypes(
   actualType::NFType,
   expectedType::NFType,
-  expression::Expression,
+  @nospecialize(expression::Expression),
   allowUnknown::Bool,
 )::Tuple{Expression, NFType, MatchKindType}
   local matchKind::MatchKindType = MatchKind.NOT_COMPATIBLE
@@ -2782,7 +2777,7 @@ end
 function matchFunctionTypes(
   actualType::NFType,
   expectedType::NFType,
-  expression::Expression,
+  @nospecialize(expression::Expression),
   allowUnknown::Bool,
 )::Tuple{Expression, NFType, MatchKindType}
   local matchKind::MatchKindType = MatchKind.EXACT
@@ -2897,9 +2892,9 @@ function matchEnumerationTypes(type1::NFType, type2::NFType)::MatchKindType
 end
 
 function matchArrayExpressions(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::NFType,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::NFType,
   allowUnknown::Bool,
 )::Tuple{Expression, Expression, NFType, MatchKindType}
@@ -2927,7 +2922,7 @@ end
 function matchArrayTypes(
   arrayType1::NFType,
   arrayType2::NFType,
-  expression::Expression,
+  @nospecialize(expression::Expression),
   allowUnknown::Bool,
 )::Tuple{Expression, NFType, Int}
   local matchKind::MatchKindType
@@ -2953,7 +2948,7 @@ end
 function matchArrayTypesRef(
   arrayType1::NFType,
   arrayType2::NFType,
-  expression::Expression,
+  @nospecialize(expression::Expression),
   refTyExp::Ref{NFType},
   refMatchKind::Ref{MatchKindType},
   allowUnknown::Bool,
@@ -3124,7 +3119,7 @@ end
 function matchTupleTypes(
   tupleType1::NFType,
   tupleType2::NFType,
-  expression::Expression,
+  @nospecialize(expression::Expression),
   allowUnknown::Bool,
 )::Tuple{Expression, NFType, MatchKindType}
   local matchKind::MatchKindType = MatchKind.EXACT
@@ -3156,9 +3151,9 @@ function matchTupleTypes(
 end
 
 function matchBoxedExpressions(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   type1::NFType,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
   type2::NFType,
   allowUnknown::Bool,
 )::Tuple{Expression, Expression, NFType, MatchKindType}
@@ -3183,7 +3178,7 @@ end
 function matchTypes_cast(
   actualType::NFType,
   expectedType::NFType,
-  expression::Expression,
+  @nospecialize(expression::Expression),
   allowUnknown::Bool = false,
 )::Tuple{Expression, NFType, MatchKindType}
   local matchKind::MatchKindType
@@ -3316,9 +3311,9 @@ function matchTypes_cast(
 end
 
 function getRangeType(
-  startExp::Expression,
-  stepExp::Option{<:Expression},
-  stopExp::Expression,
+  @nospecialize(startExp::Expression),
+  @nospecialize(stepExp::Option{<:Expression}),
+  @nospecialize(stopExp::Expression),
   rangeElemType::NFType,
   info::SourceInfo,
 )::NFType
@@ -3374,9 +3369,9 @@ function getRangeType(
 end
 
 function getRangeTypeInt(
-  startExp::Expression,
-  stepExp::Option{<:Expression},
-  stopExp::Expression,
+  @nospecialize(startExp::Expression),
+  @nospecialize(stepExp::Option{<:Expression}),
+  @nospecialize(stopExp::Expression),
   info::SourceInfo,
 )::Dimension
   local dim::Dimension
@@ -3465,9 +3460,9 @@ function getRangeTypeInt(
 end
 
 function getRangeTypeReal(
-  startExp::Expression,
-  stepExp::Option{<:Expression},
-  stopExp::Expression,
+  @nospecialize(startExp::Expression),
+  @nospecialize(stepExp::Option{<:Expression}),
+  @nospecialize(stopExp::Expression),
   info::SourceInfo,
 )::Dimension
   local dim::Dimension

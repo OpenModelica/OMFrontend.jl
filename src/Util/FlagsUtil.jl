@@ -130,26 +130,6 @@ function backupFlags() ::Flags.Flag
   outFlags
 end
 
-"""Resets all debug flags to their default values."""
-function resetDebugFlags()
-  local debug_flags::Array{Bool}
-  local config_flags::Array{Flags.FlagData}
-
-  @match Flags.FLAGS(_, config_flags) = loadFlags()
-  debug_flags = createDebugFlags()
-  saveFlags(Flags.FLAGS(debug_flags, config_flags))
-end
-
-"""Resets all configuration flags to their default values."""
-function resetConfigFlags()
-  local debug_flags::Array{Bool}
-  local config_flags::Array{Flags.FlagData}
-
-  @match Flags.FLAGS(debug_flags, _) = loadFlags()
-  config_flags = createConfigFlags()
-  saveFlags(Flags.FLAGS(debug_flags, config_flags))
-end
-
 """Checks that the flags listed in allDebugFlags have sequential and unique indices."""
 function checkDebugFlags()
   local index::Int = 0
@@ -216,27 +196,6 @@ function disableDebug(inFlag::Flags.DebugFlag) ::Bool
 
   outOldValue = set(inFlag, false)
   outOldValue
-end
-
-"""Returns the valid options of a single-string configuration flag."""
-function getConfigOptionsStringList(inFlag::Flags.ConfigFlag) ::Tuple{List{String}, List{String}}
-  local outComments::List{String}
-  local outOptions::List{String}
-
-  (outOptions, outComments) = begin
-    local options::List{Tuple{String, Gettext.TranslatableContent}}
-    local flags::List{String}
-    @match inFlag begin
-      Flags.CONFIG_FLAG(validOptions = SOME(Flags.STRING_DESC_OPTION(options)))  => begin
-        (ListUtil.map(options, Util.tuple21), ListUtil.mapMap(options, Util.tuple22, Gettext.translateContent))
-      end
-
-      Flags.CONFIG_FLAG(validOptions = SOME(Flags.STRING_OPTION(flags)))  => begin
-        (flags, ListUtil.fill("", listLength(flags)))
-      end
-    end
-  end
-  (outOptions, outComments)
 end
 
 """Updates the value of a debug flag in the debug flag array."""
@@ -921,16 +880,6 @@ function setConfigBool(inFlag::Flags.ConfigFlag, inValue::Bool)
   setConfigValue(inFlag, Flags.BOOL_FLAG(inValue))
 end
 
-"""Sets the value of an integer configuration flag."""
-function setConfigInt(inFlag::Flags.ConfigFlag, inValue::Int)
-  setConfigValue(inFlag, Flags.INT_FLAG(inValue))
-end
-
-"""Sets the value of a real configuration flag."""
-function setConfigReal(inFlag::Flags.ConfigFlag, inValue::ModelicaReal)
-  setConfigValue(inFlag, Flags.REAL_FLAG(inValue))
-end
-
 """Sets the value of a string configuration flag."""
 function setConfigString(inFlag::Flags.ConfigFlag, inValue::String)
   setConfigValue(inFlag, Flags.STRING_FLAG(inValue))
@@ -939,14 +888,6 @@ end
 """Sets the value of a multiple-string configuration flag."""
 function setConfigStringList(inFlag::Flags.ConfigFlag, inValue::List{<:String})
   setConfigValue(inFlag, Flags.STRING_LIST_FLAG(inValue))
-end
-
-"""Sets the value of an enumeration configuration flag."""
-function setConfigEnum(inFlag::Flags.ConfigFlag, inValue::Int)
-  local valid_values::List{Tuple{String, Integer}}
-
-  @match Flags.CONFIG_FLAG(defaultValue = Flags.ENUM_FLAG(validValues = valid_values)) = inFlag
-  setConfigValue(inFlag, Flags.ENUM_FLAG(inValue, valid_values))
 end
 
 #=  Used by the print functions below to indent descriptions.
@@ -1097,41 +1038,6 @@ function printHelp(inTopics::List{<:String}) ::String
   #=  post-optimization (simulation)
   =#
   help
-end
-
-function getValidOptionsAndDescription(flagName::String) ::Tuple{List{String}, String, List{String}}
-  local descriptions::List{String}
-  local mainDescriptionStr::String
-  local validStrings::List{String}
-
-  local validOptions::Flags.ValidOptions
-  local mainDescription::Gettext.TranslatableContent
-
-  @match Flags.CONFIG_FLAG(description = mainDescription, validOptions = SOME(validOptions)) = ListUtil.getMemberOnTrue(flagName, allConfigFlags, matchConfigFlag)
-  mainDescriptionStr = Gettext.translateContent(mainDescription)
-  (validStrings, descriptions) = getValidOptionsAndDescription2(validOptions)
-  (validStrings, mainDescriptionStr, descriptions)
-end
-
-function getValidOptionsAndDescription2(validOptions::Flags.ValidOptions) ::Tuple{List{String}, List{String}}
-  local descriptions::List{String}
-  local validStrings::List{String}
-
-  (validStrings, descriptions) = begin
-    local options::List{Tuple{String, Gettext.TranslatableContent}}
-    @match validOptions begin
-      Flags.STRING_OPTION(validStrings)  => begin
-        (validStrings, nil)
-      end
-
-      Flags.STRING_DESC_OPTION(options)  => begin
-        validStrings = ListUtil.map(options, Util.tuple21)
-        descriptions = ListUtil.mapMap(options, Util.tuple22, Gettext.translateContent)
-        (validStrings, descriptions)
-      end
-    end
-  end
-  (validStrings, descriptions)
 end
 
 function compareDebugFlags(flag1::Flags.DebugFlag, flag2::Flags.DebugFlag) ::Bool
@@ -1496,23 +1402,6 @@ function printFlagValidOptionsDesc(inFlag::Flags.ConfigFlag) ::String
   outString
 end
 
-function sphinxMathMode(s::String) ::String
-  local o::String = s
-
-  local i::Int
-  local strs::List{String}
-  local s1::String
-  local s2::String
-  local s3::String
-
-  (i, strs) = System.regex(o, "^(.*)[]([^]*)[](.*)", 4, extended = true)
-  if i == 4
-    @match _cons(_, _cons(s1, _cons(s2, _cons(s3, _)))) = strs
-    o = s1 + " :math:`" + s2 + "` " + s3
-  end
-  o
-end
-
 function removeSphinxMathMode(s::String) ::String
   local o::String = s
 
@@ -1579,22 +1468,6 @@ function printDebugFlag(inFlag::Flags.DebugFlag, sphinx::Bool = false) ::String
   outString
 end
 
-"""Prints out name of a debug flag."""
-function debugFlagName(inFlag::Flags.DebugFlag) ::String
-  local name::String
-
-  @match Flags.DEBUG_FLAG(name = name) = inFlag
-  name
-end
-
-"""Prints out name of a debug flag."""
-function configFlagName(inFlag::Flags.ConfigFlag) ::String
-  local name::String
-
-  @match Flags.CONFIG_FLAG(name = name) = inFlag
-  name
-end
-
 function getValidStringOptions(inOptions::Flags.ValidOptions) ::List{String}
   local validOptions::List{String}
 
@@ -1611,137 +1484,6 @@ function getValidStringOptions(inOptions::Flags.ValidOptions) ::List{String}
     end
   end
   validOptions
-end
-
-function flagDataEq(data1::Flags.FlagData, data2::Flags.FlagData) ::Bool
-  local eq::Bool
-
-  eq = begin
-    @match (data1, data2) begin
-      (Flags.EMPTY_FLAG(__), Flags.EMPTY_FLAG(__))  => begin
-        true
-      end
-
-      (Flags.BOOL_FLAG(__), Flags.BOOL_FLAG(__))  => begin
-        data1.data == data2.data
-      end
-
-      (Flags.INT_FLAG(__), Flags.INT_FLAG(__))  => begin
-        data1.data == data2.data
-      end
-
-      (Flags.INT_LIST_FLAG(__), Flags.INT_LIST_FLAG(__))  => begin
-        ListUtil.isEqualOnTrue(data1.data, data2.data, intEq)
-      end
-
-      (Flags.REAL_FLAG(__), Flags.REAL_FLAG(__))  => begin
-        data1.data == data2.data
-      end
-
-      (Flags.STRING_FLAG(__), Flags.STRING_FLAG(__))  => begin
-        data1.data == data2.data
-      end
-
-      (Flags.STRING_LIST_FLAG(__), Flags.STRING_LIST_FLAG(__))  => begin
-        ListUtil.isEqualOnTrue(data1.data, data2.data, stringEq)
-      end
-
-      (Flags.ENUM_FLAG(__), Flags.ENUM_FLAG(__))  => begin
-        referenceEq(data1.validValues, data2.validValues) && data1.data == data2.data
-      end
-
-      _  => begin
-        false
-      end
-    end
-  end
-  eq
-end
-
-function flagDataString(flagData::Flags.FlagData) ::String
-  local str::String
-
-  str = begin
-    @match flagData begin
-      Flags.BOOL_FLAG(__)  => begin
-        boolString(flagData.data)
-      end
-
-      Flags.INT_FLAG(__)  => begin
-        intString(flagData.data)
-      end
-
-      Flags.INT_LIST_FLAG(__)  => begin
-        ListUtil.toString(flagData.data, intString, "", "", ",", "", false)
-      end
-
-      Flags.REAL_FLAG(__)  => begin
-        realString(flagData.data)
-      end
-
-      Flags.STRING_FLAG(__)  => begin
-        flagData.data
-      end
-
-      Flags.STRING_LIST_FLAG(__)  => begin
-        stringDelimitList(flagData.data, ",")
-      end
-
-      Flags.ENUM_FLAG(__)  => begin
-        Util.tuple21(listGet(flagData.validValues, flagData.data))
-      end
-
-      _  => begin
-        ""
-      end
-    end
-  end
-  str
-end
-
-"""
-  Goes through all the existing flags, and returns a list of all flags with
-  values that differ from the default. The format of each string is flag=value.
-"""
-function unparseFlags() ::List{String}
-  local flagStrings::List{String} = nil
-
-  local flags::Flags.Flag
-  local debug_flags::Array{Bool}
-  local config_flags::Array{Flags.FlagData}
-  local name::String
-  local strl::List{String} = nil
-
-  try
-    @match Flags.FLAGS(debugFlags = debug_flags, configFlags = config_flags) = loadFlags(false)
-  catch
-    return flagStrings
-  end
-  for f in allConfigFlags
-    if ! flagDataEq(f.defaultValue, config_flags[f.index])
-      name = begin
-        @match f.shortname begin
-          SOME(name)  => begin
-            "-" + name
-          end
-
-          _  => begin
-            "--" + f.name
-          end
-        end
-      end
-      flagStrings = _cons(name + "=" + flagDataString(config_flags[f.index]), flagStrings)
-    end
-  end
-  for f in allDebugFlags
-    if f.default != debug_flags[f.index]
-      strl = _cons(f.name, strl)
-    end
-  end
-  if ! listEmpty(strl)
-    flagStrings = _cons("-d=" + stringDelimitList(strl, ","), flagStrings)
-  end
-  flagStrings
 end
 
 #= So that we can use wildcard imports and named imports when they do occur. Not good Julia practice =#

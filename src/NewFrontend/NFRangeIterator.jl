@@ -243,7 +243,7 @@ expression isn't an expression that can be expanded into elements an
 invalid range will be returned that will trigger an assertion when used.
 The valididity of the returned iterator can be checked with isValid.
 """
-function RangeIterator_fromExp(exp::Expression)::RangeIterator
+function RangeIterator_fromExp(@nospecialize(exp::Expression))::RangeIterator
   local iterator::RangeIterator
   @assign iterator = begin
     local istart::Int

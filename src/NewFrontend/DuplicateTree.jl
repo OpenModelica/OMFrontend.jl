@@ -446,10 +446,10 @@ const addConflictDefault = addConflictReplace
 
 """Inserts a new node in the tree."""
 function add(
-  inTree::Tree,
+  @nospecialize(inTree::Tree),
   inKey::Key,
-  inValue::Value,
-  conflictFunc::Function = addConflictDefault,
+  @nospecialize(inValue::Value),
+  @nospecialize(conflictFunc::Function = addConflictDefault),
 )::Tree #= Used to resolve conflicts. =#
   local tree::Tree = inTree
 

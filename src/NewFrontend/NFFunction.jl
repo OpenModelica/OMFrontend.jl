@@ -252,24 +252,6 @@ const FunctionStatusType = Int
 using MetaModelica
 using ExportAll
 
-function getLocalArguments(fn::M_FUNCTION)::List{Expression}
-  local localArgs::List{Expression} = nil
-  local binding::Binding
-  for l in fn.locals
-    if isComponent(l)
-      @assign binding = getBinding(component(l))
-      # Error.assertion(
-      #   hasExp(binding),
-      #   getInstanceName() + " got local component without binding",
-      #   sourceInfo(),
-      # )
-      localArgs = Cons{Expression}(getExp(binding), localArgs)
-    end
-  end
-  localArgs = listReverseInPlace(localArgs)
-  return localArgs
-end
-
 function isPartial(fn::M_FUNCTION)::Bool
   return isPartial(fn.node)
 end
@@ -397,14 +379,6 @@ function mapExp(
     @assign fn.node = updateClass(cls, fn.node)
   end
   return fn
-end
-
-function hasOptionalArgument(component::SCode.Element)::Bool
-  local res::Bool = SCodeUtil.hasBooleanNamedAnnotationInComponent(
-    component,
-    "__OpenModelica_optionalArgument",
-  )
-  return res
 end
 
 function hasUnboxArgsAnnotation(cmt::SCode.Comment)::Bool
@@ -1110,7 +1084,7 @@ function typeNodeCache2(fn_node::InstNode)::Vector{M_FUNCTION}
   local special::Bool
   local name::String
   #@match C_FUNCTION(functions, typed, special) = getFuncCache(fn_node)
-  local cache = getFuncCache(fn_node)
+  local cache::C_FUNCTION = getFuncCache(fn_node)::C_FUNCTION
   typed = cache.typed
   functions = cache.funcs
   #=  Type the function(s) if not already done. =#
@@ -1246,10 +1220,10 @@ function fillUnknownVectorizedDims(
 end
 
 function matchArgVectorized(
-  argExp::Expression,
+  @nospecialize(argExp::Expression),
   argTy::M_Type,
   inputTy::M_Type,
-  vectArg::Expression,
+  @nospecialize(vectArg::Expression),
   vectDims::List{<:Dimension},
   info::SourceInfo,
 )::Tuple{Expression, M_Type, Expression, List{Dimension}, MatchKindType}
@@ -1584,9 +1558,16 @@ function collectArgs(slots::Vector{<:Slot}, info::SourceInfo)::Tuple{Vector{Type
       SOME(a) => begin
         push!(args, a)
       end
-      #= Otherwise, try to fill the slot with its default argument. =#
+      #= Otherwise, try to fill the slot with its default argument. No default: fillDefaultSlot's message
+         without its failure (a throw outside a cheap-throw scope records a backtrace; overload candidates
+         without the argument are common, 28 per MSL Fluid ThreeTanks). =#
       _ => begin
-        push!(args, fillDefaultSlot(s, slots, info))
+        if isNone(default)
+          Error.addSourceMessage(Error.UNFILLED_SLOT, list(name), info)
+          matching = false
+        else
+          push!(args, fillDefaultSlot(s, slots, info))
+        end
       end
       _ => begin
         matching = false
@@ -1726,11 +1707,6 @@ function fillArgs(
   return (args, matching)
 end
 
-function getSlots(fn::M_FUNCTION)::List{Slot}
-  local slots::List{Slot} = fn.slots
-  return slots
-end
-
 function setReturnType(ty::M_Type, fn::M_FUNCTION)::M_FUNCTION
 
   @assign fn.returnType = ty
@@ -1867,32 +1843,6 @@ function typeString(fn::M_FUNCTION)::String
   return str
 end
 
-"""Constructs a string representing a call, for use in error messages."""
-function callString(
-  fn::M_FUNCTION,
-  posArgs::List{<:Expression},
-  namedArgs::List{<:NamedArg},
-)::String
-  local str::String
-
-  @assign str =
-    stringDelimitList(list(toString(arg) for arg in posArgs), ", ")
-  if !listEmpty(namedArgs)
-    @assign str =
-      str +
-      ", " +
-      stringDelimitList(
-        list(
-          Util.tuple21(arg) + " = " + toString(Util.tuple22(arg))
-          for arg in namedArgs
-        ),
-        ", ",
-      )
-  end
-  @assign str = AbsynUtil.pathString(fn.path) + "(" + str + ")"
-  return str
-end
-
 function candidateFuncListString(fns::List{<:M_Function})::String
   local s::String =
     stringDelimitList(list(signatureString(fn, true) for fn in fns), "\\n  ")
@@ -1991,11 +1941,6 @@ function nameConsiderBuiltin(fn::M_FUNCTION)::Absyn.Path
     end
   end
   return path
-end
-
-function setName(name::Absyn.Path, fn::M_FUNCTION)::M_FUNCTION
-  @assign fn.path = name
-  return fn
 end
 
 function name(fn::M_FUNCTION)::Absyn.Path

@@ -65,20 +65,6 @@ function toList(iterator::ExpressionIterator)::List{Expression}
   return expl
 end
 
-function nextOpt(
-  iterator::ExpressionIterator,
-)::Tuple{ExpressionIterator, Option{Expression}}
-  local nextExp::Option{Expression}
-  local exp::Expression
-  if hasNext(iterator)
-    (iterator, exp) = next(iterator)
-    nextExp = SOME(exp)
-  else
-    nextExp = NONE()
-  end
-  return (iterator, nextExp)
-end
-
 function next(iterator::ExpressionIterator)::Tuple{ExpressionIterator, Expression}
   local nextExp::Expression
   (iterator, nextExp) = begin
@@ -177,22 +163,6 @@ function fromBinding(binding::Binding)::ExpressionIterator
   return iterator
 end
 
-function fromExpOpt(optExp::Option{<:Expression})::ExpressionIterator
-  local iterator::ExpressionIterator
-  @assign iterator = begin
-    local exp::Expression
-    @match optExp begin
-      SOME(exp) => begin
-        fromExpToExpressionIterator(exp)
-      end
-      _ => begin
-        EXPRESSION_NONE_ITERATOR()
-      end
-    end
-  end
-  return iterator
-end
-
 function fromExpToExpressionIterator(exp::Expression)
   local iterator::ExpressionIterator
   iterator = begin
@@ -246,18 +216,6 @@ function fromExpToExpressionIterator(exp::Expression)
     end
   end
   return iterator
-end
-
-"""
-John March 2024
-"""
-function makeArrayIterator(exp::Expression)
-  arrays = flattenArray(exp, nil)
-  if listEmpty(arrays)
-    iterator = EXPRESSION_ARRAY_ITERATOR(nil, 1, arrays)
-  else
-    iterator = EXPRESSION_ARRAY_ITERATOR(arrays, 1, listRest(arrays))
-  end
 end
 
 """

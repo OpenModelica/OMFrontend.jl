@@ -4623,101 +4623,6 @@ const DUPLICATE_VARIABLE_ERROR =
 
 const dummyInfo = SOURCEINFO("", false, 0, 0, 0, 0, 0.0)::SourceInfo
 
-function clearCurrentComponent()
-  function dummy(str::String, i::Int)::String
-
-    return str
-  end
-
-  return updateCurrentComponent(0, "", dummyInfo, dummy)
-end
-
-"""
-  Function: updateCurrentComponent
-  This function takes a String and set the global var to
-  which the current variable the compiler is working with.
-"""
-function updateCurrentComponent(
-  cpre::T,
-  component::String,
-  info::SourceInfo,
-  func::prefixToStr,
-) where {T}
-  local tpl::Option{Tuple{Array{T}, Array{String}, Array{SourceInfo}, Array{prefixToStr}}}
-  local apre::Array{T}
-  local astr::Array{String}
-  local ainfo::Array{SourceInfo}
-  local afunc::Array{prefixToStr}
-  @assign tpl = getGlobalRoot(Global.currentInstVar)
-  @match tpl begin
-    NONE() => begin
-      setGlobalRoot(
-        Global.currentInstVar,
-        SOME((
-          arrayCreate(1, cpre),
-          arrayCreate(1, component),
-          arrayCreate(1, info),
-          arrayCreate(1, func),
-        )),
-      )
-      ()
-    end
-
-    SOME((apre, astr, ainfo, afunc)) => begin
-      arrayUpdate(apre, 1, cpre)
-      arrayUpdate(astr, 1, component)
-      arrayUpdate(ainfo, 1, info)
-      arrayUpdate(afunc, 1, func)
-      ()
-    end
-  end
-end
-
-"""Gets the current component as a string."""
-function getCurrentComponent()
-  local filename::String = ""
-  local read_only::Bool = false
-  local sline::Int = 0
-  local scol::Int = 0
-  local eline::Int = 0
-  local ecol::Int = 0
-  local str::String
-
-  local tpl::Option{Tuple{Array{T}, Array{String}, Array{SourceInfo}, Array{prefixToStr}}}
-  local apre::Array{T}
-  local astr::Array{String}
-  local ainfo::Array{SourceInfo}
-  local afunc::Array{prefixToStr}
-  local info::SourceInfo
-  local func::prefixToStr
-
-  @assign tpl = getGlobalRoot(Global.currentInstVar)
-  @assign str = begin
-    @match tpl begin
-      NONE() => begin
-        ""
-      end
-
-      SOME((apre, astr, ainfo, afunc)) => begin
-        @assign str = arrayGet(astr, 1)
-        if str != ""
-          @assign func = arrayGet(afunc, 1)
-          @assign str = "Variable " + func(str, arrayGet(apre, 1)) + ": "
-          @assign info = arrayGet(ainfo, 1)
-          @assign sline = info.lineNumberStart
-          @assign scol = info.columnNumberStart
-          @assign eline = info.lineNumberEnd
-          @assign ecol = info.columnNumberEnd
-          @assign read_only = info.isReadOnly
-          @assign filename = info.fileName
-        end
-        str
-      end
-    end
-  end
-  return (str, sline, scol, eline, ecol, read_only, filename)
-end
-
 """
  Implementation of Relations
   function: addMessage
@@ -4739,13 +4644,6 @@ function addSourceMessage(
   inInfo::SourceInfo,
 )
   ErrorExt.pushSourceMessage!([inErrorMsg, inMessageTokens, inInfo])
-end
-
-function addSourceMessageAsError(
-  msg::ErrorTypes.Message,
-  tokens::ErrorTypes.MessageTokens,
-  info::SourceInfo,
-)
 end
 
 function addStrictMessage(
@@ -4800,36 +4698,6 @@ function addMultiSourceMessage(inErrorMsg::ErrorTypes.Message,
   #=  No infos given, print a sourceless error. =#
 end
 
-"""
-  @author:adrpo
-  Adds a message or a source message depending on the OPTIONAL source file info.
-  If the source file info is not present a normal message is added.
-  If the source file info is present a source message is added
-"""
-function addMessageOrSourceMessage(
-  inErrorMsg::ErrorTypes.Message,
-  inMessageTokens::ErrorTypes.MessageTokens,
-  inInfoOpt::Option{<:SourceInfo},
-)
-  begin
-    local info::SourceInfo
-    #=  we DON'T have an info, add message
-    =#
-    @match (inErrorMsg, inMessageTokens, inInfoOpt) begin
-      (_, _, NONE()) => begin
-        addMessage(inErrorMsg, inMessageTokens)
-        ()
-      end
-
-      (_, _, SOME(info)) => begin
-        addSourceMessage(inErrorMsg, inMessageTokens, info)
-        ()
-      end
-    end
-  end
-  #=  we have an info, add source message =#
-end
-
 function addTotalMessage(message::ErrorTypes.TotalMessage)
   local msg::ErrorTypes.Message
   local info::SourceInfo
@@ -4861,54 +4729,6 @@ function printErrorsNoWarning()::String
 
   @assign res = ErrorExt.printErrorsNoWarning()
   return res
-end
-
-"""Returns all messages as a list of strings, one for each message."""
-function printMessagesStrLst()::List{String}
-  local outStringLst::List{String}
-
-  @assign outStringLst = begin
-    @match () begin
-      () => begin
-        list("Not impl. yet")
-      end
-    end
-  end
-  return outStringLst
-end
-
-"""
-  Returns all messages as a list of strings, one for each message.
-  Filters out messages of certain type.
-"""
-function printMessagesStrLstType(inMessageType::ErrorTypes.MessageType)::List{String}
-  local outStringLst::List{String}
-
-  @assign outStringLst = begin
-    @match inMessageType begin
-      _ => begin
-        list("Not impl. yet")
-      end
-    end
-  end
-  return outStringLst
-end
-
-"""
-  Returns all messages as a list of strings, one for each message.
-  Filters out messages of certain severity
-"""
-function printMessagesStrLstSeverity(inSeverity::ErrorTypes.Severity)::List{String}
-  local outStringLst::List{String}
-
-  @assign outStringLst = begin
-    @match inSeverity begin
-      _ => begin
-        list("Not impl. yet")
-      end
-    end
-  end
-  return outStringLst
 end
 
 """clears the message buffer"""
@@ -4943,30 +4763,6 @@ function getMessages()::List{ErrorTypes.TotalMessage}
   @assign res = ErrorExt.getMessages()
   return res
 end
-
-"""
-  Return all messages in a matrix format, vector of strings for each
-  message, written out as a string.
-  Filtered by a specific MessageType.
-"""
-function getMessagesStrType(inMessageType::ErrorTypes.MessageType)::String
-  local outString::String
-
-  @assign outString = "not impl yet."
-  return outString
-end
-
-"""
-  Return all messages in a matrix format, vector of strings for each
-  message, written out as a string.
-  Filtered by a specific MessageType.
-"""
-function getMessagesStrSeverity(inSeverity::ErrorTypes.Severity)::String
-  local outString::String
-  @assign outString = "not impl yet."
-  return outString
-end
-
 
 """
   Used to make compiler-internal assertions. These messages are not meant
@@ -5023,18 +4819,8 @@ function failOnErrorMsg(inMessage::ErrorTypes.Message)
 end
 
 """Used to make a compiler warning"""
-function addCompilerError(message::String)
-  return addMessage(COMPILER_ERROR, list(message))
-end
-
-"""Used to make a compiler warning"""
 function addCompilerWarning(message::String)
   return addMessage(COMPILER_WARNING, list(message))
-end
-
-"""Used to make a compiler notification"""
-function addCompilerNotification(message::String)
-  return addMessage(COMPILER_NOTIFICATION, list(message))
 end
 
 """
@@ -5055,27 +4841,6 @@ function addInternalError(message::String, info::SourceInfo)
 #  end
 end
 
-
-"""
-Prints out a message and terminates the execution.
-"""
-function terminateError(message::String, info::SourceInfo)
-  # ErrorExt.addSourceMessage(
-  #   0,
-  #   ErrorTypes.TRANSLATION(),
-  #   ErrorTypes.INTERNAL(),
-  #   info.lineNumberStart,
-  #   info.columnNumberStart,
-  #   info.lineNumberEnd,
-  #   info.columnNumberEnd,
-  #   info.isReadOnly,
-  #   info.fileName,
-  #   "%s",
-  #   list(message),
-  # )
-  print(ErrorExt.printMessagesStr())
-  return System.exit(-1)
-end
 
 @exportAll()
 end

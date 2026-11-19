@@ -127,12 +127,6 @@ function fromConnections(connections)
   return sets
 end
 
-"""Adds a single connector to the connection sets."""
-function addScalarConnector(conn, sets)
-  sets = add(sets, conn)
-  return sets
-end
-
     "Adds a connection to the sets, which means merging the two sets that the
      connectors belong to, unless they already belong to the same set."
 
@@ -153,14 +147,6 @@ end #=addConnection=#
 function addConnector(conn, sets)
   sets = addList(split(conn), sets)
   #@debug "After addConnector $(string(sets))"
-  return sets
-end
-
-""" Adds a connector to the sets if it does not already exist  """
-function addSingleConnector(conn, sets)
-  for c in #= Connector. =# split(conn)
-    sets = find(c, sets)
-  end
   return sets
 end
 

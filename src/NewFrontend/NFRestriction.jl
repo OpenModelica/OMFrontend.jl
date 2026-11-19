@@ -257,22 +257,6 @@ function isExternalObject(res::Restriction)::Bool
   return isExternalObject
 end
 
-function isNonexpandableConnector(res::Restriction)::Bool
-  local isNonexpandable::Bool
-
-  @assign isNonexpandable = begin
-    @match res begin
-      RESTRICTION_CONNECTOR(__) => begin
-        !res.isExpandable
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return isNonexpandable
-end
-
 function isExpandableConnector(res::Restriction)::Bool
   local isConnector::Bool
   @assign isConnector = begin

@@ -2180,52 +2180,6 @@ const emptyCref = CREF_IDENT("", T_UNKNOWN_DEFAULT, nil)::ComponentRef
 
 FunctionTree = Dict{Absyn.Path, Function}
 
-function makeDummyCrefIdentOfTypeReal(name::String)
-  CREF_IDENT(name, T_REAL_DEFAULT, nil)
-end
-
-"""
-Function to simplify the creation of DAE attributes.
-"""
-function makeRealAttribute(;quantity #= quantity =#::Option{Exp} = NONE(),
-                           unit #= unit =#::Option{Exp} = NONE(),
-                           displayUnit #= displayUnit =#::Option{Exp} = NONE(),
-                           min::Option{Exp} = NONE(),
-                           max::Option{Exp} = NONE(),
-                           start::Option{Float64} = NONE(),
-                           fixed::Bool,
-                           nominal #= nominal =#::Option{Exp} = NONE(),
-                           stateSelectOption::Option{StateSelect} = NONE(),
-                           uncertainOption::Option{Uncertainty} = NONE(),
-                           distributionOption::Option{Distribution} = NONE(),
-                           equationBound::Option{Exp} = NONE(),
-                           isProtected::Bool = false,
-                           finalPrefix::Bool = false,
-                           startOrigin::Option{Exp} = NONE())
-  startExp = @match start begin
-    SOME(v) => SOME{DAE.Exp}(DAE.RCONST(v))
-    _ => NONE()
-  end
-  VAR_ATTR_REAL(
-    quantity,
-    unit,
-    displayUnit,
-    min,
-    max,
-    startExp,
-    SOME{DAE.Exp}(DAE.BCONST(fixed)),
-    nominal,
-    stateSelectOption,
-    uncertainOption,
-    distributionOption,
-    equationBound,
-    SOME{DAE.Exp}(DAE.BCONST(isProtected)),
-    SOME{DAE.Exp}(DAE.BCONST(finalPrefix)),
-    startOrigin,
-  )
-end
-
-
 # Compat: pre-encrypted-field callers construct VAR with 13 positional args.
 VAR(componentRef, kind, direction, parallelism, protection, ty, binding, dims,
     connectorType, source, variableAttributesOption, comment, innerOuter) =

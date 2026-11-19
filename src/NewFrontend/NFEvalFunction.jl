@@ -561,8 +561,8 @@ end
 
 function addInputReplacement(
   node::InstNode,
-  argument::Expression,
-  repl::ReplTree.Tree,
+  @nospecialize(argument::Expression),
+  @nospecialize(repl::ReplTree.Tree),
 )::ReplTree.Tree
 
   #= Passed by value: a record argument must not bring the caller's cells along. =#
@@ -572,7 +572,7 @@ end
 
 function applyBindingReplacement(
   node::InstNode,
-  exp::Expression,
+  @nospecialize(exp::Expression),
   repl::ReplTree.Tree,
 )::Expression
   local outExp::Expression
@@ -667,7 +667,7 @@ end
 function applyReplacementCref(
   repl::ReplTree.Tree,
   cref::ComponentRef,
-  exp::Expression,
+  @nospecialize(exp::Expression),
 )::Expression
   local outExp::Expression
   local cref_parts::List{ComponentRef}
@@ -885,8 +885,8 @@ function evaluateStatement(stmt::Statement)::FlowControlType
 end
 
 function evaluateAssignment(
-  lhsExp::Expression,
-  rhsExp::Expression,
+  @nospecialize(lhsExp::Expression),
+  @nospecialize(rhsExp::Expression),
   source::DAE.ElementSource,
 )::FlowControlType
   local ctrl::FlowControlType = FlowControl.NEXT
@@ -995,7 +995,7 @@ end
 function assignSubscriptedVariable(
   variable::Pointer{<:Expression},
   subscripts::List{<:Subscript},
-  value::Expression,
+  @nospecialize(value::Expression),
 )
   local subs::List{Subscript}
 
@@ -1004,9 +1004,9 @@ function assignSubscriptedVariable(
 end
 
 function assignArrayElement(
-  arrayExp::Expression,
+  @nospecialize(arrayExp::Expression),
   subscripts::List{<:Subscript},
-  value::Expression,
+  @nospecialize(value::Expression),
 )::Expression
   local result::ARRAY_EXPRESSION
   local sub::Expression
@@ -1274,7 +1274,7 @@ function evaluateNoRetCall(@nospecialize(callExp::Expression), source::DAE.Eleme
 end
 
 function evaluateWhile(
-  condition::Expression,
+  @nospecialize(condition::Expression),
   body::Vector{Statement},
   source::DAE.ElementSource,
 )::FlowControlType

@@ -615,16 +615,6 @@ function apply(stmt::Statement, func::ApplyFn)
   return func(stmt)
 end
 
-function Statement_info(stmt::Statement)::SourceInfo
-  local info::SourceInfo = DAE.ElementSource_getInfo(Statement_source(stmt))
-  return info
-end
-
-function Statement_source(stmt::Statement)::DAE.ElementSource
-  local source::DAE.ElementSource
-  return stmt.source
-end
-
 function makeIf(
   branches::Vector{<:Tuple{<:Expression, Vector{<:Statement}}},
   src::DAE.ElementSource,

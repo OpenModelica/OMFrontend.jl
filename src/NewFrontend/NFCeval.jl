@@ -34,7 +34,7 @@
 */ =#
 
 @UniontypeDecl EvalTarget
-function EvalTarget_getInfo(target::EvalTarget)::SourceInfo
+function EvalTarget_getInfo(@nospecialize(target::EvalTarget))::SourceInfo
   local info::SourceInfo
   info = begin
     @match target begin
@@ -70,7 +70,7 @@ function EvalTarget_getInfo(target::EvalTarget)::SourceInfo
   return info
 end
 
-function hasInfo(target::EvalTarget)::Bool
+function hasInfo(@nospecialize(target::EvalTarget))::Bool
   local hasInfo::Bool
   hasInfo = begin
     @match target begin
@@ -106,7 +106,7 @@ function hasInfo(target::EvalTarget)::Bool
   return hasInfo
 end
 
-function isRange(target::EvalTarget)::Bool
+function isRange(@nospecialize(target::EvalTarget))::Bool
   local isR::Bool
   isR = begin
     @match target begin
@@ -310,7 +310,7 @@ end
 
 function evalExpOpt(
   oexp::Option{Expression},
-  target::EvalTarget = EVALTARGET_IGNORE_ERRORS(),
+  @nospecialize(target::EvalTarget = EVALTARGET_IGNORE_ERRORS()),
 )::Option{Expression}
 
    oexp = begin
@@ -335,8 +335,8 @@ end
    be evaluated many times, for example the expression in an array constructor.
 """
 function evalExpPartial(
-  exp::Expression,
-  target::EvalTarget = EVALTARGET_IGNORE_ERRORS(),
+  @nospecialize(exp::Expression),
+  @nospecialize(target::EvalTarget = EVALTARGET_IGNORE_ERRORS()),
   evaluated::Bool = true,
   )::Tuple{Expression, Bool}
   local outEvaluated::Bool #= True if the whole expression is evaluated, otherwise false. =#
@@ -405,9 +405,9 @@ end
 
 
 function evalExpPartialRef(
-  exp::Expression,
+  @nospecialize(exp::Expression),
   outEvaluatedRef::Ref{Bool},
-  target::EvalTarget = EVALTARGET_IGNORE_ERRORS())::Expression
+  @nospecialize(target::EvalTarget = EVALTARGET_IGNORE_ERRORS()))::Expression
   local outEvaluated::Bool #= True if the whole expression is evaluated, otherwise false. =#
   local outExp::Expression
   local e::Expression
@@ -464,7 +464,7 @@ function evalExpPartialRef(
 end
 
 function evalCref(cref::ComponentRef,
-                  defaultExp::Expression,
+                  @nospecialize(defaultExp::Expression),
                   target::EvalTarget;
                   evalSubscripts::Bool = true)
   local exp::Expression
@@ -493,8 +493,8 @@ end
 function evalComponentBinding(
   node::InstNode,
   cref::ComponentRef,
-  defaultExp::Expression,
-  target::EvalTarget,
+  @nospecialize(defaultExp::Expression),
+  @nospecialize(target::EvalTarget),
   evalSubscripts::Bool = true,
 )::Expression #= The expression returned if the binding couldn't be evaluated =#
   #= Typing plus evaluated-flag write-back must be atomic per node under
@@ -694,8 +694,8 @@ end
 function evalComponentBinding2(
   node::InstNode,
   cref::ComponentRef,
-  defaultExp::Expression,
-  target::EvalTarget,
+  @nospecialize(defaultExp::Expression),
+  @nospecialize(target::EvalTarget),
   evalSubscripts::Bool = true,
 )::Expression #= The expression returned if the binding couldn't be evaluated =#
   local exp::Expression
@@ -863,7 +863,7 @@ end
   evaluated expression.
 """
 function subscriptEvaluatedBinding(
-  exp::Expression,
+  @nospecialize(exp::Expression),
   cref::ComponentRef,
   evalSubscripts::Bool,
 )::Expression
@@ -886,7 +886,7 @@ function subscriptEvaluatedBinding(
 end
 
 function subscriptEvaluatedBinding2(
-  exp::Expression,
+  @nospecialize(exp::Expression),
   cref::ComponentRef,
   evalSubscripts::Bool,
   subscripts::List{<:Subscript} = nil,
@@ -970,7 +970,7 @@ end
 #= Installs the evaluated start binding. Under parallel typing on the start node's component as it
    is under that node's claim: attribute typing writes the same node under it (the caller holds the
    parent's claim only). =#
-function setStartBinding!(start_node::InstNode, binding::Binding, exp::Expression)::Nothing
+function setStartBinding!(start_node::InstNode, binding::Binding, @nospecialize(exp::Expression))::Nothing
   binding.bindingExp = exp
   if _parallelTypingActive()
     _withClaim(() -> updateComponent!(setBinding(binding, component(start_node)), start_node), _refId(start_node))
@@ -990,7 +990,7 @@ function evalComponentStartBinding(
   node::InstNode,
   comp::Component,
   cref::ComponentRef,
-  target::EvalTarget,
+  @nospecialize(target::EvalTarget),
   evalSubscripts::Bool,
 )::Option{Expression}
   local outExp::Option{Expression} = NONE()
@@ -1069,7 +1069,7 @@ function makeComponentBinding(
   component::Component,
   node::InstNode,
   cref::ComponentRef,
-  target::EvalTarget,
+  @nospecialize(target::EvalTarget),
 )::Binding
   local binding::Binding
   local tree::ClassTree
@@ -1154,7 +1154,7 @@ extended by the fields below (`stackData.cellData.nRC`) and evaluated as that fi
 had its binding replaced by the value (MSL CCCV_StackRC: `stackData.cellData[1, 1].Qnom = 18000.0` for omc's
 `= stackData.cellDataDegraded.Qnom`).
 """
-function makeRecordFieldBindingFromParent(cref::ComponentRef, target::EvalTarget)::Expression
+function makeRecordFieldBindingFromParent(cref::ComponentRef, @nospecialize(target::EvalTarget))::Expression
   local (exp::Expression, evaluated::Bool) = recordFieldFromParent(cref, target)
   evaluated && return exp
   exp = evalExp(exp, target)
@@ -1168,7 +1168,7 @@ field is returned as it is (see makeRecordFieldBindingFromParent), anything else
 a binding: the parent's value, its field evaluated again (its record's fields are not evaluated by evalExp_impl: a
 record field of a field set by a record constructor, Buildings' borefield conDat.mBorFie_flow_nominal).
 """
-function recordFieldFromParent(cref::ComponentRef, target::EvalTarget)::Tuple{Expression, Bool}
+function recordFieldFromParent(cref::ComponentRef, @nospecialize(target::EvalTarget))::Tuple{Expression, Bool}
   local parent_cr::ComponentRef = rest(cref)
   local parent::InstNode = typeComponentBinding(node(parent_cr), ORIGIN_CLASS, #= typeChildren =# false)
   local binding::Binding = getBinding(component(parent))
@@ -1234,7 +1234,7 @@ function splitRecordArrayExp(@nospecialize(exp::Expression))::Expression
   return exp
 end
 
-function evalTypename(ty::M_Type, @nospecialize(originExp::Expression), target::EvalTarget)::Expression
+function evalTypename(ty::M_Type, @nospecialize(originExp::Expression), @nospecialize(target::EvalTarget))::Expression
   local exp::Expression
 
   #=  Only expand the typename into an array if it's used as a range, and keep
@@ -1249,7 +1249,7 @@ function evalTypename(ty::M_Type, @nospecialize(originExp::Expression), target::
   return exp
 end
 
-function evalRange(@nospecialize(rangeExp::Expression), target::EvalTarget)::Expression
+function evalRange(@nospecialize(rangeExp::Expression), @nospecialize(target::EvalTarget))::Expression
   local result::Expression
 
   local ty::M_Type
@@ -1309,7 +1309,7 @@ function evalRangeExp(@nospecialize(rangeExp::Expression))::Expression
         ) => begin
           #=  The compiler decided to randomly dislike using step.value here, hence istep.
           =#
-           expl = INTEGER_EXPRESSION[INTEGER_EXPRESSION(i) for i = (start.value):istep:(stop.value)]
+           expl = Expression[INTEGER_EXPRESSION(i) for i::Int = _intOf(start):istep:_intOf(stop)]
           (TYPE_INTEGER(), expl)
         end
 
@@ -1318,7 +1318,7 @@ function evalRangeExp(@nospecialize(rangeExp::Expression))::Expression
           REAL_EXPRESSION(__),
           REAL_EXPRESSION(__),
         ) => begin
-           expl = evalRangeReal(start.value, step.value, stop.value)
+           expl = evalRangeReal(_realOf(start), _realOf(step), _realOf(stop))
           (TYPE_REAL(), expl)
         end
 
@@ -1327,26 +1327,26 @@ function evalRangeExp(@nospecialize(rangeExp::Expression))::Expression
           fail()
         end
       end
-    end
+    end::Tuple{M_Type, Vector{Expression}}
   else
      (ty, expl) = begin
       @match (start, stop) begin
         (INTEGER_EXPRESSION(__), INTEGER_EXPRESSION(__)) =>
           begin
              expl =
-               INTEGER_EXPRESSION[INTEGER_EXPRESSION(i) for i = (start.value):(stop.value)]
+               Expression[INTEGER_EXPRESSION(i) for i::Int = _intOf(start):_intOf(stop)]
             (TYPE_INTEGER(), expl)
           end
 
         (REAL_EXPRESSION(__), REAL_EXPRESSION(__)) => begin
-           expl = evalRangeReal(start.value, 1.0, stop.value)
+           expl = evalRangeReal(_realOf(start), 1.0, _realOf(stop))
           (TYPE_REAL(), expl)
         end
 
         (BOOLEAN_EXPRESSION(__), BOOLEAN_EXPRESSION(__)) =>
           begin
              expl =
-              INTEGER_EXPRESSION[BOOLEAN_EXPRESSION(b) for b = (start.value):(stop.value)]
+              Expression[BOOLEAN_EXPRESSION(b) for b::Bool = _boolOf(start):_boolOf(stop)]
             (TYPE_BOOLEAN(), expl)
           end
 
@@ -1355,7 +1355,7 @@ function evalRangeExp(@nospecialize(rangeExp::Expression))::Expression
           ENUM_LITERAL_EXPRESSION(__),
         ) => begin
           expl =
-            ENUM_LITERAL_EXPRESSION[ENUM_LITERAL_EXPRESSION(ty, listGet(ty.literals, i), i) for i = (start.index):(stop.index)]
+            Expression[ENUM_LITERAL_EXPRESSION(ty, listGet(ty.literals, i), i) for i::Int = (start::ENUM_LITERAL_EXPRESSION).index:(stop::ENUM_LITERAL_EXPRESSION).index]
           (ty, expl)
         end
 
@@ -1364,7 +1364,7 @@ function evalRangeExp(@nospecialize(rangeExp::Expression))::Expression
           fail()
         end
       end
-     end
+     end::Tuple{M_Type, Vector{Expression}}
   end
   exp = makeArray(
     TYPE_ARRAY(ty, list(fromInteger(length(expl)))), expl
@@ -1396,10 +1396,10 @@ function printFailedEvalError(name::String, @nospecialize(exp::Expression), info
 end
 
 function evalBinaryOp(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   op::Operator,
-  exp2::Expression,
-  target::EvalTarget = EVALTARGET_IGNORE_ERRORS(),
+  @nospecialize(exp2::Expression),
+  @nospecialize(target::EvalTarget = EVALTARGET_IGNORE_ERRORS()),
 )::Expression
   local exp::Expression
 
@@ -1421,7 +1421,7 @@ function evalBinaryOp(
   return exp
 end
 
-function evalBinaryExp(@nospecialize(binaryExp::Expression), target::EvalTarget)::Expression
+function evalBinaryExp(@nospecialize(binaryExp::Expression), @nospecialize(target::EvalTarget))::Expression
   local result::Expression
   local e1::Expression
   local e2::Expression
@@ -1438,10 +1438,10 @@ function evalBinaryExp(@nospecialize(binaryExp::Expression), target::EvalTarget)
 end
 
 function evalBinaryOp_dispatch(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   op::Operator,
-  exp2::Expression,
-  target::EvalTarget = EVALTARGET_IGNORE_ERRORS(),
+  @nospecialize(exp2::Expression),
+  @nospecialize(target::EvalTarget = EVALTARGET_IGNORE_ERRORS()),
 )::Expression
   local exp::Expression
 
@@ -1689,7 +1689,7 @@ function evalBinaryMul(@nospecialize(exp1::Expression), @nospecialize(exp2::Expr
   return exp
 end
 
-function evalBinaryDiv(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression), target::EvalTarget)::Expression
+function evalBinaryDiv(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression), @nospecialize(target::EvalTarget))::Expression
   (exp1, exp2) = _mixedAsReal(exp1, exp2)
   local exp::Expression
 
@@ -1787,8 +1787,8 @@ function evalBinaryPow(@nospecialize(exp1::Expression), @nospecialize(exp2::Expr
 end
 
 function evalBinaryScalarArray(
-  scalarExp::Expression,
-  arrayExp::Expression,
+  @nospecialize(scalarExp::Expression),
+  @nospecialize(arrayExp::Expression),
   opFunc::FuncT,
 )::Expression
   local exp::Expression
@@ -1810,8 +1810,8 @@ function evalBinaryScalarArray(
 end
 
 function evalBinaryArrayScalar(
-  arrayExp::Expression,
-  scalarExp::Expression,
+  @nospecialize(arrayExp::Expression),
+  @nospecialize(scalarExp::Expression),
   opFunc::FuncT,
 )::Expression
   local exp::Expression
@@ -2092,10 +2092,10 @@ function evalUnaryMinus(@nospecialize(exp1::Expression))::Expression
 end
 
 function evalLogicBinaryOp(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   op::Operator,
-  exp2::Expression,
-  target::EvalTarget = EVALTARGET_IGNORE_ERRORS(),
+  @nospecialize(exp2::Expression),
+  @nospecialize(target::EvalTarget = EVALTARGET_IGNORE_ERRORS()),
 )::Expression
   local exp::Expression
 
@@ -2128,7 +2128,7 @@ function evalLogicBinaryOp(
 end
 
 #= The value of exp, or nothing where its evaluation fails (a MetaModelica failure). =#
-function _evalOrNothing(@nospecialize(exp::Expression), target::EvalTarget)::Union{Expression, Nothing}
+function _evalOrNothing(@nospecialize(exp::Expression), @nospecialize(target::EvalTarget))::Union{Expression, Nothing}
   try
     return evalExp_impl(exp, target)
   catch e
@@ -2137,7 +2137,7 @@ function _evalOrNothing(@nospecialize(exp::Expression), target::EvalTarget)::Uni
   end
 end
 
-function evalLogicBinaryExp(@nospecialize(binaryExp::Expression), target::EvalTarget)::Expression
+function evalLogicBinaryExp(@nospecialize(binaryExp::Expression), @nospecialize(target::EvalTarget))::Expression
   local result::Expression
 
   local e1::Expression
@@ -2150,10 +2150,10 @@ function evalLogicBinaryExp(@nospecialize(binaryExp::Expression), target::EvalTa
 end
 
 function evalLogicBinaryOp_dispatch(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   op::Operator,
-  exp2::Expression,
-  target::EvalTarget,
+  @nospecialize(exp2::Expression),
+  @nospecialize(target::EvalTarget),
 )::Expression
   local exp::Expression
 
@@ -2182,9 +2182,9 @@ function evalLogicBinaryOp_dispatch(
 end
 
 function evalLogicBinaryAnd(
-  exp1::Expression,
-  exp2::Expression,
-  target::EvalTarget,
+  @nospecialize(exp1::Expression),
+  @nospecialize(exp2::Expression),
+  @nospecialize(target::EvalTarget),
 )::Expression
   local exp::Expression
 
@@ -2224,9 +2224,9 @@ function evalLogicBinaryAnd(
 end
 
 function evalLogicBinaryOr(
-  exp1::Expression,
-  exp2::Expression,
-  target::EvalTarget,
+  @nospecialize(exp1::Expression),
+  @nospecialize(exp2::Expression),
+  @nospecialize(target::EvalTarget),
 )::Expression
   local exp::Expression
 
@@ -2348,9 +2348,9 @@ function evalRelationExp(@nospecialize(relationExp::Expression))::Expression
 end
 
 function evalRelationOp_dispatch(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   op::Operator,
-  exp2::Expression,
+  @nospecialize(exp2::Expression),
 )::Expression
   local exp::Expression
 
@@ -2689,7 +2689,7 @@ function evalRelationNotEqual(@nospecialize(exp1::Expression), @nospecialize(exp
   return res
 end
 
-function evalIfExp(@nospecialize(ifExp::Expression), target::EvalTarget)::Expression
+function evalIfExp(@nospecialize(ifExp::Expression), @nospecialize(target::EvalTarget))::Expression
   local result::Expression
 
   local cond::Expression
@@ -2707,7 +2707,7 @@ function evalIfExp(@nospecialize(ifExp::Expression), target::EvalTarget)::Expres
   return result
 end
 
-function evalIfExp2(@nospecialize(ifExp::Expression), target::EvalTarget)::Expression
+function evalIfExp2(@nospecialize(ifExp::Expression), @nospecialize(target::EvalTarget))::Expression
   local result::Expression
   local cond::Expression
   local btrue::Expression
@@ -2811,7 +2811,7 @@ end
 end
 
 #Note was originally called evalBuiltinCallExp, but the translator seems to have butchered the name for this function..
-function evalxp(@nospecialize(callExp::Expression), target::EvalTarget)::Expression
+function evalxp(@nospecialize(callExp::Expression), @nospecialize(target::EvalTarget))::Expression
   local result::Expression
   local fn::M_Function
   local args::Vector{Expression}
@@ -2823,7 +2823,7 @@ end
 function ceval(
   fn::M_Function,
   args::Vector{Expression},
-  target::EvalTarget,
+  @nospecialize(target::EvalTarget),
 )::Expression
   local result::Expression
   local fn_path::Absyn.Path = nameConsiderBuiltin(fn)
@@ -3109,7 +3109,7 @@ function evalBuiltinAbs(@nospecialize(arg::Expression))::Expression
   return result
 end
 
-function evalBuiltinAcos(@nospecialize(arg::Expression), target::EvalTarget)::Expression
+function evalBuiltinAcos(@nospecialize(arg::Expression), @nospecialize(target::EvalTarget))::Expression
   local result::Expression
 
   local x::AbstractFloat
@@ -3148,7 +3148,7 @@ function evalBuiltinArray(args::Union{List{Expression}, Vector{Expression}})::Ex
   return result
 end
 
-function evalBuiltinAsin(@nospecialize(arg::Expression), target::EvalTarget)::Expression
+function evalBuiltinAsin(@nospecialize(arg::Expression), @nospecialize(target::EvalTarget))::Expression
   local result::Expression
 
   local x::AbstractFloat
@@ -3212,9 +3212,9 @@ function evalBuiltinAtan(@nospecialize(arg::Expression))::Expression
 end
 
 function evalBuiltinCat(
-  argN::Expression,
+  @nospecialize(argN::Expression),
   args::Vector{Expression},
-  target::EvalTarget,
+  @nospecialize(target::EvalTarget),
   )::Expression
   local result::Expression
   local n::Int
@@ -3398,7 +3398,7 @@ function evalBuiltinDiagonal(@nospecialize(arg::Expression))::Expression
   return result
 end
 
-function evalBuiltinDiv(args::Vector{Expression}, target::EvalTarget)::Expression
+function evalBuiltinDiv(args::Vector{Expression}, @nospecialize(target::EvalTarget))::Expression
   local result::Expression
   local rx::AbstractFloat
   local ry::AbstractFloat
@@ -3575,7 +3575,7 @@ function evalBuiltinIntegerEnum(@nospecialize(arg::Expression))::Expression
   return result
 end
 
-function evalBuiltinLog10(@nospecialize(arg::Expression), target::EvalTarget)::Expression
+function evalBuiltinLog10(@nospecialize(arg::Expression), @nospecialize(target::EvalTarget))::Expression
   local result::Expression
 
   local x::AbstractFloat
@@ -3605,7 +3605,7 @@ function evalBuiltinLog10(@nospecialize(arg::Expression), target::EvalTarget)::E
   return result
 end
 
-function evalBuiltinLog(@nospecialize(arg::Expression), target::EvalTarget)::Expression
+function evalBuiltinLog(@nospecialize(arg::Expression), @nospecialize(target::EvalTarget))::Expression
   local result::Expression
 
   local x::AbstractFloat
@@ -3872,7 +3872,7 @@ function evalBuiltinMin2(@nospecialize(exp1::Expression), @nospecialize(exp2::Ex
   return result
 end
 
-function evalBuiltinMod(args::Vector{Expression}, target::EvalTarget)::Expression
+function evalBuiltinMod(args::Vector{Expression}, @nospecialize(target::EvalTarget))::Expression
   local result::Expression
   local x::Expression
   local y::Expression
@@ -4016,7 +4016,7 @@ function evalBuiltinPromote(@nospecialize(arg::Expression), @nospecialize(argN::
   return result
 end
 
-function evalBuiltinRem(args::Union{List{Expression}, Vector{Expression}}, target::EvalTarget)::Expression
+function evalBuiltinRem(args::Union{List{Expression}, Vector{Expression}}, @nospecialize(target::EvalTarget))::Expression
   local result::Expression
 
   local x::Expression
@@ -4504,7 +4504,7 @@ end
 function evalUriToFilename(
   fn::M_Function,
   args::Union{List{Expression}, Vector{<:Expression}},
-  target::EvalTarget,
+  @nospecialize(target::EvalTarget),
 )::Expression
   local result::Expression
 
@@ -4807,7 +4807,7 @@ end
 function evalBuiltinDynamicSelect(
   fn::M_Function,
   args::List{Expression},
-  target::EvalTarget,
+  @nospecialize(target::EvalTarget),
 )::Expression
   local result::Expression
   local s::Expression
@@ -4819,7 +4819,7 @@ function evalBuiltinDynamicSelect(
 end
 
 function evalArrayConstructor(
-  exp::Expression,
+  @nospecialize(exp::Expression),
   iterators::List{<:Tuple{<:InstNode, Expression}},
 )::Expression
   local result::Expression
@@ -4832,7 +4832,7 @@ function evalArrayConstructor(
 end
 
 function evalArrayConstructor2(
-  exp::Expression,
+  @nospecialize(exp::Expression),
   iterators::List{<:Tuple{<:InstNode, Expression}},
 )::Expression
   local result::Expression
@@ -4849,7 +4849,7 @@ function evalArrayConstructor2(
 end
 
 function createIterationRanges(
-  exp::Expression,
+  @nospecialize(exp::Expression),
   iterators::List{<:Tuple{<:InstNode, Expression}},
 )::Tuple{Expression, List{Expression}, List{Pointer{Expression}}}
   local iters::List{Pointer{Expression}} = nil
@@ -4879,7 +4879,7 @@ end
 #= The arrays' types from their elements (a range can depend on an enclosing iterator; omc
    evalArrayConstructor2). =#
 function evalArrayConstructor3(
-  exp::Expression,
+  @nospecialize(exp::Expression),
   ranges::List{Expression},
   iterators::List{<:Pointer{Expression}},
 )::Expression
@@ -4913,7 +4913,7 @@ end
 
 function evalReduction(
   fn::M_Function,
-  exp::Expression,
+  @nospecialize(exp::Expression),
   iterators::List{<:Tuple{<:InstNode, Expression}},
 )::Expression
   local result::Expression
@@ -4927,7 +4927,7 @@ end
 
 function evalReduction2(
   fn::M_Function,
-  exp::Expression,
+  @nospecialize(exp::Expression),
   iterators::List{<:Tuple{<:InstNode, Expression}},
 )::Expression
   local result::Expression
@@ -4977,10 +4977,10 @@ function evalReduction2(
 end
 
 function evalReduction3(
-  exp::Expression,
+  @nospecialize(exp::Expression),
   ranges::List{Expression},
   iterators::List{<:Pointer{Expression}},
-  foldExp::Expression,
+  @nospecialize(foldExp::Expression),
   fn::Function,
 )::Expression
   local result::Expression
@@ -5011,9 +5011,9 @@ function evalReduction3(
 end
 
 function evalSize(
-  exp::Expression,
+  @nospecialize(exp::Expression),
   optIndex::Option{Expression},
-  target::EvalTarget,
+  @nospecialize(target::EvalTarget),
   )::Expression
   local outExp::Expression
   local index_exp::Expression
@@ -5047,9 +5047,9 @@ function evalSize(
 end
 
 function evalSubscriptedExp(
-  exp::Expression,
+  @nospecialize(exp::Expression),
   subscripts::List{<:Subscript},
-  target::EvalTarget,
+  @nospecialize(target::EvalTarget),
 )::Expression
   local result::Expression
 
@@ -5079,7 +5079,7 @@ function evalSubscriptedExp(
   return result
 end
 
-function evalRecordElement(exp::RECORD_ELEMENT_EXPRESSION, target::EvalTarget)
+function evalRecordElement(exp::RECORD_ELEMENT_EXPRESSION, @nospecialize(target::EvalTarget))
   local result::Expression
   local e::Expression
   local index::Int
@@ -5118,7 +5118,7 @@ function _recordElementOf(@nospecialize(x::Expression), index::Int, @nospecializ
   return evalRecordElement2(x, index)
 end
 
-function printUnboundError(component::Component, target::EvalTarget, @nospecialize(exp::Expression))
+function printUnboundError(component::Component, @nospecialize(target::EvalTarget), @nospecialize(exp::Expression))
   return  () = begin
     @match target begin
       EVALTARGET_IGNORE_ERRORS(__) => begin
@@ -5206,16 +5206,27 @@ function _catPart(@nospecialize(e::Expression), dim::Int)::Array{Expression}
   local level = Expression[e]
   for _ in 1:dim
     all(x -> x isa ARRAY_EXPRESSION, level) || break
-    local n = length(level[1].elements)
-    all(x -> length(x.elements) == n, level) || fail()
+    local n::Int = length((level[1]::ARRAY_EXPRESSION).elements)
+    all(x::Expression -> length((x::ARRAY_EXPRESSION).elements) == n, level) || fail()
     push!(sizes, n)
-    level = Expression[y for x in level for y in x.elements]
+    level = Expression[y for x in level for y in (x::ARRAY_EXPRESSION).elements]
   end
   while length(sizes) < dim
     push!(sizes, 1)
   end
   #= level is in row-major order of sizes =#
-  return Base.permutedims(Base.reshape(level, Tuple(Base.reverse(sizes))), Tuple(dim:-1:1))
+  return _catPartArray(level, sizes, Val(dim))::Array{Expression}
+end
+
+"""
+    _catPartArray(level, sizes, Val(N)) -> Array{Expression, N}
+
+`level` (row-major in `sizes`) as an array of rank N in column-major order (`_catPart`). The rank as a type parameter:
+`reshape` and `permutedims` with a tuple of unknown length were dynamic calls (invalidated by packages' methods).
+"""
+function _catPartArray(level::Vector{Expression}, sizes::Vector{Int}, ::Val{N})::Array{Expression, N} where {N}
+  local dims::NTuple{N, Int} = ntuple(k::Int -> sizes[N + 1 - k], Val(N))
+  return Base.permutedims(Base.reshape(level, dims), ntuple(k::Int -> N + 1 - k, Val(N)))
 end
 
 function evalCat(dim::Int,
