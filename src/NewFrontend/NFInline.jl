@@ -223,6 +223,12 @@ function inlineCall(call::Call, top = nothing)::Expression
           exp = CALL_EXPRESSION(call)
           return exp
         end
+        #= A functional input is called by its name (`y := f(u)`), which substituting the arguments' crefs does not
+           replace: inlined, `apply(function lin(c = coeffs), x)` was `f(x)`, the partial application lost. =#
+        if any(isFunction ∘ getType, inputs)
+          exp = CALL_EXPRESSION(call)
+          return exp
+        end
         body = getBody(fn)
         #=  This function can so far only handle functions with at most one =#
         #=  statement and output and no local variables. =#

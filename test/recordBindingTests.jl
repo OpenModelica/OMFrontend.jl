@@ -48,3 +48,15 @@ end
     @test vars["u.n"][2] == "15"
   end
 end
+
+#= apply(function lin(c = coeffs), x), apply's body `y := f(u)`: inlined, the call was `f(x)`, the partial application
+   lost (the functional input's name is no cref the substitution replaces). A function of a functional input is kept. =#
+@testset "A call through a functional input is not inlined" begin
+  for scalarize in (false, true)
+    local s::String = OMFrontend.toFlatModelica(OMFrontend.flattenModel("RecordBindings.PartialRecord.M",
+                                                                       _RECORD_BINDINGS_FILE; scalarize = scalarize))
+    local equation::String = only(filter(l -> occursin("/*Equality*/", l) && !occursin("der(", l), split(s, "\n")))
+    @test occursin("PartialRecord.apply'(function", equation)
+    @test !occursin("'f'(", equation)
+  end
+end
