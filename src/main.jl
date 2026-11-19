@@ -202,20 +202,28 @@ struct M_FUNCTION <: M_Function
   #= The inputs a partial derivative of a function is taken with respect to, by index
      (`function df = der(f, x)`; omc derivedInputs), empty for other functions. =#
   derivedInputs::List{Int}
-  """
-  One constructor for all argument types (the default compiled one per combination of `Cons`/`Nil` lists and path
-  kinds at run time); `new` converts to the field types as the default did.
-  """
-  function M_FUNCTION(@nospecialize(path), @nospecialize(node), @nospecialize(inputs), @nospecialize(outputs),
-                      @nospecialize(locals), @nospecialize(slots), @nospecialize(returnType), @nospecialize(attributes),
-                      @nospecialize(derivatives), @nospecialize(status), @nospecialize(callCounter),
-                      @nospecialize(derivedInputs))
+  #= One constructor for all argument types (docstring below the struct). =#
+  function M_FUNCTION(@nospecialize(path::Absyn.Path), @nospecialize(node::InstNode), @nospecialize(inputs::List),
+                      @nospecialize(outputs::List), @nospecialize(locals::List), @nospecialize(slots::List),
+                      @nospecialize(returnType::NFType), @nospecialize(attributes::DAE.FunctionAttributes),
+                      @nospecialize(derivatives::List), @nospecialize(status::Pointer),
+                      @nospecialize(callCounter::Pointer), @nospecialize(derivedInputs::List))
     return new(path, node, inputs, outputs, locals, slots, returnType, attributes, derivatives, status, callCounter,
                derivedInputs)
   end
 end
 
-M_FUNCTION(path, node, inputs, outputs, locals, slots, returnType, attributes, derivatives, status, callCounter) =
+"""
+    M_FUNCTION(path, node, inputs, outputs, locals, slots, returnType, attributes, derivatives, status, callCounter[, derivedInputs])
+
+A function. One constructor for all argument types (the default one was compiled per combination of `Cons`/`Nil`
+lists and path kinds at run time). The lists are `List` of any element type, as the default constructor took them:
+`new` converts them to the field types (a `Cons{Any}` built at run time). `derivedInputs` defaults to `nil`.
+"""
+M_FUNCTION(@nospecialize(path::Absyn.Path), @nospecialize(node::InstNode), @nospecialize(inputs::List),
+           @nospecialize(outputs::List), @nospecialize(locals::List), @nospecialize(slots::List),
+           @nospecialize(returnType::NFType), @nospecialize(attributes::DAE.FunctionAttributes),
+           @nospecialize(derivatives::List), @nospecialize(status::Pointer), @nospecialize(callCounter::Pointer)) =
   M_FUNCTION(path, node, inputs, outputs, locals, slots, returnType, attributes, derivatives, status, callCounter, nil)
 
 include("./NewFrontend/NFInstNode.jl")

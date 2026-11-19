@@ -600,7 +600,8 @@ A name without duplicates is the common case and no failure: `DuplicateTree.getO
 348 per MSL Fluid ThreeTanks).
 """
 function lookupElementsPtr(name::String, tree::ClassTree)::List{Pointer{InstNode}}
-  local duplicates::Union{DuplicateTree.Tree, Nothing} = tree.duplicates
+  #= Through the concrete ClassTreeImpl (see getComponents): through the abstract ClassTree the field is Any. =#
+  local duplicates::Union{DuplicateTree.Tree, Nothing} = (tree::ClassTreeImpl).duplicates
   if duplicates !== nothing && !DuplicateTree.isEmpty(duplicates)
     local dup_entry::Option{DuplicateTree.Entry} = DuplicateTree.getOpt(duplicates, name)
     if isSome(dup_entry)

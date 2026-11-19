@@ -2099,11 +2099,11 @@ function matchExpressions2(
 end
 
 @nospecializeinfer function matchTypes(
-  @nospecialize(actualType::T1),
-  @nospecialize(expectedType::T2),
-  @nospecialize(expression::T3),
+  @nospecialize(actualType::NFType),
+  @nospecialize(expectedType::NFType),
+  @nospecialize(expression::Expression),
   allowUnknown::Bool = false,
-  )::Tuple{Expression, NFType, Int} where {T1 <: NFType, T2 <: NFType, T3 <: Expression}
+  )::Tuple{Expression, NFType, Int}
   local matchKind::MatchKindType
   local compatibleType::NFType
   #=  Return true if the references are the same. =#
