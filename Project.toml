@@ -16,7 +16,7 @@ OMRuntimeExternalC="ada38df0-e20e-11ed-02f3-2b4b19c1ec8a"
 
 [compat]
 julia = "1.13"
-MetaModelica = "0.4.3, 0.5"
+MetaModelica = "0.5, 1"
 OMParser = "1"
 ImmutableList = "0.6"
 ExportAll = "0.1"
