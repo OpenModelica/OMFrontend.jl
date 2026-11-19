@@ -1477,6 +1477,14 @@ function isScalar(ty::M_Type)::Bool
   return isScalar
 end
 
+"Whether `ty` is a function type: a functional input (`input Base f`), a partial application (`function f(a = 1)`)."
+function isFunction(ty::NFType)::Bool
+  return @match ty begin
+    TYPE_FUNCTION(__) => true
+    _ => false
+  end
+end
+
 function isClock(ty::NFType)::Bool
   local isClock::Bool
   @assign isClock = begin

@@ -350,13 +350,14 @@ function toStream(stmt::Statement, indent::String, s)
   return s
 end
 
-function toStringList(stmtl::List{<:Statement}, indent::String = "")::String
+"The statements `stmtl` (a list, or an algorithm's vector) as Modelica text."
+function toStringList(stmtl::Union{List{<:Statement}, Vector{<:Statement}}, indent::String = "")::String
   local str::String
   local s
-  s = IOStream.create(getInstanceName(), IOStream.IOStreamType.LIST())
+  s = IOStream_M.create(getInstanceName(), IOStream_M.LIST())
   s = toStreamList(stmtl, indent, s)
-  str = IOStream.string(s)
-  IOStream.delete(s)
+  str = IOStream_M.string(s)
+  IOStream_M.delete(s)
   return str
 end
 

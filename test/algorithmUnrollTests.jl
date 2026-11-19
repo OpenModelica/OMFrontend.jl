@@ -39,6 +39,9 @@ end
   @test occursin("if time >= t[2]", s)
   @test occursin("if time >= t[3]", s)
   @test !occursin(r"for\s+i\s+in", s)
+  #= an algorithm section printed on its own (its statements a Vector) =#
+  local algs = join((OMFrontend.Frontend.toString(a) for a in fm.algorithms), "\n")
+  @test occursin("if time >= t[1]", algs)
 end
 
 @testset "Algorithm: for-loop with iter as a value is also unrolled" begin
