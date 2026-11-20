@@ -250,6 +250,7 @@ const FunctionStatusType = Int
 
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 function isPartial(fn::M_FUNCTION)::Bool

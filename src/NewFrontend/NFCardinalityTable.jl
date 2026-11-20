@@ -43,6 +43,7 @@ import ..INTEGER_EXPRESSION
 
 using ExportAll
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 
 const Table = Dict{String, Int}
 

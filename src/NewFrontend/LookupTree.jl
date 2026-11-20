@@ -36,6 +36,7 @@
 module LookupTree
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 struct IMPORT{T}

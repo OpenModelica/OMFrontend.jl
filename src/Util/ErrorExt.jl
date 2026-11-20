@@ -37,6 +37,7 @@ module ErrorExt
 
 import ..Gettext
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 import ..ErrorTypes

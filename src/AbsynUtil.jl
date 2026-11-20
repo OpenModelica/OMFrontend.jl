@@ -36,6 +36,7 @@
 module AbsynUtil
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 #= Forward declarations for uniontypes until Julia adds support for mutual recursion =#
 

@@ -39,6 +39,7 @@
 module NFHashTable
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 
 import ..Frontend
 import ..Frontend.NFComponentRef

@@ -37,6 +37,7 @@ module P_Pointer
 
 const Pointer = Ref
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 function access(MutableType::Pointer{T}) where {T}

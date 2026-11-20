@@ -37,6 +37,7 @@
 module Values
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 @UniontypeDecl Value

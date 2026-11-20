@@ -42,6 +42,7 @@ import ..SCode
 
 using ..Frontend
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 using MetaModelica.Dangerous
 

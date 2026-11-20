@@ -35,6 +35,7 @@
 
 module FunctionTreeImpl
   using MetaModelica
+  import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
   using ExportAll
   import ..Absyn
   import ..Frontend.M_Function

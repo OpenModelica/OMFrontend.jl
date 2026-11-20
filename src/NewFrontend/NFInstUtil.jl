@@ -41,6 +41,7 @@ import ..Frontend.map
 
 using ..Frontend
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 
 """
 ```

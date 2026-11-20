@@ -35,6 +35,7 @@
 module ClassInf
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 @UniontypeDecl SMNode

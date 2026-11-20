@@ -36,6 +36,7 @@
 module SCodeDump
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 #= Forward declarations for uniontypes until Julia adds support for mutual recursion =#
 
@@ -75,7 +76,7 @@ end
 """The annotation of an SCode comment as Modelica, `annotation(...)`; empty for none."""
 function printAnnotationStr(inComment::SCode.Comment, options::SCodeDumpOptions = defaultOptions)::String
   local ann::Option{SCode.Annotation} = inComment.annotation_
-  return isSome(ann) ? dumpAnnotation(ann.data, options) : ""
+  return isSome(ann) ? dumpAnnotation(ann.value, options) : ""
 end
 
 """The annotations a tool draws, left out with the option `stripGraphicalAnnotations`."""
@@ -96,7 +97,7 @@ function dumpModifier(mod::SCode.Mod, options::SCodeDumpOptions)::String
     local subs::Vector{String} = String[subModStr(sm, options) for sm in mod.subModLst]
     local binding::Option{Absyn.Exp} = mod.binding
     return (isempty(subs) ? "" : "(" * join(subs, ", ") * ")") *
-           (isSome(binding) ? " = " * AbsynUtil.printExp(binding.data) : "")
+           (isSome(binding) ? " = " * AbsynUtil.printExp(binding.value) : "")
   elseif mod isa SCode.REDECL
     return "redeclare " * unparseElementStr(mod.element, options)
   end

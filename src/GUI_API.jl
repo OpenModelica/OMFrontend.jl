@@ -36,6 +36,7 @@
 module GUI_API
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 
 import ..Absyn
 import ..SCode
@@ -942,7 +943,7 @@ function _displayOrigin(placement::Dict{String, Any})::Point2D
 end
 
 function _optionValue(opt)
-  return opt === nothing ? nothing : opt.data
+  return opt === nothing ? nothing : opt.value
 end
 
 function _findNamedModification(args::Vector{Absyn.ElementArg}, name::String)

@@ -36,6 +36,7 @@
 module ListUtil
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 import ..ArrayUtil

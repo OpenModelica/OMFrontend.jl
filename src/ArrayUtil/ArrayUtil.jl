@@ -36,6 +36,7 @@
 module ArrayUtil
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 #= ExportAll is not good practice but it makes it so that we do not have to write export after each function :( =#
 using ExportAll
 using MetaModelica.Dangerous: arrayGetNoBoundsChecking, arrayUpdateNoBoundsChecking, arrayCreateNoInit

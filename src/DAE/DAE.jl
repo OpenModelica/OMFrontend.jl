@@ -36,6 +36,7 @@
 module DAE
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 include("DAE_Interface.jl")

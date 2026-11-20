@@ -36,6 +36,7 @@
 module IOStreamExt
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 function createFile(fileName::String)::Int

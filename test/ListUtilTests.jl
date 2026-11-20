@@ -578,7 +578,7 @@ end
     @test ListUtil.mkOption(list()) === nothing
     let opt = ListUtil.mkOption(list(1, 2))
         @test opt isa SOME
-        @test listToVec(opt.data) == [1, 2]
+        @test listToVec(opt.value) == [1, 2]
     end
 
     @test listToVec(ListUtil.first2FromTuple3((1, 2, 3))) == [1, 2]

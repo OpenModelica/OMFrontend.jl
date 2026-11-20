@@ -36,6 +36,7 @@
 module StructuralModeJSON
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ..Frontend
 import JSON
 import OpenModelicaParser.Absyn

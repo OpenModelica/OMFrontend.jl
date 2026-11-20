@@ -107,6 +107,7 @@ end
 module ExpandableSet
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 import ..Frontend.NFConnector

@@ -41,6 +41,7 @@ Rewritten by John Tinnerholm(johti17)
 module ConnectionSets
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 import ..ListUtil

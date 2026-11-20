@@ -36,6 +36,7 @@
 module Corba
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 function setObjectReferenceFilePath(inObjectReferenceFilePath::String)

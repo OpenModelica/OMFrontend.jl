@@ -36,6 +36,7 @@
 module P_UnorderedSet
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 #= Hash set with user-provided hash and equality functions.

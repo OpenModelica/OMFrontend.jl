@@ -43,6 +43,7 @@ module Frontend
 #= We also use it at the top level(!) =#
 import OpenModelicaParser
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 import OpenModelicaParser.Absyn
 import ..ArrayUtil
@@ -144,6 +145,7 @@ include("./AbsynToSCode.jl")
 #= Minimal Values stub (OMC legacy, needed by toDAEValue in BindingExpression.jl) =#
 module Values
   using MetaModelica
+  import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
   import OpenModelicaParser.Absyn
   abstract type Value end
   struct INTEGER_EXPRESSION <: Value; value::Int; end
@@ -158,6 +160,7 @@ end
 module ValuesUtil
   import ..Values
   using MetaModelica
+  import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
   function makeArray(vals::List)::Values.Value
     Values.ARRAY(vals, list(listLength(vals)))
   end

@@ -34,6 +34,7 @@
 */ =#
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 abstract type Attributes end

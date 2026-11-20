@@ -36,6 +36,7 @@
 module ParameterTreeImpl
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 import ..Frontend.Expression
 import ..Frontend.toString

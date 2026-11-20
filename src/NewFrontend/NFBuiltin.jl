@@ -36,6 +36,7 @@
 module NFBuiltin
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using MetaModelica.Dangerous
 using ExportAll
 
@@ -45,6 +46,7 @@ import ..AbsynUtil
 
 module Elements
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 import OpenModelicaParser.Absyn
 import ..SCode

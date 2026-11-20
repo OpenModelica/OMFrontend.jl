@@ -36,6 +36,7 @@
 module Print
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 function printBuf(inString::String)
