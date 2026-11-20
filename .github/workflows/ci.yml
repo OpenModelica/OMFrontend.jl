@@ -2,11 +2,37 @@ name: CI
 
 on:
   pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE*'
+      - 'COPYING'
+      - 'CITATION.bib'
+      - '.gitignore'
+      - '.github/workflows/Documenter.yml'
+      - '.github/workflows/release.yml'
+      - '.github/workflows/check-license.yml'
+      - '.github/workflows/nightly.yml'
+      - '.github/workflows/build-binary.yml'
+      - '.github/workflows/omjl.yml'
   push:
     branches:
       - master
       - "1.13"
     tags: '*'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE*'
+      - 'COPYING'
+      - 'CITATION.bib'
+      - '.gitignore'
+      - '.github/workflows/Documenter.yml'
+      - '.github/workflows/release.yml'
+      - '.github/workflows/check-license.yml'
+      - '.github/workflows/nightly.yml'
+      - '.github/workflows/build-binary.yml'
+      - '.github/workflows/omjl.yml'
   workflow_call:
   workflow_dispatch:
 
