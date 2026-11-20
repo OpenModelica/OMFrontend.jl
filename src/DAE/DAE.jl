@@ -44,7 +44,7 @@ include("ClassInf.jl")
 
 import .ClassInf
 import .Values
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 import ..SCode
 
 const UNIQUEIO = "uniqueouter"::String

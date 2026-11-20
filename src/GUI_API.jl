@@ -39,7 +39,7 @@ using MetaModelica
 
 import ..Absyn
 import ..SCode
-import ..OMParser
+import ..OpenModelicaParser
 import ..translateToSCode
 import ..libraries
 import ..loadInstalledLibrary
@@ -490,7 +490,7 @@ end
 
 function _buildSession(path::String, sourceText::String)::ModelSession
   lineOffsets = _computeLineOffsets(sourceText)
-  absynProgram = OMParser.parseString(sourceText, path, 1, 1000)
+  absynProgram = OpenModelicaParser.parseString(sourceText, path, 1, 1000)
   scodeProgram = translateToSCode(absynProgram)
 
   session = ModelSession(path,

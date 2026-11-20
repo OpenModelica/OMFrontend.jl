@@ -36,7 +36,7 @@
 module NFBuiltinFuncs
 
 import ..AbsynUtil
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 import ..DAE
 import ..SCode
 

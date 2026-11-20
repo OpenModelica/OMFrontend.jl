@@ -70,7 +70,7 @@ using ExportAll
 @UniontypeDecl Variability
 @UniontypeDecl Initial
 
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 
 #= Some definitions are aliased from Absyn =#
 

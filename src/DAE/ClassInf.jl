@@ -40,7 +40,7 @@ using ExportAll
 @UniontypeDecl SMNode
 @UniontypeDecl Event
 
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 import ...SCode
 
 const State = SMNode

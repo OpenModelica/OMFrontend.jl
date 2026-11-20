@@ -64,7 +64,7 @@ function workload()
   pathToLib = joinpath(packageRoot(), "lib", "NFModelicaBuiltin.mo")
   #= The external C stuff can be a bit flaky.. =#
   GC.enable(false)
-  p = OMParser.parseFile(pathToLib, 2 #= MetaModelica=#)
+  p = OpenModelicaParser.parseFile(pathToLib, 2 #= MetaModelica=#)
   builtinSCode = Frontend.AbsynToSCode.translateAbsyn2SCode(p)
   GC.enable(true)
   #= End preamble =#
@@ -77,7 +77,7 @@ function workload()
   This will precompile a significant part of the frontend.
   =#
   pathToTest = joinpath(packageRoot(), "test", "Models", "HelloWorld.mo")
-  p = OMParser.parseFile(pathToTest, 1)
+  p = OpenModelicaParser.parseFile(pathToTest, 1)
   s = Frontend.AbsynToSCode.translateAbsyn2SCode(p)
   @info "Compiling core modules. This might take awhile.."
   Frontend.Global.initialize()

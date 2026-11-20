@@ -33,7 +33,7 @@
 *
 */ =#
 
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 import ..SCode
 import ..DAE
 

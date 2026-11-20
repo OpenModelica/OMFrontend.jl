@@ -74,7 +74,7 @@ import ..AbsynUtil
 import ..BaseAvlTree
 import ..Frontend.M_Type
 import ..Type
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 import ..toString
 
 const Key = Absyn.Path

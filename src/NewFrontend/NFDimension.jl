@@ -37,7 +37,7 @@
    empty vector is never mutated. =#
 const EMPTY_RAW_DIMS = Dimension[]
 
-using OMParser.Absyn: Exp, Path #, Subscript
+using OpenModelicaParser.Absyn: Exp, Path #, Subscript
 
 function foldExpList(dims::List{Dimension}, func::FoldFunc, arg::ArgT) where {ArgT}
   for dim in dims

@@ -41,10 +41,10 @@ module Frontend
 
 #= Import the parser for precompilation=#
 #= We also use it at the top level(!) =#
-import OMParser
+import OpenModelicaParser
 using MetaModelica
 using ExportAll
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 import ..ArrayUtil
 import ..DAE
 import ..ListUtil
@@ -144,7 +144,7 @@ include("./AbsynToSCode.jl")
 #= Minimal Values stub (OMC legacy, needed by toDAEValue in BindingExpression.jl) =#
 module Values
   using MetaModelica
-  import OMParser.Absyn
+  import OpenModelicaParser.Absyn
   abstract type Value end
   struct INTEGER_EXPRESSION <: Value; value::Int; end
   struct REAL_EXPRESSION <: Value; value::Float64; end

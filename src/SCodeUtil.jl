@@ -44,7 +44,7 @@ const FoldFunc = Function
 const TraverseFunc = Function
 
 import ..SCode
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 
 import ..Frontend.AbsynUtil
 import ..Frontend.Util

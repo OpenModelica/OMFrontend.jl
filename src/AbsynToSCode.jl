@@ -38,7 +38,7 @@ module AbsynToSCode
 using MetaModelica
 using ExportAll
 
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 import ..SCode
 import ..ListUtil
 

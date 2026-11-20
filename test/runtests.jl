@@ -13,7 +13,7 @@ import Pkg
 
 Pkg.resolve()
 
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 import OMFrontend.SCode
 import OMFrontend.DAE
 using MetaModelica

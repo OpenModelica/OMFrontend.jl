@@ -41,13 +41,15 @@ module OMFrontend
 
 using MetaModelica
 
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 #= ArrayUtil and ListUtil (formerly the packages of those names) are OMFrontend's own modules. =#
 include("ArrayUtil/ArrayUtil.jl")
 include("ListUtil/ListUtil.jl")
 include("SCode/SCode.jl")
 include("DAE/DAE.jl")
-import OMParser
+import OpenModelicaParser
+"""The parser package under its former name (OMParser.jl), for code that writes `OMFrontend.OMParser`."""
+const OMParser = OpenModelicaParser
 import PrecompileTools
 import Serialization
 
@@ -122,7 +124,7 @@ const LIBRARY_DEPENDENCIES = Dict{String, Vector{String}}()
 function __init__()
   local packagePath::String = packageRoot()
   if !haskey(NFModelicaBuiltinCache, "NFModelicaBuiltin")
-    local builtinProg::Absyn.Program = OMParser.parseFile(packagePath * "/lib/NFModelicaBuiltin.mo", 2)
+    local builtinProg::Absyn.Program = OpenModelicaParser.parseFile(packagePath * "/lib/NFModelicaBuiltin.mo", 2)
     NFModelicaBuiltinCache["NFModelicaBuiltin"] = Frontend.AbsynToSCode.translateAbsyn2SCode(builtinProg)
   end
   Frontend.Global.initialize()
@@ -148,7 +150,7 @@ import .Frontend.StructuralModeJSON
 Parse a file, returns the syntax tree.
 """
 function parseFile(file::String, acceptedGram::Int64 = 1)::Absyn.Program
-  return OMParser.parseFile(file, acceptedGram)
+  return OpenModelicaParser.parseFile(file, acceptedGram)
 end
 
 """
@@ -610,18 +612,19 @@ end
 The format of the library disk cache, part of its key (`_computeLibHash`): change it when the types of the
 serialized SCode program change. 2: the Absyn records are `OMParser.Absyn`'s (were the package Absyn.jl's).
 3: SCode is `OMFrontend.SCode` (was the package SCode.jl).
+4: the Absyn records are `OpenModelicaParser.Absyn`'s, plain structs (were `OMParser.Absyn`'s).
 """
-const LIB_CACHE_FORMAT = 3
+const LIB_CACHE_FORMAT = 4
 
 """
     _computeLibHash(path::String)::String
 
-The key of a library's disk cache: Julia's version, `LIB_CACHE_FORMAT`, the versions of OMParser and
+The key of a library's disk cache: Julia's version, `LIB_CACHE_FORMAT`, the versions of OpenModelicaParser and
 OMFrontend (the types of the serialized program), and the paths, modification times and sizes of the library's
 `.mo` files.
 """
 function _computeLibHash(path::String)::String
-  local h::UInt64 = hash((string(VERSION), LIB_CACHE_FORMAT, pkgversion(OMParser), pkgversion(@__MODULE__)))
+  local h::UInt64 = hash((string(VERSION), LIB_CACHE_FORMAT, pkgversion(OpenModelicaParser), pkgversion(@__MODULE__)))
   if isfile(path)
     local st = stat(path)
     h = hash((path, st.mtime, st.size), h)
