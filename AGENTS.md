@@ -31,7 +31,7 @@ The package is intentionally low-level. End users typically invoke it through OM
 
 ```
 .mo source
-  └─► OMParser              -> Absyn program        (parseFile)
+  └─► OpenModelicaParser    -> Absyn program        (parseFile)
         └─► AbsynToSCode    -> SCode program        (translateToSCode)
               └─► NF instantiate / type / flatten -> FlatModel       (instantiateSCodeToFM)
                                                   └─► DAE form       (instantiateSCodeToDAE)
@@ -174,6 +174,6 @@ The repository maintainer may override this on a per-task basis with an explicit
 
 ## Pointers Outside This Repository
 
-- Parser: `OMParser` package.
-- Absyn / SCode / DAE data structures: `OMParser.Absyn` (the `OMParser` package), `OMFrontend.SCode`, `OMFrontend.DAE` (`src/SCode`, `src/DAE`).
+- Parser: `OpenModelicaParser` package (formerly OMParser.jl).
+- Absyn / SCode / DAE data structures: `OpenModelicaParser.Absyn` (the `OpenModelicaParser` package), `OMFrontend.SCode`, `OMFrontend.DAE` (`src/SCode`, `src/DAE`).
 - Downstream consumer: `OMBackend.jl`, which lowers OMFrontend output to BDAE and then to MTK / DifferentialEquations.jl. Bug reports that surface as "OMBackend fails on model X" frequently trace back to malformed `DAE.Exp` or `DAE.Element` produced here. When a backend bug points at OMFrontend output, dump the `(FM, funcs)` from `flattenModel` and inspect it before editing backend code.
