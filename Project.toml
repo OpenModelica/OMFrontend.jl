@@ -1,7 +1,7 @@
 name = "OMFrontend"
 uuid = "b10394b5-f439-4073-a0c5-e09cb00cf46c"
 authors = ["John Tinnerholm <johti17@liu.se>", "Martin Sjölund <martin.sjolund@liu.se>", "Adrian Pop <adrian.pop@liu.se>"]
-version = "2.2.3"
+version = "2.2.4"
 
 [deps]
 ExportAll = "ad2082ca-a69e-11e9-38fa-e96309a31fe4"

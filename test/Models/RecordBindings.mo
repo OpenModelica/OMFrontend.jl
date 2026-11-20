@@ -96,4 +96,36 @@ package RecordBindings "Record bindings and package constants of records (MSL Ba
       Use u(dat = Dat(conDat = Bor(cooBor = [0, 0; 1, 1; 2, 2])));
     end M2;
   end ConstructorField;
+
+  package PartialRecord "A record constant bound in a partial application, passed to a function of one statement (MSL Media's solveOneNonlinearEquation(function f_nonlinear(data = data, ...), ...))"
+    record Coeffs
+      Real a;
+      Real b;
+    end Coeffs;
+    constant Coeffs coeffs = Coeffs(a = 2, b = 3);
+    partial function Base
+      input Real u;
+      output Real y;
+    end Base;
+    function lin
+      extends Base;
+      input Coeffs c;
+    algorithm
+      y := c.a * u + c.b;
+    end lin;
+    function apply "calls the function it is given"
+      input Base f;
+      input Real u;
+      output Real y;
+    algorithm
+      y := f(u);
+    end apply;
+    model M
+      Real x(start = 1, fixed = true);
+      Real y;
+    equation
+      y = apply(function lin(c = coeffs), x);
+      der(x) = y - 3 * x - 3;
+    end M;
+  end PartialRecord;
 end RecordBindings;
