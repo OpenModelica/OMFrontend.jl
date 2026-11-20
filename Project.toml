@@ -1,7 +1,7 @@
 name = "OMFrontend"
 uuid = "b10394b5-f439-4073-a0c5-e09cb00cf46c"
 authors = ["John Tinnerholm <johti17@liu.se>", "Martin Sjölund <martin.sjolund@liu.se>", "Adrian Pop <adrian.pop@liu.se>"]
-version = "2.2.4"
+version = "2.2.5"
 
 [deps]
 ExportAll = "ad2082ca-a69e-11e9-38fa-e96309a31fe4"
@@ -16,7 +16,7 @@ OMRuntimeExternalC="ada38df0-e20e-11ed-02f3-2b4b19c1ec8a"
 
 [compat]
 julia = "1.13"
-MetaModelica = "0.4.3, 0.5"
+MetaModelica = "0.5, 1"
 OMParser = "1"
 ImmutableList = "0.6"
 ExportAll = "0.1"
