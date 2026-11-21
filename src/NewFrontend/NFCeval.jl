@@ -3628,6 +3628,23 @@ function evalBuiltinMatrix2(@nospecialize(arg::Expression), ty::ModelicaType)::E
   return result
 end
 
+"""
+    foldArrayElements(exp, func, acc, ArgT) -> ArgT
+
+`func(element, acc)::ArgT` over the scalar elements of an evaluated (nested) array in order, for the array
+reductions (min, max, sum, product, vector). A walk over the elements only: `fold` compiles a large method per
+callback and visits every subexpression.
+"""
+function foldArrayElements(@nospecialize(exp::Expression), func::FT, acc::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
+  if exp isa ARRAY_EXPRESSION
+    for e in exp.elements
+      acc = foldArrayElements(e, func, acc, ArgT)
+    end
+    return acc
+  end
+  return func(exp, acc)::ArgT
+end
+
 function evalBuiltinMax(args::Vector{Expression}, fn::MODELICA_FUNCTION)::Expression
   local result::Expression
   local e1::Expression
@@ -3639,7 +3656,7 @@ function evalBuiltinMax(args::Vector{Expression}, fn::MODELICA_FUNCTION)::Expres
         evalBuiltinMax2(e1, e2)
       end
       [e1] && [ARRAY_EXPRESSION(ty = ty)] => begin
-        result = fold(e1, evalBuiltinMax2, EMPTY_EXPRESSION(ty), Expression)
+        result = foldArrayElements(e1, evalBuiltinMax2, EMPTY_EXPRESSION(ty), Expression)
         if isEmpty(result)
           result = CALL_EXPRESSION(makeTypedCall(
             fn,
@@ -3727,7 +3744,7 @@ function evalBuiltinMin(args::Union{List{Expression}, Vector{Expression}}, fn::M
   elseif nArgs == 1
     e1 = Base.first(args)
     @match ARRAY_EXPRESSION(ty = ty) = e1
-    result = fold(e1, evalBuiltinMin2, EMPTY_EXPRESSION(ty), Expression)
+    result = foldArrayElements(e1, evalBuiltinMin2, EMPTY_EXPRESSION(ty), Expression)
     if isEmpty(result)
       result = CALL_EXPRESSION(makeTypedCall(
         fn,
@@ -3859,11 +3876,11 @@ function evalBuiltinProduct(@nospecialize(arg::Expression))::Expression
         begin
           @match arrayElementType(typeOf(arg)) begin
             TYPE_INTEGER(__) => begin
-              INTEGER_EXPRESSION(fold(arg, evalBuiltinProductInt, 1, Int))
+              INTEGER_EXPRESSION(foldArrayElements(arg, evalBuiltinProductInt, 1, Int))
             end
 
             TYPE_REAL(__) => begin
-              REAL_EXPRESSION(fold(arg, evalBuiltinProductReal, 1.0, Float64))
+              REAL_EXPRESSION(foldArrayElements(arg, evalBuiltinProductReal, 1.0, Float64))
             end
 
             _ => begin
@@ -3891,10 +3908,6 @@ function evalBuiltinProductInt(@nospecialize(exp::Expression), result::Int)::Int
         result * exp.value
       end
 
-      ARRAY_EXPRESSION(__) => begin
-        result
-      end
-
       _ => begin
         fail()
       end
@@ -3909,10 +3922,6 @@ function evalBuiltinProductReal(@nospecialize(exp::Expression), result::Float64)
     @match exp begin
       REAL_EXPRESSION(__) => begin
         result * exp.value
-      end
-
-      ARRAY_EXPRESSION(__) => begin
-        result
       end
 
       _ => begin
@@ -4214,11 +4223,11 @@ function evalBuiltinSum(@nospecialize(arg::Expression))::Expression
         begin
           @match arrayElementType(typeOf(arg)) begin
             TYPE_INTEGER(__) => begin
-              INTEGER_EXPRESSION(fold(arg, evalBuiltinSumInt, 0, Int))
+              INTEGER_EXPRESSION(foldArrayElements(arg, evalBuiltinSumInt, 0, Int))
             end
 
             TYPE_REAL(__) => begin
-              REAL_EXPRESSION(fold(arg, evalBuiltinSumReal, 0.0, Float64))
+              REAL_EXPRESSION(foldArrayElements(arg, evalBuiltinSumReal, 0.0, Float64))
             end
 
             _ => begin
@@ -4246,10 +4255,6 @@ function evalBuiltinSumInt(@nospecialize(exp::Expression), result::Int)::Int
         result + exp.value
       end
 
-      ARRAY_EXPRESSION(__) => begin
-        result
-      end
-
       _ => begin
         fail()
       end
@@ -4264,10 +4269,6 @@ function evalBuiltinSumReal(@nospecialize(exp::Expression), result::Float64)::Fl
     @match exp begin
       REAL_EXPRESSION(__) => begin
         result + exp.value
-      end
-
-      ARRAY_EXPRESSION(__) => begin
-        result
       end
 
       _ => begin
@@ -4382,7 +4383,7 @@ function evalBuiltinVector(@nospecialize(arg::Expression))::Expression
   local expl::List{Expression}
   local ty::ModelicaType
 
-   expl = fold(arg, evalBuiltinVector2, nil, List{Expression})
+   expl = foldArrayElements(arg, evalBuiltinVector2, nil, List{Expression})
    ty = liftArrayLeft(
     arrayElementType(typeOf(arg)),
     fromInteger(listLength(expl)),
@@ -4391,21 +4392,7 @@ function evalBuiltinVector(@nospecialize(arg::Expression))::Expression
   return result
 end
 
-function evalBuiltinVector2(@nospecialize(exp::Expression), expl::List{Expression})::List{Expression}
-
-   expl = begin
-    @match exp begin
-      ARRAY_EXPRESSION(__) => begin
-        expl
-      end
-
-      _ => begin
-        _cons(exp, expl)
-      end
-    end
-  end
-  return expl
-end
+evalBuiltinVector2(@nospecialize(exp::Expression), expl::List{Expression})::List{Expression} = _cons(exp, expl)
 
 function evalBuiltinZeros(args::Union{List{Expression}, Vector{Expression}})::Expression
   local result::Expression
