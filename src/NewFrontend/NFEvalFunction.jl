@@ -360,8 +360,9 @@ function evaluateRecordConstructor(
   for l in locals
     repl = ReplTree.add(repl, l, getBindingExp(l, repl))
   end
-  #=  Apply the replacements to all the variables. =#
-  repl = ReplTree.map(repl, (nodeArg, expArg) -> applyBindingReplacement(nodeArg, expArg, repl))
+  #=  Apply the replacements to all the variables (`built`, not reassigned: the closure does not box it). =#
+  local built::ReplTree.Tree = repl
+  repl = ReplTree.map(built, (nodeArg, expArg) -> applyBindingReplacement(nodeArg, expArg, built))
   #=
   Fetch the new binding expressions for all the variables, both inputs and
   locals.
@@ -385,18 +386,24 @@ function evaluateRecordConstructor(
   return result
 end
 
+"""
+The replacements of one evaluation of `fn` with the arguments `args`: each input's argument value, each output's
+and local's binding in a cell (assignable), with the references among them replaced.
+"""
 function createReplacements(fn::M_Function, args::Vector{Expression})::ReplTree.Tree
-  local repl::ReplTree.Tree
-
+  #= M_FUNCTION is the only M_Function: its fields typed =#
+  local inputs::List{InstNode} = (fn::M_FUNCTION).inputs
+  local outputs::List{InstNode} = (fn::M_FUNCTION).outputs
+  local locals::List{InstNode} = (fn::M_FUNCTION).locals
+  local repl::ReplTree.Tree = ReplTree.new()
   local arg::Expression
-  local rest_args::Vector{Expression} = args
-
-  repl = ReplTree.new()
+  local j::Int = 0
   #=  Add inputs to the replacement tree. Since they can't be assigned to the
     replacements don't need to be mutable.
   =#
-  for (j,i) in enumerate(fn.inputs)
-    arg = rest_args[j]
+  for i in inputs
+    j += 1
+    arg = args[j]
     repl = addInputReplacement(i, arg, repl)
     #= A function pointer argument: calls to the parameter's function are calls to it (omc). =#
     if isFunctionPointerExp(arg)
@@ -409,18 +416,33 @@ function createReplacements(fn::M_Function, args::Vector{Expression})::ReplTree.
   Add outputs and local variables to the replacement tree. These do need to
   be mutable to allow assigning to them.
   =#
-  #@info "Outputs was..." typeof(fn.outputs)
-  #@info "REPL TREE BEFORE:" ReplTree.printTreeStr(repl)
-  repl = ListUtil.fold(fn.outputs, addMutableReplacement, repl)
-  #@info "Done..."
-  #@info "REPL TREE:" ReplTree.printTreeStr(repl)
-  repl = ListUtil.fold(fn.locals, addMutableReplacement, repl)
-  #=  Apply the replacements to the replacements themselves. This is done after
-  =#
-  #=  building the tree to make sure all the replacements are available.
-  =#
-  repl = ReplTree.map(repl, (nodeArg, expArg) -> applyBindingReplacement(nodeArg, expArg, repl))
+  for node in outputs
+    repl = addMutableReplacement(node, repl)
+  end
+  for node in locals
+    repl = addMutableReplacement(node, repl)
+  end
+  #= The outputs' and locals' bindings in terms of the inputs and of each other, once all are in the tree. The inputs
+     are evaluated arguments (Ceval.evalCall) with nothing to replace; each output and local is a cell whose content
+     is replaced in place, so a reference to one is the cell and needs no rescan. =#
+  for node in outputs
+    _replaceCellContent(ReplTree.get(repl, node), repl)
+  end
+  for node in locals
+    _replaceCellContent(ReplTree.get(repl, node), repl)
+  end
   return repl
+end
+
+"""
+The content of `cell` (a function output's or local's replacement, `addMutableReplacement`) with the replacements
+`repl`, in place.
+"""
+function _replaceCellContent(@nospecialize(cell::Expression), repl::ReplTree.Tree)::Nothing
+  local c::MUTABLE_EXPRESSION = cell::MUTABLE_EXPRESSION
+  local content::Expression = P_Pointer.access(c.exp)::Expression
+  P_Pointer.update(c.exp, map(content, (expArg) -> applyReplacements2(repl, expArg, false)))
+  return nothing
 end
 
 function addMutableReplacement(node::InstNode, repl::ReplTree.Tree)::ReplTree.Tree
@@ -482,7 +504,7 @@ function applyReplacementsDim(repl::ReplTree.Tree, dim::Dimension)::Dimension
       DIMENSION_EXP(__) => begin
         exp = map(
           dim.exp,
-          (expArg) -> applyReplacements2(repl, expArg),
+          (expArg) -> applyReplacements2(repl, expArg, true),
         )
         exp = evalExp(exp)
         fromExp(exp, Variability.CONSTANT)
@@ -579,23 +601,32 @@ function applyBindingReplacement(
 )::Expression
   local outExp::Expression
   outExp =
-    map(exp, (expArg) -> applyReplacements2(repl, expArg))
+    map(exp, (expArg) -> applyReplacements2(repl, expArg, true))
   return outExp
 end
 
-function applyReplacements(repl::ReplTree.Tree, fnBody::Vector{Statement})
+"""
+The function body `fnBody` with the replacements `repl` (complete: `createReplacements`) for its parameters and
+locals. A replacement is not rescanned (`applyReplacementCref`).
+"""
+function applyReplacements(repl::ReplTree.Tree, fnBody::Vector{Statement})::Vector{Statement}
   fnBody = mapExpList(
     fnBody,
-    (x) -> map(x, (expArg) -> applyReplacements2(repl, expArg)),
-  )#= AbsyntoJulia.dumpPattern: UNHANDLED Abyn.Exp  =#
+    (x) -> map(x, (expArg) -> applyReplacements2(repl, expArg, false)),
+  )
   return fnBody
 end
 
-function applyReplacements2(repl::ReplTree.Tree, @nospecialize(exp::Expression))::Expression
+"""
+`exp` (one node of a bottom-up `map`: its subexpressions are replaced) with the replacement of a cref, a call through
+a function pointer, or an unboxed expression. `rescan` (`applyReplacementCref`): the replacements are not yet in
+terms of each other.
+"""
+function applyReplacements2(repl::ReplTree.Tree, @nospecialize(exp::Expression), rescan::Bool)::Expression
   exp = begin
     @match exp begin
       CREF_EXPRESSION(__) => begin
-        applyReplacementCref(repl, exp.cref, exp)
+        applyReplacementCref(repl, exp.cref, exp, rescan)
       end
       CALL_EXPRESSION(__) => begin
         applyReplacementCall(repl, exp.call, exp)
@@ -666,10 +697,19 @@ function mergeFunctionApplicationArgs(oldFn::M_FUNCTION, oldArgs::Vector{Express
   return Expression[arg_map[name(i)] for i in newFn.inputs]
 end
 
+"""
+The replacement of `cref` (its node's, then its record fields' and subscripts'), or `exp` when it has none. With
+`rescan`, the replacement's own references are replaced too: needed while the replacements are rewritten in terms of
+each other (`applyBindingReplacement`: a binding `z = y + 1` with `y = 2 * x`). A complete replacement (an
+evaluated argument, a cell whose content was replaced in place) has nothing left to replace, and `map` replaced the
+cref's subscripts before this call, so the function body is rewritten without a rescan: it walked every value again
+at each reference (39 k node visits for 1.6 k crefs in MultiBody `Frames.from_nxy`).
+"""
 function applyReplacementCref(
   repl::ReplTree.Tree,
   cref::ComponentRef,
   @nospecialize(exp::Expression),
+  rescan::Bool,
 )::Expression
   local outExp::Expression
   local cref_parts::List{ComponentRef}
@@ -722,8 +762,9 @@ function applyReplacementCref(
         )
       end
     end
-    outExp =
-      map(outExp, (expArg) -> applyReplacements2(repl, expArg))
+    if rescan
+      outExp = map(outExp, (expArg) -> applyReplacements2(repl, expArg, true))
+    end
   end
   #=  Look up the replacement for the first part in the replacement tree.
   =#
@@ -1672,7 +1713,7 @@ function evaluateExternal2(
 
   @assign repl = createReplacements(fn, args)
   @assign ext_args = list(
-    map(e, (subexp) -> applyReplacements2(repl, subexp))
+    map(e, (subexp) -> applyReplacements2(repl, subexp, false))
     for e in extArgs
   )
   evaluateExternal3(name, ext_args)
