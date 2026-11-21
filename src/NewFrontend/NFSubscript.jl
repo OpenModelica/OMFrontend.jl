@@ -187,10 +187,8 @@ function mergeList(
   local rest_old_subs::List{Subscript}
   local merged::Bool = true
 
-  #=  If there aren't any existing subscripts we just add as many subscripts
-  =#
-  #=  from the list of new subscripts as possible.
-  =#
+  #= If there aren't any existing subscripts we just add as many subscripts
+     from the list of new subscripts as possible. =#
   if listEmpty(oldSubs)
     if listLength(newSubs) <= dimensions
        outSubs = newSubs
@@ -204,8 +202,7 @@ function mergeList(
    remainingSubs = newSubs
    rest_old_subs = oldSubs
    outSubs = nil
-  #=  Loop over the remaining subscripts as long as they can be merged.
-  =#
+  #= Loop over the remaining subscripts as long as they can be merged. =#
   while merged && !listEmpty(remainingSubs)
     @match Cons{Subscript}(new_sub, remainingSubs) = remainingSubs
      merged = false
@@ -218,16 +215,11 @@ function mergeList(
          (merged, outSubs) = begin
           @match old_sub begin
             SUBSCRIPT_SLICE(__) => begin
-              #=  Loop over the old subscripts while this new subscript hasn't been
-              =#
-              #=  merged and there's still old subscript left.
-              =#
-              #=  Try to replace the old subscript with the new.
-              =#
-              #=  If the old subscript is a slice, subscript it with the new subscript.
-              =#
-              #=  The old subscript only changes if the new is an index or slice, not :.
-              =#
+              #= Loop over the old subscripts while this new subscript hasn't been
+                 merged and there's still old subscript left.
+                 Try to replace the old subscript with the new.
+                 If the old subscript is a slice, subscript it with the new subscript.
+                 The old subscript only changes if the new is an index or slice, not :. =#
               if !isWhole(new_sub)
                  outSubs = Cons{Subscript}(
                   SUBSCRIPT_INDEX(applySubscript(
@@ -254,19 +246,14 @@ function mergeList(
       end
     end
   end
-  #=  If the old subscript is :, replace it with the new subscript.
-  =#
-  #=  If the old subscript is a scalar index it can't be replaced.
-  =#
-  #=  Append any remaining old subscripts.
-  =#
+  #= If the old subscript is :, replace it with the new subscript.
+     If the old subscript is a scalar index it can't be replaced.
+     Append any remaining old subscripts. =#
   for s in rest_old_subs
      outSubs = Cons{Subscript}(s, outSubs)
   end
-  #=  Append any remaining new subscripts to the end of the list as long as
-  =#
-  #=  there are dimensions left to fill.
-  =#
+  #= Append any remaining new subscripts to the end of the list as long as
+     there are dimensions left to fill. =#
   while !listEmpty(remainingSubs) && subs_count < dimensions
     @match Cons{Subscript}(new_sub, remainingSubs) = remainingSubs
      outSubs = Cons{Subscript}(new_sub, outSubs)

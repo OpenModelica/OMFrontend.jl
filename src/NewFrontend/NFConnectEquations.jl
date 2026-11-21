@@ -203,8 +203,8 @@ function evaluateOperators(
       end
     end
   end
-  #=  inStream/actualStream can't handle non-literal subscripts, so reductions and array =#
-  #=  constructors containing such calls needs to be expanded to get rid of the iterators.=#
+  #= inStream/actualStream can't handle non-literal subscripts, so reductions and array
+     constructors containing such calls needs to be expanded to get rid of the iterators. =#
   return evalExp
 end
 
@@ -288,12 +288,9 @@ function makeEqualityAssert(
     @assign exp =
       RELATION_EXPRESSION(lhs_exp, makeEqual(ty), rhs_exp)
   end
-  #=  Modelica doesn't allow == for Reals, so to keep the flat Modelica
-  =#
-  #=  somewhat valid we use 'abs(lhs - rhs) <= 0' instead.
-  =#
-  #=  For any other type, generate assertion for 'lhs == rhs'.
-  =#
+  #= Modelica doesn't allow == for Reals, so to keep the flat Modelica
+     somewhat valid we use 'abs(lhs - rhs) <= 0' instead.
+     For any other type, generate assertion for 'lhs == rhs'. =#
   @assign equalityAssert =
     EQUATION_ASSERT(exp, EQ_ASSERT_STR, NFBuiltin.ASSERTIONLEVEL_ERROR, source)
   return equalityAssert
@@ -456,8 +453,7 @@ function makeFlowExp(element::CONNECTOR)::Expression
   local face::Face
 
   @assign exp = fromCref(element.name)
-  #=  TODO: Remove unnecessary variable 'face' once #4502 is fixed.
-  =#
+  #= TODO: Remove unnecessary variable 'face' once #4502 is fixed. =#
   @assign face = element.face
   if face == FACE_OUTSIDE
     @assign exp =
@@ -489,8 +485,7 @@ function generateStreamEquations(
     local var2::VariabilityType
     local f1::Face
     local f2::Face
-    #=  Unconnected stream connector, do nothing.
-    =#
+    #= Unconnected stream connector, do nothing. =#
     @match elements begin
       CONNECTOR(face = f1) <| nil() where {(f1 == FACE_INSIDE)} => begin
         nil
@@ -504,14 +499,10 @@ function generateStreamEquations(
       CONNECTOR(name = cr1, face = f1, source = src1) <|
       CONNECTOR(name = cr2, face = f2, source = src2) <|
       nil() where {(f1 == FACE_OUTSIDE && f2 == FACE_OUTSIDE)} => begin
-        #=  Both inside, do nothing.
-        =#
-        #=  Both outside:
-        =#
-        #=  cr1 = inStream(cr2);
-        =#
-        #=  cr2 = inStream(cr1);
-        =#
+        #= Both inside, do nothing.
+           Both outside:
+           cr1 = inStream(cr2);
+           cr2 = inStream(cr1); =#
         @assign cref1 = fromCref(cr1)
         @assign cref2 = fromCref(cr2)
         @assign e1 = makeInStreamCall(cref2)
@@ -525,17 +516,14 @@ function generateStreamEquations(
 
       CONNECTOR(name = cr1, source = src1) <|
       CONNECTOR(name = cr2, source = src2) <| nil() => begin
-        #=  One inside, one outside:
-        =#
-        #=  cr1 = cr2;
-        =#
+        #= One inside, one outside:
+           cr1 = cr2; =#
         @assign src = src1
         list(EQUATION_CREF_EQUALITY(cr1, cr2, src))
       end
 
       _ => begin
-        #=  The general case with N inside connectors and M outside:
-        =#
+        #= The general case with N inside connectors and M outside: =#
          (outside, inside) =
           ListUtil.splitOnTrue(elements, isOutside, CONNECTOR)
         streamEquationGeneral(outside, inside, flowThreshold)
@@ -628,12 +616,9 @@ function streamSumEquationExp(
       ),
     )
   end
-  #=  No outside components.
-  =#
-  #=  No inside components.
-  =#
-  #=  Both outside and inside components.
-  =#
+  #= No outside components.
+     No inside components.
+     Both outside and inside components. =#
   return sumExp
 end
 
@@ -975,16 +960,11 @@ function generateInStreamExp(
 
       CONNECTOR(face = f1) <|
       CONNECTOR(face = f2) <| nil() where {(f1 == FACE_INSIDE && f2 == FACE_INSIDE)} => begin
-        #=  Unconnected stream connector:
-        =#
-        #=    inStream(c) = c;
-        =#
-        #=  Two inside connected stream connectors:
-        =#
-        #=    inStream(c1) = c2;
-        =#
-        #=    inStream(c2) = c1;
-        =#
+        #= Unconnected stream connector:
+           inStream(c) = c;
+           Two inside connected stream connectors:
+           inStream(c1) = c2;
+           inStream(c2) = c1; =#
         @match CONNECTOR(name = cr) <| nil() =
           removeStreamSetElement(streamCref, reducedStreams)
         fromCref(cr)
@@ -992,18 +972,15 @@ function generateInStreamExp(
 
       CONNECTOR(face = f1) <|
       CONNECTOR(face = f2) <| nil() where {(f1 != f2)} => begin
-        #=  One inside, one outside connected stream connector:
-        =#
-        #=    inStream(c1) = inStream(c2);
-        =#
+        #= One inside, one outside connected stream connector:
+           inStream(c1) = inStream(c2); =#
         @match CONNECTOR(name = cr) <| nil() =
           removeStreamSetElement(streamCref, reducedStreams)
         evaluateInStream(cr, sets, setsArray, ctable)
       end
 
       _ => begin
-        #=  The general case:
-        =#
+        #= The general case: =#
          (outside, inside) =
           ListUtil.splitOnTrue(reducedStreams, isOutside, CONNECTOR)
         @assign inside = removeStreamSetElement(streamCref, inside)
@@ -1012,8 +989,7 @@ function generateInStreamExp(
           inside,
           REAL_EXPRESSION(flowThreshold),
         )
-        #=  Evaluate any inStream calls that were generated.
-        =#
+        #= Evaluate any inStream calls that were generated. =#
         @assign exp = evaluateOperators(exp, sets, setsArray, ctable)
         exp
       end
@@ -1083,10 +1059,8 @@ function evaluateActualStream(
 
   @assign flow_cr = associatedFlowCref(streamCref)
   @assign flow_dir = evaluateFlowDirection(flow_cr)
-  #=  Select a branch if we know the flow direction, otherwise generate the whole
-  =#
-  #=  if-equation.
-  =#
+  #= Select a branch if we know the flow direction, otherwise generate the whole
+     if-equation. =#
   if flow_dir == 1
     @assign exp = evaluateInStream(streamCref, sets, setsArray, ctable)
   elseif flow_dir == (-1)
@@ -1107,10 +1081,8 @@ function evaluateActualStream(
       @assign exp = makeSmoothCall(exp, 0)
     end
   end
-  #=  actualStream(stream_var) = smooth(0, if flow_var > 0 then inStream(stream_var)
-  =#
-  #=                                                       else stream_var);
-  =#
+  #= actualStream(stream_var) = smooth(0, if flow_var > 0 then inStream(stream_var)
+     else stream_var); =#
   return exp
 end
 
@@ -1143,8 +1115,7 @@ function evaluateActualStreamMul(
     SOME(cr),
   )
   @assign outExp = BINARY_EXPRESSION(e1, op, e2)
-  #=  Wrap the expression in smooth if the result would be flow_cr * (if flow_cr > 0 then ...)
-  =#
+  #= Wrap the expression in smooth if the result would be flow_cr * (if flow_cr > 0 then ...) =#
   @assign outExp = begin
     @match e2 begin
       IF_EXPRESSION(__) => begin
@@ -1215,18 +1186,12 @@ function evaluateFlowDirection(flowCref::ComponentRef)::Int
       end
     end
   end
-  #=  No attributes, flow direction can't be decided.
-  =#
-  #=  Flow is positive if min is positive.
-  =#
-  #=  Flow is negative if max is negative.
-  =#
-  #=  Flow is positive if both min and max are positive, negative if they are
-  =#
-  #=  both negative, otherwise undecideable.
-  =#
-  #=  Flow is undecideable if either attribute is not a constant Real value.
-  =#
+  #= No attributes, flow direction can't be decided.
+     Flow is positive if min is positive.
+     Flow is negative if max is negative.
+     Flow is positive if both min and max are positive, negative if they are
+     both negative, otherwise undecideable.
+     Flow is undecideable if either attribute is not a constant Real value. =#
   return direction
 end
 
@@ -1291,9 +1256,7 @@ function associatedFlowCref(streamCref::ComponentRef)::ComponentRef
       end
     end
   end
-  #=  A connector with a single flow, append the flow node to the cref and return it.
-  =#
-  #=  Otherwise, remove the first part of the cref and try again.
-  =#
+  #= A connector with a single flow, append the flow node to the cref and return it.
+     Otherwise, remove the first part of the cref and try again. =#
   return flowCref
 end

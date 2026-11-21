@@ -515,14 +515,10 @@ end
 function expandComplexCref_traverser(exp::Expression)
   @match exp begin
     CREF_EXPRESSION(ty = TYPE_ARRAY(__)) => begin
-      #=  Expand crefs where any of the prefix nodes are arrays. For example if
-      =#
-      #=  b in a.b.c is SomeType[2] we expand it into {a.b[1].c, a.b[2].c}.
-      =#
-      #=  TODO: This is only done due to backend issues and shouldn't be
-      =#
-      #=        necessary.
-      =#
+      #= Expand crefs where any of the prefix nodes are arrays. For example if
+         b in a.b.c is SomeType[2] we expand it into {a.b[1].c, a.b[2].c}.
+         TODO: This is only done due to backend issues and shouldn't be
+         necessary. =#
       if isComplexArray(exp.cref)
         (exp, _) = expand(exp)
       end

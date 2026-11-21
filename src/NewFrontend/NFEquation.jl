@@ -68,10 +68,8 @@ function toFlatStreamList(
   local multi_line::Bool
   local first::Bool = true
   for eq in eql
-    #=
-    Improve human parsability by separating statements that spans multiple
-    lines (like if-equations) with newlines.
-    =#
+    #= Improve human parsability by separating statements that spans multiple
+       lines (like if-equations) with newlines. =#
      multi_line = isMultiLine(eq)
     if first
        first = false

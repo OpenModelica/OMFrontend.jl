@@ -33,11 +33,9 @@
 *
 */ =#
 
-#=
-Original code by Per Ost
-Rewritten by John Tinnerholm(johti17)
-(Hence not automatic logic beware here may be bugs...)
-=#
+#= Original code by Per Ost
+   Rewritten by John Tinnerholm(johti17)
+   (Hence not automatic logic beware here may be bugs...) =#
 module ConnectionSets
 
 using MetaModelica

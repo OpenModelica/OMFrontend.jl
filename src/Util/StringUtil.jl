@@ -133,27 +133,20 @@ function wordWrap(
   local delim::String = ""
   local lines::List{String}
 
-  #=  Check that the wrap length is larger than the delimiter, otherwise just
-  =#
-  #=  return the string as it is.
-  =#
+  #= Check that the wrap length is larger than the delimiter, otherwise just
+     return the string as it is. =#
   if stringLength(inDelimiter) >= inWrapLength - 1
     @assign outStrings = list(inString)
     return outStrings
   end
-  #=  Split the string at newlines.
-  =#
+  #= Split the string at newlines. =#
   @assign lines = System.strtok(inString, "\\n")
-  #=  Calculate the length of each line, excluding the delimiter.
-  =#
+  #= Calculate the length of each line, excluding the delimiter. =#
   @assign line_len = inWrapLength - stringLength(inDelimiter) - 1
-  #=  The gap size is how many characters a line may be shorter than the sought
-  =#
-  #=  after line length.
-  =#
+  #= The gap size is how many characters a line may be shorter than the sought
+     after line length. =#
   @assign gap_size = max(realInt(realMul(line_len, inRaggedness)), 0)
-  #=  Wrap each line separately.
-  =#
+  #= Wrap each line separately. =#
   for line in lines
     while end_pos < stringLength(line)
       @assign next_char = stringGetNoBoundsChecking(line, end_pos + 1)
@@ -202,28 +195,17 @@ function wordWrap(
     @assign end_pos = line_len
     @assign delim = inDelimiter
   end
-  #=  If the next character isn't a space or dash, search backwards for a space.
-  =#
-  #=  A space was found, break the string here.
-  =#
-  #=  No space was found, search for a dash instead.
-  =#
-  #=  A dash was found, check that the previous character is alphabetic.
-  =#
-  #=  A dash was found, break the string here.
-  =#
-  #=  No dash was found, break the word and hyphenate it.
-  =#
-  #=  The next character is a space or dash, split the string here.
-  =#
-  #=  Skip the space.
-  =#
-  #=  Add the string to the list and continue with the rest of the line.
-  =#
-  #=  Add any remainder of the line to the list.
-  =#
-  #=  Continue with the next line.
-  =#
+  #= If the next character isn't a space or dash, search backwards for a space.
+     A space was found, break the string here.
+     No space was found, search for a dash instead.
+     A dash was found, check that the previous character is alphabetic.
+     A dash was found, break the string here.
+     No dash was found, break the word and hyphenate it.
+     The next character is a space or dash, split the string here.
+     Skip the space.
+     Add the string to the list and continue with the rest of the line.
+     Add any remainder of the line to the list.
+     Continue with the next line. =#
   @assign outStrings = listReverseInPlace(outStrings)
   return outStrings
 end

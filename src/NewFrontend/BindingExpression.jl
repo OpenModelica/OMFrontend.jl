@@ -822,8 +822,7 @@ function promote2(@nospecialize(exp::Expression), isArray::Bool, dims::Int, type
     local rest_ty::List{ModelicaType}
     local arr_exp::Expression
     local expanded::Bool
-    #=  No types left, we're done!
-    =#
+    #= No types left, we're done! =#
     @match (exp, types) begin
       (_,  nil())  => begin
         exp
@@ -832,12 +831,9 @@ function promote2(@nospecialize(exp::Expression), isArray::Bool, dims::Int, type
         makeArray(ty, Expression[promote2(e, false, dims, rest_ty) for e in exp.elements])
       end
       (_, _) where (isArray)  => begin
-        #=  An array, promote each element in the array.
-        =#
-        #=  An expression with array type, but which is not an array expression.
-        =#
-        #=  Such an expression can't be promoted here, so we create a promote call instead.
-        =#
+        #= An array, promote each element in the array.
+           An expression with array type, but which is not an array expression.
+           Such an expression can't be promoted here, so we create a promote call instead. =#
         (outExp, expanded) = expand(exp)
         if expanded
            outExp = promote2(outExp, true, dims, types)
@@ -879,11 +875,10 @@ function promote(@nospecialize(e::Expression), ty::ModelicaType, n::Int) ::Tuple
     end
      e = promote2(e, is_array, n, listReverse(tys))
   end
-  #=  Concatenate the existing dimensions and the added ones. =#
-  #=  Construct the result type. =#
-  #=  Construct the expression types, to avoid having to create a new type
-      for each subexpression that will be created.
-  =#
+  #= Concatenate the existing dimensions and the added ones.
+     Construct the result type.
+     Construct the expression types, to avoid having to create a new type
+     for each subexpression that will be created. =#
   (e, ty)
 end
 
@@ -905,11 +900,10 @@ function promoteRef(@nospecialize(e::Expression), ty::ModelicaType, n::Int, tyRe
     end
      e = promote2(e, is_array, n, listReverse(tys))
   end
-  #=  Concatenate the existing dimensions and the added ones. =#
-  #=  Construct the result type. =#
-  #=  Construct the expression types, to avoid having to create a new type
-      for each subexpression that will be created.
-  =#
+  #= Concatenate the existing dimensions and the added ones.
+     Construct the result type.
+     Construct the expression types, to avoid having to create a new type
+     for each subexpression that will be created. =#
   tyRef.x = ty
   e
 end
@@ -3899,8 +3893,7 @@ end
       end
     end
   end
-  #=  TODO: Add more expressions.
-  =#
+  #= TODO: Add more expressions. =#
   dimCount
 end
 
@@ -4131,11 +4124,9 @@ end
       CREF_EXPRESSION(__)  => begin
         # #@info "cref expr to string..."
         res = toFlatString(exp.cref; inFunction = inFunction)
-        #=
-        There is a current bug that if we have scalarized the model,
-        the subscript for parameters are not always set correctly for cref expressions.
-        Here we check if it is scalarized
-        =#
+        #= There is a current bug that if we have scalarized the model,
+           the subscript for parameters are not always set correctly for cref expressions.
+           Here we check if it is scalarized =#
         if Base.contains(res, "load.V_nom")
           @info "It contained it..."  toString(exp.cref)
           #global TMP = getOriginCref(exp.cref)
@@ -4623,10 +4614,8 @@ function makeSubscriptedExp(subscripts::List{<:Subscript}, @nospecialize(exp::Ex
   local ty::ModelicaType
   local dim_count::Int
 
-  #=  If the expression is already a SUBSCRIPTED_EXP_EXPRESSION we need to concatenate the
-  =#
-  #=  old subscripts with the new. Otherwise we just create a new SUBSCRIPTED_EXP_EXPRESSION.
-  =#
+  #= If the expression is already a SUBSCRIPTED_EXP_EXPRESSION we need to concatenate the
+     old subscripts with the new. Otherwise we just create a new SUBSCRIPTED_EXP_EXPRESSION. =#
    (e, subs, ty) = begin
     @match exp begin
       SUBSCRIPTED_EXP_EXPRESSION(__)  => begin
@@ -4689,8 +4678,7 @@ function applySubscriptArrayConstructor(subscript::Subscript, call::Call, restSu
   else
      outExp = makeSubscriptedExp(Cons{Subscript}(subscript, restSubscripts), CALL_EXPRESSION(call))
   end
-  #=  TODO: Handle slicing and multiple subscripts better.
-  =#
+  #= TODO: Handle slicing and multiple subscripts better. =#
   outExp
 end
 
@@ -5151,18 +5139,12 @@ end
          INTEGER_EXPRESSION(exp.index)
        end
        (ARRAY_EXPRESSION(ty = t, elements = el), _)  => begin
-         #=  Integer can be cast to Real.
-         =#
-         #=  Boolean can be cast to Real (only if -d=nfAPI is on)
-         =#
-         #=  as there are annotations having expressions such as Boolean x > 0.5
-         =#
-         #=  Real doesn't need to be cast to Real, since we convert e.g. array with
-         =#
-         #=  a mix of Integers and Reals to only Reals.
-         =#
-         #=  For arrays we typecast each element and update the type of the array.
-         =#
+         #= Integer can be cast to Real.
+            Boolean can be cast to Real (only if -d=nfAPI is on)
+            as there are annotations having expressions such as Boolean x > 0.5
+            Real doesn't need to be cast to Real, since we convert e.g. array with
+            a mix of Integers and Reals to only Reals.
+            For arrays we typecast each element and update the type of the array. =#
          el = Expression[typeCast(e, ety) for e in el]
          t = setArrayElementType(t, ety)
          ARRAY_EXPRESSION(t, el, exp.literal)
@@ -5172,8 +5154,7 @@ end
          RANGE_EXPRESSION(t, typeCast(exp.start, ety), typeCastOpt(exp.step, ety), typeCast(exp.stop, ety))
        end
        (UNARY_EXPRESSION(__), _)  => begin
-         #=  Unary operators (i.e. -) are handled by casting the operand.
-         =#
+         #= Unary operators (i.e. -) are handled by casting the operand. =#
          t = setArrayElementType(typeOf(exp.operator), ety)
          UNARY_EXPRESSION(setType(t, exp.operator), typeCast(exp.exp, ety))
        end
@@ -5187,19 +5168,15 @@ end
          typeCast(exp.exp, ty)
        end
        (BINDING_EXP(__), _)  => begin
-         #=  If-expressions are handled by casting each of the branches.
-         =#
-         #=  Calls are handled by Call.typeCast, which has special rules for some functions.
-         =#
-         #=  Casting a cast expression overrides its current cast type.
-         =#
+         #= If-expressions are handled by casting each of the branches.
+            Calls are handled by Call.typeCast, which has special rules for some functions.
+            Casting a cast expression overrides its current cast type. =#
           t = setArrayElementType(exp.expType, ety)
           t2 = setArrayElementType(exp.bindingType, ety)
          BINDING_EXP(typeCast(exp.exp, ety), t, t2, exp.parents, exp.isEach)
        end
        _  => begin
-         #=  Other expressions are handled by making a CAST expression.
-         =#
+         #= Other expressions are handled by making a CAST expression. =#
           t = typeOf(exp)
           t = setArrayElementType(t, ety)
          CAST_EXPRESSION(t, exp)
@@ -5435,8 +5412,7 @@ function compareList(expl1::List{<:Expression}, expl2::List{<:Expression}) ::Int
   local e2::Expression
   local rest_expl2::List{Expression} = expl2
 
-  #=  Check that the lists have the same length, otherwise they can't be equal.
-  =#
+  #= Check that the lists have the same length, otherwise they can't be equal. =#
    comp = Util.intCompare(listLength(expl1), listLength(expl2))
   if comp != 0
     return comp
@@ -5448,8 +5424,7 @@ function compareList(expl1::List{<:Expression}, expl2::List{<:Expression}) ::Int
       return comp
     end
   end
-  #=  Return if the expressions are not equal.
-  =#
+  #= Return if the expressions are not equal. =#
    comp = 0
   comp
 end
@@ -5509,13 +5484,11 @@ end
 @nospecializeinfer function compare(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression)) ::Int
   local comp::Int
 
-  #=  Check if the expressions are the same object.
-  =#
+  #= Check if the expressions are the same object. =#
   if referenceEq(exp1, exp2)
     return 0
   end
-  #=  Return false if the expressions are of different kinds.
-  =#
+  #= Return false if the expressions are of different kinds. =#
   comp = Util.intCompare(valueConstructor(exp1), valueConstructor(exp2))
   if comp != 0
     return comp
@@ -6199,8 +6172,7 @@ end
       end
     end
   end
-  #=  TODO: Handle propagated dims.
-  =#
+  #= TODO: Handle propagated dims. =#
   return equal
 end
 

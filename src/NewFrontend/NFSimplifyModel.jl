@@ -486,12 +486,9 @@ function simplifyIfEqBranches(
           elseif !isFalse(cond)
             @assign accum = push!(accum, makeBranch(cond, simplifyEquations(body)))
           end
-          #=  If it's the first branch, remove the if and keep only the branch body.
-          =#
-          #=  Otherwise just discard the rest of the branches.
-          =#
-          #=  Keep branches that are neither literal true or false.
-          =#
+          #= If it's the first branch, remove the if and keep only the branch body.
+             Otherwise just discard the rest of the branches.
+             Keep branches that are neither literal true or false. =#
           accum
         end
         EQUATION_INVALID_BRANCH(
@@ -503,10 +500,8 @@ function simplifyIfEqBranches(
           if var <= Variability.STRUCTURAL_PARAMETER
             @assign cond = evalExp(cond)
           end
-          #=  An invalid branch that can't be removed will trigger the errors
-          =#
-          #=  stored in it.
-          =#
+          #= An invalid branch that can't be removed will trigger the errors
+             stored in it. =#
           if !isFalse(cond)
             triggerErrors(branch)
           end

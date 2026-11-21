@@ -180,8 +180,7 @@ function close(inStream::IOSTREAM)::IOSTREAM
       end
     end
   end
-  #=  close does nothing for list or buffer streams
-  =#
+  #= close does nothing for list or buffer streams =#
   return outStream
 end
 

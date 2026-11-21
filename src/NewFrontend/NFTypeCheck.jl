@@ -192,8 +192,7 @@ function checkOverloadedBinaryOperator(
   ety1 = arrayElementType(type1)
   ety2 = arrayElementType(type2)
   candidates = lookupOperatorFunctionsInType(op_str, ety1)
-  #=  Only collect operators from both types if they're not the same type.
-  =#
+  #= Only collect operators from both types if they're not the same type. =#
   if !isEqual(ety1, ety2)
     candidates = Base.append!(
       lookupOperatorFunctionsInType(op_str, ety2),
@@ -261,8 +260,7 @@ function matchOverloadedBinaryOperator(
 
   args = TypedArg[(exp1, type1, var1), (exp2, type2, var2)]
   matchedFunctions = matchFunctionsSilent(candidates, args, TypedNamedArg[], info)
-  #=  We only allow exact matches for operator overloading. e.g. no casting or generic matches.
-  =#
+  #= We only allow exact matches for operator overloading. e.g. no casting or generic matches. =#
   @assign exactMatches = getExactMatches(matchedFunctions)
   if isempty(exactMatches)
     ErrorExt.setCheckpoint("NFTypeCheck:implicitConstruction")
@@ -336,8 +334,7 @@ function matchOverloadedBinaryOperator(
             end
 
             _ => begin
-              #=  TODO: new error mentioning overloaded operators.
-              =#
+              #= TODO: new error mentioning overloaded operators. =#
               printUnresolvableTypeError(
                 BINARY_EXPRESSION(exp1, op, exp2),
                 list(type1, type2),
@@ -425,8 +422,7 @@ function checkOverloadedBinaryArrayAddSub(
   local e2::Expression
   local mk::MatchKindType
 
-  #=  For addition or subtraction both sides must have the same type.
-  =#
+  #= For addition or subtraction both sides must have the same type. =#
    (e1, e2, _, mk) = matchExpressions(exp1, type1, exp2, type2, true)
   if !isCompatibleMatch(mk)
     printUnresolvableTypeError(
@@ -522,8 +518,7 @@ function checkOverloadedBinaryArrayAddSub2(
             push!(expl, e)
           end
         end
-        #=  If the arrays are empty, match against the element types to get the expected return type.
-        =#
+        #= If the arrays are empty, match against the element types to get the expected return type. =#
         outType = setArrayElementType(type1, ty)
         outExp = makeArray(outType, expl)
         (outExp, outType)
@@ -574,8 +569,7 @@ function checkOverloadedBinaryArrayMul(
    (valid, outExp) = begin
     @match (dims1, dims2) begin
       (nil(), _ <| nil()) => begin
-        #=  scalar * array = array
-        =#
+        #= scalar * array = array =#
         @assign (outExp, _) = checkOverloadedBinaryScalarArray(
           exp1,
           type1,
@@ -591,8 +585,7 @@ function checkOverloadedBinaryArrayMul(
       end
 
       (_ <| nil(), nil()) => begin
-        #=  array * scalar = array
-        =#
+        #= array * scalar = array =#
         @assign (outExp, _) = checkOverloadedBinaryArrayScalar(
           exp1,
           type1,
@@ -608,22 +601,18 @@ function checkOverloadedBinaryArrayMul(
       end
 
       (dim11 <| dim12 <| nil(), dim21 <| nil()) => begin
-        #=  matrix[n, m] * vector[m] = vector[n]
-        =#
+        #= matrix[n, m] * vector[m] = vector[n] =#
         @assign valid = isEqual(dim12, dim21)
-        #=  TODO: Implement me!
-        =#
+        #= TODO: Implement me! =#
         @assign outExp = BINARY_EXPRESSION(exp1, op, exp2)
         @assign valid = false
         (valid, outExp)
       end
 
       (dim11 <| dim12 <| nil(), dim21 <| dim22 <| nil()) => begin
-        #=  matrix[n, m] * matrix[m, p] = vector[n, p]
-        =#
+        #= matrix[n, m] * matrix[m, p] = vector[n, p] =#
         @assign valid = isEqual(dim12, dim21)
-        #=  TODO: Implement me!
-        =#
+        #= TODO: Implement me! =#
         @assign outExp = BINARY_EXPRESSION(exp1, op, exp2)
         @assign valid = false
         (valid, outExp)
@@ -634,10 +623,8 @@ function checkOverloadedBinaryArrayMul(
       end
     end
   end
-  #=  scalar * scalar should never get here.
-  =#
-  #=  vector * vector and vector * matrix are undefined for overloaded operators.
-  =#
+  #= scalar * scalar should never get here.
+     vector * vector and vector * matrix are undefined for overloaded operators. =#
   if !valid
     printUnresolvableTypeError(outExp, list(type1, type2), info)
   end
@@ -1143,10 +1130,8 @@ function implicitConstructAndMatch(
       matchedfuncs,
     )
   end
-  #=  Try to implicitly construct a matching record from the first argument.
-  =#
-  #=  Try to implicitly construct a matching record from the second argument.
-  =#
+  #= Try to implicitly construct a matching record from the first argument.
+     Try to implicitly construct a matching record from the second argument. =#
   if listLength(matchedfuncs) == 1
     @match (operfn, exp1 <| (exp2 <| _), var) <| _ = matchedfuncs
     @assign outType = returnType(operfn)
@@ -1193,10 +1178,8 @@ function implicitConstructAndMatch2(
   local ty::ModelicaType
 
    (e1, _, mk) = matchTypes(paramType1, type1, exp1, false)
-  #=  We only want overloaded constructors when trying to implicitly construct.
-  =#
-  #=  Default constructors are not considered.
-  =#
+  #= We only want overloaded constructors when trying to implicitly construct.
+     Default constructors are not considered. =#
   if mk == MatchKind.EXACT
     (fn_ref, _, _) =
       instFunction(Absyn.CREF_IDENT("'constructor'", nil), scope, paramInfo2)
@@ -1369,35 +1352,28 @@ end
       end
 
       (dim11 <| nil(), dim21 <| nil()) => begin
-        #=  scalar * scalar = scalar
-        =#
-        #=  scalar * array = array
-        =#
-        #=  array * scalar = array
-        =#
-        #=  vector[n] * vector[n] = scalar
-        =#
+        #= scalar * scalar = scalar
+           scalar * array = array
+           array * scalar = array
+           vector[n] * vector[n] = scalar =#
         @assign valid = isEqual(dim11, dim21)
         (resultType, Op.SCALAR_PRODUCT)
       end
 
       (dim11 <| nil(), dim21 <| dim22 <| nil()) => begin
-        #=  vector[n] * matrix[n, m] = vector[m]
-        =#
+        #= vector[n] * matrix[n, m] = vector[m] =#
         @assign valid = isEqual(dim11, dim21)
         (TYPE_ARRAY(resultType, list(dim22)), Op.MUL_VECTOR_MATRIX)
       end
 
       (dim11 <| dim12 <| nil(), dim21 <| nil()) => begin
-        #=  matrix[n, m] * vector[m] = vector[n]
-        =#
+        #= matrix[n, m] * vector[m] = vector[n] =#
         @assign valid = isEqual(dim12, dim21)
         (TYPE_ARRAY(resultType, list(dim11)), Op.MUL_MATRIX_VECTOR)
       end
 
       (dim11 <| dim12 <| nil(), dim21 <| dim22 <| nil()) => begin
-        #=  matrix[n, m] * matrix[m, p] = vector[n, p]
-        =#
+        #= matrix[n, m] * matrix[m, p] = vector[n, p] =#
         @assign valid = isEqual(dim12, dim21)
         (TYPE_ARRAY(resultType, list(dim11, dim22)), Op.MATRIX_PRODUCT)
       end
@@ -1439,10 +1415,8 @@ function checkBinaryOperationDiv(
    (e2, ty2, mk) =
     matchTypes(type2, setArrayElementType(type2, TYPE_REAL()), exp2, #=allowUnknown=# true)
   valid = valid && isCompatibleMatch(mk)
-  #=  Division is always element-wise, the only difference between / and ./ is
-  =#
-  #=  which operands they accept.
-  =#
+  #= Division is always element-wise, the only difference between / and ./ is
+     which operands they accept. =#
    (resultType, op) = begin
     @match (isArray(ty1), isArray(ty2), isElementWise) begin
       (false, false, _) => begin
@@ -1458,24 +1432,18 @@ function checkBinaryOperationDiv(
       end
 
       (true, _, true) => begin
-        #=  scalar / scalar or scalar ./ scalar
-        =#
-        #=  array / scalar or array ./ scalar
-        =#
-        #=  scalar ./ array
-        =#
-        #=  array ./ array
-        =#
-        #=  If both operands are arrays, check that their dimensions are compatible.
-        =#
+        #= scalar / scalar or scalar ./ scalar
+           array / scalar or array ./ scalar
+           scalar ./ array
+           array ./ array
+           If both operands are arrays, check that their dimensions are compatible. =#
          (_, _, mk) = matchArrayTypes(ty1, ty2, e1, true)
         @assign valid = valid && isCompatibleMatch(mk)
         (ty1, makeDiv(ty1))
       end
 
       _ => begin
-        #=  Anything else is an error.
-        =#
+        #= Anything else is an error. =#
         @assign valid = false
         (ty1, makeDiv(ty1))
       end
@@ -1518,10 +1486,8 @@ function checkBinaryOperationPow(
     @assign valid = valid && isCompatibleMatch(mk)
     @assign op = OPERATOR(resultType, Op.POW)
   end
-  #=  Real[n, n] ^ Integer
-  =#
-  #=  Real ^ Real
-  =#
+  #= Real[n, n] ^ Integer
+     Real ^ Real =#
   @assign binaryExp = BINARY_EXPRESSION(e1, op, e2)
   if !valid
     printUnresolvableTypeError(binaryExp, list(type1, type2), info)
@@ -1547,10 +1513,8 @@ function checkBinaryOperationPowEW(
   local valid::Bool
   local op::OPERATOR
 
-  #=  Exponentiation always returns a Real value, so instead of checking if the types
-  =#
-  #=  are compatible with ecah other we check if each type is compatible with Real.
-  =#
+  #= Exponentiation always returns a Real value, so instead of checking if the types
+     are compatible with ecah other we check if each type is compatible with Real. =#
    (e1, ty1, mk) =
     matchTypes(type1, setArrayElementType(type1, TYPE_REAL()), exp1, #=allowUnknown=# true)
   @assign valid = isCompatibleMatch(mk)
@@ -1572,16 +1536,11 @@ function checkBinaryOperationPowEW(
       end
 
       _ => begin
-        #=  scalar .^ scalar
-        =#
-        #=  array .^ scalar
-        =#
-        #=  scalar .^ array
-        =#
-        #=  array .^ array
-        =#
-        #=  If both operands are arrays, check that their dimensions are compatible.
-        =#
+        #= scalar .^ scalar
+           array .^ scalar
+           scalar .^ array
+           array .^ array
+           If both operands are arrays, check that their dimensions are compatible. =#
          (_, _, mk) = matchArrayTypes(ty1, ty2, e1, true)
         @assign valid = valid && isCompatibleMatch(mk)
         (ty1, makePow(ty1))
@@ -1623,13 +1582,10 @@ function checkBinaryOperationEW(
     ty2 = arrayElementType(type2)
     (e1, e2, resultType, mk) = matchExpressions(exp1, ty1, exp2, ty2, true)
   end
-  #=  The expressions must be type compatible if they are both arrays.
-  =#
-  #=  Otherwise it's enough if their element types are compatible.
-  =#
+  #= The expressions must be type compatible if they are both arrays.
+     Otherwise it's enough if their element types are compatible. =#
   @assign valid = isCompatibleMatch(mk)
-  #=  Check that the type is valid for the operation.
-  =#
+  #= Check that the type is valid for the operation. =#
   @assign valid = begin
     @match (arrayElementType(resultType), elemOp) begin
       (TYPE_INTEGER(__), _) => begin
@@ -1652,16 +1608,14 @@ function checkBinaryOperationEW(
   (resultType, op) = begin
     @match (is_arr1, is_arr2) begin
       (true, false) => begin
-        #=  array * scalar => Op.{elemOp}_ARRAY_SCALAR.
-        =#
+        #= array * scalar => Op.{elemOp}_ARRAY_SCALAR. =#
         resultType = copyDims(type1, resultType)
         op = makeArrayScalar(resultType, elemOp)
         (resultType, op)
       end
 
       (false, true) => begin
-        #=  scalar * array => Op.{elemOp}_SCALAR_ARRAY;
-        =#
+        #= scalar * array => Op.{elemOp}_SCALAR_ARRAY; =#
         resultType = copyDims(type2, resultType)
         op = makeScalarArray(resultType, elemOp)
         (resultType, op)
@@ -1672,8 +1626,7 @@ function checkBinaryOperationEW(
       end
     end
   end
-  #=  scalar * scalar and array * array => elemOp.
-  =#
+  #= scalar * scalar and array * array => elemOp. =#
   @assign binaryExp = BINARY_EXPRESSION(e1, op, e2)
   if !valid
     printUnresolvableTypeError(binaryExp, list(type1, type2), info)
@@ -1712,8 +1665,7 @@ function checkUnaryOperation(
       end
     end
   end
-  #=  + is a no-op for arithmetic unary operations.
-  =#
+  #= + is a no-op for arithmetic unary operations. =#
   if !isNumeric(type1)
     printUnresolvableTypeError(unaryExp, list(type1), info)
   end
@@ -1746,16 +1698,12 @@ function checkOverloadedUnaryOperator(
   @assign opstr = symbol(inOp, "'")
   @assign candidates = lookupOperatorFunctionsInType(opstr, inType1)
   #= for fn in candidates loop
-  =#
-  #=   checkValidOperatorOverload(opstr, fn, node1);
-  =#
-  #= end for;
-  =#
+     checkValidOperatorOverload(opstr, fn, node1);
+     end for; =#
   @assign args = TypedArg[(inExp1, inType1, var)]
   @assign matchedFunctions =
     matchFunctionsSilent(candidates, args, TypedNamedArg[], info)
-  #=  We only allow exact matches for operator overloading. e.g. no casting or generic matches.
-  =#
+  #= We only allow exact matches for operator overloading. e.g. no casting or generic matches. =#
   @assign exactMatches = getExactMatches(matchedFunctions)
   if isempty(exactMatches)
     printUnresolvableTypeError(
@@ -1957,15 +1905,13 @@ end
   allowUnknown::Bool = false,
   )
 
-  #=  Return true if the references are the same.
-  =#
+  #= Return true if the references are the same. =#
   if referenceEq(type1, type2)
     compatibleType = type1
     matchKind = MatchKind.EXACT
     return (exp1, exp2, compatibleType, matchKind)
   end
-  #=  Check if the types are different kinds of types.
-  =#
+  #= Check if the types are different kinds of types. =#
   if valueConstructor(type1) != valueConstructor(type2)
     @match (exp1, exp2, compatibleType, matchKind) =
       matchExpressions_cast(exp1, type1, exp2, type2, allowUnknown)
@@ -1993,11 +1939,9 @@ function matchExpressions2(
   local cty::ModelicaType
   local mk::MatchKindType
 
-  #=
-  If the types are not of the same kind we might need to type cast one of the expressions
-  to make them compatible.
-  =#
-  #=  The types are of the same kind, so we only need to match on one of them. =#
+  #= If the types are not of the same kind we might need to type cast one of the expressions
+     to make them compatible.
+     The types are of the same kind, so we only need to match on one of them. =#
   mk = MatchKind.EXACT
   cty = begin
     @match type1 begin
@@ -2060,8 +2004,7 @@ function matchExpressions2(
       end
 
       TYPE_COMPLEX(__) => begin
-        #=  TODO: This needs more work to handle e.g. type casting of complex expressions.
-        =#
+        #= TODO: This needs more work to handle e.g. type casting of complex expressions. =#
         (e1, cty, mk) = matchComplexTypes(type1, type2, exp1, allowUnknown)
         e2 = exp2
         cty
@@ -2118,12 +2061,9 @@ end
       matchTypes_cast(actualType, expectedType, expression, allowUnknown)
     return (expression, compatibleType, matchKind)
   end
-  #=  If the types are not of the same kind we might need to type cast the
-  =#
-  #=  expression to make it compatible.
-  =#
-  #=  The types are of the same kind, so we only need to match on one of them.
-  =#
+  #= If the types are not of the same kind we might need to type cast the
+     expression to make it compatible.
+     The types are of the same kind, so we only need to match on one of them. =#
   matchKind = MatchKind.EXACT
   compatibleType = begin
     @match actualType begin
@@ -2235,12 +2175,9 @@ function matchTypesRef(
     expression = matchTypes_castRef(actualType, expectedType, expression, refTyExp, refMatchKind, allowUnknown)
     return expression
   end
-  #=  If the types are not of the same kind we might need to type cast the
-  =#
-  #=  expression to make it compatible.
-  =#
-  #=  The types are of the same kind, so we only need to match on one of them.
-  =#
+  #= If the types are not of the same kind we might need to type cast the
+     expression to make it compatible.
+     The types are of the same kind, so we only need to match on one of them. =#
   matchKind = MatchKind.EXACT
   compatibleType = begin
     @match actualType begin
@@ -2345,8 +2282,7 @@ function matchTypes_castRef(
   matchKind = begin
     @match (actualType, expectedType) begin
       (TYPE_INTEGER(__), TYPE_REAL(__)) => begin
-        #=  Integer can be cast to Real.
-        =#
+        #= Integer can be cast to Real. =#
         expression = typeCast(expression, expectedType)
         refTyExp.x = expectedType
         MatchKind.CAST
@@ -2411,8 +2347,7 @@ function matchTypes_castRef(
       end
 
       (TYPE_METABOXED(__), _) => begin
-        #=  Allow unknown types in some cases, e.g. () has type METALIST(UNKNOWN)
-        =#
+        #= Allow unknown types in some cases, e.g. () has type METALIST(UNKNOWN) =#
         expression = unbox(expression)
         (expression, compatibleType, matchKind) = matchTypes(actualType.ty, expectedType, expression, allowUnknown)
         refTyExp.x = compatibleType
@@ -2458,10 +2393,8 @@ function matchTypes_castRef(
       end
     end
   end
-  #=
-  Expected type is any, any actual type matches.
-  Anything else is not compatible.
-  =#
+  #= Expected type is any, any actual type matches.
+     Anything else is not compatible. =#
   refMatchKind.x = matchKind
   return expression
 end
@@ -2480,8 +2413,7 @@ function matchExpressions_cast(
    (compatibleType, matchKind) = begin
     @match (type1, type2) begin
       (TYPE_INTEGER(__), TYPE_REAL(__)) => begin
-        #=  Integer can be cast to Real.
-        =#
+        #= Integer can be cast to Real. =#
         @assign exp1 = typeCast(exp1, type2)
         (type2, MatchKind.CAST)
       end
@@ -2492,10 +2424,8 @@ function matchExpressions_cast(
       end
 
       (TYPE_BOOLEAN(__), TYPE_REAL(__)) where {(Flags.isSet(Flags.NF_API))} => begin
-        #=  Boolean can be cast to Real (only if -d=nfAPI is on)
-        =#
-        #=  as there are annotations having expressions such as Boolean x > 0.5
-        =#
+        #= Boolean can be cast to Real (only if -d=nfAPI is on)
+           as there are annotations having expressions such as Boolean x > 0.5 =#
         Error.addCompilerWarning(
           "Allowing casting of boolean expression: " +
           toString(exp1) +
@@ -2516,14 +2446,10 @@ function matchExpressions_cast(
       end
 
       (_, TYPE_TUPLE(types = compatibleType <| _)) => begin
-        #=  This case takes care of equations where the lhs is a non-tuple and the rhs a
-        =#
-        #=  function call returning a tuple, in which case only the first element of the
-        =#
-        #=  tuple is used. exp1 should never be a tuple here, since any tuple expression
-        =#
-        #=  not alone on the rhs of an equation is \"tuple subscripted\" by typeExp.
-        =#
+        #= This case takes care of equations where the lhs is a non-tuple and the rhs a
+           function call returning a tuple, in which case only the first element of the
+           tuple is used. exp1 should never be a tuple here, since any tuple expression
+           not alone on the rhs of an equation is \"tuple subscripted\" by typeExp. =#
         exp2 = tupleElement(exp2, compatibleType, 1)
         (exp2, compatibleType, matchKind) =
           matchTypes(compatibleType, type1, exp2, allowUnknown)
@@ -2617,8 +2543,7 @@ function matchComplexTypes(
 
   @match TYPE_COMPLEX(cls = anode) = actualType
   @match TYPE_COMPLEX(cls = enode) = expectedType
-  #=  TODO: revise this.
-  =#
+  #= TODO: revise this. =#
   if isSame(anode, enode)
     matchKind = MatchKind.EXACT
     return (expression, compatibleType, matchKind)
@@ -2801,8 +2726,7 @@ function matchFunctionTypes(
   @match TYPE_FUNCTION(
     fn = MODELICA_FUNCTION(inputs = inputs2, outputs = outputs2, slots = slots2),
   ) = expectedType
-  #=  The functions must have the same number of outputs.
-  =#
+  #= The functions must have the same number of outputs. =#
   if listLength(outputs1) != listLength(outputs2)
     @assign matchKind = MatchKind.NOT_COMPATIBLE
     return (expression, compatibleType, matchKind)
@@ -2815,10 +2739,8 @@ function matchFunctionTypes(
     @assign matchKind = MatchKind.NOT_COMPATIBLE
     return (expression, compatibleType, matchKind)
   end
-  #=  An input in the actual type must have a default argument if the
-  =#
-  #=  corresponding input in the expected type has one.
-  =#
+  #= An input in the actual type must have a default argument if the
+     corresponding input in the expected type has one. =#
   for i in inputs2
     @match _cons(slot1, slots1) = slots1
     @match _cons(slot2, slots2) = slots2
@@ -2827,10 +2749,8 @@ function matchFunctionTypes(
       return (expression, compatibleType, matchKind)
     end
   end
-  #=  The actual type can have more inputs than expected if the extra inputs have
-  =#
-  #=  default arguments.
-  =#
+  #= The actual type can have more inputs than expected if the extra inputs have
+     default arguments. =#
   for slot in slots1
     if !isSome(slot.default)
       @assign matchKind = MatchKind.NOT_COMPATIBLE
@@ -2908,12 +2828,10 @@ function matchArrayExpressions(
 
   @match TYPE_ARRAY(elementType = ety1, dimensions = dims1) = type1
   @match TYPE_ARRAY(elementType = ety2, dimensions = dims2) = type2
-  #=  Check that the element types are compatible.
-  =#
+  #= Check that the element types are compatible. =#
    (exp1, exp2, compatibleType, matchKind) =
     matchExpressions(exp1, ety1, exp2, ety2, allowUnknown)
-  #=  If the element types are compatible, check the dimensions too.
-  =#
+  #= If the element types are compatible, check the dimensions too. =#
    (compatibleType, matchKind) =
     matchArrayDims(dims1, dims2, compatibleType, matchKind, allowUnknown)
   return (exp1, exp2, compatibleType, matchKind)
@@ -3000,10 +2918,8 @@ function matchArrayDimsRef(
   end
   local dims1V = dims1
   local dims2V = dims2
-  #=
-  The dimensions of both array types must be compatible.
-  We do not preallocate the array here since we might need to break before that.
-  =#
+  #= The dimensions of both array types must be compatible.
+     We do not preallocate the array here since we might need to break before that. =#
   local cDims::List{Dimension} = nil
   for dim1 in dims1V
     @match Cons{Dimension}(dim2, rest_dims2) = rest_dims2
@@ -3041,10 +2957,8 @@ function matchArrayDims(
   end
   local dims1V = listArray(dims1)
   local dims2V = listArray(dims2)
-  #=
-  The dimensions of both array types must be compatible.
-  We do not preallocate the array here since we might need to break before that.
-  =#
+  #= The dimensions of both array types must be compatible.
+     We do not preallocate the array here since we might need to break before that. =#
   local cDims = Dimension[]
   local refComp = Ref{Bool}(false)
   for (i, dim1) in enumerate(dims1V)
@@ -3145,8 +3059,7 @@ function matchTupleTypes(
       break
     end
   end
-  #=  Skip matching if the rhs is _.
-  =#
+  #= Skip matching if the rhs is _. =#
   return (expression, compatibleType, matchKind)
 end
 
@@ -3187,8 +3100,7 @@ function matchTypes_cast(
    (compatibleType, matchKind) = begin
     @match (actualType, expectedType) begin
       (TYPE_INTEGER(__), TYPE_REAL(__)) => begin
-        #=  Integer can be cast to Real.
-        =#
+        #= Integer can be cast to Real. =#
         @assign expression = typeCast(expression, expectedType)
         (expectedType, MatchKind.CAST)
       end
@@ -3200,18 +3112,14 @@ function matchTypes_cast(
       end
 
       (TYPE_ENUMERATION(__), TYPE_ENUMERATION_ANY(__)) => begin
-        #=  Any enumeration is compatible with enumeration(:).
-        =#
-        #=  TODO: FIXME: Maybe this should be generic match
-        =#
+        #= Any enumeration is compatible with enumeration(:).
+           TODO: FIXME: Maybe this should be generic match =#
         (actualType, MatchKind.CAST)
       end
 
       (TYPE_TUPLE(types = _ <| _), _) => begin
-        #=  If the actual type is a tuple but the expected type isn't,
-        =#
-        #=  try to use the first type in the tuple.
-        =#
+        #= If the actual type is a tuple but the expected type isn't,
+           try to use the first type in the tuple. =#
          (expression, compatibleType, matchKind) =
            matchTypes(listHead(actualType.types), expectedType, expression, allowUnknown)
         if isCompatibleMatch(matchKind)
@@ -3255,8 +3163,7 @@ function matchTypes_cast(
       end
 
       (TYPE_METABOXED(__), _) => begin
-        #=  Allow unknown types in some cases, e.g. () has type METALIST(UNKNOWN)
-        =#
+        #= Allow unknown types in some cases, e.g. () has type METALIST(UNKNOWN) =#
         @assign expression = unbox(expression)
          (expression, compatibleType, matchKind) =
           matchTypes(actualType.ty, expectedType, expression, allowUnknown)
@@ -3281,16 +3188,13 @@ function matchTypes_cast(
 
       (_, TYPE_POLYMORPHIC(__)) => begin
         @assign expression = BOX_EXPRESSION(expression)
-        #=  matchKind := MatchKind.GENERIC(expectedType.b,actualType);
-        =#
+        #= matchKind := MatchKind.GENERIC(expectedType.b,actualType); =#
         (TYPE_METABOXED(actualType), MatchKind.GENERIC)
       end
 
       (TYPE_POLYMORPHIC(__), _) => begin
-        #=  expression := Expression.UNBOX(expression, Expression.typeOf(expression));
-        =#
-        #=  matchKind := MatchKind.GENERIC(expectedType.b,actualType);
-        =#
+        #= expression := Expression.UNBOX(expression, Expression.typeOf(expression));
+           matchKind := MatchKind.GENERIC(expectedType.b,actualType); =#
         (expectedType, MatchKind.GENERIC)
       end
 
@@ -3303,10 +3207,8 @@ function matchTypes_cast(
       end
     end
   end
-  #=  Expected type is any, any actual type matches.
-  =#
-  #=  Anything else is not compatible.
-  =#
+  #= Expected type is any, any actual type matches.
+     Anything else is not compatible. =#
   return (expression, compatibleType, matchKind)
 end
 
@@ -3391,8 +3293,7 @@ function getRangeTypeInt(
         SOME(INTEGER_EXPRESSION(value = step)),
         INTEGER_EXPRESSION(__),
       ) => begin
-        #=  Don't allow infinite ranges.
-        =#
+        #= Don't allow infinite ranges. =#
         if step == 0
           Error.addSourceMessageAndFail(Error.RANGE_TOO_SMALL_STEP, list(string(step)), info)
         end
@@ -3403,8 +3304,7 @@ function getRangeTypeInt(
       end
 
       (INTEGER_EXPRESSION(1), NONE(), _) => begin
-        #=  Ranges like 1:n have size n.
-        =#
+        #= Ranges like 1:n have size n. =#
         @assign dim_exp = simplify(stopExp)
         fromExp(dim_exp, variability(dim_exp))
       end
@@ -3414,12 +3314,9 @@ function getRangeTypeInt(
       end
 
       _ => begin
-        #=  Ranges like n:n have size 1.
-        =#
-        #=  For other ranges, create the appropriate expression as dimension.
-        =#
-        #=  max(stop - start + 1, 0) or max(((stop - start) / step) + 1, 0)
-        =#
+        #= Ranges like n:n have size 1.
+           For other ranges, create the appropriate expression as dimension.
+           max(stop - start + 1, 0) or max(((stop - start) / step) + 1, 0) =#
         @assign dim_exp = BINARY_EXPRESSION(
           stopExp,
           makeSub(TYPE_INTEGER()),
@@ -3488,10 +3385,8 @@ function getRangeTypeReal(
         SOME(REAL_EXPRESSION(value = step)),
         REAL_EXPRESSION(__),
       ) => begin
-        #=  Check that adding step to start actually produces a different value,
-        =#
-        #=  otherwise the step size is too small.
-        =#
+        #= Check that adding step to start actually produces a different value,
+           otherwise the step size is too small. =#
         if start == start + step
           Error.addSourceMessageAndFail(Error.RANGE_TOO_SMALL_STEP, list(string(step)), info)
         end
@@ -3772,8 +3667,7 @@ function printBindingTypeError(
       end
     end
   end
-  #=  forget errors when handling annotations
-  =#
+  #= forget errors when handling annotations =#
 end
 
 """ #= Checks that an expression used as a dimension has a valid type for a

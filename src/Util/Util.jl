@@ -680,8 +680,7 @@ function nextPrime_isPrime(inN::Int)::Bool
   local i::Int = 3
   local q::Int = intDiv(inN, 3)
 
-  #=  Check all factors up to sqrt(inN)
-  =#
+  #= Check all factors up to sqrt(inN) =#
   while q >= i
     if inN == q * i
        outIsPrime = false
@@ -690,10 +689,8 @@ function nextPrime_isPrime(inN::Int)::Bool
      i = i + 2
      q = intDiv(inN, i)
   end
-  #=  The number is divisible by a factor => not a prime.
-  =#
-  #=  All factors have been checked, inN is a prime.
-  =#
+  #= The number is divisible by a factor => not a prime.
+     All factors have been checked, inN is a prime. =#
    outIsPrime = true
   return outIsPrime
 end

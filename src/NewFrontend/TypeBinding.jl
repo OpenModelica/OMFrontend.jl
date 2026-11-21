@@ -380,12 +380,9 @@ function typeComponentBinding2_untyped(
   if ! isvariant(c.binding, UNTYPED_BINDING)
     return node
   end
-  #=  An untyped component with a binding. This might happen when typing a
-  =#
-  #=  dimension and having to evaluate the binding of a not yet typed
-  =#
-  #=  component. Type only the binding and let the case above handle the rest.
-  =#
+  #= An untyped component with a binding. This might happen when typing a
+     dimension and having to evaluate the binding of a not yet typed
+     component. Type only the binding and let the case above handle the rest. =#
   local nameStr = name(inComponent)::String
   #@debug "Typing UC/UB binding ... for component: $nameStr"
   checkBindingEach(c.binding)
@@ -567,10 +564,8 @@ function typeBindingExpRef(
       ty = unliftArrayN(parent_dims, exp_ty)
     end
   end
-  #=
-  If the binding has too few dimensions we can't unlift it, but matchBinding
-  can report the error better so we silently ignore it here.
-  =#
+  #= If the binding has too few dimensions we can't unlift it, but matchBinding
+     can report the error better so we silently ignore it here. =#
   #outExp = BINDING_EXP(e, exp_ty, ty, parents, is_each)
   outExp =  updateBindingExp!(exp, e, exp_ty, ty, parents, is_each)
   variabilityRef.x = variability

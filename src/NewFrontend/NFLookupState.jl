@@ -384,8 +384,7 @@ end
   return  () = begin
     local name_str::String
     local info2::SourceInfo
-    #=  Found the expected kind of element.
-    =#
+    #= Found the expected kind of element. =#
     @match (endState, expectedState) begin
       (LOOKUP_STATE_COMP(__), LOOKUP_STATE_COMP(__)) => begin
         ()
@@ -444,25 +443,21 @@ end
       end
 
       (LOOKUP_STATE_COMP_CLASS(__), LOOKUP_STATE_FUNC(__)) => begin
-        #=  Found a class via a component, but expected a function.
-        =#
+        #= Found a class via a component, but expected a function. =#
         printFoundWrongTypeError(endState, expectedState, lookupName, info)
         fail()
       end
 
       (LOOKUP_STATE_COMP_FUNC(__), _) => begin
-        #=  Found a function via a component, but didn't expect a function.
-        =#
+        #= Found a function via a component, but didn't expect a function. =#
         @assign name_str = toString(lookupName)
         Error.addSourceMessage(Error.FOUND_FUNC_NAME_VIA_COMP_NONCALL, list(name_str), info)
         fail()
       end
 
       (LOOKUP_STATE_COMP_CLASS(__), _) => begin
-        #=  Found a class via a component. Only components and functions are
-        =#
-        #=  allowed to be lookup up via a component.
-        =#
+        #= Found a class via a component. Only components and functions are
+           allowed to be lookup up via a component. =#
         Error.addSourceMessage(
           Error.FOUND_CLASS_NAME_VIA_COMPONENT,
           list(toString(lookupName)),
@@ -472,10 +467,8 @@ end
       end
 
       (LOOKUP_STATE_ERROR(errorState = LOOKUP_STATE_COMP_FUNC(__)), LOOKUP_STATE_FUNC(__)) => begin
-        #=  Invalid form when looking for a function via a component, only
-        =#
-        #=  c.C1...Cn.f is allowed.
-        =#
+        #= Invalid form when looking for a function via a component, only
+           c.C1...Cn.f is allowed. =#
         @assign name_str = name(node)
         @assign info2 = InstNode_info(node)
         Error.addSourceMessage(Error.NON_CLASS_IN_COMP_FUNC_NAME, list(name_str), info2)
@@ -483,8 +476,7 @@ end
       end
 
       (LOOKUP_STATE_ERROR(errorState = LOOKUP_STATE_COMP_FUNC(__)), LOOKUP_STATE_COMP(__)) => begin
-        #=  Found class when looking up a composite component name.
-        =#
+        #= Found class when looking up a composite component name. =#
         @assign name_str = name(node)
         Error.addSourceMessage(
           Error.CLASS_IN_COMPOSITE_COMP_NAME,
@@ -495,8 +487,7 @@ end
       end
 
       (LOOKUP_STATE_ERROR(errorState = LOOKUP_STATE_COMP_FUNC(__)), _) => begin
-        #=  Found class via composite component name when actually looking for a class.
-        =#
+        #= Found class via composite component name when actually looking for a class. =#
         @assign name_str = name(node)
         Error.addSourceMessage(
           Error.LOOKUP_CLASS_VIA_COMP_COMP,
@@ -507,8 +498,7 @@ end
       end
 
       (LOOKUP_STATE_ERROR(errorState = LOOKUP_STATE_COMP_COMP(__)), LOOKUP_STATE_COMP(__)) => begin
-        #=  Found class when looking up a composite component name.
-        =#
+        #= Found class when looking up a composite component name. =#
         @assign name_str = name(node)
         Error.addSourceMessage(
           Error.CLASS_IN_COMPOSITE_COMP_NAME,
@@ -519,8 +509,7 @@ end
       end
 
       (LOOKUP_STATE_ERROR(errorState = LOOKUP_STATE_COMP_COMP(__)), _) => begin
-        #=  Found class via composite component name when actually looking for a class.
-        =#
+        #= Found class via composite component name when actually looking for a class. =#
         @assign name_str = name(node)
         Error.addSourceMessage(
           Error.LOOKUP_CLASS_VIA_COMP_COMP,
@@ -531,10 +520,8 @@ end
       end
 
       (LOOKUP_STATE_ERROR(errorState = LOOKUP_STATE_IMPORT(__)), _) => begin
-        #=  Found import as part of a composite name where it's not the first
-        =#
-        #=  identifier, e.g. A.B.C where B or C are imported names.
-        =#
+        #= Found import as part of a composite name where it's not the first
+           identifier, e.g. A.B.C where B or C are imported names. =#
         name_str = name(node)
         Error.addSourceMessage(
           Error.IMPORT_IN_COMPOSITE_NAME, list(name_str, toString(lookupName)),

@@ -67,15 +67,13 @@ function workload()
   p = OpenModelicaParser.parseFile(pathToLib, 2 #= MetaModelica=#)
   builtinSCode = Frontend.AbsynToSCode.translateAbsyn2SCode(p)
   GC.enable(true)
-  #= End preamble =#
-  #= Load the Modelica Standard Library =#
+  #= End preamble
+     Load the Modelica Standard Library =#
   @info "Loading Version 4.1.0 of the Modelica Standard Library"
   local MSL_V_STARTUP  = "MSL_4_1_0"
   initLoadMSL(MSL_Version= MSL_V_STARTUP)
-  #=
-  Instantiate the HelloWorld module
-  This will precompile a significant part of the frontend.
-  =#
+  #= Instantiate the HelloWorld module
+     This will precompile a significant part of the frontend. =#
   pathToTest = joinpath(packageRoot(), "test", "Models", "HelloWorld.mo")
   p = OpenModelicaParser.parseFile(pathToTest, 1)
   s = Frontend.AbsynToSCode.translateAbsyn2SCode(p)
@@ -87,11 +85,9 @@ function workload()
   path = Frontend.AbsynUtil.stringPath("HelloWorld")
   @info "Timings concerning compiling core modules for instantiation:"
   @time res1 = Frontend.instClassInProgramFM(path, program)
-  #=
-  For other developers reading this.
-  Comment out below if you are using revise and want to have faster feedback when changing different datatypes.
-  -John 2023-06-22
-  =#
+  #= For other developers reading this.
+     Comment out below if you are using revise and want to have faster feedback when changing different datatypes.
+     -John 2023-06-22 =#
   @info "Testing to load MSL models"
   function flattenModelInMSL_TST(modelName::String; MSL_V, scalarize::Bool = true)
     if !haskey(OMFrontend.LIBRARY_CACHE, MSL_V)
@@ -160,39 +156,38 @@ function workload()
   end
 
   #= MultiBody examples commented out to speed up precompilation (nullRotation is slow)
-  precompile_prefix = "Modelica.Mechanics.MultiBody.Examples.Elementary"
-  @info "Checking MSL Examples in $(precompile_prefix)"
-  precompile_model_names = [
-    "DoublePendulum",
-    "DoublePendulumInitTip",
-    "ForceAndTorque",
-    "FreeBody"
-  ]
-  for p in precompile_model_names
-    @info "Translating: $(string(precompile_prefix, ".", p))"
-    try
-      @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
-    catch e
-      @warn "Precompilation workload failed for $(p)" exception=(e, catch_backtrace())
-    end
-  end
+     precompile_prefix = "Modelica.Mechanics.MultiBody.Examples.Elementary"
+     @info "Checking MSL Examples in $(precompile_prefix)"
+     precompile_model_names = [
+       "DoublePendulum",
+       "DoublePendulumInitTip",
+       "ForceAndTorque",
+       "FreeBody"
+     ]
+     for p in precompile_model_names
+       @info "Translating: $(string(precompile_prefix, ".", p))"
+       try
+         @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
+       catch e
+         @warn "Precompilation workload failed for $(p)" exception=(e, catch_backtrace())
+       end
+     end
 
-  precompile_prefix = "Modelica.Mechanics.MultiBody.Examples.Loops"
-  @info "Checking MSL Examples in $(precompile_prefix)"
-  precompile_model_names = [
-    "Engine1a",
-    "Engine1b",
-    "Engine1b_analytic"
-  ]
-  for p in precompile_model_names
-    @info "Translating: $(string(precompile_prefix, ".", p))"
-    try
-      @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
-    catch e
-      @warn "Precompilation workload failed for $(p)" exception=(e, catch_backtrace())
-    end
-  end
-  =#
+     precompile_prefix = "Modelica.Mechanics.MultiBody.Examples.Loops"
+     @info "Checking MSL Examples in $(precompile_prefix)"
+     precompile_model_names = [
+       "Engine1a",
+       "Engine1b",
+       "Engine1b_analytic"
+     ]
+     for p in precompile_model_names
+       @info "Translating: $(string(precompile_prefix, ".", p))"
+       try
+         @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
+       catch e
+         @warn "Precompilation workload failed for $(p)" exception=(e, catch_backtrace())
+       end
+     end =#
   @info "Core compiler modules are successfully precompiled!"
   @info "Compiler modules are successfully precompiled!"
   #@info "Initializing initial memory buffers..."

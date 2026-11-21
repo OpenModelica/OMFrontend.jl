@@ -43,16 +43,14 @@ import ..System
 
 const recursionDepthLimit = 256::Int
 const maxFunctionFileLength = 50::Int
-#=  Thread-local roots
-=#
+#= Thread-local roots =#
 const instOnlyForcedFunctions = 0::Int
 const simulationData = 0::Int #= For simulations =#
 const tmpTickIndex = 0::Int #= slot used by System.tmpTick(index = 0) =#
 const codegenTryThrowIndex = 1::Int
 const codegenFunctionList = 2::Int
 const symbolTable = 3::Int
-#=  Global roots start at index=9
-=#
+#= Global roots start at index=9 =#
 const instHashIndex = 9::Int
 const instNFInstCacheIndex = 10::Int
 const instNFNodeCacheIndex = 11::Int
@@ -66,8 +64,7 @@ const rewriteRulesIndex = 18::Int
 const stackoverFlowIndex = 19::Int
 const gcProfilingIndex = 20::Int
 const inlineHashTable = 21::Int
-#=  TODO: Should be a local root?
-=#
+#= TODO: Should be a local root? =#
 const currentInstVar = 22::Int
 const operatorOverloadingCache = 23::Int
 const optionSimCode = 24::Int
@@ -75,33 +72,23 @@ const interactiveCache = 25::Int
 const isInStream = 26::Int
 const MM_TO_JL_HT_INDEX = 27::Int
 const packageIndexCacheIndex = 28::Int
-#=  indexes in System.tick
-=#
-#=  ----------------------
-=#
-#=  temp vars index
-=#
+#= indexes in System.tick
+   ----------------------
+   temp vars index =#
 const tmpVariableIndex = 4::Int
-#=  file seq
-=#
+#= file seq =#
 const backendDAE_fileSequence = 20::Int
-#=  jacobian name
-=#
+#= jacobian name =#
 const backendDAE_jacobianSeq = 21::Int
-#=  nodeId
-=#
+#= nodeId =#
 const fgraph_nextId = 22::Int
-#=  csevar name
-=#
+#= csevar name =#
 const backendDAE_cseIndex = 23::Int
-#=  strong component index
-=#
+#= strong component index =#
 const strongComponent_index = 24::Int
-#=  class extends
-=#
+#= class extends =#
 const classExtends_index = 25::Int
-#=  ----------------------
-=#
+#= ---------------------- =#
 
 """  Called to initialize global roots (when needed) """
 function initialize()

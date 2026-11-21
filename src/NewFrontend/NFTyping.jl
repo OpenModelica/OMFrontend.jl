@@ -59,71 +59,49 @@ end
 
 const ORIGIN_Type = Int
 const M_Type_Int = Int
-#=  Flag values:
-=#
+#= Flag values: =#
 const ORIGIN_CLASS = 0
-#=  In class.
-=#
+#= In class. =#
 const ORIGIN_FUNCTION = intBitLShift(1, 0)::M_Type_Int
-#=  In function.
-=#
+#= In function. =#
 const ORIGIN_ALGORITHM = intBitLShift(1, 1)::M_Type_Int
-#=  In algorithm section.
-=#
+#= In algorithm section. =#
 const ORIGIN_EQUATION = intBitLShift(1, 2)::M_Type_Int
-#=  In equation section.
-=#
+#= In equation section. =#
 const ORIGIN_INITIAL = intBitLShift(1, 3)::M_Type_Int
-#=  In initial section.
-=#
+#= In initial section. =#
 const ORIGIN_LHS = intBitLShift(1, 4)::M_Type_Int
-#=  On left hand side of equality/assignment.
-=#
+#= On left hand side of equality/assignment. =#
 const ORIGIN_RHS = intBitLShift(1, 5)::M_Type_Int
-#=  On right hand side of equality/assignment.
-=#
+#= On right hand side of equality/assignment. =#
 const ORIGIN_WHEN = intBitLShift(1, 6)::M_Type_Int
-#=  In when equation/statement.
-=#
+#= In when equation/statement. =#
 const ORIGIN_CLOCKED = intBitLShift(1, 7)::M_Type_Int
-#=  Part of a clocked when equation.
-=#
+#= Part of a clocked when equation. =#
 const ORIGIN_FOR = intBitLShift(1, 8)::M_Type_Int
-#=  In a for loop.
-=#
+#= In a for loop. =#
 const ORIGIN_IF = intBitLShift(1, 9)::M_Type_Int
-#=  In an if equation/statement.
-=#
+#= In an if equation/statement. =#
 const ORIGIN_WHILE = intBitLShift(1, 10)::M_Type_Int
-#=  In a while loop.
-=#
+#= In a while loop. =#
 const ORIGIN_NONEXPANDABLE = intBitLShift(1, 11)::M_Type_Int
-#=  In non-parameter if/for.
-=#
+#= In non-parameter if/for. =#
 const ORIGIN_ITERATION_RANGE = intBitLShift(1, 12)::M_Type_Int
-#=  In range used for iteration.
-=#
+#= In range used for iteration. =#
 const ORIGIN_DIMENSION = intBitLShift(1, 13)::M_Type_Int
-#=  In dimension.
-=#
+#= In dimension. =#
 const ORIGIN_BINDING = intBitLShift(1, 14)::M_Type_Int
-#=  In binding.
-=#
+#= In binding. =#
 const ORIGIN_CONDITION = intBitLShift(1, 15)::M_Type_Int
-#=  In conditional expression.
-=#
+#= In conditional expression. =#
 const ORIGIN_SUBSCRIPT = intBitLShift(1, 16)::M_Type_Int
-#=  In subscript.
-=#
+#= In subscript. =#
 const ORIGIN_SUBEXPRESSION = intBitLShift(1, 17)::M_Type_Int
-#=  Part of a larger expression.
-=#
+#= Part of a larger expression. =#
 const ORIGIN_CONNECT = intBitLShift(1, 18)::M_Type_Int
-#=  Part of connect argument.
-=#
+#= Part of connect argument. =#
 const ORIGIN_NOEVENT = intBitLShift(1, 19)::M_Type_Int
-#=  Part of noEvent argument.
-=#
+#= Part of noEvent argument. =#
 const ORIGIN_ASSERT = intBitLShift(1, 20)::M_Type_Int
 
 
@@ -264,10 +242,8 @@ function typeComponents2(cls::InstNode, origin::ORIGIN_Type)::InstNode
     end
 
     TYPED_DERIVED(ty = TYPE_ARRAY(__)) => begin
-      #=  For derived types with dimensions we keep them as they are, because we
-      =#
-      #=  need to preserve the dimensions.
-      =#
+      #= For derived types with dimensions we keep them as they are, because we
+         need to preserve the dimensions. =#
       local baseClass = typeComponents(c.baseClass, origin)
       if baseClass !== c.baseClass
         @assign c.baseClass = baseClass
@@ -276,8 +252,7 @@ function typeComponents2(cls::InstNode, origin::ORIGIN_Type)::InstNode
     end
 
     TYPED_DERIVED(__) => begin
-      #=  Derived types without dimensions can be collapsed.
-      =#
+      #= Derived types without dimensions can be collapsed. =#
       local baseClass = typeComponents(c.baseClass, origin)
       if baseClass !== c.baseClass
         @assign c.baseClass = baseClass
@@ -402,8 +377,7 @@ end
       INSTANCED_CLASS(
         ty = TYPE_COMPLEX(complexTy = COMPLEX_EXTENDS_TYPE(node)),
       ) => begin
-        #=  A long class declaration of a type extending from a type has the type of the base class.
-        =#
+        #= A long class declaration of a type extending from a type has the type of the base class. =#
         ty = typeClassType(node, componentBinding, origin, instanceNode)
         @assign cls.ty = ty
         clsNode = updateClass(cls, clsNode)
@@ -413,8 +387,7 @@ end
       INSTANCED_CLASS(
         restriction = RESTRICTION_FUNCTION(__),
       ) where {(isComponent(instanceNode))} => begin
-        #=  A component of function type, i.e. a functional input parameter.
-        =#
+        #= A component of function type, i.e. a functional input parameter. =#
         fns = typeNodeCache(clsNode)
         fn = fns[1]
         if !isPartial(fn)
@@ -850,18 +823,12 @@ function typeDimension2(
     local ty_err::TypingError
     local parent_dims::Int
     local dim_index::Int
-    #=  Print an error when a dimension that's currently being processed is
-    =#
-    #=  found, which indicates a dependency loop. Another way of handling this
-    =#
-    #=  would be to instead view the dimension as unknown and infer it from the
-    =#
-    #=  binding, which means that things like x[size(x, 1)] = {...} could be
-    =#
-    #=  handled. But that is not specified and doesn't seem needed, and can also
-    =#
-    #=  give different results depending on the declaration order of components.
-    =#
+    #= Print an error when a dimension that's currently being processed is
+       found, which indicates a dependency loop. Another way of handling this
+       would be to instead view the dimension as unknown and infer it from the
+       binding, which means that things like x[size(x, 1)] = {...} could be
+       handled. But that is not specified and doesn't seem needed, and can also
+       give different results depending on the declaration order of components. =#
     @match dimension begin
       DIMENSION_UNTYPED(isProcessing = true) => begin
         #= Outside a function the dimension is left as it is, which is fine if it isn't used
@@ -870,14 +837,10 @@ function typeDimension2(
         if flagNotSet(origin, ORIGIN_FUNCTION)
           return dimension
         end
-        #=  TODO: Tell the user which variables are involved in the loop (can be
-        =#
-        #=        found with DFS on the dimension expression. Maybe have a limit
-        =#
-        #=        on the output in case there's a lot of dimensions involved.
-        =#
-        #=  If we are in a functions we allow e.g. size expression of unknown dimensions.
-        =#
+        #= TODO: Tell the user which variables are involved in the loop (can be
+           found with DFS on the dimension expression. Maybe have a limit
+           on the output in case there's a lot of dimensions involved.
+           If we are in a functions we allow e.g. size expression of unknown dimensions. =#
         dim = DIMENSION_UNKNOWN()
         arrayUpdate(dimensions, index, dim)
         dim
@@ -908,11 +871,9 @@ function typeDimension2(
       end
 
       DIMENSION_UNKNOWN(__) => begin
-        #=
-        If the dimension is unknown in a function, keep it unknown.
-          If the dimension is unknown in a class, try to infer it from the components binding.
-        =#
-        #= A binding that needs the dimension itself (`Real c[:] = fill(0, size(c, 1))`) is a
+        #= If the dimension is unknown in a function, keep it unknown.
+           If the dimension is unknown in a class, try to infer it from the components binding.
+           A binding that needs the dimension itself (`Real c[:] = fill(0, size(c, 1))`) is a
            cyclic dimension, not a recursion without end (omc marks the dimension as being typed).
            Marked per component: instances can share a dimension vector. =#
         local key = (_refId(component), index)
@@ -932,18 +893,14 @@ function typeDimension2(
              b = lookupAttributeBinding("start", getClass(component))
           end
         end
-        #=  If the component has no binding, try to use its parent's binding
-        =#
-        #=  (i.e. for record fields where the record instance has a binding).
-        =#
-        #=  If the component still doesn't have a binding, try to use the start attribute instead.
-        =#
-        #=  TODO: Any attribute should actually be fine to use here. =#
+        #= If the component has no binding, try to use its parent's binding
+           (i.e. for record fields where the record instance has a binding).
+           If the component still doesn't have a binding, try to use the start attribute instead.
+           TODO: Any attribute should actually be fine to use here. =#
          (dim, ty_err) = begin
           @match b begin
             UNBOUND(__) => begin
-              #=  Print an error if there's no binding.
-              =#
+              #= Print an error if there's no binding. =#
               Error.addSourceMessage(
                 Error.FAILURE_TO_DEDUCE_DIMS_NO_MOD,
                 list(string(index), name(component)),
@@ -953,10 +910,8 @@ function typeDimension2(
             end
 
             UNTYPED_BINDING(__) => begin
-              #=  An untyped binding, type the expression only as much as is needed
-              =#
-              #=  to get the dimension we're looking for.
-              =#
+              #= An untyped binding, type the expression only as much as is needed
+                 to get the dimension we're looking for. =#
                dim_index = index + propagatedDimCount(b) + parent_dims
                (dim, oexp, ty_err) = typeExpDim(
                 b.bindingExp,
@@ -987,8 +942,7 @@ function typeDimension2(
               #=  A typed binding, get the dimension from the binding's type. =#
               dim_index = index + parent_dims
               (dim, ty_err) = nthDimensionBoundsChecked(b.bindingType, dim_index)
-              #=  If the deduced dimension is unknown, evaluate the binding and try again.
-              =#
+              #= If the deduced dimension is unknown, evaluate the binding and try again. =#
               if isUnknown(dim) && !(isError(ty_err))
                  exp = evalExp(
                   b.bindingExp,
@@ -1017,8 +971,7 @@ function typeDimension2(
             end
           end
         end
-        #=  Make sure the dimension is constant evaluted, and also mark it as structural.
-        =#
+        #= Make sure the dimension is constant evaluted, and also mark it as structural. =#
          dim = begin
           @match dim begin
             DIMENSION_EXP(exp = exp) => begin
@@ -1064,8 +1017,7 @@ function verifyDimension(dimension::Dimension, component::InstNode, info::Source
   return  () = begin
     @match dimension begin
       DIMENSION_INTEGER(__) => begin
-        #=  Check that integer dimensions are not negative.
-        =#
+        #= Check that integer dimensions are not negative. =#
         if dimension.size < 0
           Error.addSourceMessage(
             Error.NEGATIVE_DIMENSION_INDEX,
@@ -1097,10 +1049,8 @@ end
     index,
     DIMENSION_UNTYPED(dimension.dimension, true),
   )
-  #=
-  Calling typeExp directly here leads to an infitite loop in the Julia compiler
-  The code below was added to avoid that.
-  =#
+  #= Calling typeExp directly here leads to an infitite loop in the Julia compiler
+     The code below was added to avoid that. =#
   local exp
   local ty
   local var
@@ -1243,12 +1193,9 @@ function checkComponentBindingVariability(
     #= An error (omc fails here); this returned 404, an InexactError for the Int8 variability. =#
     fail()
   end
-  #=  Mark parameters that have a structural cref as binding as also
-  =#
-  #=  structural. This is perhaps not optimal, but is required right now
-  =#
-  #=  to avoid structural singularity and other issues.
-  =#
+  #= Mark parameters that have a structural cref as binding as also
+     structural. This is perhaps not optimal, but is required right now
+     to avoid structural singularity and other issues. =#
   if comp_var == Variability.PARAMETER && (
     bind_var == Variability.STRUCTURAL_PARAMETER && isCrefExp(binding) ||
     bind_var == Variability.NON_STRUCTURAL_PARAMETER
@@ -1343,14 +1290,10 @@ function typeTypeAttribute(
   local finalAttribute
   @match attribute begin
     MODIFIER_MODIFIER(__) where {(!ModTable.isEmpty(attribute.subModifiers))} => begin
-      #=  Modifier with submodifier, e.g. Real x(start(y = 1)), is an error.
-      =#
-      #=  Print an error for the first submodifier. The builtin attributes
-      =#
-      #=  don't have types as such, so for the error message to make sense we
-      =#
-      #=  join the attribute name and submodifier name together (e.g. start.y).
-      =#
+      #= Modifier with submodifier, e.g. Real x(start(y = 1)), is an error.
+         Print an error for the first submodifier. The builtin attributes
+         don't have types as such, so for the error message to make sense we
+         join the attribute name and submodifier name together (e.g. start.y). =#
       name =
         attribute.name +
         "." +
@@ -1364,17 +1307,14 @@ function typeTypeAttribute(
     end
 
     MODIFIER_MODIFIER(__) where {(isUnbound(attribute.binding))} => begin
-      #=  Modifier with no binding, e.g. Real x(final start).
-      =#
+      #= Modifier with no binding, e.g. Real x(final start). =#
       checkBindingEach(attribute.binding)
       finalAttribute = MODIFIER_NOMOD()
     end
 
     MODIFIER_MODIFIER(name = name, binding = binding) => begin
-      #=  Normal modifier with no submodifiers.
-      =#
-      #=  Type and type check the attribute.
-      =#
+      #= Normal modifier with no submodifiers.
+         Type and type check the attribute. =#
       checkBindingEach(binding)
       if isBound(binding)
         binding = typeBinding(binding, origin)
@@ -1399,8 +1339,7 @@ function typeTypeAttribute(
         @assign attribute.binding = attributeBinding
         finalAttribute = attribute
       end
-      #=  Check the variability. All builtin attributes have parameter variability.
-      =#
+      #= Check the variability. All builtin attributes have parameter variability. =#
     end
   end
   return finalAttribute
@@ -1577,10 +1516,8 @@ function typeExp2(
 
       CALL_EXPRESSION(__) => begin
         (e1, ty, var1) = typeCall(exp, origin, info)
-        #=
-        If the call has multiple outputs and isn't alone on either side of an
-        equation/algorithm, select the first output.
-        =#
+        #= If the call has multiple outputs and isn't alone on either side of an
+           equation/algorithm, select the first output. =#
         if isTuple(ty) && !isSingleExpression(origin)
            ty = firstTupleType(ty)
            e1 = tupleElement(e1, ty, 1)
@@ -1629,9 +1566,7 @@ function typeExp2(
       end
     end
   end
-  #=
-    Expressions inside when-clauses and initial sections are discrete.
-  =#
+  #= Expressions inside when-clauses and initial sections are discrete. =#
   variability = variabilityTypeRef.x
   if flagSet(origin, ORIGIN_DISCRETE_SCOPE) &&
      variability == Variability.CONTINUOUS
@@ -1814,20 +1749,13 @@ function typeExpDim(
         end
 
         _ => begin
-          #=  If the expression has already been typed, just get the dimension from the type.
-          =#
-          #=  Otherwise we try to type as little as possible of the expression to get
-          =#
-          #=  the dimension we need, to avoid introducing unnecessary cycles.
-          =#
-          #=  An untyped array, use typeArrayDim to get the dimension.
-          =#
-          #=  A cref, use typeCrefDim to get the dimension.
-          =#
-          #=  Any other expression, type the whole expression and get the dimension
-          =#
-          #=  from the type.
-          =#
+          #= If the expression has already been typed, just get the dimension from the type.
+             Otherwise we try to type as little as possible of the expression to get
+             the dimension we need, to avoid introducing unnecessary cycles.
+             An untyped array, use typeArrayDim to get the dimension.
+             A cref, use typeCrefDim to get the dimension.
+             Any other expression, type the whole expression and get the dimension
+             from the type. =#
            (e, ty, _) = typeExp(e, origin, info)
            typedExp = SOME(e)
           nthDimensionBoundsChecked(ty, dimIndex)
@@ -1848,8 +1776,7 @@ function typeArrayDim(
   local error::TypingError
   local dim::Dimension
 
-  #=  We don't yet know the number of dimensions, but the index must at least be 1.
-  =#
+  #= We don't yet know the number of dimensions, but the index must at least be 1. =#
   if dimIndex < 1
      dim = DIMENSION_UNKNOWN()
      error =
@@ -1879,10 +1806,8 @@ function typeArrayDim2(
       end
 
       _ => begin
-        #=  Modelica arrays are non-ragged and only the last dimension of an array
-        =#
-        #=  expression can be empty, so just traverse into the first element.
-        =#
+        #= Modelica arrays are non-ragged and only the last dimension of an array
+           expression can be empty, so just traverse into the first element. =#
          dim = DIMENSION_UNKNOWN()
          error = OUT_OF_BOUNDS(dimCount)
         (dim, error)
@@ -1920,10 +1845,9 @@ function typeCrefDim2(cref::ComponentRef,
   local node::InstNode
   local c::Component
   local ty::ModelicaType
-  #=  TODO: If the cref has subscripts it becomes trickier to correctly calculate
-      the dimension. For now we take the easy way out and just type the
-      whole cref, but doing so might introduce unnecessary cycles.
-  =#
+  #= TODO: If the cref has subscripts it becomes trickier to correctly calculate
+     the dimension. For now we take the easy way out and just type the
+     whole cref, but doing so might introduce unnecessary cycles. =#
   if hasSubscripts(cref)
     local typeRef = Ref{ModelicaType}(TYPE_UNKNOWN())
     typeCref(cref, origin, info, typeRef, Ref{VariabilityType}(Variability.CONSTANT), Ref{VariabilityType}(Variability.CONSTANT))
@@ -1931,16 +1855,11 @@ function typeCrefDim2(cref::ComponentRef,
     (dim, error) = nthDimensionBoundsChecked(ty, dimIndex)
     return (dim, error)
   end
-  #=  Loop through the cref in reverse, reducing the index by the number of
-  =#
-  #=  dimensions each component has until we find a component that the index is
-  =#
-  #=  valid for. This is done even if the index is 0 or negative, since the loop
-  =#
-  #=  also sums up the total number of dimensions which is needed to give a good
-  =#
-  #=  error message.
-  =#
+  #= Loop through the cref in reverse, reducing the index by the number of
+     dimensions each component has until we find a component that the index is
+     valid for. This is done even if the index is 0 or negative, since the loop
+     also sums up the total number of dimensions which is needed to give a good
+     error message. =#
    crl = toVectorReverse(cref; includeScope = false)
    index = dimIndex
   for cr in crl
@@ -2163,12 +2082,9 @@ end
           info,
         )
       end
-      #=  The origin used when typing a component node depends on where the
-      =#
-      #=  component was declared, not where it's used. This can be different to
-      =#
-      #=  the given origin, e.g. for package constants used in a function.
-      =#
+      #= The origin used when typing a component node depends on where the
+         component was declared, not where it's used. This can be different to
+         the given origin, e.g. for package constants used in a function. =#
       node_origin =
         if isFunction(explicitParent(cref.node))
           ORIGIN_FUNCTION
@@ -2268,12 +2184,9 @@ function typeSubscripts(
       markStructuralParamsSub(sub)
     end
   end
-  #=  Mark parameter subscripts as structural so that they're evaluated.
-  =#
-  #=  TODO: Ideally this shouldn't be needed, but the old frontend does it and
-  =#
-  #=        the backend relies on it.
-  =#
+  #= Mark parameter subscripts as structural so that they're evaluated.
+     TODO: Ideally this shouldn't be needed, but the old frontend does it and
+     the backend relies on it. =#
   typedSubs = listReverseInPlace(typedSubs)
   return (typedSubs, variability)
 end
@@ -2296,8 +2209,7 @@ end
   (ty, variabilityVar) = begin
     @match subscript begin
       SUBSCRIPT_UNTYPED(__) => begin
-        #=  An untyped subscript, type the expression and create a typed subscript.
-        =#
+        #= An untyped subscript, type the expression and create a typed subscript. =#
         e = evaluateEnd(subscript.exp, dimension, cref, index, origin, info)
         (e, ty, variabilityVar) = typeExp(e, origin, info)
         if isArray(ty)
@@ -2334,11 +2246,9 @@ end
       end
     end
   end
-  #=  Type check the subscript's type against the expected subscript type for the dimension.
-  =#
+  #= Type check the subscript's type against the expected subscript type for the dimension. =#
   ety = subscriptType(dimension)
-  #=  We can have both : subscripts and : dimensions here, so we need to allow unknowns.
-  =#
+  #= We can have both : subscripts and : dimensions here, so we need to allow unknowns. =#
   (_, _, mk) = matchTypes(ty, ety, EMPTY_EXPRESSION(ty), #=allowUnknown=# true)
   #= A cast index, an enumeration literal for an Integer dimension under
      --allowNonStandardModelica=nonStdEnumerationAsIntegers (omc typeSubscript casts it). =#
@@ -2574,14 +2484,10 @@ end
     ostep_exp = NONE()
     ostep_ty = NONE()
   end
-  #=  Type step.
-  =#
-  #=  Type check start and step.
-  =#
-  #=  We've checked start-stop and start-step now, so step-stop must also be
-  =#
-  #=  type compatible. Stop might need to be type cast here though.
-  =#
+  #= Type step.
+     Type check start and step.
+     We've checked start-stop and start-step now, so step-stop must also be
+     type compatible. Stop might need to be type cast here though. =#
   rangeType =
     getRangeType(start_exp, ostep_exp, stop_exp, rangeType, info)
   rangeExp =
@@ -2606,10 +2512,8 @@ end
   local valr::List{VariabilityType}
   local next_origin::ORIGIN_Type
 
-  #=  Tuples are only allowed on the lhs side of an equality/assignment,
-  =#
-  #=  and only if they are alone and not part of a larger expression.
-  =#
+  #= Tuples are only allowed on the lhs side of an equality/assignment,
+     and only if they are alone and not part of a larger expression. =#
   if flagNotSet(origin, ORIGIN_LHS) ||
      flagSet(origin, ORIGIN_SUBEXPRESSION)
     Error.addSourceMessage(
@@ -2688,8 +2592,7 @@ end
     @match sizeExpArg begin
       SIZE_EXPRESSION(exp = exp, dimIndex = SOME(index)) => begin
          (index, index_ty, variability) = typeExp(index, next_origin, info)
-        #=  The second argument must be an Integer.
-        =#
+        #= The second argument must be an Integer. =#
         (index, _, ty_match) =
           matchTypes(index_ty, TYPE_INTEGER(), index)
         if isIncompatibleMatch(ty_match)
@@ -2770,15 +2673,13 @@ function checkSizeTypingError(
       end
 
       OUT_OF_BOUNDS(0) => begin
-        #=  The first argument wasn't an array.
-        =#
+        #= The first argument wasn't an array. =#
         Error.addSourceMessage(Error.INVALID_ARGUMENT_TYPE_FIRST_ARRAY, list("size"), info)
         false
       end
 
       OUT_OF_BOUNDS(__) => begin
-        #=  The index referred to an invalid dimension.
-        =#
+        #= The index referred to an invalid dimension. =#
         Error.addSourceMessage(
           Error.INVALID_SIZE_INDEX,
           list(
@@ -2831,10 +2732,8 @@ function evaluateEnd(
       end
     end
   end
-  #=  Stop when encountering a cref, any 'end' in a cref expression refers to
-  =#
-  #=  the cref's dimensions and will be evaluated when the cref is typed.
-  =#
+  #= Stop when encountering a cref, any 'end' in a cref expression refers to
+     the cref's dimensions and will be evaluated when the cref is typed. =#
   return outExp
 end
 
@@ -2863,8 +2762,7 @@ end
     ifExp
    next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
    (cond, cond_ty, cond_var) = typeExp(cond, next_origin, info)
-  #=  The condition must be a scalar boolean.
-  =#
+  #= The condition must be a scalar boolean. =#
    (cond, _, ty_match) = matchTypes(cond_ty, TYPE_BOOLEAN(), cond)
   if isIncompatibleMatch(ty_match)
     Error.addSourceMessage(
@@ -2927,18 +2825,12 @@ end
        var = variabilityMax(cond_var, variabilityMax(tb_var, fb_var))
     end
   end
-  #=  If the condition is constant, always do branch selection.
-  =#
-  #=  Otherwise type both of the branches.
-  =#
-  #=  If the branches have different types but the condition is a parameter
-  =#
-  #=  expression, do branch selection.
-  =#
-  #=  Otherwise give a type mismatch error.
-  =#
-  #=  If the types match, return a typed if-expression.
-  =#
+  #= If the condition is constant, always do branch selection.
+     Otherwise type both of the branches.
+     If the branches have different types but the condition is a parameter
+     expression, do branch selection.
+     Otherwise give a type mismatch error.
+     If the types match, return a typed if-expression. =#
   return (ifExp, ty, var)
 end
 
@@ -3245,10 +3137,8 @@ end
             end
 
             _ => begin
-              #=  All kinds of crefs are allowed.
-              =#
-              #=  The only other kind of expression that's allowed is scalar constants.
-              =#
+              #= All kinds of crefs are allowed.
+                 The only other kind of expression that's allowed is scalar constants. =#
               if isScalarBuiltin(ty) && var == Variability.CONSTANT
                  outArg = evalExp(outArg, EVALTARGET_GENERIC(info))
               else
@@ -3288,23 +3178,17 @@ function makeDefaultExternalCall(extDecl::Sections, fnNode::InstNode)::Sections
     local exp::Expression
     @match extDecl begin
       SECTIONS_EXTERNAL(__) => begin
-        #=  An explicit function call isn't needed for builtin calls.
-        =#
+        #= An explicit function call isn't needed for builtin calls. =#
         if extDecl.language == "builtin"
           return SECTIONS_EMPTY()
         end
-        #=  Fetch the cached function.
-        =#
+        #= Fetch the cached function. =#
         @match C_FUNCTION(funcs = [fn]) = getFuncCache(fnNode)
-        #=  Check whether we have a single output or not.
-        =#
+        #= Check whether we have a single output or not. =#
          single_output = listLength(fn.outputs) == 1
-        #=  When there's a single array output we can't generate a call on the
-        =#
-        #=  'output = func(inputs)' form, so print a warning and treat is as
-        =#
-        #=  though it's not a single output.
-        =#
+        #= When there's a single array output we can't generate a call on the
+           'output = func(inputs)' form, so print a warning and treat is as
+           though it's not a single output. =#
         if single_output && isArray(returnType(fn))
            single_output = false
           Error.addSourceMessage(
@@ -3313,17 +3197,14 @@ function makeDefaultExternalCall(extDecl::Sections, fnNode::InstNode)::Sections
             InstNode_info(fnNode),
           )
         end
-        #=  If we have a single output, set the external declaration's output to
-        =#
-        #=  be a reference to the function's output. Otherwise leave it as empty.
-        =#
+        #= If we have a single output, set the external declaration's output to
+           be a reference to the function's output. Otherwise leave it as empty. =#
         if single_output
            node = listHead(fn.outputs)
            ty = getType(node)
            extDecl.outputRef = fromNode(node, ty)
         end
-        #=  Generate function arguments from the function's components.
-        =#
+        #= Generate function arguments from the function's components. =#
          comps =
           getComponents(classTree(getClass(fn.node)))
         if arrayLength(comps) > 0
@@ -3573,12 +3454,9 @@ end
   local eql::List{Equation}
 
    info = source
-  #=  Connections may not be used in if-equations unless the conditions are
-  =#
-  #=  parameter expressions.
-  =#
-  #=  TODO: Also check for cardinality etc. as per 8.3.3.
-  =#
+  #= Connections may not be used in if-equations unless the conditions are
+     parameter expressions.
+     TODO: Also check for cardinality etc. as per 8.3.3. =#
   if flagSet(origin, ORIGIN_NONEXPANDABLE)
     Error.addSourceMessage(
       Error.CONNECT_IN_IF,
@@ -3593,12 +3471,9 @@ end
    next_origin = setFlag(origin, ORIGIN_CONNECT)
   (lhs, lhs_ty) = typeConnector(lhsConn, next_origin, info)
   (rhs, rhs_ty) = typeConnector(rhsConn, next_origin, info)
-  #=  Check that the connectors have matching types, but only if they're not expandable.
-  =#
-  #=  Expandable connectors can only be type checked after they've been augmented during
-  =#
-  #=  the connection handling.
-  =#
+  #= Check that the connectors have matching types, but only if they're not expandable.
+     Expandable connectors can only be type checked after they've been augmented during
+     the connection handling. =#
   if !(isExpandableConnector(arrayElementType(lhs_ty)) || isExpandableConnector(arrayElementType(rhs_ty)))
     (lhs, rhs, _, mk) =
        matchExpressions(lhs, lhs_ty, rhs, rhs_ty, true#=allowUnknown = true=#)
@@ -3696,10 +3571,8 @@ function checkConnectorForm(cref::ComponentRef, isConnectorBool::Bool = true)::B
       end
     end
   end
-  #=  The only part of the connector reference allowed to not be a
-  =#
-  #=  non-connector is the very last part.
-  =#
+  #= The only part of the connector reference allowed to not be a
+     non-connector is the very last part. =#
   return valid
 end
 
@@ -3765,9 +3638,7 @@ end
           typeExp(st.lhs, setFlag(origin, ORIGIN_LHS), info)
         (e2, ty2) =
           typeExp(st.rhs, setFlag(origin, ORIGIN_RHS), info)
-        #=
-          TODO: Should probably only be allowUnknown = true if in a function.
-        =#
+        #= TODO: Should probably only be allowUnknown = true if in a function. =#
         (e2, ty3, mk) = matchTypes(ty2, ty1, e2, #=allowUnknown=# true)
         if isIncompatibleMatch(mk)
           Error.addSourceMessage(
@@ -3858,8 +3729,7 @@ end
 
       ALG_TERMINATE(__) => begin
          info = st.source
-        #=  terminate is not allowed in a function context.
-        =#
+        #= terminate is not allowed in a function context. =#
         if flagSet(origin, ORIGIN_FUNCTION)
           Error.addSourceMessage(Error.EXP_INVALID_IN_FUNCTION, list("terminate"), info)
           fail()
@@ -4080,9 +3950,8 @@ end
       ErrorExt.delCheckpoint(getInstanceName())
     end
   end
-  #=  Do branch selection anyway if -d=-nfScalarize is set, otherwise turning of
-    scalarization breaks currently.
-  =#
+  #= Do branch selection anyway if -d=-nfScalarize is set, otherwise turning of
+     scalarization breaks currently. =#
   if !Flags.isSet(Flags.FRONTEND_SCALARIZE)
     bl = bl2
     bl2 = EquationBranch[]
@@ -4267,8 +4136,7 @@ function typeReinit(
    info = source
    (crefExp, ty1, _) = typeExp(crefExp, origin, info)
    (exp, ty2, _) = typeExp(exp, origin, info)
-  #=  The first argument must be a cref.
-  =#
+  #= The first argument must be a cref. =#
    cref = begin
     @match crefExp begin
       CREF_EXPRESSION(__) => begin
@@ -4281,12 +4149,9 @@ function typeReinit(
       end
     end
   end
-  #=  The first argument must be a continuous time variable.
-  =#
-  #=  Check the variability of the cref instead of the variability returned by
-  =#
-  #=  typeExp, since expressions in when-equations count as discrete.
-  =#
+  #= The first argument must be a continuous time variable.
+     Check the variability of the cref instead of the variability returned by
+     typeExp, since expressions in when-equations count as discrete. =#
   if nodeVariability(cref) < Variability.IMPLICITLY_DISCRETE
     Error.addSourceMessage(
       Error.REINIT_MUST_BE_VAR,
@@ -4298,8 +4163,7 @@ function typeReinit(
     )
     fail()
   end
-  #=  The first argument must be a subtype of Real.
-  =#
+  #= The first argument must be a subtype of Real. =#
   (_, _, mk) =
     matchTypes(arrayElementType(ty1), TYPE_REAL(), crefExp)
   if isIncompatibleMatch(mk)
@@ -4313,8 +4177,7 @@ function typeReinit(
     )
     fail()
   end
-  #=  The second argument must be type compatible with the first.
-  =#
+  #= The second argument must be type compatible with the first. =#
    (exp, _, mk) = matchTypes(ty2, ty1, exp)
   if isIncompatibleMatch(mk)
     Error.addSourceMessage(

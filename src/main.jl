@@ -39,8 +39,8 @@
 """
 module Frontend
 
-#= Import the parser for precompilation=#
-#= We also use it at the top level(!) =#
+#= Import the parser for precompilation
+   We also use it at the top level(!) =#
 import OpenModelicaParser
 using MetaModelica
 import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo

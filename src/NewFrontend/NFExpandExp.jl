@@ -187,19 +187,15 @@ function expandBinaryPowMatrix2(@nospecialize(matrix::Expression), n::Int)::Expr
         makeBinaryMatrixProduct(matrix, matrix)
       end
       _ where {(intMod(n, 2) == 0)} => begin
-        #=  A^1 = A
-        =#
-        #=  A^2 = A * A
-        =#
-        #=  A^n = A^m * A^m where n = 2*m
-        =#
+        #= A^1 = A
+           A^2 = A * A
+           A^n = A^m * A^m where n = 2*m =#
         @assign exp = expandBinaryPowMatrix2(matrix, intDiv(n, 2))
         makeBinaryMatrixProduct(exp, exp)
       end
 
       _ => begin
-        #=  A^n = A * A^(n-1)
-        =#
+        #= A^n = A * A^(n-1) =#
         @assign exp = expandBinaryPowMatrix2(matrix, n - 1)
         makeBinaryMatrixProduct(matrix, exp)
       end
@@ -221,8 +217,7 @@ function expandBinaryPowMatrix(@nospecialize(exp::Expression))::Tuple{Expression
    (outExp, expanded) = begin
     @match exp2 begin
       INTEGER_EXPRESSION(0) => begin
-        #=  a ^ 0 = identity(size(a, 1))
-        =#
+        #= a ^ 0 = identity(size(a, 1)) =#
         @assign n =
           size(listHead(arrayDims(typeOf(
             op,
@@ -231,8 +226,7 @@ function expandBinaryPowMatrix(@nospecialize(exp::Expression))::Tuple{Expression
       end
 
       INTEGER_EXPRESSION(n) => begin
-        #=  a ^ n where n is a literal value.
-        =#
+        #= a ^ n where n is a literal value. =#
          (exp1, expanded) = expand(exp1)
         if expanded
           @assign outExp = expandBinaryPowMatrix2(exp1, n)
@@ -245,8 +239,7 @@ function expandBinaryPowMatrix(@nospecialize(exp::Expression))::Tuple{Expression
       end
     end
   end
-  #=  a ^ n where n is unknown, subscript the whole expression.
-  =#
+  #= a ^ n where n is unknown, subscript the whole expression. =#
   return (outExp, expanded)
 end
 
@@ -271,10 +264,8 @@ function makeBinaryMatrixProduct(@nospecialize(exp1::Expression), @nospecialize(
   local p::Dimension
 
   @match ARRAY_EXPRESSION(TYPE_ARRAY(ty, n <| _), expl1) = exp1
-  #=  Transpose the second matrix. This makes it easier to do the multiplication,
-  =#
-  #=  since we can do row-row multiplications instead of row-column.
-  =#
+  #= Transpose the second matrix. This makes it easier to do the multiplication,
+     since we can do row-row multiplications instead of row-column. =#
   @match ARRAY_EXPRESSION(TYPE_ARRAY(dimensions = p <| _), expl2) =
     transposeArray(exp2)
   @assign mat_ty = TYPE_ARRAY(ty, list(n, p))
@@ -288,14 +279,10 @@ function makeBinaryMatrixProduct(@nospecialize(exp1::Expression), @nospecialize(
     ]
     exp = makeArray(mat_ty, expl1)
   end
-  #=  If any of the matrices' dimensions are zero, the result will be a matrix
-  =#
-  #=  of zeroes (the default value of sum). Only expl2 needs to be checked here,
-  =#
-  #=  the normal case can handle expl1 being empty.
-  =#
-  #=  c[i, j] = a[i, :] * b[:, j] for i in 1:n, j in 1:p.
-  =#
+  #= If any of the matrices' dimensions are zero, the result will be a matrix
+     of zeroes (the default value of sum). Only expl2 needs to be checked here,
+     the normal case can handle expl1 being empty.
+     c[i, j] = a[i, :] * b[:, j] for i in 1:n, j in 1:p. =#
   return exp
 end
 
@@ -336,8 +323,8 @@ function makeScalarProduct(@nospecialize(exp1::Expression), @nospecialize(exp2::
   @match ARRAY_EXPRESSION(ty, expV1) = exp1
   @match ARRAY_EXPRESSION(_, expV2) = exp2
   elem_ty = unliftArray(ty)
-  #=  Scalar product of two empty arrays. The result is defined in the spec =#
-  #=  by sum, so we return 0 since that's the default value of sum. =#
+  #= Scalar product of two empty arrays. The result is defined in the spec
+     by sum, so we return 0 since that's the default value of sum. =#
   expL1 = arrayList(expV1)
   expL2 = arrayList(expV2)
   if isempty(expL1)
@@ -441,8 +428,7 @@ function expandBinaryVectorMatrix(@nospecialize(exp::Expression))::Tuple{Express
   else
     @assign outExp = exp
   end
-  #=  c[i] = a * b[:, i] for i in 1:m
-  =#
+  #= c[i] = a * b[:, i] for i in 1:m =#
   return (outExp, expanded)
 end
 
@@ -658,8 +644,7 @@ function expandSize(@nospecialize(exp::Expression))::Tuple{Expression, Bool}
       end
     end
   end
-  #=  Size with an index is scalar, and thus already maximally expanded.
-  =#
+  #= Size with an index is scalar, and thus already maximally expanded. =#
   return (outExp, expanded)
 end
 
@@ -692,16 +677,11 @@ function expandArrayConstructor2(
     end
     result = makeArray(ty, expl)
   end
-  #=  Normally it wouldn't be the expansion's task to simplify expressions,
-  =#
-  #=  but we make an exception here since the generated expressions contain
-  =#
-  #=  MUTABLE expressions that we need to get rid of. Also, expansion of
-  =#
-  #=  array constructors is often done during the scalarization phase, after
-  =#
-  #=  the simplification phase, so they wouldn't otherwise be simplified.
-  =#
+  #= Normally it wouldn't be the expansion's task to simplify expressions,
+     but we make an exception here since the generated expressions contain
+     MUTABLE expressions that we need to get rid of. Also, expansion of
+     array constructors is often done during the scalarization phase, after
+     the simplification phase, so they wouldn't otherwise be simplified. =#
   return result
 end
 
@@ -821,11 +801,9 @@ function expandBuiltinPromote(args::Vector{Expression})::Tuple{Expression, Bool}
 end
 
 function expandBuiltinCat(args::Vector{Expression}, call::Call)::Tuple{Expression, Bool}
-  #=
-  This relies on the fact that Ceval.evalBuiltinCat doesn't actually do any
-  actual constant evaluation, and works on non-constant arrays too as long
-  as they're expanded.
-  =#
+  #= This relies on the fact that Ceval.evalBuiltinCat doesn't actually do any
+     actual constant evaluation, and works on non-constant arrays too as long
+     as they're expanded. =#
   local expanded::Bool
   local exp::Expression
   local expV = Expression[]

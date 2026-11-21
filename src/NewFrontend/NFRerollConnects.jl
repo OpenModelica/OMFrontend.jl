@@ -33,15 +33,13 @@
 *
 */ =#
 
-#=
-  CONNECTION equations as for-equations when not scalarizing.
+#= CONNECTION equations as for-equations when not scalarizing.
 
-  The connection sets hold scalar connectors (Connector.split), so the equations generated from them are scalar:
-  `r[1].n.v = r[2].p.v`, `r[2].n.v = r[3].p.v`, ... . Equations of one shape, the same but for their literal integer
-  subscripts, whose subscripts are affine in one index over a run of members, become one for-equation:
-  `for $i1 in 1:3 loop r[$i1].n.v = r[$i1 + 1].p.v; end for;`. The sets, and so the equations' meaning, are the
-  scalar ones; only their form changes.
-=#
+   The connection sets hold scalar connectors (Connector.split), so the equations generated from them are scalar:
+   `r[1].n.v = r[2].p.v`, `r[2].n.v = r[3].p.v`, ... . Equations of one shape, the same but for their literal integer
+   subscripts, whose subscripts are affine in one index over a run of members, become one for-equation:
+   `for $i1 in 1:3 loop r[$i1].n.v = r[$i1 + 1].p.v; end for;`. The sets, and so the equations' meaning, are the
+   scalar ones; only their form changes. =#
 
 """
 Whether `exp` is made of crefs, literals, unary and binary operations only, and its crefs' subscripts are literal

@@ -95,10 +95,8 @@ end
 
 function collectVariableConstants(var::VARIABLE, constants::Constants)::Constants
   @assign constants = collectBindingConstants(var.binding, constants)
-  #=  TODO: The component's attributes (i.e. start, etc) might also contain
-  =#
-  #=        package constants.
-  =#
+  #= TODO: The component's attributes (i.e. start, etc) might also contain
+     package constants. =#
   return constants
 end
 

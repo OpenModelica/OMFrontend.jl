@@ -468,8 +468,8 @@ function addParent_work(name::String, parentNode::InstNode, mod::Modifier)
       MODIFIER_REDECLARE(eachPrefix = SCode.NOT_EACH(__)) => begin
         #= The original declaration's modifier is split over the array parent as well (omc:
            propagateSubMod). Buildings DX coils: uacp[nSta](per = datCoi.sta.nomVal) under
-           uacp(redeclare final ... per). =#
-        #= And the redeclared element's own bindings (`b(redeclare A a(x = {1, 2}))` on B b[2]:
+           uacp(redeclare final ... per).
+           And the redeclared element's own bindings (`b(redeclare A a(x = {1, 2}))` on B b[2]:
            x split over b; omc propagatedSubs, RedeclareMod8/10): instComponentDef. =#
         MODIFIER_REDECLARE(mod.finalPrefix, mod.eachPrefix, mod.element,
                            addParent_work(name, parentNode, mod.innerMod), mod.outerMod, mod.constrainingMod,

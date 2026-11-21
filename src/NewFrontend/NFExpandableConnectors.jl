@@ -45,60 +45,42 @@ function elaborate(
   local csets::ConnectionSets.Sets
   local csets_array::Vector{List{CONNECTOR}}
 
-  #=  Sort the connections based on whether they involve expandable connectors,
-  =#
-  #=  virtual/potentially present connectors, or only normal connectors.
-  =#
+  #= Sort the connections based on whether they involve expandable connectors,
+     virtual/potentially present connectors, or only normal connectors. =#
    (expandable_conns, undeclared_conns, conns) =
     sortConnections(connections.connections)
-  #=  Don't do anything if there aren't any expandable connectors in the model.
-  =#
+  #= Don't do anything if there aren't any expandable connectors in the model. =#
   if listEmpty(expandable_conns) && listEmpty(undeclared_conns)
     return (flatModel, connections)
   end
-  #=  Create a graph from the connections. Expandable connectors connect to
-  =#
-  #=  expandable connectors, while virtual/potentially present connectors connect
-  =#
-  #=  to the expandable connector they belong to.
-  =#
+  #= Create a graph from the connections. Expandable connectors connect to
+     expandable connectors, while virtual/potentially present connectors connect
+     to the expandable connector they belong to. =#
   @assign csets =
     ConnectionSets.emptySets(listLength(expandable_conns) + listLength(undeclared_conns))
   @assign csets = addExpandableConnectorsToSets(expandable_conns, csets)
    (undeclared_conns, csets) =
     ListUtil.mapFold(undeclared_conns, addUndeclaredConnectorToSets, csets, CONNECTION, ConnectionSets.Sets)
-  #=  Extract the sets of connected connectors.
-  =#
+  #= Extract the sets of connected connectors. =#
   (csets_array, _) = ConnectionSets.extractSets(csets)
   #= for set in csets_array loop
-  =#
-  #=   print(\"Expandable connection set:\\n\");
-  =#
-  #=   print(List.toString(set, Connector.toString, \"\", \"{\", \", \", \"}\", true) + \"\\n\");
-  =#
-  #= end for;
-  =#
-  #=  Augment the expandable connectors with the necessary elements, mark
-  =#
-  #=  connected potentially present variables as present, and add the
-  =#
-  #=  created variables to the flat model.
-  =#
+     print(\"Expandable connection set:\\n\");
+     print(List.toString(set, Connector.toString, \"\", \"{\", \", \", \"}\", true) + \"\\n\");
+     end for;
+     Augment the expandable connectors with the necessary elements, mark
+     connected potentially present variables as present, and add the
+     created variables to the flat model. =#
   vars = arrayList(flatModel.variables) #TODO: Change the submodule so they are always vectors
   for set in csets_array
     vars = elaborateExpandableSet(set, vars)
   end
-  #=  Update the connections and put them back in the list of connections.
-  =#
+  #= Update the connections and put them back in the list of connections. =#
   conns = ListUtil.fold(undeclared_conns, updateUndeclaredConnection, conns, List{CONNECTION})
   conns = ListUtil.fold(expandable_conns, updateExpandableConnection, conns, List{CONNECTION})
   @assign connections.connections = conns
-  #=  Update the attributes of potentially present variables so that they have
-  =#
-  #=  the same attributes as their node. Their connector type will have changed
-  =#
-  #=  if they've been marked as present.
-  =#
+  #= Update the attributes of potentially present variables so that they have
+     the same attributes as their node. Their connector type will have changed
+     if they've been marked as present. =#
   vars = list(updatePotentiallyPresentVariable(v) for v in vars)
   @assign flatModel.variables = listArray(vars)
   return (flatModel, connections)
@@ -165,10 +147,8 @@ function sortConnections(
       @assign normalConnections = _cons(conn, normalConnections)
     end
   end
-  #=  An expandable connector may only connect to another expandable connector.
-  =#
-  #=  Both sides can't be undeclared, one must be a declared component.
-  =#
+  #= An expandable connector may only connect to another expandable connector.
+     Both sides can't be undeclared, one must be a declared component. =#
   @assign normalConnections = listReverseInPlace(normalConnections)
   return (expandableConnections, undeclaredConnections, normalConnections)
 end
@@ -266,8 +246,7 @@ function addUndeclaredConnectorToSets(
   local ec::CONNECTOR
 
   @match CONNECTION(lhs = c1, rhs = c2) = conn
-  #=  Figure out which connector to add, and create a virtual connector if necessary.
-  =#
+  #= Figure out which connector to add, and create a virtual connector if necessary. =#
   if isUndeclared(c1.cty)
     if isVirtual(c1.cty)
       @assign c1 = makeVirtualConnector(c1, c2)
@@ -281,10 +260,8 @@ function addUndeclaredConnectorToSets(
     end
     @assign c = c2
   end
-  #=  Create a parent connector for the undeclared connector, i.e. the expandable
-  =#
-  #=  connector it should be added to. The type here is wrong, but it doesn't matter.
-  =#
+  #= Create a parent connector for the undeclared connector, i.e. the expandable
+     connector it should be added to. The type here is wrong, but it doesn't matter. =#
   @assign ec = CONNECTOR(
     rest(c.name),
     c.ty,
@@ -292,8 +269,7 @@ function addUndeclaredConnectorToSets(
     ConnectorType.EXPANDABLE,
     c.source,
   )
-  #=  Add a connection between the undeclared connector and the expandable connector.
-  =#
+  #= Add a connection between the undeclared connector and the expandable connector. =#
   @assign csets = addConnectionToSets(c, ec, csets)
   return (conn, csets)
 end
@@ -304,14 +280,10 @@ function addConnectionToSets(
   csets::ConnectionSets.Sets,
 )::ConnectionSets.Sets
 
-  #=  The connection sets are not used to represent actual connections here, only
-  =#
-  #=  to keep track of which expandable connectors that are associated. So to
-  =#
-  #=  make sure we only get one instance of each expandable connector in the sets
-  =#
-  #=  we make sure the face of all the connectors we add is the same.
-  =#
+  #= The connection sets are not used to represent actual connections here, only
+     to keep track of which expandable connectors that are associated. So to
+     make sure we only get one instance of each expandable connector in the sets
+     we make sure the face of all the connectors we add is the same. =#
   csets = ConnectionSets.merge(
     setOutside(c1),
     setOutside(c2),
@@ -439,8 +411,7 @@ function augmentExpandableConnector(
   cls_node = clone(classScope(exp_node))
   cls = getClass(cls_node)
   cls_tree = classTree(cls)
-  #=  Go through the union of elements the expandable connector should have.
-  =#
+  #= Go through the union of elements the expandable connector should have. =#
   for c in expandableSet
     elem_name = name(c)
     nodeElem = node(elem_name)
@@ -464,22 +435,16 @@ function augmentExpandableConnector(
       end
     end
   end
-  #=  If the element doesn't already exist, add it to the list of elements to be
-  =#
-  #=  added to the connector.
-  =#
-  #=  TODO: This needs more work, the new connector might be a complex connector.
-  =#
-  #=  If the element already exists and is a potentially present component,
-  =#
-  #=  change it to be present.
-  =#
+  #= If the element doesn't already exist, add it to the list of elements to be
+     added to the connector.
+     TODO: This needs more work, the new connector might be a complex connector.
+     If the element already exists and is a potentially present component,
+     change it to be present. =#
   if !listEmpty(nodes)
     cls_tree = addElementsToFlatTree(nodes, cls_tree)
     cls = setClassTree(cls_tree, cls)
   end
-  #=  Create a normal non-expandable complex type for the augmented expandable connector.
-  =#
+  #= Create a normal non-expandable complex type for the augmented expandable connector. =#
   complex_ty = makeConnectorType(cls_tree, false)
   ty = TYPE_COMPLEX(cls_node, complex_ty)
   ty = liftArrayLeftList(ty, arrayDims(getType(exp_node))) #Change from pstream
@@ -539,8 +504,7 @@ function updateExpandableConnection(
   @match CONNECTION(lhs = c1, rhs = c2) = conn
    (c1, ty1) = updateExpandableConnector(c1)
    (c2, ty2) = updateExpandableConnector(c2)
-  #=  Check that the types match now that the connectors have been augmented.
-  =#
+  #= Check that the types match now that the connectors have been augmented. =#
   e1 = CREF_EXPRESSION(ty1, name(c1))
   e2 = CREF_EXPRESSION(ty2, name(c2))
    (_, _, _, mk) = matchExpressions(e1, ty1, e2, ty2, #=allowUnknown=# true)

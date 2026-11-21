@@ -92,8 +92,7 @@ function setOutside(conn::CONNECTOR)::CONNECTOR
 end
 
 function isOutside(conn::CONNECTOR)::Bool
-  #=  Needed due to #4502
-  =#
+  #= Needed due to #4502 =#
   return conn.face == FACE_OUTSIDE
 end
 
@@ -317,10 +316,8 @@ function crefFace(cref::ComponentRef)::Face
       end
     end
   end
-  #=  Simple identifiers must be connectors and thus outside.
-  =#
-  #=  Otherwise, check first part of the cref.
-  =#
+  #= Simple identifiers must be connectors and thus outside.
+     Otherwise, check first part of the cref. =#
   return face
 end
 

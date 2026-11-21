@@ -42,8 +42,8 @@ const INLINE_POST_SUB_MAX_NODES = Ref{Int}(2)
    independent of call-site arguments, so we compute them once per
    `MODELICA_FUNCTION` and reuse across every call site. The previous unconditional
    per-call walk dominated flatten time on MultiBody (hundreds of call sites
-   to a small pool of distinct helpers). =#
-#= (hasCall, nodeCount) tuple cache keyed by the function node's payload-cell
+   to a small pool of distinct helpers).
+   (hasCall, nodeCount) tuple cache keyed by the function node's payload-cell
    identity (_refId). Plain Tuple to dodge world-age issues on Revise-driven
    struct shape changes; UInt key to avoid String allocation per lookup. =#
 const _INLINE_BODY_INFO_CACHE = Dict{UInt, Tuple{Bool, Int}}()
@@ -221,8 +221,8 @@ function inlineCall(call::Call, top = nothing)::Expression
           return exp
         end
         body = getBody(fn)
-        #=  This function can so far only handle functions with at most one =#
-        #=  statement and output and no local variables. =#
+        #= This function can so far only handle functions with at most one
+           statement and output and no local variables. =#
         if length(body) > 1 || listLength(outputs) != 1 || listLength(locals) > 0
           exp = CALL_EXPRESSION(call)
           return exp
@@ -234,21 +234,17 @@ function inlineCall(call::Call, top = nothing)::Expression
           AbsynUtil.pathString(name(fn)),
           sourceInfo(),
         )
-        #=
-        If we have no body there is nothing to inline.
-        This might occur for instance for complex operators that are registered as calls in the frontend
-        -johti17 2023-03-26
-        =#
+        #= If we have no body there is nothing to inline.
+           This might occur for instance for complex operators that are registered as calls in the frontend
+           -johti17 2023-03-26 =#
         if isempty(body)
           exp = CALL_EXPRESSION(call)
           return exp
         end
         stmt = body[1]
-        #=
-        TODO: Instead of repeating this for each input we should probably
-          just build a lookup tree or hash table and go through the
-          statement once.
-        =#
+        #= TODO: Instead of repeating this for each input we should probably
+           just build a lookup tree or hash table and go through the
+           statement once. =#
         for i in inputs
           @match [arg, args...] = args
           stmt = mapExp(stmt,

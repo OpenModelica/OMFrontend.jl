@@ -180,8 +180,8 @@ function endExp(dim::Dimension, cref::ComponentRef, index::Int)::Expression
 
       #= The dimension's expression may name a record field (V_flow[n] of a function's record
          input: pressure.n), which the function's replacements do not know: size() of the
-         array instead (Buildings.Fluid.Movers.BaseClasses.Euler.power: pressure.V_flow[end]). =#
-      #= Not a ragged one (its values over the enclosing arrays of components, typeDimensionUntyped):
+         array instead (Buildings.Fluid.Movers.BaseClasses.Euler.power: pressure.V_flow[end]).
+         Not a ragged one (its values over the enclosing arrays of components, typeDimensionUntyped):
          size() of the element's array. =#
       DIMENSION_EXP(__) where {isLiteral(dim.exp) && !(dim.exp isa ARRAY_EXPRESSION)} => begin
         dim.exp

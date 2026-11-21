@@ -189,8 +189,8 @@ function evaluateExpTraverser(
             cref,
           )
         end
-        #=  Evaluate all constants and structural parameters. =#
-        #=  If the cref's subscripts changed, recalculate its type.=#
+        #= Evaluate all constants and structural parameters.
+           If the cref's subscripts changed, recalculate its type. =#
         outExp
       end
       _ => begin

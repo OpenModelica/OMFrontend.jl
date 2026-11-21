@@ -55,14 +55,10 @@ function instConstructor(path::Absyn.Path, recordNode::InstNode, info::SourceInf
       recordNode = cacheAddFunc(recordNode, f, false)
     end
   end
-  #=  If it has an overloaded constructor, instantiate it and add the
-  =#
-  #=  function(s) to the record node.
-  =#
-  #= ctor_node := node(ctor_ref);
-  =#
-  #= ctor_node := Function.instFunction2(ctor_path, ctor_node, info);
-  =#
+  #= If it has an overloaded constructor, instantiate it and add the
+     function(s) to the record node.
+     ctor_node := node(ctor_ref);
+     ctor_node := Function.instFunction2(ctor_path, ctor_node, info); =#
   recordNode = instDefaultConstructor(path, recordNode, info)
   return recordNode
 end
@@ -85,9 +81,7 @@ function instOperatorFunctions(node::InstNode, info::SourceInfo)::InstNode
           allfuncs = Base.append!(allfuncs, funcs)
         end
         #= path := InstNode.scopePath(op, includeRoot = true);
-        =#
-        #= Function.instFunction2(path, op, info);
-        =#
+           Function.instFunction2(path, op, info); =#
         for f in allfuncs
           node = cacheAddFunc(node, f, false)
         end
@@ -164,10 +158,8 @@ function patchOperatorRecordConstructorBinding(fn::MODELICA_FUNCTION)::MODELICA_
   local output_comp::Component
   local output_binding::Binding
 
-  #=  Due to how this function is used it might also be called on destructors,
-  =#
-  #=  which we just ignore.
-  =#
+  #= Due to how this function is used it might also be called on destructors,
+     which we just ignore. =#
   if listLength(fn.outputs) != 1
     return fn
   end

@@ -330,8 +330,7 @@ function RangeIterator_fromExp(@nospecialize(exp::Expression))::RangeIterator
       TYPENAME_EXPRESSION(
         ty = TYPE_ARRAY(elementType = ty && TYPE_ENUMERATION(literals = literals)),
       ) => begin
-        #=  enumeration type based range
-        =#
+        #= enumeration type based range =#
         values = nil
         istep = 0
         for l in literals

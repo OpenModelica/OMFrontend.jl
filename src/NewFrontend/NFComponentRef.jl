@@ -344,14 +344,10 @@ end
 function isPackageConstant(cref::ComponentRef)::Bool
   local isPkgConst::Bool
 
-  #=  TODO: This should really be CONSTANT and not PARAMETER, but that breaks
-  =#
-  #=        some models since we get some redeclared parameters that look like
-  =#
-  #=        package constants due to redeclare issues, and which need to e.g.
-  =#
-  #=        be collected by Package.collectConstants.
-  =#
+  #= TODO: This should really be CONSTANT and not PARAMETER, but that breaks
+     some models since we get some redeclared parameters that look like
+     package constants due to redeclare issues, and which need to e.g.
+     be collected by Package.collectConstants. =#
    isPkgConst =
     nodeVariability(cref) <= Variability.PARAMETER && isPackageConstant2(cref)
   return isPkgConst
@@ -585,10 +581,8 @@ function toFlatString(cref::ComponentRef; inFunction = false)
     )
     return str
   end
-  #=
-  Special Case. If we scalarize, we do not want to quote in the same way.
-  Otherwise we will refer to components that do not exist in the flat model.
-  =#
+  #= Special Case. If we scalarize, we do not want to quote in the same way.
+     Otherwise we will refer to components that do not exist in the flat model. =#
   local sc = if isvariant(cref, COMPONENT_REF_CREF)
     local crOrigin = getOriginCref(cref)
     local parentCref = cref.restCref

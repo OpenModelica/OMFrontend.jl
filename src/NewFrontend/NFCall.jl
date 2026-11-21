@@ -234,12 +234,9 @@ function toFlatString(call::Call; inFunction = false)
           )
            str = stringAppendList(list("{", arg_str, " for ", c, "}"))
         end
-        #=  Vectorized calls contains iterators with illegal Modelica names
-        =#
-        #=  (to avoid name conflicts), to make the flat output legal such
-        =#
-        #=  calls are reverted to their original form here.
-        =#
+        #= Vectorized calls contains iterators with illegal Modelica names
+           (to avoid name conflicts), to make the flat output legal such
+           calls are reverted to their original form here. =#
         str
       end
 
@@ -661,10 +658,8 @@ function matchTypedNormalCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)
     @assign func.path = toPath(call.ref)
   end
    args = Vector{Expression}(undef, length(typed_args))
-  #=  if is impure, make it a parameter expression
-  =#
-  #=  see https:trac.openmodelica.org/OpenModelica/ticket/5133
-  =#
+  #= if is impure, make it a parameter expression
+     see https:trac.openmodelica.org/OpenModelica/ticket/5133 =#
   var = if isImpure(func) || isOMImpure(func)
     Variability.PARAMETER
   else
@@ -685,22 +680,15 @@ function matchTypedNormalCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)
   elseif isDiscrete(ty) && var == Variability.CONTINUOUS
     var = Variability.IMPLICITLY_DISCRETE
   end
-  #=  Mark external functions with parameter expressions as non-structural,
-  =#
-  #=  to avoid them being marked as structural unnecessarily.
-  =#
-  #=  Functions that return a discrete type, e.g. Integer, should probably be
-  =#
-  #=  treated as implicitly discrete if the arguments are continuous.
-  =#
+  #= Mark external functions with parameter expressions as non-structural,
+     to avoid them being marked as structural unnecessarily.
+     Functions that return a discrete type, e.g. Integer, should probably be
+     treated as implicitly discrete if the arguments are continuous. =#
   (ty, _) = evaluateCallType(ty, func, args)
   call = makeTypedCall(func, args, var, ty)
-  #=  If the matching was a vectorized one then create a map call
-  =#
-  #=  using the vectorization dim. This means going through each argument
-  =#
-  #=  and subscipting it with an iterator for each dim and creating a map call.
-  =#
+  #= If the matching was a vectorized one then create a map call
+     using the vectorization dim. This means going through each argument
+     and subscipting it with an iterator for each dim and creating a map call. =#
   if isVectorized(matchedFunc)
     call = vectorizeCall(call, matchedFunc.mk, scope, info)
   end
@@ -1112,11 +1100,9 @@ function isVectorized(call::Call)::Bool
       end
     end
   end
-  #=  A call is considered to be vectorized if the first iterator has a name
-  =#
-  #=  beginning with $.
-  =#
-  #= /* $ */ =#
+  #= A call is considered to be vectorized if the first iterator has a name
+     beginning with $.
+     /* $ */ =#
   return vectorized
 end
 
@@ -1180,13 +1166,10 @@ function vectorizeCall(
           )
           i = i + 1
         end
-        #=  Create the range on which we will iterate to vectorize.
-        =#
-        #=  Create the iterator.
-        =#
-        #=  Now that iterator is ready apply it, as a subscript, to each argument that is supposed to be vectorized
-        =#
-        #=  Make a cref expression from the iterator =#
+        #= Create the range on which we will iterate to vectorize.
+           Create the iterator.
+           Now that iterator is ready apply it, as a subscript, to each argument that is supposed to be vectorized
+           Make a cref expression from the iterator =#
         vect_ty = liftArrayLeftList(base_call.ty, mk.vectDims)
         base_call = TYPED_CALL(base_call.fn, base_call.ty, base_call.var, call_args, base_call.attributes)
         TYPED_ARRAY_CONSTRUCTOR(
@@ -1269,8 +1252,7 @@ function checkMatchingFunctions(call::Call, info::SourceInfo)
   else
     matchedFunc = Base.first(matchedFunctions)
   end
-  #=  Overwrite the actual function name with the overload name for builtin functions.
-  =#
+  #= Overwrite the actual function name with the overload name for builtin functions. =#
   if isBuiltin(matchedFunc.func)
     func = matchedFunc.func
     local funcPath = nameConsiderBuiltin(func)
@@ -1499,8 +1481,7 @@ function typeReduction(
            variability = variabilityMax(variability, iter_var)
            iters = Cons{Tuple{InstNode, Expression}}((iter, range), iters)
         end
-        #=  ExpOrigin.FOR is used here as a marker that this expression may contain iterators.
-        =#
+        #= ExpOrigin.FOR is used here as a marker that this expression may contain iterators. =#
         next_origin = intBitOr(next_origin, ORIGIN_FOR)
         (arg, ty, exp_var) = typeExp(call.exp, next_origin, info)
         variability = variabilityMax(variability, exp_var)
@@ -1577,8 +1558,7 @@ function typeArrayConstructor(
           iters = Cons{Tuple{InstNode, Expression}}((iter, range), iters)
         end
         dims = listReverseInPlace(dims)
-        #=  ExpOrigin.FOR is used here as a marker that this expression may contain iterators.
-        =#
+        #= ExpOrigin.FOR is used here as a marker that this expression may contain iterators. =#
         next_origin = intBitOr(next_origin, ORIGIN_FOR)
         (arg, ty, exp_var) = typeExp(call.exp, next_origin, info)
         variability = variabilityMax(variability, exp_var)
@@ -1658,9 +1638,8 @@ function instIteratorCall(
   local exp::Expression
   local iters::List{Tuple{InstNode, Expression}}
   local is_array::Bool
-  #=  The parser turns {exp for i in ...} into $array(exp for i in ...), but we
-  =#
-  #=  change it to just array here so we can handle array constructors uniformly.=#
+  #= The parser turns {exp for i in ...} into $array(exp for i in ...), but we
+     change it to just array here so we can handle array constructors uniformly. =#
    fn_name = begin
     @match functionName begin
       Absyn.CREF_IDENT("\$array") => begin
@@ -1750,10 +1729,8 @@ function instNormalCall(
       fail()
     end
   end
-  #=  didn't work, is this DynamicSelect dynamic part?! #5631
-  =#
-  #=  return just the first part of DynamicSelect
-  =#
+  #= didn't work, is this DynamicSelect dynamic part?! #5631
+     return just the first part of DynamicSelect =#
   callExp = begin
     @match name begin
       "size" => begin
@@ -1763,14 +1740,10 @@ function instNormalCall(
         makeArrayExp(args, named_args, info)
       end
       _ => begin
-        #=  size creates Expression.SIZE instead of Expression.CALL.
-        =#
-        #=  array() call with no iterators creates Expression.ARRAY instead of Expression.CALL.
-        =#
-        #=  If it had iterators then it will not reach here. The args would have been parsed to
-        =#
-        #=  Absyn.FOR_ITER_FARG and that is handled in instIteratorCall.
-        =#
+        #= size creates Expression.SIZE instead of Expression.CALL.
+           array() call with no iterators creates Expression.ARRAY instead of Expression.CALL.
+           If it had iterators then it will not reach here. The args would have been parsed to
+           Absyn.FOR_ITER_FARG and that is handled in instIteratorCall. =#
         (fn_ref, _, _) = instFunction(functionName, scope, info)
         CALL_EXPRESSION(UNTYPED_CALL(fn_ref, args, named_args, scope))
       end

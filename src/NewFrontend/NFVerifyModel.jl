@@ -211,15 +211,12 @@ function checkCrefSetEquality(
   errMsg #= TODO=#,
   source::SourceInfo,
 )
-  #=  Assume the user isn't mixing different ways of subscripting array
-  =#
-  #=  varibles in the different branches, and just check the sets as is.
-  =#
+  #= Assume the user isn't mixing different ways of subscripting array
+     varibles in the different branches, and just check the sets as is. =#
   if ListUtil.isEqualOnTrue(crefs1, crefs2, isEqual)
     return
   end
-  #=  If the sets didn't match, expand arrays into scalars and try again.
-  =#
+  #= If the sets didn't match, expand arrays into scalars and try again. =#
   if ListUtil.isEqualOnTrue(
     expandCrefSet(crefs1),
     expandCrefSet(crefs2),
@@ -227,8 +224,7 @@ function checkCrefSetEquality(
   )
     return
   end
-  #=  Couldn't get the sets to match, print an error and fail.
-  =#
+  #= Couldn't get the sets to match, print an error and fail. =#
   Error.addSourceMessage(errMsg, nil, source)
   return fail()
 end

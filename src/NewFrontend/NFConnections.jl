@@ -46,8 +46,8 @@ function makeConnectors(
   local expanded::Bool
 
   cr = evaluateSubscripts(cref)
-  #= If we are to expand the connectors or not. Let's assume we do for now=#
-  #= Change by John (johti17) 2021-04-26=#
+  #= If we are to expand the connectors or not. Let's assume we do for now
+     Change by John (johti17) 2021-04-26 =#
   # if !Flags.isSet(Flags.FRONTEND_SCALARIZE)
   #   @assign connectors = list(Connector.fromCref(
   #     cr,
@@ -71,10 +71,8 @@ function makeConnectors(
       source,
     )
   end
-  #=  Connectors should only have structural parameter subscripts, so it
-  =#
-  #=  should always be possible to expand them.
-  =#
+  #= Connectors should only have structural parameter subscripts, so it
+     should always be possible to expand them. =#
   return connectors
 end
 
@@ -156,8 +154,7 @@ function collect(flatModel::FLAT_MODEL)::Tuple{FLAT_MODEL, CONNECTIONS}
       end
     end
   end
-  #=  Collect all connects.
-  =#
+  #= Collect all connects. =#
   for eq in flatModel.equations
     eql = begin
       @match eq begin

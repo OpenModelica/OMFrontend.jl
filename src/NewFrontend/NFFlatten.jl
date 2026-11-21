@@ -290,20 +290,18 @@ function flattenComponent(
         visibility
       end
       if isComplexComponent(ty)
-        #= A complex component such as a model or a class =#
-        #= Keep the component as a separate submodel when it is declared
+        #= A complex component such as a model or a class
+           Keep the component as a separate submodel when it is declared
            `structuralmode`, or when the separate-index-reduction flag splits
            every top-level component. The flag is gated on isTopLevel so it
            does not cascade into a submodel's own internals. =#
         if c.attributes.isStructuralMode == true ||
            (isTopLevel && Flags.isSet(Flags.NF_SEPARATE_INSTANTIATION))
           #@debug "FLATTEN A COMPLEX STRUCTURAL COMPONENT"
-          #=
-            Since this component is structural we do not flatten it.
-            Instead we create a new FLAT_MODEL and add it to the list.
-            If this component in turn has structural subcomponents these are added
-            to the list of FlatModels for this component using recursion.
-          =#
+          #= Since this component is structural we do not flatten it.
+             Instead we create a new FLAT_MODEL and add it to the list.
+             If this component in turn has structural subcomponents these are added
+             to the list of FlatModels for this component using recursion. =#
           local prefixOfComponent = fromNode(comp_node, ty)
           structuralSubModels =
             flatten(comp_node #= TODO: Or do we need some instantation specific stuff=#,
@@ -499,8 +497,7 @@ end
 function deleteComponent(compNode::InstNode)
   local comp::Component
 
-  #=  @adrpo: don't delete the inner/outer node, it doesn't work!
-  =#
+  #= @adrpo: don't delete the inner/outer node, it doesn't work! =#
   if isInnerOuterNode(compNode)
     return compNode
   end
@@ -605,10 +602,8 @@ function flattenSimpleComponent(
     binding = flattenBinding(binding, prefix)
     unfix = false
   end
-  #=  If the component is an array component with a binding and at least discrete variability,
-  =#
-  #=  move the binding into an equation. This avoids having to scalarize the binding.
-  =#
+  #= If the component is an array component with a binding and at least discrete variability,
+     move the binding into an equation. This avoids having to scalarize the binding. =#
   if !Flags.isSet(Flags.NF_API)
     if isArray(ty) && isBound(binding) && var >= Variability.DISCRETE
       name = prefixCref(comp_node, ty, nil, prefix)
@@ -625,10 +620,8 @@ function flattenSimpleComponent(
   end
   name = prefixScope(comp_node, ty, nil, prefix)
   ty_attrs = Tuple{String, Binding}[flattenTypeAttribute(m, name) for m in typeAttrs]
-  #=
-  Set fixed = true for parameters that are part of a record instance whose
-  binding couldn't be split and was moved to an initial equation.
-  =#
+  #= Set fixed = true for parameters that are part of a record instance whose
+     binding couldn't be split and was moved to an initial equation. =#
   if unfix
     ty_attrs = ArrayUtil.removeOnTrue("fixed", isTypeAttributeNamed, ty_attrs)
     ty_attrs = push!(
@@ -760,10 +753,8 @@ function getRecordBindings(binding::Binding, comps::Vector{<:InstNode})::List{Bi
       end
 
       _ => begin
-        #=  The binding for a record field might be Expression.EMPTY if it comes
-        =#
-        #=  from an evaluated function call where it wasn't assigned a value.
-        =#
+        #= The binding for a record field might be Expression.EMPTY if it comes
+           from an evaluated function call where it wasn't assigned a value. =#
         Error.assertion(
           false,
           getInstanceName() +
@@ -827,8 +818,7 @@ function flattenComplexComponent(
   else
     getBinding(comp)
   end
-  #=  Create an equation if there's a binding on a complex component.
-  =#
+  #= Create an equation if there's a binding on a complex component. =#
   if isExplicitlyBound(binding)
     binding = flattenBinding(binding, prefix)
     binding_exp = getTypedExp(binding)
@@ -879,17 +869,12 @@ function flattenComplexComponent(
   else
     opt_binding = NONE()
   end
-  #=  TODO: This will probably not work so well if the binding is an array that
-  =#
-  #=        contains record non-literals. In that case we should probably
-  =#
-  #=        create an equation for each non-literal in the array, and pass the
-  =#
-  #=        rest on as usual.
-  =#
+  #= TODO: This will probably not work so well if the binding is an array that
+     contains record non-literals. In that case we should probably
+     create an equation for each non-literal in the array, and pass the
+     rest on as usual. =#
   name = prefixScope(node, ty, nil, prefix)
-  #=  Flatten the class directly if the component is a scalar, otherwise scalarize it.
-  =#
+  #= Flatten the class directly if the component is a scalar, otherwise scalarize it. =#
   if listEmpty(dims)
     (vars, sections) = flattenClass(cls, name, visibility, opt_binding, vars, sections, nil)
   else
@@ -926,8 +911,7 @@ function flattenArray(
   if any(isZero, dimensions)
     return (vars, sections)
   end
-  #=  if we don't scalarize flatten the class and vectorize it
-  =#
+  #= if we don't scalarize flatten the class and vectorize it =#
   if !elementwise && !Flags.isSet(Flags.FRONTEND_SCALARIZE)
     local deletedBefore::Int = length(_deletedElementCrefs())
     (vrs, sects) = flattenClass(
@@ -952,10 +936,8 @@ function flattenArray(
      () = begin
       @match sects begin
         SECTIONS(__) => begin
-          #=  add dimensions to the types
-          =#
-          #=  vectorize equations
-          =#
+          #= add dimensions to the types
+             vectorize equations =#
           for eqn in sects.equations #listReverse(sects.equations)
             for veq in _vectorizeEquationSplit(eqn, dimensions, prefix)
               sections = prependEquation(veq, sections)
@@ -1385,10 +1367,8 @@ end
       end
 
       INVALID_BINDING(__) => begin
-        #=  CEVAL_BINDINGs are temporary bindings generated by the constant
-        =#
-        #=  evaluation and no longer needed after flattening.
-        =#
+        #= CEVAL_BINDINGs are temporary bindings generated by the constant
+           evaluation and no longer needed after flattening. =#
         Error.addTotalMessages(binding.errors)
         fail()
       end
@@ -1479,10 +1459,8 @@ function flattenBindingExp2(
     subs = listReverse(ListUtil.firstN(subs, binding_level, Subscript))
     outExp = applySubscripts(subs, exp)
   end
-  #=
-  TODO: Optimize this, making a list of all subscripts in the prefix when
-  only a few are needed is unnecessary.
-  =#
+  #= TODO: Optimize this, making a list of all subscripts in the prefix when
+     only a few are needed is unnecessary. =#
   return outExp
 end
 
@@ -1638,8 +1616,8 @@ function flattenIfEquation(
   local target::EvalTarget
   @match EQUATION_IF(branches = branches, source = src) = eq
   has_connect = contains(eq, isConnectEq)
-  #=  Print errors for unbound constants/parameters if the if-equation contains =#
-  #=  connects, since we must select a branch in that case. =#
+  #= Print errors for unbound constants/parameters if the if-equation contains
+     connects, since we must select a branch in that case. =#
   target = if has_connect
     EVALTARGET_GENERIC(Equation_info(eq))
   else
@@ -1689,9 +1667,9 @@ function flattenIfEquation(
           elseif !isFalse(cond)
             push!(bl, makeBranch(cond, eql, var))
           end
-          #=  Otherwise, append this branch. =#
-          #=  Only add the branch to the list of branches if the condition is not =#
-          #=  literal false, otherwise just drop it since it will never trigger. =#
+          #= Otherwise, append this branch.
+             Only add the branch to the list of branches if the condition is not
+             literal false, otherwise just drop it since it will never trigger. =#
           bl
         end
           EQUATION_INVALID_BRANCH(
@@ -1700,8 +1678,7 @@ function flattenIfEquation(
             conditionVar = var,
           ),
         ) where {(has_connect)} => begin
-          #=  An invalid branch must have a false condition, anything else is an error.
-          =#
+          #= An invalid branch must have a false condition, anything else is an error. =#
           if var <= Variability.STRUCTURAL_PARAMETER
             cond = evalExp(cond, target)
           end
@@ -1716,10 +1693,8 @@ function flattenIfEquation(
       end
     end
   end
-  #=
-  Add the flattened if-equation to the list of equations if there are any
-  branches still remaining.
-  =#
+  #= Add the flattened if-equation to the list of equations if there are any
+     branches still remaining. =#
   if !isempty(bl)
     equations = push!(equations, EQUATION_IF(bl, src))
     return equations
@@ -1776,10 +1751,8 @@ function unrollForLoop(forLoop::Equation, prefix::ComponentRef, equations::Vecto
   local range_iter::RangeIterator
   local val::Expression
   @match EQUATION_FOR(iterator = iter, range = SOME(range), body = body) = forLoop
-  #=
-  Unroll the loop by replacing the iterator with each of its values
-  in the for loop body.
-  =#
+  #= Unroll the loop by replacing the iterator with each of its values
+     in the for loop body. =#
   # local body = Equation[]
   # for i in oldbody
   #   body[i] = oldbody[i]
@@ -1789,10 +1762,8 @@ function unrollForLoop(forLoop::Equation, prefix::ComponentRef, equations::Vecto
   range_iter = RangeIterator_fromExp(range)
   while hasNext(range_iter)
     (range_iter, val) = next(range_iter)
-    #=
-    Unroll.
-    Note that this function will call mapExp for several elements in the compiler(!)
-    =#
+    #= Unroll.
+       Note that this function will call mapExp for several elements in the compiler(!) =#
     unrolled_body = replaceIteratorList(body, iter, val)
     unrolled_body = flattenEquations(unrolled_body, prefix)
     equations = append!(equations, unrolled_body)
@@ -1891,10 +1862,8 @@ function flattenAlgorithms(
   local outAlgorithms::Vector{ALGORITHM} = ALGORITHM[]
   for alg in algorithms
     @assign alg.statements = flattenAlgorithmStatements(alg.statements, prefix)
-    #=
-      omc's CheckModel relies on the element source to know whether a certain algorithm comes from
-      an array component, otherwise is will miscount the number of equations.
-    =#
+    #= omc's CheckModel relies on the element source to know whether a certain algorithm comes from
+       an array component, otherwise is will miscount the number of equations. =#
     if hasSubscripts(prefix)
       @assign alg.source = addElementSourceArrayPrefix(alg.source, prefix)
     end
@@ -2082,10 +2051,8 @@ function addElementSourceArrayPrefix(
   source::SourceInfo,
   prefix::ComponentRef,
 )::SourceInfo
-  #=  The backend does not use a component prefix in the element source
-  =#
-  #=  (a plain SourceInfo), so the source is returned unchanged.
-  =#
+  #= The backend does not use a component prefix in the element source
+     (a plain SourceInfo), so the source is returned unchanged. =#
   return source
 end
 
@@ -2101,11 +2068,11 @@ function resolveConnections(flatModel::FLAT_MODEL, name::String)::FLAT_MODEL
   @EXECSTAT "  rc:collect" (flatModel, conns) = collect(flatModel)
   #=  Elaborate expandable connectors.=#
   @EXECSTAT "  rc:elaborate" (flatModel, conns) = elaborate(flatModel, conns)
-  #=  handle overconstrained connections =#
-  #=  - build the graph =#
-  #=  - evaluate the Connections.* operators =#
-  #=  - generate the equations to replace the broken connects =#
-  #=  - return the broken connects + the equations =#
+  #= handle overconstrained connections
+     - build the graph
+     - evaluate the Connections.* operators
+     - generate the equations to replace the broken connects
+     - return the broken connects + the equations =#
   if System.getHasOverconstrainedConnectors()
     @EXECSTAT "  rc:overconstrained" (flatModel, broken) = handleOverconstrainedConnections(flatModel, conns, name)
   end
@@ -2250,16 +2217,14 @@ function collectTypeFuncs(ty::ModelicaType, funcs::FunctionTree)::FunctionTree
       TYPE_COMPLEX(
         complexTy = COMPLEX_EXTERNAL_OBJECT(constructor = con, destructor = de),
       ) => begin
-        #=  Collect external object structors.
-        =#
+        #= Collect external object structors. =#
         @assign funcs = collectStructor(con, funcs)
         @assign funcs = collectStructor(de, funcs)
         ()
       end
 
       TYPE_COMPLEX(complexTy = COMPLEX_RECORD(constructor = con)) => begin
-        #=  Collect record constructors.
-        =#
+        #= Collect record constructors. =#
         @assign funcs = collectStructor(con, funcs)
         ()
       end
@@ -2309,10 +2274,8 @@ function collectEquationFuncs(@nospecialize(eq::Equation),
         ()
       end
       EQUATION_FOR(__) => begin
-        #=
-          For equations are always unrolled, so functions in the range doesn't
-          matter since they are always evaluated.
-        =#
+        #= For equations are always unrolled, so functions in the range doesn't
+           matter since they are always evaluated. =#
         funcs = ArrayUtil.fold(eq.body, collectEquationFuncs, funcs, FunctionTree)
         ()
       end

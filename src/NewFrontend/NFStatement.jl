@@ -220,10 +220,8 @@ function toStreamList(
     @assign s = toStream(stmt, indent, s)
     @assign s = IOStream_M.append(s, ";\\n")
   end
-  #=  Improve human parsability by separating statements that spans multiple
-  =#
-  #=  lines (like if-statements) with newlines.
-  =#
+  #= Improve human parsability by separating statements that spans multiple
+     lines (like if-statements) with newlines. =#
   return s
 end
 
@@ -658,20 +656,16 @@ function updateImplicitVariabilityStmt(stmt::Statement, inWhen::Bool)
       end
 
      ALG_FOR(__)  => begin
-        #=  'when' is not allowed in 'for', so we only need to keep going if
-        =#
-        #=  we're already in a 'when'.
-        =#
+        #= 'when' is not allowed in 'for', so we only need to keep going if
+           we're already in a 'when'. =#
         if inWhen
           updateImplicitVariabilityStmts(stmt.body, true)
         end
         ()
       end
      ALG_IF(__)  => begin
-        #=  'when' is not allowed in 'if', so we only need to keep going if
-        =#
-        #=  we're already in a 'when.
-        =#
+        #= 'when' is not allowed in 'if', so we only need to keep going if
+           we're already in a 'when. =#
         if inWhen
           for branch in stmt.branches
             updateImplicitVariabilityStmts(Util.tuple22(branch), true)

@@ -57,8 +57,7 @@ const DUMMY_ELEMENT =
     SCode.COMMENT(NONE(), NONE()),
     AbsynUtil.dummyInfo,
   )::SCode.Element
-#=  Default Integer parameter.
-=#
+#= Default Integer parameter. =#
 const INT_COMPONENT =
   TYPED_COMPONENT(
     EMPTY_NODE(),
@@ -78,8 +77,7 @@ const INT_PARAM =
     EMPTY_NODE(),
     NORMAL_COMP(),
   )::InstNode
-#=  Default Real parameter.
-=#
+#= Default Real parameter. =#
 const REAL_COMPONENT =
   TYPED_COMPONENT(
     EMPTY_NODE(),
@@ -99,8 +97,7 @@ const REAL_PARAM =
     EMPTY_NODE(),
     NORMAL_COMP(),
   )::InstNode
-#=  Default Boolean parameter.
-=#
+#= Default Boolean parameter. =#
 const BOOL_COMPONENT =
   TYPED_COMPONENT(
     EMPTY_NODE(),
@@ -120,8 +117,7 @@ const BOOL_PARAM =
     EMPTY_NODE(),
     NORMAL_COMP(),
   )::InstNode
-#=  Default String parameter.
-=#
+#= Default String parameter. =#
 const STRING_COMPONENT =
   TYPED_COMPONENT(
     EMPTY_NODE(),
@@ -141,8 +137,7 @@ const STRING_PARAM =
     EMPTY_NODE(),
     NORMAL_COMP(),
   )::InstNode
-#=  Default enumeration(:) parameter.
-=#
+#= Default enumeration(:) parameter. =#
 const ENUM_COMPONENT =
   TYPED_COMPONENT(
     EMPTY_NODE(),
@@ -162,8 +157,7 @@ const ENUM_PARAM =
     EMPTY_NODE(),
     NORMAL_COMP(),
   )::InstNode
-#=  Integer(e)
-=#
+#= Integer(e) =#
 const EMPTY_NODE_CACHE =
   listArrayLiteral(list(
     C_NO_CACHE(),
@@ -239,8 +233,7 @@ const STRING_DUMMY_NODE =
     EMPTY_NODE(),
     NORMAL_CLASS(),
   )::InstNode
-#=  String(r, significantDigits=d, minimumLength=0, leftJustified=true)
-=#
+#= String(r, significantDigits=d, minimumLength=0, leftJustified=true) =#
 const STRING_REAL =
   MODELICA_FUNCTION(
     Absyn.IDENT("String"),
@@ -288,8 +281,7 @@ const STRING_REAL =
     P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
-#=  String(r, format=\"-0.6g\")
-=#
+#= String(r, format=\"-0.6g\") =#
 const STRING_REAL_FORMAT =
   MODELICA_FUNCTION(
     Absyn.IDENT("String"),
@@ -321,8 +313,7 @@ const STRING_REAL_FORMAT =
     P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
-#=  String(i, minimumLength=0, leftJustified=true)
-=#
+#= String(i, minimumLength=0, leftJustified=true) =#
 const STRING_INT =
   MODELICA_FUNCTION(
     Absyn.IDENT("String"),
@@ -362,8 +353,7 @@ const STRING_INT =
     P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
-#=  String(b, minimumLength=0, leftJustified=true)
-=#
+#= String(b, minimumLength=0, leftJustified=true) =#
 const STRING_BOOL =
   MODELICA_FUNCTION(
     Absyn.IDENT("String"),
@@ -403,8 +393,7 @@ const STRING_BOOL =
     P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
-#=  String(e, minimumLength=0, leftJustified=true)
-=#
+#= String(e, minimumLength=0, leftJustified=true) =#
 const STRING_ENUM =
   MODELICA_FUNCTION(
     Absyn.IDENT("String"),
@@ -719,8 +708,7 @@ const CLOCK_DUMMY_NODE =
     EMPTY_NODE(),
     NORMAL_CLASS(),
   )::InstNode
-#=  Clock() - inferred clock
-=#
+#= Clock() - inferred clock =#
 const CLOCK_INFERED =
   MODELICA_FUNCTION(
     Absyn.IDENT("Clock"),
@@ -735,8 +723,7 @@ const CLOCK_INFERED =
     P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
-#=  Clock(intervalCounter, resolution = 1) - clock with Integer interval
-=#
+#= Clock(intervalCounter, resolution = 1) - clock with Integer interval =#
 const CLOCK_INT =
   MODELICA_FUNCTION(
     Absyn.IDENT("Clock"),
@@ -768,8 +755,7 @@ const CLOCK_INT =
     P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
-#=  Clock(interval) - clock with Real interval
-=#
+#= Clock(interval) - clock with Real interval =#
 const CLOCK_REAL =
   MODELICA_FUNCTION(
     Absyn.IDENT("Clock"),
@@ -791,8 +777,7 @@ const CLOCK_REAL =
     P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
-#=  Clock(condition, startInterval = 0.0) - Boolean clock, triggered by zero-crossing events
-=#
+#= Clock(condition, startInterval = 0.0) - Boolean clock, triggered by zero-crossing events =#
 const CLOCK_BOOL =
   MODELICA_FUNCTION(
     Absyn.IDENT("Clock"),
@@ -824,8 +809,7 @@ const CLOCK_BOOL =
     P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
-#=  Clock(c, solverMethod) - Solver clock
-=#
+#= Clock(c, solverMethod) - Solver clock =#
 const CLOCK_SOLVER =
   MODELICA_FUNCTION(
     Absyn.IDENT("Clock"),

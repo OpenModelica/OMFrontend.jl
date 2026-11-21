@@ -187,8 +187,7 @@ end
 function fixExternalObjectCall(node::InstNode, cref::ComponentRef, state::LookupState)
   local cls::Class
   local constructor::InstNode
-  #=  If it's not a class it can't be an external object.
-  =#
+  #= If it's not a class it can't be an external object. =#
   if ! isClass(state)
     return (cref, state)
   end
@@ -559,8 +558,7 @@ function lookupLocalName(name::Absyn.Path, node::InstNode, state::LookupState, l
   if ! selfReference
     node = instPackage(node; isRedeclared = isRedeclared)
   end
-  #=  Look up the path in the scope.
-  =#
+  #= Look up the path in the scope. =#
   @match name begin
     Absyn.IDENT(__)  => begin
       @match ENTRY_INFO(node, is_import) = lookupLocalSimpleName(name.name, node)
@@ -809,8 +807,7 @@ function lookupLocalSimpleCref(name::String, scope::InstNode)
     node = resolveInner(node)
     foundScope = parent(node)
   end
-  #=  If the node is an outer node, return the inner instead.
-  =#
+  #= If the node is an outer node, return the inner instead. =#
   node, foundScope
 end
 

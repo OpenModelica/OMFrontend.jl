@@ -48,14 +48,12 @@ import ..Gettext
 using ..ErrorTypes
 
 
-#=
-import Frontend.ErrorExt
-import Frontend.Flags
-import Frontend.Global
-import Frontend.System
-import Frontend.Testsuite
-import Frontend.Util
-=#
+#= import Frontend.ErrorExt
+   import Frontend.Flags
+   import Frontend.Global
+   import Frontend.System
+   import Frontend.Testsuite
+   import Frontend.Util =#
 
 const LOOKUP_ERROR =
   ErrorTypes.MESSAGE(
@@ -4497,8 +4495,7 @@ const FMU_EXPORT_NOT_SUPPORTED =
     ErrorTypes.ERROR(),
     Gettext.gettext("Export of FMU type %s for version %s is not supported. Supported combinations are me (model exchange) for versions 1.0 & 2.0, cs (co-simulation) & me_cs (model exchange & co-simulation) for version 2.0."),
   )::ErrorTypes.Message
-#=  FIGARO_ERROR added by Alexander Carlqvist
-=#
+#= FIGARO_ERROR added by Alexander Carlqvist =#
 
 const FIGARO_ERROR =
   ErrorTypes.MESSAGE(

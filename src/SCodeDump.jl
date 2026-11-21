@@ -232,10 +232,8 @@ function restrString(inRestriction::SCode.Restriction)::String
       end
     end
   end
-  #=  predefined types
-  =#
-  #=  BTH
-  =#
+  #= predefined types
+     BTH =#
   return outString
 end
 

@@ -165,10 +165,8 @@ function checkDebugFlags()
       fail()
     end
   end
-  #=  If the flag indices are borked, print an error and terminate the compiler.
-  =#
-  #=  Only failing here could cause an infinite loop of trying to load the flags.
-  =#
+  #= If the flag indices are borked, print an error and terminate the compiler.
+     Only failing here could cause an infinite loop of trying to load the flags. =#
 end
 
 """Checks that the flags listed in allConfigFlags have sequential and unique indices."""
@@ -186,10 +184,8 @@ function checkConfigFlags()
       #Error.terminateError(err_str, sourceInfo())
     end
   end
-  #=  If the flag indices are borked, print an error and terminate the compiler.
-  =#
-  #=  Only failing here could cause an infinite loop of trying to load the flags.
-  =#
+  #= If the flag indices are borked, print an error and terminate the compiler.
+     Only failing here could cause an infinite loop of trying to load the flags. =#
 end
 
 """Sets the value of a debug flag, and returns the old value."""
@@ -266,8 +262,7 @@ function readArgs(inArgs::List{<:String}) ::List{String}
       end
     end
   end
-  #=  Stop parsing arguments if -- is encountered.
-  =#
+  #= Stop parsing arguments if -- is encountered. =#
   outArgs = ListUtil.append_reverse(outArgs, rest_args, String)
   _ = ListUtil.map2(outArgs, System.iconv, "UTF-8", "UTF-8", String)
   #Error.assertionOrAddSourceMessage(numError == Error.getNumErrorMessages(), Error.UTF8_COMMAND_LINE_ARGS, nil, Util.dummyInfo)
@@ -287,8 +282,7 @@ function readArg(inArg::String, inFlags::Flags.Flag) ::Bool
 
   flagtype = stringGetStringChar(inArg, 1)
   len = stringLength(inArg)
-  #=  Flags beginning with + can be both short and long, i.e. +h or +help.
-  =#
+  #= Flags beginning with + can be both short and long, i.e. +h or +help. =#
   if flagtype == "+"
     if len == 1
       parseFlag(inArg, Flags.NO_FLAGS())
@@ -318,24 +312,15 @@ function readArg(inArg::String, inFlags::Flags.Flag) ::Bool
   else
     outConsumed = false
   end
-  #=  + alone is not a valid flag.
-  =#
-  #=  Flags beginning with - must have another - for long flags, i.e. -h or --help.
-  =#
-  #=  - alone is not a valid flag.
-  =#
-  #=  Short flag without argument, i.e. -h.
-  =#
-  #=  Short flags may not be used with --, i.e. --h or --h=debug.
-  =#
-  #=  Long flag, i.e. --help or --help=debug.
-  =#
-  #=  Short flag with argument, i.e. -h=debug.
-  =#
-  #=  Long flag used with -, i.e. -help, which is not allowed.
-  =#
-  #=  Arguments that don't begin with + or - are not flags, ignore them.
-  =#
+  #= + alone is not a valid flag.
+     Flags beginning with - must have another - for long flags, i.e. -h or --help.
+     - alone is not a valid flag.
+     Short flag without argument, i.e. -h.
+     Short flags may not be used with --, i.e. --h or --h=debug.
+     Long flag, i.e. --help or --help=debug.
+     Short flag with argument, i.e. -h=debug.
+     Long flag used with -, i.e. -help, which is not allowed.
+     Arguments that don't begin with + or - are not flags, ignore them. =#
   outConsumed
 end
 
@@ -446,8 +431,7 @@ function matchConfigFlag(inFlagName::String, inFlag::Flags.ConfigFlag) ::Bool
   local name::String
   local shortname::String
 
-  #=  A configuration flag may have two names, one long and one short.
-  =#
+  #= A configuration flag may have two names, one long and one short. =#
   @match Flags.CONFIG_FLAG(name = name, shortname = opt_shortname) = inFlag
   shortname = Util.getOptionOrDefault(opt_shortname, "")
   outMatches = stringEq(inFlagName, shortname) || stringEq(System.tolower(inFlagName), System.tolower(name))
@@ -487,8 +471,7 @@ function stringFlagData(inValues::List{<:String}, inExpectedType::Flags.FlagData
     local flags::List{String}
     local slst::List{String}
     local options::Flags.ValidOptions
-    #=  A boolean value.
-    =#
+    #= A boolean value. =#
     @matchcontinue (inValues, inExpectedType, validOptions, inName) begin
       (s <|  nil(), Flags.BOOL_FLAG(__), _, _)  => begin
         b = Util.stringBool(s)
@@ -549,22 +532,14 @@ function stringFlagData(inValues::List{<:String}, inExpectedType::Flags.FlagData
       end
     end
   end
-  #=  No value, but a boolean flag => enable the flag.
-  =#
-  #=  An integer value.
-  =#
-  #=  integer list.
-  =#
-  #=  A real value.
-  =#
-  #=  A string value.
-  =#
-  #=  A multiple-string value.
-  =#
-  #=  An enumeration value.
-  =#
-  #=  Type mismatch, print error.
-  =#
+  #= No value, but a boolean flag => enable the flag.
+     An integer value.
+     integer list.
+     A real value.
+     A string value.
+     A multiple-string value.
+     An enumeration value.
+     Type mismatch, print error. =#
   outValue
 end
 
@@ -637,20 +612,13 @@ function printActualTypeStr(inType::List{<:String}) ::String
       end
     end
   end
-  #=  intString returns 0 on failure, so this is to make sure that it
-  =#
-  #=  actually succeeded.
-  =#
-  #= case {s}
-  =#
-  #=   equation
-  =#
-  #=     System.stringReal(s);
-  =#
-  #=   then
-  =#
-  #=     \"the number \" + intString(i);
-  =#
+  #= intString returns 0 on failure, so this is to make sure that it
+     actually succeeded.
+     case {s}
+     equation
+     System.stringReal(s);
+     then
+     \"the number \" + intString(i); =#
   outTypeStr
 end
 

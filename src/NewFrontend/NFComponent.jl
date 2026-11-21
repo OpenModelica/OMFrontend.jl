@@ -770,19 +770,16 @@ function hasBinding(comp::Component, parent::InstNode = EMPTY_NODE())
      b = true
     return b
   end
-  #=  Simple case, component has normal binding equation.
-  =#
-  #=  Complex case, component might be a record instance where each field has
-  =#
-  #=  its own binding equation.
-  =#
+  #= Simple case, component has normal binding equation.
+     Complex case, component might be a record instance where each field has
+     its own binding equation. =#
    cls = getClass(classInstance(comp))
   if !isRecord(restriction(cls))
      b = false
     return b
   end
-  #=  Not record. =#
-  #=  Check if any child of this component is missing a binding. =#
+  #= Not record.
+     Check if any child of this component is missing a binding. =#
    children = getComponents(classTree(cls))
   for c in children
     if isComponent(c) && !hasBinding(component(c))
@@ -1084,8 +1081,7 @@ function Component_info(component::Component)
       end
     end
   end
-  #=  Fail for enumeration literals, InstNode.info handles that case instead.
-  =#
+  #= Fail for enumeration literals, InstNode.info handles that case instead. =#
   return info
 end
 

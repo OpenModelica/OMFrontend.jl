@@ -85,9 +85,7 @@ function restoreMissingArrayVariables!(flatModel::FLAT_MODEL)
       exp = map(e, collectArrayVariable2)
       return exp
     end
-    #=
-    Traverse all expressions in the array equations to find component references of type array
-    =#
+    #= Traverse all expressions in the array equations to find component references of type array =#
     mapExpList!(flatModel.initialEquations, collectArrayVariable)
     mapExpList!(flatModel.equations, collectArrayVariable)
     newVars = VARIABLE[]
@@ -101,9 +99,7 @@ end
 function adjustIncorrectVariablePaths!(flat_model)
   #= Get all variables =#
   local variables = flat_model.variables
-  #=
-  Get all component references in the model.
-  =#
+  #= Get all component references in the model. =#
 
 end
 

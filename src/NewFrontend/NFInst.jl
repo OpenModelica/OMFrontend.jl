@@ -216,8 +216,8 @@ function simplifyAndCollect(flat_model::FLAT_MODEL, name::String, top = nothing)
   @EXECSTAT "Simplify" flat_model = simplifyFlatModel(flat_model)
   dumpFlatModel(flat_model, string(name, "_", "afterSimplify"))
   @EXECSTAT "collectFunctions" funcs = collectFunctions(flat_model, name)
-  #=  Collect package constants that couldn't be substituted with their values =#
-  #=  (e.g. because they where used with non-constant subscripts), and add them to the model. =#
+  #= Collect package constants that couldn't be substituted with their values
+     (e.g. because they where used with non-constant subscripts), and add them to the model. =#
   @EXECSTAT "collectConstants" (flat_model, funcs) = collectConstants(flat_model, funcs)
   return (flat_model, funcs)
 end
@@ -231,33 +231,27 @@ function scalarizeAndVerify(flat_model::FLAT_MODEL, name::String)::FLAT_MODEL
     #=  Remove empty arrays from variables =#
     @assign flat_model.variables = filter( (x) -> !isEmptyArray(x), flat_model.variables)
   end
-  #=
-  In some cases array variables remain after scalarization; this also seems to
-  occur in omc. Readd these variables to the model. (If Scalarize is false
-  restoreMissingArrayVariables! does nothing.)
-  =#
+  #= In some cases array variables remain after scalarization; this also seems to
+     occur in omc. Readd these variables to the model. (If Scalarize is false
+     restoreMissingArrayVariables! does nothing.) =#
   InstUtil.restoreMissingArrayVariables!(flat_model)
   InstUtil.adjustIncorrectVariablePaths!(flat_model)
   @EXECSTAT "verify" verify(flat_model)
   dumpFlatModel(flat_model, string(name, "_", "afterVerify"))
-  #= TODO: Expand sliced crefs=#
-  #= TODO: Combine subscripts =#
+  #= TODO: Expand sliced crefs
+     TODO: Combine subscripts =#
   return flat_model
 end
 
 function setSettingForInst()
-  #=
-  Gather here all the flags to disable expansion
-  and scalarization if -d=-nfScalarize is on
-  =#
+  #= Gather here all the flags to disable expansion
+     and scalarization if -d=-nfScalarize is on =#
   if ! Flags.isSet(Flags.FRONTEND_SCALARIZE)
     FlagsUtil.set(Flags.NF_EXPAND_OPERATIONS, false)
     FlagsUtil.set(Flags.NF_EXPAND_FUNC_ARGS, false)
   else
-    #=
-    Turn on function argument expansion by default
-    so that we do not miss some variables in function calls.
-    =#
+    #= Turn on function argument expansion by default
+       so that we do not miss some variables in function calls. =#
     FlagsUtil.set(Flags.NF_EXPAND_OPERATIONS, true)
     FlagsUtil.set(Flags.NF_EXPAND_FUNC_ARGS, true)
   end
@@ -322,28 +316,19 @@ function makeTopNode(topClasses::List{<:SCode.Element}) ::InstNode
   local cls::Class
   local elems::ClassTree
 
-  #=  Create a fake SCode.Element for the top scope, so we don't have to make the
-  =#
-  #=  definition in InstNode an Option only because of this node.
-  =#
+  #= Create a fake SCode.Element for the top scope, so we don't have to make the
+     definition in InstNode an Option only because of this node. =#
   cls_elem = SCode.CLASS("<top>", SCode.defaultPrefixes, SCode.NOT_ENCAPSULATED(), SCode.NOT_PARTIAL(), SCode.R_PACKAGE(), SCode.PARTS(topClasses, nil, nil, nil, nil, nil, nil, NONE()), SCode.COMMENT(NONE(), NONE()), AbsynUtil.dummyInfo)
-  #=  Make an InstNode for the top scope, to use as the parent of the top level elements.
-  =#
+  #= Make an InstNode for the top scope, to use as the parent of the top level elements. =#
   topNode = newClass(cls_elem, EMPTY_NODE(), TOP_SCOPE())
-  #=  Create a new class from the elements, and update the inst node with it.
-  =#
+  #= Create a new class from the elements, and update the inst node with it. =#
   cls = fromSCode(topClasses, false, topNode, DEFAULT_PREFIXES)
-  #=  The class needs to be expanded to allow lookup in it. The top scope will
-  =#
-  #=  only contain classes, so we can do this instead of the whole expandClass.
-  =#
+  #= The class needs to be expanded to allow lookup in it. The top scope will
+     only contain classes, so we can do this instead of the whole expandClass. =#
   cls = initExpandedClass(cls)
-  #=  Set the correct for classes with builtin annotation. This
-  =#
-  #=  could also be done when creating InstNodes, but only top-level classes
-  =#
-  #=  should have this annotation anyway.
-  =#
+  #= Set the correct for classes with builtin annotation. This
+     could also be done when creating InstNodes, but only top-level classes
+     should have this annotation anyway. =#
   elems = classTree(cls)
   mapClasses(elems, markBuiltinTypeNodes)
   cls = setClassTree(elems, cls)
@@ -400,8 +385,7 @@ function partialInstClass2(definition::SCode.Element, scope::InstNode) ::Class
         fromSCode(ce_cdef.elementLst, true, scope, prefs)
       end
       SCode.ENUMERATION(__)  => begin
-        #=  An enumeration definition, add the literals to a new scope.
-        =#
+        #= An enumeration definition, add the literals to a new scope. =#
          ty = makeEnumerationType(cdef.enumLst, scope)
         fromEnumeration(cdef.enumLst, ty, prefs, scope)
       end
@@ -489,8 +473,7 @@ function expandClass2(node::InstNode) ::InstNode
       end
 
       _  => begin
-        #=  A short class definition, e.g. class A = B.
-        =#
+        #= A short class definition, e.g. class A = B. =#
         Error.assertion(false, getInstanceName() + " got unknown class:\\n" + SCodeDump.unparseElementStr(def), sourceInfo())
         fail()
       end
@@ -543,8 +526,7 @@ function expandExtends(ext::InstNode, builtinExt::InstNode = EMPTY_NODE()) ::Tup
   () = begin
     @match def begin
       SCode.EXTENDS(base_path, vis, smod, ann, info)  => begin
-        #=  Look up the base class and expand it.
-        =#
+        #= Look up the base class and expand it. =#
         scope = parent(ext)
         #@match (@match _cons(base_node, _) = base_nodes) = lookupBaseClassName(base_path, scope, info)
         base_nodes = lookupBaseClassName(base_path, scope, info) #Modification by me:) Corresponds to the above
@@ -553,14 +535,10 @@ function expandExtends(ext::InstNode, builtinExt::InstNode = EMPTY_NODE()) ::Tup
         checkReplaceableBaseClass(base_nodes, base_path, info)
         base_node = expand(base_node)
         ext = setNodeType(BASE_CLASS(scope, def), base_node)
-        #=  If the extended class is a builtin class, like Real or any type derived
-        =#
-        #=  from Real, then return it so we can handle it properly in expandClass.
-        =#
-        #=  We don't care if builtinExt is already SOME, since that's not legal and
-        =#
-        #=  will be caught by expandBuiltinExtends.
-        =#
+        #= If the extended class is a builtin class, like Real or any type derived
+           from Real, then return it so we can handle it properly in expandClass.
+           We don't care if builtinExt is already SOME, since that's not legal and
+           will be caught by expandBuiltinExtends. =#
         if isBuiltin(base_node) || isBuiltin(getClass(base_node))
            builtinExt = ext
         end
@@ -583,12 +561,9 @@ function checkExtendsLoop(node::InstNode, path::Absyn.Path, info::SourceInfo)
    () = begin
     @match getClass(node) begin
       EXPANDED_CLASS(elements = CLASS_TREE_PARTIAL_TREE(__))  => begin
-        #=  expand begins by changing the class to an EXPANDED_CLASS, but keeps the
-        =#
-        #=  class tree. So finding a PARTIAL_TREE here means the class is in the
-        =#
-        #=  process of being expanded.
-        =#
+        #= expand begins by changing the class to an EXPANDED_CLASS, but keeps the
+           class tree. So finding a PARTIAL_TREE here means the class is in the
+           process of being expanded. =#
         Error.addSourceMessage(Error.EXTENDS_LOOP, list(AbsynUtil.pathString(path)), info)
         fail()
       end
@@ -632,10 +607,8 @@ function checkReplaceableBaseClass(baseClasses::List{<:InstNode}, basePath::Absy
       fail()
     end
   end
-  #=  The path might contain several classes with the same name, so mark the
-  =#
-  #=  class in the path string to make it clear which one we mean.
-  =#
+  #= The path might contain several classes with the same name, so mark the
+     class in the path string to make it clear which one we mean. =#
 end
 
 function expandExternalObject(clsTree::ClassTree, node::InstNode) ::InstNode
@@ -644,17 +617,12 @@ function expandExternalObject(clsTree::ClassTree, node::InstNode) ::InstNode
   local eo_ty::ComplexType
   local c::Class
 
-  #=  Construct the ComplexType for the external object.
-  =#
+  #= Construct the ComplexType for the external object. =#
    eo_ty = makeExternalObjectType(clsTree, node)
-  #=  Construct the Class for the external object. We use an empty class
-  =#
-  #=  tree here, since the constructor and destructor is embedded in the
-  =#
-  #=  ComplexType instead. Using an empty class tree makes sure it's not
-  =#
-  #=  possible to call the constructor or destructor explicitly.
-  =#
+  #= Construct the Class for the external object. We use an empty class
+     tree here, since the constructor and destructor is embedded in the
+     ComplexType instead. Using an empty class tree makes sure it's not
+     possible to call the constructor or destructor explicitly. =#
   c = PARTIAL_BUILTIN(TYPE_COMPLEX(node, eo_ty),
                       newEmptyFlatClassTree(),
                       MODIFIER_NOMOD(),
@@ -665,17 +633,15 @@ function expandExternalObject(clsTree::ClassTree, node::InstNode) ::InstNode
 end
 
 function checkBuiltinTypeExtends(builtinExtends::InstNode, tree::ClassTree, node::InstNode)
-  #=  A class extending from a builtin type may not have other components or baseclasses.
-  =#
+  #= A class extending from a builtin type may not have other components or baseclasses. =#
   if componentCount(tree) > 0 || extendsCount(tree) > 1
     #Error.addSourceMessage(Error.BUILTIN_EXTENDS_INVALID_ELEMENTS, list(name(builtinExtends)), InstNode_info(node))
     @error "Extends invalid elements!"
     fail()
   end
-  #=  ***TODO***:
-  Find the invalid element and use its info to make the error
-  message more accurate.
-  =#
+  #= ***TODO***:
+     Find the invalid element and use its info to make the error
+     message more accurate. =#
 end
 
 """
@@ -692,16 +658,14 @@ function makeExternalObjectType(tree::ClassTree, node::InstNode) ::ComplexType
   ty = begin
     @match tree begin
       CLASS_TREE_PARTIAL_TREE(__)  => begin
-        #=  An external object may not contain components.
-        =#
+        #= An external object may not contain components. =#
         for comp in tree.components
           if isComponent(comp)
             Error.addSourceMessage(Error.EXTERNAL_OBJECT_INVALID_ELEMENT, list(name(node), name(comp)), Component_info(comp))
             fail()
           end
         end
-        #=  An external object may not contain extends other than the ExternalObject one.
-        =#
+        #= An external object may not contain extends other than the ExternalObject one. =#
         if arrayLength(tree.exts) > 1
           for ext in tree.exts
             #= A base class without elements is allowed (`extends Icon`, a package with an
@@ -713,10 +677,8 @@ function makeExternalObjectType(tree::ClassTree, node::InstNode) ::ComplexType
             end
           end
         end
-        #=  An external object must have exactly two functions called constructor and
-        =#
-        #=  destructor.
-        =#
+        #= An external object must have exactly two functions called constructor and
+           destructor. =#
         for cls in tree.classes
           () = begin
             @match name(cls) begin
@@ -731,8 +693,7 @@ function makeExternalObjectType(tree::ClassTree, node::InstNode) ::ComplexType
               end
 
               _  => begin
-                #=  Found some other element => error.
-                =#
+                #= Found some other element => error. =#
                 Error.addSourceMessage(Error.EXTERNAL_OBJECT_INVALID_ELEMENT, list(name(node), name(cls)), InstNode_info(cls))
                 fail()
               end
@@ -743,14 +704,12 @@ function makeExternalObjectType(tree::ClassTree, node::InstNode) ::ComplexType
           Error.addSourceMessage(Error.EXTERNAL_OBJECT_MISSING_STRUCTOR, list(name(node), "constructor"), InstNode_info(node))
           fail()
         end
-        #=  The constructor is missing.
-        =#
+        #= The constructor is missing. =#
         if isEmpty(destructor)
           Error.addSourceMessage(Error.EXTERNAL_OBJECT_MISSING_STRUCTOR, list(name(node), "destructor"), InstNode_info(node))
           fail()
         end
-        #=  The destructor is missing.
-        =#
+        #= The destructor is missing. =#
         COMPLEX_EXTERNAL_OBJECT(constructor, destructor)
       end
     end
@@ -772,19 +731,16 @@ function expandClassDerived(element::SCode.Element, definition::SCode.ClassDef, 
   local res::Restriction
 
   @match SCode.DERIVED(typeSpec = ty, attributes = sattrs) = definition
-  #=  Look up the class that's being derived from and expand it.
-  =#
+  #= Look up the class that's being derived from and expand it. =#
   @match Cons{InstNode}(ext_node, _) = lookupBaseClassName(AbsynUtil.typeSpecPath(ty), parent(node), info)
-  #=  Check that the class isn't extending itself, i.e. class A = A.
-  =#
+  #= Check that the class isn't extending itself, i.e. class A = A. =#
   if referenceEq(ext_node, node)
     Error.addSourceMessage(Error.RECURSIVE_SHORT_CLASS_DEFINITION, list(name(node), Dump.unparseTypeSpec(ty)), info)
     fail()
   end
    ext_node = expand(ext_node)
    ext_node = clone(ext_node)
-  #=  Fetch the needed information from the class definition and construct a EXPANDED_DERIVED.
-  =#
+  #= Fetch the needed information from the class definition and construct a EXPANDED_DERIVED. =#
    cls = getClass(node)
    prefs = getPrefixes(cls)
    attrs = instDerivedAttributes(sattrs)
@@ -846,8 +802,8 @@ function instClass(node::InstNode, modifier::Modifier, attributes::Attributes, a
   local outer_mod::Modifier
    cls = getClass(node)
    outer_mod = getModifier(cls)
-  #=  Give an error for modifiers such as (A = B), i.e. attempting to replace a =#
-  #=  class without using redeclare. =#
+  #= Give an error for modifiers such as (A = B), i.e. attempting to replace a
+     class without using redeclare. =#
   if hasBinding(outer_mod)
     Error.addSourceMessage(Error.MISSING_REDECLARE_IN_CLASS_MOD, list(name(node)), Binding_getInfo(binding(outer_mod)))
     fail()
@@ -900,12 +856,9 @@ function instClassDef(cls::INSTANCED_CLASS,
   local res::Restriction
   local ty::ModelicaType
   local attrs::Attributes
-  #=  If a class has an instance of a encapsulating class, then the encapsulating
-  =#
-  #=  class will have been fully instantiated to allow lookup in it. This is a
-  =#
-  #=  rather uncommon case hopefully, so in that case just reinstantiate the class.
-  =#
+  #= If a class has an instance of a encapsulating class, then the encapsulating
+     class will have been fully instantiated to allow lookup in it. This is a
+     rather uncommon case hopefully, so in that case just reinstantiate the class. =#
   node = replaceClass(NOT_INSTANTIATED(), node)
   node = setNodeType(NORMAL_CLASS(), node)
   node = expand(node)
@@ -964,8 +917,7 @@ function instClassDef(cls::EXPANDED_DERIVED,
   (node, par,_ , _) = instantiate(node, parentArg)
   node = setNodeType(DERIVED_CLASS(nodeType(node)), node)
   @match EXPANDED_DERIVED(baseClass = base_node) = getClass(node)
-  #=  Merge outer modifiers and attributes.
-  =#
+  #= Merge outer modifiers and attributes. =#
   mod = withConstrainingMod(fromElement(definition(node), list(node), rootParent(node)), node, rootParent(node))
   outer_mod = merge(outerMod, addParent(node, cls.modifier))
   mod = merge(outer_mod, mod)
@@ -973,8 +925,7 @@ function instClassDef(cls::EXPANDED_DERIVED,
   #@debug "Merged mod EXPANDED_DERIVED: $strMod"
   attrs = updateClassConnectorType(cls.restriction, cls.attributes)
   attributes = mergeDerivedAttributes(attrs, attributes, parentArg)
-  #=  Instantiate the base class and update the nodes.
-  =#
+  #= Instantiate the base class and update the nodes. =#
   base_node = instClass(base_node, mod, attributes, attributeRef, useBinding, instLevel, par)
   attributes = attributeRef.x
   cls = EXPANDED_DERIVED(base_node,
@@ -1007,9 +958,8 @@ function instClassDef(cls::EXPANDED_CLASS,
   local ty::ModelicaType
   local attrs::Attributes
   res = cls.restriction
-  #=  Skip instantiating the class tree if the class is a base class,
-    it has (hopefully) already been instantiated in that case.
-  =#
+  #= Skip instantiating the class tree if the class is a base class,
+     it has (hopefully) already been instantiated in that case. =#
   if isBaseClass(node)
     par = parentArg
   else
@@ -1032,10 +982,9 @@ function instClassDef(cls::EXPANDED_CLASS,
   applyModifier(mod, cls_tree, node)
   #=  Apply element redeclares. =#
   mapRedeclareChains(cls_tree, redeclareElements, instLevel)
-  #=  Redeclare classes with redeclare modifiers. Redeclared components could
-    also be handled here, but since each component is only instantiated once
-    it's more efficient to apply the redeclare when instantiating them instead.
-  =#
+  #= Redeclare classes with redeclare modifiers. Redeclared components could
+     also be handled here, but since each component is only instantiated once
+     it's more efficient to apply the redeclare when instantiating them instead. =#
   redeclareClasses(cls_tree, par)
   #=  Instantiate the extends nodes. =#
   mapExtends(cls_tree, attributes, useBinding, ExtendsVisibility.PUBLIC, instLevel + 1, attributeRef)
@@ -1073,14 +1022,10 @@ function instExternalObjectStructors(ty::ModelicaType, parentNode::InstNode)
   local destructor::InstNode
   local par::InstNode
 
-  #=  The constructor and destructor have function parameters that are instances
-  =#
-  #=  of the external object class, and we instantiate the structors when we
-  =#
-  #=  instantiate such instances. To break that loop we check that we're not
-  =#
-  #=  inside the external object class before instantiating the structors.
-  =#
+  #= The constructor and destructor have function parameters that are instances
+     of the external object class, and we instantiate the structors when we
+     instantiate such instances. To break that loop we check that we're not
+     inside the external object class before instantiating the structors. =#
    par = parent(parent(parentNode))
   if ! (isClass(par) && isExternalObject(getClass(par)))
     @match TYPE_COMPLEX(complexTy = COMPLEX_EXTERNAL_OBJECT(constructor, destructor)) = ty
@@ -1137,10 +1082,8 @@ function instPackage2(node::InstNode; isRedeclared::Bool = false)::InstNode
       return alias
     end
   end
-    #=  Cache the package node itself first, to avoid instantiation loops if
-    =#
-    #=  the package uses itself somehow.
-    =#
+    #= Cache the package node itself first, to avoid instantiation loops if
+       the package uses itself somehow. =#
 
   node = setPackageCache(node, C_PACKAGE(node, CACHE_STATE_PROCESSING))
   inst = instantiateN1(node, EMPTY_NODE(), isRedeclared)
@@ -1197,8 +1140,7 @@ function modifyExtends(extendsNode::InstNode, scope::InstNode)
 
   cls = getClass(extendsNode)
   cls_tree = classTree(cls)
-  #=  Create a modifier from the extends.
-  =#
+  #= Create a modifier from the extends. =#
   @match BASE_CLASS(definition = elem) = nodeType(extendsNode)
   ext_mod = fromElement(elem, nil, scope)
   ext_mod = merge(getModifier(extendsNode), ext_mod)
@@ -1209,10 +1151,8 @@ function modifyExtends(extendsNode::InstNode, scope::InstNode)
         SCode.EXTENDS(__)  => begin
           #=  TODO: Lookup the base class and merge its modifier. =#
           ext_node = listHead(lookupBaseClassName(elem.baseClassPath, scope, elem.info))
-          #=  Finding a different element than before expanding extends
-          =#
-          #=  (probably an inherited element) is an error.
-          =#
+          #= Finding a different element than before expanding extends
+             (probably an inherited element) is an error. =#
           if ! referenceEq(definition(extendsNode), definition(ext_node))
             # Error.addMultiSourceMessage(Error.FOUND_OTHER_BASECLASS, list(AbsynUtil.pathString(elem.baseClassPath)), list(InstNode_info(extendsNode), InstNode_info(ext_node)))
             fail("Found another base class")
@@ -1291,10 +1231,8 @@ function instExtends(node::InstNode,
       if vis == ExtendsVisibility.PUBLIC && isProtectedBaseClass(node) || vis == ExtendsVisibility.DERIVED_PROTECTED
         vis = ExtendsVisibility.PROTECTED
       end
-      #=  Protect components and classes if the extends is protected, except
-      =#
-      #=  if they've already been protected by an extends higher up.
-      =#
+      #= Protect components and classes if the extends is protected, except
+         if they've already been protected by an extends higher up. =#
       if vis == ExtendsVisibility.PROTECTED && visibility != ExtendsVisibility.PROTECTED
         for c in cls_tree.classes
           P_Pointer.update(c, protectClass(P_Pointer.access(c)))
@@ -1335,8 +1273,7 @@ function applyModifier(modifier::Modifier, cls::ClassTree, parent::InstNode) ::C
   local node_ptrs::List{Pointer{InstNode}}
   local node::InstNode
   local comp::Component
-  #=  Split the modifier into a list of submodifiers.
-  =#
+  #= Split the modifier into a list of submodifiers. =#
   mods = toList(modifier)
   if listEmpty(mods)
     return cls
@@ -1522,8 +1459,7 @@ function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMo
   local new_cls::Class
   local prefs::PREFIXES
   local node_ty::InstNodeType
-  #=  Check that the redeclare element is actually a class.
-  =#
+  #= Check that the redeclare element is actually a class. =#
   if ! isClass(redeclareNode)
     Error.addMultiSourceMessage(Error.INVALID_REDECLARE_AS, list(typeName(originalNode), name(originalNode), typeName(redeclareNode)), list(InstNode_info(redeclareNode), InstNode_info(originalNode)))
     fail()
@@ -1539,18 +1475,14 @@ function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMo
      new_cls = begin
       @match (orig_cls, rdcl_cls) begin
         (_, PARTIAL_CLASS(__)) where (isBuiltin(orig_cls))  => begin
-          #=  Class extends of a builtin type. Not very useful, but technically allowed
-          =#
-          #=  if the redeclaring class is empty.
-          =#
+          #= Class extends of a builtin type. Not very useful, but technically allowed
+             if the redeclaring class is empty. =#
           if ! SCodeUtil.isEmptyClassDef(SCodeUtil.getClassDef(definition(redeclareNode)))
             Error.addSourceMessage(Error.BUILTIN_EXTENDS_INVALID_ELEMENTS, list(name(redeclareNode)), InstNode_info(redeclareNode))
             fail()
           end
-          #=  Class extends of a builtin type is only allowed if the extending class is empty,
-          =#
-          #=  otherwise it violates the rules of extending a builtin type.
-          =#
+          #= Class extends of a builtin type is only allowed if the extending class is empty,
+             otherwise it violates the rules of extending a builtin type. =#
           setPrefixes(prefs, orig_cls)
         end
 
@@ -1748,8 +1680,8 @@ function instComponentDef(component::SCode.COMPONENT,
     EMPTY_BINDING
   end
   local condition = fromAbsyn(component.condition, false, list(node), parentNode, component.info)
-  #=  Instantiate the component's attributes, and merge them with the =#
-  #=  attributes of the component's parent (e.g. constant SomeComplexClass c). =#
+  #= Instantiate the component's attributes, and merge them with the
+     attributes of the component's parent (e.g. constant SomeComplexClass c). =#
   local parent_res = restriction(getClass(parentNode))
   attr = instComponentAttributes(component.attributes, component.prefixes)
   attr = checkDeclaredComponentAttributes(attr, parent_res, node)
@@ -1760,13 +1692,11 @@ function instComponentDef(component::SCode.COMPONENT,
   if ! attr.isFinal && isFinal(mod)
     attr.isFinal = true
   end
-  #=
-  Create the untyped component and update the node with it. We need the
-  untyped component in instClass to make sure everything is scoped
-  correctly during lookup, but the class node the component should have
-  is created by instClass. To break the circle we leave the class node
-  empty here, and let instClass set it for us instead.
-  =#
+  #= Create the untyped component and update the node with it. We need the
+     untyped component in instClass to make sure everything is scoped
+     correctly during lookup, but the class node the component should have
+     is created by instClass. To break the circle we leave the class node
+     empty here, and let instClass set it for us instead. =#
   local inst_comp = UNTYPED_COMPONENT(EMPTY_NODE(),
                                       dims,
                                       bindingVar,
@@ -1864,8 +1794,7 @@ function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, out
   local rdcl_node::InstNode
   local rdcl_type::InstNodeType
 
-  #=  Check that the redeclare element actually is a component.
-  =#
+  #= Check that the redeclare element actually is a component. =#
   if ! isComponent(redeclareNode)
     Error.addMultiSourceMessage(Error.INVALID_REDECLARE_AS, list(typeName(originalNode), name(originalNode), typeName(redeclareNode)), list(InstNode_info(redeclareNode), InstNode_info(originalNode)))
     fail()
@@ -1894,10 +1823,8 @@ function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, out
                                       list(InstNode_info(originalNode), InstNode_info(rdcl_node)))
           fail()
         end
-        #=  Take the binding from the outer modifier, the redeclare, or the
-        =#
-        #=  original component, in that order of priority.
-        =#
+        #= Take the binding from the outer modifier, the redeclare, or the
+           original component, in that order of priority. =#
         bindingVar = binding(outerMod)
         if isUnbound(bindingVar)
           bindingVar = if isBound(rdcl_comp.binding)
@@ -1906,23 +1833,20 @@ function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, out
             orig_comp.binding
           end
         end
-        #=  A redeclare is not allowed to have a condition expression.
-        =#
+        #= A redeclare is not allowed to have a condition expression. =#
         if isBound(rdcl_comp.condition)
           Error.addSourceMessage(Error.REDECLARE_CONDITION, list(name(redeclareNode)), InstNode_info(redeclareNode))
           fail()
         end
         condition = orig_comp.condition
         attr = rdcl_comp.attributes
-        #=  Use the dimensions of the redeclare if any, otherwise take them from the original.
-        =#
+        #= Use the dimensions of the redeclare if any, otherwise take them from the original. =#
         dims = if arrayEmpty(rdcl_comp.dimensions)
           orig_comp.dimensions
         else
           rdcl_comp.dimensions
         end
-        #=  TODO: Use comment of redeclare if available?
-        =#
+        #= TODO: Use comment of redeclare if available? =#
         cmt = orig_comp.comment
         UNTYPED_COMPONENT(rdcl_comp.classInst, dims, bindingVar, condition, attr, cmt, false, rdcl_comp.info)
       end
@@ -2026,23 +1950,19 @@ function checkDeclaredComponentAttributes(attr::Attributes, parentRestriction::R
    () = begin
     @match parentRestriction begin
      RESTRICTION_CONNECTOR(__)  => begin
-        #=  Components of a connector may not have prefixes 'inner' or 'outer'.
-        =#
+        #= Components of a connector may not have prefixes 'inner' or 'outer'. =#
         assertNotInnerOuter(attr.innerOuter, component, parentRestriction)
         if parentRestriction.isExpandable
           assertNotFlowStream(attr.connectorType, component, parentRestriction)
           attr.connectorType = intBitOr(attr.connectorType, ConnectorType.POTENTIALLY_PRESENT)
         end
-        #=  Components of an expandable connector may not have the prefix 'flow'.
-        =#
-        #=  Mark components in expandable connectors as potentially present.
-        =#
+        #= Components of an expandable connector may not have the prefix 'flow'.
+           Mark components in expandable connectors as potentially present. =#
         ()
       end
 
       RESTRICTION_RECORD(__)  => begin
-        #=  Elements of a record may not have prefixes 'input', 'output', 'inner', 'outer', 'stream', or 'flow'.
-        =#
+        #= Elements of a record may not have prefixes 'input', 'output', 'inner', 'outer', 'stream', or 'flow'. =#
         assertNotInputOutput(attr.direction, component, parentRestriction)
         assertNotInnerOuter(attr.innerOuter, component, parentRestriction)
         assertNotFlowStream(attr.connectorType, component, parentRestriction)
@@ -2313,10 +2233,8 @@ end
 function checkRecursiveDefinition(componentType::InstNode, component::InstNode, limitReached::Bool)
   local parentVar::InstNode = parent(component)
   local parent_type::InstNode
-  #=
-  Functions can contain instances of a parent, e.g. in equalityConstraint
-  functions, so skip this check for functions.
-  =#
+  #= Functions can contain instances of a parent, e.g. in equalityConstraint
+     functions, so skip this check for functions. =#
   if ! isFunction(getClass(parentVar))
     while ! isEmpty(parentVar)
       parent_type = classScope(parentVar)
@@ -2659,16 +2577,13 @@ function instExpressions(node::InstNode,
   local ty::ModelicaType
   @match cls begin
     EXPANDED_CLASS(elements = cls_tree, restriction = RESTRICTION_TYPE(__))  => begin
-      #=  Long class declaration of a type.
-      =#
-      #=  Instantiate expressions in the extends nodes.
-      =#
+      #= Long class declaration of a type.
+         Instantiate expressions in the extends nodes. =#
       exts = getExtends(cls_tree)
       for ext in exts
          instExpressions(ext, ext, sections)
        end
-      #=  A type must extend a basic type.
-      =#
+      #= A type must extend a basic type. =#
       if arrayLength(exts) == 1
         ty = TYPE_COMPLEX(node, COMPLEX_EXTENDS_TYPE(exts[1]))
       elseif SCodeUtil.hasBooleanNamedAnnotationInClass(definition(node), BUILTIN_PREFIX)
@@ -2685,21 +2600,17 @@ function instExpressions(node::InstNode,
 
     EXPANDED_CLASS(elements = cls_tree)  => begin
       local (connect_breaks, local_connect_breaks) = appendConnectBreaks(node, connectBreaks)
-      #=  Instantiate expressions in the extends nodes.
-      =#
+      #= Instantiate expressions in the extends nodes. =#
       for ext in getExtends(cls_tree)
         sections = instExpressions(ext, ext, sections, connect_breaks)
       end
-      #=  Instantiate expressions in the local components.
-      =#
+      #= Instantiate expressions in the local components. =#
       applyLocalComponentsWithInstComponentExpressions(cls_tree)
-      #=  Flatten the class tree so we don't need to deal with extends anymore.
-      =#
+      #= Flatten the class tree so we don't need to deal with extends anymore. =#
       local elements = flatten(cls_tree)
       cls = EXPANDED_CLASS(elements, cls.modifier, cls.prefixes, cls.restriction)
       node = updateClass(cls, node)
-      #=  Instantiate local equation/algorithm sections.
-      =#
+      #= Instantiate local equation/algorithm sections. =#
       sections = instSections(node, scope, sections, isFunction(cls.restriction), connect_breaks)
       checkUnmatchedConnectBreaks(local_connect_breaks)
       ty = makeComplexType(cls.restriction, node, cls)
@@ -2784,12 +2695,9 @@ function instComplexType(ty::ModelicaType)
     local cache::CachedData
     @match ty begin
       TYPE_COMPLEX(complexTy = COMPLEX_RECORD(node)) where (! isModel(node))  => begin
-        #=  Make sure it's really a record, and not e.g. a record inherited by a model.
-        =#
-        #=  TODO: This check should really be InstNode.isRecord(node), but that
-        =#
-        #=        causes issues with e.g. ComplexInput/ComplexOutput.
-        =#
+        #= Make sure it's really a record, and not e.g. a record inherited by a model.
+           TODO: This check should really be InstNode.isRecord(node), but that
+           causes issues with e.g. ComplexInput/ComplexOutput. =#
         instRecordConstructor(node)
         ()
       end
@@ -2867,10 +2775,8 @@ function instComponentExpressions(componentArg::InstNode)::InstNode
       for i in 1:arrayLength(dims)
         @inbounds dims[i] = instDimension(dims[i], parent(node), c.info)
       end
-      #=
-      This is to avoid instantiating the same component multiple times,
-      which can otherwise happen with duplicate components at this stage.
-      =#
+      #= This is to avoid instantiating the same component multiple times,
+         which can otherwise happen with duplicate components at this stage. =#
       @assign c.instantiated = true
       node = updateComponent!(c, node)
     end
@@ -2884,10 +2790,8 @@ function instComponentExpressions(componentArg::InstNode)::InstNode
       for i in 1:arrayLength(dims)
         @inbounds dims[i] = instDimension(dims[i], parent(node), c.info)
       end
-      #=  This is to avoid instantiating the same component multiple times,
-      =#
-      #=  which can otherwise happen with duplicate components at this stage.
-      =#
+      #= This is to avoid instantiating the same component multiple times,
+         which can otherwise happen with duplicate components at this stage. =#
       @assign c.instantiated = true
       node = updateComponent!(c, node)
       nothing
@@ -3394,12 +3298,9 @@ function checkExternalDeclLanguage(language::String, info::SourceInfo)
       end
 
       _  => begin
-        #=  The specification also allows for C89, C99, and C11, but our code
-        =#
-        #=  generation only seems to support C.
-        =#
-        #=  Not in the specification, but used by libraries and allowed by other tools.
-        =#
+        #= The specification also allows for C89, C99, and C11, but our code
+           generation only seems to support C.
+           Not in the specification, but used by libraries and allowed by other tools. =#
         Error.addSourceMessage(Error.INVALID_EXTERNAL_LANGUAGE, list(language), info)
         fail()
       end
@@ -3475,8 +3376,7 @@ function instEEquation(@nospecialize(scodeEq::SCode.EEquation), @nospecialize(sc
       SCode.EQ_IF(info = info)  => begin
         #=  Instantiate the conditions.=#
         expl = list(instExp(c, scope, info) for c in scodeEq.condition)
-        #=  Instantiate each branch and pair it up with a condition.
-        =#
+        #= Instantiate each branch and pair it up with a condition. =#
         next_origin = setFlag(origin, ORIGIN_IF)
         branches = EquationBranch[]
         for branch in scodeEq.thenBranch
@@ -3484,10 +3384,8 @@ function instEEquation(@nospecialize(scodeEq::SCode.EEquation), @nospecialize(sc
           @match Cons{Expression}(exp1, expl) = expl
           push!(branches, makeBranch(exp1, eql))
         end
-        #=  Instantiate the else-branch, if there is one, and make it a branch
-        =#
-        #=  with condition true (so we only need a simple list of branches).
-        =#
+        #= Instantiate the else-branch, if there is one, and make it a branch
+           with condition true (so we only need a simple list of branches). =#
         if ! listEmpty(scodeEq.elseBranch)
           eql = instEEquations(scodeEq.elseBranch, scope, next_origin)
           push!(branches, makeBranch(BOOLEAN_EXPRESSION(true), eql))
@@ -3757,18 +3655,15 @@ function updateImplicitVariabilityComp(node::InstNode, evalAllParams::Bool)::Not
       if isStructuralComponent(c, c.attributes, bnd, node, evalAllParams)
         markStructuralParamsComp(c, node)
       end
-      #=  Parameters used in array dimensions are structural.
-      =#
+      #= Parameters used in array dimensions are structural. =#
       for dim in c.dimensions
         markStructuralParamsDim(dim)
       end
-      #=  Parameters that determine the size of a component binding are structural.
-      =#
+      #= Parameters that determine the size of a component binding are structural. =#
       if isBound(bnd)
         markStructuralParamsExpSize(getUntypedExp(bnd))
       end
-      #=  Parameters used in a component condition are structural.
-      =#
+      #= Parameters used in a component condition are structural. =#
       if isBound(condition)
         markStructuralParamsExp(getUntypedExp(condition))
       end
@@ -3866,8 +3761,7 @@ function isComponentBindingNotFixed(comp::Component, node::InstNode, requireFina
   else
     isNotFixed = isBindingNotFixed(binding, requireFinal, maxDepth)
   end
-  #=  TODO: Check whether the record fields have bindings or not.
-  =#
+  #= TODO: Check whether the record fields have bindings or not. =#
   isNotFixed
 end
 

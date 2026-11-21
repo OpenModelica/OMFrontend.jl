@@ -297,8 +297,7 @@ function makeArrayExp(posArgs::Union{List{<:Expression}, Vector{<:Expression}}, 
   local ty::ModelicaType
 
   assertNoNamedParams("array", namedArgs, info)
-  #=  array can take any number of arguments, but needs at least one.
-  =#
+  #= array can take any number of arguments, but needs at least one. =#
   if isempty(posArgs)
     Error.addSourceMessage(Error.NO_MATCHING_FUNCTION_FOUND_NFINST, list("array()", "array(Any, Any, ...) => Any[:]"), info)
     fail()
@@ -336,8 +335,7 @@ function makeCatExp(n::Int,
   local mkRef = Ref{MatchKindType}(MatchKind.NOT_COMPATIBLE)
   @assert length(args) == length(tys) && length(args) >= 1
   #Error.assertion(, getInstanceName() + " got wrong input sizes", sourceInfo())
-  #=  First: Get the number of dimensions and the element type
-  =#
+  #= First: Get the number of dimensions and the element type =#
   for (i,arg) in enumerate(args)
     ty = tys2[i]
     dimsLst = Cons{List{Dimension}}(arrayDims(ty), dimsLst)
@@ -370,8 +368,7 @@ function makeCatExp(n::Int,
   tys3 = ModelicaType[]
   args2 = Expression[]
   pos = length(args) + 2
-  #=  Second: Try to match the element type of all the arguments
-  =#
+  #= Second: Try to match the element type of all the arguments =#
   local i = 1
   for arg in args
     ty = tys2[i]
@@ -389,10 +386,8 @@ function makeCatExp(n::Int,
     push!(tys3, ty1)
     i += 1
   end
-  #=  Third: We now have matched the element types of all arguments
-  =#
-  #=         Try to match the dimensions as well
-  =#
+  #= Third: We now have matched the element types of all arguments
+     Try to match the dimensions as well =#
   resTy = TYPE_UNKNOWN()
   tys2 = tys3
   for (i,arg) in enumerate(args2)
@@ -406,10 +401,8 @@ function makeCatExp(n::Int,
       end
     end
   end
-  #=  Got the supertype of the dimensions; trying to match all arguments
-  =#
-  #=  with the concatenated dimension set to unknown.
-  =#
+  #= Got the supertype of the dimensions; trying to match all arguments
+     with the concatenated dimension set to unknown. =#
   dims = arrayDims(resTy)
   resTyToMatch = TYPE_ARRAY(arrayElementType(resTy), ListUtil.set(dims, n, DIMENSION_UNKNOWN(), Dimension))
   #dims = list(listGet(lst, n) for lst in dimsLst)
@@ -418,8 +411,7 @@ function makeCatExp(n::Int,
   for d in dims
     sumDim = add(sumDim, d)
   end
-  #=  Create the concatenated dimension
-  =#
+  #= Create the concatenated dimension =#
   resTy = TYPE_ARRAY(arrayElementType(resTy), ListUtil.set(arrayDims(resTy), n, sumDim, Dimension))
   tys2 = tys3
   tys3 = ModelicaType[]
@@ -439,8 +431,7 @@ function makeCatExp(n::Int,
     push!(tys3, ty1)
     i += 1
   end
-  #=  We have all except dimension n having equal sizes; with matching types
-  =#
+  #= We have all except dimension n having equal sizes; with matching types =#
   ty = resTy
   res = pushfirst!(res, INTEGER_EXPRESSION(n))
   callExp = CALL_EXPRESSION(makeTypedCall(NFBuiltinFuncs.CAT, res, variability, resTy))
@@ -487,9 +478,7 @@ function makeCatExpRef(n::Int,
   #local tyRef = Ref{ModelicaType}(TYPE_UNKNOWN())
   local mkRef = Ref{MatchKindType}(MatchKind.NOT_COMPATIBLE)
   @assert length(args) == length(tys) && length(args) >= 1
-  #=
-  First: Get the number of dimensions and the element type
-  =#
+  #= First: Get the number of dimensions and the element type =#
   for (i,arg) in enumerate(args)
     ty = tys2[i]
     dimsLst = Cons{List{Dimension}}(arrayDims(ty), dimsLst)
@@ -538,9 +527,8 @@ function makeCatExpRef(n::Int,
     push!(tys3, ty1)
     i += 1
   end
-  #=  Third: We now have matched the element types of all arguments
-           Try to match the dimensions as well
-  =#
+  #= Third: We now have matched the element types of all arguments
+     Try to match the dimensions as well =#
   resTy = TYPE_UNKNOWN()
   tys2 = tys3
   for (i,arg) in enumerate(args2)
@@ -554,10 +542,8 @@ function makeCatExpRef(n::Int,
       end
     end
   end
-  #=  Got the supertype of the dimensions; trying to match all arguments
-  =#
-  #=  with the concatenated dimension set to unknown.
-  =#
+  #= Got the supertype of the dimensions; trying to match all arguments
+     with the concatenated dimension set to unknown. =#
   dims = arrayDims(resTy)
   resTyToMatch = TYPE_ARRAY(arrayElementType(resTy), ListUtil.set(dims, n, DIMENSION_UNKNOWN(), Dimension))
   #dims = list(listGet(lst, n) for lst in dimsLst)
@@ -566,8 +552,7 @@ function makeCatExpRef(n::Int,
   for d in dims
     sumDim = add(sumDim, d)
   end
-  #=  Create the concatenated dimension
-  =#
+  #= Create the concatenated dimension =#
   resTy = TYPE_ARRAY(arrayElementType(resTy), ListUtil.set(arrayDims(resTy), n, sumDim, Dimension))
   tys2 = tys3
   tys3 = ModelicaType[]
@@ -587,8 +572,7 @@ function makeCatExpRef(n::Int,
     push!(tys3, ty1)
     i += 1
   end
-  #=  We have all except dimension n having equal sizes; with matching types
-  =#
+  #= We have all except dimension n having equal sizes; with matching types =#
   ty = resTy
   res = pushfirst!(res, INTEGER_EXPRESSION(n))
   callExp = CALL_EXPRESSION(makeTypedCall(NFBuiltinFuncs.CAT, res, variability, resTy))
@@ -710,10 +694,8 @@ function typeNdimsCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tupl
     Error.addSourceMessage(Error.NO_MATCHING_FUNCTION_FOUND_NFINST, list(toString(call), "ndims(Any) => Integer"), info)
     fail()
   end
-  #=  The number of dimensions an expression has is always known,
-  =#
-  #=  so we might as well evaluate the ndims call here.
-  =#
+  #= The number of dimensions an expression has is always known,
+     so we might as well evaluate the ndims call here. =#
    (_, arg_ty, _) = typeExp(args[1], origin, info)
   @assign callExp = INTEGER_EXPRESSION(dimensionCount(arg_ty))
   (callExp, ty, variability)
@@ -754,8 +736,7 @@ function typePreChangeCall(@nospecialize(name::String), call::Call, origin::ORIG
   if length(args) != 1
     Error.addSourceMessageAndFail(Error.NO_MATCHING_FUNCTION_FOUND_NFINST, list(toString(call), toString(fn_ref) + "(Any) => Any"), info)
   end
-  #=  pre/change may not be used in a function context.
-  =#
+  #= pre/change may not be used in a function context. =#
   if flagSet(origin, ORIGIN_FUNCTION)
     Error.addSourceMessageAndFail(Error.EXP_INVALID_IN_FUNCTION, list(toString(fn_ref)), info)
   end
@@ -785,8 +766,7 @@ function typeDerCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{
   local fn::MODELICA_FUNCTION
   local ety::ModelicaType
 
-  #=  der may not be used in a function context.
-  =#
+  #= der may not be used in a function context. =#
   if flagSet(origin, ORIGIN_FUNCTION)
     Error.addSourceMessage(Error.EXP_INVALID_IN_FUNCTION, list("der"), info)
     fail()
@@ -929,10 +909,8 @@ function typeMinMaxCall(name::String, call::Call, origin::ORIGIN_Type, info::Sou
         if ! (isArray(ty1) && minMaxValidType(ty))
           minMaxInvalidArgsError(call, name, info)
         end
-        #=  If the argument is an array with a single element we can just
-        =#
-        #=  return that element instead of making a min/max call.
-        =#
+        #= If the argument is an array with a single element we can just
+           return that element instead of making a min/max call. =#
         if isSingleElementArray(ty1)
           callExp = applySubscript(first(listHead(arrayDims(ty1))), arg1)
           return (callExp, ty, var)
@@ -1091,22 +1069,17 @@ function typeSmoothCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
   @match [arg1, arg2] = args
    (arg1, ty1, var) = typeExp(arg1, origin, info)
    (arg2, ty2, variability) = typeExp(arg2, origin, info)
-  #=  First argument must be Integer.
-  =#
+  #= First argument must be Integer. =#
   if ! isInteger(ty1)
     Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list("1", toString(fn_ref), "", toString(arg1), toString(ty1), "Integer"), info)
   end
-  #=  First argument must be a parameter expression.
-  =#
+  #= First argument must be a parameter expression. =#
   if var > Variability.PARAMETER
     Error.addSourceMessageAndFail(Error.INVALID_ARGUMENT_VARIABILITY, list("1", toString(fn_ref), variabilityString(Variability.PARAMETER), toString(arg1), variabilityString(variability)), info)
   end
-  #=  Second argument must be Real, array of allowed expressions or record
-  =#
-  #=  containing only components of allowed expressions.
-  =#
-  #=  TODO: Also handle records here.
-  =#
+  #= Second argument must be Real, array of allowed expressions or record
+     containing only components of allowed expressions.
+     TODO: Also handle records here. =#
   (arg2, ty, mk) = matchTypes(ty2, setArrayElementType(ty2, TYPE_REAL()), arg2, #= allowUnknown=# true)
   if ! isValidArgumentMatch(mk)
     Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list("2", toString(fn_ref), "", toString(arg2), toString(ty2), "Real\\n  Real[:, ...]\\n  Real record\\n  Real record[:, ...]"), info)
@@ -1126,8 +1099,7 @@ function typeFillCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple
   local fill_arg::Expression
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
   assertNoNamedParams("fill", named_args, info)
-  #=  fill can take any number of arguments, but needs at least two.
-  =#
+  #= fill can take any number of arguments, but needs at least two. =#
   if length(args) < 2
     Error.addSourceMessageAndFail(Error.NO_MATCHING_FUNCTION_FOUND_NFINST, list(toString(call), "fill(Any, Integer, ...) => Any[:, ...]"), info)
   end
@@ -1156,8 +1128,7 @@ function typeFillCall2(fnRef::ComponentRef,
   ty_args = Expression[fillArg]
   dims = nil
   evaluated = true
-  #=  Type the dimension arguments.
-  =#
+  #= Type the dimension arguments. =#
   for (i,arg) in enumerate(dimensionArgs)
     (arg, arg_ty, arg_var) = typeExp(arg, origin, info)
     if !(flagSet(origin, ORIGIN_ALGORITHM) || flagSet(origin, ORIGIN_FUNCTION)) && arg_var > Variability.PARAMETER
@@ -1202,8 +1173,7 @@ function typeZerosOnesCall(name::String, call::Call, origin::ORIGIN_Type, info::
 
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
   assertNoNamedParams(name, named_args, info)
-  #=  zeros/ones can take any number of arguments, but needs at least one.
-  =#
+  #= zeros/ones can take any number of arguments, but needs at least one. =#
   if isempty(args)
     Error.addSourceMessageAndFail(Error.NO_MATCHING_FUNCTION_FOUND_NFINST,
                                   list(toString(call),
@@ -1236,8 +1206,7 @@ function typeScalarCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
     Error.addSourceMessageAndFail(Error.NO_MATCHING_FUNCTION_FOUND_NFINST, list(toString(call), "scalar(Any[1, ...]) => Any"), info)
   end
    (arg, ty, variability) = typeExp(args[1], origin, info)
-  #=  scalar requires all dimensions of the array to be 1.
-  =#
+  #= scalar requires all dimensions of the array to be 1. =#
   for dim in arrayDims(ty)
     if isKnown(dim) && size(dim) != 1
       Error.addSourceMessageAndFail(Error.INVALID_ARRAY_DIM_IN_SCALAR_OP, list(toString(ty)), info)
@@ -1278,9 +1247,8 @@ function typeVectorCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
     Error.addSourceMessageAndFail(Error.NO_MATCHING_FUNCTION_FOUND_NFINST, list(toString(call), "vector(Any) => Any[:]\\n  vector(Any[:, ...]) => Any[:]"), info)
   end
   (arg, ty, variability) = typeExp(Base.first(args), origin, info)
-  #=  vector requires that at most one dimension is > 1, and that dimension
-  determines the type of the vector call.
-  =#
+  #= vector requires that at most one dimension is > 1, and that dimension
+     determines the type of the vector call. =#
   for dim in arrayDims(ty)
     if ! isKnown(dim) || size(dim) > 1
       if dim_found
@@ -1291,9 +1259,8 @@ function typeVectorCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
       end
     end
   end
-  #=  The array might be empty even if one dimension is larger than 1,
-  in that case the result will also be an empty array.
-  =#
+  #= The array might be empty even if one dimension is larger than 1,
+     in that case the result will also be an empty array. =#
   if isEmptyArray(ty)
     vector_dim = fromInteger(0)
   end
@@ -1345,12 +1312,9 @@ function typeMatrixCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
     @match [fn] = typeRefCache(fn_ref)
     callExp = CALL_EXPRESSION(makeTypedCall(fn, Expression[arg], variability, ty))
   end
-  #=  matrix(A) where A is a scalar or vector returns promote(A, 2).
-  =#
-  #=  matrix(A) where A is a matrix just returns A.
-  =#
-  #=  matrix requires all but the first two dimensions to have size 1.
-  =#
+  #= matrix(A) where A is a scalar or vector returns promote(A, 2).
+     matrix(A) where A is a matrix just returns A.
+     matrix requires all but the first two dimensions to have size 1. =#
   return (callExp, ty, variability)
 end
 
@@ -1463,12 +1427,9 @@ function typeCardinalityCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) 
   local arg::Expression
   local fn::MODELICA_FUNCTION
   local nodeVar::InstNode
-  #=  cardinality may only be used in a condition of an assert or
-  =#
-  #=  if-statement/equation (the specification says only if-statement,
-  =#
-  #=  but e.g. the MSL only uses them in if-equations and asserts).
-  =#
+  #= cardinality may only be used in a condition of an assert or
+     if-statement/equation (the specification says only if-statement,
+     but e.g. the MSL only uses them in if-equations and asserts). =#
   if ! (flagSet(origin, ORIGIN_CONDITION) && (flagSet(origin, ORIGIN_IF) || flagSet(origin, ORIGIN_ASSERT)))
     Error.addSourceMessageAndFail(Error.INVALID_CARDINALITY_CONTEXT, nil, info)
   end
@@ -1591,16 +1552,12 @@ function typeRecompilationCall(call::Call, origin::ORIGIN_Type, info::SourceInfo
   if length(args) != 2
     throw("Error typing! expected two arguments to recompilation")
   end
-  #=
-    We know we are going to change a parameter of the model we currently are operating on.
-    Prepare the SCode for this model so that we can use it later.
-  =#
+  #= We know we are going to change a parameter of the model we currently are operating on.
+     Prepare the SCode for this model so that we can use it later. =#
   @match CREF_EXPRESSION(_, argCref1) = args[1]
-  #=
-    Change the variability of argCref1
-    to avoid further simplifications in the frontend.
-    We do this by creating a new component reference that is not pointing to a node.
-  =#
+  #= Change the variability of argCref1
+     to avoid further simplifications in the frontend.
+     We do this by creating a new component reference that is not pointing to a node. =#
   local newCref = COMPONENT_REF_CREF(argCref1.node,
                                      argCref1.subscripts,
                                      argCref1.ty,
@@ -1903,8 +1860,7 @@ function checkConnectionsArgument(@nospecialize(arg::Expression), ty::ModelicaTy
          (valid_cref, isConnectorBool) = begin
           @match arg.cref begin
             COMPONENT_REF_CREF(node = node, origin = Origin.CREF, restCref = COMPONENT_REF_CREF(ty = ty2, origin = Origin.CREF))  => begin
-              #=  check form A.R
-              =#
+              #= check form A.R =#
               @assign ty2 = begin
                 @match ty2 begin
                   TYPE_ARRAY(__) where (listLength(subscriptsAllFlat(arg.cref)) == listLength(ty2.dimensions))  => begin
@@ -1920,8 +1876,7 @@ function checkConnectionsArgument(@nospecialize(arg::Expression), ty::ModelicaTy
             end
 
             COMPONENT_REF_CREF(node = node, ty = ty2)  => begin
-              #=  adrpo #5821, allow for R only instead of A.R and issue a warning
-              =#
+              #= adrpo #5821, allow for R only instead of A.R and issue a warning =#
               @assign ty2 = begin
                 @match ty2 begin
                   TYPE_ARRAY(__) where (listLength(subscriptsAllFlat(arg.cref)) == listLength(ty2.dimensions))  => begin
@@ -1980,8 +1935,7 @@ function typeNoEventCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tu
 
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
   assertNoNamedParams("noEvent", named_args, info)
-  #=  noEvent takes exactly one argument.
-  =#
+  #= noEvent takes exactly one argument. =#
   if length(args) != 1
     Error.addSourceMessageAndFail(Error.NO_MATCHING_FUNCTION_FOUND_NFINST, list(toString(call), "noEvent(Any) => Any"), info)
   end
@@ -2077,8 +2031,7 @@ function typeSampleCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tupl
   (callExp, outType, var) = begin
     @match (args, namedArgs) begin
       ([(e, t, v), (e1, TYPE_INTEGER(__), v1)],  _) where{isempty(namedArgs)}  => begin
-        #=  sample(start, Real interval) - the usual stuff
-        =#
+        #= sample(start, Real interval) - the usual stuff =#
         if valueEq(t, TYPE_INTEGER())
           e = CAST_EXPRESSION(TYPE_REAL(), e)
         end
@@ -2087,8 +2040,7 @@ function typeSampleCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tupl
       end
 
       ([(e, t, v), (e1, TYPE_REAL(__), v1) ],  _) where{isempty(namedArgs)}  => begin
-        #=  sample(start, Real interval) - the usual stuff
-        =#
+        #= sample(start, Real interval) - the usual stuff =#
         if valueEq(t, TYPE_INTEGER())
           @assign e = CAST_EXPRESSION(TYPE_REAL(), e)
         end
@@ -2097,8 +2049,7 @@ function typeSampleCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tupl
       end
 
       ([(e, t, v)], [("interval", e1, TYPE_REAL(__), v1)])  => begin
-        #=  sample(start, Real interval = value) - the usual stuff
-        =#
+        #= sample(start, Real interval = value) - the usual stuff =#
         if valueEq(t, TYPE_INTEGER())
           @assign e = CAST_EXPRESSION(TYPE_REAL(), e)
         end
@@ -2107,22 +2058,19 @@ function typeSampleCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tupl
       end
 
       ([(e, t, v)],  _) where (isempty(namedArgs) && Config.synchronousFeaturesAllowed())  => begin
-        #=  sample(u) - inferred clock
-        =#
+        #= sample(u) - inferred clock =#
         @assign ty_call = makeTypedCall(clockedSample, Expression[e, CLKCONST_EXPRESSION(INFERRED_CLOCK())], v, t)
         (CALL_EXPRESSION(ty_call), t, v)
       end
 
       ([(e, t, v), (e1, TYPE_CLOCK(__), v1)],  _) where (isempty(namedArgs) && Config.synchronousFeaturesAllowed())  => begin
-        #=  sample(u, c) - specified clock
-        =#
+        #= sample(u, c) - specified clock =#
         @assign ty_call = makeTypedCall(clockedSample, Expression[e, e1], v, t)
         (CALL_EXPRESSION(ty_call), t, v)
       end
 
       ([(e, t, v)], [("c", e1, TYPE_CLOCK(__), v1)]) where (Config.synchronousFeaturesAllowed())  => begin
-        #=  sample(u, Clock c = c) - specified clock
-        =#
+        #= sample(u, Clock c = c) - specified clock =#
         ty_call = makeTypedCall(clockedSample, Expression[e, e1], v, t)
         (CALL_EXPRESSION(ty_call), t, v)
       end
@@ -2170,13 +2118,11 @@ function typeActualInStreamCall2(name::String, fn::MODELICA_FUNCTION, @nospecial
     @match arg begin
       CREF_EXPRESSION(__)  => begin
         @assign arg_node = node(arg.cref)
-        #=  The argument of actualStream/inStream must be a stream variable.
-        =#
+        #= The argument of actualStream/inStream must be a stream variable. =#
         if ! isComponent(arg_node) || ! isStream(connectorType(component(arg_node)))
           Error.addSourceMessageAndFail(Error.NON_STREAM_OPERAND_IN_STREAM_OPERATOR, list(toString(arg.cref), name), info)
         end
-        #=  The argument of actualStream/inStream must have subscripts that can be evaluated.
-        =#
+        #= The argument of actualStream/inStream must have subscripts that can be evaluated. =#
         for sub in subscriptsAllFlat(arg.cref)
           if variability(sub) > Variability.PARAMETER
             Error.addSourceMessageAndFail(Error.CONNECTOR_NON_PARAMETER_SUBSCRIPT, list(toString(arg.cref), toString(sub)), info)
@@ -2228,10 +2174,8 @@ function typeDynamicSelectCall(name::String, call::Call, origin::ORIGIN_Type, in
   @match list(expStatic, expDynamic) = list(unbox(arg) for arg in args)
    (arg1, ty1, var1) = typeExp(expStatic, origin, info)
   (arg1, _) = expand(arg1)
-  #=  if we cannot typecheck the dynamic part, ignore it!
-  =#
-  #=  https:trac.openmodelica.org/OpenModelica/ticket/5631
-  =#
+  #= if we cannot typecheck the dynamic part, ignore it!
+     https:trac.openmodelica.org/OpenModelica/ticket/5631 =#
   try
      (arg2, ty2, var2) = typeExp(expDynamic, origin, info)
   catch e

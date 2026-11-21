@@ -219,8 +219,7 @@ end
         end
         builtin = isBuiltin(call.fn)
         is_pure = !isImpure(call.fn)
-        #=  Use Ceval for builtin pure functions with literal arguments.
-        =#
+        #= Use Ceval for builtin pure functions with literal arguments. =#
         if builtin
           local scalarize = Flags.isSet(Flags.FRONTEND_SCALARIZE)
           #= A scalar result is evaluated with arrays kept too (omc evaluates every such call): a parameter's
@@ -243,10 +242,8 @@ end
         else
           callExp = changed ? CALL_EXPRESSION(call) : callExp
         end
-        #=  do not expand builtin calls if we should not scalarize
-        =#
-        #=  nothing
-        =#
+        #= do not expand builtin calls if we should not scalarize
+           nothing =#
         callExp
       end
 
@@ -413,10 +410,8 @@ function simplifyArrayConstructor(call::Call)
         else
           fail()
         end
-        #=  Result is Array[0], return empty array expression.
-        =#
-        #=  Result is Array[1], return array with the single element.
-        =#
+        #= Result is Array[0], return empty array expression.
+           Result is Array[1], return array with the single element. =#
         outExp
       end
       _ => begin
@@ -558,12 +553,9 @@ end
   else
     outExp = reuseBinary(orig, exp1, op, exp2)
   end
-  #=  0 + e = e
-  =#
-  #=  e + 0 = e
-  =#
-  #=  e1 + -(e2) = e1 - e2
-  =#
+  #= 0 + e = e
+     e + 0 = e
+     e1 + -(e2) = e1 - e2 =#
   return outExp
 end
 
@@ -586,12 +578,9 @@ end
   else
      outExp = reuseBinary(orig, exp1, op, exp2)
   end
-  #=  0 - e = -e
-  =#
-  #=  e - 0 = e
-  =#
-  #=  e1 - -(e2) = e1 + e2
-  =#
+  #= 0 - e = -e
+     e - 0 = e
+     e1 - -(e2) = e1 + e2 =#
   return outExp
 end
 
@@ -632,22 +621,18 @@ end
       end
     end
   end
-  #=  0 * e = 0
-  =#
-  #=  1 * e = e
-  =#
+  #= 0 * e = 0
+     1 * e = e =#
   return outExp
 end
 
 @nospecializeinfer function simplifyBinaryDiv(@nospecialize(exp1::Expression), op::OPERATOR, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local outExp::Expression
 
-  #=  e / 1 = e
-  =#
-  #=  0 / e = 0 for a scalar e that is not a literal, as omc's ExpressionSimplify does (MSL 4.1.0
-      HeatingNPN_NORGate: Taur = 0 leaves `cbc = 0.0/(NR*vt_t)*exlin2(...)`, a coefficient of der(vbc)
-      that is zero but kept the derivative, and the system was structurally singular).
-  =#
+  #= e / 1 = e
+     0 / e = 0 for a scalar e that is not a literal, as omc's ExpressionSimplify does (MSL 4.1.0
+     HeatingNPN_NORGate: Taur = 0 leaves `cbc = 0.0/(NR*vt_t)*exlin2(...)`, a coefficient of der(vbc)
+     that is zero but kept the derivative, and the system was structurally singular). =#
   if isOne(exp2)
      outExp = exp1
   elseif isZero(exp1) && !isLiteral(exp2) && isScalar(typeOf(op))
@@ -742,8 +727,7 @@ end
    exp = begin
     local expl::List{Expression}
     local o::OPERATOR
-    #=  false and e => false
-    =#
+    #= false and e => false =#
     @match (exp1, exp2) begin
       (BOOLEAN_EXPRESSION(false), _) => begin
         exp1
@@ -762,12 +746,9 @@ end
       end
 
       (ARRAY_EXPRESSION(__), ARRAY_EXPRESSION(__)) => begin
-        #=  e and false => false
-        =#
-        #=  true and e => e
-        =#
-        #=  e and true => e
-        =#
+        #= e and false => false
+           true and e => e
+           e and true => e =#
          o = unlift(op)
          expl =
           list(@do_threaded_for simplifyLogicBinaryAnd(e1, o, e2) (e1, e2) (
@@ -791,8 +772,7 @@ end
    exp = begin
     local expl::List{Expression}
     local o::OPERATOR
-    #=  true or e => true
-    =#
+    #= true or e => true =#
     @match (exp1, exp2) begin
       (BOOLEAN_EXPRESSION(true), _) => begin
         exp1
@@ -811,12 +791,9 @@ end
       end
 
       (ARRAY_EXPRESSION(__), ARRAY_EXPRESSION(__)) => begin
-        #=  e or true => true
-        =#
-        #=  false or e => e
-        =#
-        #=  e or false => e
-        =#
+        #= e or true => true
+           false or e => e
+           e or false => e =#
          o = unlift(op)
          expl =
           list(@do_threaded_for simplifyLogicBinaryAnd(e1, o, e2) (e1, e2) (

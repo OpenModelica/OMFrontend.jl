@@ -459,8 +459,7 @@ function add(
      local value::Value
      local key_comp::Int
      local outTree::Tree
-     #=  Empty tree.
-     =#
+     #= Empty tree. =#
     @match tree begin
       EMPTY(__) => begin
         LEAF(inKey, inValue)

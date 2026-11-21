@@ -33,8 +33,8 @@
 *
 */ =#
 
-#=  TODO: We should have an Any type =#
-#= The binary tree data structure. =#
+#= TODO: We should have an Any type
+   The binary tree data structure. =#
 abstract type Tree end
 
 mutable struct NODE <: Tree
@@ -420,8 +420,7 @@ function add(
     local value::Value
     local key_comp::Int
     local outTree::Tree
-    #=  Empty tree.
-    =#
+    #= Empty tree. =#
     @match tree begin
       EMPTY(__) => begin
         LEAF(inKey, inValue)
@@ -439,12 +438,9 @@ function add(
              tree.value = value
           end
         end
-        #=  Replace left branch.
-        =#
-        #=  Replace right branch.
-        =#
-        #=  Use the given function to resolve the conflict.
-        =#
+        #= Replace left branch.
+           Replace right branch.
+           Use the given function to resolve the conflict. =#
         if key_comp == 0
           tree
         else

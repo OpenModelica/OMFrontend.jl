@@ -454,10 +454,8 @@ function toFlatStream(flatModel::FLAT_MODEL, functions::List, printBindingTypes:
   local flat_model::FLAT_MODEL = flatModel
   s = IOStream_M.append(s, "model '" + flat_model.name + "'\\n")
   (vars, bindingEqs) = reconstructRecordInstances(flat_model.variables)
-  #=
-  Sometimes, we get duplicate elements when we collect record elements.
-  Make sure that we do not get duplicated record instances.
-  =#
+  #= Sometimes, we get duplicate elements when we collect record elements.
+     Make sure that we do not get duplicated record instances. =#
   if Flags.isSet(Flags.FRONTEND_SCALARIZE)
     unique!((x) -> toString(x.name), vars)
   end
@@ -672,8 +670,8 @@ Extract the parameter name from an input/output declaration line.
 Handles both quoted ('name') and unquoted (name) forms.
 """
 function extractParamName(line::String)::Union{String, Nothing}
-  #= Remove trailing semicolon and attributes =#
-  #= Pattern: "input/output Type[dims] 'name'(...) = ...;" or "input/output Type name;" =#
+  #= Remove trailing semicolon and attributes
+     Pattern: "input/output Type[dims] 'name'(...) = ...;" or "input/output Type name;" =#
   m = Base.match(r"(?:input|output)\s+\S+(?:\[.*?\])?\s+'([^']+)'", line)
   if m !== nothing
     return m.captures[1]

@@ -244,8 +244,7 @@ function instDerivativeMod(
       end
 
       SCode.MOD(__) => begin
-        #=  Give a warning if the derivative annotation doesn't specify a function name.
-        =#
+        #= Give a warning if the derivative annotation doesn't specify a function name. =#
         Error.addStrictMessage(
           Error.MISSING_FUNCTION_DERIVATIVE_NAME,
           list(AbsynUtil.pathString(name(fn))),
@@ -255,10 +254,8 @@ function instDerivativeMod(
       end
 
       _ => begin
-        #=  We shouldn't get any NOMODs here since they're filtered out when
-        =#
-        #=  translating Absyn to SCode, and redeclare isn't allowed by the syntax.
-        =#
+        #= We shouldn't get any NOMODs here since they're filtered out when
+           translating Absyn to SCode, and redeclare isn't allowed by the syntax. =#
         Error.assertion(false, getInstanceName() + " got invalid modifier", sourceInfo())
         fail()
       end

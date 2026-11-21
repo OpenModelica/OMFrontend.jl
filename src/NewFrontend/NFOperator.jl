@@ -406,9 +406,8 @@ function isAssociative(op::OPERATOR)::Bool
       end
     end
   end
-  #= case ADD_ARRAY_SCALAR() then true; =#
-  #= case MUL_ARRAY_SCALAR() then true;
-  =#
+  #= case ADD_ARRAY_SCALAR() then true;
+     case MUL_ARRAY_SCALAR() then true; =#
   return isAssoc
 end
 
@@ -631,8 +630,7 @@ function symbol(op::OPERATOR, spacing::String = " ")::String
       end
 
       _ => begin
-        #= case Op.USERDEFINED      then \"Userdefined:\" + AbsynUtil.pathString(op.fqName);
-        =#
+        #= case Op.USERDEFINED      then \"Userdefined:\" + AbsynUtil.pathString(op.fqName); =#
         Error.assertion(false, getInstanceName() + " got unknown type.", sourceInfo())
         fail()
       end

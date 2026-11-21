@@ -150,10 +150,8 @@ function sizeType(arrayTy::ModelicaType)::ModelicaType
       list(fromInteger(dimensionCount(arrayTy))),
     )
   end
-  #=  Return unknown type if the type is unknown, to avoid returning Array[0]
-  =#
-  #=  for untyped expressions.
-  =#
+  #= Return unknown type if the type is unknown, to avoid returning Array[0]
+     for untyped expressions. =#
   return sizeTy
 end
 

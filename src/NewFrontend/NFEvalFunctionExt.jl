@@ -226,8 +226,7 @@ function Lapack_dgelsx(args::List{<:Expression})
   else
     (m, n, nrhs, a, lda, b, ldb, jpvt, rcond, rank, work, _, info) = _extArgs(args, 13)
   end
-  #=  Some older versions of the MSL calls dgelsx with an extra lwork argument.
-  =#
+  #= Some older versions of the MSL calls dgelsx with an extra lwork argument. =#
   @assign M = evaluateExtIntArg(m)
   @assign N = evaluateExtIntArg(n)
   @assign NRHS = evaluateExtIntArg(nrhs)
@@ -821,8 +820,7 @@ function assignVariableExt(@nospecialize(variable::Expression), @nospecialize(va
       end
     end
   end
-  #=  Vector variable, matrix value => convert value to vector.
-  =#
+  #= Vector variable, matrix value => convert value to vector. =#
   return assignVariable(variable, exp)
 end
 

@@ -143,9 +143,9 @@ end
   end
   @Record VECTORIZED_MATCH_KIND begin
     vectDims::List{Dimension}
-    #=  When vectorizing a call exact argument matches are allowed to not be vectorized =#
-    #=  Instead they are added to each call as is. =#
-    #=  This list represents which args should be vectorized. =#
+    #= When vectorizing a call exact argument matches are allowed to not be vectorized
+       Instead they are added to each call as is.
+       This list represents which args should be vectorized. =#
     vectorizedArgs::List{Int}
     baseMatch::FunctionMatchKind
   end
@@ -684,8 +684,7 @@ function typePartialApplication(
     args = args,
     argNames = arg_names,
   ) = exp
-  #=  TODO: Handle overloaded functions?
-  =#
+  #= TODO: Handle overloaded functions? =#
   fns = typeRefCache(fn_ref)
   fn = fns[1]
   @assign inputs = fn.inputs
@@ -748,8 +747,7 @@ function typeFunctionBody(fn::MODELICA_FUNCTION)::MODELICA_FUNCTION
   @assign fn.locals = mapFunctionNodes(fn.locals, (c) -> typeComponentBinding(c, ORIGIN_FUNCTION))
   #=  Type the algorithm section of the function, if it has one. =#
   @assign fn.node = typeFunctionSections(fn.node, ORIGIN_FUNCTION)
-  #=  Type any derivatives of the function.
-  =#
+  #= Type any derivatives of the function. =#
   for fn_der in fn.derivatives
     typeDerivative(fn_der)
   end
@@ -1040,15 +1038,13 @@ function matchArgVectorized(
   arg_dims = arrayDims(argTy)
   input_dims = arrayDims(inputTy)
   vect_dims_count = listLength(arg_dims) - listLength(input_dims)
-  #=  Only try to vectorize if the argument has more dimensions than the input parameter.
-  =#
+  #= Only try to vectorize if the argument has more dimensions than the input parameter. =#
   if vect_dims_count < 1
     matchKind = MatchKind.NOT_COMPATIBLE
     return (argExp, argTy, vectArg, vectDims, matchKind)
   end
   (vect_dims, rest_dims) = ListUtil.split(arg_dims, vect_dims_count, Dimension)
-  #=  Make sure the vectorization dimensions are consistent.
-  =#
+  #= Make sure the vectorization dimensions are consistent. =#
   if listEmpty(vectDims)
     vectDims = fillUnknownVectorizedDims(vect_dims, argExp)
     vectArg = argExp
@@ -1066,10 +1062,8 @@ function matchArgVectorized(
       info,
     )
   end
-  #=  Check that the argument and the input parameter are type compatible when
-  =#
-  #=  the dimensions to vectorize over has been removed from the argument's type.
-  =#
+  #= Check that the argument and the input parameter are type compatible when
+     the dimensions to vectorize over has been removed from the argument's type. =#
   @assign rest_ty = liftArrayLeftList(arrayElementType(argTy), rest_dims)
   (argExp, argTy, matchKind) =
     matchTypes(rest_ty, inputTy, argExp, #=allowUnknown=# false)
@@ -1168,18 +1162,12 @@ function matchArgs(
     checked_args[i] = (arg_exp, ty, arg_var)
     arg_idx = arg_idx + 1
   end
-  #=  Check that the variability of the argument and input parameter matches.
-  =#
-  #=  Check if the type of the argument and the input parameter matches exactly.
-  =#
-  #=  If the types don't match, try to vectorize the argument.
-  =#
-  #=  Print an error if the types match neither exactly nor vectorized.
-  =#
-  #=  TODO: This should be a running reduction of the matches. Not just based on the
-  =#
-  #=  last match.
-  =#
+  #= Check that the variability of the argument and input parameter matches.
+     Check if the type of the argument and the input parameter matches exactly.
+     If the types don't match, try to vectorize the argument.
+     Print an error if the types match neither exactly nor vectorized.
+     TODO: This should be a running reduction of the matches. Not just based on the
+     last match. =#
   if !listEmpty(vectorized_args)
     funcMatchKind =
       VECTORIZED_MATCH_KIND(vect_dims, listReverse(vectorized_args), funcMatchKind)
@@ -1316,12 +1304,9 @@ function fillDefaultSlot(slot::SLOT, slots::Vector{<:SLOT}, info::SourceInfo)::T
       end
 
       _ => begin
-        #=  Slot already filled by function argument.
-        =#
-        #=  Slot not filled by function argument, but has default value.
-        =#
-        #=  Give an error if no argument was given and there's no default argument.
-        =#
+        #= Slot already filled by function argument.
+           Slot not filled by function argument, but has default value.
+           Give an error if no argument was given and there's no default argument. =#
         Error.addSourceMessage(Error.UNFILLED_SLOT, list(slot.name), info)
         fail()
       end
@@ -1382,12 +1367,9 @@ function fillNamedArg(
   local argExp::Expression
   local var::VariabilityType
 
-  #=  Try to find a slot and fill it with the argument expression.
-  =#
-  #=  Positional arguments fill the slots from the start of the array, so
-  =#
-  #=  searching backwards will generally be a bit more efficient.
-  =#
+  #= Try to find a slot and fill it with the argument expression.
+     Positional arguments fill the slots from the start of the array, so
+     searching backwards will generally be a bit more efficient. =#
   for i = arrayLength(slots):(-1):1
     @assign s = slots[i]
      (argName, argExp, ty, var) = inArg
@@ -1404,19 +1386,13 @@ function fillNamedArg(
       return (slots, matching)
     end
   end
-  #=  Slot doesn't allow named argument (used for some builtin functions).
-  =#
-  #=  TODO: Improve the error message, should mention function name.
-  =#
-  #=  No slot could be found.
-  =#
+  #= Slot doesn't allow named argument (used for some builtin functions).
+     TODO: Improve the error message, should mention function name.
+     No slot could be found. =#
   @assign matching = false
-  #=  A slot with the given name couldn't be found. This means it doesn't
-  =#
-  #=  exist, or we removed it when handling positional argument. We need to
-  =#
-  #=  search through all slots to be sure.
-  =#
+  #= A slot with the given name couldn't be found. This means it doesn't
+     exist, or we removed it when handling positional argument. We need to
+     search through all slots to be sure. =#
   for s in fn.slots
     if argName == s.name
       Error.addSourceMessage(Error.FUNCTION_SLOT_ALREADY_FILLED, list(argName, ""), info)
@@ -1428,10 +1404,8 @@ function fillNamedArg(
       info,
     )
   end
-  #=  We found a slot, so it must have already been filled.
-  =#
-  #=  No slot could be found, so it doesn't exist.
-  =#
+  #= We found a slot, so it must have already been filled.
+     No slot could be found, so it doesn't exist. =#
   return (slots, matching)
 end
 
@@ -1465,12 +1439,9 @@ function fillArgs(
     matching = true
     return (args, matching)
   end
-  #=  If we have too many positional arguments it can't possibly match.
-  =#
-  #=  If we have exactly as many positional arguments as slots and no named
-  =#
-  #=  arguments we can just return the list of arguments as it is.
-  =#
+  #= If we have too many positional arguments it can't possibly match.
+     If we have exactly as many positional arguments as slots and no named
+     arguments we can just return the list of arguments as it is. =#
   slots_arr = listArray(slots)
   for arg in args
     slot = slots_arr[index]
@@ -1482,8 +1453,7 @@ function fillArgs(
     slots_arr[index] = slot
     index = index + 1
   end
-  #=  Slot doesn't allow positional arguments (used for some builtin functions).
-  =#
+  #= Slot doesn't allow positional arguments (used for some builtin functions). =#
   for narg in namedArgs
     (slots_arr, matching) = fillNamedArg(narg, slots_arr, fn, info)
     if !matching
@@ -1666,18 +1636,12 @@ function signatureString(fn::MODELICA_FUNCTION, printTypes::Bool = true)::String
     end
     inputs_strl = _cons(input_str, inputs_strl)
   end
-  #=  Add the default expression if it has any.
-  =#
-  #=  Add the name from the slot and not the node, since some builtin
-  =#
-  #=  functions don't bother using proper names for the nodes.
-  =#
-  #=  Add a $ in front of the name if the parameter only takes positional
-  =#
-  #=  arguments.
-  =#
-  #=  Add the type if the parameter has been typed.
-  =#
+  #= Add the default expression if it has any.
+     Add the name from the slot and not the node, since some builtin
+     functions don't bother using proper names for the nodes.
+     Add a $ in front of the name if the parameter only takes positional
+     arguments.
+     Add the type if the parameter has been typed. =#
   input_str = stringDelimitList(listReverse(inputs_strl), ", ")
   output_str = if printTypes && isTyped(fn)
     " => " + toString(fn.returnType)
@@ -1685,8 +1649,7 @@ function signatureString(fn::MODELICA_FUNCTION, printTypes::Bool = true)::String
     ""
   end
   fn_name = nameConsiderBuiltin(fn)
-  #=  if isSome(display_name) then Util.getOption(display_name) else fn.path;
-  =#
+  #= if isSome(display_name) then Util.getOption(display_name) else fn.path; =#
   str = AbsynUtil.pathString(fn_name) + "(" + input_str + ")" + output_str
   return str
 end
@@ -1708,8 +1671,7 @@ end
 
 """Marks this function as collected for addition to the function tree."""
 function collect(fn::MODELICA_FUNCTION)
-  #=  The pointer might be immutable, check before assigning to it.
-  =#
+  #= The pointer might be immutable, check before assigning to it. =#
   return if P_Pointer.access(fn.status) != FUNCTION_STATUS_BUILTIN
     P_Pointer.update(fn.status, FUNCTION_STATUS_COLLECTED)
   end
@@ -2078,13 +2040,10 @@ function lookupFunction(
   local prefix::ComponentRef
   local is_class::Bool
   functionPath = AbsynUtil.crefToPath(functionName)
-  #=  Make sure the name is a path.
-  =#
+  #= Make sure the name is a path. =#
   (functionRef, found_scope) = lookupFunctionName(functionName, scope, info)
-  #=  If we found a function class we include the root in the prefix, but if we
-  =#
-  #=  instead found a component (i.e. a functional parameter) we don't.
-  =#
+  #= If we found a function class we include the root in the prefix, but if we
+     instead found a component (i.e. a functional parameter) we don't. =#
   is_class = isClass(node(functionRef))
   prefix = fromNodeList(scopeList!(
     found_scope,
@@ -2119,8 +2078,7 @@ function new(path::Absyn.Path, node::InstNode)::MODELICA_FUNCTION
 
   (inputs, outputs, locals) = collectParams(node)
   @assign attr = makeAttributes(node, inputs, outputs)
-  #=  Make sure builtin functions aren't added to the function tree.
-  =#
+  #= Make sure builtin functions aren't added to the function tree. =#
   @assign status = if isBuiltinAttr(attr)
     FUNCTION_STATUS_COLLECTED
   else
@@ -2303,8 +2261,7 @@ function makeAttributes(
       end
 
       SCode.FR_PARALLEL_FUNCTION(__) => begin
-        #=  Parallel function: there are some builtin functions.
-        =#
+        #= Parallel function: there are some builtin functions. =#
         @assign in_params = list(name(i) for i in inputs)
         @assign out_params = list(name(o) for o in outputs)
         @assign nameVar = SCodeUtil.isBuiltinFunction(def, in_params, out_params)
@@ -2314,8 +2271,7 @@ function makeAttributes(
       end
 
       SCode.FR_PARALLEL_FUNCTION(__) => begin
-        #=  Parallel function: non-builtin.
-        =#
+        #= Parallel function: non-builtin. =#
         @assign inline_ty = commentIsInlineFunc(cmt)
         FUNCTION_ATTRIBUTES(inline_ty, false, is_partial, getBuiltin(def), nothing, false)
       end
@@ -2325,13 +2281,10 @@ function makeAttributes(
       end
 
       _ => begin
-        #=  Kernel functions: never builtin and never inlined.
-        =#
-        #=  Normal function.
-        =#
+        #= Kernel functions: never builtin and never inlined.
+           Normal function. =#
         inline_ty = commentIsInlineFunc(cmt)
-        #=  In Modelica 3.2 and before, external functions with side-effects are not marked.
-        =#
+        #= In Modelica 3.2 and before, external functions with side-effects are not marked. =#
         @assign is_impure =
           SCodeUtil.isRestrictionImpure(
             res,
@@ -2433,9 +2386,8 @@ function makeSlot(@nospecialize(componentArg::InstNode), index::Int)::SLOT
     @error "Error. Our error was $e"
     fail()
   end
-  #=  Remove $in_ for OM input output arguments.
-  =#
-  #= /*$*/ =#
+  #= Remove $in_ for OM input output arguments.
+     /*$*/ =#
   return slot
 end
 
@@ -2464,8 +2416,7 @@ function paramDirection(@nospecialize(componentArg::InstNode))::DirectionType
   ) = getAttributes(component(componentArg))
   @assign vis = visibility(componentArg)
   @assign var = variability(component(componentArg))
-  #=  Function components may not be connectors.
-  =#
+  #= Function components may not be connectors. =#
   if isFlowOrStream(cty)
     Error.addSourceMessage(
       Error.INNER_OUTER_FORMAL_PARAMETER,
@@ -2474,8 +2425,7 @@ function paramDirection(@nospecialize(componentArg::InstNode))::DirectionType
     )
     fail()
   end
-  #=  Function components may not be inner/outer.
-  =#
+  #= Function components may not be inner/outer. =#
   if io != InnerOuter.NOT_INNER_OUTER
     # Error.addSourceMessage(
     #   Error.INNER_OUTER_FORMAL_PARAMETER,
@@ -2484,8 +2434,7 @@ function paramDirection(@nospecialize(componentArg::InstNode))::DirectionType
     # )
     fail()
   end
-  #=  Formal parameters must be public, other function variables must be protected.
-  =#
+  #= Formal parameters must be public, other function variables must be protected. =#
   if direction != Direction.NONE
     if vis == Visibility.PROTECTED
       # Error.addSourceMessage(
@@ -2537,8 +2486,7 @@ function collectParams(
              () = begin
               @match paramDirection(n) begin
                 Direction.INPUT => begin
-                  #=  Sort the components based on their direction.
-                  =#
+                  #= Sort the components based on their direction. =#
                   @assign inputs = _cons(n, inputs)
                   ()
                 end

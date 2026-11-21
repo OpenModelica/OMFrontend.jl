@@ -688,8 +688,8 @@ function loadPackageDirectory(dirPath::String; name::Union{String, Nothing} = no
   #= Compute content hash for disk-cache lookup/invalidation =#
   local contentHash = _computeLibHash(dirPath)
 
-  #= Determine cache key from root package name (needed before parsing) =#
-  #= Try disk cache first — if hit, skip all parsing =#
+  #= Determine cache key from root package name (needed before parsing)
+     Try disk cache first — if hit, skip all parsing =#
   local cacheKey::String = name !== nothing ? name : ""
   if !isempty(cacheKey) && _loadLibCache(cacheKey, contentHash)
     LIBRARY_ROOTS[cacheKey] = abspath(dirPath)

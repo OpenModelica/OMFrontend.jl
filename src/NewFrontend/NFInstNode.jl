@@ -136,8 +136,7 @@ function addFunc(fn::MODELICA_FUNCTION, specialBuiltin::Bool, caches::Vector{<:C
       end
 
       _  => begin
-        #=  Append to end so the error messages are ordered properly.
-        =#
+        #= Append to end so the error messages are ordered properly. =#
         Error.assertion(false, getInstanceName() + ": Invalid cache for function", sourceInfo())
         fail()
       end
@@ -615,8 +614,7 @@ function isSame(node1::InstNode, node2::InstNode)
      same = true
     return same
   end
-  #=  TODO: This is not enough. We need a better way.
-  =#
+  #= TODO: This is not enough. We need a better way. =#
   same
 end
 
@@ -655,8 +653,7 @@ function refEqual(node1::InstNode, node2::InstNode)
       end
     end
   end
-  #=  Other nodes like ref nodes might be equal, but we neither know nor care.
-  =#
+  #= Other nodes like ref nodes might be equal, but we neither know nor care. =#
   refEqualIs
 end
 
@@ -1107,8 +1104,7 @@ function scopePath(node::InstNode; includeRoot::Bool = false #= Whether to inclu
       end
     end
   end
-  #=  For debugging.
-  =#
+  #= For debugging. =#
   path
 end
 

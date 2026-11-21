@@ -466,13 +466,11 @@ function elementEqual(element1::SCode.Element, element2::SCode.Element)::Bool
       end
     end
   end
-  #=  otherwise false
-  =#
+  #= otherwise false =#
   return equal
 end
 
-#=  stefan
-=#
+#= stefan =#
 
 """Returns true if two Restriction's are equal."""
 function restrictionEqual(restr1::SCode.Restriction, restr2::SCode.Restriction)::Bool
@@ -567,16 +565,11 @@ function restrictionEqual(restr1::SCode.Restriction, restr2::SCode.Restriction):
       end
     end
   end
-  #=  operator record
-  =#
-  #=  expandable connectors
-  =#
-  #=  non expandable connectors
-  =#
-  #=  operator
-  =#
-  #=  BTH
-  =#
+  #= operator record
+     expandable connectors
+     non expandable connectors
+     operator
+     BTH =#
   return equal
 end
 
@@ -636,8 +629,7 @@ function enumEqual(e1::SCode.ENUM, e2::SCode.ENUM)::Bool
       end
     end
   end
-  #=  ignore comments here.
-  =#
+  #= ignore comments here. =#
   return isEqual
 end
 
@@ -758,8 +750,7 @@ function algorithmEqual(alg1::SCode.ALGORITHM, alg2::SCode.ALGORITHM)::Bool
       end
     end
   end
-  #=  false otherwise!
-  =#
+  #= false otherwise! =#
   return equal
 end
 
@@ -815,22 +806,14 @@ function algorithmEqual2(ai1::SCode.Statement, ai2::SCode.Statement)::Bool
       end
     end
   end
-  #=  base it on equality for now as the ones below are not implemented!
-  =#
-  #=  Don't compare comments and line numbers
-  =#
-  #=  maybe replace failure/equality with these:
-  =#
-  #= case(Absyn.ALG_IF(_,_,_,_),Absyn.ALG_IF(_,_,_,_)) then false;  TODO: SCode.ALG_IF
-  =#
-  #= case (Absyn.ALG_FOR(_,_),Absyn.ALG_FOR(_,_)) then false;  TODO: SCode.ALG_FOR
-  =#
-  #= case (Absyn.ALG_WHILE(_,_),Absyn.ALG_WHILE(_,_)) then false;  TODO: SCode.ALG_WHILE
-  =#
-  #= case(Absyn.ALG_WHEN_A(_,_,_),Absyn.ALG_WHEN_A(_,_,_)) then false; TODO: SCode.ALG_WHILE
-  =#
-  #= case (Absyn.ALG_NORETCALL(_,_),Absyn.ALG_NORETCALL(_,_)) then false; TODO: SCode.ALG_NORETCALL
-  =#
+  #= base it on equality for now as the ones below are not implemented!
+     Don't compare comments and line numbers
+     maybe replace failure/equality with these:
+     case(Absyn.ALG_IF(_,_,_,_),Absyn.ALG_IF(_,_,_,_)) then false;  TODO: SCode.ALG_IF
+     case (Absyn.ALG_FOR(_,_),Absyn.ALG_FOR(_,_)) then false;  TODO: SCode.ALG_FOR
+     case (Absyn.ALG_WHILE(_,_),Absyn.ALG_WHILE(_,_)) then false;  TODO: SCode.ALG_WHILE
+     case(Absyn.ALG_WHEN_A(_,_,_),Absyn.ALG_WHEN_A(_,_,_)) then false; TODO: SCode.ALG_WHILE
+     case (Absyn.ALG_NORETCALL(_,_),Absyn.ALG_NORETCALL(_,_)) then false; TODO: SCode.ALG_NORETCALL =#
   return equal
 end
 
@@ -976,10 +959,8 @@ function equationEqual2(eq1::SCode.EEquation, eq2::SCode.EEquation)::Bool
       end
     end
   end
-  #=  TODO: elsewhen not checked yet.
-  =#
-  #=  otherwise false
-  =#
+  #= TODO: elsewhen not checked yet.
+     otherwise false =#
   return equal
 end
 
@@ -2390,8 +2371,7 @@ function replaceOrAddElementWithId(
       end
     end
   end
-  #=  not found, add it
-  =#
+  #= not found, add it =#
   return outProgram
 end
 
@@ -2406,8 +2386,7 @@ function getElementsFromElement(
     local e::SCode.Element
     local p::Absyn.Path
     local i::Absyn.Ident
-    #=  a class with parts
-    =#
+    #= a class with parts =#
     @match (inProgram, inElement) begin
       (_, SCode.CLASS(classDef = SCode.PARTS(elementLst = els))) => begin
         els
@@ -2430,10 +2409,8 @@ function getElementsFromElement(
         end
     end
   end
-  #=  a class extends
-  =#
-  #=  a derived class
-  =#
+  #= a class extends
+     a derived class =#
   return outProgram
 end
 
@@ -2458,8 +2435,7 @@ function replaceElementsInElement(
     local classDef::SCode.ClassDef #= the class specification =#
     local info::SourceInfo #= the class information =#
     local cmt::SCode.COMMENT
-    #=  a class with parts, non derived
-    =#
+    #= a class with parts, non derived =#
     @matchcontinue (inProgram, inElement, inElements) begin
       (
         _,
@@ -2496,8 +2472,7 @@ function replaceElementsInElement(
       end
     end
   end
-  #=  a class derived
-  =#
+  #= a class derived =#
   return outElement
 end
 
@@ -2517,8 +2492,7 @@ function replaceElementsInClassDef(
     local e::SCode.Element
     local p::Absyn.Path
     local composition::SCode.ClassDef
-    #=  a derived class
-    =#
+    #= a derived class =#
     @match classDef begin
       SCode.DERIVED(typeSpec = Absyn.TPATH(path = p)) => begin
         @assign e = getElementWithPath(inProgram, p)
@@ -2527,15 +2501,13 @@ function replaceElementsInClassDef(
       end
 
       SCode.PARTS(__) => begin
-        #=  a parts
-        =#
+        #= a parts =#
         @assign classDef.elementLst = inElements
         NONE()
       end
 
       SCode.CLASS_EXTENDS(composition = composition) => begin
-        #=  a class extends
-        =#
+        #= a class extends =#
         @assign (composition, outElementOpt) =
           replaceElementsInClassDef(inProgram, composition, inElements)
         if isNone(outElementOpt)

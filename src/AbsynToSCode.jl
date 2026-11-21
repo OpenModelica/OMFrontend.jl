@@ -162,8 +162,7 @@ function translateClass2(inClass::Absyn.Class, inNumMessages::Int)::SCode.Elemen
   return outClass
 end
 
-#= mahge: FIX HERE. Check for proper input and output
-=#
+#= mahge: FIX HERE. Check for proper input and output =#
 """declarations in operators according to the specifications."""
 function translateOperatorDef(
   inClassDef::Absyn.ClassDef,
@@ -214,8 +213,7 @@ function translatePurity(inPurity::Absyn.FunctionPurity)::Bool
   return outPurity
 end
 
-#=  Changed to public! krsta
-=#
+#= Changed to public! krsta =#
 
 """Convert a class restriction."""
 function translateRestriction(
@@ -233,8 +231,7 @@ function translateRestriction(
     local moved::Bool
     local purity::Absyn.FunctionPurity
     local typeVars::List{String}
-    #=  ?? Only normal functions can have 'external'
-    =#
+    #= ?? Only normal functions can have 'external' =#
     @match (inClass, inRestriction) begin
       (d, Absyn.R_FUNCTION(Absyn.FR_NORMAL_FUNCTION(purity))) => begin
          isImpure = translatePurity(purity)
@@ -344,12 +341,10 @@ function translateRestriction(
       end
     end
   end
-  #=  BTH
-  =#
-  #= MetaModelica extension, added by x07simbj
-  =#
-  #= /*MetaModelica extension added by x07simbj */ =#
-  #= /*MetaModelica extension added by x07simbj */ =#
+  #= BTH
+     MetaModelica extension, added by x07simbj
+     /*MetaModelica extension added by x07simbj */
+     /*MetaModelica extension added by x07simbj */ =#
   return outRestriction
 end
 
@@ -422,8 +417,8 @@ function containsExternalFuncDecl(inClass::Absyn.Class)::Bool
       end
     end
   end
-  #= /* adrpo: handling also the case model extends X external ... end X; */ =#
-  #= /* adrpo: handling also the case model extends X external ... end X; */ =#
+  #= /* adrpo: handling also the case model extends X external ... end X; */
+     /* adrpo: handling also the case model extends X external ... end X; */ =#
   return outBoolean
 end
 
@@ -667,8 +662,7 @@ function translateAlternativeExternalAnnotation(
     local ann1::Option{SCode.ANNOTATION}
     local ann2::Option{SCode.ANNOTATION}
     local ann::Option{SCode.ANNOTATION}
-    #=  none
-    =#
+    #= none =#
     @match (decl, comment) begin
       (NONE(), _) => begin
         NONE()
@@ -1017,8 +1011,7 @@ function translateClassdefAlgorithmItem(inAlgorithm::Absyn.AlgorithmItem)::SCode
 
       Absyn.ALG_FOR(__) => begin
          body = translateClassdefAlgorithmitems(alg.forBody)
-        #=  Convert for-loops with multiple iterators into nested for-loops.
-        =#
+        #= Convert for-loops with multiple iterators into nested for-loops. =#
         for i in listReverse(alg.iterators)
            (iter_name, iter_range) = translateIterator(i, info)
            body = list(SCode.ALG_FOR(iter_name, iter_range, body, comment, info))
@@ -1028,8 +1021,7 @@ function translateClassdefAlgorithmItem(inAlgorithm::Absyn.AlgorithmItem)::SCode
 
       Absyn.ALG_PARFOR(__) => begin
          body = translateClassdefAlgorithmitems(alg.parforBody)
-        #=  Convert for-loops with multiple iterators into nested for-loops.
-        =#
+        #= Convert for-loops with multiple iterators into nested for-loops. =#
         for i in listReverse(alg.iterators)
            (iter_name, iter_range) = translateIterator(i, info)
            body =
@@ -1090,12 +1082,9 @@ function translateClassdefAlgorithmItem(inAlgorithm::Absyn.AlgorithmItem)::SCode
       end
 
       Absyn.ALG_NORETCALL(__) => begin
-        #=  assert(condition, message)
-        =#
-        #=  assert(condition, message, level)
-        =#
-        #=  assert(condition, message, level = arg)
-        =#
+        #= assert(condition, message)
+           assert(condition, message, level)
+           assert(condition, message, level = arg) =#
          e1 = Absyn.CALL(alg.functionCall, alg.functionArgs, nil)
         SCode.ALG_NORETCALL(e1, comment, info)
       end
@@ -1185,13 +1174,11 @@ function translateClassdefExternaldecls(
   return outAbsynExternalDeclOption
 end
 
-#=
-  Minimum number of `Absyn.ElementItem`s in a single `translateEitemlist`
-  call before the parallel branch is considered. Below this threshold the
-  per-task spawn overhead dominates per-element work. Tuned empirically
-  against the MSL on an 8-thread machine; raise for fewer cores, lower for
-  heavier per-element work.
-=#
+#= Minimum number of `Absyn.ElementItem`s in a single `translateEitemlist`
+   call before the parallel branch is considered. Below this threshold the
+   per-task spawn overhead dominates per-element work. Tuned empirically
+   against the MSL on an 8-thread machine; raise for fewer cores, lower for
+   heavier per-element work. =#
 const NF_PARALLEL_EITEM_THRESHOLD = 8
 
 """
@@ -1295,8 +1282,7 @@ function translateOneEitem(
   end
 end
 
-#=  stefan
-=#
+#= stefan =#
 
 """translates an Absyn.Annotation into an SCode.ANNOTATION"""
 function translateAnnotation(inAnnotation::Absyn.Annotation)::Option{SCode.ANNOTATION}
@@ -1705,16 +1691,11 @@ function translateElementspec(
            ct = translateConnectorType(fl, st)
            prefixes = SCode.PREFIXES(vis, sRed, sFin, io, sRep)
            xs_1 = begin
-            #=  TODO: Improve performance by iterating over all elements at once instead of creating a new Absyn.COMPONENTS in each step...
-            =#
-            #=  fprintln(Flags.TRANSLATE, \"translating component: \" + n + \" final: \" + SCodeUtil.finalStr(SCodeUtil.boolFinal(finalPrefix)));
-            =#
-            #=  signal the external flag that we have inner/outer definitions
-            =#
-            #=  signal the external flag that we have stream connectors
-            =#
-            #=  PR. This adds the arraydimension that may be specified together with the type of the component.
-            =#
+            #= TODO: Improve performance by iterating over all elements at once instead of creating a new Absyn.COMPONENTS in each step...
+               fprintln(Flags.TRANSLATE, \"translating component: \" + n + \" final: \" + SCodeUtil.finalStr(SCodeUtil.boolFinal(finalPrefix)));
+               signal the external flag that we have inner/outer definitions
+               signal the external flag that we have stream connectors
+               PR. This adds the arraydimension that may be specified together with the type of the component. =#
             local attr1::SCode.ATTR
             local attr2::SCode.ATTR
             local mod2::SCode.Mod
@@ -1860,10 +1841,8 @@ function setHasInnerOuterDefinitionsHandler(io::Absyn.InnerOuter)
       end
     end
   end
-  #=  no inner outer!
-  =#
-  #=  has inner, outer or innerouter components
-  =#
+  #= no inner outer!
+     has inner, outer or innerouter components =#
 end
 
 """ #= @author: adrpo
@@ -1883,10 +1862,8 @@ function setHasStreamConnectorsHandler(streamPrefix::Bool)
       end
     end
   end
-  #=  no stream prefix
-  =#
-  #=  has stream prefix
-  =#
+  #= no stream prefix
+     has stream prefix =#
 end
 
 """
@@ -2073,8 +2050,7 @@ function translateEEquations(
       end
     end
   end
-  #=  fprintln(Flags.TRANSLATE, \"translating equation: \" + Dump.unparseEquationStr(0, e));
-  =#
+  #= fprintln(Flags.TRANSLATE, \"translating equation: \" + Dump.unparseEquationStr(0, e)); =#
   return outEEquationLst
 end
 
@@ -2273,8 +2249,7 @@ function translateEquation(
 
       Absyn.EQ_FOR(__) => begin
          body = translateEEquations(inEquation.forEquations, inIsInitial)
-        #=  Convert for-loops with multiple iterators into nested for-loops.
-        =#
+        #= Convert for-loops with multiple iterators into nested for-loops. =#
         for i in listReverse(inEquation.iterators)
            (iter_name, iter_range) = translateIterator(i, inInfo)
            body =
@@ -2504,8 +2479,7 @@ function translateSub(inPath::Absyn.Path, inMod::SCode.Mod, info::SourceInfo)::S
     local path::Absyn.Path
     local mod::SCode.Mod
     local sub::SCode.NAMEMOD
-    #=  Then the normal rules
-    =#
+    #= Then the normal rules =#
     @match (inPath, inMod, info) begin
       (Absyn.IDENT(name = i), mod, _) => begin
         SCode.NAMEMOD(i, mod)

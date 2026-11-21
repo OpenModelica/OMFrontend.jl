@@ -55,29 +55,21 @@ const TypeA = Any
 const Type_a = Any
 const Argument = Any
 const Arg = Any
-#=  stefan
-=#
+#= stefan =#
 
-#=  stefan
-=#
+#= stefan =#
 
-#=  stefan
-=#
+#= stefan =#
 
-#=  stefan
-=#
+#= stefan =#
 
-#=  stefan
-=#
+#= stefan =#
 
-#=  stefan
-=#
+#= stefan =#
 
-#=  stefan
-=#
+#= stefan =#
 
-#=  stefan
-=#
+#= stefan =#
 
 function makeIdentPathFromString(s::String)::Path
   local p::Path
@@ -163,8 +155,7 @@ function pathEqual(inPath1::Path, inPath2::Path)::Bool
     local res::Bool
     local path1::Path
     local path2::Path
-    #=  fully qual vs. path
-    =#
+    #= fully qual vs. path =#
     @match (inPath1, inPath2) begin
       (FULLYQUALIFIED(path1), path2) => begin
         pathEqual(path1, path2)
@@ -192,14 +183,10 @@ function pathEqual(inPath1::Path, inPath2::Path)::Bool
       end
     end
   end
-  #=  path vs. fully qual
-  =#
-  #=  ident vs. ident
-  =#
-  #=  qual ident vs. qual ident
-  =#
-  #=  other return false
-  =#
+  #= path vs. fully qual
+     ident vs. ident
+     qual ident vs. qual ident
+     other return false =#
   return outBoolean
 end
 
@@ -221,8 +208,7 @@ function typeSpecEqual(a::TypeSpec, b::TypeSpec)::Bool
     local i2::Ident
     local pos1::Int
     local pos2::Int
-    #=  first try full equality
-    =#
+    #= first try full equality =#
     @matchcontinue (a, b) begin
       (TPATH(p1, oad1), TPATH(p2, oad2)) => begin
         @match true = pathEqual(p1, p2)
@@ -349,8 +335,7 @@ function pathString(
   local dlen::Int = stringLength(delimiter)
   local b::Bool
 
-  #=  First, calculate the length of the string to be generated
-  =#
+  #= First, calculate the length of the string to be generated =#
   @assign p1 = if usefq
     path
   else
@@ -359,8 +344,7 @@ function pathString(
   _ = begin
     @match p1 begin
       IDENT(__) => begin
-        #=  Do not allocate memory if we're just going to copy the only identifier
-        =#
+        #= Do not allocate memory if we're just going to copy the only identifier =#
         @assign s = p1.name
         return s
         ()
@@ -407,12 +391,10 @@ function pathStringWork(
   local p::Path = inPath
   local b::Bool = true
   local count::Int = 0
-  #=  Allocate a string of the exact required length
-  =#
+  #= Allocate a string of the exact required length =#
   local sb = IOBuffer() #System.StringAllocator = System.StringAllocator(len)
 
-  #=  Fill the string
-  =#
+  #= Fill the string =#
   while b
     (p, count, b) = begin
       @match p begin
@@ -453,8 +435,7 @@ function pathStringWork(
       end
     end
   end
-  #=  Return the string
-  =#
+  #= Return the string =#
   s = String(take!(sb))
   #  @info s
   return s
@@ -1052,10 +1033,8 @@ function getCrefFromExp(
       end
     end
   end
-  #=  TODO: Handle else if-branches.
-  =#
-  #=  inExp.index is only allowed to contain names to index the function call; not crefs that are evaluated in any way
-  =#
+  #= TODO: Handle else if-branches.
+     inExp.index is only allowed to contain names to index the function call; not crefs that are evaluated in any way =#
   return outComponentRefLst
 end
 
@@ -1131,8 +1110,7 @@ function iteratorGuard(iterator::ForIterator)::Option{Exp}
   return guardExp
 end
 
-#=  stefan
-=#
+#= stefan =#
 
 """returns the names from a list of NamedArgs as a string list"""
 function getNamedFuncArgNamesAndValues(
@@ -1363,8 +1341,7 @@ function getSubsFromCref(
   return subscripts
 end
 
-#=  stefan
-=#
+#= stefan =#
 
 """Returns first ident from a ComponentRef"""
 function crefFirstIdent(inCref::ComponentRef)::Ident
@@ -1551,8 +1528,7 @@ function expEqual(exp1::Exp, exp2::Exp)::Bool
     local y::Exp
     local i::Int
     local r::String
-    #=  real vs. integer
-    =#
+    #= real vs. integer =#
     @matchcontinue (exp1, exp2) begin
       (INTEGER(i), REAL(r)) => begin
         @assign b = realEq(intReal(i), System.stringReal(r))
@@ -1569,8 +1545,7 @@ function expEqual(exp1::Exp, exp2::Exp)::Bool
       end
     end
   end
-  #=  anything else, exact match!
-  =#
+  #= anything else, exact match! =#
   return equal
 end
 
@@ -1913,8 +1888,7 @@ function importName(inImport::Import)::Ident
   @assign outName = begin
     local name::Ident
     local path::Path
-    #=  Named import has a given name, 'import D = A.B.C' => D.
-    =#
+    #= Named import has a given name, 'import D = A.B.C' => D. =#
     @match inImport begin
       NAMED_IMPORT(name = name) => begin
         name
@@ -1925,8 +1899,7 @@ function importName(inImport::Import)::Ident
       end
     end
   end
-  #=  Qualified import uses the last identifier, 'import A.B.C' => C.
-  =#
+  #= Qualified import uses the last identifier, 'import A.B.C' => C. =#
   return outName
 end
 
@@ -2016,8 +1989,7 @@ function subModsInSameOrder(oldmod::ElementArg, newmod::ElementArg)::ElementArg
     local eq1::EqMod
     local eq2::EqMod
     local p::Path
-    #=  mod1 or mod2 has no submods
-    =#
+    #= mod1 or mod2 has no submods =#
     @match (oldmod, newmod) begin
       (_, MODIFICATION(modification = NONE())) => begin
         newmod
@@ -2031,10 +2003,8 @@ function subModsInSameOrder(oldmod::ElementArg, newmod::ElementArg)::ElementArg
         MODIFICATION(modification = SOME(CLASSMOD(args1, _))),
         arg2 && MODIFICATION(modification = SOME(CLASSMOD(args2, eq2))),
       ) => begin
-        #=  mod1
-        =#
-        #=  Delete all items from args2 that are not in args1
-        =#
+        #= mod1
+           Delete all items from args2 that are not in args1 =#
         @assign res = nil
         for arg1 in args1
           @match MODIFICATION(path = p) = arg1
@@ -2043,8 +2013,7 @@ function subModsInSameOrder(oldmod::ElementArg, newmod::ElementArg)::ElementArg
           end
         end
         @assign res = listReverse(res)
-        #=  Merge the annotations
-        =#
+        #= Merge the annotations =#
         @assign res = mergeAnnotations2(res, args2)
         @assign arg2.modification = SOME(CLASSMOD(res, eq2))
         arg2

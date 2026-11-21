@@ -807,9 +807,7 @@ function partition(inV::Vector{T}, inPartitionLength::ModelicaInteger)  where {T
   elseif inPartitionLength >= vLength
     return Vector{T}[inV]
   end #Else proceed
-  #=
-  Declare local vars
-  =#
+  #= Declare local vars =#
   local vWork::Vector = inV
   for i in 1:div(vLength, inPartitionLength)
     (part, vWork) = split(vWork, inPartitionLength)

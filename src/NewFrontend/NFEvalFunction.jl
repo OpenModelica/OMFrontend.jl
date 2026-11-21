@@ -124,11 +124,9 @@ function evaluateNormal(fn::MODELICA_FUNCTION, args::Vector{Expression})::Expres
   local limit::Int
   local call_counter::Base.RefValue{Int} = fn.callCounter
   local ctrl::FlowControlType
-  #=
-  The function's evaluation depth in this task is increased by one at the
-  start of each evaluation, and decreased by one when the evalution is
-  finished. This is used to limit the number of recursive functions calls.
-  =#
+  #= The function's evaluation depth in this task is increased by one at the
+     start of each evaluation, and decreased by one when the evalution is
+     finished. This is used to limit the number of recursive functions calls. =#
   local depths = _evalDepths()
   call_count = get(depths, call_counter, 0) + 1
   #= An overloaded record constructor called in its own evaluation (`output Complex result =
@@ -163,11 +161,10 @@ function evaluateNormal(fn::MODELICA_FUNCTION, args::Vector{Expression})::Expres
     _setEvalDepth!(depths, call_counter, call_count - 1)
     fail()
   end
-  #=  TODO: Also apply replacements to the replacements themselves, i.e. the
-          bindings of the function parameters. But they probably need to be
-         sorted by dependencies first.
-  Make sure we always decrease the call counter even if the evaluation fails.
-  =#
+  #= TODO: Also apply replacements to the replacements themselves, i.e. the
+     bindings of the function parameters. But they probably need to be
+     sorted by dependencies first.
+     Make sure we always decrease the call counter even if the evaluation fails. =#
   _setEvalDepth!(depths, call_counter, call_count - 1)
   return result
 end
@@ -210,15 +207,11 @@ function evaluateExternal(fn::MODELICA_FUNCTION, args::Vector{Expression})::Expr
       fail()
     end
   end
-  #=  Functions defined as 'external \"builtin\"', delegate to Ceval.
-  =#
-  #=  External functions that we know how to evaluate without generating code.
-  =#
-  #=  TODO: Move this to EvalFunctionExt and unify evaluateKnownExternal and
-  =#
-  #=        evaluateExternal2. This requires handling of outputRef though.
-  =#
-  #=  External functions that we would need to generate code for and execute. =#
+  #= Functions defined as 'external \"builtin\"', delegate to Ceval.
+     External functions that we know how to evaluate without generating code.
+     TODO: Move this to EvalFunctionExt and unify evaluateKnownExternal and
+     evaluateExternal2. This requires handling of outputRef though.
+     External functions that we would need to generate code for and execute. =#
   return result
 end
 
@@ -341,10 +334,8 @@ function evaluateRecordConstructor(
   local node::InstNode
   repl = ReplTree.new()
   fields = recordFields(ty)
-  #=
-  Add the inputs and local variables to the replacement tree with their
-  respective bindings.
-  =#
+  #= Add the inputs and local variables to the replacement tree with their
+     respective bindings. =#
   for (j,i) in enumerate(inputs)
     arg = rest_args[j]
     repl = ReplTree.add(repl, i, arg)
@@ -355,10 +346,8 @@ function evaluateRecordConstructor(
   #=  Apply the replacements to all the variables (`built`, not reassigned: the closure does not box it). =#
   local built::ReplTree.Tree = repl
   repl = ReplTree.map(built, (nodeArg, expArg) -> applyBindingReplacement(nodeArg, expArg, built))
-  #=
-  Fetch the new binding expressions for all the variables, both inputs and
-  locals.
-  =#
+  #= Fetch the new binding expressions for all the variables, both inputs and
+     locals. =#
   local expl::Vector{Expression} = Vector(undef, length(fields))
   for (i,f) in enumerate(fields)
     if isInput(f)
@@ -390,9 +379,8 @@ function createReplacements(fn::MODELICA_FUNCTION, args::Vector{Expression})::Re
   local repl::ReplTree.Tree = ReplTree.new()
   local arg::Expression
   local j::Int = 0
-  #=  Add inputs to the replacement tree. Since they can't be assigned to the
-    replacements don't need to be mutable.
-  =#
+  #= Add inputs to the replacement tree. Since they can't be assigned to the
+     replacements don't need to be mutable. =#
   for i in inputs
     j += 1
     arg = args[j]
@@ -404,10 +392,8 @@ function createReplacements(fn::MODELICA_FUNCTION, args::Vector{Expression})::Re
       end
     end
   end
-  #=
-  Add outputs and local variables to the replacement tree. These do need to
-  be mutable to allow assigning to them.
-  =#
+  #= Add outputs and local variables to the replacement tree. These do need to
+     be mutable to allow assigning to them. =#
   for node in outputs
     repl = addMutableReplacement(node, repl)
   end
@@ -528,34 +514,23 @@ function buildRecordBinding(recordNode::InstNode, repl::ReplTree.Tree)::Expressi
       INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps)) =>
         begin
           bindings = nil
-          #=  Create a replacement tree for just the record instance. This is
-          =#
-          #=  needed for records that contain local references such as:
-          =#
-          #=    record R
-          =#
-          #=      Real x;
-          =#
-          #=      Real y = x;
-          =#
-          #=    end R;
-          =#
-          #=  In that case we need to replace the 'x' in the binding of 'y' with
-          =#
-          #=  the binding expression of 'x'.
-          =#
+          #= Create a replacement tree for just the record instance. This is
+             needed for records that contain local references such as:
+             record R
+             Real x;
+             Real y = x;
+             end R;
+             In that case we need to replace the 'x' in the binding of 'y' with
+             the binding expression of 'x'. =#
           local_repl = ReplTree.new()
           for i = arrayLength(comps):(-1):1
             exp = makeMutable(getBindingExp(comps[i], repl))
             local_repl = ReplTree.add(local_repl, comps[i], exp)
             bindings = Cons{Expression}(exp, bindings)
           end
-          #=  Add the expression to both the replacement tree and the list of bindings.
-          =#
-          #=  Replace references to record fields with those fields' bindings in the tree.
-          =#
-          #=  This will also update the list of bindings since they share mutable expresions.
-          =#
+          #= Add the expression to both the replacement tree and the list of bindings.
+             Replace references to record fields with those fields' bindings in the tree.
+             This will also update the list of bindings since they share mutable expresions. =#
           ReplTree.map(
             local_repl,
             (nodeArg, expArg) -> applyBindingReplacement(nodeArg, expArg, local_repl),
@@ -714,8 +689,7 @@ function applyReplacementCref(
   while !listEmpty(cref_parts) && listHead(cref_parts).origin == Origin.SCOPE
     cref_parts = listRest(cref_parts)
   end
-  #=  If the list is empty it's probably an iterator or _, which shouldn't be replaced.
-  =#
+  #= If the list is empty it's probably an iterator or _, which shouldn't be replaced. =#
   if listEmpty(cref_parts)
     @assign outExp = exp
   else
@@ -758,12 +732,9 @@ function applyReplacementCref(
       outExp = map(outExp, (expArg) -> applyReplacements2(repl, expArg, true))
     end
   end
-  #=  Look up the replacement for the first part in the replacement tree.
-  =#
-  #=  If the cref consists of more than one identifier we need to look up
-  =#
-  #=  the corresponding record field in the expression.
-  =#
+  #= Look up the replacement for the first part in the replacement tree.
+     If the cref consists of more than one identifier we need to look up
+     the corresponding record field in the expression. =#
   return outExp
 end
 
@@ -775,10 +746,8 @@ end
 function optimizeStatement(stmt::Statement)::Statement
   () = begin
     local iter_exp::Expression
-    #=
-    Replace iterators in for loops with mutable expressions, so we don't need
-    to do it each time we enter a for loop during evaluation.
-    =#
+    #= Replace iterators in for loops with mutable expressions, so we don't need
+       to do it each time we enter a for loop during evaluation. =#
     @match stmt begin
       ALG_FOR(__) => begin
         #=  Make a mutable expression with a placeholder value. =#
@@ -860,10 +829,8 @@ end
 
 function evaluateStatement(stmt::Statement)::FlowControlType
   local ctrl::FlowControlType
-  #=  adrpo: we really need some error handling here to detect which statement cannot be evaluated
-  =#
-  #=  try
-  =#
+  #= adrpo: we really need some error handling here to detect which statement cannot be evaluated
+     try =#
   @assign ctrl = begin
     @match stmt begin
       ALG_ASSIGNMENT(__) => begin
@@ -909,13 +876,9 @@ function evaluateStatement(stmt::Statement)::FlowControlType
     end
   end
   #= else
-  =#
-  #=    Error.assertion(false, getInstanceName() + \" failed to evaluate statement \" + Statement.toString(stmt) + \"\\n\", sourceInfo());
-  =#
-  #=    fail();
-  =#
-  #= end try;
-  =#
+     Error.assertion(false, getInstanceName() + \" failed to evaluate statement \" + Statement.toString(stmt) + \"\\n\", sourceInfo());
+     fail();
+     end try; =#
   return ctrl
 end
 
@@ -1010,8 +973,7 @@ function assignVariable(@nospecialize(variable::Expression), @nospecialize(value
         end
 
       _ => begin
-        #=  _ := value
-        =#
+        #= _ := value =#
         Error.assertion(
           false,
           getInstanceName() +
@@ -1132,8 +1094,7 @@ function assignExp(@nospecialize(lhs::Expression), @nospecialize(rhs::Expression
       end
     end
   end
-  #=  TODO: Handle arrays.
-  =#
+  #= TODO: Handle arrays. =#
   return result
 end
 
