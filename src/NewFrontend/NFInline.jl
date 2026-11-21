@@ -76,22 +76,13 @@ function inlineCallExp(callExp::Expression)::Expression
     local shouldInline::Bool
     @match callExp begin
       CALL_EXPRESSION(call = call && TYPED_CALL(__)) => begin
-        @assign shouldInline = begin
-          @match inlineType(call) begin
-            DAE.BUILTIN_EARLY_INLINE(__) => begin
-              true
-            end
-            DAE.EARLY_INLINE(__) where {(Flags.isSet(Flags.INLINE_FUNCTIONS))} => begin
-              if Flags.INLINE_FUNCTIONS_COMPLEXITY_GATE[]
-                _passesInlineComplexityGate(call)
-              else
-                true
-              end
-            end
-            _ => begin
-              false
-            end
-          end
+        local inlineTy::InlineType = inlineType(call)
+        shouldInline = if inlineTy == BUILTIN_EARLY_INLINE
+          true
+        elseif inlineTy == EARLY_INLINE && Flags.isSet(Flags.INLINE_FUNCTIONS)
+          !Flags.INLINE_FUNCTIONS_COMPLEXITY_GATE[] || _passesInlineComplexityGate(call)
+        else
+          false
         end
         if shouldInline
           inlineCall(call)

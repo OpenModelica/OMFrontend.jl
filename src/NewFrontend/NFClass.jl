@@ -34,21 +34,21 @@
 */ =#
 
 using MetaModelica.Dangerous
-@Uniontype Prefixes begin
-  @Record PREFIXES begin
-    encapsulatedPrefix::SCode.Encapsulated
-    partialPrefix::SCode.Partial
-    finalPrefix::SCode.Final
-    innerOuter::Absyn.InnerOuter
-    replaceablePrefix::SCode.Replaceable
-  end
+"""
+    PREFIXES(encapsulatedPrefix, partialPrefix, finalPrefix, innerOuter, replaceablePrefix)
+
+The prefixes of a class (`encapsulated`, `partial`, `final`, `inner`/`outer`, `replaceable`), as SCode and Absyn
+values. Not SCode's `PREFIXES`, which holds an element's prefixes.
+"""
+struct PREFIXES
+  encapsulatedPrefix::SCode.Encapsulated
+  partialPrefix::SCode.Partial
+  finalPrefix::SCode.Final
+  innerOuter::Absyn.InnerOuter
+  replaceablePrefix::SCode.Replaceable
 end
 
 abstract type Class end
-struct DAE_TYPE <: Class
-  ty::DAE.Type
-end
-
 struct TYPED_DERIVED{T0 <: ModelicaType, T1 <: InstNode, T2 <: Restriction} <: Class
   ty::T0
   baseClass::T1
@@ -72,7 +72,7 @@ struct EXPANDED_DERIVED <: Class
   baseClass::InstNode
   modifier::Modifier
   dims::Vector{Dimension}
-  prefixes::Prefixes
+  prefixes::PREFIXES
   attributes::Attributes
   restriction::Restriction
 end
@@ -80,7 +80,7 @@ end
 struct EXPANDED_CLASS <: Class
   elements::ClassTree
   modifier::Modifier
-  prefixes::Prefixes
+  prefixes::PREFIXES
   restriction::Restriction
 end
 
@@ -88,14 +88,14 @@ struct PARTIAL_BUILTIN <: Class
   ty::ModelicaType
   elements::ClassTree
   modifier::Modifier
-  prefixes::Prefixes
+  prefixes::PREFIXES
   restriction::Restriction
 end
 
 struct PARTIAL_CLASS <: Class
   elements::ClassTree
   modifier::Modifier
-  prefixes::Prefixes
+  prefixes::PREFIXES
 end
 
 struct NOT_INSTANTIATED <: Class
@@ -221,7 +221,7 @@ function hasOperator(name::String, cls::Class)::Bool
   return hasOperator
 end
 
-function getDerivedComments(cls::Class, cmts::List{<:SCode.Comment})::List{SCode.Comment}
+function getDerivedComments(cls::Class, cmts::List{<:SCode.COMMENT})::List{SCode.COMMENT}
   cmts = begin
     @match cls begin
       EXPANDED_DERIVED(__) => begin
@@ -281,7 +281,7 @@ function isEncapsulated(cls::Class)::Bool
   return isEncapsulated
 end
 
-function setPrefixes(prefs::Prefixes, cls::Class)
+function setPrefixes(prefs::PREFIXES, cls::Class)
   @match cls begin
     EXPANDED_CLASS(__) => begin
       @assign cls.prefixes = prefs
@@ -297,7 +297,7 @@ function setPrefixes(prefs::Prefixes, cls::Class)
 end
 
 function getPrefixes(cls::Class)
-  local prefs::Prefixes
+  local prefs::PREFIXES
   prefs = begin
     @match cls begin
       PARTIAL_CLASS(__) => begin
@@ -888,9 +888,9 @@ function makeRecordConstructor(fields::List{<:InstNode}, out::InstNode)
 end
 
 function fromEnumeration(
-  literals::List{<:SCode.Enum},
+  literals::List{<:SCode.ENUM},
   enumType::ModelicaType,
-  prefixes::Prefixes,
+  prefixes::PREFIXES,
   enumClass::InstNode)
   local cls::Class
   local tree::ClassTree
@@ -909,7 +909,7 @@ function fromSCode(
   elements::List{<:SCode.Element},
   isClassExtends::Bool,
   scope::InstNode,
-  prefixes::Prefixes)
+  prefixes::PREFIXES)
   local cls::Class
   local tree::ClassTree
   tree = fromSCode(elements, isClassExtends, scope)
@@ -917,7 +917,7 @@ function fromSCode(
   return cls
 end
 
-function isEqual(prefs1::Prefixes, prefs2::Prefixes)::Bool
+function isEqual(prefs1::PREFIXES, prefs2::PREFIXES)::Bool
   local isEqual::Bool = valueEq(prefs1, prefs2)
   return isEqual
 end

@@ -68,21 +68,28 @@ end
 
 const EMPTY = OCC_GRAPH(true, nil, nil, nil, nil, nil) #= Initial connection graph with no edges in it. =#::OCConnectionGraph
 const NOUPDATE_EMPTY = OCC_GRAPH(false, nil, nil, nil, nil, nil) #= Initial connection graph with updateGraph set to false. =#::OCConnectionGraph
-const ConnectionsOperator = #= Enumeration =# (() -> begin
-  BRANCH  = 1
-                                                 ROOT  = 2
-                                                 POTENTIAL_ROOT  = 3
-                                                 IS_ROOT  = 4
-                                                 ROOTED  = 5
-                                                 UNIQUE_ROOT  = 6
-                                                 UNIQUE_ROOT_INDICES  = 7
-                                                 NOT_OPERATOR  = 8
-                                                 ()->(BRANCH ;ROOT ;POTENTIAL_ROOT ;IS_ROOT ;ROOTED ;UNIQUE_ROOT ;UNIQUE_ROOT_INDICES ;NOT_OPERATOR )
-                                               end)()
-const ConnectionsOperatorType = Int
+"""An operator of Modelica's `Connections` package (`Connections.branch`, ...): one of the `CONNECTIONS_OPERATOR_*`
+constants, `CONNECTIONS_OPERATOR_NONE` for any other call."""
+const ConnectionsOperator = UInt8
+"""`Connections.branch(a, b)`."""
+const CONNECTIONS_OPERATOR_BRANCH::ConnectionsOperator = 0x01
+"""`Connections.root(a)`."""
+const CONNECTIONS_OPERATOR_ROOT::ConnectionsOperator = 0x02
+"""`Connections.potentialRoot(a[, priority])`."""
+const CONNECTIONS_OPERATOR_POTENTIAL_ROOT::ConnectionsOperator = 0x03
+"""`Connections.isRoot(a)`."""
+const CONNECTIONS_OPERATOR_IS_ROOT::ConnectionsOperator = 0x04
+"""`Connections.rooted(a)` (and the deprecated `rooted(a)`)."""
+const CONNECTIONS_OPERATOR_ROOTED::ConnectionsOperator = 0x05
+"""`Connections.uniqueRoot(a, message)`."""
+const CONNECTIONS_OPERATOR_UNIQUE_ROOT::ConnectionsOperator = 0x06
+"""`Connections.uniqueRootIndices(roots, nodes, message)`."""
+const CONNECTIONS_OPERATOR_UNIQUE_ROOT_INDICES::ConnectionsOperator = 0x07
+"""Not an operator of `Connections`."""
+const CONNECTIONS_OPERATOR_NONE::ConnectionsOperator = 0x08
 
 """  @author: adrpo
-           goes over all equations from the FlatModel and:
+           goes over all equations from the FLAT_MODEL and:
            1. builds the overconstrained connection graph from:
              - connect, Connections.branch
              - Connections.root, Connections.potentialRoot
@@ -100,12 +107,12 @@ Unsure how well matchcontinue and the backtracking plays with them...
 //John 2023-06-22
 
 """
-function handleOverconstrainedConnections(flatModel::FlatModel,
-                                          conns::Connections,
-                                          modelNameQualified::String)::Tuple{FlatModel, FlatEdges,OCConnectionGraph}
+function handleOverconstrainedConnections(flatModel::FLAT_MODEL,
+                                          conns::CONNECTIONS,
+                                          modelNameQualified::String)::Tuple{FLAT_MODEL, FlatEdges,OCConnectionGraph}
   local broken::FlatEdges
-  local c1::Connector
-  local c2::Connector
+  local c1::CONNECTOR
+  local c2::CONNECTOR
   local call::Call
   local connected::FlatEdges
   local cref::ComponentRef
@@ -125,14 +132,14 @@ function handleOverconstrainedConnections(flatModel::FlatModel,
   local rhs::ComponentRef
   local rhs_crefs::List{ComponentRef}
   local root::Expression
-  local source::DAE.ElementSource
+  local source::SourceInfo
   @assign origin = intBitOr(ORIGIN_EQUATION, ORIGIN_CONNECT)
   #=  Go over all equations, connect, Connection.branch =#
   #= The equality-constraint equations are only needed for the edges the
      spanning tree BREAKS (a handful), but each generation types two calls.
      Attach an empty vector to every edge, remember the inputs keyed by that
      vector's identity, and generate lazily for the broken edges below. =#
-  local pendingGen = IdDict{Vector{Equation}, Tuple{ComponentRef, ModelicaType, ComponentRef, ModelicaType, DAE.ElementSource}}()
+  local pendingGen = IdDict{Vector{Equation}, Tuple{ComponentRef, ModelicaType, ComponentRef, ModelicaType, SourceInfo}}()
   @EXECSTAT "    oc:collectGraph" for conn in conns.connections
     @match CONNECTION(lhs = c1, rhs = c2) = conn
     lhs_crefs = getOverconstrainedCrefs(c1)
@@ -157,19 +164,19 @@ function handleOverconstrainedConnections(flatModel::FlatModel,
           lst = arrayList(lst)
           begin
             @match identifyConnectionsOperator(name(call.fn)) begin
-              ConnectionsOperator.ROOT  => begin
+              op where {(op == CONNECTIONS_OPERATOR_ROOT)}  => begin
                 @match CREF_EXPRESSION(cref = cref) <| nil = lst
                 graph = addDefiniteRoot(cref, print_trace, graph)
                 eql
               end
-              ConnectionsOperator.POTENTIAL_ROOT  => begin
+              op where {(op == CONNECTIONS_OPERATOR_POTENTIAL_ROOT)}  => begin
                 @match arg1 <| arg2 <| nil = lst
                 @match CREF_EXPRESSION(cref = cref) = arg1
                 @match INTEGER_EXPRESSION(value = priority) = evalExp(arg2)
                 graph = addPotentialRoot(cref, priority, print_trace, graph)
                 eql
               end
-              ConnectionsOperator.UNIQUE_ROOT  => begin
+              op where {(op == CONNECTIONS_OPERATOR_UNIQUE_ROOT)}  => begin
                 graph = begin
                   @match lst begin
                     (root && CREF_EXPRESSION(cref = cref)) <|  nil()  => begin
@@ -183,7 +190,7 @@ function handleOverconstrainedConnections(flatModel::FlatModel,
                 end
                 eql
               end
-              ConnectionsOperator.BRANCH  => begin
+              op where {(op == CONNECTIONS_OPERATOR_BRANCH)}  => begin
                 @match CREF_EXPRESSION(cref = lhs) <| CREF_EXPRESSION(cref = rhs) <| nil = lst
                 graph = addBranch(lhs, rhs, print_trace, graph)
                 eql
@@ -249,14 +256,14 @@ function generateEqualityConstraintEquation(clhs::ComponentRef,
                                             crhs::ComponentRef,
                                             rhs_ty::ModelicaType,
                                             origin::ORIGIN_Type,
-                                            source::DAE.ElementSource)::Vector{Equation}
+                                            source::SourceInfo)::Vector{Equation}
   local eqsEqualityConstraint::Vector{Equation} = Equation[]
-  local c1::Connector
-  local c2::Connector
-  local cc1::Connector
-  local cc2::Connector
-  local cl1::List{Connector}
-  local cl2::List{Connector}
+  local c1::CONNECTOR
+  local c2::CONNECTOR
+  local cc1::CONNECTOR
+  local cc2::CONNECTOR
+  local cl1::List{CONNECTOR}
+  local cl2::List{CONNECTOR}
   local cref::ComponentRef
   local eql::Vector{Equation} = Equation[]
   local expLHS::Expression
@@ -267,14 +274,14 @@ function generateEqualityConstraintEquation(clhs::ComponentRef,
   local fn_node_rhs::InstNode
   local lhs::ComponentRef
   local lhsArr::ComponentRef
-  local lhsl::List{Connector}
+  local lhsl::List{CONNECTOR}
   local lst::List{Expression}
   local msg::Expression
   local priority::Int
   local replaceEq::Equation
   local rhs::ComponentRef
   local rhsArr::ComponentRef
-  local rhsl::List{Connector}
+  local rhsl::List{CONNECTOR}
   local root::Expression
   local ty1::ModelicaType
   local ty2::ModelicaType
@@ -305,20 +312,20 @@ function generateEqualityConstraintEquation(clhs::ComponentRef,
             local eqScope = classScope(node(lhs))
             (fcref_rhs, fn_node_rhs) = get!(_EQ_CONSTRAINT_FN_CACHE, _refId(eqScope)) do
               local fc = lookupFunctionSimple("equalityConstraint", eqScope)
-              local (fc2, fn2, _) = instFunctionRef(fc, AbsynUtil.dummyInfo)
+              local (fc2, fn2, _) = instFunctionRef(fc, source)
               (fc2, fn2)
             end
             expRHS = CALL_EXPRESSION(UNTYPED_CALL(fcref_rhs, Expression[CREF_EXPRESSION(ty1, lhsArr), CREF_EXPRESSION(ty2, rhsArr)], Expression[], fn_node_rhs))
-            (expRHS, ty, var) = typeExp(expRHS, origin, AbsynUtil.dummyInfo #=ElementSource_getInfo(source)=#)
+            (expRHS, ty, var) = typeExp(expRHS, origin, source)
             local fillScope = topScope(node(clhs))
             (fcref_lhs, fn_node_lhs) = get!(_FILL_FN_CACHE, _refId(fillScope)) do
               local fc = lookupFunctionSimple("fill", fillScope)
-              local (fc2, fn2, _) = instFunctionRef(fc, AbsynUtil.dummyInfo)
+              local (fc2, fn2, _) = instFunctionRef(fc, source)
               (fc2, fn2)
             end
             local argLst = _cons(REAL_EXPRESSION(0.0), ListUtil.map(arrayDims(ty), sizeExp))
             expLHS = CALL_EXPRESSION(UNTYPED_CALL(fcref_lhs, listArray(argLst), Expression[], fn_node_lhs))
-            (expLHS, ty, var) = typeExp(expLHS, origin, AbsynUtil.dummyInfo#=ElementSource_getInfo(source)=#)
+            (expLHS, ty, var) = typeExp(expLHS, origin, source)
             replaceEq = EQUATION_EQUALITY(expRHS, expLHS, ty, source)
             eqsEqualityConstraint = [replaceEq]
             return eqsEqualityConstraint
@@ -330,10 +337,10 @@ function generateEqualityConstraintEquation(clhs::ComponentRef,
   eqsEqualityConstraint
 end
 
-function getOverconstrainedCrefs(conn::Connector)::List{ComponentRef}
+function getOverconstrainedCrefs(conn::CONNECTOR)::List{ComponentRef}
   local crefs::List{ComponentRef}
-  local conns::List{Connector}
-  conns = split(conn, ScalarizeSetting.PREFIX)
+  local conns::List{CONNECTOR}
+  conns = split(conn, SCALARIZE_PREFIX)
   crefs = list(getOverconstrainedCref(c.name) for c in conns if (!(isDeleted(c)) && isOverconstrainedCref(c.name)))
 
   crefs = ListUtil.uniqueOnTrue(crefs, isEqual)
@@ -918,7 +925,7 @@ function isConnectionsOperatorCall(exp::Expression)::Bool
   end
   local call = exp.call
   return isvariant(call, TYPED_CALL) &&
-    identifyConnectionsOperator(name(call.fn)) !== ConnectionsOperator.NOT_OPERATOR
+    identifyConnectionsOperator(name(call.fn)) != CONNECTIONS_OPERATOR_NONE
 end
 
 """
@@ -985,7 +992,7 @@ struct ConditionalBranch
   b::ComponentRef
   condition::Expression
   body::Vector{Equation}
-  source::DAE.ElementSource
+  source::SourceInfo
 end
 
 #= 2^k modes for k conditional branches. =#
@@ -993,7 +1000,7 @@ const MAX_CONDITIONAL_BRANCHES = 8
 
 function isBranchCall(@nospecialize(eq::Equation))::Bool
   return isvariant(eq, EQUATION_NORETCALL) && eq.exp isa CALL_EXPRESSION && isvariant(eq.exp.call, TYPED_CALL) &&
-    identifyConnectionsOperator(name(eq.exp.call.fn)) == ConnectionsOperator.BRANCH
+    identifyConnectionsOperator(name(eq.exp.call.fn)) == CONNECTIONS_OPERATOR_BRANCH
 end
 
 """
@@ -1053,7 +1060,7 @@ modeString(cbs::Vector{ConditionalBranch}, mode::Int) =
   Base.join((toString(cbs[i].condition) * (isActive(mode, i) ? " = true" : " = false") for i in eachindex(cbs)), ", ")
 
 """
-  `eqs` with the Connections operators evaluated for every mode. The equations
+  `eqs` with the CONNECTIONS operators evaluated for every mode. The equations
   alike in all modes stay; the others, with the bodies of the active
   conditional branches (`withBodies`), become one if-equation over the modes.
 """
@@ -1116,7 +1123,7 @@ function modeEquations(eqs::Vector{Equation}, cbs::Vector{ConditionalBranch}, mo
       foldl((a, b) -> LBINARY_EXPRESSION(a, makeOr(TYPE_BOOLEAN()), b), (modeCondition(cbs, m) for m in g[3]))
     push!(branches, EQUATION_BRANCH(cond, Variability.DISCRETE, g[2]))
   end
-  push!(out, EQUATION_IF(branches, isempty(cbs) ? DAE.emptyElementSource : Base.first(cbs).source))
+  push!(out, EQUATION_IF(branches, isempty(cbs) ? AbsynUtil.dummyInfo : Base.first(cbs).source))
   return out
 end
 
@@ -1132,7 +1139,7 @@ end
 
 """
   Appends `eq` to `out`, an if-equation reduced by its conditions that are
-  now literals (the evaluated Connections operators): a false branch is
+  now literals (the evaluated CONNECTIONS operators): a false branch is
   dropped, a true one taken when no undecided branch precedes it.
 """
 function appendDecided!(out::Vector{Equation}, @nospecialize(eq::Equation))::Vector{Equation}
@@ -1199,7 +1206,7 @@ function evalConnectionsOperatorsHelper(exp::Expression,
   end
   local c0 = exp.call
   if !isvariant(c0, TYPED_CALL) ||
-     identifyConnectionsOperator(name(c0.fn)) === ConnectionsOperator.NOT_OPERATOR
+     identifyConnectionsOperator(name(c0.fn)) == CONNECTIONS_OPERATOR_NONE
     return exp
   end
   local outExp::Expression
@@ -1219,7 +1226,7 @@ function evalConnectionsOperatorsHelper(exp::Expression,
       CALL_EXPRESSION(call = call && TYPED_CALL(__))  => begin
         begin
           @match identifyConnectionsOperator(name(call.fn)) begin
-            ConnectionsOperator.ROOTED  => begin
+            op where {(op == CONNECTIONS_OPERATOR_ROOTED)}  => begin
               #= handle rooted - with zero size array or the normal call =#
               @assign res = begin
                 @match call.arguments begin
@@ -1263,7 +1270,7 @@ function evalConnectionsOperatorsHelper(exp::Expression,
               end
               res
             end
-            ConnectionsOperator.IS_ROOT  => begin
+            op where {(op == CONNECTIONS_OPERATOR_IS_ROOT)}  => begin
               #=  deal with Connections.isRoot - with zero size array and normal =#
               @assign res = begin
                 @match call.arguments begin
@@ -1286,7 +1293,7 @@ function evalConnectionsOperatorsHelper(exp::Expression,
               res
             end
 
-            ConnectionsOperator.UNIQUE_ROOT_INDICES  => begin
+            op where {(op == CONNECTIONS_OPERATOR_UNIQUE_ROOT_INDICES)}  => begin
               #=  deal with Connections.uniqueRootIndices, TODO! FIXME! actually implement this =#
               @assign res = begin
                 @match call.arguments begin
@@ -1751,7 +1758,7 @@ function generateGraphViz(modelNameQualified::String,
           nrCO = intString(listLength(connections))
           nrFR = intString(listLength(finalRoots))
           nrBC = intString(listLength(broken))
-          infoNode = list("// Generated by OpenModelica.jl. \n", "// Overconstrained connection graph for model: \n//    ", modelNameQualified, "\n", "// \n", "// Summary: \n", "//   Roots:              ", nrDR, "\n", "//   Potential Roots:    ", nrPR, "\n", "//   Unique Roots:       ", nrUR, "\n", "//   Branches:           ", nrBR, "\n", "//   Connections:        ", nrCO, "\n", "//   Final Roots:        ", nrFR, "\n", "//   Broken Connections: ", nrBC, "\n")
+          infoNode = list("// Generated by OpenModelica.jl. \n", "// Overconstrained connection graph for model: \n//    ", modelNameQualified, "\n", "// \n", "// Summary: \n", "//   Roots:              ", nrDR, "\n", "//   Potential Roots:    ", nrPR, "\n", "//   Unique Roots:       ", nrUR, "\n", "//   Branches:           ", nrBR, "\n", "//   Connections:        ", nrCO, "\n", "//   Final Roots:        ", nrFR, "\n", "//   Broken CONNECTIONS: ", nrBC, "\n")
           infoNodeStr = stringAppendList(infoNode)
           infoNodeStr = System.stringReplace(infoNodeStr, "\n", "\\l")
           infoNodeStr = System.stringReplace(infoNodeStr, "\t", " ")
@@ -1853,7 +1860,7 @@ function removeBrokenConnects(inEquations::Vector{Equation}, inConnected::FlatEd
     local str::String
     local ty1::ModelicaType
     local ty2::ModelicaType
-    local source::DAE.ElementSource
+    local source::SourceInfo
     #=  if we have no broken then we don't care!
     =#
     @match (inEquations, inConnected, inBroken) begin
@@ -1911,10 +1918,10 @@ end
 """
 Identify what kind of connection operator we are dealing with based on an Absyn.Path
 Should return an object of type:
-ConnectionsOperatorType
+ConnectionsOperator
 """
 function identifyConnectionsOperator(functionName::Absyn.Path)
-  local call::ConnectionsOperatorType
+  local call::ConnectionsOperator
   call = begin
     local name::String
     @match functionName begin
@@ -1922,46 +1929,46 @@ function identifyConnectionsOperator(functionName::Absyn.Path)
         begin
           @match name begin
             "branch"  => begin
-              ConnectionsOperator.BRANCH
+              CONNECTIONS_OPERATOR_BRANCH
             end
 
             "root"  => begin
-              ConnectionsOperator.ROOT
+              CONNECTIONS_OPERATOR_ROOT
             end
 
             "potentialRoot"  => begin
-              ConnectionsOperator.POTENTIAL_ROOT
+              CONNECTIONS_OPERATOR_POTENTIAL_ROOT
             end
 
             "isRoot"  => begin
-              ConnectionsOperator.IS_ROOT
+              CONNECTIONS_OPERATOR_IS_ROOT
             end
 
             "rooted"  => begin
-              ConnectionsOperator.ROOTED
+              CONNECTIONS_OPERATOR_ROOTED
             end
 
             "uniqueRoot"  => begin
-              ConnectionsOperator.UNIQUE_ROOT
+              CONNECTIONS_OPERATOR_UNIQUE_ROOT
             end
 
             "uniqueRootIndices"  => begin
-              ConnectionsOperator.UNIQUE_ROOT_INDICES
+              CONNECTIONS_OPERATOR_UNIQUE_ROOT_INDICES
             end
 
             _  => begin
-              ConnectionsOperator.NOT_OPERATOR
+              CONNECTIONS_OPERATOR_NONE
             end
           end
         end
       end
 
       Absyn.IDENT(name = "rooted")  => begin
-        ConnectionsOperator.ROOTED
+        CONNECTIONS_OPERATOR_ROOTED
       end
 
       _  => begin
-        ConnectionsOperator.NOT_OPERATOR
+        CONNECTIONS_OPERATOR_NONE
       end
     end
   end

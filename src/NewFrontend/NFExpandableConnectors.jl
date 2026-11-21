@@ -34,16 +34,16 @@
 */ =#
 
 function elaborate(
-  flatModel::FlatModel,
-  connections::Connections,
-)::Tuple{FlatModel, Connections}
+  flatModel::FLAT_MODEL,
+  connections::CONNECTIONS,
+)::Tuple{FLAT_MODEL, CONNECTIONS}
 
-  local expandable_conns::List{Connection}
-  local undeclared_conns::List{Connection}
-  local conns::List{Connection}
-  local vars::List{Variable}
+  local expandable_conns::List{CONNECTION}
+  local undeclared_conns::List{CONNECTION}
+  local conns::List{CONNECTION}
+  local vars::List{VARIABLE}
   local csets::ConnectionSets.Sets
-  local csets_array::Vector{List{Connector}}
+  local csets_array::Vector{List{CONNECTOR}}
 
   #=  Sort the connections based on whether they involve expandable connectors,
   =#
@@ -110,15 +110,15 @@ end
   connector, or only normal connectors.
 """
 function sortConnections(
-  conns::List{<:Connection},
-)::Tuple{List{Connection}, List{Connection}, List{Connection}}
-  local normalConnections::List{Connection} = nil
-  local undeclaredConnections::List{Connection} = nil
-  local expandableConnections::List{Connection} = nil
+  conns::List{<:CONNECTION},
+)::Tuple{List{CONNECTION}, List{CONNECTION}, List{CONNECTION}}
+  local normalConnections::List{CONNECTION} = nil
+  local undeclaredConnections::List{CONNECTION} = nil
+  local expandableConnections::List{CONNECTION} = nil
 
-  local c1::Connector
-  local c2::Connector
-  local err_msg::Option{Tuple{ErrorTypes.Message, List{Connector}}}
+  local c1::CONNECTOR
+  local c2::CONNECTOR
+  local err_msg::Option{Tuple{ErrorTypes.Message, List{CONNECTOR}}}
   local is_undeclared1::Bool
   local is_undeclared2::Bool
   local is_expandable1::Bool
@@ -148,7 +148,7 @@ function sortConnections(
               c1
             end),
           ),
-          Connector_getInfo(c1),
+          c1.source,
         )
       end
     elseif is_undeclared1 || is_undeclared2
@@ -156,7 +156,7 @@ function sortConnections(
         Error.addSourceMessageAndFail(
           Error.UNDECLARED_CONNECTION,
           list(toString(c1), toString(c2)),
-          Connector_getInfo(c1),
+          c1.source,
         )
       else
         @assign undeclaredConnections = _cons(conn, undeclaredConnections)
@@ -174,11 +174,11 @@ function sortConnections(
 end
 
 function addExpandableConnectorsToSets(
-  conns::List{<:Connection},
+  conns::List{<:CONNECTION},
   csets::ConnectionSets.Sets,
 )::ConnectionSets.Sets
-  local c1::Connector
-  local c2::Connector
+  local c1::CONNECTOR
+  local c2::CONNECTOR
   for conn in conns
     @match CONNECTION(lhs = c1, rhs = c2) = conn
     @assign csets = addConnectionToSets(c1, c2, csets)
@@ -188,14 +188,14 @@ function addExpandableConnectorsToSets(
 end
 
 function addNestedExpandableConnectorsToSets(
-  c1::Connector,
-  c2::Connector,
+  c1::CONNECTOR,
+  c2::CONNECTOR,
   csets::ConnectionSets.Sets,
 )::ConnectionSets.Sets
 
-  local ecl1::List{Connector}
-  local ecl2::List{Connector}
-  local oec::Option{Connector}
+  local ecl1::List{CONNECTOR}
+  local ecl2::List{CONNECTOR}
+  local oec::Option{CONNECTOR}
 
   @assign ecl1 = getExpandableConnectorsInConnector(c1)
   @assign ecl2 = getExpandableConnectorsInConnector(c2)
@@ -203,7 +203,7 @@ function addNestedExpandableConnectorsToSets(
     return csets
   end
   #= The nested ones' own nested expandable connectors too (omc; omc ExpandableConnector8). =#
-  local conns::List{Connection} = nil
+  local conns::List{CONNECTION} = nil
   for ec1 in ecl1
      (ecl2, oec) =
       ListUtil.deleteMemberOnTrue(ec1, ecl2, isNodeNameEqual)
@@ -215,8 +215,8 @@ function addNestedExpandableConnectorsToSets(
   return csets
 end
 
-function getExpandableConnectorsInConnector(c1::Connector)::List{Connector}
-  local ecl::List{Connector}
+function getExpandableConnectorsInConnector(c1::CONNECTOR)::List{CONNECTOR}
+  local ecl::List{CONNECTOR}
 
   local nodes::List{InstNode}
   local par_name::ComponentRef
@@ -239,7 +239,7 @@ function getExpandableConnectorsInConnector(c1::Connector)::List{Connector}
             fromCref(
               name,
               ty,
-              ElementSource.createElementSource(InstNode_info(n)),
+              InstNode_info(n),
             ),
             ecl,
           )
@@ -256,14 +256,14 @@ function getExpandableConnectorsInConnector(c1::Connector)::List{Connector}
 end
 
 function addUndeclaredConnectorToSets(
-  conn::Connection,
+  conn::CONNECTION,
   csets::ConnectionSets.Sets,
-)::Tuple{Connection, ConnectionSets.Sets}
+)::Tuple{CONNECTION, ConnectionSets.Sets}
 
-  local c1::Connector
-  local c2::Connector
-  local c::Connector
-  local ec::Connector
+  local c1::CONNECTOR
+  local c2::CONNECTOR
+  local c::CONNECTOR
+  local ec::CONNECTOR
 
   @match CONNECTION(lhs = c1, rhs = c2) = conn
   #=  Figure out which connector to add, and create a virtual connector if necessary.
@@ -299,8 +299,8 @@ function addUndeclaredConnectorToSets(
 end
 
 function addConnectionToSets(
-  c1::Connector,
-  c2::Connector,
+  c1::CONNECTOR,
+  c2::CONNECTOR,
   csets::ConnectionSets.Sets,
 )::ConnectionSets.Sets
 
@@ -321,10 +321,10 @@ function addConnectionToSets(
 end
 
 function makeVirtualConnector(
-  virtualConnector::Connector,
-  normalConnector::Connector,
-)::Connector
-  local newConnector::Connector
+  virtualConnector::CONNECTOR,
+  normalConnector::CONNECTOR,
+)::CONNECTOR
+  local newConnector::CONNECTOR
 
   local virtual_cref::ComponentRef
   local normal_cref::ComponentRef
@@ -360,11 +360,11 @@ function makeVirtualConnector(
 end
 
 function elaborateExpandableSet(
-  set::List{<:Connector},
-  vars::List{<:Variable},
-)::List{Variable}
-  local exp_conns::List{Connector} = nil
-  local exp_set_lst::List{Connector} = nil
+  set::List{<:CONNECTOR},
+  vars::List{<:VARIABLE},
+)::List{VARIABLE}
+  local exp_conns::List{CONNECTOR} = nil
+  local exp_set_lst::List{CONNECTOR} = nil
   #= Deduplicate undeclared elements by node name (isNodeNameEqual semantics).
      Identity-based sets are unusable here: objectid of the deeply immutable
      connector would content-hash the reachable instance graph. =#
@@ -406,10 +406,10 @@ function markComponentPresent(node::InstNode)
 end
 
 function augmentExpandableConnector(
-  conn::Connector,
-  expandableSet::List{<:Connector},
-  vars::List{<:Variable},
-  )::List{Variable}
+  conn::CONNECTOR,
+  expandableSet::List{<:CONNECTOR},
+  vars::List{<:VARIABLE},
+  )::List{VARIABLE}
 
   local exp_name::ComponentRef
   local elem_name::ComponentRef
@@ -421,7 +421,7 @@ function augmentExpandableConnector(
   local cls_tree::ClassTree
   local comp::Component
   local nodes::List{InstNode} = nil
-  local var::Variable
+  local var::VARIABLE
   local ty::ModelicaType
   local complex_ty::ComplexType
 
@@ -430,7 +430,7 @@ function augmentExpandableConnector(
   if isName(exp_node)
     Error.addInternalError(
       "Augmenting a virtual element in an expandable connector is not yet supported.",
-      Connector_getInfo(conn),
+      conn.source,
     )
     fail()
   end
@@ -449,7 +449,7 @@ function augmentExpandableConnector(
       nodes = _cons(nodeElem, nodes)
       ty = c.ty
       elem_name = prefixCref(nodeElem, ty, nil, exp_name)
-      vars = createVirtualVariables(elem_name, ty, Connector_getInfo(c), vars)
+      vars = createVirtualVariables(elem_name, ty, c.source, vars)
     else
       comp_node = lookupElementNode(name(nodeElem), cls_tree)
       comp_node = resolveInner(comp_node)
@@ -489,8 +489,8 @@ function augmentExpandableConnector(
   return vars
 end
 
-function createVirtualVariables(connectorName::ComponentRef, connectorType::ModelicaType, info::SourceInfo, vars::List{Variable})
-  local var::Variable
+function createVirtualVariables(connectorName::ComponentRef, connectorType::ModelicaType, info::SourceInfo, vars::List{VARIABLE})
+  local var::VARIABLE
   local comps::Vector{InstNode}
   local name::ComponentRef
   local ty::ModelicaType
@@ -515,21 +515,21 @@ function createVirtualVariables(connectorName::ComponentRef, connectorType::Mode
 end
 
 function updateUndeclaredConnection(
-  conn::Connection,
-  conns::List{<:Connection},
-)::List{Connection}
+  conn::CONNECTION,
+  conns::List{<:CONNECTION},
+)::List{CONNECTION}
 
   @assign conns = _cons(conn, conns)
   return conns
 end
 
 function updateExpandableConnection(
-  conn::Connection,
-  conns::List{<:Connection},
-)::List{Connection}
+  conn::CONNECTION,
+  conns::List{<:CONNECTION},
+)::List{CONNECTION}
 
-  local c1::Connector
-  local c2::Connector
+  local c1::CONNECTOR
+  local c2::CONNECTOR
   local ty1::ModelicaType
   local ty2::ModelicaType
   local mk::MatchKindType
@@ -548,14 +548,14 @@ function updateExpandableConnection(
     Error.addSourceMessageAndFail(
       Error.INVALID_CONNECTOR_VARIABLE,
       list(toString(e1), toString(e2)),
-      Connector_getInfo(c1),
+      c1.source,
     )
   end
   conns = _cons(CONNECTION(c1, c2), conns)
   return conns
 end
 
-function updateExpandableConnector(conn::Connector)::Tuple{Connector, ModelicaType}
+function updateExpandableConnector(conn::CONNECTOR)::Tuple{CONNECTOR, ModelicaType}
   local ty::ModelicaType
   local name::ComponentRef
   @match CONNECTOR(name = name, ty = ty) = conn
@@ -568,7 +568,7 @@ function updateExpandableConnector(conn::Connector)::Tuple{Connector, ModelicaTy
   return (conn, ty)
 end
 
-function updatePotentiallyPresentVariable(var::Variable)::Variable
+function updatePotentiallyPresentVariable(var::VARIABLE)::VARIABLE
   if isPotentiallyPresent(var.attributes.connectorType)
     @assign var.attributes =
       getAttributes(component(node(var.name)))

@@ -35,18 +35,27 @@
 
 import .DuplicateTree
 
-#= ClassTree is an abstract supertype with a SINGLE concrete tagged struct
-   (ClassTreeImpl). Abstract kept so `::ClassTree` fields (Class.elements etc.)
-   forward-reference it without a type cycle; 5 variants collapse into one
-   concrete struct (tag-dispatched @match, one subtype for the compiler).
-   Mutable, because these trees are updated in place during instantiation.
-   classes/components are a small Union because the INSTANTIATED variant stores
-   Vector{Pointer{InstNode}} while the others store Vector{InstNode}. =#
-abstract type ClassTree end
+@enum ClassTreeTag::UInt8 CLASS_TREE_EMPTY_TREE_TAG CLASS_TREE_FLAT_TREE_TAG CLASS_TREE_INSTANTIATED_TREE_TAG CLASS_TREE_EXPANDED_TREE_TAG CLASS_TREE_PARTIAL_TREE_TAG
+"""
+    ClassTree
 
-@enum ClassTreeTag::UInt8 CTT_EMPTY CTT_FLAT CTT_INSTANTIATED CTT_EXPANDED CTT_PARTIAL
+The elements of a class: its classes, components, extends and imports, and a lookup tree from names to them. One
+mutable tagged struct for all variants (`tag`); instantiation updates a tree in place.
 
-mutable struct ClassTreeImpl <: ClassTree
+- `CLASS_TREE_PARTIAL_TREE(tree, classes, components, exts, imports, duplicates)`: the elements as in the class
+  definition, not yet expanded.
+- `CLASS_TREE_EXPANDED_TREE(tree, classes, components, exts, imports, duplicates)`: the extends clauses expanded.
+- `CLASS_TREE_INSTANTIATED_TREE(tree, classes, components, localComponents, exts, imports, duplicates)`: the
+  instantiated class; `classes` and `components` are mutable references (`Vector{Pointer{InstNode}}`), updated in
+  place; `localComponents` are the indices in `components` of the class's own components (not inherited).
+- `CLASS_TREE_FLAT_TREE(tree, classes, components, imports, duplicates)`: `flatten` of a tree: the elements in
+  plain arrays, duplicates removed, no extends (also the trees of builtin classes).
+- `CLASS_TREE_EMPTY_TREE()`: no elements (a shared singleton).
+
+`duplicates` are the elements declared more than once (in the class and in a base class). The fields a variant does
+not have are `nothing`.
+"""
+mutable struct ClassTree
   const tag::ClassTreeTag
   tree::Union{LookupTree.Tree,Nothing}
   classes::Union{Vector{InstNode},Vector{Pointer{InstNode}},Nothing}
@@ -59,35 +68,36 @@ end
 
 @inline _ctree(tag::ClassTreeTag; tree=nothing, classes=nothing, components=nothing,
   localComponents=nothing, exts=nothing, imports=nothing, duplicates=nothing) =
-  ClassTreeImpl(tag, tree, classes, components, localComponents, exts, imports, duplicates)
+  ClassTree(tag, tree, classes, components, localComponents, exts, imports, duplicates)
 
 # EMPTY tree is a nullary marker -> intern one shared const singleton.
-const _CLASS_TREE_EMPTY = ClassTreeImpl(CTT_EMPTY, LookupTree.EMPTY(), nothing, nothing, nothing, nothing, nothing, nothing)
+const _CLASS_TREE_EMPTY = ClassTree(CLASS_TREE_EMPTY_TREE_TAG, LookupTree.EMPTY(), nothing, nothing, nothing, nothing, nothing, nothing)
 CLASS_TREE_EMPTY_TREE() = _CLASS_TREE_EMPTY
 # Constructors convert the vector args to their concrete element type (no-op when
 # already typed) - the old per-variant concrete fields did this coercion for free.
 CLASS_TREE_FLAT_TREE(tree, classes, components, imports, duplicates) =
-  _ctree(CTT_FLAT; tree, classes=Base.convert(Vector{InstNode}, classes),
+  _ctree(CLASS_TREE_FLAT_TREE_TAG; tree, classes=Base.convert(Vector{InstNode}, classes),
     components=Base.convert(Vector{InstNode}, components), imports=Base.convert(Vector{Import}, imports), duplicates)
 CLASS_TREE_INSTANTIATED_TREE(tree, classes, components, localComponents, exts, imports, duplicates) =
-  _ctree(CTT_INSTANTIATED; tree, classes=Base.convert(Vector{Pointer{InstNode}}, classes),
+  _ctree(CLASS_TREE_INSTANTIATED_TREE_TAG; tree, classes=Base.convert(Vector{Pointer{InstNode}}, classes),
     components=Base.convert(Vector{Pointer{InstNode}}, components), localComponents=Base.convert(Vector{Int}, localComponents),
     exts=Base.convert(Vector{InstNode}, exts), imports=Base.convert(Vector{Import}, imports), duplicates)
 CLASS_TREE_EXPANDED_TREE(tree, classes, components, exts, imports, duplicates) =
-  _ctree(CTT_EXPANDED; tree, classes=Base.convert(Vector{InstNode}, classes),
+  _ctree(CLASS_TREE_EXPANDED_TREE_TAG; tree, classes=Base.convert(Vector{InstNode}, classes),
     components=Base.convert(Vector{InstNode}, components), exts=Base.convert(Vector{InstNode}, exts),
     imports=Base.convert(Vector{Import}, imports), duplicates)
 CLASS_TREE_PARTIAL_TREE(tree, classes, components, exts, imports, duplicates) =
-  _ctree(CTT_PARTIAL; tree, classes=Base.convert(Vector{InstNode}, classes),
+  _ctree(CLASS_TREE_PARTIAL_TREE_TAG; tree, classes=Base.convert(Vector{InstNode}, classes),
     components=Base.convert(Vector{InstNode}, components), exts=Base.convert(Vector{InstNode}, exts),
     imports=Base.convert(Vector{Import}, imports), duplicates)
 
-MetaModelica.compacted_tag_info(::typeof(CLASS_TREE_EMPTY_TREE))        = (ClassTreeImpl, :tag, CTT_EMPTY, ())
-MetaModelica.compacted_tag_info(::typeof(CLASS_TREE_FLAT_TREE))         = (ClassTreeImpl, :tag, CTT_FLAT, (:tree, :classes, :components, :imports, :duplicates))
-MetaModelica.compacted_tag_info(::typeof(CLASS_TREE_INSTANTIATED_TREE)) = (ClassTreeImpl, :tag, CTT_INSTANTIATED, (:tree, :classes, :components, :localComponents, :exts, :imports, :duplicates))
-MetaModelica.compacted_tag_info(::typeof(CLASS_TREE_EXPANDED_TREE))     = (ClassTreeImpl, :tag, CTT_EXPANDED, (:tree, :classes, :components, :exts, :imports, :duplicates))
-MetaModelica.compacted_tag_info(::typeof(CLASS_TREE_PARTIAL_TREE))      = (ClassTreeImpl, :tag, CTT_PARTIAL, (:tree, :classes, :components, :exts, :imports, :duplicates))
-MetaModelica.valueConstructor(v::ClassTreeImpl) = Int(v.tag)
+@registerVariants ClassTree begin
+  CLASS_TREE_EMPTY_TREE()
+  CLASS_TREE_FLAT_TREE(tree, classes, components, imports, duplicates)
+  CLASS_TREE_INSTANTIATED_TREE(tree, classes, components, localComponents, exts, imports, duplicates)
+  CLASS_TREE_EXPANDED_TREE(tree, classes, components, exts, imports, duplicates)
+  CLASS_TREE_PARTIAL_TREE(tree, classes, components, exts, imports, duplicates)
+end
 
 #= Empty tree, references to these two variables should be done using deepcopy=#
 const EMPTY_CLASS_TREE::ClassTree =
@@ -122,23 +132,18 @@ newEmptyFlatClassTree()::ClassTree =
 """
     getComponents(tree)
 
-The components of `tree`. This accessor, `getExtends`, `getClasses` and `lookupTree` read through the concrete
-`ClassTreeImpl`: through the abstract `ClassTree` a field is `Any`, and its `convert` to the declared type a dynamic
-call that a package adding a `convert` method (Symbolics) invalidated, with the callers, at each load (2026-11-16).
+The components of `tree` (none for the empty tree). Not for an instantiated tree, whose components are pointers.
 """
-function getComponents(tree::ClassTree)
+function getComponents(tree::ClassTree)::Vector{InstNode}
   isvariant(tree, CLASS_TREE_EMPTY_TREE) && return InstNode[]
-  local comps::Vector{InstNode} = (tree::ClassTreeImpl).components
-  return comps
+  return tree.components::Vector{InstNode}
 end
 
-getExtends(tree::ClassTree) = (tree::ClassTreeImpl).exts
+"""The extends of `tree`."""
+getExtends(tree::ClassTree) = tree.exts
 
-
-function getClasses(tree::ClassTree)
-  local clss::Vector{InstNode} = (tree::ClassTreeImpl).classes
-  return clss
-end
+"""The classes of `tree`. Not for an instantiated tree, whose classes are pointers."""
+getClasses(tree::ClassTree)::Vector{InstNode} = tree.classes::Vector{InstNode}
 
 function enumerateComponents2(
   name::String,
@@ -600,8 +605,7 @@ A name without duplicates is the common case and no failure: `DuplicateTree.getO
 348 per MSL Fluid ThreeTanks).
 """
 function lookupElementsPtr(name::String, tree::ClassTree)::List{Pointer{InstNode}}
-  #= Through the concrete ClassTreeImpl (see getComponents): through the abstract ClassTree the field is Any. =#
-  local duplicates::Union{DuplicateTree.Tree, Nothing} = (tree::ClassTreeImpl).duplicates
+  local duplicates::Union{DuplicateTree.Tree, Nothing} = tree.duplicates
   if duplicates !== nothing && !DuplicateTree.isEmpty(duplicates)
     local dup_entry::Option{DuplicateTree.Entry} = DuplicateTree.getOpt(duplicates, name)
     if isSome(dup_entry)
@@ -1316,7 +1320,7 @@ end
 
 """Creates a class tree for an enumeration type."""
 function fromEnumeration(
-  literals::List{<:SCode.Enum},
+  literals::List{<:SCode.ENUM},
   enumType::ModelicaType,
   enumClass::InstNode,
 )::ClassTree #= The InstNode of the enumeration type =#
@@ -1573,8 +1577,8 @@ end
 """
 #= The component break modifiers of a base class node (`extends A(break x)`), none for any other
    node (omc ClassTree.getBreakModsInExtend). =#
-function getBreakModsInExtend(extendsNode::InstNode)::Vector{SCode.SubMod}
-  local breaks = SCode.SubMod[]
+function getBreakModsInExtend(extendsNode::InstNode)::Vector{SCode.NAMEMOD}
+  local breaks = SCode.NAMEMOD[]
   isvariant(extendsNode, CLASS_NODE) || return breaks
   local ty = nodeType(extendsNode)
   isvariant(ty, DERIVED_CLASS) && (ty = ty.ty)
@@ -2237,7 +2241,7 @@ function resolveImport(index::Int, tree::ClassTree)::InstNode
   local imports::Vector{Import}
   local imp::Import
   local changed::Bool
-  imports = (tree::ClassTreeImpl).imports
+  imports = tree.imports
   #=  Imports are resolved on demand, i.e. here. =#
   local isChangedImportRef = Ref{Bool}(false)
   local importTyRef = Ref{Import}(EMPTY_IMPORT())
@@ -2624,7 +2628,7 @@ function addLocalElement(
 end
 
 function lookupTree(ctree::ClassTree)::LookupTree.Tree
-  return (ctree::ClassTreeImpl).tree::LookupTree.Tree
+  return ctree.tree::LookupTree.Tree
 end
 
 function getDuplicates(tree::ClassTree)::DuplicateTree.Tree

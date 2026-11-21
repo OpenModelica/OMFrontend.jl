@@ -37,7 +37,7 @@ const SimplifyFunc = Function
 const MakeElement = Function
 const MakeFunc = Function
 
-function simplifyFlatModel(flatModel::FlatModel)::FlatModel
+function simplifyFlatModel(flatModel::FLAT_MODEL)::FLAT_MODEL
   #= Per-model cache so identical constant folds (e.g. the orientation matrices
      of symmetric MultiBody bodies) are evaluated once, not once per binding. =#
   empty!(CONST_FOLD_CACHE)
@@ -52,14 +52,14 @@ function simplifyFlatModel(flatModel::FlatModel)::FlatModel
   return flatModel
 end
 
-function simplifyVariables(variables::Vector{Variable})
+function simplifyVariables(variables::Vector{VARIABLE})
   for (i, v) in enumerate(variables)
     @inbounds variables[i] = simplifyVariable(v)
   end
   return variables
 end
 
-function simplifyVariable(var::Variable)::Variable
+function simplifyVariable(var::VARIABLE)::VARIABLE
   varBinding = simplifyBinding(var.binding)
   #= simplifyTypeAttributes mutates the vector in place (same object), so the
      only field that can change identity is the binding. Reuse var unchanged
@@ -234,7 +234,7 @@ function simplifyEqualityEquation(eq::Equation, equations::Vector{Equation})
   local lhs::Expression
   local rhs::Expression
   local ty::ModelicaType
-  local src::DAE.ElementSource
+  local src::SourceInfo
   #@info "Simplify equality equation..." toString(eq)
   if typeof(eq.rhs) == ARRAY_EXPRESSION
     #= If it is an empty array we have no eq to compute. =#
@@ -356,7 +356,7 @@ function simplifyAssignment(stmt::Statement, statements::Vector{Statement})
   local rhs_exp::Expression
   local rhs_rest::List{Expression}
   local ty::ModelicaType
-  local src::DAE.ElementSource
+  local src::SourceInfo
   @match ALG_ASSIGNMENT(lhs = lhs, rhs = rhs, ty = ty, source = src) = stmt
   ty = mapDims(ty, simplifyDimension)
   if isEmptyArray(ty)
@@ -397,7 +397,7 @@ function simplifyTupleElement(
   lhsTuple::List{Expression},
   rhsTuple::List{Expression},
   ty::ModelicaType,
-  src::DAE.ElementSource,
+  src::SourceInfo,
   makeFn::MakeElement,
   statements::Vector{E},
 ) where {E <: Union{Statement, Equation}}
@@ -456,7 +456,7 @@ end
 
 function simplifyIfEqBranches(
   branches::Vector{<:EquationBranch},
-  src::DAE.ElementSource,
+  src::SourceInfo,
   elements::Vector{Equation},
 )::Vector{Equation}
   local cond::Expression
@@ -532,7 +532,7 @@ condition (an `else` is one), or cut after it. `elements` is in forward order.
 """
 function simplifyIfStmtBranches(
   branches::Vector{Tuple{Expression, Vector{Statement}}},
-  src::DAE.ElementSource,
+  src::SourceInfo,
   makeFunc::MakeFunc,
   simplifyFunc::SimplifyFunc,
   elements::Vector{Statement},

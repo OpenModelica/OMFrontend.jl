@@ -508,9 +508,9 @@ end
      done so that we only need to check for final violations while merging
      modifiers.
 """
-const DUMMY_MOD::SCode.MOD = SCode.MOD(SCode.FINAL(), SCode.NOT_EACH(), nil, NONE(), DAE.dummyInfo)
+const DUMMY_MOD::SCode.MOD = SCode.MOD(SCode.FINAL(), SCode.NOT_EACH(), nil, NONE(), AbsynUtil.dummyInfo)
 function patchElementModFinal(
-  prefixes::SCode.Prefixes,
+  prefixes::SCode.PREFIXES,
   info::SourceInfo,
   mod::SCode.Mod,
   )
@@ -636,9 +636,9 @@ function create(mod::SCode.MOD,
     local submodV = Vector{Modifier}(undef, n)
     local submodK = Vector{String}(undef, n)
     local i = 1
-    local tmp = mod.subModLst::List{SCode.SubMod}
+    local tmp = mod.subModLst::List{SCode.NAMEMOD}
     while tmp !== nil
-      @match Cons{SCode.SubMod}(m, tmp) = tmp
+      @match Cons{SCode.NAMEMOD}(m, tmp) = tmp
       SCodeUtil.isBreakSubMod(m) && continue
       submodV[i] = createSubMod(m::SCode.NAMEMOD, modScope, pars, scope)
       submodK[i] = m.ident::String

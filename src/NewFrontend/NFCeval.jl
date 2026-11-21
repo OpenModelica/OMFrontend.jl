@@ -59,7 +59,7 @@ function EvalTarget_getInfo(@nospecialize(target::EvalTarget))::SourceInfo
       end
 
       EVALTARGET_STATEMENT(__) => begin
-        DAE.ElementSource_getInfo(target.source)
+        target.source
       end
 
       _ => begin
@@ -126,7 +126,7 @@ end
   end
 
   @Record EVALTARGET_STATEMENT begin
-    source::DAE.ElementSource
+    source::SourceInfo
   end
 
   @Record EVALTARGET_GENERIC begin

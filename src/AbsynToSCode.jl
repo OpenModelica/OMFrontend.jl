@@ -114,7 +114,7 @@ function translateClass2(inClass::Absyn.Class, inNumMessages::Int)::SCode.Elemen
     local sFin::SCode.Final
     local sEnc::SCode.Encapsulated
     local sPar::SCode.Partial
-    local cmt::SCode.Comment
+    local cmt::SCode.COMMENT
     @matchcontinue (inClass, inNumMessages) begin
       (
         c && Absyn.CLASS(
@@ -169,19 +169,19 @@ function translateOperatorDef(
   inClassDef::Absyn.ClassDef,
   operatorName::Absyn.Ident,
   info::SourceInfo,
-)::Tuple{SCode.ClassDef, SCode.Comment}
-  local cmt::SCode.Comment
+)::Tuple{SCode.ClassDef, SCode.COMMENT}
+  local cmt::SCode.COMMENT
   local outOperDef::SCode.ClassDef
 
    (outOperDef, cmt) = begin
     local cmtString::Option{String}
     local els::List{SCode.Element}
-    local anns::List{SCode.Annotation}
+    local anns::List{SCode.ANNOTATION}
     local parts::List{Absyn.ClassPart}
-    local scodeCmt::Option{SCode.Comment}
+    local scodeCmt::Option{SCode.COMMENT}
     local opName::SCode.Ident
     local aann::List{Absyn.Annotation}
-    local ann::Option{SCode.Annotation}
+    local ann::Option{SCode.ANNOTATION}
     @match (inClassDef, operatorName, info) begin
       (Absyn.PARTS(classParts = parts, ann = aann, comment = cmtString), _, _) => begin
          els = translateClassdefElements(parts)
@@ -428,13 +428,13 @@ function containsExternalFuncDecl(inClass::Absyn.Class)::Bool
 end
 
 """ @author: adrpo
-    translates from Absyn.ElementAttributes to SCode.Attributes
+    translates from Absyn.ElementAttributes to SCode.ATTR
 """
 function translateAttributes(
   inEA::Absyn.ElementAttributes,
   extraArrayDim::List{<:Absyn.Subscript},
-  )::SCode.Attributes
-  local outA::SCode.Attributes
+  )::SCode.ATTR
+  local outA::SCode.ATTR
    outA = begin
     local f::Bool
     local s::Bool
@@ -499,8 +499,8 @@ function translateClassdef(
   inClassDef::Absyn.ClassDef,
   info::SourceInfo,
   re::SCode.Restriction,
-)::Tuple{SCode.ClassDef, SCode.Comment}
-  local outComment::SCode.Comment
+)::Tuple{SCode.ClassDef, SCode.COMMENT}
+  local outComment::SCode.COMMENT
   local outClassDef::SCode.ClassDef
 
    (outClassDef, outComment) = begin
@@ -513,22 +513,22 @@ function translateClassdef(
     local cmtString::Option{String}
     local els::List{SCode.Element}
     local tvels::List{SCode.Element}
-    local anns::List{SCode.Annotation}
-    local eqs::List{SCode.Equation}
-    local initeqs::List{SCode.Equation}
-    local als::List{SCode.AlgorithmSection}
-    local initals::List{SCode.AlgorithmSection}
-    local cos::List{SCode.ConstraintSection}
-    local decl::Option{SCode.ExternalDecl}
+    local anns::List{SCode.ANNOTATION}
+    local eqs::List{SCode.EQUATION}
+    local initeqs::List{SCode.EQUATION}
+    local als::List{SCode.ALGORITHM}
+    local initals::List{SCode.ALGORITHM}
+    local cos::List{SCode.CONSTRAINTS}
+    local decl::Option{SCode.EXTERNALDECL}
     local parts::List{Absyn.ClassPart}
     local vars::List{String}
-    local lst_1::List{SCode.Enum}
+    local lst_1::List{SCode.ENUM}
     local lst::List{Absyn.EnumLiteral}
-    local scodeCmt::SCode.Comment
+    local scodeCmt::SCode.COMMENT
     local path::Absyn.Path
     local pathLst::List{Absyn.Path}
     local typeVars::List{String}
-    local scodeAttr::SCode.Attributes
+    local scodeAttr::SCode.ATTR
     local classAttrs::List{Absyn.NamedArg}
     local ann::List{Absyn.Annotation}
     @match (inClassDef, info) begin
@@ -654,19 +654,19 @@ end
   it says external \\\"C\\\" ; annotation(Library=\\\"foo.lib\\\";
 """
 function translateAlternativeExternalAnnotation(
-  decl::Option{<:SCode.ExternalDecl},
-  comment::SCode.Comment,
-)::Option{SCode.ExternalDecl}
-  local outDecl::Option{SCode.ExternalDecl}
+  decl::Option{<:SCode.EXTERNALDECL},
+  comment::SCode.COMMENT,
+)::Option{SCode.EXTERNALDECL}
+  local outDecl::Option{SCode.EXTERNALDECL}
 
    outDecl = begin
     local name::Option{SCode.Ident}
     local l::Option{String}
     local out::Option{Absyn.ComponentRef}
     local a::List{Absyn.Exp}
-    local ann1::Option{SCode.Annotation}
-    local ann2::Option{SCode.Annotation}
-    local ann::Option{SCode.Annotation}
+    local ann1::Option{SCode.ANNOTATION}
+    local ann2::Option{SCode.ANNOTATION}
+    local ann::Option{SCode.ANNOTATION}
     #=  none
     =#
     @match (decl, comment) begin
@@ -689,13 +689,13 @@ end
 
 function mergeSCodeAnnotationsFromParts(
   part::Absyn.ClassPart,
-  inMod::Option{<:SCode.Annotation},
-)::Option{SCode.Annotation}
-  local outMod::Option{SCode.Annotation}
+  inMod::Option{<:SCode.ANNOTATION},
+)::Option{SCode.ANNOTATION}
+  local outMod::Option{SCode.ANNOTATION}
 
    outMod = begin
     local aann::Absyn.Annotation
-    local ann::Option{SCode.Annotation}
+    local ann::Option{SCode.ANNOTATION}
     local rest::List{Absyn.ElementItem}
     @match (part, inMod) begin
       (Absyn.EXTERNAL(_, SOME(aann)), _) => begin
@@ -726,14 +726,14 @@ end
 """
 function translateEnumlist(
   inAbsynEnumLiteralLst::List{<:Absyn.EnumLiteral},
-)::List{SCode.Enum}
-  local outEnumLst::List{SCode.Enum}
+)::List{SCode.ENUM}
+  local outEnumLst::List{SCode.ENUM}
 
    outEnumLst = begin
-    local res::List{SCode.Enum}
+    local res::List{SCode.ENUM}
     local id::String
     local cmtOpt::Option{Absyn.Comment}
-    local cmt::SCode.Comment
+    local cmt::SCode.COMMENT
     local rest::List{Absyn.EnumLiteral}
     @match inAbsynEnumLiteralLst begin
       nil() => begin
@@ -793,13 +793,13 @@ end
 """Convert an Absyn.ClassPart list to an Equation list."""
 function translateClassdefEquations(
   inAbsynClassPartLst::List{<:Absyn.ClassPart},
-)::List{SCode.Equation}
-  local outEquationLst::List{SCode.Equation}
+)::List{SCode.EQUATION}
+  local outEquationLst::List{SCode.EQUATION}
 
    outEquationLst = begin
-    local eqs::List{SCode.Equation}
-    local eql_1::List{SCode.Equation}
-    local eqs_1::List{SCode.Equation}
+    local eqs::List{SCode.EQUATION}
+    local eql_1::List{SCode.EQUATION}
+    local eqs_1::List{SCode.EQUATION}
     local eql::List{Absyn.EquationItem}
     local rest::List{Absyn.ClassPart}
     @match inAbsynClassPartLst begin
@@ -827,13 +827,13 @@ end
 """Convert an Absyn.ClassPart list to an initial Equation list."""
 function translateClassdefInitialequations(
   inAbsynClassPartLst::List{<:Absyn.ClassPart},
-)::List{SCode.Equation}
-  local outEquationLst::List{SCode.Equation}
+)::List{SCode.EQUATION}
+  local outEquationLst::List{SCode.EQUATION}
 
    outEquationLst = begin
-    local eqs::List{SCode.Equation}
-    local eql_1::List{SCode.Equation}
-    local eqs_1::List{SCode.Equation}
+    local eqs::List{SCode.EQUATION}
+    local eql_1::List{SCode.EQUATION}
+    local eqs_1::List{SCode.EQUATION}
     local eql::List{Absyn.EquationItem}
     local rest::List{Absyn.ClassPart}
     @match inAbsynClassPartLst begin
@@ -861,12 +861,12 @@ end
 """Convert an Absyn.ClassPart list to an Algorithm list."""
 function translateClassdefAlgorithms(
   inAbsynClassPartLst::List{<:Absyn.ClassPart},
-)::List{SCode.AlgorithmSection}
-  local outAlgorithmLst::List{SCode.AlgorithmSection}
+)::List{SCode.ALGORITHM}
+  local outAlgorithmLst::List{SCode.ALGORITHM}
 
    outAlgorithmLst = begin
-    local als::List{SCode.AlgorithmSection}
-    local als_1::List{SCode.AlgorithmSection}
+    local als::List{SCode.ALGORITHM}
+    local als_1::List{SCode.ALGORITHM}
     local al_1::List{SCode.Statement}
     local al::List{Absyn.AlgorithmItem}
     local rest::List{Absyn.ClassPart}
@@ -900,12 +900,12 @@ end
 """Convert an Absyn.ClassPart list to an Constraint list."""
 function translateClassdefConstraints(
   inAbsynClassPartLst::List{<:Absyn.ClassPart},
-)::List{SCode.ConstraintSection}
-  local outConstraintLst::List{SCode.ConstraintSection}
+)::List{SCode.CONSTRAINTS}
+  local outConstraintLst::List{SCode.CONSTRAINTS}
 
    outConstraintLst = begin
-    local cos::List{SCode.ConstraintSection}
-    local cos_1::List{SCode.ConstraintSection}
+    local cos::List{SCode.CONSTRAINTS}
+    local cos_1::List{SCode.CONSTRAINTS}
     local consts::List{Absyn.Exp}
     local rest::List{Absyn.ClassPart}
     local cp::Absyn.ClassPart
@@ -937,12 +937,12 @@ end
 """Convert an Absyn.ClassPart list to an initial Algorithm list."""
 function translateClassdefInitialalgorithms(
   inAbsynClassPartLst::List{<:Absyn.ClassPart},
-)::List{SCode.AlgorithmSection}
-  local outAlgorithmLst::List{SCode.AlgorithmSection}
+)::List{SCode.ALGORITHM}
+  local outAlgorithmLst::List{SCode.ALGORITHM}
 
    outAlgorithmLst = begin
-    local als::List{SCode.AlgorithmSection}
-    local als_1::List{SCode.AlgorithmSection}
+    local als::List{SCode.ALGORITHM}
+    local als_1::List{SCode.ALGORITHM}
     local stmts::List{SCode.Statement}
     local al::List{Absyn.AlgorithmItem}
     local rest::List{Absyn.ClassPart}
@@ -985,7 +985,7 @@ function translateClassdefAlgorithmItem(inAlgorithm::Absyn.AlgorithmItem)::SCode
   local outStatement::SCode.Statement
 
   local absynComment::Option{Absyn.Comment}
-  local comment::SCode.Comment
+  local comment::SCode.COMMENT
   local info::SourceInfo
   local alg::Absyn.Algorithm
 
@@ -1149,23 +1149,23 @@ function translateAlgBranches(
 end
 
 """
-  Converts an Absyn.ClassPart list to an SCode.ExternalDecl option.
+  Converts an Absyn.ClassPart list to an SCode.EXTERNALDECL option.
   The list should only contain one external declaration, so pick the first one.
 """
 function translateClassdefExternaldecls(
   inAbsynClassPartLst::List{<:Absyn.ClassPart},
-)::Option{SCode.ExternalDecl}
-  local outAbsynExternalDeclOption::Option{SCode.ExternalDecl}
+)::Option{SCode.EXTERNALDECL}
+  local outAbsynExternalDeclOption::Option{SCode.EXTERNALDECL}
 
    outAbsynExternalDeclOption = begin
-    local res::Option{SCode.ExternalDecl}
+    local res::Option{SCode.EXTERNALDECL}
     local rest::List{Absyn.ClassPart}
     local fn_name::Option{SCode.Ident}
     local lang::Option{String}
     local output_::Option{Absyn.ComponentRef}
     local args::List{Absyn.Exp}
     local aann::Option{Absyn.Annotation}
-    local sann::Option{SCode.Annotation}
+    local sann::Option{SCode.ANNOTATION}
     @match inAbsynClassPartLst begin
       Absyn.EXTERNAL(externalDecl = Absyn.EXTERNALDECL(fn_name, lang, output_, args, aann)) <| _ => begin
          sann = translateAnnotationOpt(aann)
@@ -1298,9 +1298,9 @@ end
 #=  stefan
 =#
 
-"""translates an Absyn.Annotation into an SCode.Annotation"""
-function translateAnnotation(inAnnotation::Absyn.Annotation)::Option{SCode.Annotation}
-  local outAnnotation::Option{SCode.Annotation}
+"""translates an Absyn.Annotation into an SCode.ANNOTATION"""
+function translateAnnotation(inAnnotation::Absyn.Annotation)::Option{SCode.ANNOTATION}
+  local outAnnotation::Option{SCode.ANNOTATION}
 
    outAnnotation = begin
     local args::List{Absyn.ElementArg}
@@ -1330,8 +1330,8 @@ end
 
 function translateAnnotationOpt(
   absynAnnotation::Option{<:Absyn.Annotation},
-)::Option{SCode.Annotation}
-  local scodeAnnotation::Option{SCode.Annotation}
+)::Option{SCode.ANNOTATION}
+  local scodeAnnotation::Option{SCode.ANNOTATION}
 
    scodeAnnotation = begin
     local ann::Absyn.Annotation
@@ -1477,12 +1477,12 @@ function translateElementspec(
    outElementLst = begin
     local absann::Absyn.Annotation
     local ad::List{SCode.Subscript}
-    local ann::Option{SCode.Annotation}
+    local ann::Option{SCode.ANNOTATION}
     local args::List{Absyn.ElementArg}
     local attr::Absyn.ElementAttributes
     local cl::Absyn.Class
     local cls::SCode.Element
-    local cmt::SCode.Comment
+    local cmt::SCode.COMMENT
     local comment::Option{Absyn.Comment}
     local cond::Option{Absyn.Exp}
     local ct::SCode.ConnectorType
@@ -1504,7 +1504,7 @@ function translateElementspec(
     local pa::Bool
     local parallelism::Absyn.Parallelism
     local path::Absyn.Path
-    local prefixes::SCode.Prefixes
+    local prefixes::SCode.PREFIXES
     local prl1::SCode.Parallelism
     local re::Absyn.Restriction
     local re_1::SCode.Restriction
@@ -1517,7 +1517,7 @@ function translateElementspec(
     local sPar::SCode.Partial
     local sRed::SCode.Redeclare
     local sRep::SCode.Replaceable
-    local scc::Option{SCode.ConstrainClass}
+    local scc::Option{SCode.CONSTRAINCLASS}
     local st::Bool
     local t::Absyn.TypeSpec
     local tot_dim::List{SCode.Subscript}
@@ -1715,8 +1715,8 @@ function translateElementspec(
             =#
             #=  PR. This adds the arraydimension that may be specified together with the type of the component.
             =#
-            local attr1::SCode.Attributes
-            local attr2::SCode.Attributes
+            local attr1::SCode.ATTR
+            local attr2::SCode.ATTR
             local mod2::SCode.Mod
             local inName::String
             @match di begin
@@ -1923,14 +1923,14 @@ end
 
 function translateConstrainClass(
   inConstrainClass::Option{<:Absyn.ConstrainClass},
-)::Option{SCode.ConstrainClass}
-  local outConstrainClass::Option{SCode.ConstrainClass}
+)::Option{SCode.CONSTRAINCLASS}
+  local outConstrainClass::Option{SCode.CONSTRAINCLASS}
 
    outConstrainClass = begin
     local cc_path::Absyn.Path
     local eltargs::List{Absyn.ElementArg}
     local cmt::Option{Absyn.Comment}
-    local cc_cmt::SCode.Comment
+    local cc_cmt::SCode.COMMENT
     local mod::Absyn.Modification
     local cc_mod::SCode.Mod
     @match inConstrainClass begin
@@ -2007,18 +2007,18 @@ end
 
 """
   This function transforms a list of Absyn.Equation to a list of
-  SCode.Equation, by applying the translateEquation function to each
+  SCode.EQUATION, by applying the translateEquation function to each
   equation.
 """
 function translateEquations(
   inAbsynEquationItemLst::List{<:Absyn.EquationItem},
   inIsInitial::Bool,
-)::List{SCode.Equation}
-  local outEquationLst::List{SCode.Equation}
+)::List{SCode.EQUATION}
+  local outEquationLst::List{SCode.EQUATION}
 
    outEquationLst = list(
     begin
-      local com::SCode.Comment
+      local com::SCode.COMMENT
       local info::SourceInfo
       @match eq begin
         Absyn.EQUATIONITEM(__) => begin
@@ -2054,7 +2054,7 @@ function translateEEquations(
     local e::Absyn.Equation
     local es::List{Absyn.EquationItem}
     local acom::Option{Absyn.Comment}
-    local com::SCode.Comment
+    local com::SCode.COMMENT
     local info::SourceInfo
     @match (inAbsynEquationItemLst, inIsInitial) begin
       (nil(), _) => begin
@@ -2078,13 +2078,13 @@ function translateEEquations(
   return outEEquationLst
 end
 
-"""turns an Absyn.Comment into an SCode.Comment"""
+"""turns an Absyn.Comment into an SCode.COMMENT"""
 function translateCommentWithLineInfoChanges(
   inComment::Option{<:Absyn.Comment},
   inInfo::SourceInfo,
-)::Tuple{SCode.Comment, SourceInfo}
+)::Tuple{SCode.COMMENT, SourceInfo}
   local outInfo::SourceInfo
-  local outComment::SCode.Comment
+  local outComment::SCode.COMMENT
 
    outComment = translateComment(inComment)
    outInfo = getInfoAnnotationOrDefault(outComment, inInfo)
@@ -2092,11 +2092,11 @@ function translateCommentWithLineInfoChanges(
 end
 
 """Replaces the file info if there is an annotation __OpenModelica_FileInfo=(\\\"fileName\\\",line). Should be improved."""
-function getInfoAnnotationOrDefault(comment::SCode.Comment, default::SourceInfo)::SourceInfo
+function getInfoAnnotationOrDefault(comment::SCode.COMMENT, default::SourceInfo)::SourceInfo
   local info::SourceInfo
 
    info = begin
-    local lst::List{SCode.SubMod}
+    local lst::List{SCode.NAMEMOD}
     @match (comment, default) begin
       (
         SCode.COMMENT(
@@ -2116,13 +2116,13 @@ function getInfoAnnotationOrDefault(comment::SCode.Comment, default::SourceInfo)
 end
 
 function getInfoAnnotationOrDefault2(
-  lst::List{<:SCode.SubMod},
+  lst::List{<:SCode.NAMEMOD},
   default::SourceInfo,
 )::SourceInfo
   local info::SourceInfo
 
    info = begin
-    local rest::List{SCode.SubMod}
+    local rest::List{SCode.NAMEMOD}
     local fileName::String
     local line::Int
     @match (lst, default) begin
@@ -2152,13 +2152,13 @@ function getInfoAnnotationOrDefault2(
   return info
 end
 
-"""turns an Absyn.Comment into an SCode.Comment"""
-function translateComment(inComment::Option{<:Absyn.Comment})::SCode.Comment
-  local outComment::SCode.Comment
+"""turns an Absyn.Comment into an SCode.COMMENT"""
+function translateComment(inComment::Option{<:Absyn.Comment})::SCode.COMMENT
+  local outComment::SCode.COMMENT
 
    outComment = begin
     local absann::Option{Absyn.Annotation}
-    local ann::Option{SCode.Annotation}
+    local ann::Option{SCode.ANNOTATION}
     local ostr::Option{String}
     @match inComment begin
       NONE() => begin
@@ -2175,17 +2175,17 @@ function translateComment(inComment::Option{<:Absyn.Comment})::SCode.Comment
   return outComment
 end
 
-"""turns an Absyn.Comment into an SCode.Comment"""
+"""turns an Absyn.Comment into an SCode.COMMENT"""
 function translateCommentList(
   inAnns::List{<:Absyn.Annotation},
   inString::Option{<:String},
-)::SCode.Comment
-  local outComment::SCode.Comment
+)::SCode.COMMENT
+  local outComment::SCode.COMMENT
 
    outComment = begin
     local absann::Absyn.Annotation
     local anns::List{Absyn.Annotation}
-    local ann::Option{SCode.Annotation}
+    local ann::Option{SCode.ANNOTATION}
     local ostr::Option{String}
     @match (inAnns, inString) begin
       (nil(), _) => begin
@@ -2211,7 +2211,7 @@ end
 
 function translateEquation(
   inEquation::Absyn.Equation,
-  inComment::SCode.Comment,
+  inComment::SCode.COMMENT,
   inInfo::SourceInfo,
   inIsInitial::Bool,
 )::SCode.EEquation
@@ -2386,7 +2386,7 @@ function translateMod(
 
   local args::List{Absyn.ElementArg}
   local eqmod::Absyn.EqMod
-  local subs::List{SCode.SubMod}
+  local subs::List{SCode.NAMEMOD}
   local binding::Option{Absyn.Exp}
 
    (args, eqmod) = begin
@@ -2430,12 +2430,12 @@ function translateMod(
   return outMod
 end
 
-function translateArgs(args::List{<:Absyn.ElementArg})::List{SCode.SubMod}
-  local subMods::List{SCode.SubMod} = nil
+function translateArgs(args::List{<:Absyn.ElementArg})::List{SCode.NAMEMOD}
+  local subMods::List{SCode.NAMEMOD} = nil
 
   local smod::SCode.Mod
   local elem::SCode.Element
-  local sub::SCode.SubMod
+  local sub::SCode.NAMEMOD
 
   for arg in args
      subMods = begin
@@ -2496,14 +2496,14 @@ end
   This function converts a Absyn.ComponentRef plus a list
   of modifications into a number of nested SCode.SUBMOD.
 """
-function translateSub(inPath::Absyn.Path, inMod::SCode.Mod, info::SourceInfo)::SCode.SubMod
-  local outSubMod::SCode.SubMod
+function translateSub(inPath::Absyn.Path, inMod::SCode.Mod, info::SourceInfo)::SCode.NAMEMOD
+  local outSubMod::SCode.NAMEMOD
 
    outSubMod = begin
     local i::String
     local path::Absyn.Path
     local mod::SCode.Mod
-    local sub::SCode.SubMod
+    local sub::SCode.NAMEMOD
     #=  Then the normal rules
     =#
     @match (inPath, inMod, info) begin

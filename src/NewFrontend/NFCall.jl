@@ -64,21 +64,6 @@ end #=ParameterTreeImpl=#
 const ParameterTree = ParameterTreeImpl.Tree
 
 
-#= CALL_ATTR is defined in FrontendInterfaces/NFInterfaces.jl, before Call. =#
-function toDAE(attr::CALL_ATTR, returnType::ModelicaType)::DAE.CallAttributes
-  local fattr::DAE.CallAttributes
-   fattr = DAE.CALL_ATTR(
-     toDAE(returnType),
-    attr.tuple_,
-    attr.builtin,
-    attr.isImpure,
-    attr.isFunctionPointerCall,
-    attr.inlineType,
-    attr.tailCall,
-  )
-  return fattr
-end
-
 function typeCast(callExp::CALL_EXPRESSION, ty::ModelicaType)
   @match CALL_EXPRESSION(call = call) = callExp
   return _typeCastCall(call, ty, callExp)
@@ -159,64 +144,6 @@ function isVectorizeable(call::Call)::Bool
     end
   end
   return isVect
-end
-
-function toDAE(call::Call)
-  local daeCall::DAE.Exp
-   daeCall = begin
-    local fold_id::String
-    local res_id::String
-    local fold_exp::Option{Expression}
-    @match call begin
-      TYPED_CALL(__) => begin
-        DAE.CALL(
-          nameConsiderBuiltin(call.fn),
-          list(toDAE(e) for e in call.arguments),
-          toDAE(call.attributes, call.ty),
-        )
-      end
-      TYPED_ARRAY_CONSTRUCTOR(__) => begin
-        fold_id = Util.getTempVariableIndex()
-        res_id = Util.getTempVariableIndex()
-        DAE.REDUCTION(
-          DAE.REDUCTIONINFO(
-            name(NFBuiltinFuncs.ARRAY_FUNC),
-            Absyn.COMBINE(),
-            toDAE(call.ty),
-            NONE(),
-            fold_id,
-            res_id,
-            NONE(),
-          ),
-          toDAE(call.exp),
-          list(iteratorToDAE(iter) for iter in call.iters),
-        )
-      end
-
-      TYPED_REDUCTION(__) => begin
-         (fold_exp, fold_id, res_id) = call.foldExp
-        DAE.REDUCTION(
-          DAE.REDUCTIONINFO(
-            name(call.fn),
-            Absyn.COMBINE(),
-            toDAE(call.ty),
-            toDAEValueOpt(call.defaultExp),
-            fold_id,
-            res_id,
-            toDAEOpt(fold_exp),
-          ),
-          toDAE(call.exp),
-          list(iteratorToDAE(iter) for iter in call.iters),
-        )
-      end
-
-      _ => begin
-        Error.assertion(false, getInstanceName() + " got untyped call", sourceInfo())
-        fail()
-      end
-    end
-  end
-  return daeCall
 end
 
 """Like toString, but prefixes each argument with its type as a comment."""
@@ -545,19 +472,12 @@ function typedFunction(call::Call)::MODELICA_FUNCTION
   return fn
 end
 
-function inlineType(call::Call)::DAE.InlineType
-  local inlineTy::DAE.InlineType
-   inlineTy = begin
-    @match call begin
-      TYPED_CALL(attributes = CALL_ATTR(inlineType = inlineTy)) => begin
-        inlineTy
-      end
-      _ => begin
-        DAE.NO_INLINE()
-      end
-    end
+"""How a call is inlined: its attributes' `InlineType` for a typed call, `NO_INLINE` otherwise."""
+function inlineType(call::Call)::InlineType
+  if isvariant(call, TYPED_CALL)
+    return (call.attributes::CALL_ATTR).inlineType
   end
-  return inlineTy
+  return NO_INLINE
 end
 
 function isRecordConstructor(call::Call)::Bool
@@ -831,7 +751,6 @@ function makeTypedCall(
     isImpure(fn),
     isFunctionPointer(fn),
     inlineBuiltin(fn),
-    DAE.NO_TAIL(),
   )
    call = TYPED_CALL(fn, returnType, variability, args, ca)
   return call
@@ -1300,22 +1219,6 @@ function vectorizeCall(
     end
   end
   return vectorized_call
-end
-
-function iteratorToDAE(iter::Tuple{<:InstNode, Expression})::DAE.ReductionIterator
-  local diter::DAE.ReductionIterator
-  local iter_node::InstNode
-  local iter_range::Expression
-  local c::Component
-  local b::Binding
-   (iter_node, iter_range) = iter
-   diter = DAE.REDUCTIONITER(
-    name(iter_node),
-    toDAE(iter_range),
-    NONE(),
-    toDAE(getType(iter_node)),
-  )
-  return diter
 end
 
 function checkMatchingFunctions(call::Call, info::SourceInfo)

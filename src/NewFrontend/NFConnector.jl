@@ -33,50 +33,33 @@
 *
 */ =#
 
-const Face = (() -> begin #= Enumeration =#
-  INSIDE = 1
-  OUTSIDE = 2
-  () -> (INSIDE; OUTSIDE)
-end)()
-const FaceType = Int
+"""How far `split` scalarizes a connector: `SCALARIZE_NONE`, `SCALARIZE_PREFIX` or `SCALARIZE_ALL` (ordered)."""
+const ScalarizeSetting = UInt8
+"""`a[2].b[2]` => `{a[2].b[2]}`."""
+const SCALARIZE_NONE::ScalarizeSetting = 0x01
+"""`a[2].b[2]` => `{a[1].b[2], a[2].b[2]}`: the prefix's arrays are split."""
+const SCALARIZE_PREFIX::ScalarizeSetting = 0x02
+"""`a[2].b[2]` => `{a[1].b[1], a[1].b[2], a[2].b[1], a[2].b[2]}`: all arrays are split."""
+const SCALARIZE_ALL::ScalarizeSetting = 0x03
 
-@Uniontype Connector begin
-  @Record CONNECTOR begin
-    name::ComponentRef
-    ty::ModelicaType
-    face::FaceType
-    cty::ConnectorType.TYPE
-    source::DAE.ElementSource
-  end
-end
-
-const ScalarizeSetting = (() -> begin #= Enumeration =#
-                    NONE = 1  #= a[2].b[2] => {a[2].b[2]} =#
-                    PREFIX = 2  #= a[2].b[2] => {a[1].b[2], a[2].b[2]} =#
-                    ALL = 3  #= a[2].b[2] => {a[1].b[1], a[1].b[2], a[2].b[1], a[2].b[2]} =#
-                    () -> (NONE; PREFIX; ALL)  #= a[2].b[2] => {a[1].b[1], a[1].b[2], a[2].b[1], a[2].b[2]} =#
-                    end)()
-
-const ScalarizeSettingType = Int
-
-#= Wrapper to avoid shadowing by the `scalarize` parameter of ScalarizeSettingType =#
+#= Wrapper to avoid shadowing by the `scalarize` parameter of ScalarizeSetting =#
 scalarizeCref(cref::ComponentRef)::List{ComponentRef} = scalarize(cref)
 
 """Splits a connector into its primitive components."""
-#= Connection sets hold scalars also when not scalarizing (NF_SCALARIZE off): connects in
+#= Connection sets hold scalars also when not scalarizing (FRONTEND_SCALARIZE off): connects in
    for-loops are unrolled per element, so flows added as whole arrays (NONE) never met the
    connected elements and unconnected-flow equations  covered connected elements. =#
 function split(
-  conn::Connector,
-  scalarize::ScalarizeSettingType = ScalarizeSetting.ALL,
-)::List{Connector}
-  local connl::List{Connector}
+  conn::CONNECTOR,
+  scalarize::ScalarizeSetting = SCALARIZE_ALL,
+)::List{CONNECTOR}
+  local connl::List{CONNECTOR}
 
   connl = splitImpl(conn.name, conn.ty, conn.face, conn.source, conn.cty, scalarize)
   return connl
 end
 
-function hash(conn::Connector, mod::Int)::Int
+function hash(conn::CONNECTOR, mod::Int)::Int
   return hash(conn.name, mod)
 end
 
@@ -89,68 +72,64 @@ function Base.string(conn::CONNECTOR)::String
   return toString(conn.name)
 end
 
-function name(conn::Connector)::ComponentRef
+function name(conn::CONNECTOR)::ComponentRef
   return conn.name
 end
 
-function isExpandable(conn::Connector)::Bool
+function isExpandable(conn::CONNECTOR)::Bool
   return ConnectorType.isExpandable(conn.cty)
 end
 
-function isDeleted(conn::Connector)::Bool
+function isDeleted(conn::CONNECTOR)::Bool
   return isDeleted(conn.name)
 end
 
-function setOutside(conn::Connector)::Connector
-  if conn.face != Face.OUTSIDE
-    conn = CONNECTOR(conn.name, conn.ty, Face.OUTSIDE, conn.cty, conn.source)
+function setOutside(conn::CONNECTOR)::CONNECTOR
+  if conn.face != FACE_OUTSIDE
+    conn = CONNECTOR(conn.name, conn.ty, FACE_OUTSIDE, conn.cty, conn.source)
   end
   return conn
 end
 
-function isOutside(conn::Connector)::Bool
+function isOutside(conn::CONNECTOR)::Bool
   #=  Needed due to #4502
   =#
-  return conn.face == Face.OUTSIDE
+  return conn.face == FACE_OUTSIDE
 end
 
-function isNodeNameEqual(conn1::Connector, conn2::Connector)::Bool
+function isNodeNameEqual(conn1::CONNECTOR, conn2::CONNECTOR)::Bool
   local isEqual::Bool =
     name(node(conn1.name)) ==
     name(node(conn2.name))
   return isEqual
 end
 
-function isPrefix(conn1::Connector, conn2::Connector)::Bool
+function isPrefix(conn1::CONNECTOR, conn2::CONNECTOR)::Bool
   return isPrefix(conn1.name, conn2.name)
 end
 
-function isEqual(conn1::Connector, conn2::Connector)::Bool
+function isEqual(conn1::CONNECTOR, conn2::CONNECTOR)::Bool
   return isEqual(conn1.name, conn2.name) && conn1.face == conn2.face
 end
 
-function variability(conn::Connector)::VariabilityType
+function variability(conn::CONNECTOR)::VariabilityType
   return variability(component(node(conn.name)))
 end
 
-function Connector_getInfo(conn::Connector)::SourceInfo
-  return conn.source.info
-end
-
-function getType(conn::Connector)::ModelicaType
+function getType(conn::CONNECTOR)::ModelicaType
   return conn.ty
 end
 
 """Constructs a list of Connectors from a cref or an array of crefs."""
 function fromExp(
   exp::Expression,
-  source::DAE.ElementSource,
-  conns::List{<:Connector} = nil
-)::List{Connector}
+  source::SourceInfo,
+  conns::List{<:CONNECTOR} = nil
+)::List{CONNECTOR}
   conns = begin
     @match exp begin
       CREF_EXPRESSION(__) => begin
-        Cons{Connector}(fromCref(exp.cref, exp.ty, source), conns)
+        Cons{CONNECTOR}(fromCref(exp.cref, exp.ty, source), conns)
       end
       ARRAY_EXPRESSION(__) => begin
         #= Lets do it in reverse order to keep the test output the same. =#
@@ -177,9 +156,9 @@ end
 function fromFacedCref(
   cref::ComponentRef,
   ty::ModelicaType,
-  face::FaceType,
-  source::DAE.ElementSource,
-)::Connector
+  face::Face,
+  source::SourceInfo,
+)::CONNECTOR
   local nodeVar::InstNode = node(cref)
   local comp::Component
   local cty::ConnectorType.TYPE
@@ -193,19 +172,19 @@ function fromFacedCref(
   return CONNECTOR(simplifySubscripts(cref), ty, face, cty, source)
 end
 
-function fromCref(cref::ComponentRef, ty::ModelicaType, source::DAE.ElementSource)::Connector
+function fromCref(cref::ComponentRef, ty::ModelicaType, source::SourceInfo)::CONNECTOR
   return fromFacedCref(cref, ty, crefFace(cref), source)
 end
 
 function splitImpl2(
   name::ComponentRef,
-  face::FaceType,
-  source::DAE.ElementSource,
+  face::Face,
+  source::SourceInfo,
   comps::List{<:InstNode},
-  scalarize::ScalarizeSettingType,
-  conns::List{<:Connector},
+  scalarize::ScalarizeSetting,
+  conns::List{<:CONNECTOR},
   dims::List{<:Dimension},
-)::List{Connector}
+)::List{CONNECTOR}
 
   local c::Component
   local cref::ComponentRef
@@ -227,7 +206,7 @@ function splitImpl2(
   return conns
 end
 
-function addSubscripts(subscripts::List{Subscript}, conn::Connector)
+function addSubscripts(subscripts::List{Subscript}, conn::CONNECTOR)
   @assign begin
     conn.name = mergeSubscripts(subscripts, conn.name; applyToScope = true)
     conn.ty = subscript(conn.ty, subscripts)
@@ -238,13 +217,13 @@ end
 function splitImpl(
   name::ComponentRef,
   ty::ModelicaType,
-  face::FaceType,
-  source::DAE.ElementSource,
+  face::Face,
+  source::SourceInfo,
   cty::ConnectorType.TYPE,
-  scalarize::ScalarizeSettingType,
-  conns::List{<:Connector} = nil,
+  scalarize::ScalarizeSetting,
+  conns::List{<:CONNECTOR} = nil,
   dims::List{<:Dimension} = nil,
-)::List{Connector} #= accumulated dimensions if splitArrays = false =#
+)::List{CONNECTOR} #= accumulated dimensions if splitArrays = false =#
   conns = begin
     local ety::ModelicaType
     local ct::ComplexType
@@ -258,7 +237,7 @@ function splitImpl(
       end
 
       TYPE_COMPLEX(complexTy = COMPLEX_EXTERNAL_OBJECT(__)) => begin
-        Cons{Connector}(CONNECTOR(name, liftArrayLeftList(ty, dims), face, cty, source), conns)
+        Cons{CONNECTOR}(CONNECTOR(name, liftArrayLeftList(ty, dims), face, cty, source), conns)
       end
 
       TYPE_COMPLEX(__) => begin
@@ -277,7 +256,7 @@ function splitImpl(
 
       TYPE_ARRAY(
         elementType = ety && TYPE_COMPLEX(__),
-      ) where {(scalarize >= ScalarizeSetting.PREFIX)} => begin
+      ) where {(scalarize >= SCALARIZE_PREFIX)} => begin
         for c in scalarizeCref(name)
           conns = splitImpl(c, ety, face, source, cty, scalarize, conns, dims)
         end
@@ -285,7 +264,7 @@ function splitImpl(
       end
 
       TYPE_ARRAY(elementType = ety) => begin
-        if scalarize == ScalarizeSetting.ALL
+        if scalarize == SCALARIZE_ALL
           for c in scalarizeCref(name)
             conns = splitImpl(c, ety, face, source, cty, scalarize, conns, dims)
           end
@@ -307,7 +286,7 @@ function splitImpl(
       end
 
       _ => begin
-        Cons{Connector}(CONNECTOR(name, liftArrayLeftList(ty, dims), face, cty, source), conns)
+        Cons{CONNECTOR}(CONNECTOR(name, liftArrayLeftList(ty, dims), face, cty, source), conns)
       end
     end
   end
@@ -319,21 +298,21 @@ end
   an outside connector is a connector where the first part of the cref is a
   connector, and an inside connector all other crefs.
 """
-function crefFace(cref::ComponentRef)::FaceType
-  local face::FaceType
+function crefFace(cref::ComponentRef)::Face
+  local face::Face
   face = begin
     @match cref begin
       COMPONENT_REF_CREF(restCref = COMPONENT_REF_EMPTY(__)) => begin
-        Face.OUTSIDE
+        FACE_OUTSIDE
       end
 
       _ => begin
         if isConnector(node(firstNonScope(
           cref,
         )))
-          Face.OUTSIDE
+          FACE_OUTSIDE
         else
-          Face.INSIDE
+          FACE_INSIDE
         end
       end
     end
@@ -345,6 +324,6 @@ function crefFace(cref::ComponentRef)::FaceType
   return face
 end
 
-function isArray(conn::Connector)
+function isArray(conn::CONNECTOR)
   return isArray(conn.ty)
 end

@@ -35,16 +35,16 @@
 
 """
 ```
-evaluate(flatModel::FlatModel)
+evaluate(flatModel::FLAT_MODEL)
 ```
 
 Evaluates the flat model.
 Basically this routine does constant evaluations by resolving parts of the model that is known statically.
 """
-function evaluate(flatModel::FlatModel)::FlatModel
+function evaluate(flatModel::FLAT_MODEL)::FLAT_MODEL
   local const_var::VariabilityType = Variability.STRUCTURAL_PARAMETER
   @assign begin
-    flatModel.variables = Variable[evaluateVariable(v, const_var) for v in flatModel.variables]
+    flatModel.variables = VARIABLE[evaluateVariable(v, const_var) for v in flatModel.variables]
     flatModel.initialEquations = evaluateEquations(flatModel.initialEquations, const_var)
     flatModel.equations = evaluateEquations(flatModel.equations, const_var)
     flatModel.algorithms = evaluateAlgorithms(flatModel.algorithms, const_var)
@@ -54,7 +54,7 @@ function evaluate(flatModel::FlatModel)::FlatModel
   return flatModel
 end
 
-function evaluateVariable(var::Variable, constVariability::VariabilityType)::Variable
+function evaluateVariable(var::VARIABLE, constVariability::VariabilityType)::VARIABLE
   local binding::Binding
   @assign binding = evaluateBinding(
     var.binding,
@@ -177,7 +177,7 @@ function evaluateExpTraverser(
              flatten: there the class is flattened per element, and the field's value over the components
              is the one structural sizes read (omc's CevalRecordArray9: `{i for i in layers.nSta}` over
              `layers.nLay`). =#
-          if !Flags.isSet(Flags.NF_SCALARIZE) && nodeVariability(cref) > Variability.CONSTANT &&
+          if !Flags.isSet(Flags.FRONTEND_SCALARIZE) && nodeVariability(cref) > Variability.CONSTANT &&
              dimensionCount(value) > dimensionCount(ty)
             value = outExp
           end

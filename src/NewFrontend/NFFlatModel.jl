@@ -33,39 +33,6 @@
 *
 */ =#
 
-"""
-```
-struct FLAT_MODEL <: FlatModel
-  name::String
-  variables::Vector{Variable}
-  equations::Vector{Equation}
-  initialEquations::Vector{Equation}
-  algorithms::Vector{ALGORITHM}
-  initialAlgorithms::Vector{ALGORITHM}
-  #= VSS Modelica extension =#
-  structuralSubmodels::List{FlatModel}
-  scodeProgram::Option{SCode.CLASS}
-  #= End VSS Modelica extension =#
-  comment::Option{SCode.Comment}
-end
-```
-
-  The flat representation of a Modelica Model.
-"""
-struct FLAT_MODEL <: FlatModel
-  name::String
-  variables::Vector{Variable}
-  equations::Vector{Equation}
-  initialEquations::Vector{Equation}
-  algorithms::Vector{ALGORITHM}
-  initialAlgorithms::Vector{ALGORITHM}
-  #= VSS Modelica extension =#
-  structuralSubmodels::List{FlatModel}
-  scodeProgram::Option{SCode.CLASS}
-  #= End VSS Modelica extension =#
-  comment::Option{SCode.Comment}
-end
-
 module TypeTreeImpl
 using MetaModelica
 import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
@@ -105,9 +72,9 @@ const TypeTree = TypeTreeImpl.Tree
 
 function reconstructRecordInstance(
   recordName::ComponentRef,
-  variables::List{<:Variable},
+  variables::List{<:VARIABLE},
   )
-  local recordVar::Variable
+  local recordVar::VARIABLE
   local record_node::InstNode
   local record_comp::Component
   local record_ty::ModelicaType
@@ -156,12 +123,12 @@ function reconstructRecordInstance(
   return recordVar
 end
 
-function reconstructRecordInstances(variables::Vector{Variable})
-  local outVariables::Vector{Variable} = Variable[]
+function reconstructRecordInstances(variables::Vector{VARIABLE})
+  local outVariables::Vector{VARIABLE} = VARIABLE[]
   local bindingEquations::Vector{Equation} = Equation[]
-  local rest_vars::List{Variable} = arrayList(variables)
-  local record_vars::List{Variable}
-  local var::Variable
+  local rest_vars::List{VARIABLE} = arrayList(variables)
+  local record_vars::List{VARIABLE}
+  local var::VARIABLE
   local parent_cr::ComponentRef
   local parent_ty::ModelicaType
   while !listEmpty(rest_vars)
@@ -208,7 +175,7 @@ function reconstructRecordInstances(variables::Vector{Variable})
             if hasExp(fv.binding)
               local _lhs = CREF_EXPRESSION(fv.ty, fv.name)
               local _rhs = getExp(fv.binding)
-              push!(bindingEquations, EQUATION_EQUALITY(_lhs, _rhs, fv.ty, DAE.emptyElementSource))
+              push!(bindingEquations, EQUATION_EQUALITY(_lhs, _rhs, fv.ty, fv.info))
             end
           end
         end
@@ -479,7 +446,7 @@ function collectFlatType(ty::ModelicaType, types::TypeTree)::TypeTree
   return types
 end
 
-function collectVariableFlatTypes(var::Variable, types::TypeTree)
+function collectVariableFlatTypes(var::VARIABLE, types::TypeTree)
   types = collectFlatType(var.ty, types)
   types = collectBindingFlatTypes(var.binding, types)
   for attr in var.typeAttributes
@@ -488,7 +455,7 @@ function collectVariableFlatTypes(var::Variable, types::TypeTree)
   return types
 end
 
-function collectFlatTypes(flatModel::FlatModel, functions::List{MODELICA_FUNCTION})
+function collectFlatTypes(flatModel::FLAT_MODEL, functions::List{MODELICA_FUNCTION})
   local types::TypeTree
   types = TypeTreeImpl.new()
   types = ArrayUtil.fold(flatModel.variables, collectVariableFlatTypes, types)
@@ -502,16 +469,16 @@ function collectFlatTypes(flatModel::FlatModel, functions::List{MODELICA_FUNCTIO
   return typeLst
 end
 
-function toFlatStream(flatModel::FlatModel, functions::List, printBindingTypes::Bool = false, s = Nothing)
+function toFlatStream(flatModel::FLAT_MODEL, functions::List, printBindingTypes::Bool = false, s = Nothing)
   local str::String
-  local flat_model::FlatModel = flatModel
+  local flat_model::FLAT_MODEL = flatModel
   s = IOStream_M.append(s, "model '" + flat_model.name + "'\\n")
   (vars, bindingEqs) = reconstructRecordInstances(flat_model.variables)
   #=
   Sometimes, we get duplicate elements when we collect record elements.
   Make sure that we do not get duplicated record instances.
   =#
-  if Flags.isSet(Flags.NF_SCALARIZE)
+  if Flags.isSet(Flags.FRONTEND_SCALARIZE)
     unique!((x) -> toString(x.name), vars)
   end
   @assign flat_model.variables = vars
@@ -794,7 +761,7 @@ function generateSingleWrapper(
 end
 
 function toFlatString(
-  flatModel::FlatModel,
+  flatModel::FLAT_MODEL,
   functions::List,
   printBindingTypes::Bool = false,
   )
@@ -837,7 +804,7 @@ function toFlatString(
   return str
 end
 
-function toString(flatModel::FlatModel, printBindingTypes::Bool = false)::String
+function toString(flatModel::FLAT_MODEL, printBindingTypes::Bool = false)::String
   local str::String
   local s::IOStream_M.IOSTREAM
   local modelName = replace(flatModel.name, "." => "_")

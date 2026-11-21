@@ -33,7 +33,7 @@
 *
 */ =#
 
-function verify(flatModel::FlatModel)
+function verify(flatModel::FLAT_MODEL)
   for var in flatModel.variables
     verifyVariable(var)
   end
@@ -58,7 +58,7 @@ omc's subscript bounds check (VerifyModel.checkSubscriptBounds): literal subscri
 crefs against known dimensions, in bindings, equations (shallow, as omc's
 Equation.applyExpShallow) and statements.
 """
-function verifyVariable(var::Variable)
+function verifyVariable(var::VARIABLE)
   verifyBindingBounds(var.binding)
   for attr in var.typeAttributes
     verifyBindingBounds(Util.tuple22(attr))
@@ -78,7 +78,7 @@ function verifyBindingBounds(binding::Binding)
 end
 
 function verifyEquationBounds(eq::Equation)
-  local info::SourceInfo = DAE.ElementSource_getInfo(source(eq))
+  local info::SourceInfo = source(eq)
   @match eq begin
     EQUATION_EQUALITY(__) || EQUATION_CONNECT(__) => begin
       checkSubscriptBounds(eq.lhs, info)
@@ -112,7 +112,7 @@ function verifyEquationBounds(eq::Equation)
 end
 
 function verifyStatementBounds(stmt::Statement)
-  local info::SourceInfo = DAE.ElementSource_getInfo(stmt.source)
+  local info::SourceInfo = stmt.source
   @match stmt begin
     ALG_ASSIGNMENT(__) => begin
       checkSubscriptBounds(stmt.lhs, info)
@@ -209,7 +209,7 @@ function checkCrefSetEquality(
   crefs1::List{<:ComponentRef},
   crefs2::List{<:ComponentRef},
   errMsg #= TODO=#,
-  source::DAE.ElementSource,
+  source::SourceInfo,
 )
   #=  Assume the user isn't mixing different ways of subscripting array
   =#
@@ -229,7 +229,7 @@ function checkCrefSetEquality(
   end
   #=  Couldn't get the sets to match, print an error and fail.
   =#
-  Error.addSourceMessage(errMsg, nil, DAE.ElementSource_getInfo(source))
+  Error.addSourceMessage(errMsg, nil, source)
   return fail()
 end
 
@@ -241,7 +241,7 @@ end
 """
 function whenEquationIfCrefs(
   branches::Union{List{<:EquationBranch}, Vector{<:EquationBranch}},
-  source::DAE.ElementSource,
+  source::SourceInfo,
   crefs::List{<:ComponentRef},
 )::List{ComponentRef}
   local crefs1::List{ComponentRef} = nil
@@ -318,7 +318,7 @@ end
 """ Checks that each branch in a when-equation has the same set of crefs on the lhs. """
 function verifyWhenEquation(
   branches::List{<:EquationBranch},
-  source::DAE.ElementSource,
+  source::SourceInfo,
 )
   local crefs1::List{ComponentRef}
   local crefs2::List{ComponentRef}

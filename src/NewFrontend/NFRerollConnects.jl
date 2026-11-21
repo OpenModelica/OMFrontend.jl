@@ -34,7 +34,7 @@
 */ =#
 
 #=
-  Connection equations as for-equations when not scalarizing.
+  CONNECTION equations as for-equations when not scalarizing.
 
   The connection sets hold scalar connectors (Connector.split), so the equations generated from them are scalar:
   `r[1].n.v = r[2].p.v`, `r[2].n.v = r[3].p.v`, ... . Equations of one shape, the same but for their literal integer
@@ -209,7 +209,7 @@ The for-equation over `n` members of one shape: `eq` (the first member, canonica
 `base[i] + step[i] * (\$i1 - 1)`; its sides swapped back when `swapped` (the first member's orientation).
 """
 function _rerollLoop(eq::Equation, base::Vector{Int}, step::Vector{Int}, n::Int, swapped::Bool)::Equation
-  local iterNode::InstNode = newIndexedIterator(1, TYPE_INTEGER(), AbsynUtil.dummyInfo)
+  local iterNode::InstNode = newIndexedIterator(1, TYPE_INTEGER(), eq.source)
   local iter::Expression = CREF_EXPRESSION(TYPE_INTEGER(), makeIterator(iterNode, TYPE_INTEGER()))
   local subs::Vector{Subscript} = Subscript[_rerollSubscript(iter, base[k], step[k]) for k in eachindex(base)]
   local vals::Vector{Int} = Int[]
@@ -229,7 +229,7 @@ const RerollMember = Tuple{Equation, Equation, Vector{Int}, Bool}
 
 The scalar connection equations `eqs` with each run of members of one shape whose literal subscripts are affine in
 the member's position (at least 2 members) as one for-equation. Members are ordered by their subscripts within a
-shape; equations not rerolled keep their place and their form. Used when not scalarizing (`NF_SCALARIZE` off).
+shape; equations not rerolled keep their place and their form. Used when not scalarizing (`FRONTEND_SCALARIZE` off).
 """
 function rerollConnectEquations(eqs::Vector{Equation})::Vector{Equation}
   #= the group of each shape key =#

@@ -82,20 +82,6 @@ function fromSCode(scodeCty::SCode.ConnectorType)::Int
   return cty
 end
 
-function toDAE(cty::T)::DAE.ConnectorType where {T <: Integer}
-  local dcty::DAE.ConnectorType
-  if intBitAnd(cty, ConnectorType.POTENTIAL) > 0
-    dcty = DAE.POTENTIAL()
-  elseif intBitAnd(cty, ConnectorType.FLOW) > 0
-    dcty = DAE.FLOW()
-  elseif intBitAnd(cty, ConnectorType.STREAM) > 0
-    dcty = DAE.STREAM(NONE())
-  else
-    dcty = DAE.NON_CONNECTOR()
-  end
-  return dcty
-end
-
 function merge(
   outerCty::T,
   innerCty::T,
@@ -354,25 +340,6 @@ function parallelismToSCode(par)
   return spar
 end
 
-function parallelismToDAE(par)::DAE.VarParallelism
-  local dpar::DAE.VarParallelism
-  @assign dpar = begin
-    @match par begin
-      Parallelism.GLOBAL => begin
-        DAE.PARGLOBAL()
-      end
-      Parallelism.LOCAL => begin
-        DAE.PARLOCAL()
-      end
-
-      Parallelism.NON_PARALLEL => begin
-        DAE.NON_PARALLEL()
-      end
-    end
-  end
-  return dpar
-end
-
 function parallelismString(par)::String
   local str::String
 
@@ -486,68 +453,6 @@ function variabilityToSCode(var)::SCode.Variability
     end
   end
   return scodeVar
-end
-
-function variabilityToDAE(var)::DAE.VarKind
-  local varKind::DAE.VarKind
-
-  @assign varKind = begin
-    @match var begin
-      Variability.CONSTANT => begin
-        DAE.CONST()
-      end
-
-      Variability.STRUCTURAL_PARAMETER => begin
-        DAE.PARAM()
-      end
-
-      Variability.PARAMETER => begin
-        DAE.PARAM()
-      end
-
-      Variability.NON_STRUCTURAL_PARAMETER => begin
-        DAE.PARAM()
-      end
-
-      Variability.DISCRETE => begin
-        DAE.DISCRETE()
-      end
-
-      _ => begin
-        DAE.VARIABLE()
-      end
-    end
-  end
-  return varKind
-end
-
-function variabilityToDAEConst(var)::DAE.Const
-  local M_const::DAE.Const
-
-  @assign M_const = begin
-    @match var begin
-      Variability.CONSTANT => begin
-        DAE.C_CONST()
-      end
-
-      Variability.STRUCTURAL_PARAMETER => begin
-        DAE.C_PARAM()
-      end
-
-      Variability.PARAMETER => begin
-        DAE.C_PARAM()
-      end
-
-      Variability.NON_STRUCTURAL_PARAMETER => begin
-        DAE.C_PARAM()
-      end
-
-      _ => begin
-        DAE.C_VAR()
-      end
-    end
-  end
-  return M_const
 end
 
 function variabilityString(var)::String
@@ -683,24 +588,6 @@ function directionFromSCode(scodeDir::Absyn.Direction)
     end
   end
   return dir
-end
-
-function directionToDAE(dir)::DAE.VarDirection
-  local ddir::DAE.VarDirection
-  @assign ddir = begin
-    @match dir begin
-      Direction.INPUT => begin
-        DAE.INPUT()
-      end
-      Direction.OUTPUT => begin
-        DAE.OUTPUT()
-      end
-      _ => begin
-        DAE.BIDIR()
-      end
-    end
-  end
-  return ddir
 end
 
 function directionToAbsyn(dir)::Absyn.Direction
@@ -894,15 +781,6 @@ function visibilityFromSCode(scodeVis::SCode.Visibility)
     end
   end
   return vis
-end
-
-function visibilityToDAE(vis)::DAE.VarVisibility
-  local dvis::DAE.VarVisibility = if vis == Visibility.PUBLIC
-    DAE.PUBLIC()
-  else
-    DAE.PROTECTED()
-  end
-  return dvis
 end
 
 function visibilityToSCode(vis)::SCode.Visibility

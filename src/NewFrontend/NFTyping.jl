@@ -745,7 +745,7 @@ end
   @nospecialize(origin::ORIGIN_Type),
   structural::Bool = false
   )::Tuple{Expression, ModelicaType, VariabilityType}
-  local info::SourceInfo = AbsynUtil.dummyInfo
+  local info::SourceInfo = InstNode_info(iterator)
   local (exp, ty, var) = typeExp(range, setFlag(origin, ORIGIN_ITERATION_RANGE), info)
   if structural && var > Variability.PARAMETER
     Error.addSourceMessageAndFail(Error.NON_PARAMETER_ITERATOR_RANGE, list(toString(exp)), info)
@@ -763,7 +763,7 @@ end
   structural,
   )::Tuple{Expression, ModelicaType, VariabilityType}
   @nospecialize
-  local info::SourceInfo = AbsynUtil.dummyInfo
+  local info::SourceInfo = Component_info(c)
   (exp, ty, var) =
     typeRange(Base.inferencebarrier(range), setFlag(origin, ORIGIN_ITERATION_RANGE), info)
   if structural && var > Variability.PARAMETER
@@ -3431,7 +3431,7 @@ end
       end
 
       EQUATION_FOR(__) => begin
-        info = sourceInfo() #DAE.emptyElementSource -John
+        info = eq.source
         e1 = isSome(eq.range) ? Util.getOption(eq.range) : deduceIterationRangeEq(eq, eq.iterator, info)
         (e1, _, _) = typeIterator(eq.iterator, e1, origin, true)
         next_origin = setFlag(origin, ORIGIN_FOR)
@@ -3452,7 +3452,7 @@ end
       end
 
       EQUATION_TERMINATE(__) => begin
-        info = AbsynUtil.dummyInfo #DAE.emptyElementSource
+        info = eq.source
         e1 = typeOperatorArg(
           eq.message,
           TYPE_STRING(),
@@ -3471,13 +3471,13 @@ end
       end
 
       EQUATION_NORETCALL(__) => begin
-        info = sourceInfo() #Added by me -John
-        (e1 ,_ ,_) = typeExp(eq.exp, origin, info) #eq.source #=DAE.emptyElementSource=#)
+        info = eq.source
+        (e1 ,_ ,_) = typeExp(eq.exp, origin, info) #eq.source #=AbsynUtil.dummyInfo=#)
         EQUATION_NORETCALL(e1, eq.source)
       end
 
       EQUATION_RECONFIGURE(__) => begin
-        local info = DAE.ElementSource_getInfo(eq.source)
+        local info = eq.source
         #= Loops, not comprehensions: their closures' element types were not inferred, and the widening `collect`
            was invalidated at each load by a package's `setindex_widen_up_to` method (Unzip) (2026-11-16). =#
         local typedConds = Expression[]
@@ -3516,7 +3516,7 @@ end
 end
 
 function typeEquationAssert(eq::Equation, origin::ORIGIN_Type)
-  info = sourceInfo() #TODO: DAE.emptyElementSource
+  info = eq.source
   next_origin = setFlag(origin, ORIGIN_ASSERT)
   e1 = typeOperatorArg(
     eq.condition,
@@ -3553,7 +3553,7 @@ end
   @nospecialize(lhsConn::Expression),
   @nospecialize(rhsConn::Expression),
   origin::ORIGIN_Type,
-  source::DAE.ElementSource,
+  source::SourceInfo,
 )::Equation
   local connEq::Equation
 
@@ -3568,7 +3568,7 @@ end
   local info::SourceInfo
   local eql::List{Equation}
 
-   info =  sourceInfo() #TODO: DAE.ElementSource_getInfo(source) ElementSource_getInfo(source)
+   info = source
   #=  Connections may not be used in if-equations unless the conditions are
   =#
   #=  parameter expressions.
@@ -3756,7 +3756,7 @@ end
     local info::SourceInfo
     @match st begin
       ALG_ASSIGNMENT(__) => begin
-        info = AbsynUtil.dummyInfo#DAE.ElementSource_getInfo(st.source)
+        info = st.source
         (e1, ty1, var1) =
           typeExp(st.lhs, setFlag(origin, ORIGIN_LHS), info)
         (e2, ty2) =
@@ -3783,7 +3783,7 @@ end
       end
 
       ALG_FOR(__) => begin
-        info = AbsynUtil.dummyInfo #DAE.ElementSource_getInfo(st.source)
+        info = st.source
         e1 = isSome(st.range) ? Util.getOption(st.range) : deduceIterationRangeStmt(st, st.iterator, info)
         (e1, _, _) = typeIterator(st.iterator, e1, origin, false)
         next_origin = setFlag(origin, ORIGIN_FOR)
@@ -3819,7 +3819,7 @@ end
       end
 
       ALG_ASSERT(__) => begin
-        info = AbsynUtil.dummyInfo #DAE.ElementSource_getInfo(st.source)
+        info = st.source
         next_origin = setFlag(origin, ORIGIN_ASSERT)
         e1 = typeOperatorArg(
           st.condition,
@@ -3853,7 +3853,7 @@ end
       end
 
       ALG_TERMINATE(__) => begin
-         info = DAE.ElementSource_getInfo(st.source)
+         info = st.source
         #=  terminate is not allowed in a function context.
         =#
         if flagSet(origin, ORIGIN_FUNCTION)
@@ -3874,7 +3874,7 @@ end
 
       ALG_REINIT(__) => begin
         if flagNotSet(origin, ORIGIN_WHEN)
-          Error.addSourceMessage(Error.REINIT_NOT_IN_WHEN, nil, DAE.ElementSource_getInfo(st.source))
+          Error.addSourceMessage(Error.REINIT_NOT_IN_WHEN, nil, st.source)
           fail()
         end
         (e1, e2) = typeReinit(st.cref, st.reinitExp, origin, st.source)
@@ -3882,7 +3882,7 @@ end
       end
 
       ALG_NORETCALL(__) => begin
-        (e1, _, _) = typeExp(st.exp, origin, AbsynUtil.dummyInfo)#DAE.ElementSource_getInfo(st.source))
+        (e1, _, _) = typeExp(st.exp, origin, st.source)
         ALG_NORETCALL(e1, st.source)
       end
 
@@ -3914,10 +3914,10 @@ end
   @nospecialize(lhsExp::Expression),
   @nospecialize(rhsExp::Expression),
   origin::ORIGIN_Type,
-  source::DAE.ElementSource,
+  source::SourceInfo,
   )::Equation
   local eq::Equation
-  local info::SourceInfo = sourceInfo()
+  local info::SourceInfo = source
   local e1::Expression
   local e2::Expression
   local ty1::ModelicaType
@@ -3967,7 +3967,7 @@ end
 @nospecializeinfer function typeCondition(
   @nospecialize(condition::Expression),
   origin::ORIGIN_Type,
-  source::DAE.ElementSource,
+  source::SourceInfo,
   errorMsg;
   allowVector::Bool = false,
   allowClock::Bool = false,
@@ -3978,7 +3978,7 @@ end
 
   local ety::ModelicaType
 
-  info = sourceInfo() #DAE.emptyElementSource #TODO: DAE.ElementSource_getInfo(source)
+  info = source
   (condition, ty, variability) =
     typeExp(condition, origin, info)
   ety = if allowVector
@@ -4002,7 +4002,7 @@ end
 @nospecializeinfer function typeIfEquation(
   @nospecialize(branches::Vector{<:EquationBranch}),
   origin::ORIGIN_Type,
-  source::DAE.ElementSource,
+  source::SourceInfo,
 )::Equation
   local ifEq::Equation
   local cond::Expression
@@ -4080,7 +4080,7 @@ end
   #=  Do branch selection anyway if -d=-nfScalarize is set, otherwise turning of
     scalarization breaks currently.
   =#
-  if !Flags.isSet(Flags.NF_SCALARIZE)
+  if !Flags.isSet(Flags.FRONTEND_SCALARIZE)
     bl = bl2
     bl2 = EquationBranch[]
     for b in bl
@@ -4151,7 +4151,7 @@ omc NFTyping.typeWhenCondition: a when-condition must be a discrete-time express
 (or a clock).
 """
 function typeWhenCondition(@nospecialize(condition::Expression), origin::ORIGIN_Type,
-                           source::DAE.ElementSource, allowClock::Bool)::Tuple{Expression, ModelicaType, VariabilityType}
+                           source::SourceInfo, allowClock::Bool)::Tuple{Expression, ModelicaType, VariabilityType}
   local cond::Expression
   local ty::ModelicaType
   local var::VariabilityType
@@ -4159,7 +4159,7 @@ function typeWhenCondition(@nospecialize(condition::Expression), origin::ORIGIN_
                                   allowVector = true, allowClock = allowClock)
   if var > Variability.IMPLICITLY_DISCRETE && !isClock(ty)
     Error.addSourceMessage(Error.NON_DISCRETE_WHEN_CONDITION, list(toString(condition)),
-                           DAE.ElementSource_getInfo(source))
+                           source)
     fail()
   end
   return (cond, ty, var)
@@ -4168,7 +4168,7 @@ end
 @nospecializeinfer function typeWhenEquation(
   @nospecialize(branches::Vector{<:EquationBranch}),
   origin::ORIGIN_Type,
-  source::DAE.ElementSource,
+  source::SourceInfo,
 )::Equation
   local whenEq::Equation
   local next_origin::ORIGIN_Type = setFlag(origin, ORIGIN_WHEN)
@@ -4183,12 +4183,12 @@ end
     if isClock(ty)
       if length(branches) != 1
         if referenceEq(branch, listHead(branches))
-          Error.addSourceMessage(Error.ELSE_WHEN_CLOCK, nil, DAE.ElementSource_getInfo(source))
+          Error.addSourceMessage(Error.ELSE_WHEN_CLOCK, nil, source)
         else
           Error.addSourceMessage(
             Error.CLOCKED_WHEN_BRANCH,
             nil,
-            DAE.ElementSource_getInfo(source),
+            source,
           )
         end
         fail()
@@ -4251,7 +4251,7 @@ function typeReinit(
   @nospecialize(crefExp::Expression),
   @nospecialize(exp::Expression),
   @nospecialize(origin::ORIGIN_Type),
-  @nospecialize(source::DAE.ElementSource),
+  @nospecialize(source::SourceInfo),
 )::Tuple{Expression, Expression}
 
   local var::VariabilityType
@@ -4261,7 +4261,7 @@ function typeReinit(
   local cref::ComponentRef
   local info::SourceInfo
 
-   info = sourceInfo() #TODO: DAE.ElementSource_getInfo(source)
+   info = source
    (crefExp, ty1, _) = typeExp(crefExp, origin, info)
    (exp, ty2, _) = typeExp(exp, origin, info)
   #=  The first argument must be a cref.

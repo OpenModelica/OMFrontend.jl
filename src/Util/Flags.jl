@@ -213,7 +213,7 @@ const VISUAL_XML =
     false,
     Gettext.gettext("Outputs a xml-file that contains information for visualization."),
   )::DebugFlag
-const NF_SCALARIZE =
+const FRONTEND_SCALARIZE =
   DEBUG_FLAG(
     11,
     "nfScalarize",

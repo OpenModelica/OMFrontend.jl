@@ -74,8 +74,8 @@ function printModStr(inMod::SCode.Mod, options::SCodeDumpOptions = defaultOption
 end
 
 """The annotation of an SCode comment as Modelica, `annotation(...)`; empty for none."""
-function printAnnotationStr(inComment::SCode.Comment, options::SCodeDumpOptions = defaultOptions)::String
-  local ann::Option{SCode.Annotation} = inComment.annotation_
+function printAnnotationStr(inComment::SCode.COMMENT, options::SCodeDumpOptions = defaultOptions)::String
+  local ann::Option{SCode.ANNOTATION} = inComment.annotation_
   return isSome(ann) ? dumpAnnotation(ann.value, options) : ""
 end
 
@@ -105,7 +105,7 @@ function dumpModifier(mod::SCode.Mod, options::SCodeDumpOptions)::String
 end
 
 """A submodifier as Modelica: its prefixes, name and modifier."""
-function subModStr(sm::SCode.SubMod, options::SCodeDumpOptions)::String
+function subModStr(sm::SCode.NAMEMOD, options::SCodeDumpOptions)::String
   local mod::SCode.Mod = sm.mod
   mod isa SCode.REDECL && return dumpModifier(mod, options)
   local prefixes::String = mod isa SCode.MOD ?

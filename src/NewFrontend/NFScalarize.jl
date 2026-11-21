@@ -33,8 +33,8 @@
 *
 */ =#
 
-function scalarize(flatModel::FlatModel, name::String)::FlatModel
-  local vars::Vector{Variable} = Variable[]
+function scalarize(flatModel::FLAT_MODEL, name::String)::FLAT_MODEL
+  local vars::Vector{VARIABLE} = VARIABLE[]
   for v in flatModel.variables
     scalarizeVariable(v, vars)
   end
@@ -54,7 +54,7 @@ function scalarize(flatModel::FlatModel, name::String)::FlatModel
 end
 
 """
-    scalarizeKeptArrays(flatModel::FlatModel)::FlatModel
+    scalarizeKeptArrays(flatModel::FLAT_MODEL)::FLAT_MODEL
 
 A flat model flattened without scalarization (`scalarize = false`: array variables, array
 equations, for-equations) in the scalarized form the backend takes: for-equations unrolled
@@ -63,11 +63,11 @@ whose dimensions are on a prefix part (`r.p.i` of a component array `r`: `r[1].p
 equations refer to them), then the array equations expanded by `scalarize`. Algorithms keep
 their for-statements, as when scalarizing.
 """
-function scalarizeKeptArrays(flatModel::FlatModel)::FlatModel
+function scalarizeKeptArrays(flatModel::FLAT_MODEL)::FLAT_MODEL
   #= The settings of a scalarizing flattening (setSettingForInst): expansion of operations and
      function arguments on, so der(x) expands to der(x[1]), ... They stay on: from here on
      the model is scalar, as after a scalarizing flatten. =#
-  FlagsUtil.set(Flags.NF_SCALARIZE, true)
+  FlagsUtil.set(Flags.FRONTEND_SCALARIZE, true)
   FlagsUtil.set(Flags.NF_EXPAND_OPERATIONS, true)
   FlagsUtil.set(Flags.NF_EXPAND_FUNC_ARGS, true)
   #= The array variables by name: their element crefs, dimensions and element type. A cref
@@ -81,7 +81,7 @@ function scalarizeKeptArrays(flatModel::FlatModel)::FlatModel
     end
   end
   local expandArr = (e) -> map(e, (x) -> _expandKeptArrayCref(x, table))
-  local vars::Vector{Variable} = Variable[]
+  local vars::Vector{VARIABLE} = VARIABLE[]
   for v in flatModel.variables
     _splitKeptArrayVariable(v, vars, table)
   end
@@ -114,7 +114,7 @@ function _unrollVectorizedAlgorithm!(out::Vector{ALGORITHM}, stmts::Vector{State
   if length(stmts) == 1 && isvariant(stmts[1], ALG_FOR) && startswith(name(stmts[1].iterator), "\$") &&
      isSome(stmts[1].range)
     local loop = stmts[1]
-    local range::Expression = evalExp(Util.getOption(loop.range), EVALTARGET_RANGE(AbsynUtil.dummyInfo))
+    local range::Expression = evalExp(Util.getOption(loop.range), EVALTARGET_RANGE(source))
     local range_iter = RangeIterator_fromExp(range)
     local val::Expression
     while hasNext(range_iter)
@@ -132,7 +132,7 @@ end
    dimensions of its prefix parts: r.p.i of a component array r -> r[1].p.i, ...), with the
    binding and type attributes of each element. A scalar variable keeps its binding, array
    crefs in it expanded (an array context). =#
-function _splitKeptArrayVariable(v::Variable, vars::Vector{Variable}, table)
+function _splitKeptArrayVariable(v::VARIABLE, vars::Vector{VARIABLE}, table)
   local expandArr = (x) -> _expandKeptArrayCref(x, table)
   if !(isArray(v.ty) && hasKnownSize(v.ty))
     push!(vars, VARIABLE(v.name, v.ty, mapExp(v.binding, expandArr), v.visibility, v.attributes,
@@ -156,7 +156,7 @@ end
    one component of a component array kept as an array, or each): the element's prefix
    subscripts transferred into its crefs (r[2].p.i's binding reads r[2]'s parameters), as
    flattening a scalarized component array does. An array binding: expanded, element k. =#
-function _elementBindings(b::Binding, elems::Vector{ComponentRef}, ndims::Int, v::Variable, table)::Vector{Binding}
+function _elementBindings(b::Binding, elems::Vector{ComponentRef}, ndims::Int, v::VARIABLE, table)::Vector{Binding}
   isBound(b) || return Binding[b for _ in elems]
   local e = getTypedExp(b)
   local var = variability(b)
@@ -381,19 +381,19 @@ function _unrollForEquation!(out::Vector{Equation}, @nospecialize(eq::Equation))
   return out
 end
 
-function scalarizeVariable(var::Variable, vars::Vector{Variable})
+function scalarizeVariable(var::VARIABLE, vars::Vector{VARIABLE})
   local name::ComponentRef
   local binding::Binding
   local ty::ModelicaType
   local vis::VisibilityType
   local attr::Attributes
   local ty_attr::Vector{Tuple{String, Binding}}
-  local cmt::Option{SCode.Comment}
+  local cmt::Option{SCode.COMMENT}
   local info::SourceInfo
   local binding_iter::ExpressionIterator
   local crefs::List{ComponentRef}
   local exp::Expression
-  local v::Variable
+  local v::VARIABLE
   local ty_attr_names::Vector{String}
   local ty_attr_iters::Vector{ExpressionIterator}
   local bind_var::VariabilityType
@@ -592,7 +592,7 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
     local lhs::Expression
     local rhs::Expression
     local ty::ModelicaType
-    local src::DAE.ElementSource
+    local src::SourceInfo
     local info::SourceInfo
     @match eq begin
 
@@ -657,7 +657,7 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
           Error.addInternalError(
             getInstanceName() +
               msg,
-            src.info,
+            src,
           )
           fail()
         end
@@ -686,7 +686,7 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
                 Error.addInternalError(
                   getInstanceName() +
                     msg,
-                  src.info,
+                  src,
                 )
                 fail()
               end
@@ -766,7 +766,7 @@ don't have any branches left.
 """
 function scalarizeIfEquation(
   branches::Vector{<:EquationBranch},
-  source::DAE.ElementSource,
+  source::SourceInfo,
   equations::Vector{Equation},
 )
   local bl::Vector{EquationBranch} = EquationBranch[]
@@ -789,7 +789,7 @@ end
 
 function scalarizeWhenEquation(
   branches::Vector{<:EquationBranch},
-  source::DAE.ElementSource,
+  source::SourceInfo,
   equations::Vector{Equation},
   )
   local bl::Vector{EquationBranch} = EquationBranch[]
@@ -862,7 +862,7 @@ end
 
 function scalarizeIfStatement(
   branches::Vector{Tuple{Expression, Vector{Statement}}},
-  source::DAE.ElementSource,
+  source::SourceInfo,
   statements::Vector{Statement},
 )
   local bl::Vector{Tuple{Expression, Vector{Statement}}} = Tuple{Expression, Vector{Statement}}[]
@@ -890,7 +890,7 @@ end
 """
 function scalarizeWhenStatement(
   branches::Vector{Tuple{Expression, Vector{Statement}}},
-  source::DAE.ElementSource,
+  source::SourceInfo,
   statements::Vector{Statement},
 )
   local bl::Vector{Tuple{Expression, Vector{Statement}}} = Tuple{Expression, Vector{Statement}}[]

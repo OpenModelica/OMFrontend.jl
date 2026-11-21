@@ -1095,7 +1095,7 @@ end
 function makeInnerNode(nodeArg::InstNode)
   node = begin
     local def::SCode.Element
-    local prefs::SCode.Prefixes
+    local prefs::SCode.PREFIXES
     local comp::Component
     @match nodeArg begin
       CLASS_NODE(definition = def && SCode.CLASS(prefixes = prefs))  => begin

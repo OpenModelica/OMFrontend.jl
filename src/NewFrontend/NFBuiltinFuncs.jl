@@ -37,7 +37,6 @@ module NFBuiltinFuncs
 
 import ..AbsynUtil
 import OpenModelicaParser.Absyn
-import ..DAE
 import ..SCode
 
 using ..Frontend
@@ -191,16 +190,16 @@ const INTEGER_FUNCTION =
     nil,
     list(SLOT(
       "e",
-      SlotType.POSITIONAL,
+      SLOT_TYPE_POSITIONAL,
       NONE(),
       NONE(),
       1,
-      SlotEvalStatus.NOT_EVALUATED,
+      SLOT_NOT_EVALUATED,
     )),
     TYPE_INTEGER(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 const INTEGER_NODE =
@@ -252,41 +251,41 @@ const STRING_REAL =
     list(
       SLOT(
         "r",
-        SlotType.POSITIONAL,
+        SLOT_TYPE_POSITIONAL,
         NONE(),
         NONE(),
         1,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
       SLOT(
         "significantDigits",
-        SlotType.NAMED,
+        SLOT_TYPE_NAMED,
         SOME(INTEGER_EXPRESSION(6)),
         NONE(),
         2,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
       SLOT(
         "minimumLength",
-        SlotType.NAMED,
+        SLOT_TYPE_NAMED,
         SOME(INTEGER_EXPRESSION(0)),
         NONE(),
         3,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
       SLOT(
         "leftJustified",
-        SlotType.NAMED,
+        SLOT_TYPE_NAMED,
         SOME(BOOLEAN_EXPRESSION(true)),
         NONE(),
         4,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
     ),
     TYPE_STRING(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 #=  String(r, format=\"-0.6g\")
@@ -301,25 +300,25 @@ const STRING_REAL_FORMAT =
     list(
       SLOT(
         "r",
-        SlotType.POSITIONAL,
+        SLOT_TYPE_POSITIONAL,
         NONE(),
         NONE(),
         1,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
       SLOT(
         "format",
-        SlotType.NAMED,
+        SLOT_TYPE_NAMED,
         NONE(),
         NONE(),
         2,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
     ),
     TYPE_STRING(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 #=  String(i, minimumLength=0, leftJustified=true)
@@ -334,33 +333,33 @@ const STRING_INT =
     list(
       SLOT(
         "i",
-        SlotType.POSITIONAL,
+        SLOT_TYPE_POSITIONAL,
         NONE(),
         NONE(),
         1,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
       SLOT(
         "minimumLength",
-        SlotType.NAMED,
+        SLOT_TYPE_NAMED,
         SOME(INTEGER_EXPRESSION(0)),
         NONE(),
         2,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
       SLOT(
         "leftJustified",
-        SlotType.NAMED,
+        SLOT_TYPE_NAMED,
         SOME(BOOLEAN_EXPRESSION(true)),
         NONE(),
         3,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
     ),
     TYPE_STRING(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 #=  String(b, minimumLength=0, leftJustified=true)
@@ -375,33 +374,33 @@ const STRING_BOOL =
     list(
       SLOT(
         "b",
-        SlotType.POSITIONAL,
+        SLOT_TYPE_POSITIONAL,
         NONE(),
         NONE(),
         1,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
       SLOT(
         "minimumLength",
-        SlotType.NAMED,
+        SLOT_TYPE_NAMED,
         SOME(INTEGER_EXPRESSION(0)),
         NONE(),
         2,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
       SLOT(
         "leftJustified",
-        SlotType.NAMED,
+        SLOT_TYPE_NAMED,
         SOME(BOOLEAN_EXPRESSION(true)),
         NONE(),
         3,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
     ),
     TYPE_STRING(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 #=  String(e, minimumLength=0, leftJustified=true)
@@ -416,33 +415,33 @@ const STRING_ENUM =
     list(
       SLOT(
         "e",
-        SlotType.POSITIONAL,
+        SLOT_TYPE_POSITIONAL,
         NONE(),
         NONE(),
         1,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
       SLOT(
         "minimumLength",
-        SlotType.NAMED,
+        SLOT_TYPE_NAMED,
         SOME(INTEGER_EXPRESSION(0)),
         NONE(),
         2,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
       SLOT(
         "leftJustified",
-        SlotType.NAMED,
+        SLOT_TYPE_NAMED,
         SOME(BOOLEAN_EXPRESSION(true)),
         NONE(),
         3,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
     ),
     TYPE_STRING(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 const STRING_NODE =
@@ -486,9 +485,9 @@ const ABS_REAL =
     nil,
     nil,
     TYPE_REAL(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 const MAX_INT =
@@ -500,9 +499,9 @@ const MAX_INT =
     nil,
     nil,
     TYPE_INTEGER(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 const MAX_REAL =
@@ -514,9 +513,9 @@ const MAX_REAL =
     nil,
     nil,
     TYPE_REAL(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 const DIV_INT =
@@ -528,9 +527,9 @@ const DIV_INT =
     nil,
     nil,
     TYPE_INTEGER(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 const FLOOR =
@@ -542,9 +541,9 @@ const FLOOR =
     nil,
     nil,
     TYPE_REAL(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 const INTEGER_REAL =
@@ -556,9 +555,9 @@ const INTEGER_REAL =
     nil,
     nil,
     TYPE_INTEGER(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 const INTEGER_ENUM =
@@ -570,9 +569,9 @@ const INTEGER_ENUM =
     nil,
     nil,
     TYPE_INTEGER(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 const POSITIVE_MAX_REAL =
@@ -584,9 +583,9 @@ const POSITIVE_MAX_REAL =
     nil,
     nil,
     TYPE_REAL(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 const IN_STREAM =
@@ -598,9 +597,9 @@ const IN_STREAM =
     nil,
     nil,
     TYPE_REAL(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 const PROMOTE =
@@ -612,9 +611,9 @@ const PROMOTE =
     nil,
     nil,
     TYPE_UNKNOWN(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 const CAT =
@@ -626,9 +625,9 @@ const CAT =
     nil,
     nil,
     TYPE_UNKNOWN(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 const ARRAY_FUNC =
@@ -640,9 +639,9 @@ const ARRAY_FUNC =
     nil,
     nil,
     TYPE_UNKNOWN(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 
@@ -655,9 +654,9 @@ const FILL_FUNC =
     nil,
     nil,
     TYPE_UNKNOWN(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 
@@ -670,9 +669,9 @@ const INITIAL_STRUCTURAL_STATE_FUNC =
     nil,
     nil,
     TYPE_UNKNOWN(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 
@@ -686,9 +685,9 @@ const SMOOTH =
     nil,
     nil,
     TYPE_UNKNOWN(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 const CLOCK_COMPONENT =
@@ -731,9 +730,9 @@ const CLOCK_INFERED =
     nil,
     nil,
     TYPE_CLOCK(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 #=  Clock(intervalCounter, resolution = 1) - clock with Integer interval
@@ -748,25 +747,25 @@ const CLOCK_INT =
     list(
       SLOT(
         "intervalCounter",
-        SlotType.GENERIC,
+        SLOT_TYPE_GENERIC,
         NONE(),
         NONE(),
         1,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
       SLOT(
         "resolution",
-        SlotType.GENERIC,
+        SLOT_TYPE_GENERIC,
         SOME(INTEGER_EXPRESSION(1)),
         NONE(),
         2,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
     ),
     TYPE_CLOCK(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 #=  Clock(interval) - clock with Real interval
@@ -780,16 +779,16 @@ const CLOCK_REAL =
     nil,
     list(SLOT(
       "interval",
-      SlotType.GENERIC,
+      SLOT_TYPE_GENERIC,
       NONE(),
       NONE(),
       1,
-      SlotEvalStatus.NOT_EVALUATED,
+      SLOT_NOT_EVALUATED,
     )),
     TYPE_CLOCK(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 #=  Clock(condition, startInterval = 0.0) - Boolean clock, triggered by zero-crossing events
@@ -804,25 +803,25 @@ const CLOCK_BOOL =
     list(
       SLOT(
         "condition",
-        SlotType.GENERIC,
+        SLOT_TYPE_GENERIC,
         NONE(),
         NONE(),
         1,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
       SLOT(
         "startInterval",
-        SlotType.GENERIC,
+        SLOT_TYPE_GENERIC,
         SOME(REAL_EXPRESSION(0.0)),
         NONE(),
         2,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
     ),
     TYPE_CLOCK(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 #=  Clock(c, solverMethod) - Solver clock
@@ -835,20 +834,20 @@ const CLOCK_SOLVER =
     list(CLOCK_PARAM),
     nil,
     list(
-      SLOT("c", SlotType.GENERIC, NONE(), NONE(), 1, SlotEvalStatus.NOT_EVALUATED),
+      SLOT("c", SLOT_TYPE_GENERIC, NONE(), NONE(), 1, SLOT_NOT_EVALUATED),
       SLOT(
         "solverMethod",
-        SlotType.GENERIC,
+        SLOT_TYPE_GENERIC,
         NONE(),
         NONE(),
         2,
-        SlotEvalStatus.NOT_EVALUATED,
+        SLOT_NOT_EVALUATED,
       ),
     ),
     TYPE_CLOCK(),
-    DAE.FUNCTION_ATTRIBUTES_BUILTIN,
+    FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
 const CLOCK_NODE =

@@ -319,7 +319,7 @@ end
 
 # === Submodel walk (one structural component) ===
 
-"""Build typed Variable/Equation records for one structural-mode submodel.
+"""Build typed VARIABLE/Equation records for one structural-mode submodel.
 Returns a NamedTuple {instance_name, variables, equations}."""
 function _buildSubmodel(fm::Frontend.FLAT_MODEL)
   instName = fm.name
@@ -386,7 +386,7 @@ function _classMaxDerOrder(vars::Vector{VariableExp})
   return (maxOrder, highVars)
 end
 
-# === Top-level FlatModel walk ===
+# === Top-level FLAT_MODEL walk ===
 
 function _collectStructuralSubmodels(fm::Frontend.FLAT_MODEL)
   subs = []
@@ -788,7 +788,7 @@ end
     exportJSON(FM; output_dir=".", base_name, hierarchy=true, flat=true,
                class_mapping=nothing, atd=false) -> NamedTuple
 
-Walk a FlatModel and write `<base_name>_hierarchy.json` and/or `<base_name>_flat.json`.
+Walk a FLAT_MODEL and write `<base_name>_hierarchy.json` and/or `<base_name>_flat.json`.
 Structural-mode components (in `FM.structuralSubmodels`) are deduplicated into
 class templates with per-instance parameter overrides.
 

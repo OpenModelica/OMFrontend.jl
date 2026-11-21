@@ -92,7 +92,7 @@ struct ComponentImpl <: Component
   condition::Union{Binding,Nothing}
   attributes::Union{Attributes,Nothing}
   ann::Union{Option{Modifier},Nothing}
-  comment::Union{Option{SCode.Comment},Nothing}
+  comment::Union{Option{SCode.COMMENT},Nothing}
   dimensions::Union{Vector{Dimension},Nothing}
   instantiated::Bool
   definition::Union{SCode.Element,Nothing}
@@ -254,7 +254,7 @@ end
 
 function getEvaluateAnnotation(component::Component)
   local evaluate::Bool
-  local cmt::SCode.Comment
+  local cmt::SCode.COMMENT
   evaluate = SCodeUtil.getEvaluateAnnotation(comment(component))
   return evaluate
 end
@@ -275,7 +275,7 @@ function ann(component::Component)
 end
 
 function comment(component::Component)
-  local comment::Option{SCode.Comment}
+  local comment::Option{SCode.COMMENT}
 
    comment = begin
     @match component begin
@@ -1152,17 +1152,4 @@ function toString(attr::Attributes, ty::ModelicaType)
       unparseVariability(attr.variability, ty) +
       unparseDirection(attr.direction)
   return str
-end
-
-function toDAE(ina::Attributes, vis)
-  local outa::DAE.Attributes
-  outa = DAE.ATTR(
-    toDAE(ina.connectorType),
-    parallelismToSCode(ina.parallelism),
-    variabilityToSCode(ina.variability),
-    directionToAbsyn(ina.direction),
-    innerOuterToAbsyn(ina.innerOuter),
-    visibilityToSCode(vis),
-  )
-  return outa
 end

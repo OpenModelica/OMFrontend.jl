@@ -185,7 +185,7 @@ function evaluateExternal(fn::MODELICA_FUNCTION, args::Vector{Expression})::Expr
   local name::String
   local lang::String
   local output_ref::ComponentRef
-  local ann::Option{SCode.Annotation}
+  local ann::Option{SCode.ANNOTATION}
   local ext_args::List{Expression}
 
   @match SECTIONS_EXTERNAL(
@@ -235,7 +235,7 @@ end
    `external "C" dim = strlen("aa")`). Nothing when the call is not of that form or the symbol is
    not found. =#
 function callExternalFunction(name::String, fn::MODELICA_FUNCTION, args::Vector{Expression}, extArgs::List{Expression},
-                              outputRef::ComponentRef, ann::Option{SCode.Annotation})::Union{Expression, Nothing}
+                              outputRef::ComponentRef, ann::Option{SCode.ANNOTATION})::Union{Expression, Nothing}
   isEmpty(outputRef) && return nothing
   local ret_ty = nodeType(outputRef)
   local cret = _externalCType(ret_ty)
@@ -283,7 +283,7 @@ end
 
 #= An external function's symbol: from the libraries its Library annotation names, else the
    process's (libc). =#
-function _externalSymbol(name::String, ann::Option{SCode.Annotation})::Ptr{Cvoid}
+function _externalSymbol(name::String, ann::Option{SCode.ANNOTATION})::Ptr{Cvoid}
   local L = Base.Libc.Libdl
   if isSome(ann)
     local mod = SCodeUtil.lookupAnnotationBinding(Util.getOption(ann), "Library")
@@ -929,7 +929,7 @@ end
 function evaluateAssignment(
   @nospecialize(lhsExp::Expression),
   @nospecialize(rhsExp::Expression),
-  source::DAE.ElementSource,
+  source::SourceInfo,
 )::FlowControlType
   local ctrl::FlowControlType = FlowControl.NEXT
   assignVariable(lhsExp, detachCells(evalExp(rhsExp, EVALTARGET_STATEMENT(source))))
@@ -1190,7 +1190,7 @@ function evaluateFor(
   iterator::InstNode,
   range::Option,
   forBody::Vector{Statement},
-  source::DAE.ElementSource,
+  source::SourceInfo,
 )::FlowControlType
   local ctrl::FlowControlType = FlowControl.NEXT
   local range_iter::RangeIterator
@@ -1222,7 +1222,7 @@ function evaluateFor(
         Error.addSourceMessage(
           Error.EVAL_LOOP_LIMIT_REACHED,
           list(string(limit)),
-          DAE.ElementSource_getInfo(source),
+          source,
         )
         fail()
       end
@@ -1233,14 +1233,14 @@ end
 
 function evaluateIf(
   branches::Vector{Tuple{Expression, Vector{Statement}}},
-  source::DAE.ElementSource,
+  source::SourceInfo,
 )::FlowControlType
   local ctrl::FlowControlType
   local cond::Expression
   local body::Vector{Statement}
   for branch in branches
     (cond, body) = branch
-    if isTrue(evalExp(cond, EVALTARGET_STATEMENT(DAE.emptyElementSource)))
+    if isTrue(evalExp(cond, EVALTARGET_STATEMENT(source)))
       ctrl = evaluateStatements(body)
       return ctrl
     end
@@ -1257,8 +1257,8 @@ function evaluateAssert(@nospecialize(condition::Expression), assertStmt::Statem
   local cond::Expression
   local msg::Expression
   local lvl::Expression
-  local source::DAE.ElementSource
-  local target::EvalTarget = EVALTARGET_STATEMENT(DAE.emptyElementSource)#source(assertStmt))
+  local source::SourceInfo
+  local target::EvalTarget = EVALTARGET_STATEMENT(assertStmt.source)
   if isFalse(evalExp(condition, target))
     @match ALG_ASSERT(message = msg, level = lvl, source = source) =assertStmt
     msg = evalExp(msg, target)
@@ -1272,7 +1272,7 @@ function evaluateAssert(@nospecialize(condition::Expression), assertStmt::Statem
           Error.addSourceMessage(
             Error.ASSERT_TRIGGERED_WARNING,
             list(msg.value),
-            DAE.ElementSource_getInfo(source),
+            source,
           )
           ()
         end
@@ -1284,7 +1284,7 @@ function evaluateAssert(@nospecialize(condition::Expression), assertStmt::Statem
           Error.addSourceMessage(
             Error.ASSERT_TRIGGERED_ERROR,
             list(msg.value),
-            DAE.ElementSource_getInfo(source),
+            source,
           )
           ctrl = FlowControl.ASSERTION
           ()
@@ -1308,7 +1308,7 @@ function evaluateAssert(@nospecialize(condition::Expression), assertStmt::Statem
   return ctrl
 end
 
-function evaluateNoRetCall(@nospecialize(callExp::Expression), source::DAE.ElementSource)::FlowControlType
+function evaluateNoRetCall(@nospecialize(callExp::Expression), source::SourceInfo)::FlowControlType
   local ctrl::FlowControlType = FlowControl.NEXT
 
   evalExp(callExp, EVALTARGET_STATEMENT(source))
@@ -1318,7 +1318,7 @@ end
 function evaluateWhile(
   @nospecialize(condition::Expression),
   body::Vector{Statement},
-  source::DAE.ElementSource,
+  source::SourceInfo,
 )::FlowControlType
   local ctrl::FlowControlType = FlowControl.NEXT
 
@@ -1339,7 +1339,7 @@ function evaluateWhile(
       Error.addSourceMessage(
         Error.EVAL_LOOP_LIMIT_REACHED,
         list(string(limit)),
-        DAE.ElementSource_getInfo(source),
+        source,
       )
       fail()
     end
@@ -1347,7 +1347,7 @@ function evaluateWhile(
   return ctrl
 end
 
-function isKnownExternalFunc(name::String, ann::Option{<:SCode.Annotation})::Bool
+function isKnownExternalFunc(name::String, ann::Option{<:SCode.ANNOTATION})::Bool
   local isKnown::Bool
 
   if isKnownLibrary(ann)
@@ -1368,10 +1368,10 @@ function isKnownExternalFunc(name::String, ann::Option{<:SCode.Annotation})::Boo
   return isKnown
 end
 
-function isKnownLibrary(extAnnotation::Option{<:SCode.Annotation})::Bool
+function isKnownLibrary(extAnnotation::Option{<:SCode.ANNOTATION})::Bool
   local isKnown::Bool = false
 
-  local ann::SCode.Annotation
+  local ann::SCode.ANNOTATION
   local oexp::Option{Absyn.Exp}
 
   if isSome(extAnnotation)

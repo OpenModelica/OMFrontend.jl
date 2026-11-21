@@ -36,7 +36,7 @@
 const potFunc = Function
 const EQ_ASSERT_STR = STRING_EXPRESSION("Connected constants/parameters must be equal")
 
-function generateEquations(sets::Vector{<:List{<:Connector}})
+function generateEquations(sets::Vector{<:List{<:CONNECTOR}})
   local equations::Vector{Equation} = Equation[]
   local set_eql::List{Equation}
   local potfunc::potFunc
@@ -78,7 +78,7 @@ const CardinalityTable = NFCardinalityTable
 function evaluateOperators(
   @nospecialize(exp::Expression),
   @nospecialize(sets::ConnectionSets.Sets),
-  setsArray::Vector{<:List{<:Connector}},
+  setsArray::Vector{<:List{<:CONNECTOR}},
   ctable::CardinalityTable.Table,
 )::Expression
   local evalExp::Expression
@@ -203,7 +203,7 @@ function evaluateOperators(
   return evalExp
 end
 
-function getSetType(set::List{<:Connector})::ConnectorType.TYPE
+function getSetType(set::List{<:CONNECTOR})::ConnectorType.TYPE
   local cty::ConnectorType.TYPE
   #=  All connectors in a set should have the same type, so pick the first.=#
   @match _cons(CONNECTOR(cty = cty), _) = set
@@ -216,9 +216,9 @@ end
   if the set contains the components X, Y.A and Z.B, the equations generated
   will be X = Y.A and X = Z.B.
 """
-function generatePotentialEquations(elements::List{<:Connector})::List{Equation}
+function generatePotentialEquations(elements::List{<:CONNECTOR})::List{Equation}
   local equations::List{Equation}
-  local c1::Connector
+  local c1::CONNECTOR
   c1 = listHead(elements)
   if variability(c1) > Variability.PARAMETER
     equations = list(
@@ -236,37 +236,33 @@ end
 
 function makeEqualityEquation(
   lhsCref::ComponentRef,
-  lhsSource::DAE.ElementSource,
+  lhsSource::SourceInfo,
   rhsCref::ComponentRef,
-  rhsSource::DAE.ElementSource,
+  rhsSource::SourceInfo,
 )::Equation
   local equalityEq::Equation
 
-  local source::DAE.ElementSource
-  source = DAE.emptyElementSource #ElementSource.mergeSources(lhsSource, rhsSource) TODO
-  #= source := ElementSource.addElementSourceConnect(source, (lhsCref, rhsCref));
-  =#
+  local source::SourceInfo
+  source = lhsSource
   equalityEq = makeCrefEquality(lhsCref, rhsCref, EMPTY_NODE(), source)
   return equalityEq
 end
 
 function makeEqualityAssert(
   lhsCref::ComponentRef,
-  lhsSource::DAE.ElementSource,
+  lhsSource::SourceInfo,
   rhsCref::ComponentRef,
-  rhsSource::DAE.ElementSource,
+  rhsSource::SourceInfo,
 )::Equation
   local equalityAssert::Equation
 
-  local source::DAE.ElementSource
+  local source::SourceInfo
   local lhs_exp::Expression
   local rhs_exp::Expression
   local exp::Expression
   local ty::ModelicaType
 
-  @assign source = ElementSource.mergeSources(lhsSource, rhsSource)
-  #= source := ElementSource.addElementSourceConnect(source, (lhsCref, rhsCref));
-  =#
+  @assign source = lhsSource
   @assign ty = getComponentType(lhsCref)
   @assign lhs_exp = fromCref(lhsCref)
   @assign rhs_exp = fromCref(rhsCref)
@@ -298,11 +294,11 @@ function makeEqualityAssert(
   return equalityAssert
 end
 
-function generateFlowEquations(elements::List{<:Connector})::List{Equation}
+function generateFlowEquations(elements::List{<:CONNECTOR})::List{Equation}
   local equations::List{Equation}
-  local c::Connector
-  local c_rest::List{Connector}
-  local src::DAE.ElementSource
+  local c::CONNECTOR
+  local c_rest::List{CONNECTOR}
+  local src::SourceInfo
   local sum::Expression
   local iterators::List{InstNode} = nil
   @match _cons(c, c_rest) = elements
@@ -324,7 +320,6 @@ function generateFlowEquations(elements::List{<:Connector})::List{Equation}
         makeAdd(TYPE_REAL()),
         makeFlowExp(e),
       )
-      src = DAE.emptyElementSource #ElementSource.mergeSources(src, e.source) TODO
     end
   end
   equations = list(EQUATION_EQUALITY(sum, REAL_EXPRESSION(0.0), arrayElementType(c.ty), src))
@@ -335,7 +330,7 @@ function generateFlowEquations(elements::List{<:Connector})::List{Equation}
                                #= TODO: Investigate EMPTY_NODE(), John 2024 march=#
                                src)
     #= Unroll the for loop using flattenEquation if we are scalarizing the model =#
-    equations = if Flags.isSet(Flags.NF_SCALARIZE)
+    equations = if Flags.isSet(Flags.FRONTEND_SCALARIZE)
       arrayList(unrollFlowForLoop(forEq, COMPONENT_REF_EMPTY(), Equation[]))
     else
       list(forEq)
@@ -444,15 +439,15 @@ end
   Creates an expression from a connector element, which is the element itself
   if it's an inside connector, or the element negated if it's outside.
 """
-function makeFlowExp(element::Connector)::Expression
+function makeFlowExp(element::CONNECTOR)::Expression
   local exp::Expression
-  local face::FaceType
+  local face::Face
 
   @assign exp = fromCref(element.name)
   #=  TODO: Remove unnecessary variable 'face' once #4502 is fixed.
   =#
   @assign face = element.face
-  if face == Face.OUTSIDE
+  if face == FACE_OUTSIDE
     @assign exp =
       UNARY_EXPRESSION(makeUMinus(TYPE_REAL()), exp)
   end
@@ -461,7 +456,7 @@ end
 
 """Generates the equations for a stream connection set."""
 function generateStreamEquations(
-  elements::List{<:Connector},
+  elements::List{<:CONNECTOR},
   flowThreshold::Expression,
 )::List{Equation}
   local equations::List{Equation}
@@ -469,32 +464,34 @@ function generateStreamEquations(
   @assign equations = begin
     local cr1::ComponentRef
     local cr2::ComponentRef
-    local src::DAE.ElementSource
-    local src1::DAE.ElementSource
-    local src2::DAE.ElementSource
+    local src::SourceInfo
+    local src1::SourceInfo
+    local src2::SourceInfo
     local cref1::Expression
     local cref2::Expression
     local e1::Expression
     local e2::Expression
-    local inside::List{Connector}
-    local outside::List{Connector}
+    local inside::List{CONNECTOR}
+    local outside::List{CONNECTOR}
     local var1::VariabilityType
     local var2::VariabilityType
+    local f1::Face
+    local f2::Face
     #=  Unconnected stream connector, do nothing.
     =#
     @match elements begin
-      CONNECTOR(face = Face.INSIDE) <| nil() => begin
+      CONNECTOR(face = f1) <| nil() where {(f1 == FACE_INSIDE)} => begin
         nil
       end
 
-      CONNECTOR(face = Face.INSIDE) <|
-      CONNECTOR(face = Face.INSIDE) <| nil() => begin
+      CONNECTOR(face = f1) <|
+      CONNECTOR(face = f2) <| nil() where {(f1 == FACE_INSIDE && f2 == FACE_INSIDE)} => begin
         nil
       end
 
-      CONNECTOR(name = cr1, face = Face.OUTSIDE, source = src1) <|
-      CONNECTOR(name = cr2, face = Face.OUTSIDE, source = src2) <|
-      nil() => begin
+      CONNECTOR(name = cr1, face = f1, source = src1) <|
+      CONNECTOR(name = cr2, face = f2, source = src2) <|
+      nil() where {(f1 == FACE_OUTSIDE && f2 == FACE_OUTSIDE)} => begin
         #=  Both inside, do nothing.
         =#
         #=  Both outside:
@@ -507,7 +504,7 @@ function generateStreamEquations(
         @assign cref2 = fromCref(cr2)
         @assign e1 = makeInStreamCall(cref2)
         @assign e2 = makeInStreamCall(cref1)
-        @assign src = ElementSource.mergeSources(src1, src2)
+        @assign src = src1
         list(
           EQUATION_EQUALITY(cref1, e1, TYPE_REAL(), src),
           EQUATION_EQUALITY(cref2, e2, TYPE_REAL(), src),
@@ -520,7 +517,7 @@ function generateStreamEquations(
         =#
         #=  cr1 = cr2;
         =#
-        @assign src = ElementSource.mergeSources(src1, src2)
+        @assign src = src1
         list(EQUATION_CREF_EQUALITY(cr1, cr2, src))
       end
 
@@ -538,16 +535,16 @@ end
 
 """Generates an equation for an outside stream connector element."""
 function streamEquationGeneral(
-  outsideElements::List{<:Connector},
-  insideElements::List{<:Connector},
+  outsideElements::List{<:CONNECTOR},
+  insideElements::List{<:CONNECTOR},
   flowThreshold::Expression,
 )::List{Equation}
   local equations::List{Equation} = nil
 
-  local outside::List{Connector} = outsideElements
+  local outside::List{CONNECTOR} = outsideElements
   local cref_exp::Expression
   local res::Expression
-  local src::DAE.ElementSource
+  local src::SourceInfo
 
   for e in outsideElements
     @assign cref_exp = fromCref(e.name)
@@ -572,8 +569,8 @@ end
   where eps = inFlowThreshold.
 """
 function streamSumEquationExp(
-  outsideElements::List{<:Connector},
-  insideElements::List{<:Connector},
+  outsideElements::List{<:CONNECTOR},
+  insideElements::List{<:CONNECTOR},
   flowThreshold::Expression,
 )::Expression
   local sumExp::Expression
@@ -633,7 +630,7 @@ end
   elements and summing up the resulting expressions.
 """
 function sumMap(
-  elements::List{<:Connector},
+  elements::List{<:CONNECTOR},
   func::FuncType,
   flowThreshold::Expression,
 )::Expression
@@ -651,7 +648,7 @@ function sumMap(
 end
 
 """Returns the stream and flow component in a stream set element as expressions."""
-function streamFlowExp(element::Connector)::Tuple{Expression, Expression}
+function streamFlowExp(element::CONNECTOR)::Tuple{Expression, Expression}
   local flowExp::Expression
   local streamExp::Expression
 
@@ -664,7 +661,7 @@ function streamFlowExp(element::Connector)::Tuple{Expression, Expression}
 end
 
 """Returns the flow component in a stream set element as an expression."""
-function flowExp(element::Connector)::Expression
+function flowExp(element::CONNECTOR)::Expression
   local flowExp::Expression
 
   local flow_cr::ComponentRef
@@ -679,7 +676,7 @@ end
   max(flow_exp, eps) * inStream(stream_exp)
   given a stream set element.
 """
-function sumOutside1(element::Connector, @nospecialize(flowThreshold::Expression))::Expression
+function sumOutside1(element::CONNECTOR, @nospecialize(flowThreshold::Expression))::Expression
   local exp::Expression
 
   local stream_exp::Expression
@@ -699,7 +696,7 @@ end
   max(-flow_exp, eps) * stream_exp
   given a stream set element.
 """
-function sumInside1(element::Connector, @nospecialize(flowThreshold::Expression))::Expression
+function sumInside1(element::CONNECTOR, @nospecialize(flowThreshold::Expression))::Expression
   local exp::Expression
 
   local stream_exp::Expression
@@ -722,7 +719,7 @@ end
   max(flow_exp, eps)
   given a stream set element.
 """
-function sumOutside2(element::Connector, @nospecialize(flowThreshold::Expression))::Expression
+function sumOutside2(element::CONNECTOR, @nospecialize(flowThreshold::Expression))::Expression
   local exp::Expression
 
   local flow_exp::Expression
@@ -737,7 +734,7 @@ end
   max(-flow_exp, eps)
   given a stream set element.
 """
-function sumInside2(element::Connector, @nospecialize(flowThreshold::Expression))::Expression
+function sumInside2(element::CONNECTOR, @nospecialize(flowThreshold::Expression))::Expression
   local exp::Expression
 
   local flow_exp::Expression
@@ -764,7 +761,7 @@ end
 """Generates a max(flow_exp, eps) call."""
 function makePositiveMaxCall(
   flowExp::Expression,
-  element::Connector,
+  element::CONNECTOR,
   flowThreshold::Expression,
 )::Expression
   local positiveMaxCall::Expression
@@ -830,7 +827,7 @@ end
 function evaluateOperatorReductionExp(
   exp::Expression,
   sets::ConnectionSets.Sets,
-  setsArray::Vector{<:List{<:Connector}},
+  setsArray::Vector{<:List{<:CONNECTOR}},
   ctable::CardinalityTable.Table,
 )::Expression
   local outExp::Expression
@@ -880,7 +877,7 @@ end
 function evaluateOperatorArrayConstructorExp(
   exp::Expression,
   sets::ConnectionSets.Sets,
-  setsArray::Vector{<:List{<:Connector}},
+  setsArray::Vector{<:List{<:CONNECTOR}},
   ctable::CardinalityTable.Table,
 )::Expression
   local evalExp::Expression
@@ -904,21 +901,21 @@ end
 function evaluateInStream(
   cref::ComponentRef,
   sets::ConnectionSets.Sets,
-  setsArray::Vector{<:List{<:Connector}},
+  setsArray::Vector{<:List{<:CONNECTOR}},
   ctable::CardinalityTable.Table,
 )::Expression
   local exp::Expression
 
-  local c::Connector
-  local sl::List{Connector}
+  local c::CONNECTOR
+  local sl::List{CONNECTOR}
   local set::Int
 
   @assign c = CONNECTOR(
     cref,
     TYPE_UNKNOWN(),
-    Face.INSIDE,
+    FACE_INSIDE,
     ConnectorType.STREAM,
-    DAE.emptyElementSource,
+    AbsynUtil.dummyInfo,
   )
   #= A connector in no set (unconnected): itself. A bare catch here hid that
      findSetArrayIndex was not ported: every inStream was its own connector
@@ -942,30 +939,30 @@ end
 """
 function generateInStreamExp(
   streamCref::ComponentRef,
-  streams::List{<:Connector},
+  streams::List{<:CONNECTOR},
   sets::ConnectionSets.Sets,
-  setsArray::Vector{<:List{<:Connector}},
+  setsArray::Vector{<:List{<:CONNECTOR}},
   ctable::CardinalityTable.Table,
   flowThreshold::AbstractFloat,
 )::Expression
   local exp::Expression
 
-  local reducedStreams::List{Connector}
-  local inside::List{Connector}
-  local outside::List{Connector}
+  local reducedStreams::List{CONNECTOR}
+  local inside::List{CONNECTOR}
+  local outside::List{CONNECTOR}
   local cr::ComponentRef
-  local f1::FaceType
-  local f2::FaceType
+  local f1::Face
+  local f2::Face
 
   @assign reducedStreams = list(s for s in streams if !isZeroFlowMinMax(s, streamCref))
   @assign exp = begin
     @match reducedStreams begin
-      CONNECTOR(face = Face.INSIDE) <| nil() => begin
+      CONNECTOR(face = f1) <| nil() where {(f1 == FACE_INSIDE)} => begin
         fromCref(streamCref)
       end
 
-      CONNECTOR(face = Face.INSIDE) <|
-      CONNECTOR(face = Face.INSIDE) <| nil() => begin
+      CONNECTOR(face = f1) <|
+      CONNECTOR(face = f2) <| nil() where {(f1 == FACE_INSIDE && f2 == FACE_INSIDE)} => begin
         #=  Unconnected stream connector:
         =#
         #=    inStream(c) = c;
@@ -1014,7 +1011,7 @@ function generateInStreamExp(
 end
 
 """Returns true if the given flow attribute of a connector is zero."""
-function isZeroFlowMinMax(conn::Connector, streamCref::ComponentRef)::Bool
+function isZeroFlowMinMax(conn::CONNECTOR, streamCref::ComponentRef)::Bool
   local isZero::Bool
 
   if isEqual(streamCref, conn.name)
@@ -1028,7 +1025,7 @@ function isZeroFlowMinMax(conn::Connector, streamCref::ComponentRef)::Bool
 end
 
 """Returns true if the given flow attribute of a connector is zero."""
-function isZeroFlow(element::Connector, attr::String)::Bool
+function isZeroFlow(element::CONNECTOR, attr::String)::Bool
   #= `zeroFlow`: a local `isZero` shadowed the function it called (UndefVarError). =#
   local zeroFlow::Bool
 
@@ -1059,7 +1056,7 @@ end
 function evaluateActualStream(
   streamCref::ComponentRef,
   sets::ConnectionSets.Sets,
-  setsArray::Vector{<:List{<:Connector}},
+  setsArray::Vector{<:List{<:CONNECTOR}},
   ctable::CardinalityTable.Table,
   mulCref::Option{<:ComponentRef} = NONE(),
 )::Expression
@@ -1114,7 +1111,7 @@ function evaluateActualStreamMul(
   actualStreamArg::Expression,
   op::OPERATOR,
   sets::ConnectionSets.Sets,
-  setsArray::Vector{<:List{<:Connector}},
+  setsArray::Vector{<:List{<:CONNECTOR}},
   ctable::CardinalityTable.Table,
 )::Expression
   local outExp::Expression
@@ -1236,8 +1233,8 @@ end
 """ This function removes the given cref from a connection set. """
 function removeStreamSetElement(
   cref::ComponentRef,
-  elements::List{<:Connector},
-)::List{Connector}
+  elements::List{<:CONNECTOR},
+)::List{CONNECTOR}
 
   (elements, _) = ListUtil.deleteMemberOnTrue(cref, elements, compareCrefStreamSet)
   return elements
@@ -1247,7 +1244,7 @@ end
   Helper function to removeStreamSetElement. Checks if the cref in a stream set
   element matches the given cref.
 """
-function compareCrefStreamSet(cref::ComponentRef, element::Connector)::Bool
+function compareCrefStreamSet(cref::ComponentRef, element::CONNECTOR)::Bool
   local matches::Bool
 
   @assign matches = isEqual(cref, element.name)

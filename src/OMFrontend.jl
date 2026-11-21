@@ -47,7 +47,6 @@ import OpenModelicaParser.Absyn
 include("ArrayUtil/ArrayUtil.jl")
 include("ListUtil/ListUtil.jl")
 include("SCode/SCode.jl")
-include("DAE/DAE.jl")
 import OpenModelicaParser
 """The parser package under its former name (OMParser.jl), for code that writes `OMFrontend.OMParser`."""
 const OMParser = OpenModelicaParser
@@ -161,22 +160,6 @@ function translateToSCode(inProgram::Absyn.Program)::SCode.Program
   return Frontend.AbsynToSCode.translateAbsyn2SCode(inProgram)
 end
 
-"""
-  Instantiates and translates to DAE.
-  The element to instantiate should be provided in the following format:
-  <component>.<component_1>.<component_2>...
-"""
-function instantiateSCodeToDAE(elementToInstantiate::String, inProgram::SCode.Program)
-  # initialize globals
-  Frontend.Global.initialize()
-  # make sure we have all the flags loaded!
-  #Frontend.Flags.new(Flags.emptyFlags)
-  local builtinSCode = NFModelicaBuiltinCache["NFModelicaBuiltin"]
-  local program = listAppend(builtinSCode, inProgram)
-  local path = Frontend.AbsynUtil.stringPath(elementToInstantiate)
-  Frontend.instClassInProgram(path, program)
-end
-
 #= The classes a model with recompilation directives was instantiated with, beside its own
    top-level class (its libraries, the other classes of its file), by that class's name: its
    recompilation instantiates the modified class with them (recompilationProgram). =#
@@ -184,12 +167,12 @@ const RECOMPILATION_PROGRAMS = Dict{String, SCode.Program}()
 const RECOMPILATION_PROGRAMS_LOCK = ReentrantLock()
 
 """
-    keepRecompilationProgram!(flatModel::Frontend.FlatModel, inProgram::SCode.Program) -> Nothing
+    keepRecompilationProgram!(flatModel::Frontend.FLAT_MODEL, inProgram::SCode.Program) -> Nothing
 
 For a model with recompilation directives (its `scodeProgram`, the class a recompilation
 modifies), the other classes of `inProgram` (recompilationProgram).
 """
-function keepRecompilationProgram!(flatModel::Frontend.FlatModel, inProgram::SCode.Program)::Nothing
+function keepRecompilationProgram!(flatModel::Frontend.FLAT_MODEL, inProgram::SCode.Program)::Nothing
   local metaModel = flatModel.scodeProgram
   metaModel isa SOME || return nothing
   local name = Frontend.SCodeUtil.elementName(metaModel.value)
@@ -222,7 +205,7 @@ function instantiateSCodeToFM(elementToInstantiate::String,
   Frontend.Global.initialize()
   # make sure we have all the flags loaded!
   #  Frontend.Flags.new(Flags.emptyFlags)
-  Frontend.FlagsUtil.set(Frontend.Flags.NF_SCALARIZE, scalarize)
+  Frontend.FlagsUtil.set(Frontend.Flags.FRONTEND_SCALARIZE, scalarize)
   Frontend.FlagsUtil.set(Frontend.Flags.NF_SEPARATE_INSTANTIATION, separateInstantiation)
   local builtinSCode = NFModelicaBuiltinCache["NFModelicaBuiltin"]
   local program = listReverse(listAppend(builtinSCode, inProgram))
@@ -291,23 +274,12 @@ function applyCommandLineOptionsAnnotation(path::Frontend.Absyn.Path, program::F
   return old_flags
 end
 
-"""
-```
-  exportDAERepresentationToFile(fileName::String, contents::String)
-```
-  Prints the DAE representation to a file
-"""
-function exportDAERepresentationToFile(fileName::String, contents::String)
-  local fdesc = open(fileName, "w")
-  write(fdesc, contents)
-  close(fdesc)
-end
 
 """
-  ```toString(model::FlatModel)```
+  ```toString(model::FLAT_MODEL)```
     Converts the flat model representation to a Julia String, the extra \\n are replaced with \n
 """
-function toString(model::Frontend.FlatModel)
+function toString(model::Frontend.FLAT_MODEL)
   local res = Frontend.toString(model)
   local res = replace(res, "\\n" => "\n")
   return res
@@ -325,8 +297,8 @@ end
 """
   Overload the Julia to string function
 """
-function Base.string(model::Frontend.FlatModel)
-  return toString(model::Frontend.FlatModel)
+function Base.string(model::Frontend.FLAT_MODEL)
+  return toString(model::Frontend.FLAT_MODEL)
 end
 
 """
@@ -1797,7 +1769,7 @@ exportJSON(fmOrTuple; kwargs...) =
                output_dir, base_name,
                hierarchy=true, flat=true, class_mapping=nothing, atd=false)
 
-Parse `fileName`, instantiate `modelName` to a FlatModel, then export it as JSON.
+Parse `fileName`, instantiate `modelName` to a FLAT_MODEL, then export it as JSON.
 When `library` is non-empty, it is loaded via `loadInstalledLibrary` and combined
 with the model via `flattenModelWithLibraries` (e.g. `library = "Modelica"`). When
 `library` is empty, the model is flattened on its own with `flattenModel`. Pass

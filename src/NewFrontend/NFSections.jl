@@ -48,7 +48,7 @@ mutable struct SECTIONS_EXTERNAL <: Sections
   args::List{Expression}
   outputRef::ComponentRef
   language::String
-  ann::Option{SCode.Annotation}
+  ann::Option{SCode.ANNOTATION}
   explicit::Bool
 end
 
@@ -299,7 +299,7 @@ function prependAlgorithm(
 end
 
 function toFlatStream(sections, scopeName::Absyn.Path, s::IOStream_M.IOSTREAM; inFunction = false)
-  local ann::SCode.Annotation;
+  local ann::SCode.ANNOTATION;
   local mod::SCode.Mod, modLib::SCode.Mod
   local modInc::SCode.Mod, modLibDir::SCode.Mod, modIncDir::SCode.Mod
   @match sections begin

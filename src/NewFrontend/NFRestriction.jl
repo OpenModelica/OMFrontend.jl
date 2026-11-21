@@ -287,51 +287,6 @@ function isConnector(res::Restriction)::Bool
   return isConnector
 end
 
-import ..DAE.ClassInf
-
-function toDAE(res::Restriction, path::Absyn.Path)::ClassInf.SMNode
-  local state::ClassInf.SMNode
-
-  @assign state = begin
-    @match res begin
-      RESTRICTION_CLASS(__) => begin
-        ClassInf.UNKNOWN(path)
-      end
-      RESTRICTION_CONNECTOR(__) => begin
-        ClassInf.CONNECTOR(path, res.isExpandable)
-      end
-      RESTRICTION_ENUMERATION(__) => begin
-        ClassInf.ENUMERATION(path)
-      end
-      RESTRICTION_EXTERNAL_OBJECT(__) => begin
-        ClassInf.EXTERNAL_OBJ(path)
-      end
-      RESTRICTION_FUNCTION(__) => begin
-        ClassInf.FUNCTION(path, false)
-      end
-      RESTRICTION_MODEL(__) => begin
-        ClassInf.MODEL(path)
-      end
-      RESTRICTION_OPERATOR(__) => begin
-        ClassInf.FUNCTION(path, false)
-      end
-      RESTRICTION_RECORD(__) => begin
-        ClassInf.RECORD(path)
-      end
-      RESTRICTION_TYPE(__) => begin
-        ClassInf.TYPE(path)
-      end
-      RESTRICTION_CLOCK(__) => begin
-        ClassInf.TYPE_CLOCK(path)
-      end
-      _ => begin
-        ClassInf.UNKNOWN(path)
-      end
-    end
-  end
-  return state
-end
-
 function fromSCode(sres::SCode.Restriction)::Restriction
   local res::Restriction
   @assign res = begin
@@ -446,29 +401,29 @@ function checkBindingRestriction(res::Restriction, binding::Binding, component::
   return nothing
 end
 
-function assertNoEquations(equations::List{SCode.Equation}, initialEquations::List{SCode.Equation}, resName::String)
+function assertNoEquations(equations::List{SCode.EQUATION}, initialEquations::List{SCode.EQUATION}, resName::String)
   if listEmpty(equations) && listEmpty(initialEquations)
     return nothing
   end
-  local eq::SCode.Equation = listHead(if listEmpty(equations) initialEquations else equations end)
+  local eq::SCode.EQUATION = listHead(if listEmpty(equations) initialEquations else equations end)
   Error.addSourceMessage(Error.EQUATION_TRANSITION_FAILURE, list(resName), SCodeUtil.getEquationInfo(eq.eEquation))
   fail()
 end
 
-function assertNoAlgorithms(algorithms::List{SCode.AlgorithmSection}, initialAlgorithms::List{SCode.AlgorithmSection}, resName::String)
-  local alg_opt::Option{SCode.AlgorithmSection} = ListUtil.findOption(algorithms, SCodeUtil.isNonEmptyAlgorithm)
+function assertNoAlgorithms(algorithms::List{SCode.ALGORITHM}, initialAlgorithms::List{SCode.ALGORITHM}, resName::String)
+  local alg_opt::Option{SCode.ALGORITHM} = ListUtil.findOption(algorithms, SCodeUtil.isNonEmptyAlgorithm)
   if isNone(alg_opt)
     alg_opt = ListUtil.findOption(initialAlgorithms, SCodeUtil.isNonEmptyAlgorithm)
   end
   if isSome(alg_opt)
-    local alg::SCode.AlgorithmSection = Util.getOption(alg_opt)
+    local alg::SCode.ALGORITHM = Util.getOption(alg_opt)
     Error.addSourceMessage(Error.ALGORITHM_TRANSITION_FAILURE, list(resName), SCodeUtil.getStatementInfo(listHead(alg.statements)))
     fail()
   end
   return nothing
 end
 
-function assertNoInitialAlgorithms(algs::List{SCode.AlgorithmSection}, resName::String)
+function assertNoInitialAlgorithms(algs::List{SCode.ALGORITHM}, resName::String)
   for alg in algs
     if !listEmpty(alg.statements)
       Error.addSourceMessage(Error.INITIAL_ALGORITHM_TRANSITION_FAILURE, list(resName), SCodeUtil.getStatementInfo(listHead(alg.statements)))

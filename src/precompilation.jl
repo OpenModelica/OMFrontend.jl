@@ -86,7 +86,7 @@ function workload()
   program = listAppend(builtinSCode, s)
   path = Frontend.AbsynUtil.stringPath("HelloWorld")
   @info "Timings concerning compiling core modules for instantiation:"
-  @time res1 = Frontend.instClassInProgram(path, program)
+  @time res1 = Frontend.instClassInProgramFM(path, program)
   #=
   For other developers reading this.
   Comment out below if you are using revise and want to have faster feedback when changing different datatypes.

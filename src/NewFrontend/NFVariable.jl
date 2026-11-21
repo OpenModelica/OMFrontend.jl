@@ -33,20 +33,7 @@
 *
 */ =#
 
-@Uniontype Variable begin
-  @Record VARIABLE begin
-    name::ComponentRef
-    ty::ModelicaType
-    binding::Binding
-    visibility::VisibilityType
-    attributes::Attributes
-    typeAttributes::Vector{Tuple{String, Binding}}
-    comment::Option{SCode.Comment}
-    info::SourceInfo
-  end
-end
-
-function toFlatStream(var::Variable,
+function toFlatStream(var::VARIABLE,
   indent::String = "",
   printBindingType::Bool = false,
   s = Nothing,
@@ -62,7 +49,7 @@ function toFlatStream(var::Variable,
     s = IOStream_M.append(s, "public ")
   end
   s = IOStream_M.append(s, toFlatString(var.attributes, var.ty; isTopLevel = isSimple(var.name)))
-  if !Flags.isSet(Flags.NF_SCALARIZE) && isArray(var.ty)
+  if !Flags.isSet(Flags.FRONTEND_SCALARIZE) && isArray(var.ty)
     #= Not scalarizing: Real 'r.p.v'[3] (omc), the dimensions after the name. =#
     s = IOStream_M.append(s, toFlatString(arrayElementType(var.ty)))
     s = IOStream_M.append(s, " ")
@@ -110,7 +97,7 @@ function toFlatStream(var::Variable,
 end
 
 function toStream(
-  var::Variable,
+  var::VARIABLE,
   indent::String = "",
   printBindingType::Bool = false,
   s = Nothing,
@@ -157,7 +144,7 @@ function toStream(
 end
 
 function toString(
-  var::Variable,
+  var::VARIABLE,
   indent::String = "",
   printBindingType::Bool = false,
 )::String
@@ -168,7 +155,7 @@ function toString(
   return str
 end
 
-function lookupTypeAttribute(name::String, var::Variable)::Binding
+function lookupTypeAttribute(name::String, var::VARIABLE)::Binding
   local binding::Binding
   for attr in var.typeAttributes
     if Util.tuple21(attr) == name
@@ -180,13 +167,13 @@ function lookupTypeAttribute(name::String, var::Variable)::Binding
   return binding
 end
 
-function isPresent(variable::Variable)::Bool
+function isPresent(variable::VARIABLE)::Bool
   local present::Bool =
     !isPotentiallyPresent(variable.attributes.connectorType)
   return present
 end
 
-function isDeleted(variable::Variable)::Bool
+function isDeleted(variable::VARIABLE)::Bool
   local deleted::Bool
   local node::InstNode
   @assign node = node(variable.name)
@@ -195,30 +182,30 @@ function isDeleted(variable::Variable)::Bool
   return deleted
 end
 
-function isEmptyArray(variable::Variable)::Bool
+function isEmptyArray(variable::VARIABLE)::Bool
   local isEmpty::Bool = isEmptyArray(variable.ty)
   return isEmpty
 end
 
-function variability(variable::Variable)
+function variability(variable::VARIABLE)
   return variable.attributes.variability
 end
 
-function isStructural(variable::Variable)::Bool
+function isStructural(variable::VARIABLE)::Bool
   local structural::Bool =
     variable.attributes.variability <= Variability.STRUCTURAL_PARAMETER
   return structural
 end
 
-function Variable_fromCref(cref::ComponentRef)::Variable
-  local variable::Variable
+function Variable_fromCref(cref::ComponentRef)::VARIABLE
+  local variable::VARIABLE
   local nodeVar::InstNode
   local comp::Component
   local ty::ModelicaType
   local binding::Binding
   local vis::VisibilityType
   local attr::Attributes
-  local cmt::Option{SCode.Comment}
+  local cmt::Option{SCode.COMMENT}
   local infoVar::SourceInfo
   nodeVar = node(cref)
   comp = component(nodeVar)
@@ -232,15 +219,15 @@ function Variable_fromCref(cref::ComponentRef)::Variable
   return variable
 end
 
-function Variable_fromCrefNoBinding(cref::ComponentRef)::Variable
-  local variable::Variable
+function Variable_fromCrefNoBinding(cref::ComponentRef)::VARIABLE
+  local variable::VARIABLE
   local nodeVar::InstNode
   local comp::Component
   local ty::ModelicaType
   local binding::Binding
   local vis::VisibilityType
   local attr::Attributes
-  local cmt::Option{SCode.Comment}
+  local cmt::Option{SCode.COMMENT}
   local infoVar::SourceInfo
   nodeVar = node(cref)
   comp = component(nodeVar)
@@ -254,11 +241,11 @@ function Variable_fromCrefNoBinding(cref::ComponentRef)::Variable
   return variable
 end
 
-function toFlatString(var::Variable; ident = "")
+function toFlatString(var::VARIABLE; ident = "")
   local s = IOStream_M.create(getInstanceName(), IOStream_M.LIST())
   s = toFlatStream(var, ident, false, s)
   return IOStream_M.string(s)
 end
 
 
-Base.:(==)(a::Variable, b::Variable) = toString(a) == toString(b)
+Base.:(==)(a::VARIABLE, b::VARIABLE) = toString(a) == toString(b)

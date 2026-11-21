@@ -618,7 +618,7 @@ end
 
 function makeIf(
   branches::Vector{<:Tuple{<:Expression, Vector{<:Statement}}},
-  src::DAE.ElementSource,
+  src::SourceInfo,
 )::Statement
   local stmt::Statement
   stmt = ALG_IF(branches, src)
@@ -629,7 +629,7 @@ function makeAssignment(
   lhs::Expression,
   rhs::Expression,
   ty::ModelicaType,
-  src::DAE.ElementSource,
+  src::SourceInfo,
 )::Statement
   local stmt::Statement
 
@@ -882,15 +882,15 @@ function instStatement(scodeStmt::SCode.Statement, scope::InstNode, origin::ORIG
 statement
 end
 
-function instAlgorithmSections(algorithmSections::List{<:SCode.AlgorithmSection}, scope::InstNode, origin::ORIGIN_Type)
+function instAlgorithmSections(algorithmSections::List{<:SCode.ALGORITHM}, scope::InstNode, origin::ORIGIN_Type)
   local algs::Vector{ALGORITHM}
   algs = ALGORITHM[instAlgorithmSection(alg, scope, origin) for alg in algorithmSections]
   algs
 end
 
-function instAlgorithmSection(algorithmSection::SCode.AlgorithmSection, scope::InstNode, origin::ORIGIN_Type)::ALGORITHM
+function instAlgorithmSection(algorithmSection::SCode.ALGORITHM, scope::InstNode, origin::ORIGIN_Type)::ALGORITHM
   local alg::ALGORITHM
-  alg = ALGORITHM(instStatements(algorithmSection.statements, scope, origin), DAE.emptyElementSource)
+  alg = ALGORITHM(instStatements(algorithmSection.statements, scope, origin), InstNode_info(scope))
   alg
 end
 

@@ -48,9 +48,7 @@ import ..ListUtil
 import Base.string
 import Base.length
 
-import ..Connector
 import ..CONNECTOR
-import ..Connections
 import ..Frontend.CONNECTION
 import ..Frontend.split
 import ..Frontend.toString
@@ -59,7 +57,7 @@ import ..Frontend.isEqual
 import ..Frontend.name
 import ..Frontend.isPrefix
 import ..Frontend.hashStructural
-const Entry = Connector
+const Entry = CONNECTOR
 
 """
   An entry's hash, consistent with `isequal` below: the cref's names and subscripts. Only the
@@ -109,8 +107,8 @@ function fromConnections(connections)
   local sets::Sets = emptySets(sz) # duh, is not possible to give sz size hint to DisjointSets! -Adrian Pop
   #@debug "Sets before from connections $(string(sets))"
   # Add flow variable to the sets, unless disabled by flag.
-  # Do this here if NF_SCALARIZE to use fast addList for scalarized flows.
-  # if ! Flags.isSet(Flags.DISABLE_SINGLE_FLOW_EQ) && Flags.isSet(Flags.NF_SCALARIZE) then
+  # Do this here if FRONTEND_SCALARIZE to use fast addList for scalarized flows.
+  # if ! Flags.isSet(Flags.DISABLE_SINGLE_FLOW_EQ) && Flags.isSet(Flags.FRONTEND_SCALARIZE) then
   #@debug "Before ListUtil 1 $(string(sets))"
   sets = ListUtil.fold(connections.flows, addConnector, sets)
   # end
@@ -118,8 +116,8 @@ function fromConnections(connections)
   #@debug "Before ListUtil 2 $(string(sets))"
   sets = ListUtil.fold1(connections.connections, addConnection, connections.broken, sets)
   # Add remaining flow variables to the sets, unless disabled by flag.
-  # Do this after addConnection if not NF_SCALARIZE to get array dims right.
-  #if ! Flags.isSet(Flags.DISABLE_SINGLE_FLOW_EQ) && ! Flags.isSet(Flags.NF_SCALARIZE) then
+  # Do this after addConnection if not FRONTEND_SCALARIZE to get array dims right.
+  #if ! Flags.isSet(Flags.DISABLE_SINGLE_FLOW_EQ) && ! Flags.isSet(Flags.FRONTEND_SCALARIZE) then
   #sets = ListUtil.fold(connections.flows, addSingleConnector, sets)
   #end
   #@debug "Sets after from connections $(string(sets))"

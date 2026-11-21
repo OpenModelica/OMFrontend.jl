@@ -301,15 +301,15 @@ function copyInstancePtr(srcNode::InstNode,
   dstNode
 end
 
-function getComments(node::InstNode, accumCmts::List{<:SCode.Comment} = nil)
-  local cmts::List{SCode.Comment}
+function getComments(node::InstNode, accumCmts::List{<:SCode.COMMENT} = nil)
+  local cmts::List{SCode.COMMENT}
 
    cmts = begin
-    local cmt::SCode.Comment
+    local cmt::SCode.COMMENT
     local cls::Class
     @match node begin
       CLASS_NODE(definition = SCode.CLASS(cmt = cmt))  => begin
-        Cons{SCode.Comment}(cmt, getDerivedComments(_clsVal(node), accumCmts))
+        Cons{SCode.COMMENT}(cmt, getDerivedComments(_clsVal(node), accumCmts))
       end
       _  => begin
         accumCmts
@@ -387,76 +387,6 @@ function isBuiltin(node::InstNode)
     end
   end
   isBuiltin
-end
-
-""" Returns the DAE type for a class, with the list of variables filled in. """
-function toFullDAEType(clsNode::InstNode)
-  local outType::DAE.Type
-
-   outType = begin
-    local cls::Class
-    local vars::List{DAE.Var}
-    local state::ClassInf.State
-    @match clsNode begin
-      CLASS_NODE(__)  => begin
-         cls = _clsVal(clsNode)
-        begin
-          @match cls begin
-            DAE_TYPE(__)  => begin
-              cls.ty
-            end
-            _  => begin
-              state = toDAE(restriction(cls), scopePath(clsNode, includeRoot = true))
-              vars = makeTypeVars(clsNode)
-              outType = DAE.T_COMPLEX(state, vars, NONE())
-              clsNode = updateClass(DAE_TYPE(outType), clsNode)
-              outType
-            end
-          end
-        end
-      end
-    end
-  end
-  outType
-end
-
-function stripDAETypeVars(ty::DAE.Type)
-  @match ty begin
-    DAE.T_COMPLEX(__)  => begin
-      ty = DAE.T_COMPLEX(ty.complexClassType, ty.varLst, ty.equalityConstraint)
-    end
-    _  => begin
-      ty
-    end
-  end
-end
-
-"""Returns the DAE type for a class, without the list of variables filled in."""
-function toPartialDAEType(clsNode::InstNode)
-  local outType::DAE.Type
-
-   outType = begin
-    local cls::Class
-    local state::ClassInf.SMNode
-    @match clsNode begin
-      CLASS_NODE(__)  => begin
-         cls = _clsVal(clsNode)
-        begin
-          @match cls begin
-            DAE_TYPE(__)  => begin
-              stripDAETypeVars(cls.ty)
-            end
-
-            _  => begin
-               state = toDAE(restriction(cls), scopePath(clsNode, includeRoot = true))
-              DAE.T_COMPLEX(state, nil, NONE())
-            end
-          end
-        end
-      end
-    end
-  end
-  outType
 end
 
 function setModifier(mod::Modifier, node::InstNode)

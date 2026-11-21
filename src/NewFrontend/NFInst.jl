@@ -35,46 +35,12 @@
 
 import OpenModelicaParser.Absyn
 import ..SCode
-import ..DAE
 
 import .InstUtil
 import .ExecStat
 
 """
-    Instantiates a class given by its fully qualified path.
-    The result is the model represented in the DAE format, see DAE.jl.
-"""
-function instClassInProgram(classPath::Absyn.Path, program::SCode.Program)
-  local daeFuncs::DAE.FunctionTree
-  local dae::DAE.DAE_LIST
-  local top::InstNode
-  local cls::InstNode
-  local inst_cls::InstNode
-  local name::String
-  local flat_model::FlatModel
-  local funcs::FunctionTree
-  name = AbsynUtil.pathString(classPath)
-  try
-    #= Control-flow failures (fail(), @match, @matchcontinue) throw without a backtrace
-       (MetaModelica.with_cheap_throws; METAMODELICA_CHEAP_THROWS=false for full ones). The
-       parallel fan-out's tasks throw normally: a scope per task costs one throw, and there
-       are thousands of tasks. =#
-    (flat_model, funcs, inst_cls) = with_cheap_throws(() -> instClassInProgramFM2(classPath, program))
-  catch e
-    println("The compiler failed to process a model with the following message(s):")
-    print(Error.printMessagesStr())
-    #= Do not clear messages here so callers (e.g. OMLibraryTesting runner) can capture them =#
-    println("Internal stack trace:")
-    #@error e
-    throw(e)
-  end
-  (dae, daeFuncs) = convert(flat_model, funcs, name, InstNode_info(inst_cls))
-  return (dae, daeFuncs)
-end
-
-"""
-  Similar to instClassInProgram but returns the flat model instead of the DAE.
-  This function is used as a helper function by instClassInProgram.
+  Instantiates a class given by its fully qualified path and returns `(flatModel, functions, instClass)`.
   Author:johti17
 """
 function instClassInProgramFM(classPath::Absyn.Path, program::SCode.Program)::Tuple
@@ -115,7 +81,7 @@ end
 
 
 """
-Helper function called by instClassInProgram. Runs the frontend pipeline:
+Helper function called by instClassInProgramFM. Runs the frontend pipeline:
 instantiate -> instantiate expressions -> type -> flatten -> resolve
 connections and evaluate -> simplify and collect -> scalarize and verify.
 dumpFlatModel dumps the flat model at intermediate stages when the
@@ -123,7 +89,7 @@ Flags.NF_DUMP_FLAT flag is set.
 """
 function instClassInProgramFM2(classPath::Absyn.Path, program::SCode.Program)::Tuple
   local name::String = AbsynUtil.pathString(classPath)
-  local flat_model::FlatModel
+  local flat_model::FLAT_MODEL
   local funcs::FunctionTree
   prepareInstEnvironment()
   local inst_cls::InstNode = instantiateRootClass(classPath, program)
@@ -220,7 +186,7 @@ end
   dynamic overconstrained connectors (DOCC) are resolved with the connections
   (OCConnectionGraph.resolveModes).
 """
-function resolveAndEvaluate(flat_model::FlatModel, program::SCode.Program, name::String)::FlatModel
+function resolveAndEvaluate(flat_model::FLAT_MODEL, program::SCode.Program, name::String)::FLAT_MODEL
   local recompilationEnabled = recompilationDirectiveExists(flat_model.equations)
   if recompilationEnabled
     @assign flat_model.scodeProgram = SOME(modelTopLevelClass(program, name))
@@ -241,7 +207,7 @@ end
 """Inlines simple calls, simplifies the model, and collects functions and package constants."""
 #= `top`: the top scope, where inlining finds noEvent for the relations of
    inlined function bodies (nothing: no wrapping). =#
-function simplifyAndCollect(flat_model::FlatModel, name::String, top = nothing)::Tuple{FlatModel, FunctionTree}
+function simplifyAndCollect(flat_model::FLAT_MODEL, name::String, top = nothing)::Tuple{FLAT_MODEL, FunctionTree}
   local funcs::FunctionTree
   #= Do unit checking =#
   #TODO  @assign flat_model = UnitCheck.checkUnits(flat_model)
@@ -256,9 +222,9 @@ function simplifyAndCollect(flat_model::FlatModel, name::String, top = nothing):
   return (flat_model, funcs)
 end
 
-"""Scalarizes array components (when NF_SCALARIZE is set) and verifies the flat model."""
-function scalarizeAndVerify(flat_model::FlatModel, name::String)::FlatModel
-  if Flags.isSet(Flags.NF_SCALARIZE)
+"""Scalarizes array components (when FRONTEND_SCALARIZE is set) and verifies the flat model."""
+function scalarizeAndVerify(flat_model::FLAT_MODEL, name::String)::FLAT_MODEL
+  if Flags.isSet(Flags.FRONTEND_SCALARIZE)
     @EXECSTAT "scalarize" flat_model = scalarize(flat_model, name)
     dumpFlatModel(flat_model, string(name, "_", "afterScalarize"))
   else
@@ -284,7 +250,7 @@ function setSettingForInst()
   Gather here all the flags to disable expansion
   and scalarization if -d=-nfScalarize is on
   =#
-  if ! Flags.isSet(Flags.NF_SCALARIZE)
+  if ! Flags.isSet(Flags.FRONTEND_SCALARIZE)
     FlagsUtil.set(Flags.NF_EXPAND_OPERATIONS, false)
     FlagsUtil.set(Flags.NF_EXPAND_FUNC_ARGS, false)
   else
@@ -308,7 +274,7 @@ end
     Currently it inlines all functions.
     Throws an error if a function is not complex enough.
 """
-function inlineSimpleCalls(fm::FlatModel, top = nothing)
+function inlineSimpleCalls(fm::FLAT_MODEL, top = nothing)
   local inlinedEqs = mapExpList(fm.equations, e -> inlineSimpleCall(e, top))
   @assign fm.equations = inlinedEqs
   return fm
@@ -418,7 +384,7 @@ function partialInstClass2(definition::SCode.Element, scope::InstNode) ::Class
   local cdef::SCode.ClassDef
   local ce_cdef::SCode.ClassDef
   local ty::ModelicaType
-  local prefs::Prefixes
+  local prefs::PREFIXES
 #  Error.assertion(SCodeUtil.elementIsClass(definition), getInstanceName() + " got non-class element", sourceInfo())
   @match SCode.CLASS(classDef = cdef) = definition
    prefs = instClassPrefixes(definition)
@@ -447,10 +413,10 @@ function partialInstClass2(definition::SCode.Element, scope::InstNode) ::Class
   cls
 end
 
-function instClassPrefixes(cls::SCode.Element) ::Prefixes
-  local prefixes::Prefixes
+function instClassPrefixes(cls::SCode.Element) ::PREFIXES
+  local prefixes::PREFIXES
 
-  local prefs::SCode.Prefixes
+  local prefs::SCode.PREFIXES
 
    prefixes = begin
     @match cls begin
@@ -466,7 +432,7 @@ function instClassPrefixes(cls::SCode.Element) ::Prefixes
   prefixes
 end
 
-function makeEnumerationType(literals::List{<:SCode.Enum}, scope::InstNode) ::ModelicaType
+function makeEnumerationType(literals::List{<:SCode.ENUM}, scope::InstNode) ::ModelicaType
   local ty::ModelicaType
 
   local lits::List{String}
@@ -538,7 +504,7 @@ function expandClassParts(def::SCode.Element, node::InstNode, info::SourceInfo) 
   local cls_tree::ClassTree
   local mod::Modifier
   local builtin_ext::InstNode
-  local prefs::Prefixes
+  local prefs::PREFIXES
   local res::Restriction
   cls = getClass(node)
   #=  Change the class to an empty expanded class, to avoid instantiation loops. =#
@@ -568,7 +534,7 @@ function expandExtends(ext::InstNode, builtinExt::InstNode = EMPTY_NODE()) ::Tup
   local base_node::InstNode
   local vis::SCode.Visibility
   local smod::SCode.Mod
-  local ann::Option{SCode.Annotation}
+  local ann::Option{SCode.ANNOTATION}
   local info::SourceInfo
   if isEmpty(ext)
     return (ext, builtinExt)
@@ -798,8 +764,8 @@ function expandClassDerived(element::SCode.Element, definition::SCode.ClassDef, 
   local ty::Absyn.TypeSpec
   local ext_node::InstNode
   local cls::Class
-  local prefs::Prefixes
-  local sattrs::SCode.Attributes
+  local prefs::PREFIXES
+  local sattrs::SCode.ATTR
   local attrs::Attributes
   local dims::List{Dimension}
   local mod::Modifier
@@ -830,7 +796,7 @@ function expandClassDerived(element::SCode.Element, definition::SCode.ClassDef, 
   node
 end
 
-function instDerivedAttributes(scodeAttr::SCode.Attributes) ::Attributes
+function instDerivedAttributes(scodeAttr::SCode.ATTR) ::Attributes
   local attributes::Attributes
   local cty::ConnectorType.TYPE
   local var::VariabilityType
@@ -1528,7 +1494,7 @@ function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMo
   local orig_cls::Class
   local rdcl_cls::Class
   local new_cls::Class
-  local prefs::Prefixes
+  local prefs::PREFIXES
   local node_ty::InstNodeType
   #=  Check that the redeclare element is actually a class.
   =#
@@ -1607,7 +1573,7 @@ function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMo
   redeclaredNode
 end
 
-function redeclareEnum(redeclareClass::Class, originalClass::Class, prefixes::Prefixes, outerMod::Modifier, redeclareNode::InstNode, originalNode::InstNode) ::Class
+function redeclareEnum(redeclareClass::Class, originalClass::Class, prefixes::PREFIXES, outerMod::Modifier, redeclareNode::InstNode, originalNode::InstNode) ::Class
   #= Expanded, so that a short class of an enumeration (`redeclare type AE = E`) is one (omc). =#
   expand(redeclareNode)
   local redeclaredClass::Class = getClass(redeclareNode)
@@ -1868,7 +1834,7 @@ function redeclareComponent(redeclareNode::InstNode, originalNode::InstNode, out
   local condition::Binding
   local attr::Attributes
   local dims::Vector{Dimension}
-  local cmt::Option{SCode.Comment}
+  local cmt::Option{SCode.COMMENT}
   local rdcl_node::InstNode
   local rdcl_type::InstNodeType
 
@@ -1959,7 +1925,7 @@ end
   This function instantiates component attributes.
   It uses ´DEFAULT_ATTR´ or some special modifier depending on the component prefix.
 """
-function instComponentAttributes(compAttr::SCode.Attributes, compPrefs)::Attributes
+function instComponentAttributes(compAttr::SCode.ATTR, compPrefs)::Attributes
   #= Plain field tests: matching on a constructed (attr, prefs) tuple costs
      an allocation and pattern machinery per component, and the default case
      dominates. =#
@@ -2175,8 +2141,8 @@ function mergeRedeclaredComponentAttributes(origAttr::Attributes, redeclAttr::At
   attr
 end
 
-function mergeRedeclaredClassPrefixes(origPrefs::Prefixes, redeclPrefs::Prefixes, node::InstNode) ::Prefixes
-  local prefs::Prefixes
+function mergeRedeclaredClassPrefixes(origPrefs::PREFIXES, redeclPrefs::PREFIXES, node::InstNode) ::PREFIXES
+  local prefs::PREFIXES
   local enc::SCode.Encapsulated
   local par::SCode.Partial
   local fin::SCode.Final
@@ -2227,7 +2193,7 @@ function printRedeclarePrefixError(node::InstNode, prefix1::String, prefix2::Str
 end
 
 function updateComponentVariability(attr::Attributes, cls::Class, clsNode::InstNode,
-                                    inFunction::Bool = false, comment::SCode.Comment = SCode.noComment)::Attributes
+                                    inFunction::Bool = false, comment::SCode.COMMENT = SCode.noComment)::Attributes
   local var::VariabilityType = attr.variability
   if referenceEq(attr, DEFAULT_ATTR) && isDiscreteClass(clsNode)
     attr = IMPL_DISCRETE_ATTR
@@ -2246,7 +2212,7 @@ function updateComponentVariability(attr::Attributes, cls::Class, clsNode::InstN
   attr
 end
 
-function _hasFunctionVariabilityAnnotation(comment::SCode.Comment)::Bool
+function _hasFunctionVariabilityAnnotation(comment::SCode.COMMENT)::Bool
   return @match comment begin
     SCode.COMMENT(annotation_ = SOME(ann)) =>
       !SCodeUtil.isEmptyMod(SCodeUtil.lookupAnnotation(ann, "__OpenModelica_functionVariability"))
@@ -3370,7 +3336,7 @@ function instSections2(parts::SCode.ClassDef, scope::InstNode, sections::Section
     local ieq::Vector{Equation}
     local alg::Vector{ALGORITHM}
     local ialg::Vector{ALGORITHM}
-    local ext_decl::SCode.ExternalDecl
+    local ext_decl::SCode.EXTERNALDECL
     local origin::ORIGIN_Type
     local iorigin::ORIGIN_Type
     #= Plain conditionals instead of matching on a constructed tuple; the
@@ -3409,7 +3375,7 @@ function instSections2(parts::SCode.ClassDef, scope::InstNode, sections::Section
   sections
 end
 
-function instExternalDecl(extDecl::SCode.ExternalDecl, scope::InstNode) ::Sections
+function instExternalDecl(extDecl::SCode.EXTERNALDECL, scope::InstNode) ::Sections
   local sections::Sections
   @assign sections = begin
     local nameVar::String
@@ -3470,13 +3436,13 @@ function checkExternalDeclLanguage(language::String, info::SourceInfo)
   end
 end
 
-function instEquations(scodeEql::List{<:SCode.Equation}, scope::InstNode, origin::ORIGIN_Type)
+function instEquations(scodeEql::List{<:SCode.EQUATION}, scope::InstNode, origin::ORIGIN_Type)
   local breaks = _connectBreaks()
   instEql = Equation[instEquation(eq, scope, origin) for eq in scodeEql if !_isBrokenConnect(eq.eEquation, scope, breaks)]
   return instEql
 end
 
-function instEquation(scodeEq::SCode.Equation, scope::InstNode, origin::ORIGIN_Type) ::Equation
+function instEquation(scodeEq::SCode.EQUATION, scope::InstNode, origin::ORIGIN_Type) ::Equation
   local instEq::Equation
   local eq::SCode.EEquation
   @match SCode.EQUATION(eEquation = eq) = scodeEq
@@ -3646,11 +3612,8 @@ function instConnectorCref(absynCref::Absyn.ComponentRef, scope::InstNode, info:
   CREF_EXPRESSION(TYPE_UNKNOWN(), cref)
 end
 
-function makeSource(comment::SCode.Comment, info::SourceInfo)
-  local source::DAE.ElementSource
-  source = DAE.SOURCE(info, nil, "TODO Dummy", nil, nil, nil, list(comment))
-  source
-end
+"""The source of an equation or statement: its position (the comment is not kept)."""
+makeSource(comment::SCode.COMMENT, info::SourceInfo)::SourceInfo = info
 
 function addIteratorToScope(name::String, scope::InstNode, info::SourceInfo, iter_type::ModelicaType = TYPE_UNKNOWN()) ::Tuple{InstNode, InstNode}
   local iterator::InstNode

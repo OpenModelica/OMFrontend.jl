@@ -81,8 +81,8 @@ function instDefaultConstructor(
   local inputs::List{InstNode}
   local locals::List{InstNode}
   local all_params::List{InstNode}
-  local attr::DAE.FunctionAttributes
-  local status::Base.RefValue{Int}
+  local attr::FUNCTION_ATTRIBUTES
+  local status::Base.RefValue{FunctionStatus}
   local ctor_node::InstNode
   local out_rec::InstNode
   local out_comp::Component
@@ -113,7 +113,7 @@ function instDefaultConstructor(
     OUTPUT_ATTR,
     NONE(),
     true, #= Not sure if this change should be made.... Maybe set to true =#
-    AbsynUtil.dummyInfo,
+    InstNode_info(ctor_node),
   )
   out_rec = fromComponent("out" + name(ctor_node), out_comp, ctor_node)
   #=  Make a record constructor class and create a node for the constructor. =#
@@ -121,8 +121,8 @@ function instDefaultConstructor(
   ctor_node = replaceClass(ctor_cls, ctor_node)
   ctor_node = classApply(ctor_node, setType, TYPE_COMPLEX(ctor_node, COMPLEX_CLASS()))
   #=  Create the constructor function and add it to the function cache. =#
-  attr = DAE.FUNCTION_ATTRIBUTES_DEFAULT
-  status = P_Pointer.create(FunctionStatus.INITIAL, Int)
+  attr = FUNCTION_ATTRIBUTES_DEFAULT
+  status = P_Pointer.create(FUNCTION_STATUS_INITIAL, FunctionStatus)
   cacheAddFunc(
     node,
     MODELICA_FUNCTION(

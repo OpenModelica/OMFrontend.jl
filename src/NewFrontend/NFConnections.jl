@@ -33,26 +33,13 @@
 *
 */ =#
 
-@UniontypeDecl Connections
-
-const BrokenEdges = List
-const BrokenEdge = Tuple
-
-@Uniontype Connections begin
-  @Record CONNECTIONS begin
-    connections::List{Connection}
-    flows::List{Connector}
-    broken::BrokenEdges
-  end
-end
-
 
 function makeConnectors(
   cref::ComponentRef,
   ty::ModelicaType,
-  source::DAE.ElementSource,
-)::List{Connector}
-  local connectors::List{Connector}
+  source::SourceInfo,
+)::List{CONNECTOR}
+  local connectors::List{CONNECTOR}
 
   local cref_exp::Expression
   local cr::ComponentRef
@@ -61,7 +48,7 @@ function makeConnectors(
   cr = evaluateSubscripts(cref)
   #= If we are to expand the connectors or not. Let's assume we do for now=#
   #= Change by John (johti17) 2021-04-26=#
-  # if !Flags.isSet(Flags.NF_SCALARIZE)
+  # if !Flags.isSet(Flags.FRONTEND_SCALARIZE)
   #   @assign connectors = list(Connector.fromCref(
   #     cr,
   #     getSubscriptedType(cr),
@@ -81,7 +68,7 @@ function makeConnectors(
       " failed to expand connector `" +
       toString(cref) +
       "\\n",
-      ElementSource_getInfo(source),
+      source,
     )
   end
   #=  Connectors should only have structural parameter subscripts, so it
@@ -127,18 +114,18 @@ function _expandArrayParts(cref::ComponentRef)::Vector{ComponentRef}
   return out
 end
 
-function collect(flatModel::FlatModel)::Tuple{FlatModel, Connections}
-  local conns::Connections = new()
+function collect(flatModel::FLAT_MODEL)::Tuple{FLAT_MODEL, CONNECTIONS}
+  local conns::CONNECTIONS = new()
   local comp::Component
   local cr::ComponentRef
   local lhs::ComponentRef
   local rhs::ComponentRef
-  local c1::Connector
-  local c2::Connector
-  local source::DAE.ElementSource
+  local c1::CONNECTOR
+  local c2::CONNECTOR
+  local source::SourceInfo
   local eql::Vector{Equation} = Equation[]
-  local cl1::List{Connector}
-  local cl2::List{Connector}
+  local cl1::List{CONNECTOR}
+  local cl2::List{CONNECTOR}
   local e1::Expression
   local e2::Expression
   local ty1::ModelicaType
@@ -149,13 +136,12 @@ function collect(flatModel::FlatModel)::Tuple{FlatModel, Connections}
   for var in flatModel.variables
     comp = component(node(var.name))
     if isFlow(comp)
-      if Flags.isSet(Flags.NF_SCALARIZE) || !isArray(var.ty)
+      if Flags.isSet(Flags.FRONTEND_SCALARIZE) || !isArray(var.ty)
         c1 = fromFacedCref(
           var.name,
           var.ty,
-          Face.INSIDE,
-          #=ElementSource.createElementSource(P_Component.info(comp)),=#
-          DAE.emptyElementSource
+          FACE_INSIDE,
+          var.info,
         )
         @assign conns = addFlow(c1, conns)
       else
@@ -164,7 +150,7 @@ function collect(flatModel::FlatModel)::Tuple{FlatModel, Connections}
            (r[1].p.i); Connector.split only expands the last part's dimensions. =#
         local elty = arrayElementType(var.ty)
         for cr in _expandArrayParts(var.name)
-          c1 = fromFacedCref(cr, elty, Face.INSIDE, DAE.emptyElementSource)
+          c1 = fromFacedCref(cr, elty, FACE_INSIDE, var.info)
           @assign conns = addFlow(c1, conns)
         end
       end
@@ -189,7 +175,7 @@ function collect(flatModel::FlatModel)::Tuple{FlatModel, Connections}
             cl1 = makeConnectors(lhs, ty1, source)
             cl2 = makeConnectors(rhs, ty2, source)
             for c1 in cl1
-              @match Cons{Connector}(c2, cl2) = cl2
+              @match Cons{CONNECTOR}(c2, cl2) = cl2
               conns = addConnection(CONNECTION(c1, c2), conns)
             end
           end
@@ -208,24 +194,24 @@ function collect(flatModel::FlatModel)::Tuple{FlatModel, Connections}
   return (flatModel, conns)
 end
 
-function addBroken(broken::BrokenEdges, conns::Connections)
+function addBroken(broken::BrokenEdges, conns::CONNECTIONS)
   conns = CONNECTIONS(conns.connections, conns.flows, broken)
   return conns
 end
 
-function addFlow(conn::Connector, conns::Connections)
-  local connsFlows = Cons{Connector}(conn, conns.flows)
+function addFlow(conn::CONNECTOR, conns::CONNECTIONS)
+  local connsFlows = Cons{CONNECTOR}(conn, conns.flows)
   conns = CONNECTIONS(conns.connections, connsFlows, conns.broken)
   return conns
 end
 
-function addConnection(conn::Connection, conns::Connections)
-  local connsConnections = Cons{Connection}(conn, conns.connections)
+function addConnection(conn::CONNECTION, conns::CONNECTIONS)
+  local connsConnections = Cons{CONNECTION}(conn, conns.connections)
   conns = CONNECTIONS(connsConnections, conns.flows, conns.broken)
   return conns
 end
 
-function new()::Connections
-  local conns::Connections = CONNECTIONS(nil, nil, nil)
+function new()::CONNECTIONS
+  local conns::CONNECTIONS = CONNECTIONS(nil, nil, nil)
   return conns
 end

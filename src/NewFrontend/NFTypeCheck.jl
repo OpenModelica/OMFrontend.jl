@@ -2787,12 +2787,12 @@ function matchFunctionTypes(
   local remaining_inputs::List{InstNode}
   local outputs1::List{InstNode}
   local outputs2::List{InstNode}
-  local slots1::List{Slot}
-  local slots2::List{Slot}
+  local slots1::List{SLOT}
+  local slots2::List{SLOT}
   local input2::InstNode
   local output2::InstNode
-  local slot1::Slot
-  local slot2::Slot
+  local slot1::SLOT
+  local slot2::SLOT
   local matching::Bool
 
   @match TYPE_FUNCTION(

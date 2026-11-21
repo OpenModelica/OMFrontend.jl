@@ -512,32 +512,6 @@ function add(a::Dimension, b::Dimension)::Dimension
   return c
 end
 
-function toDAE(dim::Dimension)::DAE.Dimension
-  local daeDim::DAE.Dimension
-
-  @assign daeDim = begin
-    local ty::ModelicaType
-    @match dim begin
-      DIMENSION_INTEGER(__) => begin
-        DAE.DIM_INTEGER(dim.size)
-      end
-      DIMENSION_BOOLEAN(__) => begin
-        DAE.DIM_BOOLEAN()
-      end
-      DIMENSION_ENUM(enumType = ty && TYPE_ENUMERATION(__)) => begin
-        DAE.DIM_ENUM(ty.typePath, ty.literals, listLength(ty.literals))
-      end
-      DIMENSION_EXP(__) => begin
-        DAE.DIM_EXP(toDAE(dim.exp))
-      end
-      DIMENSION_UNKNOWN(__) => begin
-        DAE.DIM_UNKNOWN()
-      end
-    end
-  end
-  return daeDim
-end
-
 function fromExpList(expl::Union{Vector{Expression}, List{<:Expression}})::Dimension
   local dim::Dimension = DIMENSION_INTEGER(length(expl), Variability.CONSTANT)
   return dim

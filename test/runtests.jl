@@ -15,7 +15,6 @@ Pkg.resolve()
 
 import OpenModelicaParser.Absyn
 import OMFrontend.SCode
-import OMFrontend.DAE
 using MetaModelica
 using Test
 import OMFrontend
@@ -35,15 +34,6 @@ end
 
 
 #= Utility functions =#
-function flatten(modelName::String, modelFile::String)
-  @info "Parsing..."
-  @time p = OMFrontend.parseFile(modelFile)
-  @info "SCode Translation of $(modelName)..."
-  @time scodeProgram = OMFrontend.translateToSCode(p)
-  @info "Generating the DAE for $(modelName)..."
-  @time (dae, cache) = OMFrontend.instantiateSCodeToDAE(modelName, scodeProgram)
-end
-
 function parseAndLowerToScode(modelName::String, modelFile::String)
   p = OMFrontend.parseFile(modelFile)
   scodeProgram = OMFrontend.translateToSCode(p)
@@ -72,8 +62,8 @@ end
     @testset "Absyn -> SCode test" begin
       include("scodeSanityTest.jl")
     end
-    @testset "SCode -> DAE Sanity test" begin
-      include("daeTests.jl")
+    @testset "SCode -> flat model sanity test" begin
+      include("flattenSanityTests.jl")
     end
     @testset "Binding mapExp" begin
       include("bindingMapExpTests.jl")

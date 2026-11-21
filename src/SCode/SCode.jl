@@ -44,29 +44,18 @@ using ExportAll
 @UniontypeDecl Restriction
 @UniontypeDecl FunctionRestriction
 @UniontypeDecl Mod
-@UniontypeDecl SubMod
-@UniontypeDecl Enum
 @UniontypeDecl ClassDef
-@UniontypeDecl Comment
-@UniontypeDecl Annotation
-@UniontypeDecl ExternalDecl
-@UniontypeDecl Equation
 @UniontypeDecl EEquation
-@UniontypeDecl AlgorithmSection
-@UniontypeDecl ConstraintSection
 @UniontypeDecl Statement
 @UniontypeDecl Visibility
 @UniontypeDecl Redeclare
-@UniontypeDecl ConstrainClass
 @UniontypeDecl Replaceable
 @UniontypeDecl Final
 @UniontypeDecl Each
 @UniontypeDecl Encapsulated
 @UniontypeDecl Partial
 @UniontypeDecl ConnectorType
-@UniontypeDecl Prefixes
 @UniontypeDecl Element
-@UniontypeDecl Attributes
 @UniontypeDecl Parallelism
 @UniontypeDecl Variability
 @UniontypeDecl Initial
@@ -78,6 +67,102 @@ import OpenModelicaParser.Absyn
 const Ident = Absyn.Ident
 const Path = Absyn.Path
 const Subscript = Absyn.Subscript
+
+#= The single-variant types are plain structs. They come before the uniontypes whose records hold them;
+   their own fields name only types declared above. =#
+
+"""
+    ANNOTATION(modification)
+
+An `annotation(...)`: its contents as a modification.
+"""
+struct ANNOTATION
+  modification::Mod
+end
+
+"""
+    COMMENT(annotation_, comment)
+
+The annotation and the description string of an element, equation or statement.
+"""
+struct COMMENT
+  annotation_::Option{ANNOTATION}
+  comment::Option{String}
+end
+
+"""
+    NAMEMOD(ident, mod)
+
+A modification of the named component `ident`. Modifications are more structured than in Absyn: one with a
+qualified name (`x.y = z`) is normalized to `x(y = z)`.
+"""
+struct NAMEMOD
+  ident::Ident
+  mod::Mod
+end
+
+"""
+    ENUM(literal, comment)
+
+A literal of an enumeration and its comment.
+"""
+struct ENUM
+  literal::Ident
+  comment::COMMENT
+end
+
+"""
+    EXTERNALDECL(funcName, lang, output_, args, annotation_)
+
+The `external` declaration of a function: the external function's name, its language, the output parameter
+returned as its value, its arguments (positional only, as expressions), and its annotation.
+"""
+struct EXTERNALDECL
+  funcName::Option{Ident}
+  lang::Option{String}
+  output_::Option{Absyn.ComponentRef}
+  args::List{Absyn.Exp}
+  annotation_::Option{ANNOTATION}
+end
+
+"""
+    EQUATION(eEquation)
+
+An equation of an equation section.
+"""
+struct EQUATION
+  eEquation::EEquation
+end
+
+"""
+    ALGORITHM(statements)
+
+A whole algorithm section: its statements. (Absyn follows the grammar, where an algorithm is a single
+statement.)
+"""
+struct ALGORITHM
+  statements::List{Statement}
+end
+
+"""
+    CONSTRAINTS(constraints)
+
+A constraint section (Optimica): its constraint expressions.
+"""
+struct CONSTRAINTS
+  constraints::List{Absyn.Exp}
+end
+
+"""
+    CONSTRAINCLASS(constrainingClass, modifier, comment)
+
+The constraining clause of a replaceable element: `constrainedby constrainingClass(modifier)`.
+"""
+struct CONSTRAINCLASS
+  constrainingClass::Absyn.Path
+  modifier::Mod
+  comment::COMMENT
+end
 
 @Uniontype Restriction begin
   @Record R_CLASS begin
@@ -190,7 +275,7 @@ end
   @Record MOD begin
     finalPrefix #= final prefix =#::Final
     eachPrefix #= each prefix =#::Each
-    subModLst::List{SubMod}
+    subModLst::List{NAMEMOD}
     binding::Option{Absyn.Exp}
     info::SourceInfo
   end
@@ -217,25 +302,38 @@ end
   end
 end
 
-#= Modifications are represented in an more structured way than in
-   the `Absyn' module.  Modifications using qualified names
-   (such as in `x.y =  z') are normalized (to `x(y = z)'). =#
-@Uniontype SubMod begin
-  @Record NAMEMOD begin
-    ident::Ident
-    mod #= A named component =#::Mod
-  end
+"""As in the AST, a program is a list of class definitions."""
+const Program = List
+
+"""
+    PREFIXES(visibility, redeclarePrefix, finalPrefix, innerOuter, replaceablePrefix)
+
+The prefixes common to classes and components: public/protected, redeclare, final (on the element or at the
+top level), inner/outer, and replaceable (with its constraining class).
+"""
+struct PREFIXES
+  visibility::Visibility
+  redeclarePrefix::Redeclare
+  finalPrefix::Final
+  innerOuter::Absyn.InnerOuter
+  replaceablePrefix::Replaceable
 end
 
-const Program = List  #= - Programs
-As in the AST, a program is simply a list of class definitions. =#
+"""
+    ATTR(arrayDims, connectorType, parallelism, variability, direction, isField, mode)
 
-#= Enum, which is a name in an enumeration and an optional Comment. =#
-@Uniontype Enum begin
-  @Record ENUM begin
-    literal::Ident
-    comment::Comment
-  end
+The attributes of a component: its array dimensions, connector type (flow, stream or potential), parallelism
+(parglobal, parlocal, none), variability (constant, parameter, discrete, continuous), direction (input, output,
+bidirectional), field or non-field, and `mode`.
+"""
+struct ATTR
+  arrayDims::Absyn.ArrayDim
+  connectorType::ConnectorType
+  parallelism::Parallelism
+  variability::Variability
+  direction::Absyn.Direction
+  isField::Absyn.IsField
+  mode::Bool
 end
 
 #= The major difference between these types and their Absyn
@@ -257,13 +355,13 @@ SCode.CLASS_EXTENDS is used for extended class definition, i.e:
 @Uniontype ClassDef begin
   @Record PARTS begin
     elementLst #= the list of elements =#::List{Element}
-    normalEquationLst #= the list of equations =#::List{Equation}
-    initialEquationLst #= the list of initial equations =#::List{Equation}
-    normalAlgorithmLst #= the list of algorithms =#::List{AlgorithmSection}
-    initialAlgorithmLst #= the list of initial algorithms =#::List{AlgorithmSection}
-    constraintLst #= the list of constraints =#::List{ConstraintSection}
+    normalEquationLst #= the list of equations =#::List{EQUATION}
+    initialEquationLst #= the list of initial equations =#::List{EQUATION}
+    normalAlgorithmLst #= the list of algorithms =#::List{ALGORITHM}
+    initialAlgorithmLst #= the list of initial algorithms =#::List{ALGORITHM}
+    constraintLst #= the list of constraints =#::List{CONSTRAINTS}
     clsattrs #= the list of class attributes. Currently for Optimica extensions =#::List{Absyn.NamedArg}
-    externalDecl #= used by external functions =#::Option{ExternalDecl}
+    externalDecl #= used by external functions =#::Option{EXTERNALDECL}
   end
 
   @Record CLASS_EXTENDS begin
@@ -274,11 +372,11 @@ SCode.CLASS_EXTENDS is used for extended class definition, i.e:
   @Record DERIVED begin
     typeSpec #= typeSpec: type specification =#::Absyn.TypeSpec
     modifications #= the modifications =#::Mod
-    attributes #= the element attributes =#::Attributes
+    attributes #= the element attributes =#::ATTR
   end
 
   @Record ENUMERATION begin
-    enumLst #= if the list is empty it means :, the supertype of all enumerations =#::List{Enum}
+    enumLst #= if the list is empty it means :, the supertype of all enumerations =#::List{ENUM}
   end
 
   @Record OVERLOAD begin
@@ -291,39 +389,7 @@ SCode.CLASS_EXTENDS is used for extended class definition, i.e:
   end
 end
 
-@Uniontype Comment begin
-  @Record COMMENT begin
-    annotation_::Option{Annotation}
-    comment::Option{String}
-  end
-end
-
-const noComment = COMMENT(NONE(), NONE())::Comment
-#= stefan =#
-
-@Uniontype Annotation begin
-  @Record ANNOTATION begin
-    modification::Mod
-  end
-end
-
-#= Declaration of an external function call - ExternalDecl =#
-@Uniontype ExternalDecl begin
-  @Record EXTERNALDECL begin
-    funcName #= The name of the external function =#::Option{Ident}
-    lang #= Language of the external function =#::Option{String}
-    output_ #= output parameter as return value =#::Option{Absyn.ComponentRef}
-    args #= only positional arguments, i.e. expression list =#::List{Absyn.Exp}
-    annotation_::Option{Annotation}
-  end
-end
-
-#= - Equations =#
-@Uniontype Equation begin
-  @Record EQUATION begin
-    eEquation #= an equation =#::EEquation
-  end
-end
+const noComment = COMMENT(NONE(), NONE())::COMMENT
 
 #= These represent equations and are almost identical to their Absyn versions.
 In EQ_IF the elseif branches are represented as normal else branches with
@@ -333,14 +399,14 @@ a single if statement in them. =#
     condition #= conditional =#::List{Absyn.Exp}
     thenBranch #= the true (then) branch =#::List{List{EEquation}}
     elseBranch #= the false (else) branch =#::List{EEquation}
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
   @Record EQ_EQUALS begin
     expLeft #= the expression on the left side of the operator =#::Absyn.Exp
     expRight #= the expression on the right side of the operator =#::Absyn.Exp
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
@@ -348,14 +414,14 @@ a single if statement in them. =#
     expLeft #= the expression on the left side of the operator =#::Absyn.Exp
     expRight #= the expression on the right side of the operator =#::Absyn.Exp
     domain #= domain for PDEs =#::Absyn.ComponentRef
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
   @Record EQ_CONNECT begin
     crefLeft #= the connector/component reference on the left side =#::Absyn.ComponentRef
     crefRight #= the connector/component reference on the right side =#::Absyn.ComponentRef
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
@@ -363,7 +429,7 @@ a single if statement in them. =#
     index #= the index name =#::Ident
     range #= the range of the index =#::Option{Absyn.Exp}
     eEquationLst #= the equation list =#::List{EEquation}
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
@@ -371,7 +437,7 @@ a single if statement in them. =#
     condition #= the when condition =#::Absyn.Exp
     eEquationLst #= the equation list =#::List{EEquation}
     elseBranches #= the elsewhen expression and equation list =#::List{Tuple{Absyn.Exp, List{EEquation}}}
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
@@ -380,7 +446,7 @@ a single if statement in them. =#
     whenClauses      #= Trigger condition and optional invariant =#::List{Absyn.WhenClause}
     prompt           #= Natural-language prompt for the agent =#::Option{Absyn.Exp}
     initialEquations #= Constraints checked at recompilation time =#::Option{List{Absyn.EquationItem}}
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
@@ -388,44 +454,27 @@ a single if statement in them. =#
     condition #= the assert condition =#::Absyn.Exp
     message #= the assert message =#::Absyn.Exp
     level::Absyn.Exp
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
   @Record EQ_TERMINATE begin
     message #= the terminate message =#::Absyn.Exp
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
   @Record EQ_REINIT begin
     cref #= the variable to initialize =#::Absyn.Exp
     expReinit #= the new value =#::Absyn.Exp
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
   @Record EQ_NORETCALL begin
     exp::Absyn.Exp
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
-  end
-end
-
-#= - Algorithms
- The Absyn module uses the terminology from the
- grammar, where algorithm means an algorithmic
- statement. But here, an Algorithm means a whole
- algorithm section. =#
-@Uniontype AlgorithmSection begin
-  @Record ALGORITHM begin
-    statements #= the algorithm statements =#::List{Statement}
-  end
-end
-
-@Uniontype ConstraintSection begin
-  @Record CONSTRAINTS begin
-    constraints::List{Absyn.Exp}
   end
 end
 
@@ -434,7 +483,7 @@ end
   @Record ALG_ASSIGN begin
     assignComponent #= assignComponent =#::Absyn.Exp
     value #= value =#::Absyn.Exp
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
@@ -443,7 +492,7 @@ end
     trueBranch::List{Statement}
     elseIfBranch::List{Tuple{Absyn.Exp, List{Statement}}}
     elseBranch::List{Statement}
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
@@ -451,7 +500,7 @@ end
     index #= the index name =#::Ident
     range #= the range of the index =#::Option{Absyn.Exp}
     forBody #= forBody =#::List{Statement}
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
@@ -459,20 +508,20 @@ end
     index #= the index name =#::Ident
     range #= the range of the index =#::Option{Absyn.Exp}
     parforBody #= parallel for loop body =#::List{Statement}
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
   @Record ALG_WHILE begin
     boolExpr #= boolExpr =#::Absyn.Exp
     whileBody #= whileBody =#::List{Statement}
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
   @Record ALG_WHEN_A begin
     branches::List{Tuple{Absyn.Exp, List{Statement}}}
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
@@ -480,36 +529,36 @@ end
     condition::Absyn.Exp
     message::Absyn.Exp
     level::Absyn.Exp
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
   @Record ALG_TERMINATE begin
     message::Absyn.Exp
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
   @Record ALG_REINIT begin
     cref::Absyn.Exp
     newValue::Absyn.Exp
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
   @Record ALG_NORETCALL begin
     exp::Absyn.Exp
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
   @Record ALG_RETURN begin
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
   @Record ALG_BREAK begin
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
@@ -517,19 +566,19 @@ end
 
   @Record ALG_FAILURE begin
     stmts::List{Statement}
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
   @Record ALG_TRY begin
     body::List{Statement}
     elseBody::List{Statement}
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 
   @Record ALG_CONTINUE begin
-    comment::Comment
+    comment::COMMENT
     info::SourceInfo
   end
 end
@@ -554,18 +603,10 @@ end
   end
 end
 
-@Uniontype ConstrainClass begin
-  @Record CONSTRAINCLASS begin
-    constrainingClass::Absyn.Path
-    modifier::Mod
-    comment::Comment
-  end
-end
-
 #= the replaceable prefix =#
 @Uniontype Replaceable begin
   @Record REPLACEABLE begin
-    cc #= the constraint class =#::Option{ConstrainClass}
+    cc #= the constraint class =#::Option{CONSTRAINCLASS}
   end
 
   @Record NOT_REPLACEABLE begin
@@ -619,17 +660,6 @@ end
   end
 end
 
-#= the common class or component prefixes =#
-@Uniontype Prefixes begin
-  @Record PREFIXES begin
-    visibility #= the protected/public prefix =#::Visibility
-    redeclarePrefix #= redeclare prefix =#::Redeclare
-    finalPrefix #= final prefix, be it at the element or top level =#::Final
-    innerOuter #= the inner/outer/innerouter prefix =#::Absyn.InnerOuter
-    replaceablePrefix #= replaceable prefix =#::Replaceable
-  end
-end
-
 #= - Elements
  There are four types of elements in a declaration, represented by the constructors:
  IMPORT     (for import clauses)
@@ -648,28 +678,28 @@ end
     baseClassPath #= the extends path =#::Path
     visibility #= the protected/public prefix =#::Visibility
     modifications #= the modifications applied to the base class =#::Mod
-    ann #= the extends annotation =#::Option{Annotation}
+    ann #= the extends annotation =#::Option{ANNOTATION}
     info #= the extends info =#::SourceInfo
   end
 
   @Record CLASS begin
     name #= the name of the class =#::Ident
-    prefixes #= the common class or component prefixes =#::Prefixes
+    prefixes #= the common class or component prefixes =#::PREFIXES
     encapsulatedPrefix #= the encapsulated prefix =#::Encapsulated
     partialPrefix #= the partial prefix =#::Partial
     restriction #= the restriction of the class =#::Restriction
     classDef #= the class specification =#::ClassDef
-    cmt #= the class annotation and string-comment =#::Comment
+    cmt #= the class annotation and string-comment =#::COMMENT
     info #= the class information =#::SourceInfo
   end
 
   @Record COMPONENT begin
     name #= the component name =#::Ident
-    prefixes #= the common class or component prefixes =#::Prefixes
-    attributes #= the component attributes =#::Attributes
+    prefixes #= the common class or component prefixes =#::PREFIXES
+    attributes #= the component attributes =#::ATTR
     typeSpec #= the type specification =#::Absyn.TypeSpec
     modifications #= the modifications to be applied to the component =#::Mod
-    comment #= this if for extraction of comments and annotations from Absyn =#::Comment
+    comment #= this if for extraction of comments and annotations from Absyn =#::COMMENT
     condition #= the conditional declaration of a component =#::Option{Absyn.Exp}
     info #= this is for line and column numbers, also file name. =#::SourceInfo
   end
@@ -679,19 +709,6 @@ end
     visibility #= the protected/public prefix =#::Visibility
     exp #= the unit expression =#::Option{String}
     weight #= the weight =#::Option{ModelicaReal}
-  end
-end
-
-#= - Attributes =#
-@Uniontype Attributes begin
-  @Record ATTR begin
-    arrayDims #= the array dimensions of the component =#::Absyn.ArrayDim
-    connectorType #= The connector type: flow, stream or nothing. =#::ConnectorType
-    parallelism #= parallelism prefix: parglobal, parlocal, parprivate =#::Parallelism
-    variability #= the variability: parameter, discrete, variable, constant =#::Variability
-    direction #= the direction: input, output or bidirectional =#::Absyn.Direction
-    isField #= non-field / field =#::Absyn.IsField
-    mode::Bool
   end
 end
 
@@ -735,17 +752,17 @@ specifying if equations or algorithms are initial or not. =#
   end
 end
 
-const defaultPrefixes = PREFIXES(PUBLIC(), NOT_REDECLARE(), NOT_FINAL(), Absyn.NOT_INNER_OUTER(), NOT_REPLACEABLE())::Prefixes
+const defaultPrefixes = PREFIXES(PUBLIC(), NOT_REDECLARE(), NOT_FINAL(), Absyn.NOT_INNER_OUTER(), NOT_REPLACEABLE())::PREFIXES
 
-const defaultVarAttr = ATTR(list(), POTENTIAL(), NON_PARALLEL(), VAR(), Absyn.BIDIR(), Absyn.NONFIELD(), false)::Attributes
+const defaultVarAttr = ATTR(list(), POTENTIAL(), NON_PARALLEL(), VAR(), Absyn.BIDIR(), Absyn.NONFIELD(), false)::ATTR
 
-const defaultParamAttr = ATTR(list(), POTENTIAL(), NON_PARALLEL(), PARAM(), Absyn.BIDIR(), Absyn.NONFIELD(), false)::Attributes
+const defaultParamAttr = ATTR(list(), POTENTIAL(), NON_PARALLEL(), PARAM(), Absyn.BIDIR(), Absyn.NONFIELD(), false)::ATTR
 
-const defaultConstAttr = ATTR(list(), POTENTIAL(), NON_PARALLEL(), CONST(), Absyn.BIDIR(), Absyn.NONFIELD(), false)::Attributes
+const defaultConstAttr = ATTR(list(), POTENTIAL(), NON_PARALLEL(), CONST(), Absyn.BIDIR(), Absyn.NONFIELD(), false)::ATTR
 
-const defaultInputAttr = ATTR(list(), POTENTIAL(), NON_PARALLEL(), VAR(), Absyn.INPUT(), Absyn.NONFIELD(), false)::Attributes
+const defaultInputAttr = ATTR(list(), POTENTIAL(), NON_PARALLEL(), VAR(), Absyn.INPUT(), Absyn.NONFIELD(), false)::ATTR
 
-const defaultOutputAttr = ATTR(list(), POTENTIAL(), NON_PARALLEL(), VAR(), Absyn.OUTPUT(), Absyn.NONFIELD(), false)::Attributes
+const defaultOutputAttr = ATTR(list(), POTENTIAL(), NON_PARALLEL(), VAR(), Absyn.OUTPUT(), Absyn.NONFIELD(), false)::ATTR
 
 #= So that we can use wildcard imports and named imports when they do occur. Not good Julia practice =#
 @exportAll()

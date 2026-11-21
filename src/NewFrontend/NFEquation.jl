@@ -122,7 +122,7 @@ end
       EQUATION_FOR(__) => begin
          s = IOStream_M.append(s, "for ")
          #= Not scalarizing: quoted like the iterator's uses (omc). =#
-         s = IOStream_M.append(s, Flags.isSet(Flags.NF_SCALARIZE) ? toFlatString(eq.iterator) : "'" * name(eq.iterator) * "'")
+         s = IOStream_M.append(s, Flags.isSet(Flags.FRONTEND_SCALARIZE) ? toFlatString(eq.iterator) : "'" * name(eq.iterator) * "'")
         if isSome(eq.range)
            s = IOStream_M.append(s, " in ")
            s = IOStream_M.append(
@@ -143,7 +143,7 @@ end
         for (k, b) in enumerate(eq.branches[2:end])
           s = IOStream_M.append(s, indent)
           #= Not scalarizing: a last branch with a literal true condition is the else (omc). =#
-          if !Flags.isSet(Flags.NF_SCALARIZE) && k == length(eq.branches) - 1 &&
+          if !Flags.isSet(Flags.FRONTEND_SCALARIZE) && k == length(eq.branches) - 1 &&
              isvariant(b, EQUATION_BRANCH) && isTrue(b.condition)
             s = IOStream_M.append(s, "else\\n")
             s = toFlatStreamList(b.body, indent + "  ", s)
@@ -848,12 +848,12 @@ function applyList(eql::Vector{Equation}, func::ApplyFn)
 end
 
 @nospecializeinfer function Equation_info(@nospecialize(eq::Equation))::SourceInfo
-  local info::SourceInfo = sourceInfo() #DAE.ElementSource_getInfo(source(eq))
+  local info::SourceInfo = source(eq)
   return info
 end
 
-@nospecializeinfer function source(@nospecialize(eq::Equation))::DAE.ElementSource
-  local sourceVar::DAE.ElementSource
+@nospecializeinfer function source(@nospecialize(eq::Equation))::SourceInfo
+  local sourceVar::SourceInfo
    sourceVar = begin
     @match eq begin
       EQUATION_EQUALITY(__) => begin
@@ -898,7 +898,7 @@ end
   return sourceVar
 end
 
-function makeIf(branches::Vector{<:EquationBranch}, src::DAE.ElementSource)
+function makeIf(branches::Vector{<:EquationBranch}, src::SourceInfo)
   local eq::Equation
    eq = EQUATION_IF(branches, src)
   return eq
@@ -918,7 +918,7 @@ function makeEquality(
   lhs::Expression,
   rhs::Expression,
   ty::ModelicaType,
-  src::DAE.SOURCE,
+  src::SourceInfo,
 )::Equation
   local eq::Equation
    eq = EQUATION_EQUALITY(lhs, rhs, ty, src)
@@ -990,7 +990,7 @@ end
 function makeCrefEquality(lhsCref::ComponentRef,
                           rhsCref::ComponentRef,
                           scope::InstNode,
-                          src::DAE.SOURCE)
+                          src::SourceInfo)
   local e1 = fromCref(lhsCref)
   local e2 = fromCref(rhsCref)
   return makeEquality(e1, e2, typeOf(e1), src)

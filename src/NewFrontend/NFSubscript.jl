@@ -674,62 +674,6 @@ function toString(subscript::Subscript)::String
   return string
 end
 
-function toDAEExp(subscript::Subscript)::DAE.Exp
-  local daeExp::DAE.Exp
-
-   daeExp = begin
-    @match subscript begin
-      SUBSCRIPT_INDEX(__) => begin
-        toDAE(subscript.index)
-      end
-
-      SUBSCRIPT_SLICE(__) => begin
-        toDAE(subscript.slice)
-      end
-
-      _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() + " failed on unknown subscript '" + toString(subscript) + "'",
-          sourceInfo(),
-        )
-        fail()
-      end
-    end
-  end
-  return daeExp
-end
-
-function toDAE(subscript::Subscript)::DAE.Subscript
-  local daeSubscript::DAE.Subscript
-
-   daeSubscript = begin
-    @match subscript begin
-      SUBSCRIPT_INDEX(__) => begin
-        DAE.INDEX(toDAE(subscript.index))
-      end
-
-      SUBSCRIPT_SLICE(__) => begin
-        DAE.SLICE(toDAE(subscript.slice))
-      end
-
-      SUBSCRIPT_WHOLE(__) => begin
-        DAE.WHOLEDIM()
-      end
-
-      _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() + " failed on unknown subscript",
-          sourceInfo(),
-        )
-        fail()
-      end
-    end
-  end
-  return daeSubscript
-end
-
 function mapFoldExpShallow(subscript::Subscript, func::MapFunc, arg::ArgT) where {ArgT}
   local outSubscript::Subscript
   outSubscript = begin

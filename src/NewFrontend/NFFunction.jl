@@ -61,76 +61,19 @@ function toString(s::Nothing)
   "nothing"
 end
 
-const SlotType = (() -> begin #= Enumeration =#
-  POSITIONAL = 1  #= Only accepts positional arguments. =#
-  NAMED = 2  #= Only accepts named argument. =#
-  GENERIC = 3  #= Accepts both positional and named arguments. =#
-  #= Determines which type of argument a slot accepts. =#
-  () -> (POSITIONAL; NAMED; GENERIC)  #= Accepts both positional and named arguments. =#
-end)()
-const SlotTypeType = Int
 
-const SlotEvalStatus = (() -> begin #= Enumeration =#
-  NOT_EVALUATED = 1
-  EVALUATING = 2
-  EVALUATED = 3
-  () -> (NOT_EVALUATED; EVALUATING; EVALUATED)
-end)()
-const SlotEvalStatusType = Int
-
-@UniontypeDecl Slot
-
-function hasName(name::String, slot::Slot)::Bool
+function hasName(name::String, slot::SLOT)::Bool
   local hasName::Bool = name == slot.name
   return hasName
 end
 
-function named(slot::Slot)::Bool
-  local pos::Bool
-  @assign pos = begin
-    @match slot.ty begin
-      SlotType.NAMED => begin
-        true
-      end
-      SlotType.GENERIC => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return pos
-end
+"""True if the slot accepts a named argument."""
+named(slot::SLOT)::Bool = slot.ty == SLOT_TYPE_NAMED || slot.ty == SLOT_TYPE_GENERIC
 
-function positional(slot::Slot)::Bool
-  local pos::Bool
-  @assign pos = begin
-    @match slot.ty begin
-      SlotType.POSITIONAL => begin
-        true
-      end
-      SlotType.GENERIC => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return pos
-end
+"""True if the slot accepts a positional argument."""
+positional(slot::SLOT)::Bool = slot.ty == SLOT_TYPE_POSITIONAL || slot.ty == SLOT_TYPE_GENERIC
 
-@Uniontype Slot begin
-  @Record SLOT begin
-    name::String
-    ty::SlotTypeType
-    default::Option{Expression}
-    arg::Option{TypedArg}
-    index::Int
-    evalStatus::SlotEvalStatusType
-  end
-end
+#= SLOT is defined in FrontendInterfaces/NFInterfaces.jl, before MODELICA_FUNCTION. =#
 
 @UniontypeDecl FunctionMatchKind
 
@@ -237,16 +180,6 @@ function getExactMatches(matchedFunctions::Vector{MatchedFunction})::Vector{Matc
 end
 
 
-const FunctionStatus = (() -> begin #= Enumeration =#
-  BUILTIN = 1  #= A builtin function. =#
-  INITIAL = 2  #= The initial status. =#
-  EVALUATED = 3  #= Constants in the function has been evaluated by EvalConstants. =#
-  SIMPLIFIED = 4  #= The function has been simplified by SimplifyModel. =#
-  COLLECTED = 5  #= The function has been added to the function tree. =#
-  () -> (BUILTIN; INITIAL; EVALUATED; SIMPLIFIED; COLLECTED)  #= The function has been added to the function tree. =#
-end)()
-
-const FunctionStatusType = Int
 
 
 using MetaModelica
@@ -382,7 +315,7 @@ function mapExp(
   return fn
 end
 
-function hasUnboxArgsAnnotation(cmt::SCode.Comment)::Bool
+function hasUnboxArgsAnnotation(cmt::SCode.COMMENT)::Bool
   local res::Bool =
     SCodeUtil.commentHasBooleanNamedAnnotation(cmt, "__OpenModelica_UnboxArguments")
   return res
@@ -390,107 +323,12 @@ end
 
 """Returns true if the function has the __OpenModelica_UnboxArguments annotation, otherwise false."""
 function hasUnboxArgs(fn::MODELICA_FUNCTION)::Bool
-  local res::Bool
-
-  @assign res = begin
-    @match fn.attributes begin
-      DAE.FUNCTION_ATTRIBUTES(
-        isBuiltin = DAE.FUNCTION_BUILTIN(unboxArgs = res),
-      ) => begin
-        res
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return res
+  return fn.attributes.builtin == FUNCTION_BUILTIN && fn.attributes.unboxArgs
 end
 
 function getBody(fn::MODELICA_FUNCTION)::Vector{Statement}
   local body::Vector{Statement} = getBody2(fn.node)
   return body
-end
-
-function makeDAEType(fn::MODELICA_FUNCTION, boxTypes::Bool = false)::DAE.Type
-  local outType::DAE.Type
-  local params::List{DAE.FuncArg} = nil
-  local pname::String
-  local ty::ModelicaType
-  local ptype::DAE.Type
-  local pconst::DAE.Const
-  local ppar::DAE.VarParallelism
-  local pdefault::Option{DAE.Exp}
-  local comp::Component
-  for param in fn.inputs
-    @assign comp = component(param)
-    @assign pname = name(param)
-    @assign ty = getType(comp)
-    @assign ptype = toDAE(if boxTypes
-                            box(ty)
-                          else
-                            ty
-                          end)
-    @assign pconst = variabilityToDAEConst(variability(comp))
-    @assign ppar = parallelismToDAE(parallelism(comp))
-    @assign pdefault = Util.applyOption(
-      typedExp(getBinding(comp)),
-      toDAE,
-    )
-    @assign params =
-      _cons(DAE.FUNCARG(pname, ptype, pconst, ppar, pdefault), params)
-  end
-  @assign params = listReverse(params)
-  @assign ty = if boxTypes
-    box(fn.returnType)
-  else
-    fn.returnType
-  end
-  @assign outType = DAE.T_FUNCTION(params, toDAE(ty), fn.attributes, fn.path)
-  return outType
-end
-
-function toDAE(fn::MODELICA_FUNCTION, def::DAE.FunctionDefinition)::DAE.Function
-  local daeFn::DAE.Function
-
-  local vis::SCode.Visibility
-  local par::Bool
-  local impr::Bool
-  local ity::DAE.InlineType
-  local ty::DAE.Type
-  local defs::List{DAE.FunctionDefinition}
-  local unused_inputs::List{Int}
-
-  @assign vis = SCode.PUBLIC()
-  #=  TODO: Use the actual visibility.
-  =#
-  @assign par = false
-  #=  TODO: Use the actual partial prefix.
-  =#
-  @assign impr = fn.attributes.purity == DAE.IMPURE
-  @assign ity = fn.attributes.inline
-  @assign ty = makeDAEType(fn)
-  @assign unused_inputs = analyseUnusedParameters(fn)
-  @assign defs = _cons(
-    def,
-    list(
-      P_FunctionDerivative.FunctionDerivative.toDAE(fn_der) for fn_der in fn.derivatives
-        ),
-  )
-  @assign daeFn = DAE.FUNCTION(
-    fn.path,
-    defs,
-    ty,
-    vis,
-    par,
-    impr,
-    ity,
-    unused_inputs,
-    ElementSource.createElementSource(InstNode_info(fn.node)),
-    SCodeUtil.getElementComment(definition(fn.node)),
-  )
-  return daeFn
 end
 
 #= An operator record's constructor: 'constructor' in its path (omc isNonDefaultRecordConstructor). =#
@@ -518,19 +356,8 @@ function isDefaultRecordConstructor(fn::MODELICA_FUNCTION)::Bool
   return isConstructor
 end
 
-function inlineBuiltin(fn::MODELICA_FUNCTION)::DAE.InlineType
-  local inlineType::DAE.InlineType
-  @assign inlineType = begin
-    @match fn.attributes.isBuiltin begin
-      DAE.FUNCTION_BUILTIN_PTR(__) => begin
-        DAE.BUILTIN_EARLY_INLINE()
-      end
-      _ => begin
-        fn.attributes.inline
-      end
-    end
-  end
-  return inlineType
+function inlineBuiltin(fn::MODELICA_FUNCTION)::InlineType
+  return fn.attributes.builtin == FUNCTION_BUILTIN_PTR ? BUILTIN_EARLY_INLINE : fn.attributes.inline
 end
 
 function isExternal(fn::MODELICA_FUNCTION)::Bool
@@ -540,7 +367,7 @@ function isExternal(fn::MODELICA_FUNCTION)::Bool
 end
 
 function setFunctionPointer(isPointer::Bool, fn::MODELICA_FUNCTION)::MODELICA_FUNCTION
-  local attr::DAE.FunctionAttributes = fn.attributes
+  local attr::FUNCTION_ATTRIBUTES = fn.attributes
   @assign attr.isFunctionPointer = isPointer
   @assign fn.attributes = attr
   return fn
@@ -552,13 +379,11 @@ function isFunctionPointer(fn::MODELICA_FUNCTION)::Bool
 end
 
 function isOMImpure(fn::MODELICA_FUNCTION)::Bool
-  local isImpure::Bool = fn.attributes.purity == DAE.IMPURE
-  return isImpure
+  return fn.attributes.isImpure
 end
 
 function isImpure(fn::MODELICA_FUNCTION)::Bool
-  local impure::Bool = fn.attributes.purity == DAE.IMPURE
-  return impure
+  return fn.attributes.isImpure
 end
 
 function isNotImpure(fn::MODELICA_FUNCTION)::Bool
@@ -780,20 +605,8 @@ function isSpecialBuiltin(fn::MODELICA_FUNCTION)::Bool
   return special
 end
 
-function isBuiltinAttr(attrs::DAE.FunctionAttributes)::Bool
-  local isBuiltin::Bool
-
-  @assign isBuiltin = begin
-    @match attrs.isBuiltin begin
-      DAE.FUNCTION_NOT_BUILTIN(__) => begin
-        false
-      end
-      _ => begin
-        true
-      end
-    end
-  end
-  return isBuiltin
+function isBuiltinAttr(attrs::FUNCTION_ATTRIBUTES)::Bool
+  return attrs.builtin != FUNCTION_NOT_BUILTIN
 end
 
 function isBuiltin(fn::MODELICA_FUNCTION)::Bool
@@ -806,17 +619,17 @@ function applyPartialApplicationArg(
   argExp::Expression,
   argType::ModelicaType,
   inputs::List{<:InstNode},
-  slots::List{<:Slot},
+  slots::List{<:SLOT},
   fn::MODELICA_FUNCTION,
   info::SourceInfo,
-)::Tuple{Expression, List{InstNode}, List{Slot}}
-  local outSlots::List{Slot} = nil
+)::Tuple{Expression, List{InstNode}, List{SLOT}}
+  local outSlots::List{SLOT} = nil
   local outInputs::List{InstNode} = nil
 
   local i::InstNode
   local rest_inputs::List{InstNode} = inputs
-  local s::Slot
-  local rest_slots::List{Slot} = slots
+  local s::SLOT
+  local rest_slots::List{SLOT} = slots
   local mk::MatchKindType
 
   while !listEmpty(rest_inputs)
@@ -875,7 +688,7 @@ function typePartialApplication(
   local fn::MODELICA_FUNCTION
   local next_origin::ORIGIN_Type = setFlag(origin, ORIGIN_SUBEXPRESSION)
   local inputs::List{InstNode}
-  local slots::List{Slot}
+  local slots::List{SLOT}
 
   @match PARTIAL_FUNCTION_APPLICATION_EXPRESSION(
     fn = fn_ref,
@@ -1019,7 +832,6 @@ end
 
 """Types a function's parameters, local components and default arguments."""
 function typeFunctionSignature(fn::MODELICA_FUNCTION)
-  local attr::DAE.FunctionAttributes
   local node::InstNode = fn.node
   if !isTyped(fn)
     typeClassType(node, EMPTY_BINDING, ORIGIN_FUNCTION, node)
@@ -1394,7 +1206,7 @@ end
    and the bare catch took the failed assignment for a missing slot, so a default reading
    another input kept the function's own input (MSL WallFriction's `crossArea = pi*diameter^2/4`
    a continuous binding of a parameter: Buildings' FixedResistances). =#
-function lookupSlotInArray(slotName::String, slots::Vector{<:Slot})::Option{Slot}
+function lookupSlotInArray(slotName::String, slots::Vector{<:SLOT})::Option{SLOT}
   local i = findfirst(slot -> slot.name == slotName, slots)
   return i === nothing ? NONE() : SOME(slots[i])
 end
@@ -1407,13 +1219,13 @@ end
 
 function evaluateSlotExp_traverser(
   exp::Expression,
-  slots::Vector{<:Slot},
+  slots::Vector{<:SLOT},
   info::SourceInfo,
 )::Expression
   local outExp::Expression
   outExp = begin
     local cref::ComponentRef
-    local slot::Option{Slot}
+    local slot::Option{SLOT}
     @match exp begin
       CREF_EXPRESSION(
         cref = cref && COMPONENT_REF_CREF(
@@ -1441,7 +1253,7 @@ end
 
 function evaluateSlotExp(
   exp::Expression,
-  slots::Vector{<:Slot},
+  slots::Vector{<:SLOT},
   info::SourceInfo,
 )::Expression
   local outExp::Expression
@@ -1473,50 +1285,35 @@ function _callVariabilityFromArgs(@nospecialize(exp::Expression))::Expression
   end
 end
 
-function fillDefaultSlot2(slot::Slot, slots::Vector{<:Slot}, info::SourceInfo)::TypedArg
+function fillDefaultSlot2(slot::SLOT, slots::Vector{<:SLOT}, info::SourceInfo)::TypedArg
   local outArg::TypedArg
 
-  @assign outArg = begin
-    local exp::Expression
-    #=  An already evaluated slot, return its binding.
-    =#
-    @match slot.evalStatus begin
-      SlotEvalStatus.EVALUATED => begin
-        Util.getOption(slot.arg)
-      end
-
-      SlotEvalStatus.EVALUATING => begin
-        #=  A slot in the process of being evaluated => cyclic bindings.
-        =#
-        Error.addSourceMessage(Error.CYCLIC_DEFAULT_VALUE, list(slot.name), info)
-        fail()
-      end
-
-      SlotEvalStatus.NOT_EVALUATED => begin
-        #=  A slot with a not evaluated binding, evaluate the binding and return it.
-        =#
-        @assign slot.evalStatus = SlotEvalStatus.EVALUATING
-        arrayUpdate(slots, slot.index, slot)
-        @assign exp = evaluateSlotExp(Util.getOption(slot.default), slots, info)
-        #= Its calls take the variability of the arguments put in (omc types the default again:
-           `input Real x = f2(dim)` in f(3) is constant, not dim's; omc FuncDefaultArg5). =#
-        exp = map(exp, _callVariabilityFromArgs)
-        @assign outArg = (
-          exp,
-          typeOf(exp),
-          variability(exp),
-        )
-        @assign slot.arg = SOME(outArg)
-        @assign slot.evalStatus = SlotEvalStatus.EVALUATED
-        arrayUpdate(slots, slot.index, slot)
-        outArg
-      end
-    end
+  local exp::Expression
+  local status::SlotEvalStatus = slot.evalStatus
+  if status == SLOT_EVALUATED
+    #= An already evaluated slot: its binding. =#
+    outArg = Util.getOption(slot.arg)
+  elseif status == SLOT_EVALUATING
+    #= A slot in the process of being evaluated: cyclic bindings. =#
+    Error.addSourceMessage(Error.CYCLIC_DEFAULT_VALUE, list(slot.name), info)
+    fail()
+  else
+    #= A slot with a binding not evaluated yet: evaluate the binding and return it. =#
+    @assign slot.evalStatus = SLOT_EVALUATING
+    arrayUpdate(slots, slot.index, slot)
+    exp = evaluateSlotExp(Util.getOption(slot.default), slots, info)
+    #= Its calls take the variability of the arguments put in (omc types the default again:
+       `input Real x = f2(dim)` in f(3) is constant, not dim's; omc FuncDefaultArg5). =#
+    exp = map(exp, _callVariabilityFromArgs)
+    outArg = (exp, typeOf(exp), variability(exp))
+    @assign slot.arg = SOME(outArg)
+    @assign slot.evalStatus = SLOT_EVALUATED
+    arrayUpdate(slots, slot.index, slot)
   end
   return outArg
 end
 
-function fillDefaultSlot(slot::Slot, slots::Vector{<:Slot}, info::SourceInfo)::TypedArg
+function fillDefaultSlot(slot::SLOT, slots::Vector{<:SLOT}, info::SourceInfo)::TypedArg
   local outArg::TypedArg
 
   @assign outArg = begin
@@ -1545,7 +1342,7 @@ function fillDefaultSlot(slot::Slot, slots::Vector{<:Slot}, info::SourceInfo)::T
 end
 
 """ Collects the arguments from the given slots. """
-function collectArgs(slots::Vector{<:Slot}, info::SourceInfo)::Tuple{Vector{TypedArg}, Bool}
+function collectArgs(slots::Vector{<:SLOT}, info::SourceInfo)::Tuple{Vector{TypedArg}, Bool}
   local matching::Bool = true
   local args::Vector{TypedArg} = TypedArg[]
   local default::Option{Expression}
@@ -1584,13 +1381,13 @@ end
 """
 function fillNamedArg(
   inArg::TypedNamedArg,
-  slots::Vector{<:Slot},
+  slots::Vector{<:SLOT},
   fn::MODELICA_FUNCTION,
   info::SourceInfo,
-)::Tuple{Array{Slot}, Bool} #= For error reporting =#
+)::Tuple{Array{SLOT}, Bool} #= For error reporting =#
   local matching::Bool = true
 
-  local s::Slot
+  local s::SLOT
   local argName::String
   local ty::ModelicaType
   local argExp::Expression
@@ -1660,11 +1457,11 @@ function fillArgs(
 )::Tuple{Vector{TypedArg}, Bool}
   local matching::Bool
   local args::Vector{TypedArg} = posArgs
-  local slot::Slot
-  local slots::List{Slot}
-  local remaining_slots::List{Slot}
+  local slot::SLOT
+  local slots::List{SLOT}
+  local remaining_slots::List{SLOT}
   local filled_named_args::Vector{TypedArg}
-  local slots_arr::Vector{Slot}
+  local slots_arr::Vector{SLOT}
   local pos_arg_count::Int
   local slot_count::Int
   local index::Int = 1
@@ -1878,17 +1675,6 @@ function signatureString(fn::MODELICA_FUNCTION, printTypes::Bool = true)::String
       @assign input_str = " = " + toString(def_exp)::String
     end
     @assign input_str = (s.name::String) + (input_str::String)
-    @assign input_str = begin
-      @match s.ty begin
-        SlotType.POSITIONAL => begin
-          "" + input_str
-        end
-
-        _ => begin
-          input_str
-        end
-      end
-    end
     if printTypes && isTyped(c)
       ty = getType(c)
       var_s = unparseVariability(variability(c), ty)
@@ -1921,27 +1707,14 @@ function signatureString(fn::MODELICA_FUNCTION, printTypes::Bool = true)::String
   return str
 end
 
-"""Handles the DAE.mo structure where builtin calls are replaced by their simpler name"""
+"""The name calls of `fn` use: a builtin function's builtin name (or the last part of its path), else its path."""
 function nameConsiderBuiltin(fn::MODELICA_FUNCTION)::Absyn.Path
-  local path::Absyn.Path
-
-  @assign path = begin
-    local name::String
-    @match fn.attributes.isBuiltin begin
-      DAE.FUNCTION_BUILTIN(name = SOME(name)) => begin
-        Absyn.IDENT(name)
-      end
-
-      DAE.FUNCTION_BUILTIN(__) => begin
-        AbsynUtil.pathLast(fn.path)
-      end
-
-      _ => begin
-        fn.path
-      end
-    end
+  local attrs::FUNCTION_ATTRIBUTES = fn.attributes
+  if attrs.builtin != FUNCTION_BUILTIN
+    return fn.path
   end
-  return path
+  local builtinName::Option{String} = attrs.builtinName
+  return builtinName === nothing ? AbsynUtil.pathLast(fn.path) : Absyn.IDENT(something(builtinName))
 end
 
 function name(fn::MODELICA_FUNCTION)::Absyn.Path
@@ -1953,8 +1726,8 @@ end
 function collect(fn::MODELICA_FUNCTION)
   #=  The pointer might be immutable, check before assigning to it.
   =#
-  return if P_Pointer.access(fn.status) != FunctionStatus.BUILTIN
-    P_Pointer.update(fn.status, FunctionStatus.COLLECTED)
+  return if P_Pointer.access(fn.status) != FUNCTION_STATUS_BUILTIN
+    P_Pointer.update(fn.status, FUNCTION_STATUS_COLLECTED)
   end
 end
 
@@ -1963,73 +1736,30 @@ end
   (or shouldn't be added, e.g. if it's builtin), otherwise false.
 """
 function isCollected(fn::MODELICA_FUNCTION)::Bool
-  local collected::Bool
-  @assign collected = begin
-    @match P_Pointer.access(fn.status) begin
-      FunctionStatus.BUILTIN => begin
-        true
-      end
-      FunctionStatus.COLLECTED => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return collected
+  local status::FunctionStatus = P_Pointer.access(fn.status)
+  return status == FUNCTION_STATUS_BUILTIN || status == FUNCTION_STATUS_COLLECTED
 end
 
 function markSimplified(fn::MODELICA_FUNCTION)
-  return if P_Pointer.access(fn.status) != FunctionStatus.BUILTIN
-    P_Pointer.update(fn.status, FunctionStatus.SIMPLIFIED)
+  return if P_Pointer.access(fn.status) != FUNCTION_STATUS_BUILTIN
+    P_Pointer.update(fn.status, FUNCTION_STATUS_SIMPLIFIED)
   end
 end
 
 function isSimplified(fn::MODELICA_FUNCTION)::Bool
-  local simplified::Bool
-
-  @assign simplified = begin
-    @match P_Pointer.access(fn.status) begin
-      FunctionStatus.BUILTIN => begin
-        true
-      end
-
-      FunctionStatus.SIMPLIFIED => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return simplified
+  local status::FunctionStatus = P_Pointer.access(fn.status)
+  return status == FUNCTION_STATUS_BUILTIN || status == FUNCTION_STATUS_SIMPLIFIED
 end
 
 function markEvaluated(fn::MODELICA_FUNCTION)
-  return if P_Pointer.access(fn.status) != FunctionStatus.BUILTIN
-    P_Pointer.update(fn.status, FunctionStatus.EVALUATED)
+  return if P_Pointer.access(fn.status) != FUNCTION_STATUS_BUILTIN
+    P_Pointer.update(fn.status, FUNCTION_STATUS_EVALUATED)
   end
 end
 
 function isEvaluated(fn::MODELICA_FUNCTION)::Bool
-  local evaluated::Bool
-  local status = P_Pointer.access(fn.status)
-  evaluated = begin
-    @match status begin
-      FunctionStatus.BUILTIN => begin
-        true
-      end
-      FunctionStatus.EVALUATED => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return evaluated
+  local status::FunctionStatus = P_Pointer.access(fn.status)
+  return status == FUNCTION_STATUS_BUILTIN || status == FUNCTION_STATUS_EVALUATED
 end
 
 function mapCachedFuncs(inNode::InstNode, mapFn::MapFn)
@@ -2098,7 +1828,7 @@ function instFunction2(
     local cr::Absyn.ComponentRef
     local sub_fnNode::InstNode
     local funcs::List{MODELICA_FUNCTION}
-    local fn_ders::List{FunctionDerivative}
+    local fn_ders::List{FUNCTION_DER}
     @match def begin
       SCode.CLASS(__) where {(SCodeUtil.isOperatorRecord(def))} => begin
         @assign fnNode = instFunction3(fnNode)
@@ -2399,18 +2129,18 @@ function new(path::Absyn.Path, node::InstNode)::MODELICA_FUNCTION
   local inputs::List{InstNode}
   local outputs::List{InstNode}
   local locals::List{InstNode}
-  local slots::List{Slot}
-  local attr::DAE.FunctionAttributes
-  local status::FunctionStatusType
+  local slots::List{SLOT}
+  local attr::FUNCTION_ATTRIBUTES
+  local status::FunctionStatus
 
   (inputs, outputs, locals) = collectParams(node)
   @assign attr = makeAttributes(node, inputs, outputs)
   #=  Make sure builtin functions aren't added to the function tree.
   =#
   @assign status = if isBuiltinAttr(attr)
-    FunctionStatus.COLLECTED
+    FUNCTION_STATUS_COLLECTED
   else
-    FunctionStatus.INITIAL
+    FUNCTION_STATUS_INITIAL
   end
   @assign fn = MODELICA_FUNCTION(
     path,
@@ -2422,7 +2152,7 @@ function new(path::Absyn.Path, node::InstNode)::MODELICA_FUNCTION
     TYPE_UNKNOWN(),
     attr,
     nil,
-    P_Pointer.create(status, Int),
+    P_Pointer.create(status, FunctionStatus),
     P_Pointer.create(0, Int),
   )
   return fn
@@ -2545,16 +2275,16 @@ function makeAttributes(
   @nospecialize(node::InstNode),
   @nospecialize(inputs::List{<:InstNode}),
   @nospecialize (outputs::List{<:InstNode})
-)::DAE.FunctionAttributes
-  local attr::DAE.FunctionAttributes
+)::FUNCTION_ATTRIBUTES
+  local attr::FUNCTION_ATTRIBUTES
 
   local def::SCode.Element
   local params::Vector{InstNode}
   local res::SCode.Restriction
   local fres::SCode.FunctionRestriction
   local is_partial::Bool
-  local cmts::List{SCode.Comment}
-  local cmt::SCode.Comment
+  local cmts::List{SCode.COMMENT}
+  local cmt::SCode.COMMENT
 
   @assign def = definition(node)
   @assign res = SCodeUtil.getClassRestriction(def)
@@ -2575,8 +2305,7 @@ function makeAttributes(
     local nameVar::String
     local in_params::List{String}
     local out_params::List{String}
-    local inline_ty::DAE.InlineType
-    local builtin::DAE.FunctionBuiltin
+    local inline_ty::InlineType
     #=  External function. =#
     @matchcontinue fres begin
       SCode.FR_EXTERNAL_FUNCTION(is_impure) => begin
@@ -2586,14 +2315,7 @@ function makeAttributes(
         @assign inline_ty = commentIsInlineFunc(cmt)
         @assign is_impure = is_impure || hasImpure(cmt)
         @assign has_unbox_args = hasUnboxArgsAnnotation(cmt)
-        DAE.FUNCTION_ATTRIBUTES(
-          inline_ty,
-          hasOMPure(cmt),
-          is_impure,
-          is_partial,
-          DAE.FUNCTION_BUILTIN(SOME(nameVar), has_unbox_args),
-          DAE.FP_NON_PARALLEL(),
-        )
+        FUNCTION_ATTRIBUTES(inline_ty, is_impure, is_partial, FUNCTION_BUILTIN, SOME(nameVar), has_unbox_args)
       end
 
       SCode.FR_PARALLEL_FUNCTION(__) => begin
@@ -2604,39 +2326,18 @@ function makeAttributes(
         @assign nameVar = SCodeUtil.isBuiltinFunction(def, in_params, out_params)
         @assign inline_ty = commentIsInlineFunc(cmt)
         @assign has_unbox_args = hasUnboxArgsAnnotation(cmt)
-        DAE.FUNCTION_ATTRIBUTES(
-          inline_ty,
-          hasOMPure(cmt),
-          false,
-          is_partial,
-          DAE.FUNCTION_BUILTIN(SOME(nameVar), has_unbox_args),
-          DAE.FP_PARALLEL_FUNCTION(),
-        )
+        FUNCTION_ATTRIBUTES(inline_ty, false, is_partial, FUNCTION_BUILTIN, SOME(nameVar), has_unbox_args)
       end
 
       SCode.FR_PARALLEL_FUNCTION(__) => begin
         #=  Parallel function: non-builtin.
         =#
         @assign inline_ty = commentIsInlineFunc(cmt)
-        DAE.FUNCTION_ATTRIBUTES(
-          inline_ty,
-          hasOMPure(cmt),
-          false,
-          is_partial,
-          getBuiltin(def),
-          DAE.FP_PARALLEL_FUNCTION(),
-        )
+        FUNCTION_ATTRIBUTES(inline_ty, false, is_partial, getBuiltin(def), nothing, false)
       end
 
       SCode.FR_KERNEL_FUNCTION(__) => begin
-        DAE.FUNCTION_ATTRIBUTES(
-          DAE.NO_INLINE(),
-          true,
-          false,
-          is_partial,
-          DAE.FUNCTION_NOT_BUILTIN(),
-          DAE.FP_KERNEL_FUNCTION(),
-        )
+        FUNCTION_ATTRIBUTES(NO_INLINE, false, is_partial, FUNCTION_NOT_BUILTIN, nothing, false)
       end
 
       _ => begin
@@ -2656,32 +2357,25 @@ function makeAttributes(
             cmt,
             "__ModelicaAssociation_Impure",
           )
-        DAE.FUNCTION_ATTRIBUTES(
-          inline_ty,
-          hasOMPure(cmt),
-          is_impure,
-          is_partial,
-          getBuiltin(def),
-          DAE.FP_NON_PARALLEL(),
-        )
+        FUNCTION_ATTRIBUTES(inline_ty, is_impure, is_partial, getBuiltin(def), nothing, false)
       end
     end
   end
   return attr
 end
 
-function commentIsInlineFunc(cmt::SCode.Comment)
+function commentIsInlineFunc(cmt::SCode.COMMENT)::InlineType
   if SCodeUtil.commentHasBooleanNamedAnnotation(cmt, "LateInline")
-    return DAE.AFTER_INDEX_RED_INLINE()
+    return AFTER_INDEX_RED_INLINE
   elseif SCodeUtil.commentHasBooleanNamedAnnotation(cmt, "Inline")
-    return DAE.EARLY_INLINE()
+    return EARLY_INLINE
   end
-  return DAE.NO_INLINE()
+  return NO_INLINE
 end
 
 """Merges the function's comments from inherited classes."""
-function mergeFunctionAnnotations(comments::List{<:SCode.Comment})::SCode.Comment
-  local outComment::SCode.Comment
+function mergeFunctionAnnotations(comments::List{<:SCode.COMMENT})::SCode.COMMENT
+  local outComment::SCode.COMMENT
 
   local comment::Option{String} = NONE()
   local mod::SCode.Mod = SCode.NOMOD()
@@ -2718,29 +2412,18 @@ function mergeFunctionAnnotations(comments::List{<:SCode.Comment})::SCode.Commen
 end
 
 
-function getBuiltin(def::SCode.Element)::DAE.FunctionBuiltin
-  local builtin::DAE.FunctionBuiltin = if SCodeUtil.isBuiltinElement(def)
-    DAE.FUNCTION_BUILTIN_PTR()
-  else
-    DAE.FUNCTION_NOT_BUILTIN()
-  end
-  return builtin
+function getBuiltin(def::SCode.Element)::BuiltinKind
+  return SCodeUtil.isBuiltinElement(def) ? FUNCTION_BUILTIN_PTR : FUNCTION_NOT_BUILTIN
 end
 
-function hasImpure(cmt::SCode.Comment)::Bool
+function hasImpure(cmt::SCode.COMMENT)::Bool
   local res::Bool =
     SCodeUtil.commentHasBooleanNamedAnnotation(cmt, "__ModelicaAssociation_Impure")
   return res
 end
 
-function hasOMPure(cmt::SCode.Comment)::Bool
-  local res::Bool =
-    !SCodeUtil.commentHasBooleanNamedAnnotation(cmt, "__OpenModelica_Impure")
-  return res
-end
-
 function makeSlot(@nospecialize(componentArg::InstNode), index::Int)::SLOT
-  local slot::Slot
+  local slot::SLOT
   local comp::Component
   local default::Option{Expression}
   local nameVar::String
@@ -2755,11 +2438,11 @@ function makeSlot(@nospecialize(componentArg::InstNode), index::Int)::SLOT
     end
     slot = SLOT(
       name(componentArg),
-      SlotType.GENERIC,
+      SLOT_TYPE_GENERIC,
       default,
       NONE(),
       index,
-      SlotEvalStatus.NOT_EVALUATED,
+      SLOT_NOT_EVALUATED,
     )
   catch e
     #    Error.assertion(false, getInstanceName() + " got invalid component", sourceInfo())
@@ -2772,8 +2455,8 @@ function makeSlot(@nospecialize(componentArg::InstNode), index::Int)::SLOT
   return slot
 end
 
-function makeSlots(@nospecialize(inputs::List{<:InstNode}))::List{Slot}
-  local slots::List{Slot} = nil
+function makeSlots(@nospecialize(inputs::List{<:InstNode}))::List{SLOT}
+  local slots::List{SLOT} = nil
   local index::Int = 1
   for i in inputs
     slots = _cons(makeSlot(i, index), slots)

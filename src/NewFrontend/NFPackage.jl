@@ -52,15 +52,15 @@ end
 Constants = ConstantsSetImpl.Tree
 
 """
-    collectConstants(flatModel, functions) -> (FlatModel, FunctionTree)
+    collectConstants(flatModel, functions) -> (FLAT_MODEL, FunctionTree)
 
 The package constants the model and its functions read that were not substituted with their values added to the
 model as variables, and the functions their bindings call added to `functions` (`collectFunctions` ran before they
 were variables of the model: with the arrays kept, `Modelica.Constants.pi = 2 * Modelica.Math.asin(1.0)` stays
 unevaluated and its backend found no `Modelica.Math.asin`).
 """
-function collectConstants(flatModel::FlatModel, functions::FunctionTree)::Tuple{FlatModel, FunctionTree}
-  local vars::Vector{Variable} = Variable[]
+function collectConstants(flatModel::FLAT_MODEL, functions::FunctionTree)::Tuple{FLAT_MODEL, FunctionTree}
+  local vars::Vector{VARIABLE} = VARIABLE[]
   local binding::Binding
   local constants::Constants
   constants = ConstantsSetImpl.new()
@@ -81,7 +81,7 @@ function collectConstants(flatModel::FlatModel, functions::FunctionTree)::Tuple{
     constants,
   )
   constants = FunctionTreeImpl.fold(functions, collectFuncConstants, constants)
-  vars = Variable[_withValueBinding(Variable_fromCref(c)) for c in ConstantsSetImpl.listKeys(constants)]
+  vars = VARIABLE[_withValueBinding(Variable_fromCref(c)) for c in ConstantsSetImpl.listKeys(constants)]
   functions = ArrayUtil.fold(vars, collectComponentFuncs, functions)
   @assign flatModel.variables = vcat(vars, flatModel.variables)
 #  execStat(getInstanceName()) TODO
@@ -92,13 +92,13 @@ end
    (`constant DataRecord CH4(name = "CH4", ...)`) has the one the constant evaluation built from
    its fields (CEVAL_BINDING), which the conversion for the backend drops as temporary: the
    backend got MSL SingleGasesData.CH4 without a value, while Medium.data[1] read it. =#
-function _withValueBinding(var::Variable)::Variable
+function _withValueBinding(var::VARIABLE)::VARIABLE
   isvariant(var.binding, CEVAL_BINDING) || return var
   @assign var.binding = FLAT_BINDING(getBindingExp(var.binding.bindingExp), Variability.CONSTANT)
   return var
 end
 
-function collectVariableConstants(var::Variable, constants::Constants)::Constants
+function collectVariableConstants(var::VARIABLE, constants::Constants)::Constants
   @assign constants = collectBindingConstants(var.binding, constants)
   #=  TODO: The component's attributes (i.e. start, etc) might also contain
   =#

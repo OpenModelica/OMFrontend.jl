@@ -37,7 +37,6 @@
 @UniontypeDecl Branch
 @UniontypeDecl CachedData
 @UniontypeDecl Class
-@UniontypeDecl ClassTree
 @UniontypeDecl ClockKind
 @UniontypeDecl Component
 @UniontypeDecl Entry
@@ -51,15 +50,9 @@
 @UniontypeDecl MatchedFunction
 @UniontypeDecl ModifierScope
 @UniontypeDecl ComplexType
-@UniontypeDecl Connection
-@UniontypeDecl Connections
-@UniontypeDecl Connector
 @UniontypeDecl ExpandExp
 @UniontypeDecl Expression
 @UniontypeDecl ExpressionIterator
-@UniontypeDecl FlatModel
-@UniontypeDecl FunctionDerivative
-@UniontypeDecl Slot
 @UniontypeDecl Import
 @UniontypeDecl OCConnectionGraph
 @UniontypeDecl RangeIterator
@@ -346,6 +339,121 @@ struct ModelicaTypeImpl{F}
   literals::List{String}
 end
 
+"""Which arguments a function's slot accepts: one of the `SLOT_TYPE_*` constants."""
+const SlotType = UInt8
+"""Only positional arguments."""
+const SLOT_TYPE_POSITIONAL::SlotType = 0x01
+"""Only named arguments."""
+const SLOT_TYPE_NAMED::SlotType = 0x02
+"""Positional and named arguments."""
+const SLOT_TYPE_GENERIC::SlotType = 0x03
+
+"""Whether a slot's default value is evaluated: `SLOT_NOT_EVALUATED`, `SLOT_EVALUATING` or `SLOT_EVALUATED`."""
+const SlotEvalStatus = UInt8
+const SLOT_NOT_EVALUATED::SlotEvalStatus = 0x01
+"""The slot's default is being evaluated (a default that depends on itself is an error)."""
+const SLOT_EVALUATING::SlotEvalStatus = 0x02
+const SLOT_EVALUATED::SlotEvalStatus = 0x03
+
+"""How far a function has been processed: one of the `FUNCTION_STATUS_*` constants."""
+const FunctionStatus = UInt8
+"""A builtin function."""
+const FUNCTION_STATUS_BUILTIN::FunctionStatus = 0x01
+"""The initial status."""
+const FUNCTION_STATUS_INITIAL::FunctionStatus = 0x02
+"""The constants in the function have been evaluated (EvalConstants)."""
+const FUNCTION_STATUS_EVALUATED::FunctionStatus = 0x03
+"""The function has been simplified (SimplifyModel)."""
+const FUNCTION_STATUS_SIMPLIFIED::FunctionStatus = 0x04
+"""The function has been added to the function tree."""
+const FUNCTION_STATUS_COLLECTED::FunctionStatus = 0x05
+
+"""A condition of a `derivative` annotation on an input: one of the `DERIVATIVE_CONDITION_*` constants."""
+const DerivativeCondition = UInt8
+"""`zeroDerivative = u`: the derivative applies where `u`'s derivative is zero."""
+const DERIVATIVE_CONDITION_ZERO_DERIVATIVE::DerivativeCondition = 0x01
+"""`noDerivative = u`: `u` is not differentiated."""
+const DERIVATIVE_CONDITION_NO_DERIVATIVE::DerivativeCondition = 0x02
+
+"""A typed positional argument of a call: `(exp, ty, variability)`."""
+const TypedArg = Tuple{A,B,C} where {A,B,C}
+
+"""
+    SLOT(name, ty, default, arg, index, evalStatus)
+
+An input of a function as a call fills it: its `name`, which arguments it takes (`ty`, a `SlotType`), its
+`default` value, the argument matched to it (`arg`), its position (`index`), and whether its default is being or
+has been evaluated (`evalStatus`, a `SlotEvalStatus`). Functions on slots are in NFFunction.jl.
+"""
+struct SLOT
+  name::String
+  ty::SlotType
+  default::Option{Expression}
+  arg::Option{TypedArg}
+  index::Int
+  evalStatus::SlotEvalStatus
+end
+
+"""
+    FUNCTION_DER(derivativeFn, derivedFn, order, conditions, lowerOrderDerivatives)
+
+A `derivative` annotation of a function: `derivativeFn` is the derivative of `derivedFn` of order `order`;
+`conditions` are its `zeroDerivative`/`noDerivative` inputs `(index, name, DerivativeCondition)`. Functions on it are
+in NFFunctionDerivative.jl.
+"""
+struct FUNCTION_DER
+  derivativeFn::InstNode
+  derivedFn::InstNode
+  order::Expression
+  conditions::List{Tuple{Int, String, DerivativeCondition}}
+  lowerOrderDerivatives::List{InstNode}
+end
+
+"""How a function or a call is inlined (omc's DAE.InlineType): one of the `*_INLINE` constants."""
+const InlineType = UInt8
+"""`annotation(Inline = true)`."""
+const NORM_INLINE::InlineType = 0x00
+"""A builtin function inlined before the other functions (a builtin function pointer)."""
+const BUILTIN_EARLY_INLINE::InlineType = 0x01
+"""`annotation(__OpenModelica_EarlyInline = true)`."""
+const EARLY_INLINE::InlineType = 0x02
+"""No inline annotation: the backend decides."""
+const DEFAULT_INLINE::InlineType = 0x03
+"""`annotation(Inline = false)`, and calls that are never inlined."""
+const NO_INLINE::InlineType = 0x04
+"""`annotation(LateInline = true)`: inlined after index reduction."""
+const AFTER_INDEX_RED_INLINE::InlineType = 0x05
+
+"""Whether and how a function is builtin: one of the `FUNCTION_*BUILTIN*` constants."""
+const BuiltinKind = UInt8
+"""A function defined in Modelica (or external)."""
+const FUNCTION_NOT_BUILTIN::BuiltinKind = 0x00
+"""A builtin function of the language (`abs`, `sin`, ...)."""
+const FUNCTION_BUILTIN::BuiltinKind = 0x01
+"""A builtin function referenced through a function pointer (`__OpenModelica_builtinPtr`)."""
+const FUNCTION_BUILTIN_PTR::BuiltinKind = 0x02
+
+"""
+    FUNCTION_ATTRIBUTES(inline, isImpure, isFunctionPointer, builtin, builtinName, unboxArgs)
+
+The attributes of a function: how it is inlined (`inline`, an `InlineType`), whether it is impure, whether it is a
+function-pointer variable, whether it is builtin (`builtin`, a `BuiltinKind`) and the name its calls use then
+(`builtinName`, `nothing` for the function's own name), and whether a builtin's arguments are unboxed.
+"""
+struct FUNCTION_ATTRIBUTES
+  inline::InlineType
+  isImpure::Bool
+  isFunctionPointer::Bool
+  builtin::BuiltinKind
+  builtinName::Option{String}
+  unboxArgs::Bool
+end
+
+"""The attributes of a builtin function."""
+const FUNCTION_ATTRIBUTES_BUILTIN = FUNCTION_ATTRIBUTES(NO_INLINE, false, false, FUNCTION_BUILTIN, nothing, false)
+"""The attributes of a function without annotations."""
+const FUNCTION_ATTRIBUTES_DEFAULT = FUNCTION_ATTRIBUTES(DEFAULT_INLINE, false, false, FUNCTION_NOT_BUILTIN, nothing, false)
+
 #= Before Call, which holds one. =#
 """A Modelica function: its interface (the body is read from its node)."""
 struct MODELICA_FUNCTION
@@ -354,12 +462,12 @@ struct MODELICA_FUNCTION
   inputs::List{InstNode}
   outputs::List{InstNode}
   locals::List{InstNode}
-  slots::List{Slot}
+  slots::List{SLOT}
   returnType::ModelicaTypeImpl{MODELICA_FUNCTION}
-  attributes::DAE.FunctionAttributes
-  derivatives::List{FunctionDerivative}
+  attributes::FUNCTION_ATTRIBUTES
+  derivatives::List{FUNCTION_DER}
   #= the FunctionStatus, shared by the function's copies =#
-  status::Base.RefValue{Int}
+  status::Base.RefValue{FunctionStatus}
   #= the evaluation depth key (NFEvalFunction), shared by the copies =#
   callCounter::Base.RefValue{Int}
   #= The inputs a partial derivative of a function is taken with respect to, by index
@@ -368,8 +476,8 @@ struct MODELICA_FUNCTION
   #= One constructor for all argument types (docstring below the struct). =#
   function MODELICA_FUNCTION(@nospecialize(path::Absyn.Path), @nospecialize(node::InstNode), @nospecialize(inputs::List),
                       @nospecialize(outputs::List), @nospecialize(locals::List), @nospecialize(slots::List),
-                      @nospecialize(returnType::ModelicaTypeImpl{MODELICA_FUNCTION}), @nospecialize(attributes::DAE.FunctionAttributes),
-                      @nospecialize(derivatives::List), status::Base.RefValue{Int},
+                      @nospecialize(returnType::ModelicaTypeImpl{MODELICA_FUNCTION}), @nospecialize(attributes::FUNCTION_ATTRIBUTES),
+                      @nospecialize(derivatives::List), status::Base.RefValue{FunctionStatus},
                       callCounter::Base.RefValue{Int}, @nospecialize(derivedInputs::List))
     return new(path, node, inputs, outputs, locals, slots, returnType, attributes, derivatives, status, callCounter,
                derivedInputs)
@@ -445,28 +553,25 @@ lists and path kinds at run time). The lists are `List` of any element type, as 
 """
 MODELICA_FUNCTION(@nospecialize(path::Absyn.Path), @nospecialize(node::InstNode), @nospecialize(inputs::List),
            @nospecialize(outputs::List), @nospecialize(locals::List), @nospecialize(slots::List),
-           @nospecialize(returnType::ModelicaType), @nospecialize(attributes::DAE.FunctionAttributes),
-           @nospecialize(derivatives::List), status::Base.RefValue{Int}, callCounter::Base.RefValue{Int}) =
+           @nospecialize(returnType::ModelicaType), @nospecialize(attributes::FUNCTION_ATTRIBUTES),
+           @nospecialize(derivatives::List), status::Base.RefValue{FunctionStatus}, callCounter::Base.RefValue{Int}) =
   MODELICA_FUNCTION(path, node, inputs, outputs, locals, slots, returnType, attributes, derivatives, status, callCounter, nil)
 
 const NamedArg = Tuple{String,B} where {B <: Expression}
-const TypedArg = Tuple{A,B,C} where {A,B,C}
 const TypedNamedArg = Tuple{String, ExpT, TypeT, VariabilityT} where {ExpT <: Expression, TypeT <: ModelicaType, VariabilityT <: Int}
 
 """
-    CALL_ATTR(tuple_, builtin, isImpure, isFunctionPointerCall, inlineType, tailCall)
+    CALL_ATTR(tuple_, builtin, isImpure, isFunctionPointerCall, inlineType)
 
 The attributes of a typed call (`TYPED_CALL.attributes`): whether the function returns a tuple, is a builtin, is
-impure or is called through a function pointer, how it is inlined, and whether the call is tail-recursive.
-`toDAE` converts it to `DAE.CALL_ATTR`.
+impure or is called through a function pointer, and how it is inlined (an `InlineType`).
 """
 struct CALL_ATTR
   tuple_::Bool
   builtin::Bool
   isImpure::Bool
   isFunctionPointerCall::Bool
-  inlineType::DAE.InlineType
-  tailCall::DAE.TailCall
+  inlineType::InlineType
 end
 
 @enum CallTag::UInt8 TYPED_REDUCTION_TAG TYPED_ARRAY_CONSTRUCTOR_TAG TYPED_CALL_TAG ARG_TYPED_CALL_TAG UNTYPED_CALL_TAG UNTYPED_REDUCTION_TAG UNTYPED_ARRAY_CONSTRUCTOR_TAG
@@ -740,7 +845,7 @@ Each variant also has a keyword constructor. Fields a variant does not use hold 
 struct Equation
   tag::EquationTag
   exp::Union{Nothing, Expression}
-  source::DAE.ElementSource
+  source::SourceInfo
   cref::Union{Nothing, Expression}
   reinitExp::Union{Nothing, Expression}
   message::Union{Nothing, Expression}
@@ -845,7 +950,7 @@ Each variant also has a keyword constructor. Fields a variant does not use hold 
 struct Statement
   tag::StatementTag
   body::Union{Nothing, Vector{Statement}}
-  source::DAE.ElementSource
+  source::SourceInfo
   condition::Union{Nothing, Expression}
   exp::Union{Nothing, Expression}
   message::Union{Nothing, Expression}
@@ -914,12 +1019,10 @@ end
 """An algorithm section: its statements and its source."""
 struct ALGORITHM
   statements::Vector{Statement}
-  source::DAE.ElementSource
+  source::SourceInfo
 end
 
-@UniontypeDecl Variable
 @UniontypeDecl VerifyModel
-@UniontypeDecl Prefixes
 @UniontypeDecl Replaceable
 @UniontypeDecl Token
 @UniontypeDecl TypingError

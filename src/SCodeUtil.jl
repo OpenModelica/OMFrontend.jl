@@ -82,11 +82,11 @@ function filterSubMods(mod::SCode.Mod, filter::FilterFunc)::SCode.Mod
   return mod
 end
 
-function filterGivenSubModNames(submod::SCode.SubMod; namesToKeep::List{String})
+function filterGivenSubModNames(submod::SCode.NAMEMOD; namesToKeep::List{String})
   listMember(submod.ident, namesToKeep)
 end
 
-function removeGivenSubModNames(submod::SCode.SubMod; namesToRemove::List{String})
+function removeGivenSubModNames(submod::SCode.NAMEMOD; namesToRemove::List{String})
   !(listMember(submod.ident, namesToRemove))
 end
 
@@ -309,7 +309,7 @@ function elementNameEqual(inElement1::SCode.Element, inElement2::SCode.Element):
   return outEqual
 end
 
-function enumName(e::SCode.Enum)::String
+function enumName(e::SCode.ENUM)::String
   local s::String
 
   @assign s = begin
@@ -420,16 +420,16 @@ function elementEqual(element1::SCode.Element, element2::SCode.Element)::Bool
   @assign equal = begin
     local name1::SCode.Ident
     local name2::SCode.Ident
-    local prefixes1::SCode.Prefixes
-    local prefixes2::SCode.Prefixes
+    local prefixes1::SCode.PREFIXES
+    local prefixes2::SCode.PREFIXES
     local en1::SCode.Encapsulated
     local en2::SCode.Encapsulated
     local p1::SCode.Partial
     local p2::SCode.Partial
     local restr1::SCode.Restriction
     local restr2::SCode.Restriction
-    local attr1::SCode.Attributes
-    local attr2::SCode.Attributes
+    local attr1::SCode.ATTR
+    local attr2::SCode.ATTR
     local mod1::SCode.Mod
     local mod2::SCode.Mod
     local tp1::Absyn.TypeSpec
@@ -653,7 +653,7 @@ function funcRestrictionEqual(
   return equal
 end
 
-function enumEqual(e1::SCode.Enum, e2::SCode.Enum)::Bool
+function enumEqual(e1::SCode.ENUM, e2::SCode.ENUM)::Bool
   local isEqual::Bool
 
   @assign isEqual = begin
@@ -679,26 +679,26 @@ function classDefEqual(cdef1::SCode.ClassDef, cdef2::SCode.ClassDef)::Bool
   @assign equal = begin
     local elts1::List{SCode.Element}
     local elts2::List{SCode.Element}
-    local eqns1::List{SCode.Equation}
-    local eqns2::List{SCode.Equation}
-    local ieqns1::List{SCode.Equation}
-    local ieqns2::List{SCode.Equation}
-    local algs1::List{SCode.AlgorithmSection}
-    local algs2::List{SCode.AlgorithmSection}
-    local ialgs1::List{SCode.AlgorithmSection}
-    local ialgs2::List{SCode.AlgorithmSection}
-    local cons1::List{SCode.ConstraintSection}
-    local cons2::List{SCode.ConstraintSection}
-    local attr1::SCode.Attributes
-    local attr2::SCode.Attributes
+    local eqns1::List{SCode.EQUATION}
+    local eqns2::List{SCode.EQUATION}
+    local ieqns1::List{SCode.EQUATION}
+    local ieqns2::List{SCode.EQUATION}
+    local algs1::List{SCode.ALGORITHM}
+    local algs2::List{SCode.ALGORITHM}
+    local ialgs1::List{SCode.ALGORITHM}
+    local ialgs2::List{SCode.ALGORITHM}
+    local cons1::List{SCode.CONSTRAINTS}
+    local cons2::List{SCode.CONSTRAINTS}
+    local attr1::SCode.ATTR
+    local attr2::SCode.ATTR
     local tySpec1::Absyn.TypeSpec
     local tySpec2::Absyn.TypeSpec
     local p1::Absyn.Path
     local p2::Absyn.Path
     local mod1::SCode.Mod
     local mod2::SCode.Mod
-    local elst1::List{SCode.Enum}
-    local elst2::List{SCode.Enum}
+    local elst1::List{SCode.ENUM}
+    local elst2::List{SCode.ENUM}
     local ilst1::List{SCode.Ident}
     local ilst2::List{SCode.Ident}
     local clsttrs1::List{Absyn.NamedArg}
@@ -792,7 +792,7 @@ function subscriptEqual(sub1::Absyn.Subscript, sub2::Absyn.Subscript)::Bool
 end
 
 """Returns true if two Algorithm's are equal."""
-function algorithmEqual(alg1::SCode.AlgorithmSection, alg2::SCode.AlgorithmSection)::Bool
+function algorithmEqual(alg1::SCode.ALGORITHM, alg2::SCode.ALGORITHM)::Bool
   local equal::Bool
 
   @assign equal = begin
@@ -886,7 +886,7 @@ function algorithmEqual2(ai1::SCode.Statement, ai2::SCode.Statement)::Bool
 end
 
 """Returns true if two equations are equal."""
-function equationEqual(eqn1::SCode.Equation, eqn2::SCode.Equation)::Bool
+function equationEqual(eqn1::SCode.EQUATION, eqn2::SCode.EQUATION)::Bool
   local equal::Bool
 
   local eq1::SCode.EEquation
@@ -1085,8 +1085,8 @@ function modEqual(mod1::SCode.Mod, mod2::SCode.Mod)::Bool
     local f2::SCode.Final
     local each1::SCode.Each
     local each2::SCode.Each
-    local submodlst1::List{SCode.SubMod}
-    local submodlst2::List{SCode.SubMod}
+    local submodlst1::List{SCode.NAMEMOD}
+    local submodlst2::List{SCode.NAMEMOD}
     local e1::Absyn.Exp
     local e2::Absyn.Exp
     local elt1::SCode.Element
@@ -1134,8 +1134,8 @@ end
 
 """Return true if two subModifier lists are equal"""
 function subModsEqual(
-  inSubModLst1::List{<:SCode.SubMod},
-  inSubModLst2::List{<:SCode.SubMod},
+  inSubModLst1::List{<:SCode.NAMEMOD},
+  inSubModLst2::List{<:SCode.NAMEMOD},
 )::Bool
   local equal::Bool
 
@@ -1146,8 +1146,8 @@ function subModsEqual(
     local mod2::SCode.Mod
     local ss1::List{SCode.Subscript}
     local ss2::List{SCode.Subscript}
-    local subModLst1::List{SCode.SubMod}
-    local subModLst2::List{SCode.SubMod}
+    local subModLst1::List{SCode.NAMEMOD}
+    local subModLst2::List{SCode.NAMEMOD}
     @matchcontinue (inSubModLst1, inSubModLst2) begin
       (nil(), nil()) => begin
         true
@@ -1205,7 +1205,7 @@ function subscriptsEqual(
 end
 
 """Returns true if two Atributes are equal"""
-function attributesEqual(attr1::SCode.Attributes, attr2::SCode.Attributes)::Bool
+function attributesEqual(attr1::SCode.ATTR, attr2::SCode.ATTR)::Bool
   local equal::Bool
 
   @assign equal = begin
@@ -1378,7 +1378,7 @@ function statementToAlgorithmItem(stmt::SCode.Statement)::Absyn.AlgorithmItem
     local trueBranch::List{SCode.Statement}
     local elseBranch::List{SCode.Statement}
     local branches::List{Tuple{Absyn.Exp, List{SCode.Statement}}}
-    local comment::Option{SCode.Comment}
+    local comment::Option{SCode.COMMENT}
     local algs1::List{Absyn.AlgorithmItem}
     local algs2::List{Absyn.AlgorithmItem}
     local algsLst::List{List{Absyn.AlgorithmItem}}
@@ -1814,7 +1814,7 @@ function traverseEEquations2(
     local else_branch::List{SCode.EEquation}
     local eql::List{SCode.EEquation}
     local else_when::List{Tuple{Absyn.Exp, List{SCode.EEquation}}}
-    local comment::SCode.Comment
+    local comment::SCode.COMMENT
     local info::SourceInfo
     local index::SCode.Ident
     @match (inEEquation, inTuple) begin
@@ -1988,7 +1988,7 @@ function traverseStatements2(
     local stmts1::List{SCode.Statement}
     local stmts2::List{SCode.Statement}
     local branches::List{Tuple{Absyn.Exp, List{SCode.Statement}}}
-    local comment::SCode.Comment
+    local comment::SCode.COMMENT
     local info::SourceInfo
     local iter::String
     local range::Option{Absyn.Exp}
@@ -2267,7 +2267,7 @@ function getStatementInfo(inStatement::SCode.Statement)::SourceInfo
   return outInfo
 end
 
-function prependSubModToMod(subMod::SCode.SubMod, mod::SCode.Mod)
+function prependSubModToMod(subMod::SCode.NAMEMOD, mod::SCode.Mod)
   mod = begin
     @match mod begin
       SCode.NOMOD(__)  => begin
@@ -2307,7 +2307,7 @@ end
 eachBool(inEach::SCode.EACH) = true
 eachBool(inEach::SCode.NOT_EACH) = false
 
-function prefixesRedeclare(inPrefixes::SCode.Prefixes)::SCode.Redeclare
+function prefixesRedeclare(inPrefixes::SCode.PREFIXES)::SCode.Redeclare
   local outRedeclare::SCode.Redeclare
 
   @match SCode.PREFIXES(redeclarePrefix = outRedeclare) = inPrefixes
@@ -2416,7 +2416,7 @@ function boolPartial(inBoolPartial::Bool)::SCode.Partial
   return outPartial
 end
 
-function prefixesFinal(inPrefixes::SCode.Prefixes)::SCode.Final
+function prefixesFinal(inPrefixes::SCode.PREFIXES)::SCode.Final
   local outFinal::SCode.Final
 
   @match SCode.PREFIXES(finalPrefix = outFinal) = inPrefixes
@@ -2451,7 +2451,7 @@ function boolFinal(inBoolFinal::Bool)::SCode.Final
   return outFinal
 end
 
-function prefixesVisibility(inPrefixes::SCode.Prefixes)::SCode.Visibility
+function prefixesVisibility(inPrefixes::SCode.PREFIXES)::SCode.Visibility
   local outVisibility::SCode.Visibility
 
   @match SCode.PREFIXES(visibility = outVisibility) = inPrefixes
@@ -2522,7 +2522,7 @@ function replaceableEqual(r1::SCode.Replaceable, r2::SCode.Replaceable)::Bool
 end
 
 """Returns true if two prefixes are equal"""
-function prefixesEqual(prefixes1::SCode.Prefixes, prefixes2::SCode.Prefixes)::Bool
+function prefixesEqual(prefixes1::SCode.PREFIXES, prefixes2::SCode.PREFIXES)::Bool
   local equal::Bool
 
   @assign equal = begin
@@ -2556,18 +2556,18 @@ function prefixesEqual(prefixes1::SCode.Prefixes, prefixes2::SCode.Prefixes)::Bo
 end
 
 """Returns the replaceable part"""
-function prefixesReplaceable(prefixes::SCode.Prefixes)::SCode.Replaceable
+function prefixesReplaceable(prefixes::SCode.PREFIXES)::SCode.Replaceable
   local repl::SCode.Replaceable
 
   @match SCode.PREFIXES(replaceablePrefix = repl) = prefixes
   return repl
 end
 
-function elementPrefixes(inElement::SCode.Element)::SCode.Prefixes
-  local outPrefixes::SCode.Prefixes
+function elementPrefixes(inElement::SCode.Element)::SCode.PREFIXES
+  local outPrefixes::SCode.PREFIXES
 
   @assign outPrefixes = begin
-    local pf::SCode.Prefixes
+    local pf::SCode.PREFIXES
     @match inElement begin
       SCode.CLASS(prefixes = pf) => begin
         pf
@@ -2584,7 +2584,7 @@ end
 function isElementReplaceable(inElement::SCode.Element)::Bool
   local isReplaceable::Bool
 
-  local pf::SCode.Prefixes
+  local pf::SCode.PREFIXES
 
   @assign pf = elementPrefixes(inElement)
   @assign isReplaceable = replaceableBool(prefixesReplaceable(pf))
@@ -2594,14 +2594,14 @@ end
 function isElementRedeclare(inElement::SCode.Element)::Bool
   local isRedeclare::Bool
 
-  local pf::SCode.Prefixes
+  local pf::SCode.PREFIXES
 
   @assign pf = elementPrefixes(inElement)
   @assign isRedeclare = redeclareBool(prefixesRedeclare(pf))
   return isRedeclare
 end
 
-function prefixesInnerOuter(inPrefixes::SCode.Prefixes)::Absyn.InnerOuter
+function prefixesInnerOuter(inPrefixes::SCode.PREFIXES)::Absyn.InnerOuter
   local outInnerOuter::Absyn.InnerOuter
 
   @match SCode.PREFIXES(innerOuter = outInnerOuter) = inPrefixes
@@ -2609,7 +2609,7 @@ function prefixesInnerOuter(inPrefixes::SCode.Prefixes)::Absyn.InnerOuter
 end
 
 """Return the variability attribute from Attributes"""
-function attrVariability(attr::SCode.Attributes)::SCode.Variability
+function attrVariability(attr::SCode.ATTR)::SCode.Variability
   local var::SCode.Variability
 
   @assign var = begin
@@ -2646,7 +2646,7 @@ end
 """
 function getElementNamedAnnotation(element::SCode.Element, name::String)::Absyn.Exp
   local exp::Absyn.Exp
-  local ann::SCode.Annotation
+  local ann::SCode.ANNOTATION
   ann = begin
     @match element begin
       SCode.EXTENDS(ann = SOME(ann)) => begin
@@ -2671,13 +2671,13 @@ end
   value true.
 """
 function getNamedAnnotation(
-  inAnnotation::SCode.Annotation,
+  inAnnotation::SCode.ANNOTATION,
   inName::String,
 )::Tuple{Absyn.Exp, SourceInfo}
   local info::SourceInfo
   local exp::Absyn.Exp
 
-  local submods::List{SCode.SubMod}
+  local submods::List{SCode.NAMEMOD}
 
   @match SCode.ANNOTATION(modification = SCode.MOD(subModLst = submods)) = inAnnotation
   @match SCode.NAMEMOD(mod = SCode.MOD(info = info, binding = SOME(exp))) =
@@ -2689,7 +2689,7 @@ end
   Checks if a submod has the same name as the given name, and if its binding
   in that case is true.
 """
-function hasNamedAnnotation(inSubMod::SCode.SubMod, inName::String)::Bool
+function hasNamedAnnotation(inSubMod::SCode.NAMEMOD, inName::String)::Bool
   local outIsMatch::Bool
 
   @assign outIsMatch = begin
@@ -2711,10 +2711,10 @@ end
   Returns the modifier with the given name if it can be found in the
   annotation, otherwise an empty modifier.
 """
-function lookupNamedAnnotation(ann::SCode.Annotation, name::String)::SCode.Mod
+function lookupNamedAnnotation(ann::SCode.ANNOTATION, name::String)::SCode.Mod
   local mod::SCode.Mod
 
-  local submods::List{SCode.SubMod}
+  local submods::List{SCode.NAMEMOD}
   local id::String
 
   @assign mod = begin
@@ -2738,10 +2738,10 @@ function lookupNamedAnnotation(ann::SCode.Annotation, name::String)::SCode.Mod
 end
 
 """Returns a list of modifiers with the given name found in the annotation."""
-function lookupNamedAnnotations(ann::SCode.Annotation, name::String)::List{SCode.Mod}
+function lookupNamedAnnotations(ann::SCode.ANNOTATION, name::String)::List{SCode.Mod}
   local mods::List{SCode.Mod} = nil
 
-  local submods::List{SCode.SubMod}
+  local submods::List{SCode.NAMEMOD}
   local id::String
   local mod::SCode.Mod
 
@@ -2772,7 +2772,7 @@ function hasBooleanNamedAnnotationInClass(
   local hasAnn::Bool
 
   @assign hasAnn = begin
-    local ann::SCode.Annotation
+    local ann::SCode.ANNOTATION
     @match (inClass, namedAnnotation) begin
       (SCode.CLASS(cmt = SCode.COMMENT(annotation_ = SOME(ann))), _) => begin
         hasBooleanNamedAnnotation(ann, namedAnnotation)
@@ -2787,11 +2787,11 @@ function hasBooleanNamedAnnotationInClass(
 end
 
 """check if the named annotation is present and has value true"""
-function commentHasBooleanNamedAnnotation(comm::SCode.Comment, annotationName::String)::Bool
+function commentHasBooleanNamedAnnotation(comm::SCode.COMMENT, annotationName::String)::Bool
   local outB::Bool
 
   @assign outB = begin
-    local ann::SCode.Annotation
+    local ann::SCode.ANNOTATION
     @match (comm, annotationName) begin
       (SCode.COMMENT(annotation_ = SOME(ann)), _) => begin
         hasBooleanNamedAnnotation(ann, annotationName)
@@ -2809,10 +2809,10 @@ end
   Checks if the given annotation contains an entry with the given name with the
   value true.
 """
-function hasBooleanNamedAnnotation(inAnnotation::SCode.Annotation, inName::String)::Bool
+function hasBooleanNamedAnnotation(inAnnotation::SCode.ANNOTATION, inName::String)::Bool
   local outHasEntry::Bool
 
-  local submods::List{SCode.SubMod}
+  local submods::List{SCode.NAMEMOD}
 
   @match SCode.ANNOTATION(modification = SCode.MOD(subModLst = submods)) = inAnnotation
   @assign outHasEntry = ListUtil.exist1(submods, hasBooleanNamedAnnotation2, inName)
@@ -2823,7 +2823,7 @@ end
   Checks if a submod has the same name as the given name, and if its binding
   in that case is true.
 """
-function hasBooleanNamedAnnotation2(inSubMod::SCode.SubMod, inName::String)::Bool
+function hasBooleanNamedAnnotation2(inSubMod::SCode.NAMEMOD, inName::String)::Bool
   local outIsMatch::Bool
 
   @assign outIsMatch = begin
@@ -2849,7 +2849,7 @@ end
 # Pinned-OMC API: bare Comment in, Option{Bool} out (SOME(v) only for a
 # boolean-valued Evaluate annotation). The Option{Comment} -> Bool method below
 # serves the old frontend; the translated NF calls this one.
-function getEvaluateAnnotation(cmt::SCode.Comment)::Option{Bool}
+function getEvaluateAnnotation(cmt::SCode.COMMENT)::Option{Bool}
   if cmt isa SCode.COMMENT && isSome(cmt.annotation_)
     local ann = Util.getOption(cmt.annotation_)
     local mod = lookupNamedAnnotation(ann, "Evaluate")
@@ -2863,11 +2863,11 @@ function getEvaluateAnnotation(cmt::SCode.Comment)::Option{Bool}
   return NONE()
 end
 
-function getEvaluateAnnotation(inCommentOpt::Option{<:SCode.Comment})::Bool
+function getEvaluateAnnotation(inCommentOpt::Option{<:SCode.COMMENT})::Bool
   local evalIsTrue::Bool
 
   @assign evalIsTrue = begin
-    local ann::SCode.Annotation
+    local ann::SCode.ANNOTATION
     @match inCommentOpt begin
       SOME(SCode.COMMENT(annotation_ = SOME(ann))) => begin
         hasBooleanNamedAnnotation(ann, "Evaluate")
@@ -3089,13 +3089,13 @@ function replaceElementsInElement(
     local p::Absyn.Path
     local i::Absyn.Ident
     local name::SCode.Ident #= the name of the class =#
-    local prefixes::SCode.Prefixes #= the common class or component prefixes =#
+    local prefixes::SCode.PREFIXES #= the common class or component prefixes =#
     local encapsulatedPrefix::SCode.Encapsulated #= the encapsulated prefix =#
     local partialPrefix::SCode.Partial #= the partial prefix =#
     local restriction::SCode.Restriction #= the restriction of the class =#
     local classDef::SCode.ClassDef #= the class specification =#
     local info::SourceInfo #= the class information =#
-    local cmt::SCode.Comment
+    local cmt::SCode.COMMENT
     #=  a class with parts, non derived
     =#
     @matchcontinue (inProgram, inElement, inElements) begin
@@ -3501,7 +3501,7 @@ function algorithmContainReinit(inAlg::SCode.Statement)::Bool
 end
 
 #= A break of an inherited component or connect-equation (Modelica 3.6; omc isBreakSubMod). =#
-function isBreakSubMod(subMod::SCode.SubMod)::Bool
+function isBreakSubMod(subMod::SCode.NAMEMOD)::Bool
   return subMod.mod isa SCode.BREAK_COMPONENT || subMod.mod isa SCode.BREAK_CONNECT
 end
 
@@ -3516,7 +3516,7 @@ function isBuiltinElement(inElement::SCode.Element)::Bool
   local outIsBuiltin::Bool
 
   @assign outIsBuiltin = begin
-    local ann::SCode.Annotation
+    local ann::SCode.ANNOTATION
     @match inElement begin
       SCode.CLASS(
         classDef = SCode.PARTS(
@@ -3637,11 +3637,11 @@ function isRestrictionImpure(inRestr::SCode.Restriction, hasZeroOutputPreMSL3_2:
 end
 
 """Returns the comment of an element."""
-function getElementComment(inElement::SCode.Element)::Option{SCode.Comment}
-  local outComment::Option{SCode.Comment}
+function getElementComment(inElement::SCode.Element)::Option{SCode.COMMENT}
+  local outComment::Option{SCode.COMMENT}
 
   @assign outComment = begin
-    local cmt::SCode.Comment
+    local cmt::SCode.COMMENT
     local cdef::SCode.ClassDef
     @match inElement begin
       SCode.COMPONENT(comment = cmt) => begin
@@ -3668,9 +3668,9 @@ function mergeModifiers(inNewMod::SCode.Mod, inOldMod::SCode.Mod)::SCode.Mod
     local f2::SCode.Final
     local e1::SCode.Each
     local e2::SCode.Each
-    local sl1::List{SCode.SubMod}
-    local sl2::List{SCode.SubMod}
-    local sl::List{SCode.SubMod}
+    local sl1::List{SCode.NAMEMOD}
+    local sl2::List{SCode.NAMEMOD}
+    local sl::List{SCode.NAMEMOD}
     local b1::Option{Absyn.Exp}
     local b2::Option{Absyn.Exp}
     local b::Option{Absyn.Exp}
@@ -3735,16 +3735,16 @@ function mergeBindings(
 end
 
 function mergeSubMods(
-  inNew::List{<:SCode.SubMod},
-  inOld::List{<:SCode.SubMod},
-)::List{SCode.SubMod}
-  local outSubs::List{SCode.SubMod}
+  inNew::List{<:SCode.NAMEMOD},
+  inOld::List{<:SCode.NAMEMOD},
+)::List{SCode.NAMEMOD}
+  local outSubs::List{SCode.NAMEMOD}
 
   @assign outSubs = begin
-    local sl::List{SCode.SubMod}
-    local rest::List{SCode.SubMod}
-    local old::List{SCode.SubMod}
-    local s::SCode.SubMod
+    local sl::List{SCode.NAMEMOD}
+    local rest::List{SCode.NAMEMOD}
+    local old::List{SCode.NAMEMOD}
+    local s::SCode.NAMEMOD
     @matchcontinue (inNew, inOld) begin
       (nil(), _) => begin
         inOld
@@ -3764,16 +3764,16 @@ function mergeSubMods(
   return outSubs
 end
 
-function removeSub(inSub::SCode.SubMod, inOld::List{<:SCode.SubMod})::List{SCode.SubMod}
-  local outSubs::List{SCode.SubMod}
+function removeSub(inSub::SCode.NAMEMOD, inOld::List{<:SCode.NAMEMOD})::List{SCode.NAMEMOD}
+  local outSubs::List{SCode.NAMEMOD}
 
   @assign outSubs = begin
-    local rest::List{SCode.SubMod}
+    local rest::List{SCode.NAMEMOD}
     local id1::SCode.Ident
     local id2::SCode.Ident
     local idxs1::List{SCode.Subscript}
     local idxs2::List{SCode.Subscript}
-    local s::SCode.SubMod
+    local s::SCode.NAMEMOD
     @matchcontinue (inSub, inOld) begin
       (_, nil()) => begin
         inOld
@@ -4134,10 +4134,10 @@ function stripCommentsFromMod(mod::SCode.Mod, stripAnn::Bool, stripCmt::Bool)::S
 end
 
 function stripCommentsFromSubMod(
-  submod::SCode.SubMod,
+  submod::SCode.NAMEMOD,
   stripAnn::Bool,
   stripCmt::Bool,
-)::SCode.SubMod
+)::SCode.NAMEMOD
 
   @assign submod.mod = stripCommentsFromMod(submod.mod, stripAnn, stripCmt)
   return submod
@@ -4151,11 +4151,11 @@ function stripCommentsFromClassDef(
 
   @assign cdef = begin
     local el::List{SCode.Element}
-    local eql::List{SCode.Equation}
-    local ieql::List{SCode.Equation}
-    local alg::List{SCode.AlgorithmSection}
-    local ialg::List{SCode.AlgorithmSection}
-    local ext::Option{SCode.ExternalDecl}
+    local eql::List{SCode.EQUATION}
+    local ieql::List{SCode.EQUATION}
+    local alg::List{SCode.ALGORITHM}
+    local ialg::List{SCode.ALGORITHM}
+    local ext::Option{SCode.EXTERNALDECL}
     @match cdef begin
       SCode.PARTS(__) => begin
         @assign el =
@@ -4208,17 +4208,17 @@ function stripCommentsFromClassDef(
   return cdef
 end
 
-function stripCommentsFromEnum(enum::SCode.Enum, stripAnn::Bool, stripCmt::Bool)::SCode.Enum
+function stripCommentsFromEnum(enum::SCode.ENUM, stripAnn::Bool, stripCmt::Bool)::SCode.ENUM
 
   @assign enum.comment = stripCommentsFromComment(enum.comment, stripAnn, stripCmt)
   return enum
 end
 
 function stripCommentsFromComment(
-  cmt::SCode.Comment,
+  cmt::SCode.COMMENT,
   stripAnn::Bool,
   stripCmt::Bool,
-)::SCode.Comment
+)::SCode.COMMENT
 
   if stripAnn
     @assign cmt.annotation_ = NONE()
@@ -4230,12 +4230,12 @@ function stripCommentsFromComment(
 end
 
 function stripCommentsFromExternalDecl(
-  extDecl::Option{<:SCode.ExternalDecl},
+  extDecl::Option{<:SCode.EXTERNALDECL},
   stripAnn::Bool,
   stripCmt::Bool,
-)::Option{SCode.ExternalDecl}
+)::Option{SCode.EXTERNALDECL}
 
-  local ext_decl::SCode.ExternalDecl
+  local ext_decl::SCode.EXTERNALDECL
 
   if isSome(extDecl) && stripAnn
     @match SOME(ext_decl) = extDecl
@@ -4246,10 +4246,10 @@ function stripCommentsFromExternalDecl(
 end
 
 function stripCommentsFromEquation(
-  eq::SCode.Equation,
+  eq::SCode.EQUATION,
   stripAnn::Bool,
   stripCmt::Bool,
-)::SCode.Equation
+)::SCode.EQUATION
 
   @assign eq.eEquation = stripCommentsFromEEquation(eq.eEquation, stripAnn, stripCmt)
   return eq
@@ -4348,10 +4348,10 @@ function stripCommentsFromWhenEqBranch(
 end
 
 function stripCommentsFromAlgorithm(
-  alg::SCode.AlgorithmSection,
+  alg::SCode.ALGORITHM,
   stripAnn::Bool,
   stripCmt::Bool,
-)::SCode.AlgorithmSection
+)::SCode.ALGORITHM
 
   @assign alg.statements =
     list(stripCommentsFromStatement(s, stripAnn, stripCmt) for s in alg.statements)
@@ -4486,10 +4486,10 @@ function stripCommentsFromStatementBranch(
 end
 
 function mergeSCodeOptAnn(
-  inModOuter::Option{<:SCode.Annotation},
-  inModInner::Option{<:SCode.Annotation},
-)::Option{SCode.Annotation}
-  local outMod::Option{SCode.Annotation}
+  inModOuter::Option{<:SCode.ANNOTATION},
+  inModInner::Option{<:SCode.ANNOTATION},
+)::Option{SCode.ANNOTATION}
+  local outMod::Option{SCode.ANNOTATION}
 
   @assign outMod = begin
     local mod1::SCode.Mod
@@ -4521,8 +4521,8 @@ function mergeSCodeMods(inModOuter::SCode.Mod, inModInner::SCode.Mod)::SCode.Mod
     local f2::SCode.Final
     local e1::SCode.Each
     local e2::SCode.Each
-    local subMods1::List{SCode.SubMod}
-    local subMods2::List{SCode.SubMod}
+    local subMods1::List{SCode.NAMEMOD}
+    local subMods2::List{SCode.NAMEMOD}
     local b1::Option{Absyn.Exp}
     local b2::Option{Absyn.Exp}
     local info::SourceInfo
@@ -4552,10 +4552,10 @@ end
 #= Functions needed by translated NFFrontEnd =#
 
 """Look up an annotation by name, returning its modifier or NOMOD."""
-function lookupAnnotation(ann::SCode.Annotation, name::String)::SCode.Mod
+function lookupAnnotation(ann::SCode.ANNOTATION, name::String)::SCode.Mod
   local mod::SCode.Mod
   mod = begin
-    local submods::List{SCode.SubMod}
+    local submods::List{SCode.NAMEMOD}
     @match ann begin
       SCode.ANNOTATION(modification = SCode.MOD(subModLst = submods)) => begin
         for sm in submods
@@ -4572,7 +4572,7 @@ function lookupAnnotation(ann::SCode.Annotation, name::String)::SCode.Mod
   return mod
 end
 
-function lookupAnnotationBinding(ann::SCode.Annotation, name::String)::Option{Absyn.Exp}
+function lookupAnnotationBinding(ann::SCode.ANNOTATION, name::String)::Option{Absyn.Exp}
   return getModifierBinding(lookupAnnotation(ann, name))
 end
 
@@ -4580,7 +4580,7 @@ end
 function lookupElementAnnotation(elem::SCode.Element, name::String)::SCode.Mod
   local mod::SCode.Mod
   mod = begin
-    local ann::SCode.Annotation
+    local ann::SCode.ANNOTATION
     @match elem begin
       SCode.CLASS(cmt = SCode.COMMENT(annotation_ = SOME(ann))) => lookupAnnotation(ann, name)
       SCode.COMPONENT(comment = SCode.COMMENT(annotation_ = SOME(ann))) => lookupAnnotation(ann, name)
@@ -4631,7 +4631,7 @@ function getClassBody(elem::SCode.Element)::SCode.ClassDef
 end
 
 """Check if an algorithm section is non-empty."""
-function isNonEmptyAlgorithm(alg::SCode.AlgorithmSection)::Bool
+function isNonEmptyAlgorithm(alg::SCode.ALGORITHM)::Bool
   local nonEmpty::Bool
   nonEmpty = @match alg begin
     SCode.ALGORITHM(statements = stmts) => !listEmpty(stmts)
@@ -4659,7 +4659,7 @@ function getEquationInfo(eq::SCode.EEquation)::SourceInfo
   return info
 end
 
-function mapEquation(eq::SCode.Equation, func)::SCode.Equation
+function mapEquation(eq::SCode.EQUATION, func)::SCode.EQUATION
   @match SCode.EQUATION(eEquation = eeq) = eq
   return SCode.EQUATION(mapEEquation(eeq, func))
 end

@@ -47,7 +47,6 @@ import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 import OpenModelicaParser.Absyn
 import ..ArrayUtil
-import ..DAE
 import ..ListUtil
 import ..SCode
 import PrecompileTools
@@ -80,7 +79,6 @@ end
 
 #= Top level functionality =#
 
-include("./Util/ElementSource.jl")
 include("./Util/Pointer.jl")
 include("./Util/System.jl")
 include("./Util/Gettext.jl")
@@ -136,35 +134,6 @@ include("./AbsynUtil.jl")
 include("./SCodeUtil.jl")
 include("./SCodeDump.jl")
 include("./AbsynToSCode.jl")
-#= Minimal Values stub (OMC legacy, needed by toDAEValue in BindingExpression.jl) =#
-module Values
-  using MetaModelica
-  import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
-  import OpenModelicaParser.Absyn
-  abstract type Value end
-  struct INTEGER_EXPRESSION <: Value; value::Int; end
-  struct REAL_EXPRESSION <: Value; value::Float64; end
-  struct STRING_EXPRESSION <: Value; value::String; end
-  struct BOOL <: Value; value::Bool; end
-  struct ENUM_LITERAL <: Value; name::Absyn.Path; index::Int; end
-  struct RECORD <: Value; path::Absyn.Path; orderd::List; comp::List; index::Int; end
-  struct ARRAY <: Value; valueLst::List; dims::List; end
-end
-
-module ValuesUtil
-  import ..Values
-  using MetaModelica
-  import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
-  function makeArray(vals::List)::Values.Value
-    Values.ARRAY(vals, list(listLength(vals)))
-  end
-  function makeReal(r::Float64)::Values.Value
-    Values.REAL_EXPRESSION(r)
-  end
-end
-
-#=Utility for frontend=#
-include("./FrontendUtil/Prefix.jl")
 #= Include interfaces and aliases New Frontend=#
 include("./FrontendInterfaces/NFInterfaces.jl")
 include("./FrontendInterfaces/NFAlias.jl")
@@ -174,6 +143,7 @@ include("./NewFrontend/NFExpression.jl")
 include("./NewFrontend/NFType.jl")
 include("./NewFrontend/NFComplexType.jl")
 include("./NewFrontend/NFPrefixes.jl")
+include("./FrontendInterfaces/FlatInterfaces.jl")
 include("./NewFrontend/NFComponent.jl")
 include("./NewFrontend/NFImport.jl")
 include("./NewFrontend/LookupTree.jl")
@@ -204,8 +174,8 @@ include("./NewFrontend/NFStatement.jl")
 include("./NewFrontend/NFVariable.jl")
 include("./NewFrontend/NFFlatModel.jl")
 include("./NewFrontend/NFConnector.jl")
-include("./NewFrontend/NFConnections.jl")
 include("./NewFrontend/NFConnection.jl")
+include("./NewFrontend/NFConnections.jl")
 
 include("./NewFrontend/NFConnectionSets.jl")
 
@@ -221,7 +191,6 @@ include("./NewFrontend/NFSubscript.jl")
 
 include("./NewFrontend/NFFlatten.jl")
 
-include("./NewFrontend/NFConvertDAE.jl")
 
 include("./NewFrontend/NFRestriction.jl")
 
@@ -278,7 +247,7 @@ include("./NewFrontend/NFInline.jl")
 include("./NewFrontend/NFRangeIterator.jl")
 
 
-#= JSON export of FlatModel (structural-mode components and templates). =#
+#= JSON export of FLAT_MODEL (structural-mode components and templates). =#
 include("./Export/StructuralModeJSON.jl")
 
 end

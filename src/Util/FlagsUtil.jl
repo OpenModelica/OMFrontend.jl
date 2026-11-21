@@ -66,7 +66,7 @@ const allDebugFlags = list(
   Flags.DISABLE_SINGLE_FLOW_EQ,
   Flags.INFO_XML_OPERATIONS,
   Flags.VISUAL_XML,
-  Flags.NF_SCALARIZE,
+  Flags.FRONTEND_SCALARIZE,
   Flags.NF_EVAL_CONST_ARG_FUNCS,
   Flags.NF_EXPAND_OPERATIONS,
   Flags.NF_API,

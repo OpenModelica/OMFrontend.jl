@@ -552,7 +552,7 @@ function toFlatString(cref::ComponentRef; inFunction = false)
   elseif isvariant(cref, COMPONENT_REF_EMPTY)
     return ""
   end
-  if !inFunction && !Flags.isSet(Flags.NF_SCALARIZE)
+  if !inFunction && !Flags.isSet(Flags.FRONTEND_SCALARIZE)
     return _toFlatStringNotScalarized(cref)
   end
   #= Iterator variables (loop vars like i in 'for i in ...') must not be quoted =#
@@ -587,7 +587,7 @@ function toFlatString(cref::ComponentRef; inFunction = false)
   #= Helper: only quote names that need it (contain non-identifier chars) =#
   local _needsQuote = (n::String) -> !occursin(r"^[a-zA-Z_][a-zA-Z0-9_]*$", n)
   local _qn = (n::String) -> _needsQuote(n) ? string("'", n, "'") : n
-  if !Flags.isSet(Flags.NF_SCALARIZE) || sc
+  if !Flags.isSet(Flags.FRONTEND_SCALARIZE) || sc
     local joinedName = stringDelimitList(strl, ".")
     #= Record boundaries are marked with embedded quotes: boundary.state'.'p
        Split on '.', wrap the record path in quotes, leave field names unquoted. =#
@@ -676,60 +676,6 @@ end
 #= Without this, string()/print()/show fall back to the default show, which walks the
    embedded InstNode tree (cached functions/statements) and can hang. =#
 Base.show(io::IO, cref::ComponentRef) = print(io, toString(cref))
-
-function toDAE_impl(
-  cref::ComponentRef,
-  accumCref::DAE.ComponentRef
-)::DAE.ComponentRef
-  local dcref::DAE.ComponentRef
-
-   dcref = begin
-    local ty::ModelicaType
-    local dty::DAE.Type
-    @match cref begin
-      COMPONENT_REF_EMPTY(__) => begin
-        accumCref
-      end
-      COMPONENT_REF_CREF(__) => begin
-         ty = if isUnknown(cref.ty)
-          getType(cref.node)
-        else
-          cref.ty
-        end
-         dty = toDAE(ty, makeTypeVars = false)
-         dcref = DAE.CREF_QUAL(
-          name(cref.node),
-          dty,
-          list(toDAE(s) for s in cref.subscripts),
-          accumCref,
-        )
-        toDAE_impl(cref.restCref, dcref)
-      end
-    end
-  end
-  return dcref
-end
-
-function toDAE(cref::ComponentRef)::DAE.ComponentRef
-  local dcref::DAE.ComponentRef
-   dcref = begin
-    @match cref begin
-      COMPONENT_REF_CREF(__) => begin
-         dcref = DAE.CREF_IDENT(
-          name(cref.node),
-          toDAE(cref.ty),
-          list(toDAE(s) for s in cref.subscripts),
-        )
-        toDAE_impl(cref.restCref, dcref)
-      end
-
-      COMPONENT_REF_WILD(__) => begin
-        DAE.WILD()
-      end
-    end
-  end
-  return dcref
-end
 
 function isPrefix(cref1::ComponentRef, cref2::ComponentRef)::Bool
   local isPrefix::Bool
