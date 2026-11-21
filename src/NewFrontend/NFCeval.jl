@@ -346,18 +346,9 @@ function evalExpPartial(
   local e2::Expression
   local eval1::Bool
   local eval2::Bool
-  local outEvaluatedRef::Ref{Bool} = Ref{Bool}(true)
-  local f = @closure (expArg, boolArg) -> begin
-    result = evalExpPartialRef(expArg, outEvaluatedRef, target)
-    (result, boolArg && outEvaluatedRef.x)
-  end
-  e = mapFoldShallowRef(
-    exp,
-    f,
-    true,
-    outEvaluatedRef
-  )
-  outEvaluated = outEvaluatedRef.x
+  #= Each child evaluated partially; the fold argument is true while every child so far is fully evaluated. =#
+  local f = (expArg::Expression, boolArg::Bool) -> evalExpPartial(expArg, target, boolArg)
+  (e, outEvaluated) = mapFoldShallow(exp, f, true)
   outExp = begin
     @match e begin
       CREF_EXPRESSION(__) => begin
@@ -403,65 +394,6 @@ function evalExpPartial(
   return (outExp, outEvaluated) #= True if the whole expression is evaluated, otherwise false. =#
 end
 
-
-function evalExpPartialRef(
-  @nospecialize(exp::Expression),
-  outEvaluatedRef::Ref{Bool},
-  @nospecialize(target::EvalTarget = EVALTARGET_IGNORE_ERRORS()))::Expression
-  local outEvaluated::Bool #= True if the whole expression is evaluated, otherwise false. =#
-  local outExp::Expression
-  local e::Expression
-  local e1::Expression
-  local e2::Expression
-  local eval1::Bool
-  local eval2::Bool
-  local f = @closure (expArg, z) -> begin
-    result = evalExpPartialRef(expArg, outEvaluatedRef, target)
-    (result, z && outEvaluatedRef.x)
-  end
-  e = mapFoldShallowRef(exp, f, true, outEvaluatedRef)
-  outEvaluated = outEvaluatedRef.x
-  local evaluated = true
-  outExp = begin
-    @match e begin
-      CREF_EXPRESSION(__) => begin
-        if isIterator(e.cref)
-          outExp = e
-          outEvaluated = false
-        else
-          outExp = evalCref(e.cref, e, target, evalSubscripts = false)
-          #=  If evalCref could not resolve the cref (returned the original),
-              mark as not fully evaluated. =#
-          if referenceEq(outExp, e)
-            outEvaluated = false
-          elseif outExp isa SUBSCRIPTED_EXP_EXPRESSION
-            #=  evalCref resolved the binding but could not apply subscripts
-                (e.g. iterator subscripts not yet replaced). Mark as not
-                fully evaluated so the parent is not prematurely evaluated. =#
-            outEvaluated = false
-          end
-        end
-        outExp
-      end
-
-      MUTABLE_EXPRESSION(__) => begin
-        outEvaluated = false
-        e
-      end
-
-      _ => begin
-        if outEvaluated
-          evalExp(e, target)
-        else
-          e
-        end
-      end
-    end
-  end
-  outEvaluated = evaluated && outEvaluated
-  outEvaluatedRef.x = outEvaluated
-  return outExp
-end
 
 function evalCref(cref::ComponentRef,
                   @nospecialize(defaultExp::Expression),
@@ -4251,9 +4183,9 @@ function evalBuiltinString(args::Union{List{Expression}, Vector{Expression}})::E
     str_len = stringLength(str)
     if str_len < min_len
       if left_justified
-        str = str + stringAppendList(ListUtil.fill(" ", min_len - str_len))
+        str = str + stringAppendList(ListUtil.fill(" ", min_len - str_len, String))
       else
-        str = stringAppendList(ListUtil.fill(" ", min_len - str_len)) + str
+        str = stringAppendList(ListUtil.fill(" ", min_len - str_len, String)) + str
       end
     end
     result = STRING_EXPRESSION(str)

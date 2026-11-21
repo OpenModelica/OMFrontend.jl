@@ -346,7 +346,7 @@ function makeScalarProduct(@nospecialize(exp1::Expression), @nospecialize(exp2::
     mul_op = makeMul(elem_ty)
     add_op = makeAdd(elem_ty)
     expL1 = list(@do_threaded_for(simplifyBinaryOp(e1, mul_op, e2), (e1, e2), (expL1, expL2)))
-    exp = ListUtil.reduce(expL1, (x, y) -> simplifyBinaryOp(x, add_op, y))
+    exp = ListUtil.reduce(expL1, (x, y) -> simplifyBinaryOp(x, add_op, y), Expression)
   end
   return exp
 end

@@ -110,11 +110,11 @@ function fromConnections(connections)
   # Do this here if FRONTEND_SCALARIZE to use fast addList for scalarized flows.
   # if ! Flags.isSet(Flags.DISABLE_SINGLE_FLOW_EQ) && Flags.isSet(Flags.FRONTEND_SCALARIZE) then
   #@debug "Before ListUtil 1 $(string(sets))"
-  sets = ListUtil.fold(connections.flows, addConnector, sets)
+  sets = ListUtil.fold(connections.flows, addConnector, sets, Sets)
   # end
   # Add the connections.
   #@debug "Before ListUtil 2 $(string(sets))"
-  sets = ListUtil.fold1(connections.connections, addConnection, connections.broken, sets)
+  sets = ListUtil.fold1(connections.connections, addConnection, connections.broken, sets, Sets)
   # Add remaining flow variables to the sets, unless disabled by flag.
   # Do this after addConnection if not FRONTEND_SCALARIZE to get array dims right.
   #if ! Flags.isSet(Flags.DISABLE_SINGLE_FLOW_EQ) && ! Flags.isSet(Flags.FRONTEND_SCALARIZE) then

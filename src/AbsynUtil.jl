@@ -68,10 +68,10 @@ const dummyParts = PARTS(nil, nil, nil, nil, NONE())::ClassDef
 const dummyInfo = SOURCEINFO("", false, 0, 0, 0, 0, 0.0)::Info
 
 const dummyProgram = PROGRAM(nil, TOP())::Program
-TypeA = Any
-Type_a = Any
-Argument = Any
-Arg = Any
+const TypeA = Any
+const Type_a = Any
+const Argument = Any
+const Arg = Any
 #=  stefan
 =#
 
@@ -466,7 +466,7 @@ function traverseExpListBidir(
   local outExpl::List{Exp}
 
   @assign (outExpl, outArg) =
-    ListUtil.map2FoldCheckReferenceEq(inExpl, traverseExpBidir, enterFunc, exitFunc, inArg)
+    ListUtil.map2FoldCheckReferenceEq(inExpl, traverseExpBidir, enterFunc, exitFunc, inArg, Exp, Argument)
   return (outExpl, outArg)
 end
 
@@ -654,13 +654,7 @@ function traverseExpBidirSubExps(
         @assign (e1m, arg) = traverseExpBidir(e1, enterFunc, exitFunc, arg)
         @assign (e2m, arg) = traverseExpBidir(e2, enterFunc, exitFunc, arg)
         @assign (e3m, arg) = traverseExpBidir(e3, enterFunc, exitFunc, arg)
-        @assign (else_ifs2, arg) = ListUtil.map2FoldCheckReferenceEq(
-          else_ifs1,
-          traverseExpBidirElseIf,
-          enterFunc,
-          exitFunc,
-          arg,
-        )
+        @assign (else_ifs2, arg) = ListUtil.map2FoldCheckReferenceEq(else_ifs1, traverseExpBidirElseIf, enterFunc, exitFunc, arg, Tuple{Exp, Exp}, Argument)
         (
           if referenceEq(e1, e1m) &&
              referenceEq(e2, e2m) &&
@@ -704,13 +698,7 @@ function traverseExpBidirSubExps(
       end
 
       (MATRIX(matrix = mat_expl), _, _, arg) => begin
-        @assign (mat_expl, arg) = ListUtil.map2FoldCheckReferenceEq(
-          mat_expl,
-          traverseExpListBidir,
-          enterFunc,
-          exitFunc,
-          arg,
-        )
+        @assign (mat_expl, arg) = ListUtil.map2FoldCheckReferenceEq(mat_expl, traverseExpListBidir, enterFunc, exitFunc, arg, List{Exp}, Argument)
         (MATRIX(mat_expl), arg)
       end
 
@@ -770,13 +758,7 @@ function traverseExpBidirSubExps(
         arg,
       ) => begin
         @assign (e1, arg) = traverseExpBidir(e1, enterFunc, exitFunc, arg)
-        @assign (match_cases, arg) = ListUtil.map2FoldCheckReferenceEq(
-          match_cases,
-          traverseMatchCase,
-          enterFunc,
-          exitFunc,
-          arg,
-        )
+        @assign (match_cases, arg) = ListUtil.map2FoldCheckReferenceEq(match_cases, traverseMatchCase, enterFunc, exitFunc, arg, Case, Argument)
         (MATCHEXP(match_ty, e1, match_decls, match_cases, cmt), arg)
       end
 
@@ -852,13 +834,7 @@ function traverseExpBidirCref(
       end
 
       (CREF_QUAL(name = name, subscripts = subs1, componentRef = cr1), _, _, arg) => begin
-        @assign (subs2, arg) = ListUtil.map2FoldCheckReferenceEq(
-          subs1,
-          traverseExpBidirSubs,
-          enterFunc,
-          exitFunc,
-          arg,
-        )
+        @assign (subs2, arg) = ListUtil.map2FoldCheckReferenceEq(subs1, traverseExpBidirSubs, enterFunc, exitFunc, arg, Subscript, Argument)
         @assign (cr2, arg) = traverseExpBidirCref(cr1, enterFunc, exitFunc, arg)
         (if referenceEq(cr1, cr2) && referenceEq(subs1, subs2)
           inCref
@@ -868,13 +844,7 @@ function traverseExpBidirCref(
       end
 
       (CREF_IDENT(name = name, subscripts = subs1), _, _, arg) => begin
-        @assign (subs2, arg) = ListUtil.map2FoldCheckReferenceEq(
-          subs1,
-          traverseExpBidirSubs,
-          enterFunc,
-          exitFunc,
-          arg,
-        )
+        @assign (subs2, arg) = ListUtil.map2FoldCheckReferenceEq(subs1, traverseExpBidirSubs, enterFunc, exitFunc, arg, Subscript, Argument)
         (if referenceEq(subs1, subs2)
           inCref
         else
@@ -979,13 +949,7 @@ function traverseExpBidirFunctionArgs(
     @match (inArgs, enterFunc, exitFunc, inArg) begin
       (FUNCTIONARGS(args = expl1, argNames = named_args1), _, _, arg) => begin
         @assign (expl2, arg) = traverseExpListBidir(expl1, enterFunc, exitFunc, arg)
-        @assign (named_args2, arg) = ListUtil.map2FoldCheckReferenceEq(
-          named_args1,
-          traverseExpBidirNamedArg,
-          enterFunc,
-          exitFunc,
-          arg,
-        )
+        @assign (named_args2, arg) = ListUtil.map2FoldCheckReferenceEq(named_args1, traverseExpBidirNamedArg, enterFunc, exitFunc, arg, NamedArg, Argument)
         (if referenceEq(expl1, expl2) && referenceEq(named_args1, named_args2)
           inArgs
         else
@@ -995,13 +959,7 @@ function traverseExpBidirFunctionArgs(
 
       (FOR_ITER_FARG(e1, iterType, iters1), _, _, arg) => begin
         @assign (e2, arg) = traverseExpBidir(e1, enterFunc, exitFunc, arg)
-        @assign (iters2, arg) = ListUtil.map2FoldCheckReferenceEq(
-          iters1,
-          traverseExpBidirIterator,
-          enterFunc,
-          exitFunc,
-          arg,
-        )
+        @assign (iters2, arg) = ListUtil.map2FoldCheckReferenceEq(iters1, traverseExpBidirIterator, enterFunc, exitFunc, arg, ForIterator, Argument)
         (if referenceEq(e1, e2) && referenceEq(iters1, iters2)
           inArgs
         else
@@ -1142,24 +1100,12 @@ function traverseClassPartBidir(
     local arg::Argument
     @match (cp, enterFunc, exitFunc, inArg) begin
       (ALGORITHMS(algs), _, _, arg) => begin
-        @assign (algs, arg) = ListUtil.map2FoldCheckReferenceEq(
-          algs,
-          traverseAlgorithmItemBidir,
-          enterFunc,
-          exitFunc,
-          arg,
-        )
+        @assign (algs, arg) = ListUtil.map2FoldCheckReferenceEq(algs, traverseAlgorithmItemBidir, enterFunc, exitFunc, arg, AlgorithmItem, Argument)
         (ALGORITHMS(algs), arg)
       end
 
       (EQUATIONS(eqs), _, _, arg) => begin
-        @assign (eqs, arg) = ListUtil.map2FoldCheckReferenceEq(
-          eqs,
-          traverseEquationItemBidir,
-          enterFunc,
-          exitFunc,
-          arg,
-        )
+        @assign (eqs, arg) = ListUtil.map2FoldCheckReferenceEq(eqs, traverseEquationItemBidir, enterFunc, exitFunc, arg, EquationItem, Argument)
         (EQUATIONS(eqs), arg)
       end
     end
@@ -1176,13 +1122,7 @@ function traverseEquationItemListBidir(
   local outArg::Argument
   local outEquationItems::List{EquationItem}
 
-  @assign (outEquationItems, outArg) = ListUtil.map2FoldCheckReferenceEq(
-    inEquationItems,
-    traverseEquationItemBidir,
-    enterFunc,
-    exitFunc,
-    inArg,
-  )
+  @assign (outEquationItems, outArg) = ListUtil.map2FoldCheckReferenceEq(inEquationItems, traverseEquationItemBidir, enterFunc, exitFunc, inArg, EquationItem, Argument)
   return (outEquationItems, outArg)
 end
 
@@ -1195,13 +1135,7 @@ function traverseAlgorithmItemListBidir(
   local outArg::Argument
   local outAlgs::List{AlgorithmItem}
 
-  @assign (outAlgs, outArg) = ListUtil.map2FoldCheckReferenceEq(
-    inAlgs,
-    traverseAlgorithmItemBidir,
-    enterFunc,
-    exitFunc,
-    inArg,
-  )
+  @assign (outAlgs, outArg) = ListUtil.map2FoldCheckReferenceEq(inAlgs, traverseAlgorithmItemBidir, enterFunc, exitFunc, inArg, AlgorithmItem, Argument)
   return (outAlgs, outArg)
 end
 
@@ -1293,13 +1227,7 @@ function traverseEquationBidir(
         @assign (e1, arg) = traverseExpBidir(e1, enterFunc, exitFunc, arg)
         @assign (eqil1, arg) =
           traverseEquationItemListBidir(eqil1, enterFunc, exitFunc, arg)
-        @assign (else_branch, arg) = ListUtil.map2FoldCheckReferenceEq(
-          else_branch,
-          traverseEquationBidirElse,
-          enterFunc,
-          exitFunc,
-          arg,
-        )
+        @assign (else_branch, arg) = ListUtil.map2FoldCheckReferenceEq(else_branch, traverseEquationBidirElse, enterFunc, exitFunc, arg, Tuple{Exp, List{EquationItem}}, Argument)
         @assign (eqil2, arg) =
           traverseEquationItemListBidir(eqil2, enterFunc, exitFunc, arg)
         (EQ_IF(e1, eqil1, else_branch, eqil2), arg)
@@ -1325,13 +1253,7 @@ function traverseEquationBidir(
       end
 
       (EQ_FOR(iterators = iters, forEquations = eqil1), _, _, arg) => begin
-        @assign (iters, arg) = ListUtil.map2FoldCheckReferenceEq(
-          iters,
-          traverseExpBidirIterator,
-          enterFunc,
-          exitFunc,
-          arg,
-        )
+        @assign (iters, arg) = ListUtil.map2FoldCheckReferenceEq(iters, traverseExpBidirIterator, enterFunc, exitFunc, arg, ForIterator, Argument)
         @assign (eqil1, arg) =
           traverseEquationItemListBidir(eqil1, enterFunc, exitFunc, arg)
         (EQ_FOR(iters, eqil1), arg)
@@ -1346,13 +1268,7 @@ function traverseEquationBidir(
         @assign (e1, arg) = traverseExpBidir(e1, enterFunc, exitFunc, arg)
         @assign (eqil1, arg) =
           traverseEquationItemListBidir(eqil1, enterFunc, exitFunc, arg)
-        @assign (else_branch, arg) = ListUtil.map2FoldCheckReferenceEq(
-          else_branch,
-          traverseEquationBidirElse,
-          enterFunc,
-          exitFunc,
-          arg,
-        )
+        @assign (else_branch, arg) = ListUtil.map2FoldCheckReferenceEq(else_branch, traverseEquationBidirElse, enterFunc, exitFunc, arg, Tuple{Exp, List{EquationItem}}, Argument)
         (EQ_WHEN_E(e1, eqil1, else_branch), arg)
       end
 
@@ -1442,39 +1358,21 @@ function traverseAlgorithmBidir(
         @assign (e1, arg) = traverseExpBidir(e1, enterFunc, exitFunc, arg)
         @assign (algs1, arg) =
           traverseAlgorithmItemListBidir(algs1, enterFunc, exitFunc, arg)
-        @assign (else_branch, arg) = ListUtil.map2FoldCheckReferenceEq(
-          else_branch,
-          traverseAlgorithmBidirElse,
-          enterFunc,
-          exitFunc,
-          arg,
-        )
+        @assign (else_branch, arg) = ListUtil.map2FoldCheckReferenceEq(else_branch, traverseAlgorithmBidirElse, enterFunc, exitFunc, arg, Tuple{Exp, List{AlgorithmItem}}, Argument)
         @assign (algs2, arg) =
           traverseAlgorithmItemListBidir(algs2, enterFunc, exitFunc, arg)
         (ALG_IF(e1, algs1, else_branch, algs2), arg)
       end
 
       (ALG_FOR(iters, algs1), _, _, arg) => begin
-        @assign (iters, arg) = ListUtil.map2FoldCheckReferenceEq(
-          iters,
-          traverseExpBidirIterator,
-          enterFunc,
-          exitFunc,
-          arg,
-        )
+        @assign (iters, arg) = ListUtil.map2FoldCheckReferenceEq(iters, traverseExpBidirIterator, enterFunc, exitFunc, arg, ForIterator, Argument)
         @assign (algs1, arg) =
           traverseAlgorithmItemListBidir(algs1, enterFunc, exitFunc, arg)
         (ALG_FOR(iters, algs1), arg)
       end
 
       (ALG_PARFOR(iters, algs1), _, _, arg) => begin
-        @assign (iters, arg) = ListUtil.map2FoldCheckReferenceEq(
-          iters,
-          traverseExpBidirIterator,
-          enterFunc,
-          exitFunc,
-          arg,
-        )
+        @assign (iters, arg) = ListUtil.map2FoldCheckReferenceEq(iters, traverseExpBidirIterator, enterFunc, exitFunc, arg, ForIterator, Argument)
         @assign (algs1, arg) =
           traverseAlgorithmItemListBidir(algs1, enterFunc, exitFunc, arg)
         (ALG_PARFOR(iters, algs1), arg)
@@ -1491,13 +1389,7 @@ function traverseAlgorithmBidir(
         @assign (e1, arg) = traverseExpBidir(e1, enterFunc, exitFunc, arg)
         @assign (algs1, arg) =
           traverseAlgorithmItemListBidir(algs1, enterFunc, exitFunc, arg)
-        @assign (else_branch, arg) = ListUtil.map2FoldCheckReferenceEq(
-          else_branch,
-          traverseAlgorithmBidirElse,
-          enterFunc,
-          exitFunc,
-          arg,
-        )
+        @assign (else_branch, arg) = ListUtil.map2FoldCheckReferenceEq(else_branch, traverseAlgorithmBidirElse, enterFunc, exitFunc, arg, Tuple{Exp, List{AlgorithmItem}}, Argument)
         (ALG_WHEN_A(e1, algs1, else_branch), arg)
       end
 
@@ -2944,7 +2836,7 @@ function getCrefFromExp(
           getCrefFromExp(e1, includeSubs, includeFunctions),
           getCrefFromExp(e2, includeSubs, includeFunctions),
           getCrefFromExp(e3, includeSubs, includeFunctions),
-        ))
+        ), ComponentRef)
       end
 
       (CALL(function_ = cr, functionArgs = farg), _, _) => begin
@@ -2968,18 +2860,14 @@ function getCrefFromExp(
       end
 
       (ARRAY(arrayExp = expl), _, _) => begin
-        @assign lstres1 = ListUtil.map2(expl, getCrefFromExp, includeSubs, includeFunctions)
-        @assign res = ListUtil.flatten(lstres1)
+        @assign lstres1 = ListUtil.map2(expl, getCrefFromExp, includeSubs, includeFunctions, List{ComponentRef})
+        @assign res = ListUtil.flatten(lstres1, ComponentRef)
         res
       end
 
       (MATRIX(matrix = expll), _, _) => begin
-        @assign res = ListUtil.flatten(ListUtil.flatten(ListUtil.map2List(
-          expll,
-          getCrefFromExp,
-          includeSubs,
-          includeFunctions,
-        )))
+        @assign res = ListUtil.flatten(ListUtil.flatten(ListUtil.map2List(expll, getCrefFromExp, includeSubs, includeFunctions, List{ComponentRef}),
+                                                        List{ComponentRef}), ComponentRef)
         res
       end
 
@@ -3004,8 +2892,8 @@ function getCrefFromExp(
       end
 
       (TUPLE(expressions = expl), _, _) => begin
-        @assign crefll = ListUtil.map2(expl, getCrefFromExp, includeSubs, includeFunctions)
-        @assign res = ListUtil.flatten(crefll)
+        @assign crefll = ListUtil.map2(expl, getCrefFromExp, includeSubs, includeFunctions, List{ComponentRef})
+        @assign res = ListUtil.flatten(crefll, ComponentRef)
         res
       end
 
@@ -3025,8 +2913,8 @@ function getCrefFromExp(
       end
 
       (LIST(expl), _, _) => begin
-        @assign crefll = ListUtil.map2(expl, getCrefFromExp, includeSubs, includeFunctions)
-        @assign res = ListUtil.flatten(crefll)
+        @assign crefll = ListUtil.map2(expl, getCrefFromExp, includeSubs, includeFunctions, List{ComponentRef})
+        @assign res = ListUtil.flatten(crefll, ComponentRef)
         res
       end
 
@@ -3078,29 +2966,31 @@ function getCrefFromFarg(
     local exp::Exp
     @match (inFunctionArgs, includeSubs, includeFunctions) begin
       (FUNCTIONARGS(args = expl, argNames = nargl), _, _) => begin
-        @assign l1 = ListUtil.map2(expl, getCrefFromExp, includeSubs, includeFunctions)
-        @assign fl1 = ListUtil.flatten(l1)
-        @assign l2 = ListUtil.map2(nargl, getCrefFromNarg, includeSubs, includeFunctions)
-        @assign fl2 = ListUtil.flatten(l2)
+        @assign l1 = ListUtil.map2(expl, getCrefFromExp, includeSubs, includeFunctions, List{ComponentRef})
+        @assign fl1 = ListUtil.flatten(l1, ComponentRef)
+        @assign l2 = ListUtil.map2(nargl, getCrefFromNarg, includeSubs, includeFunctions, List{ComponentRef})
+        @assign fl2 = ListUtil.flatten(l2, ComponentRef)
         @assign res = listAppend(fl1, fl2)
         res
       end
 
       (FOR_ITER_FARG(exp, _, iterators), _, _) => begin
         @assign l1 = ListUtil.map2Option(
-          ListUtil.map(iterators, iteratorRange),
+          ListUtil.map(iterators, iteratorRange, Option{Exp}),
           getCrefFromExp,
           includeSubs,
           includeFunctions,
+          List{ComponentRef},
         )
         @assign l2 = ListUtil.map2Option(
-          ListUtil.map(iterators, iteratorGuard),
+          ListUtil.map(iterators, iteratorGuard, Option{Exp}),
           getCrefFromExp,
           includeSubs,
           includeFunctions,
+          List{ComponentRef},
         )
-        @assign fl1 = ListUtil.flatten(l1)
-        @assign fl2 = ListUtil.flatten(l2)
+        @assign fl1 = ListUtil.flatten(l1, ComponentRef)
+        @assign fl2 = ListUtil.flatten(l2, ComponentRef)
         @assign fl3 = getCrefFromExp(exp, includeSubs, includeFunctions)
         @assign res = listAppend(fl1, listAppend(fl2, fl3))
         res
@@ -3642,7 +3532,7 @@ function getSubsFromCref(
 
       (CREF_QUAL(_, subs2, child), _, _) => begin
         @assign subscripts = getSubsFromCref(child, includeSubs, includeFunctions)
-        @assign subscripts = ListUtil.unionOnTrue(subscripts, subs2, subscriptEqual)
+        @assign subscripts = ListUtil.unionOnTrue(subscripts, subs2, subscriptEqual, Subscript)
         subscripts
       end
 
@@ -4533,7 +4423,7 @@ function onlyLiteralsInExpEnter(
             "TextAlignment",
           ),
         )
-        @assign lst = ListUtil.consOnTrue(!b, e, lst)
+        @assign lst = ListUtil.consOnTrue(!b, e, lst, Exp)
         (inExp, _cons(lst, rest))
       end
 
@@ -4999,7 +4889,7 @@ function mergeAnnotations2(
       @assign mod2 = ListUtil.find(res, (p) -> isModificationOfPath(path = p))
       @assign mod1 = subModsInSameOrder(mod2, mod)
       @match (res, true) =
-        ListUtil.replaceOnTrue(mod1, res, (p) -> isModificationOfPath(path = p))
+        ListUtil.replaceOnTrue(mod1, res, (p) -> isModificationOfPath(path = p), ElementArg)
     catch
       @assign res = _cons(mod, res)
     end

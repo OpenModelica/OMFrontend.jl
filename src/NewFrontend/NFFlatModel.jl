@@ -165,7 +165,7 @@ function reconstructRecordInstances(variables::Vector{VARIABLE})
           sibling_count += 1
           scan = listRest(scan)
         end
-        (record_vars, rest_vars) = ListUtil.split(rest_vars, sibling_count)
+        (record_vars, rest_vars) = ListUtil.split(rest_vars, sibling_count, VARIABLE)
         record_vars = _cons(var, record_vars)
         var = reconstructRecordInstance(parent_cr, record_vars)
         #= When not all fields have bindings, the record gets EMPTY_BINDING,
@@ -198,7 +198,7 @@ function collectSubscriptedFlatType(
   local strl::List{String}
   local name::String
   exp_ty = typeOf(exp)
-  dims = ListUtil.firstN(arrayDims(exp_ty), listLength(subs))
+  dims = ListUtil.firstN(arrayDims(exp_ty), listLength(subs), Dimension)
   sub_tyl = list(subscriptType(d) for d in dims)
   name = subscriptedTypeName(exp_ty, sub_tyl)
   types = TypeTreeImpl.add(
@@ -463,7 +463,7 @@ function collectFlatTypes(flatModel::FLAT_MODEL, functions::List{MODELICA_FUNCTI
   types = ArrayUtil.fold(flatModel.initialEquations, collectEquationFlatTypes, types)
   types = ArrayUtil.fold(flatModel.algorithms, collectAlgorithmFlatTypes, types)
   types = ArrayUtil.fold(flatModel.initialAlgorithms, collectAlgorithmFlatTypes, types)
-  types = ListUtil.fold(functions, collectFunctionFlatTypes, types)
+  types = ListUtil.fold(functions, collectFunctionFlatTypes, types, TypeTree)
   #println(TypeTreeImpl.printTreeStr(types))
   local typeLst = TypeTreeImpl.listValues(types)
   return typeLst

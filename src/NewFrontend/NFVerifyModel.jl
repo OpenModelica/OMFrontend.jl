@@ -200,8 +200,8 @@ function expandCrefSet(crefs::List{<:ComponentRef})
       outCrefs = Cons{ComponentRef}(cref, outCrefs)
     end
   end
-  outCrefs = ListUtil.sort(outCrefs, isGreater)
-  outCrefs = ListUtil.sortedUnique(outCrefs, isEqual)
+  outCrefs = ListUtil.sort(outCrefs, isGreater, ComponentRef)
+  outCrefs = ListUtil.sortedUnique(outCrefs, isEqual, ComponentRef)
   return outCrefs
 end
 
@@ -274,7 +274,7 @@ function whenEquationEqualityCrefs(
       end
 
       TUPLE_EXPRESSION(__) => begin
-        ListUtil.fold(lhsExp.elements, whenEquationEqualityCrefs, crefs)
+        ListUtil.fold(lhsExp.elements, whenEquationEqualityCrefs, crefs, List{ComponentRef})
       end
     end
   end
@@ -310,8 +310,8 @@ function whenEquationBranchCrefs(eql::Union{List{<:Equation}, Vector{<:Equation}
       end
     end
   end
-  crefs = ListUtil.sort(crefs, isGreater)
-  crefs = ListUtil.sortedUnique(crefs, isEqual)
+  crefs = ListUtil.sort(crefs, isGreater, ComponentRef)
+  crefs = ListUtil.sortedUnique(crefs, isEqual, ComponentRef)
   return crefs
 end
 

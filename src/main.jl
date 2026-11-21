@@ -211,7 +211,6 @@ include("./NewFrontend/NFBuiltinFuncs.jl")
 include("./NewFrontend/NFBuiltin.jl")
 #import ..NFBuiltin
 include("./NewFrontend/BindingExpression.jl")
-include("./NewFrontend/BindingExpression!.jl")
 
 include("./Util/ModelicaExternalC.jl")
 include("./NewFrontend/NFEvalFunction.jl")

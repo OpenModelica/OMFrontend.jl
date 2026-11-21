@@ -411,7 +411,7 @@ function makeCatExp(n::Int,
   #=  with the concatenated dimension set to unknown.
   =#
   dims = arrayDims(resTy)
-  resTyToMatch = TYPE_ARRAY(arrayElementType(resTy), ListUtil.set(dims, n, DIMENSION_UNKNOWN()))
+  resTyToMatch = TYPE_ARRAY(arrayElementType(resTy), ListUtil.set(dims, n, DIMENSION_UNKNOWN(), Dimension))
   #dims = list(listGet(lst, n) for lst in dimsLst)
   dims = List{Dimension}(listGet(lst, n) for lst in dimsLst)
   sumDim = fromInteger(0)
@@ -420,7 +420,7 @@ function makeCatExp(n::Int,
   end
   #=  Create the concatenated dimension
   =#
-  resTy = TYPE_ARRAY(arrayElementType(resTy), ListUtil.set(arrayDims(resTy), n, sumDim))
+  resTy = TYPE_ARRAY(arrayElementType(resTy), ListUtil.set(arrayDims(resTy), n, sumDim, Dimension))
   tys2 = tys3
   tys3 = ModelicaType[]
   res = Expression[]
@@ -559,7 +559,7 @@ function makeCatExpRef(n::Int,
   #=  with the concatenated dimension set to unknown.
   =#
   dims = arrayDims(resTy)
-  resTyToMatch = TYPE_ARRAY(arrayElementType(resTy), ListUtil.set(dims, n, DIMENSION_UNKNOWN()))
+  resTyToMatch = TYPE_ARRAY(arrayElementType(resTy), ListUtil.set(dims, n, DIMENSION_UNKNOWN(), Dimension))
   #dims = list(listGet(lst, n) for lst in dimsLst)
   dims = List{Dimension}(listGet(lst, n) for lst in dimsLst)
   sumDim = fromInteger(0)
@@ -568,7 +568,7 @@ function makeCatExpRef(n::Int,
   end
   #=  Create the concatenated dimension
   =#
-  resTy = TYPE_ARRAY(arrayElementType(resTy), ListUtil.set(arrayDims(resTy), n, sumDim))
+  resTy = TYPE_ARRAY(arrayElementType(resTy), ListUtil.set(arrayDims(resTy), n, sumDim, Dimension))
   tys2 = tys3
   tys3 = ModelicaType[]
   res = Expression[]

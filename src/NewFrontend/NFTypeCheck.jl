@@ -3677,7 +3677,7 @@ function matchBinding(
               dims = Cons{List{Dimension}}(arrayDims(getType(p)), dims)
             end
             dims = listReverse(dims)
-            comp_ty = liftArrayLeftList(componentType, ListUtil.flattenReverse(dims))
+            comp_ty = liftArrayLeftList(componentType, ListUtil.flattenReverse(dims, Dimension))
             exp_ty = exp.expType
           end
 

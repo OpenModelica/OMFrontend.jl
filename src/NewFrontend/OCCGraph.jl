@@ -808,7 +808,7 @@ function generateEqualityConstraintEquation(clhs::ComponentRef,
               local (fc2, fn2, _) = instFunctionRef(fc, source)
               (fc2, fn2)
             end
-            local argLst = _cons(REAL_EXPRESSION(0.0), ListUtil.map(arrayDims(ty), sizeExp))
+            local argLst::List{Expression} = Cons{Expression}(REAL_EXPRESSION(0.0), ListUtil.map(arrayDims(ty), sizeExp, Expression))
             expLHS = CALL_EXPRESSION(UNTYPED_CALL(fcref_lhs, listArray(argLst), Expression[], fn_node_lhs))
             (expLHS, ty, var) = typeExp(expLHS, origin, source)
             replaceEq = EQUATION_EQUALITY(expRHS, expLHS, ty, source)
@@ -829,7 +829,7 @@ function getOverconstrainedCrefs(conn::CONNECTOR)::List{ComponentRef}
   conns = split(conn, SCALARIZE_PREFIX)
   crefs = list(getOverconstrainedCref(c.name) for c in conns if (!(isDeleted(c)) && isOverconstrainedCref(c.name)))
 
-  crefs = ListUtil.uniqueOnTrue(crefs, isEqual)
+  crefs = ListUtil.uniqueOnTrue(crefs, isEqual, ComponentRef)
   crefs
 end
 

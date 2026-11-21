@@ -249,7 +249,7 @@ end
 function elementNames(elts::List{<:SCode.Element})::List{String}
   local names::List{String}
 
-  @assign names = ListUtil.fold(elts, elementNamesWork, nil)
+  @assign names = ListUtil.fold(elts, elementNamesWork, nil, List{String})
   return names
 end
 
@@ -1389,17 +1389,17 @@ function statementToAlgorithmItem(stmt::SCode.Statement)::Absyn.AlgorithmItem
       end
 
       SCode.ALG_IF(boolExpr, trueBranch, branches, elseBranch, _, info) => begin
-        @assign algs1 = ListUtil.map(trueBranch, statementToAlgorithmItem)
-        @assign conditions = ListUtil.map(branches, Util.tuple21)
-        @assign stmtsList = ListUtil.map(branches, Util.tuple22)
-        @assign algsLst = ListUtil.mapList(stmtsList, statementToAlgorithmItem)
-        @assign abranches = ListUtil.threadTuple(conditions, algsLst)
-        @assign algs2 = ListUtil.map(elseBranch, statementToAlgorithmItem)
+        @assign algs1 = ListUtil.map(trueBranch, statementToAlgorithmItem, Absyn.AlgorithmItem)
+        @assign conditions = ListUtil.map(branches, Util.tuple21, Absyn.Exp)
+        @assign stmtsList = ListUtil.map(branches, Util.tuple22, List{SCode.Statement})
+        @assign algsLst = ListUtil.mapList(stmtsList, statementToAlgorithmItem, Absyn.AlgorithmItem)
+        @assign abranches = ListUtil.threadTuple(conditions, algsLst, Tuple{Absyn.Exp, List{Absyn.AlgorithmItem}})
+        @assign algs2 = ListUtil.map(elseBranch, statementToAlgorithmItem, Absyn.AlgorithmItem)
         Absyn.ALGORITHMITEM(Absyn.ALG_IF(boolExpr, algs1, abranches, algs2), NONE(), info)
       end
 
       SCode.ALG_FOR(iterator, range, body, _, info) => begin
-        @assign algs1 = ListUtil.map(body, statementToAlgorithmItem)
+        @assign algs1 = ListUtil.map(body, statementToAlgorithmItem, Absyn.AlgorithmItem)
         Absyn.ALGORITHMITEM(
           Absyn.ALG_FOR(list(Absyn.ITERATOR(iterator, NONE(), range)), algs1),
           NONE(),
@@ -1408,7 +1408,7 @@ function statementToAlgorithmItem(stmt::SCode.Statement)::Absyn.AlgorithmItem
       end
 
       SCode.ALG_PARFOR(iterator, range, body, _, info) => begin
-        @assign algs1 = ListUtil.map(body, statementToAlgorithmItem)
+        @assign algs1 = ListUtil.map(body, statementToAlgorithmItem, Absyn.AlgorithmItem)
         Absyn.ALGORITHMITEM(
           Absyn.ALG_PARFOR(list(Absyn.ITERATOR(iterator, NONE(), range)), algs1),
           NONE(),
@@ -1417,16 +1417,16 @@ function statementToAlgorithmItem(stmt::SCode.Statement)::Absyn.AlgorithmItem
       end
 
       SCode.ALG_WHILE(boolExpr, body, _, info) => begin
-        @assign algs1 = ListUtil.map(body, statementToAlgorithmItem)
+        @assign algs1 = ListUtil.map(body, statementToAlgorithmItem, Absyn.AlgorithmItem)
         Absyn.ALGORITHMITEM(Absyn.ALG_WHILE(boolExpr, algs1), NONE(), info)
       end
 
       SCode.ALG_WHEN_A(branches, _, info) => begin
-        @match _cons(boolExpr, conditions) = ListUtil.map(branches, Util.tuple21)
-        @assign stmtsList = ListUtil.map(branches, Util.tuple22)
+        @match _cons(boolExpr, conditions) = ListUtil.map(branches, Util.tuple21, Absyn.Exp)
+        @assign stmtsList = ListUtil.map(branches, Util.tuple22, List{SCode.Statement})
         @match _cons(algs1, algsLst) =
-          ListUtil.mapList(stmtsList, statementToAlgorithmItem)
-        @assign abranches = ListUtil.threadTuple(conditions, algsLst)
+          ListUtil.mapList(stmtsList, statementToAlgorithmItem, Absyn.AlgorithmItem)
+        @assign abranches = ListUtil.threadTuple(conditions, algsLst, Tuple{Absyn.Exp, List{Absyn.AlgorithmItem}})
         Absyn.ALGORITHMITEM(Absyn.ALG_WHEN_A(boolExpr, algs1, abranches), NONE(), info)
       end
 
@@ -1484,7 +1484,7 @@ function statementToAlgorithmItem(stmt::SCode.Statement)::Absyn.AlgorithmItem
       end
 
       SCode.ALG_FAILURE(body, _, info) => begin
-        @assign algs1 = ListUtil.map(body, statementToAlgorithmItem)
+        @assign algs1 = ListUtil.map(body, statementToAlgorithmItem, Absyn.AlgorithmItem)
         Absyn.ALGORITHMITEM(Absyn.ALG_FAILURE(algs1), NONE(), info)
       end
     end
@@ -1543,20 +1543,20 @@ function foldEEquations(
     @match inEquation begin
       SCode.EQ_IF(__) => begin
         @assign outArg =
-          ListUtil.foldList1(inEquation.thenBranch, foldEEquations, inFunc, outArg)
-        ListUtil.fold1(inEquation.elseBranch, foldEEquations, inFunc, outArg)
+          ListUtil.foldList1(inEquation.thenBranch, foldEEquations, inFunc, outArg, ArgT)
+        ListUtil.fold1(inEquation.elseBranch, foldEEquations, inFunc, outArg, ArgT)
       end
 
       SCode.EQ_FOR(__) => begin
-        ListUtil.fold1(inEquation.eEquationLst, foldEEquations, inFunc, outArg)
+        ListUtil.fold1(inEquation.eEquationLst, foldEEquations, inFunc, outArg, ArgT)
       end
 
       SCode.EQ_WHEN(__) => begin
         @assign outArg =
-          ListUtil.fold1(inEquation.eEquationLst, foldEEquations, inFunc, outArg)
+          ListUtil.fold1(inEquation.eEquationLst, foldEEquations, inFunc, outArg, ArgT)
         for branch in inEquation.elseBranches
           @assign (_, eql) = branch
-          @assign outArg = ListUtil.fold1(eql, foldEEquations, inFunc, outArg)
+          @assign outArg = ListUtil.fold1(eql, foldEEquations, inFunc, outArg, ArgT)
         end
         outArg
       end
@@ -1581,10 +1581,10 @@ function foldEEquationsExps(
     local eql::List{SCode.EEquation}
     @match inEquation begin
       SCode.EQ_IF(__) => begin
-        @assign outArg = ListUtil.fold(inEquation.condition, inFunc, outArg)
+        @assign outArg = ListUtil.fold(inEquation.condition, inFunc, outArg, ArgT)
         @assign outArg =
-          ListUtil.foldList1(inEquation.thenBranch, foldEEquationsExps, inFunc, outArg)
-        ListUtil.fold1(inEquation.elseBranch, foldEEquationsExps, inFunc, outArg)
+          ListUtil.foldList1(inEquation.thenBranch, foldEEquationsExps, inFunc, outArg, ArgT)
+        ListUtil.fold1(inEquation.elseBranch, foldEEquationsExps, inFunc, outArg, ArgT)
       end
 
       SCode.EQ_EQUALS(__) => begin
@@ -1610,16 +1610,16 @@ function foldEEquationsExps(
           @match SOME(exp) = inEquation.range
           @assign outArg = inFunc(exp, outArg)
         end
-        ListUtil.fold1(inEquation.eEquationLst, foldEEquationsExps, inFunc, outArg)
+        ListUtil.fold1(inEquation.eEquationLst, foldEEquationsExps, inFunc, outArg, ArgT)
       end
 
       SCode.EQ_WHEN(__) => begin
         @assign outArg =
-          ListUtil.fold1(inEquation.eEquationLst, foldEEquationsExps, inFunc, outArg)
+          ListUtil.fold1(inEquation.eEquationLst, foldEEquationsExps, inFunc, outArg, ArgT)
         for branch in inEquation.elseBranches
           @assign (exp, eql) = branch
           @assign outArg = inFunc(exp, outArg)
-          @assign outArg = ListUtil.fold1(eql, foldEEquationsExps, inFunc, outArg)
+          @assign outArg = ListUtil.fold1(eql, foldEEquationsExps, inFunc, outArg, ArgT)
         end
         outArg
       end
@@ -1673,11 +1673,11 @@ function foldStatementsExps(
       SCode.ALG_IF(__) => begin
         @assign outArg = inFunc(inStatement.boolExpr, outArg)
         @assign outArg =
-          ListUtil.fold1(inStatement.trueBranch, foldStatementsExps, inFunc, outArg)
+          ListUtil.fold1(inStatement.trueBranch, foldStatementsExps, inFunc, outArg, ArgT)
         for branch in inStatement.elseIfBranch
           @assign (exp, stmts) = branch
           @assign outArg = inFunc(exp, outArg)
-          @assign outArg = ListUtil.fold1(stmts, foldStatementsExps, inFunc, outArg)
+          @assign outArg = ListUtil.fold1(stmts, foldStatementsExps, inFunc, outArg, ArgT)
         end
         outArg
       end
@@ -1687,7 +1687,7 @@ function foldStatementsExps(
           @match SOME(exp) = inStatement.range
           @assign outArg = inFunc(exp, outArg)
         end
-        ListUtil.fold1(inStatement.forBody, foldStatementsExps, inFunc, outArg)
+        ListUtil.fold1(inStatement.forBody, foldStatementsExps, inFunc, outArg, ArgT)
       end
 
       SCode.ALG_PARFOR(__) => begin
@@ -1695,19 +1695,19 @@ function foldStatementsExps(
           @match SOME(exp) = inStatement.range
           @assign outArg = inFunc(exp, outArg)
         end
-        ListUtil.fold1(inStatement.parforBody, foldStatementsExps, inFunc, outArg)
+        ListUtil.fold1(inStatement.parforBody, foldStatementsExps, inFunc, outArg, ArgT)
       end
 
       SCode.ALG_WHILE(__) => begin
         @assign outArg = inFunc(inStatement.boolExpr, outArg)
-        ListUtil.fold1(inStatement.whileBody, foldStatementsExps, inFunc, outArg)
+        ListUtil.fold1(inStatement.whileBody, foldStatementsExps, inFunc, outArg, ArgT)
       end
 
       SCode.ALG_WHEN_A(__) => begin
         for branch in inStatement.branches
           @assign (exp, stmts) = branch
           @assign outArg = inFunc(exp, outArg)
-          @assign outArg = ListUtil.fold1(stmts, foldStatementsExps, inFunc, outArg)
+          @assign outArg = ListUtil.fold1(stmts, foldStatementsExps, inFunc, outArg, ArgT)
         end
         outArg
       end
@@ -1733,13 +1733,13 @@ function foldStatementsExps(
       end
 
       SCode.ALG_FAILURE(__) => begin
-        ListUtil.fold1(inStatement.stmts, foldStatementsExps, inFunc, outArg)
+        ListUtil.fold1(inStatement.stmts, foldStatementsExps, inFunc, outArg, ArgT)
       end
 
       SCode.ALG_TRY(__) => begin
         @assign outArg =
-          ListUtil.fold1(inStatement.body, foldStatementsExps, inFunc, outArg)
-        ListUtil.fold1(inStatement.elseBody, foldStatementsExps, inFunc, outArg)
+          ListUtil.fold1(inStatement.body, foldStatementsExps, inFunc, outArg, ArgT)
+        ListUtil.fold1(inStatement.elseBody, foldStatementsExps, inFunc, outArg, ArgT)
       end
 
       SCode.ALG_RETURN(__) => begin
@@ -1772,7 +1772,7 @@ function traverseEEquationsList(
   local outEEquations::List{SCode.EEquation}
 
   @assign (outEEquations, outTuple) =
-    ListUtil.mapFold(inEEquations, traverseEEquations, inTuple)
+    ListUtil.mapFold(inEEquations, traverseEEquations, inTuple, SCode.EEquation, Tuple{TraverseFunc, Argument})
   return (outEEquations, outTuple)
 end
 
@@ -1820,7 +1820,7 @@ function traverseEEquations2(
     @match (inEEquation, inTuple) begin
       (SCode.EQ_IF(expl1, then_branch, else_branch, comment, info), tup) => begin
         @assign (then_branch, tup) =
-          ListUtil.mapFold(then_branch, traverseEEquationsList, tup)
+          ListUtil.mapFold(then_branch, traverseEEquationsList, tup, List{SCode.EEquation}, Tuple{TraverseFunc, Argument})
         @assign (else_branch, tup) = traverseEEquationsList(else_branch, tup)
         (SCode.EQ_IF(expl1, then_branch, else_branch, comment, info), tup)
       end
@@ -1833,7 +1833,7 @@ function traverseEEquations2(
       (SCode.EQ_WHEN(e1, eql, else_when, comment, info), tup) => begin
         @assign (eql, tup) = traverseEEquationsList(eql, tup)
         @assign (else_when, tup) =
-          ListUtil.mapFold(else_when, traverseElseWhenEEquations, tup)
+          ListUtil.mapFold(else_when, traverseElseWhenEEquations, tup, Tuple{Absyn.Exp, List{SCode.EEquation}}, Tuple{TraverseFunc, Argument})
         (SCode.EQ_WHEN(e1, eql, else_when, comment, info), tup)
       end
 
@@ -1890,12 +1890,12 @@ function traverseComponentRefExps(
 
       (Absyn.CREF_QUAL(name = name, subscripts = subs, componentRef = cr), _, _) => begin
         @assign (cr, arg) = traverseComponentRefExps(cr, inFunc, inArg)
-        @assign (subs, arg) = ListUtil.map1Fold(subs, traverseSubscriptExps, inFunc, arg)
+        @assign (subs, arg) = ListUtil.map1Fold(subs, traverseSubscriptExps, inFunc, arg, Absyn.Subscript, Argument)
         (Absyn.CREF_QUAL(name, subs, cr), arg)
       end
 
       (Absyn.CREF_IDENT(name = name, subscripts = subs), _, _) => begin
-        @assign (subs, arg) = ListUtil.map1Fold(subs, traverseSubscriptExps, inFunc, inArg)
+        @assign (subs, arg) = ListUtil.map1Fold(subs, traverseSubscriptExps, inFunc, inArg, Absyn.Subscript, Argument)
         (Absyn.CREF_IDENT(name, subs), arg)
       end
 
@@ -1943,7 +1943,7 @@ function traverseStatementsList(
   local outStatements::List{SCode.Statement}
 
   @assign (outStatements, outTuple) =
-    ListUtil.mapFold(inStatements, traverseStatements, inTuple)
+    ListUtil.mapFold(inStatements, traverseStatements, inTuple, SCode.Statement, Tuple{TraverseFunc, Argument})
   return (outStatements, outTuple)
 end
 
@@ -1996,7 +1996,7 @@ function traverseStatements2(
       (SCode.ALG_IF(e, stmts1, branches, stmts2, comment, info), tup) => begin
         @assign (stmts1, tup) = traverseStatementsList(stmts1, tup)
         @assign (branches, tup) =
-          ListUtil.mapFold(branches, traverseBranchStatements, tup)
+          ListUtil.mapFold(branches, traverseBranchStatements, tup, Tuple{Absyn.Exp, List{SCode.Statement}}, Tuple{TraverseFunc, Argument})
         @assign (stmts2, tup) = traverseStatementsList(stmts2, tup)
         (SCode.ALG_IF(e, stmts1, branches, stmts2, comment, info), tup)
       end
@@ -2017,7 +2017,7 @@ function traverseStatements2(
       end
 
       (SCode.ALG_WHEN_A(branches, comment, info), tup) => begin
-        @assign (branches, tup) = ListUtil.mapFold(branches, traverseBranchStatements, tup)
+        @assign (branches, tup) = ListUtil.mapFold(branches, traverseBranchStatements, tup, Tuple{Absyn.Exp, List{SCode.Statement}}, Tuple{TraverseFunc, Argument})
         (SCode.ALG_WHEN_A(branches, comment, info), tup)
       end
 
@@ -2168,7 +2168,7 @@ function isBuiltinFunction(
       ) => begin
         @match true = listMember(name, knownExternalCFunctions)
         @match true = outVar2 == outVar1
-        @assign argsStr = ListUtil.mapMap(args, AbsynUtil.expCref, AbsynUtil.crefIdent)
+        @assign argsStr = ListUtil.mapMap(args, AbsynUtil.expCref, AbsynUtil.crefIdent, String)
         equality(argsStr, inVars)
         name
       end
@@ -3313,7 +3313,7 @@ function equationsContainReinit(inEqs::List{<:SCode.EEquation})::Bool
     local b::Bool
     @match inEqs begin
       _ => begin
-        @assign b = ListUtil.applyAndFold(inEqs, boolOr, equationContainReinit, false)
+        @assign b = ListUtil.applyAndFold(inEqs, boolOr, equationContainReinit, false, Bool)
         b
       end
     end
@@ -3331,7 +3331,7 @@ function equationsContainConnectorsBranch(inEqs::List{<:SCode.EEquation})::Bool
     local b::Bool
     @match inEqs begin
       _ => begin
-        @assign b = ListUtil.applyAndFold(inEqs, boolOr, equationContainConnectorsBranch, false)
+        @assign b = ListUtil.applyAndFold(inEqs, boolOr, equationContainConnectorsBranch, false, Bool)
         b
       end
     end
@@ -3356,14 +3356,14 @@ function equationContainConnectorsBranch(inEq::SCode.EEquation)::Bool
                         Absyn.CREF_IDENT("branch", nil)), _, _), _, _) => true
       SCode.EQ_WHEN(eEquationLst = eqs, elseBranches = tpl_el) => begin
         b = equationsContainConnectorsBranch(eqs)
-        eqs_lst = ListUtil.map(tpl_el, Util.tuple22)
-        b = ListUtil.applyAndFold(eqs_lst, boolOr, equationsContainConnectorsBranch, b)
+        eqs_lst = ListUtil.map(tpl_el, Util.tuple22, List{SCode.EEquation})
+        b = ListUtil.applyAndFold(eqs_lst, boolOr, equationsContainConnectorsBranch, b, Bool)
         b
       end
 
       SCode.EQ_IF(thenBranch = eqs_lst, elseBranch = eqs) => begin
         b = equationsContainConnectorsBranch(eqs)
-        b = ListUtil.applyAndFold(eqs_lst, boolOr, equationsContainConnectorsBranch, b)
+        b = ListUtil.applyAndFold(eqs_lst, boolOr, equationsContainConnectorsBranch, b, Bool)
         b
       end
 
@@ -3399,14 +3399,14 @@ function equationContainReinit(inEq::SCode.EEquation)::Bool
 
       SCode.EQ_WHEN(eEquationLst = eqs, elseBranches = tpl_el) => begin
         @assign b = equationsContainReinit(eqs)
-        @assign eqs_lst = ListUtil.map(tpl_el, Util.tuple22)
-        @assign b = ListUtil.applyAndFold(eqs_lst, boolOr, equationsContainReinit, b)
+        @assign eqs_lst = ListUtil.map(tpl_el, Util.tuple22, List{SCode.EEquation})
+        @assign b = ListUtil.applyAndFold(eqs_lst, boolOr, equationsContainReinit, b, Bool)
         b
       end
 
       SCode.EQ_IF(thenBranch = eqs_lst, elseBranch = eqs) => begin
         @assign b = equationsContainReinit(eqs)
-        @assign b = ListUtil.applyAndFold(eqs_lst, boolOr, equationsContainReinit, b)
+        @assign b = ListUtil.applyAndFold(eqs_lst, boolOr, equationsContainReinit, b, Bool)
         b
       end
 
@@ -3434,7 +3434,7 @@ function algorithmsContainReinit(inAlgs::List{<:SCode.Statement})::Bool
     local b::Bool
     @match inAlgs begin
       _ => begin
-        @assign b = ListUtil.applyAndFold(inAlgs, boolOr, algorithmContainReinit, false)
+        @assign b = ListUtil.applyAndFold(inAlgs, boolOr, algorithmContainReinit, false, Bool)
         b
       end
     end
@@ -3465,18 +3465,18 @@ function algorithmContainReinit(inAlg::SCode.Statement)::Bool
       end
 
       SCode.ALG_WHEN_A(branches = tpl_alg) => begin
-        @assign algs_lst = ListUtil.map(tpl_alg, Util.tuple22)
+        @assign algs_lst = ListUtil.map(tpl_alg, Util.tuple22, List{SCode.Statement})
         @assign b =
-          ListUtil.applyAndFold(algs_lst, boolOr, algorithmsContainReinit, false)
+          ListUtil.applyAndFold(algs_lst, boolOr, algorithmsContainReinit, false, Bool)
         b
       end
 
       SCode.ALG_IF(trueBranch = algs1, elseIfBranch = tpl_alg, elseBranch = algs2) =>
         begin
           @assign b1 = algorithmsContainReinit(algs1)
-          @assign algs_lst = ListUtil.map(tpl_alg, Util.tuple22)
+          @assign algs_lst = ListUtil.map(tpl_alg, Util.tuple22, List{SCode.Statement})
           @assign b2 =
-            ListUtil.applyAndFold(algs_lst, boolOr, algorithmsContainReinit, b1)
+            ListUtil.applyAndFold(algs_lst, boolOr, algorithmsContainReinit, b1, Bool)
           @assign b3 = algorithmsContainReinit(algs2)
           @assign b = boolOr(b1, boolOr(b2, b3))
           b

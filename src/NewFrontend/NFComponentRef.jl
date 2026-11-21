@@ -874,7 +874,7 @@ end
   Ex: a[1, 2].b[4].c[6, 3] => {1, 2, 4, 6, 3}
 """
 function subscriptsAllFlat(cref::ComponentRef)::List{Subscript}
-  local subscripts::List{Subscript} = ListUtil.flattenReverse(subscriptsAll(cref))
+  local subscripts::List{Subscript} = ListUtil.flattenReverse(subscriptsAll(cref), Subscript)
   return subscripts
 end
 

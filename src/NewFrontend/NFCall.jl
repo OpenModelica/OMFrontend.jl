@@ -1063,7 +1063,7 @@ function evaluateCallType(
     local tys::Vector{ModelicaType}
     @match ty begin
       TYPE_ARRAY(__) => begin
-        (dims, ptree) = ListUtil.map1Fold(ty.dimensions, evaluateCallTypeDim, (fn, args), ptree)
+        (dims, ptree) = ListUtil.map1Fold(ty.dimensions, evaluateCallTypeDim, (fn, args), ptree, Dimension, ParameterTree)
         tyDimensions = dims
         TYPE_ARRAY(ty.elementType, tyDimensions)
       end
@@ -1587,7 +1587,7 @@ function typeArrayConstructor(
               iter_ty = typeOf(range)
             end
           end
-          dims = ListUtil.append_reverse(arrayDims(iter_ty), dims)
+          dims = ListUtil.append_reverse(arrayDims(iter_ty), dims, Dimension)
           variability = variabilityMax(variability, iter_var)
           iters = Cons{Tuple{InstNode, Expression}}((iter, range), iters)
         end

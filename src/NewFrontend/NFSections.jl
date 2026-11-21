@@ -110,7 +110,10 @@ function foldExp(sections::Sections, foldFn::FoldFn, arg::ArgT) where {ArgT}
         arg
       end
       SECTIONS_EXTERNAL(__) => begin
-        ListUtil.fold(sections.args, foldFn, arg)
+        for e in sections.args
+          arg = foldFn(e, arg)
+        end
+        arg
       end
       _ => begin
         arg

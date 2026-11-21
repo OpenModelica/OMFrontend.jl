@@ -1057,7 +1057,7 @@ function matchArgVectorized(
     matchKind = MatchKind.NOT_COMPATIBLE
     return (argExp, argTy, vectArg, vectDims, matchKind)
   end
-  (vect_dims, rest_dims) = ListUtil.split(arg_dims, vect_dims_count)
+  (vect_dims, rest_dims) = ListUtil.split(arg_dims, vect_dims_count, Dimension)
   #=  Make sure the vectorization dimensions are consistent.
   =#
   if listEmpty(vectDims)
@@ -2600,11 +2600,7 @@ function analyseUnusedParametersExp2(
    () = begin
     @match exp begin
       CREF_EXPRESSION(__) => begin
-        @assign params = ListUtil.deleteMemberOnTrue(
-          exp.cref,
-          params,
-          containsNode,
-        )
+        (params, _) = ListUtil.deleteMemberOnTrue(exp.cref, params, containsNode, InstNode)
         ()
       end
 

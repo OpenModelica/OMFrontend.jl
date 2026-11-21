@@ -157,7 +157,7 @@ end
 
 function appendList(inStream::IOSTREAM, inStringList::List)::IOSTREAM
   local outStream::IOSTREAM
-  outStream = ListUtil.foldr(inStringList, append, inStream)
+  outStream = ListUtil.foldr(inStringList, append, inStream, IOSTREAM)
   return outStream
 end
 

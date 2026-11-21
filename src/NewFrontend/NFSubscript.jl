@@ -196,7 +196,7 @@ function mergeList(
        outSubs = newSubs
        remainingSubs = nil
     else
-       (outSubs, remainingSubs) = ListUtil.split(newSubs, dimensions)
+       (outSubs, remainingSubs) = ListUtil.split(newSubs, dimensions, Subscript)
     end
     return (outSubs, remainingSubs) #= The subscripts that didn't fit =#
   end

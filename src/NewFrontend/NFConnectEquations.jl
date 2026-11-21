@@ -537,7 +537,7 @@ function generateStreamEquations(
         #=  The general case with N inside connectors and M outside:
         =#
          (outside, inside) =
-          ListUtil.splitOnTrue(elements, isOutside)
+          ListUtil.splitOnTrue(elements, isOutside, CONNECTOR)
         streamEquationGeneral(outside, inside, flowThreshold)
       end
     end
@@ -1005,7 +1005,7 @@ function generateInStreamExp(
         #=  The general case:
         =#
          (outside, inside) =
-          ListUtil.splitOnTrue(reducedStreams, isOutside)
+          ListUtil.splitOnTrue(reducedStreams, isOutside, CONNECTOR)
         @assign inside = removeStreamSetElement(streamCref, inside)
         @assign exp = streamSumEquationExp(
           outside,
@@ -1248,7 +1248,7 @@ function removeStreamSetElement(
   elements::List{<:CONNECTOR},
 )::List{CONNECTOR}
 
-  (elements, _) = ListUtil.deleteMemberOnTrue(cref, elements, compareCrefStreamSet)
+  (elements, _) = ListUtil.deleteMemberOnTrue(cref, elements, compareCrefStreamSet, CONNECTOR)
   return elements
 end
 

@@ -648,11 +648,17 @@ end
   @assign arg = begin
     @match ty begin
       TYPE_ARRAY(__) => begin
-        ListUtil.fold(ty.dimensions, func, arg)
+        for d in ty.dimensions
+          arg = func(d, arg)
+        end
+        arg
       end
 
       TYPE_TUPLE(__) => begin
-        ListUtil.fold(ty.types, (t, acc) -> foldDims(t, func, acc), arg)
+        for t in ty.types
+          arg = foldDims(t, func, arg)
+        end
+        arg
       end
 
       TYPE_FUNCTION(__) => begin

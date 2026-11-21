@@ -125,7 +125,7 @@ function bindingExpMap2(@nospecialize(exp::Expression), evalFunc::EvalFunc, most
   local parents::List{InstNode}
   local is_each::Bool
   @match BINDING_EXP(exp = e, expType = exp_ty, parents = parents, isEach = is_each) = mostPropagatedExp
-  dims = ListUtil.firstN(arrayDims(exp_ty), mostPropagatedCount)
+  dims = ListUtil.firstN(arrayDims(exp_ty), mostPropagatedCount, Dimension)
   func = @closure (x, y) -> bindingExpMap3(x, evalFunc, y)
   result = vectorize(exp, dims, func)
   (exp_ty, bind_ty) = bindingExpType(result, mostPropagatedCount)
@@ -2095,7 +2095,7 @@ function mapFoldCrefShallow(cref::ComponentRef, @nospecialize(func::Function), a
     local rest::ComponentRef
     @match cref begin
       COMPONENT_REF_CREF(origin = Origin.CREF)  => begin
-        (subs, arg) = ListUtil.map1Fold(cref.subscripts, mapFoldExpShallow, func, arg, Subscript)
+        (subs, arg) = ListUtil.map1Fold(cref.subscripts, mapFoldExpShallow, func, arg, Subscript, ArgT)
         (rest, arg) = mapFoldCrefShallow(cref.restCref, func, arg)
         COMPONENT_REF_CREF(cref.node, subs, cref.ty, cref.origin, rest)
       end
@@ -2341,7 +2341,7 @@ end
       end
 
       TUPLE_EXPRESSION(__)  => begin
-         (expl, arg) = ListUtil.mapFold(exp.elements, func, arg, Expression)
+         (expl, arg) = ListUtil.mapFold(exp.elements, func, arg, Expression, ArgT)
         TUPLE_EXPRESSION(exp.ty, expl)
       end
 
@@ -2436,7 +2436,7 @@ end
 
       SUBSCRIPTED_EXP_EXPRESSION(__)  => begin
         (e1, arg) = func(exp.exp, arg)
-        (subs, arg) = ListUtil.mapFold(exp.subscripts, (ss, foldArg) -> mapFoldExpShallow(ss, func, foldArg), arg)
+        (subs, arg) = ListUtil.mapFold(exp.subscripts, (ss, foldArg) -> mapFoldExpShallow(ss, func, foldArg), arg, Subscript, ArgT)
         SUBSCRIPTED_EXP_EXPRESSION(e1, subs, exp.ty)
       end
 
@@ -2465,7 +2465,7 @@ end
       end
 
       PARTIAL_FUNCTION_APPLICATION_EXPRESSION(__)  => begin
-        (expl, arg) = ListUtil.mapFold(exp.args, func, arg)
+        (expl, arg) = ListUtil.mapFold(exp.args, func, arg, Expression, ArgT)
         local expArgs = expl
         PARTIAL_FUNCTION_APPLICATION_EXPRESSION(exp.fn, expArgs, exp.argNames, exp.ty)
       end
@@ -2716,7 +2716,9 @@ function foldCref(cref::ComponentRef, func::FoldFunc, arg::ArgT)  where {ArgT}
   () = begin
     @match cref begin
       COMPONENT_REF_CREF(origin = Origin.CREF)  => begin
-        arg = ListUtil.fold(cref.subscripts, (x, y) -> foldExp(x, func, y), arg) #=TODO: Look at the x, y change here=#
+        for s in cref.subscripts
+          arg = foldExp(s, func, arg)
+        end
         arg = foldCref(cref.restCref, func, arg)
         ()
       end
@@ -2908,8 +2910,10 @@ end
 
       SUBSCRIPTED_EXP_EXPRESSION(__)  => begin
         result = fold(exp.exp, func, arg)
-        local f = @closure (x, y) -> foldExp(x, func, y)
-        ListUtil.fold(exp.subscripts, f, result)
+        for s in exp.subscripts
+          result = foldExp(s, func, result)
+        end
+        result
       end
 
       TUPLE_ELEMENT_EXPRESSION(__)  => begin
@@ -4081,7 +4085,7 @@ function toFlatSubscriptedString(@nospecialize(exp::Expression), subs::List{<:Su
   local strl::List{String}
   local name::String
   exp_ty = typeOf(exp)
-  dims = ListUtil.firstN(arrayDims(exp_ty), listLength(subs))
+  dims = ListUtil.firstN(arrayDims(exp_ty), listLength(subs), Dimension)
   sub_tyl = list(subscriptType(d) for d in dims)
   name = subscriptedTypeName(exp_ty, sub_tyl)
   strl = list(")")
@@ -4544,7 +4548,7 @@ function arrayFromList_impl(inExps::List{<:Expression}, elemTy::ModelicaType, in
     outExp = makeArray(ty, inExps)
     return outExp
   end
-  partexps = ListUtil.partition(inExps, dimsize)
+  partexps = ListUtil.partition(inExps, dimsize, Expression)
   newlst = nil
   for arrexp in partexps
     newlst = Cons{Expression}(makeArray(ty, arrexp), newlst)
@@ -4677,7 +4681,7 @@ function applyIndexSubscriptArrayConstructor(call::Call, index::Subscript) ::Exp
   local iter::InstNode
 
   @match TYPED_ARRAY_CONSTRUCTOR(ty, var, exp, iters) = call
-   ((iter, iter_exp), iters) = ListUtil.splitLast(iters)
+   ((iter, iter_exp), iters) = ListUtil.splitLast(iters, Tuple{InstNode, Expression})
    iter_exp = applySubscript(index, iter_exp)
    subscriptedExp = replaceIterator(exp, iter, iter_exp)
   if ! listEmpty(iters)

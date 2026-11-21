@@ -1906,8 +1906,8 @@ function enumerateDuplicates(
   else
     (classes, components) =
       DuplicateTree.fold_2(duplicates, enumerateDuplicates2, nil, nil)
-    classes = ListUtil.sort(classes, intGt)
-    components = ListUtil.sort(components, intGt)
+    classes = ListUtil.sort(classes, intGt, Int)
+    components = ListUtil.sort(components, intGt, Int)
   end
   return (classes, components)
 end

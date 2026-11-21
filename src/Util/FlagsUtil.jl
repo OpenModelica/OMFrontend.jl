@@ -268,8 +268,8 @@ function readArgs(inArgs::List{<:String}) ::List{String}
   end
   #=  Stop parsing arguments if -- is encountered.
   =#
-  outArgs = ListUtil.append_reverse(outArgs, rest_args)
-  _ = ListUtil.map2(outArgs, System.iconv, "UTF-8", "UTF-8")
+  outArgs = ListUtil.append_reverse(outArgs, rest_args, String)
+  _ = ListUtil.map2(outArgs, System.iconv, "UTF-8", "UTF-8", String)
   #Error.assertionOrAddSourceMessage(numError == Error.getNumErrorMessages(), Error.UTF8_COMMAND_LINE_ARGS, nil, Util.dummyInfo)
   saveFlags(flags)
   outArgs
@@ -345,7 +345,7 @@ function parseFlag(inFlag::String, inFlags::Flags.Flag, inFlagPrefix::String = "
   local values::List{String}
 
   @match _cons(flag, values) = System.strtok(inFlag, "=")
-  values = ListUtil.flatten(ListUtil.map1(values, System.strtok, ","))
+  values = ListUtil.flatten(ListUtil.map1(values, System.strtok, ",", List{String}), String)
   parseConfigFlag(flag, values, inFlags, inFlagPrefix)
 end
 
@@ -506,7 +506,7 @@ function stringFlagData(inValues::List{<:String}, inExpectedType::Flags.FlagData
       end
 
       (slst, Flags.INT_LIST_FLAG(__), _, _)  => begin
-        ilst = ListUtil.map(slst, stringInt)
+        ilst = ListUtil.map(slst, stringInt, Int)
         Flags.INT_LIST_FLAG(ilst)
       end
 
@@ -597,7 +597,7 @@ function printExpectedTypeStr(inType::Flags.FlagData) ::String
       end
 
       Flags.ENUM_FLAG(validValues = enums)  => begin
-        enum_strs = ListUtil.map(enums, Util.tuple21)
+        enum_strs = ListUtil.map(enums, Util.tuple21, String)
         "one of the values {" + stringDelimitList(enum_strs, ", ") + "}"
       end
     end
@@ -692,7 +692,7 @@ function getValidStringOptions(inOptions::Flags.ValidOptions) ::List{String}
       end
 
       Flags.STRING_DESC_OPTION(options)  => begin
-        ListUtil.map(options, Util.tuple21)
+        ListUtil.map(options, Util.tuple21, String)
       end
     end
   end

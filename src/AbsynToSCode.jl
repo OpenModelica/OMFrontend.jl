@@ -559,11 +559,11 @@ function translateClassdef(
          typeVars = begin
           @match re begin
             SCode.R_METARECORD(__) => begin
-              ListUtil.union(typeVars, re.typeVars)
+              ListUtil.union(typeVars, re.typeVars, String)
             end
 
             SCode.R_UNIONTYPE(__) => begin
-              ListUtil.union(typeVars, re.typeVars)
+              ListUtil.union(typeVars, re.typeVars, String)
             end
 
             _ => begin
@@ -571,7 +571,7 @@ function translateClassdef(
             end
           end
         end
-         tvels = ListUtil.map1(typeVars, makeTypeVarElement, info)
+         tvels = ListUtil.map1(typeVars, makeTypeVarElement, info, SCode.Element)
          els = translateClassdefElements(parts)
          els = listAppend(tvels, els)
          eqs = translateClassdefEquations(parts)
@@ -1235,7 +1235,7 @@ function translateEitemlistSerial(
       @match ei begin
         Absyn.ELEMENTITEM(element = e) => begin
            e_1 = translateElement(e, inVisibility)
-           l = ListUtil.append_reverse(e_1, l)
+           l = ListUtil.append_reverse(e_1, l, SCode.Element)
           ()
         end
 
@@ -1802,7 +1802,7 @@ function translateImports(
       end
 
       (Absyn.GROUP_IMPORT(prefix = p, groups = groups), _, _) => begin
-        ListUtil.map3(groups, translateGroupImport, p, visibility, info)
+        ListUtil.map3(groups, translateGroupImport, p, visibility, info, SCode.Element)
       end
 
       _ => begin
@@ -2199,7 +2199,7 @@ function translateCommentList(
       end
 
       (absann <| anns, _) => begin
-         absann = ListUtil.fold(anns, AbsynUtil.mergeAnnotations, absann)
+         absann = ListUtil.fold(anns, AbsynUtil.mergeAnnotations, absann, Absyn.Annotation)
          ann = translateAnnotation(absann)
          ostr = Util.applyOption(inString, System.unescapedString)
         SCode.COMMENT(ann, ostr)
@@ -2236,7 +2236,7 @@ function translateEquation(
       Absyn.EQ_IF(__) => begin
          body = translateEEquations(inEquation.equationTrueItems, inIsInitial)
          (conditions, bodies) =
-          ListUtil.map1_2(inEquation.elseIfBranches, translateEqBranch, inIsInitial)
+          ListUtil.map1_2(inEquation.elseIfBranches, translateEqBranch, inIsInitial, Absyn.Exp, List{SCode.EEquation})
          conditions = _cons(inEquation.ifExp, conditions)
          else_branch =
           translateEEquations(inEquation.equationElseItems, inIsInitial)
@@ -2246,7 +2246,7 @@ function translateEquation(
       Absyn.EQ_WHEN_E(__) => begin
         body = translateEEquations(inEquation.whenEquations, inIsInitial)
         (conditions, bodies) =
-          ListUtil.map1_2(inEquation.elseWhenEquations, translateEqBranch, inIsInitial)
+          ListUtil.map1_2(inEquation.elseWhenEquations, translateEqBranch, inIsInitial, Absyn.Exp, List{SCode.EEquation})
         branches = list(@do_threaded_for (c, b) (c, b) (conditions, bodies))
         SCode.EQ_WHEN(inEquation.whenExp, body, branches, inComment, inInfo)
       end

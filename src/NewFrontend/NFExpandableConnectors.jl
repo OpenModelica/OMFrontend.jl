@@ -66,7 +66,7 @@ function elaborate(
     ConnectionSets.emptySets(listLength(expandable_conns) + listLength(undeclared_conns))
   @assign csets = addExpandableConnectorsToSets(expandable_conns, csets)
    (undeclared_conns, csets) =
-    ListUtil.mapFold(undeclared_conns, addUndeclaredConnectorToSets, csets)
+    ListUtil.mapFold(undeclared_conns, addUndeclaredConnectorToSets, csets, CONNECTION, ConnectionSets.Sets)
   #=  Extract the sets of connected connectors.
   =#
   (csets_array, _) = ConnectionSets.extractSets(csets)
@@ -90,8 +90,8 @@ function elaborate(
   end
   #=  Update the connections and put them back in the list of connections.
   =#
-  conns = ListUtil.fold(undeclared_conns, updateUndeclaredConnection, conns)
-  conns = ListUtil.fold(expandable_conns, updateExpandableConnection, conns)
+  conns = ListUtil.fold(undeclared_conns, updateUndeclaredConnection, conns, List{CONNECTION})
+  conns = ListUtil.fold(expandable_conns, updateExpandableConnection, conns, List{CONNECTION})
   @assign connections.connections = conns
   #=  Update the attributes of potentially present variables so that they have
   =#
@@ -206,7 +206,7 @@ function addNestedExpandableConnectorsToSets(
   local conns::List{CONNECTION} = nil
   for ec1 in ecl1
      (ecl2, oec) =
-      ListUtil.deleteMemberOnTrue(ec1, ecl2, isNodeNameEqual)
+      ListUtil.deleteMemberOnTrue(ec1, ecl2, isNodeNameEqual, CONNECTOR)
     if isSome(oec)
       conns = _cons(CONNECTION(ec1, Util.getOption(oec)), conns)
     end

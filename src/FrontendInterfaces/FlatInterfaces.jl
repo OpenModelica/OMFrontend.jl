@@ -68,8 +68,16 @@ struct CONNECTION
   rhs::CONNECTOR
 end
 
-const BrokenEdges = List
-const BrokenEdge = Tuple
+"""
+    BrokenEdge
+
+A connection the overconstrained connection graph breaks: its two connector crefs and the equalityConstraint
+equations that replace it.
+"""
+const BrokenEdge = Tuple{ComponentRef, ComponentRef, List{Equation}}
+
+""" The connections the overconstrained connection graph breaks. """
+const BrokenEdges = List{BrokenEdge}
 
 """
     CONNECTIONS(connections, flows, broken)

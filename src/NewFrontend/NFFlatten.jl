@@ -1484,7 +1484,7 @@ function flattenBindingExp2(
     local subsT = list(listReverse(s) for s in listReverse(subscriptsAll(pre)) if !(s isa Nil))
     subs = list(Base.collect(Iterators.flatten(subsT))...)
     binding_level = min(binding_level, listLength(subs))
-    subs = listReverse(ListUtil.firstN(subs, binding_level))
+    subs = listReverse(ListUtil.firstN(subs, binding_level, Subscript))
     outExp = applySubscripts(subs, exp)
   end
   #=
@@ -2130,7 +2130,7 @@ function resolveConnections(flatModel::FLAT_MODEL, name::String)::FLAT_MODEL
   end
   #=  append the equalityConstraint call equations for the broken connects =#
   if System.getHasOverconstrainedConnectors()
-    local flatBrokenEQL = listArray(ListUtil.flatten(ListUtil.map(broken, Util.tuple33)))
+    local flatBrokenEQL = listArray(ListUtil.flatten(ListUtil.map(broken, Util.tuple33, List{Equation}), Equation))
     conn_eql = vcat(conn_eql, flatBrokenEQL)
   end
   #=  add the equations to the flat model=#
