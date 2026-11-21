@@ -4125,20 +4125,7 @@ end
         toFlatString(clk)
       end
 
-      CREF_EXPRESSION(__)  => begin
-        # #@info "cref expr to string..."
-        res = toFlatString(exp.cref; inFunction = inFunction)
-        #= There is a current bug that if we have scalarized the model,
-           the subscript for parameters are not always set correctly for cref expressions.
-           Here we check if it is scalarized =#
-        if Base.contains(res, "load.V_nom")
-          @info "It contained it..."  toString(exp.cref)
-          #global TMP = getOriginCref(exp.cref)
-          dims = TMP.ty.dimensions
-          println(dims)
-        end
-        toFlatString(exp.cref; inFunction = inFunction)
-      end
+      CREF_EXPRESSION(__)  => toFlatString(exp.cref; inFunction = inFunction)
 
       TYPENAME_EXPRESSION(__)  => begin
         typenameString(arrayElementType(exp.ty))
