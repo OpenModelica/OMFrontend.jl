@@ -77,6 +77,15 @@ struct InstNodeType
   originalType::Union{InstNodeType,Nothing}
 end
 
+"""
+The cell of a class node's class, shared by the node's shell rebuilds: `Base.RefValue`, the concrete type behind
+`Pointer` (= `Ref`, abstract), so that `c.x` reads and writes are static (with `isa Pointer{Class}` they were dynamic
+`getproperty`/`setproperty!` calls: 2026-11-21, about 6% of a HeatingSystem flatten).
+"""
+const ClassCell = Base.RefValue{Class}
+"""The cell of a component node's component; see `ClassCell`."""
+const ComponentCell = Base.RefValue{Component}
+
 @enum InstNodeTag::UInt8 IN_EMPTY IN_VAR IN_EXP IN_IMPLICIT_SCOPE IN_NAME IN_REF IN_INNER_OUTER IN_COMPONENT IN_CLASS
 #= InstNode is immutable: updates rebuild the node shell. Mutable payload cells
    (CLASS_NODE.cls, COMPONENT_NODE.component, VAR_NODE.varPointer) are shared
@@ -92,11 +101,11 @@ struct InstNode
   innerNode::Union{InstNode,Nothing}
   outerNode::Union{InstNode,Nothing}
   visibility::Int8
-  component::Union{Component,Pointer{Component},Nothing}
+  component::Union{Component,ComponentCell,Nothing}
   parent::Union{InstNode,Nothing}
   nodeType::Union{InstNodeType,Nothing}
   definition::Union{SCode.Element,Nothing}
-  cls::Union{Class,Pointer{Class},Nothing}
+  cls::Union{Class,ClassCell,Nothing}
   caches::Union{Vector{CachedData},Nothing}
 end
 
@@ -154,14 +163,14 @@ NAME_NODE(name) = _innode(IN_NAME; name=name)
 REF_NODE(index) = _innode(IN_REF; index=index)
 INNER_OUTER_NODE(innerNode, outerNode) = _innode(IN_INNER_OUTER; innerNode=innerNode, outerNode=outerNode)
 # Hot paths: positional (avoid keyword overhead).
-@inline _compPayload(component::Pointer{Component}) = component
-@inline _compPayload(component::Component) = Pointer{Component}(component)
+@inline _compPayload(component::ComponentCell) = component
+@inline _compPayload(component::Component) = ComponentCell(component)
 @inline _compPayload(::Nothing) = nothing
 COMPONENT_NODE(name, visibility, component, parent, nodeType) =
   InstNode(IN_COMPONENT, name, nothing, nothing, nothing, nothing, 0, nothing, nothing,
            Int8(visibility), _compPayload(component), parent, nodeType, nothing, nothing, nothing)
-@inline _clsPayload(cls::Pointer{Class}) = cls
-@inline _clsPayload(cls::Class) = Pointer{Class}(cls)
+@inline _clsPayload(cls::ClassCell) = cls
+@inline _clsPayload(cls::Class) = ClassCell(cls)
 @inline _clsPayload(cls::Nothing) = nothing
 CLASS_NODE(name, definition, visibility, cls, caches, parentScope, nodeType) =
   InstNode(IN_CLASS, name, nothing, nothing, parentScope, nothing, 0, nothing, nothing,
@@ -259,10 +268,10 @@ end
 
 # Boxed CLASS_NODE.cls payload. The node itself is rebuilt functionally while
 # shared derived/base class views still observe updates through the class cell.
-@inline _clsVal(node) = (local c = node.cls; c isa Pointer{Class} ? c.x : c)
+@inline _clsVal(node) = (local c = node.cls; c isa ClassCell ? c.x : c)
 @inline function _clsSet!(node, v::Class)
   local c = node.cls
-  if c isa Pointer{Class}
+  if c isa ClassCell
     c.x = v
   end
   return node
@@ -270,18 +279,18 @@ end
 # Return the class cell used for derived/base sharing.
 @inline function _clsRef(node)
   local c = node.cls
-  if c isa Pointer{Class}
+  if c isa ClassCell
     return c
   else
-    return Pointer{Class}(c)
+    return ClassCell(c)
   end
 end
 
 # Boxed COMPONENT_NODE.component payload; same cell-sharing scheme as cls.
-@inline _compVal(node) = (local c = node.component; c isa Pointer{Component} ? c.x : c)
+@inline _compVal(node) = (local c = node.component; c isa ComponentCell ? c.x : c)
 @inline function _compSet!(node, v::Component)
   local c = node.component
-  if c isa Pointer{Component}
+  if c isa ComponentCell
     c.x = v
   end
   return node
@@ -289,10 +298,10 @@ end
 # Return the component cell used for instance-pointer sharing.
 @inline function _compRef(node)
   local c = node.component
-  if c isa Pointer{Component}
+  if c isa ComponentCell
     return c
   else
-    return Pointer{Component}(c)
+    return ComponentCell(c)
   end
 end
 
@@ -301,9 +310,9 @@ end
    (parent chains, SCode definitions). =#
 @inline function _refId(node)::UInt
   local c = node.component
-  c isa Pointer{Component} && return objectid(c)
+  c isa ComponentCell && return objectid(c)
   local k = node.cls
-  k isa Pointer{Class} && return objectid(k)
+  k isa ClassCell && return objectid(k)
   local v = node.varPointer
   v isa Base.RefValue && return objectid(v)
   return objectid(node)

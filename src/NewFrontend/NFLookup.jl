@@ -345,10 +345,14 @@ end
 The inner element `nameVar` of `scope`, or nothing when the scope has no such element, has it as an import or
 has it but not as inner: the common case while `lookupInner` walks up the scopes, and no failure (a throw outside
 a cheap-throw scope, in a task of the parallel fan-out, records a backtrace: 234 per MSL EngineV6).
+A component scope whose class instance is not set yet (during instantiation) has no class: skipped, as omc's failing
+`getClass` skips it, without the MethodError of `lookupElement(::String, ::InstNode)` (23 per HeatingSystem).
 """
 function _lookupInnerInScope(nameVar::String, scope::InstNode)::Union{Nothing, InstNode}
+  local cls = getClass(scope)
+  cls isa Class || return nothing
   local info::ENTRY_INFO = try
-    lookupElement(nameVar, getClass(scope))
+    lookupElement(nameVar, cls)
   catch
     return nothing
   end

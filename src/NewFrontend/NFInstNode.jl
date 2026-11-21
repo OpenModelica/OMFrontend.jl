@@ -236,7 +236,7 @@ function isRecord(@nospecialize(node::InstNode))
   isRec
 end
 
-@inline function withComponent(node::InstNode, component::Union{Component,Pointer{Component}})::InstNode
+@inline function withComponent(node::InstNode, component::Union{Component,ComponentCell})::InstNode
   COMPONENT_NODE(node.name, node.visibility, component, node.parent, node.nodeType)
 end
 
@@ -1487,7 +1487,7 @@ function updateClass(cls::Class, node::InstNode)
    node = begin
     @match node begin
       CLASS_NODE(__)  => begin
-        if node.cls isa Pointer{Class}
+        if node.cls isa ClassCell
           _clsSet!(node, cls)
           node
         else

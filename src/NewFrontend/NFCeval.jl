@@ -4970,11 +4970,11 @@ function evalSubscriptedExp(
       end
     end
   end
-  subs = Nil{Subscript}()
+  subs = nil
   for s in subscripts
     subs = Cons{Subscript}(evalSubscriptWithTarget(s, target), subs)
   end
-  subs = listReverseInPlace(subs)
+  subs = listReverse(subs)
   result = applySubscripts(subs, result)
   return result
 end

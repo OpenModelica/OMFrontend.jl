@@ -3230,8 +3230,12 @@ function instCrefSubscripts(cref::ComponentRef, scope::InstNode, info::SourceInf
   end
   local rest_cr::ComponentRef
   if ! listEmpty(cref.subscripts)
-    local crefSubscripts = list(instSubscript(s, scope, info) for s in cref.subscripts)
-    cref = COMPONENT_REF_CREF(cref.node, crefSubscripts, cref.ty, cref.origin, cref.restCref)
+    #= A loop, not `list(generator)`: its element type was a run-time `return_type` call per cref (HeatingSystem: 4%). =#
+    local subs::List{Subscript} = nil
+    for s in cref.subscripts
+      subs = Cons{Subscript}(instSubscript(s, scope, info), subs)
+    end
+    cref = COMPONENT_REF_CREF(cref.node, listReverse(subs), cref.ty, cref.origin, cref.restCref)
   end
   local rest_cr = instCrefSubscripts(cref.restCref, scope, info)
   if ! referenceEq(rest_cr, cref.restCref)
