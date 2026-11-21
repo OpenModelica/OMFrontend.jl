@@ -54,7 +54,6 @@
 @UniontypeDecl Expression
 @UniontypeDecl ExpressionIterator
 @UniontypeDecl Import
-@UniontypeDecl OCConnectionGraph
 @UniontypeDecl RangeIterator
 @UniontypeDecl Restriction
 @UniontypeDecl Sections

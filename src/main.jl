@@ -204,12 +204,8 @@ include("./NewFrontend/NFLookup.jl")
 include("./NewFrontend/NFLookupState.jl")
 
 @exportAll
-#= For over constrained connectors =#
-include("./NewFrontend/NFHashTable.jl")
-include("./NewFrontend/NFHashTable3.jl")
-include("./NewFrontend/NFHashTableCG.jl")
-include("./NewFrontend/NFOCConnectionGraph.jl")
-#= End =#
+#= Overconstrained connectors =#
+include("./NewFrontend/OCCGraph.jl")
 @exportAll
 include("./NewFrontend/NFBuiltinFuncs.jl")
 include("./NewFrontend/NFBuiltin.jl")

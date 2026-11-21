@@ -401,29 +401,26 @@ function prependEquation(
   return sections
 end
 
-function prepend(
+"""
+  `sections` with the flattened sections of one class appended, in place once `sections` has vectors: the
+  classes in flattening order (components before the class's own sections), as omc, which prepends and
+  reverses the lists at the end. The vectors passed in become `sections`' vectors and must not be shared.
+"""
+function appendSections!(
   equations::Vector{Equation},
   initialEquations::Vector{Equation},
   algorithms::Vector{ALGORITHM},
   initialAlgorithms::Vector{ALGORITHM},
   sections::Sections,
-)
-  sections = begin
-    @match sections begin
-      SECTIONS(__) => begin
-        SECTIONS(
-          vcat(equations, sections.equations),
-          vcat(initialEquations, sections.initialEquations),
-          vcat(algorithms, sections.algorithms),
-          vcat(initialAlgorithms, sections.initialAlgorithms),
-        )
-      end
-      _ => begin
-        SECTIONS(equations, initialEquations, algorithms, initialAlgorithms)
-      end
-    end
+)::Sections
+  if sections isa SECTIONS
+    append!(sections.equations, equations)
+    append!(sections.initialEquations, initialEquations)
+    append!(sections.algorithms, algorithms)
+    append!(sections.initialAlgorithms, initialAlgorithms)
+    return sections
   end
-  return sections
+  return SECTIONS(equations, initialEquations, algorithms, initialAlgorithms)
 end
 
 function new(

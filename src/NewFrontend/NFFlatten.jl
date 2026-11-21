@@ -1541,7 +1541,7 @@ function flattenSections(
         ieq = flattenEquations(sections.initialEquations, prefix)
         alg = flattenAlgorithms(sections.algorithms, prefix)
         ialg = flattenAlgorithms(sections.initialAlgorithms, prefix)
-        accumSections = prepend(eq, ieq, alg, ialg, accumSections)
+        accumSections = appendSections!(eq, ieq, alg, ialg, accumSections)
         ()
       end
       _ => begin
@@ -1906,7 +1906,7 @@ function flattenAlgorithms(
     if hasSubscripts(prefix)
       @assign alg.source = addElementSourceArrayPrefix(alg.source, prefix)
     end
-    outAlgorithms = prepend!([alg], outAlgorithms)
+    push!(outAlgorithms, alg)
   end
   return outAlgorithms
 end
@@ -2115,7 +2115,7 @@ function resolveConnections(flatModel::FLAT_MODEL, name::String)::FLAT_MODEL
   #=  - generate the equations to replace the broken connects =#
   #=  - return the broken connects + the equations =#
   if System.getHasOverconstrainedConnectors()
-    @EXECSTAT "  rc:overconstrained" (flatModel, broken, _) = handleOverconstrainedConnections(flatModel, conns, name)
+    @EXECSTAT "  rc:overconstrained" (flatModel, broken) = handleOverconstrainedConnections(flatModel, conns, name)
   end
   #=  add the broken connections  =#
   conns = addBroken(broken, conns)

@@ -184,7 +184,7 @@ end
   Resolves connections and evaluates constants. Models with recompilation
   directives keep the SCode program in the flat model. The if-equations of
   dynamic overconstrained connectors (DOCC) are resolved with the connections
-  (OCConnectionGraph.resolveModes).
+  (`resolveModes` in OCCGraph.jl).
 """
 function resolveAndEvaluate(flat_model::FLAT_MODEL, program::SCode.Program, name::String)::FLAT_MODEL
   local recompilationEnabled = recompilationDirectiveExists(flat_model.equations)

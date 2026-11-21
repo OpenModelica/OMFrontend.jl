@@ -3887,7 +3887,7 @@ const OCG_MISSING_BRANCH =
     595,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.WARNING(),
-    Gettext.gettext("Connections.rooted(%s) needs exactly one statement Connections.branch(%s, B.R) involving %s but we found none in the graph. Run with -d=cgraphGraphVizFile to debug"),
+    Gettext.gettext("Connections.rooted(%s) needs exactly one statement Connections.branch(%s, B.R) involving %s but we found none in the graph. Run with -d=cgraph to debug"),
   )::ErrorTypes.Message
 
 const UNBOUND_PARAMETER_EVALUATE_TRUE =

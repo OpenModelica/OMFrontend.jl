@@ -64,10 +64,10 @@ class ConnectHierarchical1
   flow Real c.f = 1.0;
   Real c.e = 1.0;
 equation
-  c.e = a.c1.e;
-  c.e = a.c2.e;
   a.c1.e = a.b.c.e;
   a.b.c.f - a.c1.f = 0.0;
+  c.e = a.c1.e;
+  c.e = a.c2.e;
   a.c2.f + a.c1.f - c.f = 0.0;
   c.f = 0.0;
 end ConnectHierarchical1;
@@ -84,10 +84,10 @@ class ConnectHierarchical2
   flow Real c.f = 1.0;
   Real c.e = 1.0;
 equation
-  c.e = a.c1.e;
-  a.c1.f - c.f = 0.0;
   a.c1.e = a.c2.e;
   a.c1.e = a.b.c.e;
+  c.e = a.c1.e;
+  a.c1.f - c.f = 0.0;
   a.b.c.f - a.c1.f - a.c2.f = 0.0;
   a.c2.f = 0.0;
   c.f = 0.0;
@@ -103,15 +103,15 @@ class ConnectInner1
   Real a.my.e;
   flow Real a.my.f;
 equation
-  global.e = b.a.my.e;
   global.e = a.my.e;
-  (-global.f) - b.a.my.f - a.my.f = 0.0;
+  global.e = b.a.my.e;
+  (-global.f) - a.my.f - b.a.my.f = 0.0;
   global.f = 0.0;
   b.a.my.f = 0.0;
   a.my.f = 0.0;
-  global.e = 10.0;
-  a.my.f = 10.0 + a.my.e;
   b.a.my.f = 10.0 + b.a.my.e;
+  a.my.f = 10.0 + a.my.e;
+  global.e = 10.0;
 end ConnectInner1;
 """
 
@@ -124,14 +124,14 @@ class ConnectInner3
   Real a.my.e;
   flow Real a.my.f;
 equation
-  global.c.e = b.a.my.e;
   global.c.e = a.my.e;
-  global.c.f - b.a.my.f - a.my.f = 0.0;
+  global.c.e = b.a.my.e;
+  global.c.f - a.my.f - b.a.my.f = 0.0;
   b.a.my.f = 0.0;
   a.my.f = 0.0;
-  global.c.e = 10.0;
-  a.my.f = 10.0 + a.my.e;
   b.a.my.f = 10.0 + b.a.my.e;
+  a.my.f = 10.0 + a.my.e;
+  global.c.e = 10.0;
 end ConnectInner3;
 """
 
@@ -146,10 +146,10 @@ class Top
   flow Real a2.aPin.i;
   Real a2.aPin.v;
 equation
-  world.v = a1.aPin.v;
-  world.v = a2.aPin.v;
   world.v = topPin.v;
-  (-world.i) - a1.aPin.i - a2.aPin.i - topPin.i = 0.0;
+  world.v = a2.aPin.v;
+  world.v = a1.aPin.v;
+  (-world.i) - topPin.i - a2.aPin.i - a1.aPin.i = 0.0;
   world.i = 0.0;
   topPin.i = 0.0;
   a1.aPin.i = 0.0;
@@ -170,10 +170,10 @@ class Top
   flow Real a2.aPin.i;
   Real a2.aPin.v;
 equation
-  world.p.v = a1.aPin.v;
-  world.p.v = a2.aPin.v;
   world.p.v = topPin.v;
-  world.p.i - a1.aPin.i - a2.aPin.i - topPin.i = 0.0;
+  world.p.v = a2.aPin.v;
+  world.p.v = a1.aPin.v;
+  world.p.i - topPin.i - a2.aPin.i - a1.aPin.i = 0.0;
   world.n.i = 0.0;
   topPin.i = 0.0;
   a1.aPin.i = 0.0;
@@ -194,11 +194,11 @@ class Top2
   flow Real a1.a2Pin.i;
   Real a1.a2Pin.v;
 equation
-  world.v = a1.a2Pin.v;
-  world.v = topPin.v;
-  (-world.i) - a1.a2Pin.i - topPin.i = 0.0;
   a1.world.v = a1.a.aPin.v;
   (-a1.world.i) - a1.a.aPin.i = 0.0;
+  world.v = topPin.v;
+  world.v = a1.a2Pin.v;
+  (-world.i) - topPin.i - a1.a2Pin.i = 0.0;
   world.i = 0.0;
   topPin.i = 0.0;
   a1.world.i = 0.0;
@@ -218,11 +218,11 @@ class ConnectInnerOuterArray1
   Real lowerLevelModel[2].c.e;
   flow Real lowerLevelModel[2].c.f;
 equation
-  lowerLevelModel[1].c.e = innerOuterModel.c1.e;
-  lowerLevelModel[1].c.e = lowerLevelModel[2].c.e;
-  innerOuterModel.c1.f - lowerLevelModel[1].c.f - lowerLevelModel[2].c.f = 0.0;
   innerOuterModel.c1.e = innerOuterModel.c2.e;
   (-innerOuterModel.c1.f) - innerOuterModel.c2.f = 0.0;
+  lowerLevelModel[2].c.e = innerOuterModel.c1.e;
+  lowerLevelModel[2].c.e = lowerLevelModel[1].c.e;
+  innerOuterModel.c1.f - lowerLevelModel[2].c.f - lowerLevelModel[1].c.f = 0.0;
   innerOuterModel.c2.f = 0.0;
   lowerLevelModel[1].c.f = 0.0;
   lowerLevelModel[2].c.f = 0.0;
@@ -473,10 +473,7 @@ equation
   source.qOut.lflow = tank.qIn.lflow;
   tank.tActuator.act = piDiscrete.cOut.act;
   tank.tSensor.val = piDiscrete.cIn.val;
-  assert(tank.minV >= 0.0, "minV - minimum Valve level must be >= 0 ", AssertionLevel.error);
-  der(tank.h) = (tank.qIn.lflow - tank.qOut.lflow) / tank.area;
-  tank.qOut.lflow = if noEvent((-tank.flowGain * tank.tActuator.act) > tank.maxV) then tank.maxV else if noEvent((-tank.flowGain * tank.tActuator.act) < tank.minV) then tank.minV else -tank.flowGain * tank.tActuator.act;
-  tank.tSensor.val = tank.h;
+  source.qOut.lflow = if time > 150.0 then 3.0 * source.flowLevel else source.flowLevel;
 
   when OMC_NO_CLOCK.sample(0.0, piDiscrete.Ts) then
     piDiscrete.x = pre(piDiscrete.x) + piDiscrete.error * piDiscrete.Ts / piDiscrete.T;
@@ -485,7 +482,10 @@ equation
 
   piDiscrete.error = piDiscrete.ref - piDiscrete.cIn.val;
   piDiscrete.cOut.act = piDiscrete.outCtr;
-  source.qOut.lflow = if time > 150.0 then 3.0 * source.flowLevel else source.flowLevel;
+  assert(tank.minV >= 0.0, "minV - minimum Valve level must be >= 0 ", AssertionLevel.error);
+  der(tank.h) = (tank.qIn.lflow - tank.qOut.lflow) / tank.area;
+  tank.qOut.lflow = if noEvent((-tank.flowGain * tank.tActuator.act) > tank.maxV) then tank.maxV else if noEvent((-tank.flowGain * tank.tActuator.act) < tank.minV) then tank.minV else -tank.flowGain * tank.tActuator.act;
+  tank.tSensor.val = tank.h;
 end TankHybridPI;
 """
 
@@ -516,10 +516,7 @@ equation
   source.qOut.lflow = tank.qIn.lflow;
   tank.tActuator.act = pidDiscrete.cOut.act;
   tank.tSensor.val = pidDiscrete.cIn.val;
-  assert(tank.minV >= 0.0, "minV - minimum Valve level must be >= 0 ", AssertionLevel.error);
-  der(tank.h) = (tank.qIn.lflow - tank.qOut.lflow) / tank.area;
-  tank.qOut.lflow = if noEvent((-tank.flowGain * tank.tActuator.act) > tank.maxV) then tank.maxV else if noEvent((-tank.flowGain * tank.tActuator.act) < tank.minV) then tank.minV else -tank.flowGain * tank.tActuator.act;
-  tank.tSensor.val = tank.h;
+  source.qOut.lflow = if time > 150.0 then 3.0 * source.flowLevel else source.flowLevel;
 
   when OMC_NO_CLOCK.sample(0.0, pidDiscrete.Ts) then
     pidDiscrete.x = pre(pidDiscrete.x) + pidDiscrete.error * pidDiscrete.Ts / pidDiscrete.T;
@@ -529,7 +526,10 @@ equation
 
   pidDiscrete.error = pidDiscrete.ref - pidDiscrete.cIn.val;
   pidDiscrete.cOut.act = pidDiscrete.outCtr;
-  source.qOut.lflow = if time > 150.0 then 3.0 * source.flowLevel else source.flowLevel;
+  assert(tank.minV >= 0.0, "minV - minimum Valve level must be >= 0 ", AssertionLevel.error);
+  der(tank.h) = (tank.qIn.lflow - tank.qOut.lflow) / tank.area;
+  tank.qOut.lflow = if noEvent((-tank.flowGain * tank.tActuator.act) > tank.maxV) then tank.maxV else if noEvent((-tank.flowGain * tank.tActuator.act) < tank.minV) then tank.minV else -tank.flowGain * tank.tActuator.act;
+  tank.tSensor.val = tank.h;
 end TankHybridPID;
 """
 
@@ -559,15 +559,15 @@ equation
   source.qOut.lflow = tank.qIn.lflow;
   tank.tActuator.act = piContinuous.cOut.act;
   tank.tSensor.val = piContinuous.cIn.val;
-  assert(tank.minV >= 0.0, "minV - minimum Valve level must be >= 0 ", AssertionLevel.error);
-  der(tank.h) = (tank.qIn.lflow - tank.qOut.lflow) / tank.area;
-  tank.qOut.lflow = if noEvent((-tank.flowGain * tank.tActuator.act) > tank.maxV) then tank.maxV else if noEvent((-tank.flowGain * tank.tActuator.act) < tank.minV) then tank.minV else -tank.flowGain * tank.tActuator.act;
-  tank.tSensor.val = tank.h;
+  source.qOut.lflow = if time > 150.0 then 3.0 * source.flowLevel else source.flowLevel;
   der(piContinuous.x) = piContinuous.error / piContinuous.T;
   piContinuous.outCtr = piContinuous.K * (piContinuous.error + piContinuous.x);
   piContinuous.error = piContinuous.ref - piContinuous.cIn.val;
   piContinuous.cOut.act = piContinuous.outCtr;
-  source.qOut.lflow = if time > 150.0 then 3.0 * source.flowLevel else source.flowLevel;
+  assert(tank.minV >= 0.0, "minV - minimum Valve level must be >= 0 ", AssertionLevel.error);
+  der(tank.h) = (tank.qIn.lflow - tank.qOut.lflow) / tank.area;
+  tank.qOut.lflow = if noEvent((-tank.flowGain * tank.tActuator.act) > tank.maxV) then tank.maxV else if noEvent((-tank.flowGain * tank.tActuator.act) < tank.minV) then tank.minV else -tank.flowGain * tank.tActuator.act;
+  tank.tSensor.val = tank.h;
 end TankPI;
 """
 
@@ -598,16 +598,16 @@ equation
   source.qOut.lflow = tank.qIn.lflow;
   tank.tActuator.act = pidContinuous.cOut.act;
   tank.tSensor.val = pidContinuous.cIn.val;
-  assert(tank.minV >= 0.0, "minV - minimum Valve level must be >= 0 ", AssertionLevel.error);
-  der(tank.h) = (tank.qIn.lflow - tank.qOut.lflow) / tank.area;
-  tank.qOut.lflow = if noEvent((-tank.flowGain * tank.tActuator.act) > tank.maxV) then tank.maxV else if noEvent((-tank.flowGain * tank.tActuator.act) < tank.minV) then tank.minV else -tank.flowGain * tank.tActuator.act;
-  tank.tSensor.val = tank.h;
+  source.qOut.lflow = if time > 150.0 then 3.0 * source.flowLevel else source.flowLevel;
   der(pidContinuous.x) = pidContinuous.error / pidContinuous.T;
   pidContinuous.y = pidContinuous.T * der(pidContinuous.error);
   pidContinuous.outCtr = pidContinuous.K * (pidContinuous.error + pidContinuous.x + pidContinuous.y);
   pidContinuous.error = pidContinuous.ref - pidContinuous.cIn.val;
   pidContinuous.cOut.act = pidContinuous.outCtr;
-  source.qOut.lflow = if time > 150.0 then 3.0 * source.flowLevel else source.flowLevel;
+  assert(tank.minV >= 0.0, "minV - minimum Valve level must be >= 0 ", AssertionLevel.error);
+  der(tank.h) = (tank.qIn.lflow - tank.qOut.lflow) / tank.area;
+  tank.qOut.lflow = if noEvent((-tank.flowGain * tank.tActuator.act) > tank.maxV) then tank.maxV else if noEvent((-tank.flowGain * tank.tActuator.act) < tank.minV) then tank.minV else -tank.flowGain * tank.tActuator.act;
+  tank.tSensor.val = tank.h;
 end TankPID;
 """
 
@@ -658,23 +658,23 @@ equation
   tank1.qOut.lflow = tank2.qIn.lflow;
   tank2.tActuator.act = piContinuous2.cOut.act;
   tank2.tSensor.val = piContinuous2.cIn.val;
-  der(piContinuous2.x) = piContinuous2.error / piContinuous2.T;
-  piContinuous2.outCtr = piContinuous2.K * (piContinuous2.error + piContinuous2.x);
-  piContinuous2.error = piContinuous2.ref - piContinuous2.cIn.val;
-  piContinuous2.cOut.act = piContinuous2.outCtr;
-  der(piContinuous1.x) = piContinuous1.error / piContinuous1.T;
-  piContinuous1.outCtr = piContinuous1.K * (piContinuous1.error + piContinuous1.x);
-  piContinuous1.error = piContinuous1.ref - piContinuous1.cIn.val;
-  piContinuous1.cOut.act = piContinuous1.outCtr;
-  assert(tank2.minV >= 0.0, "minV - minimum Valve level must be >= 0 ", AssertionLevel.error);
-  der(tank2.h) = (tank2.qIn.lflow - tank2.qOut.lflow) / tank2.area;
-  tank2.qOut.lflow = if noEvent((-tank2.flowGain * tank2.tActuator.act) > tank2.maxV) then tank2.maxV else if noEvent((-tank2.flowGain * tank2.tActuator.act) < tank2.minV) then tank2.minV else -tank2.flowGain * tank2.tActuator.act;
-  tank2.tSensor.val = tank2.h;
+  source.qOut.lflow = if time > 150.0 then 3.0 * source.flowLevel else source.flowLevel;
   assert(tank1.minV >= 0.0, "minV - minimum Valve level must be >= 0 ", AssertionLevel.error);
   der(tank1.h) = (tank1.qIn.lflow - tank1.qOut.lflow) / tank1.area;
   tank1.qOut.lflow = if noEvent((-tank1.flowGain * tank1.tActuator.act) > tank1.maxV) then tank1.maxV else if noEvent((-tank1.flowGain * tank1.tActuator.act) < tank1.minV) then tank1.minV else -tank1.flowGain * tank1.tActuator.act;
   tank1.tSensor.val = tank1.h;
-  source.qOut.lflow = if time > 150.0 then 3.0 * source.flowLevel else source.flowLevel;
+  assert(tank2.minV >= 0.0, "minV - minimum Valve level must be >= 0 ", AssertionLevel.error);
+  der(tank2.h) = (tank2.qIn.lflow - tank2.qOut.lflow) / tank2.area;
+  tank2.qOut.lflow = if noEvent((-tank2.flowGain * tank2.tActuator.act) > tank2.maxV) then tank2.maxV else if noEvent((-tank2.flowGain * tank2.tActuator.act) < tank2.minV) then tank2.minV else -tank2.flowGain * tank2.tActuator.act;
+  tank2.tSensor.val = tank2.h;
+  der(piContinuous1.x) = piContinuous1.error / piContinuous1.T;
+  piContinuous1.outCtr = piContinuous1.K * (piContinuous1.error + piContinuous1.x);
+  piContinuous1.error = piContinuous1.ref - piContinuous1.cIn.val;
+  piContinuous1.cOut.act = piContinuous1.outCtr;
+  der(piContinuous2.x) = piContinuous2.error / piContinuous2.T;
+  piContinuous2.outCtr = piContinuous2.K * (piContinuous2.error + piContinuous2.x);
+  piContinuous2.error = piContinuous2.ref - piContinuous2.cIn.val;
+  piContinuous2.cOut.act = piContinuous2.outCtr;
 end TanksConnectedPI;
 """
 

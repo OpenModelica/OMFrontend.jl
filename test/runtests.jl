@@ -159,6 +159,10 @@ end
     include("dynamicOverconstrainedConnectorTests.jl")
   end
 
+  @testset "Overconstrained connection graph" begin
+    include("occGraphTests.jl")
+  end
+
   #= OMFrontend.jl extensions for variable structured systems =#
   @testset "Basic VSS models" begin
     include("./VSS/testVSS.jl")

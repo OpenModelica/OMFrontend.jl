@@ -149,58 +149,44 @@ const FAILTRACE =
     false,
     Gettext.gettext("Sets whether to print a failtrace or not."),
   )::DebugFlag
-const CGRAPH_GRAPHVIZ_FILE =
-  DEBUG_FLAG(
-    2,
-    "cgraphGraphVizFile",
-    false,
-    Gettext.gettext("Generates a graphviz file of the connection graph."),
-  )::DebugFlag
-const CGRAPH_GRAPHVIZ_SHOW =
-  DEBUG_FLAG(
-    3,
-    "cgraphGraphVizShow",
-    false,
-    Gettext.gettext("Displays the connection graph with the GraphViz lefty tool."),
-  )::DebugFlag
 const EVAL_PARAM =
   DEBUG_FLAG(
-    4,
+    2,
     "evaluateAllParameters",
     false,
     Gettext.gettext("Evaluates all parameters if set."),
   )::DebugFlag
 const EXEC_STAT =
   DEBUG_FLAG(
-    5,
+    3,
     "execstat",
     false,
     Gettext.gettext("Prints out execution statistics for the compiler."),
   )::DebugFlag
 const CGRAPH =
   DEBUG_FLAG(
-    6,
+    4,
     "cgraph",
     false,
     Gettext.gettext("Prints out connection graph information."),
   )::DebugFlag
 const INLINE_FUNCTIONS =
   DEBUG_FLAG(
-    7,
+    5,
     "inlineFunctions",
     true,
     Gettext.gettext("Controls if function inlining should be performed."),
   )::DebugFlag
 const DISABLE_SINGLE_FLOW_EQ =
   DEBUG_FLAG(
-    8,
+    6,
     "disableSingleFlowEq",
     false,
     Gettext.gettext("Disables the generation of single flow equations."),
   )::DebugFlag
 const INFO_XML_OPERATIONS =
   DEBUG_FLAG(
-    9,
+    7,
     "infoXmlOperations",
     false,
     Gettext.gettext("Enables output of the operations in the _info.xml file when translating models."),
@@ -208,70 +194,70 @@ const INFO_XML_OPERATIONS =
 
 const VISUAL_XML =
   DEBUG_FLAG(
-    10,
+    8,
     "visxml",
     false,
     Gettext.gettext("Outputs a xml-file that contains information for visualization."),
   )::DebugFlag
 const FRONTEND_SCALARIZE =
   DEBUG_FLAG(
-    11,
+    9,
     "nfScalarize",
     true,
     Gettext.gettext("Run scalarization in NF, default true."),
   )::DebugFlag
 const NF_EVAL_CONST_ARG_FUNCS =
   DEBUG_FLAG(
-    12,
+    10,
     "nfEvalConstArgFuncs",
     true,
     Gettext.gettext("Evaluate all functions with constant arguments in the new frontend."),
   )::DebugFlag
 const NF_EXPAND_OPERATIONS =
   DEBUG_FLAG(
-    13,
+    11,
     "nfExpandOperations",
     true,
     Gettext.gettext("Expand all unary/binary operations to scalar expressions in the new frontend."),
   )::DebugFlag
 const NF_API =
   DEBUG_FLAG(
-    14,
+    12,
     "nfAPI",
     false,
     Gettext.gettext("Enables experimental new instantiation use in the OMC API."),
   )::DebugFlag
 const NF_API_DYNAMIC_SELECT =
   DEBUG_FLAG(
-    15,
+    13,
     "nfAPIDynamicSelect",
     false,
     Gettext.gettext("Show DynamicSelect(static, dynamic) in annotations. Default to false and will select the first (static) expression"),
   )::DebugFlag
 const NF_EXPAND_FUNC_ARGS =
   DEBUG_FLAG(
-    16,
+    14,
     "nfExpandFuncArgs",
     false,
     Gettext.gettext("Expand all function arguments in the new frontend."),
   )::DebugFlag
 const NF_DUMP_FLAT =
   DEBUG_FLAG(
-    17,
+    15,
     "nfDumpFlat",
     false,
     Gettext.gettext("Dumps the flat model structure before generating the DAE."),
   )::DebugFlag
 const NF_PARALLEL =
   DEBUG_FLAG(
-    18,
+    16,
     "nfParallel",
     false,
     Gettext.gettext("Opt-in parallelism for OMFrontend phases beyond Absyn-to-SCode (e.g. future parallel instantiation). The Absyn-to-SCode parallel branch is proven safe and runs unconditionally based on `Threads.nthreads()`; this flag does not control it. Reserved for opt-in branches whose correctness is not yet proven. Default off."),
   )::DebugFlag
 const NF_SEPARATE_INSTANTIATION =
   DEBUG_FLAG(
-    19,
+    17,
     "nfSeparateInstantiation",
     false,
     Gettext.gettext("Flatten each top-level component into its own structural submodel so index reduction can run separately per component. Default off."),

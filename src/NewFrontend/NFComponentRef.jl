@@ -357,25 +357,39 @@ function isPackageConstant(cref::ComponentRef)::Bool
   return isPkgConst
 end
 
+"""
+  The scalar elements of `cref` when its last part is an array: one cref per combination of its scalar
+  subscripts, the first dimension varying slowest (`a[1, 1], a[1, 2], ...`). `list(cref)` otherwise.
+"""
 function scalarize(cref::ComponentRef)::List{ComponentRef}
-  local crefs::List{ComponentRef}
-   crefs = begin
-    local dims::List{Dimension}
-    local subs::List{List{Subscript}}
-    @match cref begin
-      COMPONENT_REF_CREF(ty = TYPE_ARRAY(__)) => begin
-        dims = arrayDims(cref.ty)
-        subs = scalarizeList(cref.subscripts, dims)
-        if listEmpty(subs)
-          return nil
-        end
-        subs = ListUtil.combination(subs)
-        list(setSubscripts(s, cref) for s in subs)
-      end
-
-      _ => begin
-        list(cref)
-      end
+  if !(isvariant(cref, COMPONENT_REF_CREF) && isvariant(cref.ty, TYPE_ARRAY))
+    return list(cref)
+  end
+  local subs::List{List{Subscript}} = scalarizeList(cref.subscripts, arrayDims(cref.ty))
+  if listEmpty(subs)
+    return nil
+  end
+  local choices::Vector{Vector{Subscript}} = Vector{Subscript}[Subscript[x for x in s] for s in subs]
+  local k::Int = length(choices)
+  local count::Int = prod(length, choices)
+  if count == 0
+    return nil
+  end
+  #= An odometer over the choices, the last one turning fastest; crefs prepended, so it runs backwards. =#
+  local idx::Vector{Int} = Int[length(c) for c in choices]
+  local crefs::List{ComponentRef} = nil
+  for _ in 1:count
+    local s::List{Subscript} = nil
+    for d in k:-1:1
+      s = Cons{Subscript}(choices[d][idx[d]], s)
+    end
+    crefs = Cons{ComponentRef}(COMPONENT_REF_CREF(cref.node, s, cref.ty, cref.origin, cref.restCref), crefs)
+    local d::Int = k
+    while d >= 1
+      idx[d] -= 1
+      idx[d] >= 1 && break
+      idx[d] = length(choices[d])
+      d -= 1
     end
   end
   return crefs

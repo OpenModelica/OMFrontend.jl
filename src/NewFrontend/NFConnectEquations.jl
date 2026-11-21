@@ -33,31 +33,26 @@
 *
 */ =#
 
-const potFunc = Function
 const EQ_ASSERT_STR = STRING_EXPRESSION("Connected constants/parameters must be equal")
 
+"""
+  The equations of the connection sets: potential sets equate their members, flow sets sum to zero, stream sets
+  give the stream equations. The last set's equations come first (as before; the order is kept for stable output).
+"""
 function generateEquations(sets::Vector{<:List{<:CONNECTOR}})
-  local equations::Vector{Equation} = Equation[]
-  local set_eql::List{Equation}
-  local potfunc::potFunc
-  local flowThreshold::Expression
+  local perSet::Vector{List{Equation}} = Vector{List{Equation}}(undef, length(sets))
+  local flowThreshold::Expression = REAL_EXPRESSION(1e-7)
   local cty::ConnectorType.TYPE
+  local count::Int = 0
   setGlobalRoot(Global.isInStream, NONE())
-  #= potfunc := if Config.orderConnections() then
-  =#
-  #=   generatePotentialEquationsOrdered else generatePotentialEquations;
-  =#
-  potfunc = generatePotentialEquations
-  #@assign flowThreshold = REAL_EXPRESSION(Flags.getConfigReal(Flags.FLOW_THRESHOLD))
-  flowThreshold = REAL_EXPRESSION(1e-7) #=TODO Should be like this.. I think - John. Fix flag memory issue=#
-  for set in sets
+  for (k, set) in enumerate(sets)
     cty = getSetType(set)
-    if isPotential(cty)
-      set_eql = potfunc(set)
+    perSet[k] = if isPotential(cty)
+      generatePotentialEquations(set)
     elseif isFlow(cty)
-      set_eql = generateFlowEquations(set)
+      generateFlowEquations(set)
     elseif isStream(cty)
-      set_eql = generateStreamEquations(set, flowThreshold)
+      generateStreamEquations(set, flowThreshold)
     else
       Error.addInternalError(
         getInstanceName() +
@@ -67,8 +62,18 @@ function generateEquations(sets::Vector{<:List{<:CONNECTOR}})
         ListUtil.toString(set, toString, "", "{", ", ", "}", true),
         sourceInfo()
       )
+      fail()
     end
-    equations = vcat(listArray(set_eql), equations)
+    count += listLength(perSet[k])
+  end
+  #= The last set's equations first, each set's in order. =#
+  local equations::Vector{Equation} = Vector{Equation}(undef, count)
+  local i::Int = 0
+  for k in length(sets):-1:1
+    for eq in perSet[k]
+      i += 1
+      equations[i] = eq
+    end
   end
   return equations
 end
@@ -357,6 +362,7 @@ function unrollFlowForLoop(forLoop::Equation,
   local range::Expression
   local range_iter::RangeIterator
   local val::Expression
+  local bodies::Vector{Vector{Equation}} = Vector{Equation}[]
   @match EQUATION_FOR(iterator = iter, range = SOME(range), body = body) = forLoop
   range = flattenExp(range, prefix)
   range = evalExp(range, EVALTARGET_RANGE(Equation_info(forLoop)))
@@ -368,9 +374,15 @@ function unrollFlowForLoop(forLoop::Equation,
       teq = mapExp(eq, (exp) -> replaceFlowIterator(exp, forLoop.iterator, val))
       push!(unrolled_body, teq)
     end
-    equations = vcat(unrolled_body, equations)
+    push!(bodies, unrolled_body)
   end
-  return equations
+  #= The last iteration's equations first, then `equations`. =#
+  local out::Vector{Equation} = Equation[]
+  for k in length(bodies):-1:1
+    append!(out, bodies[k])
+  end
+  append!(out, equations)
+  return out
 end
 
 

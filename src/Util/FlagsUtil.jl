@@ -57,8 +57,6 @@ that each entry's index is its position.
 """
 const allDebugFlags = list(
   Flags.FAILTRACE,
-  Flags.CGRAPH_GRAPHVIZ_FILE,
-  Flags.CGRAPH_GRAPHVIZ_SHOW,
   Flags.EVAL_PARAM,
   Flags.EXEC_STAT,
   Flags.CGRAPH,
