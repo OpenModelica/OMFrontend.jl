@@ -100,7 +100,6 @@ function instClassInProgramFM2(classPath::Absyn.Path, program::SCode.Program)::T
   flat_model = resolveAndEvaluate(flat_model, program, name)
   (flat_model, funcs) = simplifyAndCollect(flat_model, name, topScope(inst_cls))
   flat_model = scalarizeAndVerify(flat_model, name)
-  dumpInstDiagnostics(name)
   return (flat_model, funcs, inst_cls)
 end
 
@@ -826,11 +825,10 @@ function instClass(node::InstNode, modifier::Modifier, attributes::Attributes, a
   if totalCalls > INST_CLASS_TOTAL_CALLS_LIMIT
     nodeName = try name(node) catch; "<unknown>" end
     parentName = try name(parent) catch; "<unknown>" end
-    top3 = sort(Base.collect(REINSTANTIATION_CLASSES), by=last, rev=true)[1:min(5, length(REINSTANTIATION_CLASSES))]
-    @warn "instClass total call limit reached" total=totalCalls reinstantiations=REINSTANTIATION_COUNT[] top_classes=top3
+    @warn "instClass total call limit reached" total=totalCalls
     Error.addSourceMessage(
       Error.INST_RECURSION_LIMIT_REACHED,
-      list("instClass total calls > $(INST_CLASS_TOTAL_CALLS_LIMIT) (instLevel=$(instLevel), reinstantiations=$(REINSTANTIATION_COUNT[])): node=$(nodeName), parent=$(parentName)"),
+      list("instClass total calls > $(INST_CLASS_TOTAL_CALLS_LIMIT) (instLevel=$(instLevel)): node=$(nodeName), parent=$(parentName)"),
       InstNode_info(node))
     fail()
   end
@@ -902,16 +900,6 @@ function instClassDef(cls::INSTANCED_CLASS,
   local res::Restriction
   local ty::ModelicaType
   local attrs::Attributes
-  #= Track re-instantiation for diagnostics =#
-  local reinstCount = Threads.atomic_add!(REINSTANTIATION_COUNT, 1) + 1
-  cn = try name(node) catch; "?" end
-  lock(_REINST_CLASSES_LOCK) do
-    REINSTANTIATION_CLASSES[cn] = get(REINSTANTIATION_CLASSES, cn, 0) + 1
-    if reinstCount % 5000 == 0
-      top5 = sort(Base.collect(REINSTANTIATION_CLASSES), by=last, rev=true)[1:min(5, length(REINSTANTIATION_CLASSES))]
-      @warn "Re-instantiation count: $(reinstCount) (total instClass calls: $(INST_CLASS_TOTAL_CALLS[]))" top_classes=top5
-    end
-  end
   #=  If a class has an instance of a encapsulating class, then the encapsulating
   =#
   #=  class will have been fully instantiated to allow lookup in it. This is a
@@ -2546,120 +2534,20 @@ const INST_CLASS_TOTAL_CALLS = Threads.Atomic{Int}(0)
 #= Per instantiation. Large models need far more than the depth: Buildings' VAVReheat
    ASHRAE2006 and DualFanDualDuct went over 200_000 at instLevel 1-2. =#
 const INST_CLASS_TOTAL_CALLS_LIMIT = 10_000_000
-const REINSTANTIATION_COUNT = Threads.Atomic{Int}(0)
-const REINSTANTIATION_CLASSES = Dict{String, Int}()
-const _REINST_CLASSES_LOCK = ReentrantLock()
 
 function resetInstDiagnostics()
   Threads.atomic_xchg!(INST_CLASS_TOTAL_CALLS, 0)
   PARALLEL_THIS_TRANSLATION[] = true
-  Threads.atomic_xchg!(REINSTANTIATION_COUNT, 0)
-  lock(() -> empty!(REINSTANTIATION_CLASSES), _REINST_CLASSES_LOCK)
   lock(() -> empty!(_INLINE_BODY_INFO_CACHE), _INLINE_BODY_INFO_LOCK)
   #= Keyed by the top scope of one instantiation: kept, it holds every earlier model's instance tree. =#
   lock(() -> empty!(_NO_EVENT_FN_CACHE), _INST_SHARED_LOCK)
   INST_EXPR_DEPTH[] = 0
-  empty!(CLASS_PTR_WRITES)
-  empty!(COMPONENT_PTR_WRITES)
-  empty!(CLASS_PTR_WRITERS)
-  empty!(COMPONENT_PTR_WRITERS)
   @atomic INST_CACHE.dict = Base.PersistentDict{UInt64, InstNode}()
   for i in 1:_TYPE_CLAIM_SHARDS
     lock(_TYPE_CLAIMS_LOCKS[i]) do
       empty!(_TYPE_CLAIMS[i])
     end
   end
-  resetLookupCache()
-end
-
-"""
-  Dumps the per-class re-instantiation breakdown for one translation. Useful
-  to decide whether sibling parallelism in `applyLocalComponents` is safe
-  unguarded (most siblings hit different class pointers) or needs locking
-  (a few classes account for most of the work).
-
-  Gated on env var `OMFRONTEND_INST_PROFILE=true`. Reads the env at call time
-  so toggling does not require a Julia restart.
-
-  Output: total `instClass` calls, total re-instantiations, concentration ratio
-  (top-5 share of total), and the top-`topN` most re-instantiated classes.
-"""
-function dumpInstDiagnostics(modelName::String; topN::Int = 20)
-  if get(ENV, "OMFRONTEND_INST_PROFILE", "false") != "true"
-    return
-  end
-  local total = INST_CLASS_TOTAL_CALLS[]
-  local reinst = REINSTANTIATION_COUNT[]
-  local uniq = length(REINSTANTIATION_CLASSES)
-  local sorted = sort(Base.collect(REINSTANTIATION_CLASSES), by = last, rev = true)
-  local top5sum = sum(c for (_, c) in sorted[1:min(5, length(sorted))]; init = 0)
-  local conc = total > 0 ? round(100 * top5sum / total; digits = 1) : 0.0
-  println()
-  println("==== Inst diagnostics for ", modelName, " ====")
-  println("  total instClass calls : ", total)
-  println("  reinstantiations      : ", reinst)
-  println("  unique class names    : ", uniq)
-  println("  top-5 share of total  : ", conc, " %")
-  println("  top-", min(topN, length(sorted)), " classes by reinstantiation count:")
-  for (i, (cn, count)) in enumerate(sorted[1:min(topN, length(sorted))])
-    println("    ", lpad(i, 4), "  ", lpad(count, 8), "  ", cn)
-  end
-  # Pointer-write counters (broader signal: every updateClass / updateComponent! call is recorded).
-  local classWrites = Base.collect(values(CLASS_PTR_WRITES))
-  local compWrites  = Base.collect(values(COMPONENT_PTR_WRITES))
-  local classTotal = sum(c for (_, c) in classWrites; init = 0)
-  local compTotal  = sum(c for (_, c) in compWrites;  init = 0)
-  local classMulti = count(x -> x[2] > 1, classWrites)
-  local compMulti  = count(x -> x[2] > 1, compWrites)
-  local classMax   = isempty(classWrites) ? 0 : maximum(c for (_, c) in classWrites)
-  local compMax    = isempty(compWrites)  ? 0 : maximum(c for (_, c) in compWrites)
-  println("  Pointer-write summary:")
-  println("    class pointers      : ", length(classWrites), " unique, ", classTotal, " writes total, ",
-          classMulti, " written more than once, max ", classMax, " writes on a single pointer")
-  println("    component pointers  : ", length(compWrites), " unique, ", compTotal, " writes total, ",
-          compMulti, " written more than once, max ", compMax, " writes on a single pointer")
-  # Aliasing audit: distinct node identities per Ref cell. >1 == genuine multi-writer alias.
-  local classWriters = Base.collect(values(CLASS_PTR_WRITERS))
-  local compWriters  = Base.collect(values(COMPONENT_PTR_WRITERS))
-  local classAliased = count(s -> length(s) > 1, classWriters)
-  local compAliased  = count(s -> length(s) > 1, compWriters)
-  local classMaxW    = isempty(classWriters) ? 0 : maximum(length, classWriters)
-  local compMaxW     = isempty(compWriters)  ? 0 : maximum(length, compWriters)
-  println("  Aliasing audit (distinct node identities per Ref):")
-  println("    class Refs           : ", classAliased, " shared by >1 node (max ", classMaxW, " nodes on one Ref)")
-  println("    component Refs        : ", compAliased, " shared by >1 node (max ", compMaxW, " nodes on one Ref)")
-  if classAliased == 0 && compAliased == 0
-    println("    => NO multi-writer Refs. Approach A (inline payload) is safe wholesale.")
-  else
-    println("    => MULTI-WRITER Refs EXIST. Approach A needs a hybrid carve-out for shared cells.")
-  end
-  local lookupHits = LOOKUP_CLASS_HITS[]
-  local lookupMisses = LOOKUP_CLASS_MISSES[]
-  local lookupTotal = lookupHits + lookupMisses
-  if lookupTotal > 0
-    local hitRate = round(100 * lookupHits / lookupTotal; digits = 1)
-    println("  lookupClassName cache : ", lookupHits, " hits, ", lookupMisses, " misses (",
-            hitRate, " % hit rate, cache size ", length(LOOKUP_CLASS_CACHE), ")")
-  else
-    println("  lookupClassName cache : disabled (set OMFRONTEND_LOOKUP_CACHE=true to enable)")
-  end
-  if classMulti > 0
-    local sortedClass = sort(Base.collect(CLASS_PTR_WRITES), by = e -> last(last(e)), rev = true)
-    println("  top-", min(topN, length(sortedClass)), " class pointers by write count:")
-    for (i, (_, (nm, count))) in enumerate(sortedClass[1:min(topN, length(sortedClass))])
-      count > 1 || break
-      println("    ", lpad(i, 4), "  ", lpad(count, 8), "  ", nm)
-    end
-  end
-  if compMulti > 0
-    local sortedComp = sort(Base.collect(COMPONENT_PTR_WRITES), by = e -> last(last(e)), rev = true)
-    println("  top-", min(topN, length(sortedComp)), " component pointers by write count:")
-    for (i, (_, (nm, count))) in enumerate(sortedComp[1:min(topN, length(sortedComp))])
-      count > 1 || break
-      println("    ", lpad(i, 4), "  ", lpad(count, 8), "  ", nm)
-    end
-  end
-  println()
 end
 
 #= Connect breaks (`extends A(break connect(a, b))`) apply to the connects of the base class and of
@@ -3735,11 +3623,7 @@ element of that name (MISSING_INNER_NAME_CONFLICT) is an error. omc tells them a
 isInner of the found node; here isOuter, see below.
 """
 function checkTopLevelOuter(name::String, outerNode::InstNode, scope::InstNode)
-  local node::InstNode = try
-    Base.first(lookupSimpleName(name, scope))
-  catch
-    EMPTY_NODE()
-  end
+  local node::InstNode = Base.first(lookupSimpleName(name, scope))
   isvariant(node, EMPTY_NODE) && return nothing
   #= The root's element resolves to the generated inner itself (or is outer): the outer is the
      root's own, TOP_LEVEL_OUTER. A declared inner of that name instead: the generated inner is

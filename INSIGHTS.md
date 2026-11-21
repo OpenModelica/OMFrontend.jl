@@ -482,9 +482,9 @@ intrinsic. Evidence:
   clone is necessary and per-instance. That is the 484k.
 
 Existing infra already present: `INST_CACHE`/`CACHE_INST` (builtin scalars),
-`REINSTANTIATION_CLASSES` tracking, `SHARE_ATTRS`/`FROZEN_ATTR_NODES` (shared
-immutable TYPE_ATTRIBUTE nodes), `dumpInstDiagnostics` (gated on
-`OMFRONTEND_INST_PROFILE=true`). Diagnostic technique: instrument
+`SHARE_ATTRS`/`FROZEN_ATTR_NODES` (shared immutable TYPE_ATTRIBUTE nodes).
+(`REINSTANTIATION_CLASSES`, the pointer-write audit and `dumpInstDiagnostics` were removed 2026-11-21: the audit's
+`ENV` read on every component and class update was 3.9% of a Counter3 flatten.) Diagnostic technique: instrument
 `partialInstClass2`/`expandClass2`/`instClass` entry with counters keyed by
 `objectid(definition(node))` to separate work-calls from distinct defs.
 

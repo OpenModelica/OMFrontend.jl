@@ -1450,46 +1450,16 @@ component value (a unique instance, not an alias of `node`).
                node.nodeType)
 end
 
-#=
-  Per-pointer write counters used by `OMFRONTEND_INST_PROFILE`. They are
-  populated by `updateClass` and `updateComponent!` below. The dispatcher
-  in `instClassInProgramFM2` resets them at entry and dumps a summary
-  at exit (see `dumpInstDiagnostics` in NFInst.jl).
-=#
-const CLASS_PTR_WRITES = Dict{UInt64, Tuple{String, Int}}()
-const COMPONENT_PTR_WRITES = Dict{UInt64, Tuple{String, Int}}()
-
-#=
-  Aliasing audit: map each Ref cell (keyed by objectid of node.component /
-  node.cls) to the set of DISTINCT node identities that wrote through it.
-  Nodes are held strongly (IdSet) so the Ref stays alive and its objectid
-  cannot be reused by a GC'd-then-reallocated cell, which would otherwise
-  fabricate aliasing. A set with size > 1 is a genuine multi-writer Ref.
-=#
-const COMPONENT_PTR_WRITERS = Dict{UInt64, Base.IdSet{Any}}()
-const CLASS_PTR_WRITERS = Dict{UInt64, Base.IdSet{Any}}()
-
 # Share immutable, unmodified TYPE_ATTRIBUTE template nodes across instances
 # instead of copying them per instance. Enabled by default; disable with
 # OMFRONTEND_SHARE_ATTRS=false. Only attributes with no instance modifier are
 # shared. Mutators rebuild component nodes instead of modifying them in place.
 const SHARE_ATTRS = Base.RefValue{Bool}(get(ENV, "OMFRONTEND_SHARE_ATTRS", "true") == "true")
 
-function _profileEnabled()
-  return get(ENV, "OMFRONTEND_INST_PROFILE", "false") == "true"
-end
-
 function updateComponent!(component::Component, node::InstNode)
    node = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        if _profileEnabled()
-          local k = objectid(node.component)
-          local nm = try string(node.name) catch; "?" end
-          local prev = get(COMPONENT_PTR_WRITES, k, (nm, 0))
-          COMPONENT_PTR_WRITES[k] = (prev[1], prev[2] + 1)
-          push!(get!(COMPONENT_PTR_WRITERS, k, Base.IdSet{Any}()), node)
-        end
         _compSet!(node, component)
       end
     end
@@ -1517,13 +1487,6 @@ function updateClass(cls::Class, node::InstNode)
    node = begin
     @match node begin
       CLASS_NODE(__)  => begin
-        if _profileEnabled()
-          local k = objectid(node.cls)
-          local nm = try string(node.name) catch; "?" end
-          local prev = get(CLASS_PTR_WRITES, k, (nm, 0))
-          CLASS_PTR_WRITES[k] = (prev[1], prev[2] + 1)
-          push!(get!(CLASS_PTR_WRITERS, k, Base.IdSet{Any}()), node)
-        end
         if node.cls isa Pointer{Class}
           _clsSet!(node, cls)
           node

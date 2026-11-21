@@ -4970,12 +4970,37 @@ function evalSubscriptedExp(
       end
     end
   end
-   subs = list(
-    mapShallowExp(s, @closure (x) -> evalExp_impl(x, target))
-    for s in subscripts
-  )
+  subs = Nil{Subscript}()
+  for s in subscripts
+    subs = Cons{Subscript}(evalSubscriptWithTarget(s, target), subs)
+  end
+  subs = listReverseInPlace(subs)
   result = applySubscripts(subs, result)
   return result
+end
+
+"""
+A subscript with its expression evaluated, as `mapShallowExp(subscript, x -> evalExp_impl(x, target))` without the
+closure: the closure over the abstract `target` was a heap object per subscripted expression (HeatingSystem: 33k).
+"""
+function evalSubscriptWithTarget(subscript::Subscript, @nospecialize(target::EvalTarget))::Subscript
+  local e1::Expression
+  local e2::Expression
+  return @match subscript begin
+    SUBSCRIPT_UNTYPED(exp = e1) => begin
+      e2 = evalExp_impl(e1, target)
+      referenceEq(e1, e2) ? subscript : SUBSCRIPT_UNTYPED(e2)
+    end
+    SUBSCRIPT_INDEX(index = e1) => begin
+      e2 = evalExp_impl(e1, target)
+      referenceEq(e1, e2) ? subscript : fromTypedExp(e2)
+    end
+    SUBSCRIPT_SLICE(slice = e1) => begin
+      e2 = evalExp_impl(e1, target)
+      referenceEq(e1, e2) ? subscript : fromTypedExp(e2)
+    end
+    _ => subscript
+  end
 end
 
 function evalRecordElement(exp::RECORD_ELEMENT_EXPRESSION, @nospecialize(target::EvalTarget))

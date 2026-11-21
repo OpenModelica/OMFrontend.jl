@@ -42,55 +42,10 @@ end
 const MatchType = MatchTypeStruct(1, 2, 3)
 const MatchTypeTy = Int
 
-#=
-  Variant A of the `lookupClassName` cache. Key is
-  `(objectid(name), objectid(scope), checkAccessViolations)` — no
-  stringification, no allocation per call. Enabled by env var
-  `OMFRONTEND_LOOKUP_CACHE=true`. Default off so behavior is unchanged.
-
-  Hit rate depends on whether `Absyn.Path` objects are reused across calls:
-  parser-built paths in the SCode tree are reused, runtime-constructed paths
-  may not be. With `objectid` keys, two equivalent paths from different
-  allocations miss the cache, but hits are nanosecond-cheap.
-
-  Reset at translation entry via `resetLookupCache` from `resetInstDiagnostics`.
-  Hit/miss counters surface in `dumpInstDiagnostics` when
-  `OMFRONTEND_INST_PROFILE=true`.
-=#
-const LOOKUP_CLASS_CACHE = Dict{Tuple{UInt64, UInt64, Bool}, InstNode}()
-const LOOKUP_CLASS_HITS  = Ref(0)
-const LOOKUP_CLASS_MISSES = Ref(0)
-
-function _lookupCacheEnabled()
-  return get(ENV, "OMFRONTEND_LOOKUP_CACHE", "false") == "true"
-end
-
-function resetLookupCache()
-  empty!(LOOKUP_CLASS_CACHE)
-  LOOKUP_CLASS_HITS[] = 0
-  LOOKUP_CLASS_MISSES[] = 0
-  return nothing
-end
-
 function lookupClassName(name::Absyn.Path, scope::InstNode, info::SourceInfo, checkAccessViolations::Bool = true; isRedeclared::Bool = false)
   local node::InstNode
   local state::LookupState
   local LS_REF::Ref{LookupState}
-  if _lookupCacheEnabled() && !isRedeclared
-    local key = (objectid(name), _refId(scope), checkAccessViolations)
-    local cached = get(LOOKUP_CLASS_CACHE, key, nothing)
-    if cached !== nothing
-      LOOKUP_CLASS_HITS[] += 1
-      return cached::InstNode
-    end
-    LS_REF = Ref{LookupState}(LOOKUP_STATE_BEGIN())
-    node = lookupNameWithError(name, scope, info, "error", LS_REF, checkAccessViolations; isRedeclared = isRedeclared)
-    state = LS_REF.x
-    assertClass(state, node, name, info)
-    LOOKUP_CLASS_CACHE[key] = node
-    LOOKUP_CLASS_MISSES[] += 1
-    return node
-  end
   LS_REF = Ref{LookupState}(LOOKUP_STATE_BEGIN())
   node = lookupNameWithError(name, scope, info, "error", LS_REF, checkAccessViolations; isRedeclared = isRedeclared)
   state = LS_REF.x
@@ -414,6 +369,8 @@ function lookupSimpleName(nameStr::String, scope::InstNode)::Tuple{InstNode, Boo
   #= Past an encapsulated scope only builtin names are found (omc lookupSimpleName). =#
   local require_builtin = false
   for i in 1:Global.recursionDepthLimit
+    #= Past the top scope: not found (lookupLocalSimpleName throws on the empty scope; a throw costs 0.5-2 ms here). =#
+    isvariant(cur_scope, EMPTY_NODE) && break
     @match ENTRY_INFO(node, _) = lookupLocalSimpleName(nameStr, cur_scope)
     if node !== EMPTY_NODE() && (!require_builtin || isBuiltin(node))
       return (node, false)
@@ -566,11 +523,10 @@ function lookupFirstIdent(name::String, scope::InstNode, lookupStateRef::Ref{Loo
     #= omc 1.27: Clock is a class of the builtin library, found by the scope lookup, so a
        class of the model named Clock shadows it (omc Clock5: record Clock; Clock c = Clock(1)).
        Here a builtin name: the model's scopes first. =#
-    try
-      local (found, self) = lookupSimpleName(name, scope)
+    local (found, self) = lookupSimpleName(name, scope)
+    if found !== EMPTY_NODE()
       node = found
       selfReference = self
-    catch
     end
   end
   if node !== nothing && node === NFBuiltin.BUILTIN_DICT[name]
