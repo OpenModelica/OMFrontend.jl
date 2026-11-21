@@ -685,36 +685,27 @@ function expandArrayConstructor2(
   return result
 end
 
+"""
+An array constructor expanded into its elements: `(array, true)`; `(exp, false)` when a range does
+not expand (the caller expands the call generically).
+"""
 function expandArrayConstructor(
   exp::Expression,
   ty::ModelicaType,
   iterators::List{<:Tuple{<:InstNode, Expression}},
 )::Tuple{Expression, Bool}
-  local expanded::Bool = true
-  local result::Expression
-
   local e::Expression = exp
-  local range::Expression
-  local node::InstNode
   local ranges::List{Expression} = nil
-  local expl::List{Expression}
-  local iter::Pointer{Expression}
   local iters::List{Pointer{Expression}} = nil
-
-  for i in iterators
-     (node, range) = i
-    @assign iter = P_Pointer.create(INTEGER_EXPRESSION(0))
-    @assign e = replaceIterator(
-      e,
-      node,
-      MUTABLE_EXPRESSION(iter),
-    )
+  for (node::InstNode, range::Expression) in iterators
+    local iter::Pointer{Expression} = P_Pointer.create(INTEGER_EXPRESSION(0))
+    e = replaceIterator(e, node, MUTABLE_EXPRESSION(iter))
     iters = Cons{Pointer{Expression}}(iter, iters)
-    @match (range, true) = expand(range)
-    ranges = Cons{Expression}(range, ranges)
+    local (range_exp::Expression, range_expanded::Bool) = expand(range)
+    range_expanded || return (exp, false)
+    ranges = Cons{Expression}(range_exp, ranges)
   end
-  @assign result = expandArrayConstructor2(e, ty, ranges, iters)
-  return (result, expanded)
+  return (expandArrayConstructor2(e, ty, ranges, iters), true)
 end
 
 function expandBuiltinGeneric2(
@@ -787,17 +778,9 @@ end
 end
 
 function expandBuiltinPromote(args::Vector{Expression})::Tuple{Expression, Bool}
-  local expanded::Bool
-  local exp::Expression
-  local n::Int
-  local eexp::Expression
-  local nexp::Expression
-  local rems
-  @match [eexp, nexp, rems...] = args
-  @match INTEGER_EXPRESSION(value = n) = nexp
-  (eexp, expanded) = expand(eexp)
-  (exp, _) = promote(eexp, typeOf(eexp), n)
-  return (exp, expanded)
+  #= args[2] is an Integer literal (the caller checks). =#
+  local (eexp::Expression, expanded::Bool) = expand(args[1])
+  return (Base.first(promote(eexp, typeOf(eexp), (args[2]::INTEGER_EXPRESSION).value)), expanded)
 end
 
 function expandBuiltinCat(args::Vector{Expression}, call::Call)::Tuple{Expression, Bool}
@@ -816,10 +799,15 @@ function expandBuiltinCat(args::Vector{Expression}, call::Call)::Tuple{Expressio
   return (exp, expanded)
 end
 
+"""
+A builtin call expanded (`callExp` is the call `call` as an expression): the array builtins by
+their own rules, any other builtin by `expandGeneric`.
+"""
 function expand(
   fn::MODELICA_FUNCTION,
   args::Vector{Expression},
   call::Call,
+  @nospecialize(callExp::Expression),
   )::Tuple{Expression, Bool}
   local expanded::Bool
   local outExp::Expression
@@ -853,7 +841,7 @@ function expand(
       end
 
       "promote" => begin
-        expandBuiltinPromote(args)
+        args[2] isa INTEGER_EXPRESSION ? expandBuiltinPromote(args) : expandGeneric(callExp)
       end
 
       "transpose" => begin
@@ -871,6 +859,8 @@ function expand(
       "ones" => begin
         all(isLiteral, args) ? expandBuiltinOnes(args) : (CALL_EXPRESSION(call), false)
       end
+
+      _ => expandGeneric(callExp)
     end
   end
   #= A Ceval builtin (cat, diagonal, fill, ...) that cannot evaluate its arguments: the call stays. =#
@@ -879,22 +869,13 @@ function expand(
 end
 
 @nospecializeinfer function expandCall(call::Call, @nospecialize(exp::Expression))::Tuple{Expression, Bool}
-  local expanded::Bool
-  local outExp::Expression
-  (outExp, expanded) = begin
-    @matchcontinue call begin
-      TYPED_CALL(__) where (isBuiltin(call.fn) && isNotImpure(call.fn))  => begin
-        expand(call.fn, call.arguments, call)
-      end
-      TYPED_ARRAY_CONSTRUCTOR(__) => begin
-        expandArrayConstructor(call.exp, call.ty, call.iters)
-      end
-      _ => begin
-        expandGeneric(exp)
-      end
-    end
+  isvariant(call, TYPED_CALL) && isBuiltin(call.fn) && isNotImpure(call.fn) &&
+    return expand(call.fn, call.arguments, call, exp)
+  if isvariant(call, TYPED_ARRAY_CONSTRUCTOR)
+    local (arr::Expression, arr_expanded::Bool) = expandArrayConstructor(call.exp, call.ty, call.iters)
+    arr_expanded && return (arr, true)
   end
-  return (outExp, expanded)
+  return expandGeneric(exp)
 end
 
 @nospecializeinfer function expandRange(@nospecialize(exp::Expression))::Tuple{Expression, Bool}

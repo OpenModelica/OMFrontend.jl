@@ -2213,92 +2213,37 @@ function checkParamTypes(fn::MODELICA_FUNCTION)
   return checkParamTypes2(fn.locals)
 end
 
+"""The attributes of a function: builtin, inline, impure, partial (omc makeAttributes)."""
 function makeAttributes(
   @nospecialize(node::InstNode),
   @nospecialize(inputs::List{<:InstNode}),
-  @nospecialize (outputs::List{<:InstNode})
+  @nospecialize(outputs::List{<:InstNode}),
 )::FUNCTION_ATTRIBUTES
-  local attr::FUNCTION_ATTRIBUTES
-
-  local def::SCode.Element
-  local params::Vector{InstNode}
-  local res::SCode.Restriction
-  local fres::SCode.FunctionRestriction
-  local is_partial::Bool
-  local cmts::List{SCode.COMMENT}
-  local cmt::SCode.COMMENT
-
-  @assign def = definition(node)
-  @assign res = SCodeUtil.getClassRestriction(def)
-  # Error.assertion(
-  #   SCodeUtil.isFunctionRestriction(res),
-  #   getInstanceName() + " got non-function restriction",
-  #   sourceInfo(),
-  # ) TODO
-  @match SCode.R_FUNCTION(functionRestriction = fres) = res
-  @assign is_partial = SCodeUtil.isPartial(def)
-  @assign cmts = getComments(node)
-  @assign cmt = mergeFunctionAnnotations(cmts)
-  @assign attr = begin
-    local is_impure::Bool
-    local is_om_pure::Bool
-    local has_out_params::Bool
-    local has_unbox_args::Bool
-    local nameVar::String
-    local in_params::List{String}
-    local out_params::List{String}
-    local inline_ty::InlineType
-    #=  External function. =#
-    @matchcontinue fres begin
-      SCode.FR_EXTERNAL_FUNCTION(is_impure) => begin
-        @assign in_params = list(name(i) for i in inputs)
-        @assign out_params = list(name(o) for o in outputs)
-        @assign nameVar = SCodeUtil.isBuiltinFunction(def, in_params, out_params)
-        @assign inline_ty = commentIsInlineFunc(cmt)
-        @assign is_impure = is_impure || hasImpure(cmt)
-        @assign has_unbox_args = hasUnboxArgsAnnotation(cmt)
-        FUNCTION_ATTRIBUTES(inline_ty, is_impure, is_partial, FUNCTION_BUILTIN, SOME(nameVar), has_unbox_args)
-      end
-
-      SCode.FR_PARALLEL_FUNCTION(__) => begin
-        #= Parallel function: there are some builtin functions. =#
-        @assign in_params = list(name(i) for i in inputs)
-        @assign out_params = list(name(o) for o in outputs)
-        @assign nameVar = SCodeUtil.isBuiltinFunction(def, in_params, out_params)
-        @assign inline_ty = commentIsInlineFunc(cmt)
-        @assign has_unbox_args = hasUnboxArgsAnnotation(cmt)
-        FUNCTION_ATTRIBUTES(inline_ty, false, is_partial, FUNCTION_BUILTIN, SOME(nameVar), has_unbox_args)
-      end
-
-      SCode.FR_PARALLEL_FUNCTION(__) => begin
-        #= Parallel function: non-builtin. =#
-        @assign inline_ty = commentIsInlineFunc(cmt)
-        FUNCTION_ATTRIBUTES(inline_ty, false, is_partial, getBuiltin(def), nothing, false)
-      end
-
-      SCode.FR_KERNEL_FUNCTION(__) => begin
-        FUNCTION_ATTRIBUTES(NO_INLINE, false, is_partial, FUNCTION_NOT_BUILTIN, nothing, false)
-      end
-
-      _ => begin
-        #= Kernel functions: never builtin and never inlined.
-           Normal function. =#
-        inline_ty = commentIsInlineFunc(cmt)
-        #= In Modelica 3.2 and before, external functions with side-effects are not marked. =#
-        @assign is_impure =
-          SCodeUtil.isRestrictionImpure(
-            res,
-#            Config.languageStandardAtLeast(Config.LanguageStandard.V3_3) ||
-            !listEmpty(outputs),
-          ) || SCodeUtil.commentHasBooleanNamedAnnotation(
-            cmt,
-            "__ModelicaAssociation_Impure",
-          )
-        FUNCTION_ATTRIBUTES(inline_ty, is_impure, is_partial, getBuiltin(def), nothing, false)
-      end
+  local def::SCode.Element = definition(node)
+  local res::SCode.Restriction = SCodeUtil.getClassRestriction(def)
+  local fres::SCode.FunctionRestriction = (res::SCode.R_FUNCTION).functionRestriction
+  local is_partial::Bool = SCodeUtil.isPartial(def)
+  local cmt::SCode.COMMENT = mergeFunctionAnnotations(getComments(node))
+  if fres isa SCode.FR_EXTERNAL_FUNCTION || fres isa SCode.FR_PARALLEL_FUNCTION
+    #= An external or parallel function: some are builtin. =#
+    local in_params::List{String} = list(name(i) for i in inputs)
+    local out_params::List{String} = list(name(o) for o in outputs)
+    local builtin_name::String = SCodeUtil.isBuiltinFunction(def, in_params, out_params)
+    if !isempty(builtin_name)
+      local impure::Bool = fres isa SCode.FR_EXTERNAL_FUNCTION && (fres.isImpure || hasImpure(cmt))
+      return FUNCTION_ATTRIBUTES(commentIsInlineFunc(cmt), impure, is_partial, FUNCTION_BUILTIN, SOME(builtin_name),
+                                 hasUnboxArgsAnnotation(cmt))
     end
+    fres isa SCode.FR_PARALLEL_FUNCTION &&
+      return FUNCTION_ATTRIBUTES(commentIsInlineFunc(cmt), false, is_partial, getBuiltin(def), nothing, false)
   end
-  return attr
+  #= Kernel functions: never builtin and never inlined. =#
+  fres isa SCode.FR_KERNEL_FUNCTION && return FUNCTION_ATTRIBUTES(NO_INLINE, false, is_partial, FUNCTION_NOT_BUILTIN, nothing, false)
+  #= A normal function (or an external one that is not builtin). In Modelica 3.2 and before, external
+     functions with side-effects are not marked. =#
+  local is_impure::Bool = SCodeUtil.isRestrictionImpure(res, !listEmpty(outputs)) ||
+                          SCodeUtil.commentHasBooleanNamedAnnotation(cmt, "__ModelicaAssociation_Impure")
+  return FUNCTION_ATTRIBUTES(commentIsInlineFunc(cmt), is_impure, is_partial, getBuiltin(def), nothing, false)
 end
 
 function commentIsInlineFunc(cmt::SCode.COMMENT)::InlineType

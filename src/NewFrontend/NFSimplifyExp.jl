@@ -382,45 +382,28 @@ function simplifyTranspose(arg::Expression, call::Call)
   return exp
 end
 
-function simplifyArrayConstructor(call::Call)
-  local outExp::Expression
-  local ty::ModelicaType
-  local var::VariabilityType
-  local exp::Expression
-  local e::Expression
-  local iters::List{Tuple{InstNode, Expression}}
-  local iter::InstNode
-  local dim::Dimension
-  local dim_size::Int
-  local expanded::Bool
-  @match TYPED_ARRAY_CONSTRUCTOR(ty, var, exp, iters) = call
-  iters = list((Util.tuple21(i), simplify(Util.tuple22(i))) for i in iters)
-  outExp = begin
-    @matchcontinue iters begin
-      (iter, e) <| T where{T isa Nil} => begin
-        @match TYPE_ARRAY(dimensions = dim <| T) where {T isa Nil} = typeOf(e)
-        dim_size = size(dim)
-        if dim_size == 0
-          outExp = makeEmptyArray(ty)
-        elseif dim_size == 1
-          @match (ARRAY_EXPRESSION(elements = [e]), _) = expand(e)
-          exp = replaceIterator(exp, iter, e)
-          exp = makeArray(ty, Expression[exp])
-          outExp = simplify(exp)
-        else
-          fail()
+"""
+An array constructor with its iterator ranges simplified; one iterator over a range of 0 or 1
+elements gives the empty array or the array of its one element (omc simplifyArrayConstructor).
+"""
+function simplifyArrayConstructor(call::Call)::Expression
+  local iters::List{Tuple{InstNode, Expression}} = list((Util.tuple21(i), simplify(Util.tuple22(i))) for i in call.iters)
+  if !listEmpty(iters) && listEmpty(listRest(iters))
+    local (iter::InstNode, e::Expression) = listHead(iters)
+    local range_ty::ModelicaType = typeOf(e)
+    if isvariant(range_ty, TYPE_ARRAY) && listLength(range_ty.dimensions) == 1
+      local dim::Dimension = listHead(range_ty.dimensions)
+      local dim_size::Int = isKnown(dim) && hasSizeExp(dim) ? size(dim) : -1
+      dim_size == 0 && return makeEmptyArray(call.ty)
+      if dim_size == 1
+        local expanded::Expression = Base.first(expand(e))
+        if expanded isa ARRAY_EXPRESSION && length(expanded.elements) == 1
+          return simplify(makeArray(call.ty, Expression[replaceIterator(call.exp, iter, expanded.elements[1])]))
         end
-        #= Result is Array[0], return empty array expression.
-           Result is Array[1], return array with the single element. =#
-        outExp
-      end
-      _ => begin
-        exp = simplify(exp)
-        CALL_EXPRESSION(TYPED_ARRAY_CONSTRUCTOR(ty, var, exp, iters))
       end
     end
   end
-  return outExp
+  return CALL_EXPRESSION(TYPED_ARRAY_CONSTRUCTOR(call.ty, call.var, simplify(call.exp), iters))
 end
 
 #= The argument is not named sizeExp: that is Dimension's size expression, called below. =#

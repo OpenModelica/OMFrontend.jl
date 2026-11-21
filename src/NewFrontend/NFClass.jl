@@ -795,16 +795,11 @@ function lookupAttributeValue(name::String, cls::Class)::Option{Expression}
   return value
 end
 
+"""The binding of the attribute `name` (start, fixed, ...) of a class; `EMPTY_BINDING` when the class has none."""
 function lookupAttributeBinding(name::String, cls::Class)::Binding
-  local binding::Binding
-  local attr_node::InstNode
-  try
-    attr_node = lookupElementNode(name, classTree(cls))
-    binding = getBinding(component(attr_node))
-  catch
-    binding = EMPTY_BINDING
-  end
-  return binding
+  local attr_node::InstNode = lookupElementNode(name, classTree(cls))
+  isvariant(attr_node, COMPONENT_NODE) || return EMPTY_BINDING
+  return getBinding(component(attr_node))
 end
 
 function nthComponent(index::Int, cls::Class)::InstNode

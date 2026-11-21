@@ -1439,124 +1439,34 @@ const knownExternalCFunctions =
     "sqrt",
   )::List
 
-function isBuiltinFunction(
-  cl::SCode.Element,
-  inVars::List{<:String},
-  outVars::List{<:String},
-)::String
-  local name::String
-
-  @assign name = begin
-    local outVar1::String
-    local outVar2::String
-    local argsStr::List{String}
-    local args::List{Absyn.Exp}
-    @match (cl, inVars, outVars) begin
-      (
-        SCode.CLASS(
-          name = name,
-          restriction = SCode.R_FUNCTION(SCode.FR_EXTERNAL_FUNCTION(__)),
-          classDef = SCode.PARTS(
-            externalDecl = SOME(SCode.EXTERNALDECL(
-              funcName = NONE(),
-              lang = SOME("builtin"),
-            )),
-          ),
-        ),
-        _,
-        _,
-      ) => begin
-        name
-      end
-
-      (
-        SCode.CLASS(
-          restriction = SCode.R_FUNCTION(SCode.FR_EXTERNAL_FUNCTION(__)),
-          classDef = SCode.PARTS(
-            externalDecl = SOME(SCode.EXTERNALDECL(
-              funcName = SOME(name),
-              lang = SOME("builtin"),
-            )),
-          ),
-        ),
-        _,
-        _,
-      ) => begin
-        name
-      end
-
-      (
-        SCode.CLASS(
-          name = name,
-          restriction = SCode.R_FUNCTION(SCode.FR_PARALLEL_FUNCTION(__)),
-          classDef = SCode.PARTS(
-            externalDecl = SOME(SCode.EXTERNALDECL(
-              funcName = NONE(),
-              lang = SOME("builtin"),
-            )),
-          ),
-        ),
-        _,
-        _,
-      ) => begin
-        name
-      end
-
-      (
-        SCode.CLASS(
-          restriction = SCode.R_FUNCTION(SCode.FR_PARALLEL_FUNCTION(__)),
-          classDef = SCode.PARTS(
-            externalDecl = SOME(SCode.EXTERNALDECL(
-              funcName = SOME(name),
-              lang = SOME("builtin"),
-            )),
-          ),
-        ),
-        _,
-        _,
-      ) => begin
-        name
-      end
-
-      (
-        SCode.CLASS(
-          restriction = SCode.R_FUNCTION(SCode.FR_EXTERNAL_FUNCTION(__)),
-          classDef = SCode.PARTS(
-            externalDecl = SOME(SCode.EXTERNALDECL(
-              funcName = SOME(name),
-              lang = SOME("C"),
-              output_ = SOME(Absyn.CREF_IDENT(outVar2, nil())),
-              args = args,
-            )),
-          ),
-        ),
-        _,
-        outVar1 <| nil(),
-      ) => begin
-        @match true = listMember(name, knownExternalCFunctions)
-        @match true = outVar2 == outVar1
-        @assign argsStr = ListUtil.mapMap(args, AbsynUtil.expCref, AbsynUtil.crefIdent, String)
-        equality(argsStr, inVars)
-        name
-      end
-
-      (
-        SCode.CLASS(
-          name = name,
-          restriction = SCode.R_FUNCTION(SCode.FR_EXTERNAL_FUNCTION(__)),
-          classDef = SCode.PARTS(
-            externalDecl = SOME(SCode.EXTERNALDECL(funcName = NONE(), lang = SOME("C"))),
-          ),
-        ),
-        _,
-        _,
-      ) => begin
-        @match true = listMember(name, knownExternalCFunctions)
-        name
-      end
-    end
+"""
+The builtin name of an external or parallel function: one declared `external "builtin"` (its
+external name, else its own), or an external "C" function of the known math functions (by its own
+name, or by its external name with its output and its arguments the function's own); `""` for any
+other function.
+"""
+function isBuiltinFunction(cl::SCode.Element, inVars::List{<:String}, outVars::List{<:String})::String
+  (cl isa SCode.CLASS && cl.restriction isa SCode.R_FUNCTION && cl.classDef isa SCode.PARTS) || return ""
+  local fres::SCode.FunctionRestriction = cl.restriction.functionRestriction
+  local is_external::Bool = fres isa SCode.FR_EXTERNAL_FUNCTION
+  (is_external || fres isa SCode.FR_PARALLEL_FUNCTION) || return ""
+  local ext_opt::Option{SCode.EXTERNALDECL} = cl.classDef.externalDecl
+  ext_opt === nothing && return ""
+  local ext::SCode.EXTERNALDECL = something(ext_opt)
+  local lang::String = ext.lang === nothing ? "" : something(ext.lang)
+  local fn_name::String = ext.funcName === nothing ? cl.name : something(ext.funcName)
+  lang == "builtin" && return fn_name
+  (is_external && lang == "C" && listMember(fn_name, knownExternalCFunctions)) || return ""
+  ext.funcName === nothing && return fn_name
+  ext.output_ === nothing && return ""
+  local out::Absyn.ComponentRef = something(ext.output_)
+  (out isa Absyn.CREF_IDENT && listEmpty(out.subscripts)) || return ""
+  (listLength(outVars) == 1 && listHead(outVars) == out.name) || return ""
+  listLength(ext.args) == listLength(inVars) || return ""
+  for (arg, var) in zip(ext.args, inVars)
+    (arg isa Absyn.CREF && arg.componentRef isa Absyn.CREF_IDENT && arg.componentRef.name == var) || return ""
   end
-  return name
+  return fn_name
 end
 
 """Extracts the SourceInfo from a Statement."""
