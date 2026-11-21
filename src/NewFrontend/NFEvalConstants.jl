@@ -142,7 +142,7 @@ function checkConstantHasValue(cref::ComponentRef)
   end
   isUnbound(getBinding(comp)) || return nothing
   isRecord(arrayElementType(getType(comp))) && return nothing
-  isSome(evalComponentStartBinding(n, comp, cref, EVALTARGET_IGNORE_ERRORS(), false)) && return nothing
+  Base.first(evalComponentStartBinding(n, comp, cref, EVALTARGET_IGNORE_ERRORS(), false)) && return nothing
   Error.addSourceMessage(Error.UNBOUND_CONSTANT, list(toString(cref)), InstNode_info(n))
   fail()
 end
