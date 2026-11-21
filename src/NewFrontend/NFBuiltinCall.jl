@@ -1182,9 +1182,9 @@ function typeFillCall2(fnRef::ComponentRef,
   dims = listReverseInPlace(dims)
   @match [fn, T...]= typeRefCache(fnRef)
   ty = liftArrayLeftList(fillType, dims)
-  if evaluated
-    callExp = evalBuiltinFill(ty_args)
-  else
+  callExp = evaluated ? evalBuiltinFill(ty_args) : EVAL_FAILED
+  #= Not evaluated, or dimensions that did not evaluate to integers: the call. =#
+  if isEvalFailure(callExp)
     callExp = CALL_EXPRESSION(makeTypedCall(NFBuiltinFuncs.FILL_FUNC, ty_args, variability, ty))
   end
   (callExp, ty, variability)

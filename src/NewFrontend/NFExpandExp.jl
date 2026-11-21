@@ -895,6 +895,8 @@ function expand(
       end
     end
   end
+  #= A Ceval builtin (cat, diagonal, fill, ...) that cannot evaluate its arguments: the call stays. =#
+  isEvalFailure(outExp) && return (CALL_EXPRESSION(call), false)
   return (outExp, expanded)
 end
 

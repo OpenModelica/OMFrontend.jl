@@ -125,6 +125,13 @@ function variability(dim::Dimension)::VariabilityType
   return var
 end
 
+"""Whether `sizeExp(dim)` is defined: an integer, Boolean, enumeration or expression dimension."""
+function hasSizeExp(dim::Dimension)::Bool
+  local tag::DimensionTag = dim.tag
+  return tag == DIMENSION_INTEGER_TAG || tag == DIMENSION_BOOLEAN_TAG || tag == DIMENSION_EXP_TAG ||
+         (tag == DIMENSION_ENUM_TAG && isvariant(dim.enumType, TYPE_ENUMERATION))
+end
+
 """Returns the size of a dimension as an Expression."""
 function sizeExp(dim::Dimension)::Expression
   local sizeExp::Expression

@@ -1023,13 +1023,7 @@ function evaluateCallTypeDim(
           (expArg) -> evaluateCallTypeDimExp(expArg, ptree),
         )
         ErrorExt.setCheckpoint(getInstanceName())
-        try
-          exp = evalExp(exp, EVALTARGET_IGNORE_ERRORS())
-        catch e
-          if e isa InterruptException
-            rethrow()
-          end
-        end
+        (_, exp) = evalExpChecked(exp, EVALTARGET_IGNORE_ERRORS())
         ErrorExt.rollBack(getInstanceName())
         fromExp(exp, Variability.CONSTANT)
       end

@@ -2753,23 +2753,27 @@ end
   return (sizeExpArg, szType, variability)
 end
 
+"""
+    checkSizeTypingError(typingError, exp, index, info) -> Bool
+Reports the typing error of `size(exp, index)`; true when there is none.
+"""
 function checkSizeTypingError(
   typingError::TypingError,
   @nospecialize(exp::Expression),
   index::Int,
   info::SourceInfo,
-)
-  return  () = begin
+)::Bool
+  return begin
     @match typingError begin
       NO_ERROR(__) => begin
-        ()
+        true
       end
 
       OUT_OF_BOUNDS(0) => begin
         #=  The first argument wasn't an array.
         =#
         Error.addSourceMessage(Error.INVALID_ARGUMENT_TYPE_FIRST_ARRAY, list("size"), info)
-        fail()
+        false
       end
 
       OUT_OF_BOUNDS(__) => begin
@@ -2784,7 +2788,7 @@ function checkSizeTypingError(
           ),
           info,
         )
-        fail()
+        false
       end
     end
   end
@@ -4038,8 +4042,9 @@ end
        Unknown branches use the EQUATION_INVALID_BRANCH mechanism. =#
     local _condKnown = false
     if var <= Variability.STRUCTURAL_PARAMETER
-      try
-        local _evalCond = evalExp(cond)
+      #= A condition that does not evaluate: the normal branch typing. =#
+      local (ok::Bool, _evalCond::Expression) = evalExpChecked(cond)
+      if ok
         if isFalse(_evalCond)
           continue
         end
@@ -4049,8 +4054,6 @@ end
           cond = _evalCond
           _condKnown = true
         end
-      catch
-        #= If evaluation fails, fall through to normal branch typing =#
       end
     end
     if _condKnown

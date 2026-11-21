@@ -227,13 +227,8 @@ end
              `0.2 * div(200, 2)` stayed a call, and the backend took the event function for one of a variable
              (MSL RealFFT1's f_max_FFT: a sample interval of 0). An array result is not: it stays the call. =#
           if (is_pure && ArrayUtil.all(args, isLiteral)) && isScalar(call.ty)
-            try
-              callExp = evalCall(call, EVALTARGET_IGNORE_ERRORS())
-              callExp = stripBindingInfo(callExp)
-            catch e
-              #@info "DBG print to remove $e"
-              callExp = CALL_EXPRESSION(call)
-            end
+            callExp = evalCall(call, EVALTARGET_IGNORE_ERRORS())
+            callExp = isEvalFailure(callExp) ? CALL_EXPRESSION(call) : stripBindingInfo(callExp)
           elseif scalarize
             callExp = simplify(nameConsiderBuiltin(call.fn), args, call)
           elseif changed
@@ -285,12 +280,8 @@ function simplifyCall2(call::Call)
     return hit
   end
   ErrorExt.setCheckpoint(getInstanceName())
-  try
-     outExp = evalCall(call, EVALTARGET_IGNORE_ERRORS())
-     outExp = stripBindingInfo(outExp)
-    ErrorExt.delCheckpoint(getInstanceName())
-    lock(() -> CONST_FOLD_CACHE[key] = outExp, CONST_FOLD_CACHE_LOCK)
-  catch
+  outExp = evalCall(call, EVALTARGET_IGNORE_ERRORS())
+  if isEvalFailure(outExp)
     if Flags.isSet(Flags.FAILTRACE)
       ErrorExt.delCheckpoint(getInstanceName())
       Debug.traceln(
@@ -299,8 +290,11 @@ function simplifyCall2(call::Call)
     else
       ErrorExt.rollBack(getInstanceName())
     end
-     outExp = CALL_EXPRESSION(call)
+    return CALL_EXPRESSION(call)
   end
+  outExp = stripBindingInfo(outExp)
+  ErrorExt.delCheckpoint(getInstanceName())
+  lock(() -> CONST_FOLD_CACHE[key] = outExp, CONST_FOLD_CACHE_LOCK)
   return outExp
 end
 
@@ -314,7 +308,7 @@ function simplify(
     @match AbsynUtil.pathFirstIdent(name) begin
       "cat" => begin
         (exp, _) = expandBuiltinCat(args, call)
-        exp
+        isEvalFailure(exp) ? CALL_EXPRESSION(call) : exp
       end
       "sum" => begin
         simplifySumProduct(Base.first(args), call, #=isSum=# true)
@@ -514,7 +508,8 @@ end
       op,
       expand(exp2)[1],
     )
-    outExp = stripBindingInfo(outExp)
+    #= Literal operands Ceval cannot combine (a division by zero, mismatched arrays): the operation stays. =#
+    outExp = isEvalFailure(outExp) ? BINARY_EXPRESSION(exp1, op, exp2) : stripBindingInfo(outExp)
   else
     outExp = begin
       @match op.op begin
@@ -693,7 +688,7 @@ end
   local outExp::Expression
   if isLiteral(exp)
     outExp = evalUnaryOp(exp, op)
-    outExp = stripBindingInfo(outExp)
+    outExp = isEvalFailure(outExp) ? UNARY_EXPRESSION(op, exp) : stripBindingInfo(outExp)
   elseif orig isa UNARY_EXPRESSION && orig.operator === op && referenceEq(orig.exp, exp)
     outExp = orig
   else
@@ -866,7 +861,7 @@ end
    se2 = simplify(e2)
   if isLiteral(se1) && isLiteral(se2)
      relationExp = evalRelationOp(se1, op, se2)
-     relationExp = stripBindingInfo(relationExp)
+     relationExp = isEvalFailure(relationExp) ? RELATION_EXPRESSION(se1, op, se2) : stripBindingInfo(relationExp)
   elseif !(referenceEq(e1, se1) && referenceEq(e2, se2))
      relationExp = RELATION_EXPRESSION(se1, op, se2)
   end

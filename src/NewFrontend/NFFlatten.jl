@@ -364,11 +364,9 @@ function flattenRaggedDimension(dim::Dimension, cref::ComponentRef)::Dimension
   local ctx = _elementContext()
   push!(ctx, cref)
   local e::Expression
-  try
-    e = evalExp(dim.exp, EVALTARGET_IGNORE_ERRORS())
-  finally
-    pop!(ctx)
-  end
+  #= A dimension that does not evaluate (the expression itself) stays. =#
+  (_, e) = evalExpChecked(dim.exp, EVALTARGET_IGNORE_ERRORS())
+  pop!(ctx)
   return isLiteral(e) ? fromExp(e, dim.var) : dim
 end
 
@@ -840,14 +838,16 @@ function flattenComplexComponent(
       local evaluatedBindingExp = evalExp(binding_exp)
       binding_exp = stripBindingInfo(evaluatedBindingExp)
     elseif binding_var == Variability.PARAMETER && isFinal(comp)
-      try
-        binding_exp = stripBindingInfo(evalExp(binding_exp))
-      catch
-        #= If constant evaluation fails for a final parameter binding,
-           fall back to simplification. The expression is still valid,
-           just not constant-folded. This handles cases like chained
-           final parameter bindings with function calls. =#
-        Error.clearMessages()
+      #= A final parameter binding that does not evaluate is simplified: the expression is
+         still valid, just not constant-folded (chained final parameter bindings with function
+         calls); the messages of the attempt are dropped. =#
+      ErrorExt.setCheckpoint("NFFlatten.flattenComplexComponent")
+      local (ok::Bool, value::Expression) = evalExpChecked(binding_exp)
+      if ok
+        ErrorExt.delCheckpoint("NFFlatten.flattenComplexComponent")
+        binding_exp = stripBindingInfo(value)
+      else
+        ErrorExt.rollBack("NFFlatten.flattenComplexComponent")
         binding_exp = simplify(binding_exp)
       end
     else

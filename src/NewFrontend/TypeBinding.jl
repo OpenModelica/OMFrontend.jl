@@ -267,14 +267,11 @@ function typeBindingPayload!(
   #= Check if the condition evaluates to false (component is disabled). =#
   local componentDisabled = false
   if isBound(cCond)
-    try
-      local condExp = getTypedExp(cCond)
-      condExp = evalExp(condExp, EVALTARGET_CONDITION(Binding_getInfo(cCond)))
-      condExp = stripBindingInfo(condExp)
-      if condExp isa BOOLEAN_EXPRESSION && !condExp.value
-        componentDisabled = true
-      end
-    catch
+    local (ok::Bool, condExp::Expression) =
+      evalExpChecked(getTypedExp(cCond), EVALTARGET_CONDITION(Binding_getInfo(cCond)))
+    condExp = stripBindingInfo(condExp)
+    if ok && condExp isa BOOLEAN_EXPRESSION && !condExp.value
+      componentDisabled = true
     end
   end
 
