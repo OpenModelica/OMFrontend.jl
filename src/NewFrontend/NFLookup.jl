@@ -992,7 +992,9 @@ function _qualifyGeneratedInnerType(innerNode::InstNode, origScope::InstNode)::U
       #= Its declaration from its parent class's definition (a component being instantiated has
          no SCode definition of its own). =#
       local pscope = parent(origScope)
-      local cdef = SCodeUtil.getElementNamed(name(origScope), definition(classScope(pscope)))
+      local pdef::SCode.Element = definition(classScope(pscope))
+      SCodeUtil.hasElementNamed(name(origScope), pdef) || return nothing
+      local cdef::SCode.Element = SCodeUtil.getElementNamed(name(origScope), pdef)
       (cdef isa SCode.COMPONENT && cdef.typeSpec isa Absyn.TPATH) || return nothing
       scope = lookupClassName(cdef.typeSpec.path, pscope, cdef.info, false)
     end

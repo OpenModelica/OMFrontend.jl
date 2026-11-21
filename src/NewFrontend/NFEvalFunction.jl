@@ -63,14 +63,32 @@ keyCompare(inKey1::Key, inKey2::Key)::Int = refCompare(inKey1, inKey2)
 end
 
 const FlowControlType = Int
+"""
+How a statement ends. `ASSERTION`: an assert failed with level error; `FAILURE`: the statement could not be
+evaluated (an expression that does not evaluate, an unsupported assignment, a loop limit). Both end the
+function's evaluation with `EVAL_FAILED`.
+"""
 struct FlowControlStruct{T}
   NEXT::T
   CONTINUE::T
   BREAK::T
   RETURN::T
   ASSERTION::T
+  FAILURE::T
 end
-const FlowControl = FlowControlStruct{Int}(1,2,3,4,5)
+const FlowControl = FlowControlStruct{Int}(1,2,3,4,5,6)
+
+"""An internal error of the function evaluation reported (omc Error.assertion without the failure)."""
+function _internalError(msg::String)::Nothing
+  Error.addSourceMessage(Error.INTERNAL_ERROR, list(msg), sourceInfo())
+  return nothing
+end
+
+"""The value of `exp` in a statement, or `EVAL_FAILED` (Ceval's messages kept)."""
+function _evalStmtExp(@nospecialize(exp::Expression), target::EvalTarget)::Expression
+  local r::Expression = evalExp_impl(exp, target)
+  return r isa EVAL_FAILURE ? r : getBindingExp(r)
+end
 
 const _EVAL_RECURSION_LIMIT_CACHE = Ref{Int}(-1)
 @inline function _evalRecursionLimit()::Int
@@ -82,16 +100,11 @@ const _EVAL_RECURSION_LIMIT_CACHE = Ref{Int}(-1)
   return v
 end
 
+"""The value of a call of `fn` with evaluated arguments, or `EVAL_FAILED` (messages reported)."""
 function evaluate(fn::MODELICA_FUNCTION, args::Vector{Expression})::Expression
-  local result::Expression
   #= A partial derivative is differentiated by the backend, not the function's body (omc). =#
-  isPartialDerivative(fn) && fail()
-  if isExternal(fn)
-    result = evaluateExternal(fn, args)
-  else
-    result = evaluateNormal(fn, args)
-  end
-  return result
+  isPartialDerivative(fn) && return EVAL_FAILED
+  return isExternal(fn) ? evaluateExternal(fn, args) : evaluateNormal(fn, args)
 end
 
 #= A function's evaluation depth in this task (EVAL_RECURSION_LIMIT), keyed by its call counter,
@@ -115,10 +128,13 @@ end
   return nothing
 end
 
+"""
+The value of a call of a Modelica function by evaluating its algorithm, or `EVAL_FAILED`: a statement
+that does not evaluate, an assert of level error, an output never assigned, the recursion limit.
+"""
 function evaluateNormal(fn::MODELICA_FUNCTION, args::Vector{Expression})::Expression
   local result::Expression
   local fn_body::Vector{Statement}
-  local bindings::List{Binding}
   local repl::ReplTree.Tree
   local call_count::Int
   local limit::Int
@@ -127,7 +143,7 @@ function evaluateNormal(fn::MODELICA_FUNCTION, args::Vector{Expression})::Expres
   #= The function's evaluation depth in this task is increased by one at the
      start of each evaluation, and decreased by one when the evalution is
      finished. This is used to limit the number of recursive functions calls. =#
-  local depths = _evalDepths()
+  local depths::IdDict{Any, Int} = _evalDepths()
   call_count = get(depths, call_counter, 0) + 1
   #= An overloaded record constructor called in its own evaluation (`output Complex result =
      Complex(re = re, im = im)` in Complex.'constructor'.fromReal) stays a call, its arguments
@@ -143,29 +159,21 @@ function evaluateNormal(fn::MODELICA_FUNCTION, args::Vector{Expression})::Expres
       list(string(limit), AbsynUtil.pathString(name(fn))),
       InstNode_info(fn.node),
     )
-    fail()
+    return EVAL_FAILED
   end
   _setEvalDepth!(depths, call_counter, call_count)
+  #= The depth goes back down however the evaluation ends; an exception here is an internal error
+     (evalNormalCall turns it into EVAL_FAILED). =#
   try
     fn_body = getBody(fn)
     repl = createReplacements(fn, args)
     fn_body = applyReplacements(repl, fn_body)
     fn_body = optimizeBody(fn_body)
     ctrl = evaluateStatements(fn_body)
-    if ctrl != FlowControl.ASSERTION
-      @assign result = createResult(repl, fn.outputs)
-    else
-      fail()
-    end
-  catch e
+    result = (ctrl == FlowControl.ASSERTION || ctrl == FlowControl.FAILURE) ? EVAL_FAILED : createResult(repl, fn.outputs)
+  finally
     _setEvalDepth!(depths, call_counter, call_count - 1)
-    fail()
   end
-  #= TODO: Also apply replacements to the replacements themselves, i.e. the
-     bindings of the function parameters. But they probably need to be
-     sorted by dependencies first.
-     Make sure we always decrease the call counter even if the evaluation fails. =#
-  _setEvalDepth!(depths, call_counter, call_count - 1)
   return result
 end
 
@@ -187,24 +195,17 @@ function evaluateExternal(fn::MODELICA_FUNCTION, args::Vector{Expression})::Expr
   ) = getSections(getClass(fn.node))
   if lang == "builtin"
     #= TODO: evalfn does not exist yet. This path is for builtin external functions. =#
-    error("evalfn not implemented for builtin external function: " * name)
+    _internalError("evaluateExternal: evalfn not implemented for builtin external function: " * name)
+    result = EVAL_FAILED
   elseif isKnownExternalFunc(name, ann)
     result = evaluateKnownExternal(name, list(args...))
   elseif (ffi = callExternalFunction(name, fn, args, ext_args, output_ref, ann)) !== nothing
     result = ffi
   else
-    try
-      result = evaluateExternal2(name, fn, args, ext_args)
-    catch
-      Error.assertion(
-        false,
-        getInstanceName() +
-        " failed on " +
-        AbsynUtil.pathString(fn.path) +
-        ", evaluation of userdefined external functions not yet implemented",
-        sourceInfo(),
-      )
-      fail()
+    result = evaluateExternal2(name, fn, args, ext_args)
+    if result isa EVAL_FAILURE
+      _internalError("evaluateExternal failed on " * AbsynUtil.pathString(fn.path) *
+                     ", evaluation of userdefined external functions not yet implemented")
     end
   end
   #= Functions defined as 'external \"builtin\"', delegate to Ceval.
@@ -776,15 +777,20 @@ function createResult(repl::ReplTree.Tree, outputs::List{<:InstNode})::Expressio
      record output's fields stayed cells, and one never assigned (MSL Spice3's
      diodeCalcTempDependencies sets m_tBrkdwnV only for a given breakdown voltage) was not
      seen as empty where the binding is split, then reached the flat model as #EMPTY#. =#
+  local target::EvalTarget = EVALTARGET_IGNORE_ERRORS()
   if listLength(outputs) == 1
-    exp = detachCells(evalExp(ReplTree.get(repl, listHead(outputs))))
-    assertAssignedOutput(listHead(outputs), exp)
+    exp = _evalStmtExp(ReplTree.get(repl, listHead(outputs)), target)
+    exp isa EVAL_FAILURE && return exp
+    exp = detachCells(exp)
+    (exp isa EVAL_FAILURE || !assertAssignedOutput(listHead(outputs), exp)) && return EVAL_FAILED
   else
     expl = nil
     types = nil
     for o in outputs
-      e = detachCells(evalExp(ReplTree.get(repl, o)))
-      assertAssignedOutput(o, e)
+      e = _evalStmtExp(ReplTree.get(repl, o), target)
+      e isa EVAL_FAILURE && return e
+      e = detachCells(e)
+      (e isa EVAL_FAILURE || !assertAssignedOutput(o, e)) && return EVAL_FAILED
       expl = Cons{Expression}(e, expl)
     end
     expl = listReverseInPlace(expl)
@@ -794,23 +800,11 @@ function createResult(repl::ReplTree.Tree, outputs::List{<:InstNode})::Expressio
   return exp
 end
 
-function assertAssignedOutput(outputNode::InstNode, @nospecialize(value::Expression))
-  return  () = begin
-    @match value begin
-      EMPTY_EXPRESSION(__) => begin
-        Error.addSourceMessage(
-          Error.UNASSIGNED_FUNCTION_OUTPUT,
-          list(name(outputNode)),
-          InstNode_info(outputNode),
-        )
-        fail()
-      end
-
-      _ => begin
-        ()
-      end
-    end
-  end
+"""Whether an output was assigned; reports UNASSIGNED_FUNCTION_OUTPUT when it was not."""
+function assertAssignedOutput(outputNode::InstNode, @nospecialize(value::Expression))::Bool
+  value isa EMPTY_EXPRESSION || return true
+  Error.addSourceMessage(Error.UNASSIGNED_FUNCTION_OUTPUT, list(name(outputNode)), InstNode_info(outputNode))
+  return false
 end
 
 function evaluateStatements(stmts::Vector{Statement})
@@ -866,30 +860,25 @@ function evaluateStatement(stmt::Statement)::FlowControlType
       end
 
       _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() + " failed on " + anyString(stmt) + "\\n",
-          sourceInfo(),
-        )
-        fail()
+        _internalError("evaluateStatement failed on " * anyString(stmt))
+        FlowControl.FAILURE
       end
     end
   end
-  #= else
-     Error.assertion(false, getInstanceName() + \" failed to evaluate statement \" + Statement.toString(stmt) + \"\\n\", sourceInfo());
-     fail();
-     end try; =#
   return ctrl
 end
 
+"""`lhs := rhs`; FAILURE when rhs does not evaluate or lhs cannot be assigned."""
 function evaluateAssignment(
   @nospecialize(lhsExp::Expression),
   @nospecialize(rhsExp::Expression),
   source::SourceInfo,
 )::FlowControlType
-  local ctrl::FlowControlType = FlowControl.NEXT
-  assignVariable(lhsExp, detachCells(evalExp(rhsExp, EVALTARGET_STATEMENT(source))))
-  return ctrl
+  local value::Expression = _evalStmtExp(rhsExp, EVALTARGET_STATEMENT(source))
+  value isa EVAL_FAILURE && return FlowControl.FAILURE
+  value = detachCells(value)
+  value isa EVAL_FAILURE && return FlowControl.FAILURE
+  return assignVariable(lhsExp, value) ? FlowControl.NEXT : FlowControl.FAILURE
 end
 
 """
@@ -898,33 +887,35 @@ end
   other expressions). A record variable evaluates to a record of its field cells;
   stored or passed as it is, the target would share those cells (`r2 := r1;
   r1.x := 7` would change r2.x). A cell is read without writing its value back
-  into it; a field that does not evaluate is kept partly evaluated.
+  into it; `EVAL_FAILED` when a cell's value does not evaluate.
 """
 function detachCells(@nospecialize(exp::Expression))::Expression
-  @match exp begin
-    MUTABLE_EXPRESSION(__) => detachCells(evalExp(P_Pointer.access(exp.exp)))
-    RECORD_EXPRESSION(__) => begin
-      local elems = detachElements(exp.elements)
-      elems === exp.elements ? exp : RECORD_EXPRESSION(exp.path, exp.ty, elems)
-    end
+  if exp isa MUTABLE_EXPRESSION
+    local v::Expression = _evalStmtExp(P_Pointer.access(exp.exp), EVALTARGET_IGNORE_ERRORS())
+    return v isa EVAL_FAILURE ? v : detachCells(v)
+  elseif exp isa RECORD_EXPRESSION
+    local relems::Vector{Expression} = detachElements(exp.elements)
+    any(e -> e isa EVAL_FAILURE, relems) && return EVAL_FAILED
+    return relems === exp.elements ? exp : RECORD_EXPRESSION(exp.path, exp.ty, relems)
+  elseif exp isa ARRAY_EXPRESSION && (!exp.literal || isComplex(arrayElementType(exp.ty)))
     #= An evaluated array is marked literal even when its records hold cells. =#
-    ARRAY_EXPRESSION(__) where {!exp.literal || isComplex(arrayElementType(exp.ty))} => begin
-      local elems = detachElements(exp.elements)
-      elems === exp.elements ? exp : ARRAY_EXPRESSION(exp.ty, elems, exp.literal)
-    end
-    TUPLE_EXPRESSION(__) => begin
-      local elems = list(detachCells(e) for e in exp.elements)
-      all(referenceEq(d, e) for (d, e) in zip(elems, exp.elements)) ? exp : TUPLE_EXPRESSION(exp.ty, elems)
-    end
-    _ => exp
+    local aelems::Vector{Expression} = detachElements(exp.elements)
+    any(e -> e isa EVAL_FAILURE, aelems) && return EVAL_FAILED
+    return aelems === exp.elements ? exp : ARRAY_EXPRESSION(exp.ty, aelems, exp.literal)
+  elseif exp isa TUPLE_EXPRESSION
+    local telems::List{Expression} = list(detachCells(e) for e in exp.elements)
+    any(e -> e isa EVAL_FAILURE, telems) && return EVAL_FAILED
+    return all(referenceEq(d, e) for (d, e) in zip(telems, exp.elements)) ? exp : TUPLE_EXPRESSION(exp.ty, telems)
   end
+  return exp
 end
 
-#= The elements with their cells detached; the same vector when none held a cell. =#
+#= The elements with their cells detached; the same vector when none held a cell (an element can be
+   EVAL_FAILED: the caller checks). =#
 function detachElements(elems::Vector{Expression})::Vector{Expression}
-  local out = elems
+  local out::Vector{Expression} = elems
   for (i, e) in enumerate(elems)
-    local d = detachCells(e)
+    local d::Expression = detachCells(e)
     if !referenceEq(d, e)
       if out === elems
         out = copy(elems)
@@ -935,211 +926,139 @@ function detachElements(elems::Vector{Expression})::Vector{Expression}
   return out
 end
 
-function assignVariable(@nospecialize(variable::Expression), @nospecialize(value::Expression))
-  return  () = begin
-    local var::Expression
-    local val::Expression
-    local vals::List{Expression}
-    local var_ptr::Pointer{Expression}
-    #=  variable := value =#
-    @match (variable, value) begin
-      (MUTABLE_EXPRESSION(exp = var_ptr), _) => begin
-        P_Pointer.update(var_ptr, assignExp(P_Pointer.access(var_ptr), value))
-        ()
-      end
-      #=  (var1, var2, ...) := (value1, value2, ...) =#
-      (TUPLE_EXPRESSION(__), TUPLE_EXPRESSION(elements = vals)) => begin
-        for var in variable.elements
-          @match _cons(val, vals) = vals
-          assignVariable(var, val)
-        end
-        ()
-      end
-
-      (
-        SUBSCRIPTED_EXP_EXPRESSION(
-          exp = MUTABLE_EXPRESSION(exp = var_ptr),
-        ),
-        _,
-      ) => begin
-        #=  variable[subscript1, subscript2, ...] := value =#
-        assignSubscriptedVariable(var_ptr, variable.subscripts, value)
-        ()
-      end
-
-      (CREF_EXPRESSION(cref = COMPONENT_REF_WILD(__)), _) =>
-        begin
-          ()
-        end
-
-      _ => begin
-        #= _ := value =#
-        Error.assertion(
-          false,
-          getInstanceName() +
-          " failed on " +
-          toString(variable) +
-          " := " +
-          toString(value),
-          sourceInfo(),
-        )
-        fail()
-      end
+"""`variable := value` (a cell, a tuple of them, a subscripted cell, or `_`); false when it cannot be assigned."""
+function assignVariable(@nospecialize(variable::Expression), @nospecialize(value::Expression))::Bool
+  if variable isa MUTABLE_EXPRESSION
+    local new_val::Expression = assignExp(P_Pointer.access(variable.exp), value)
+    new_val isa EVAL_FAILURE && return false
+    P_Pointer.update(variable.exp, new_val)
+    return true
+  elseif variable isa TUPLE_EXPRESSION && value isa TUPLE_EXPRESSION &&
+         listLength(value.elements) >= listLength(variable.elements)
+    #= (var1, var2, ...) := (value1, value2, ...) =#
+    for (var, val) in zip(variable.elements, value.elements)
+      assignVariable(var, val) || return false
     end
+    return true
+  elseif variable isa SUBSCRIPTED_EXP_EXPRESSION && variable.exp isa MUTABLE_EXPRESSION
+    #= variable[subscript1, subscript2, ...] := value =#
+    return assignSubscriptedVariable(variable.exp.exp, variable.subscripts, value)
+  elseif variable isa CREF_EXPRESSION && variable.cref isa COMPONENT_REF_WILD
+    return true
   end
+  _internalError("assignVariable failed on " * toString(variable) * " := " * toString(value))
+  return false
 end
 
+"""`variable[subscripts] := value`; false when a subscript does not evaluate or the case is not supported."""
 function assignSubscriptedVariable(
   variable::Pointer{<:Expression},
   subscripts::List{<:Subscript},
   @nospecialize(value::Expression),
-)
-  local subs::List{Subscript}
-
-  @assign subs = list(evalSubscript(s) for s in subscripts)
-  return P_Pointer.update(variable, assignArrayElement(P_Pointer.access(variable), subs, value))
+)::Bool
+  local target::EvalTarget = EVALTARGET_IGNORE_ERRORS()
+  local subs::List{Subscript} = nil
+  for s in subscripts
+    if s isa SUBSCRIPT_INDEX || s isa SUBSCRIPT_SLICE
+      local e::Expression = _evalStmtExp(s isa SUBSCRIPT_INDEX ? s.index : s.slice, target)
+      e isa EVAL_FAILURE && return false
+      subs = Cons{Subscript}(s isa SUBSCRIPT_INDEX ? SUBSCRIPT_INDEX(e) : SUBSCRIPT_SLICE(e), subs)
+    else
+      subs = Cons{Subscript}(s, subs)
+    end
+  end
+  local new_val::Expression = assignArrayElement(P_Pointer.access(variable), listReverseInPlace(subs), value)
+  new_val isa EVAL_FAILURE && return false
+  P_Pointer.update(variable, new_val)
+  return true
 end
 
+"""
+The array `arrayExp` with the element at `subscripts` set to `value` (index, slice and whole subscripts, nested
+for the rest), copied, not updated in place: the element vector can be shared with other arrays (fillType and
+fill() repeat one row, and `y := x` shares x's elements, which may be a literal array from an argument or a
+constant's binding). `EVAL_FAILED` for another case or an array that does not evaluate.
+"""
 function assignArrayElement(
   @nospecialize(arrayExp::Expression),
   subscripts::List{<:Subscript},
   @nospecialize(value::Expression),
 )::Expression
-  local result::ARRAY_EXPRESSION
-  local sub::Expression
-  local val::Expression
-  local rest_subs::List{Subscript}
-  local idx::Int
-  local subs
-  local vals
   #= A variable's binding (fill(0.0, n), zeros(n)) is not evaluated when its cell is made:
      the element assignment needs the array (Buildings.Fluid.Movers.BaseClasses.Euler). =#
-  arrayExp isa ARRAY_EXPRESSION || (arrayExp = evalExp(arrayExp))
-  result = begin
-    @match (arrayExp, subscripts) begin
-      (
-        ARRAY_EXPRESSION(__),
-        SUBSCRIPT_INDEX(sub) <| rest_subs,
-      ) where {(isScalarLiteral(sub))} => begin
-        idx = toInteger(sub)
-        #= Copied, not updated in place: the element vector can be shared with other
-           arrays. fillType and fill() repeat one row, and `y := x` shares x's elements,
-           which may be a literal array from an argument or a constant's binding. =#
-        arrayExpElements = copy(arrayExp.elements)
-        if listEmpty(rest_subs)
-          arrayExpElements[idx] = value
-        else
-          arrayExpElements[idx] = assignArrayElement(arrayExpElements[idx], rest_subs, value)
-        end
-        ARRAY_EXPRESSION(arrayExp.ty, arrayExpElements, arrayExp.literal)
-      end
-
-      (ARRAY_EXPRESSION(__), SUBSCRIPT_SLICE(sub) <| rest_subs) => begin
-        local subsV = arrayElements(sub)
-        local valsV = arrayElements(value)
-        arrayExpElements = copy(arrayExp.elements)
-        if listEmpty(rest_subs)
-          for (i, s) in enumerate(subsV)
-            idx = toInteger(s)
-            arrayExpElements[idx] = valsV[i]
-          end
-        else
-          for (i, s) in enumerate(subsV)
-            idx = toInteger(s)
-            arrayExpElements[idx] = assignArrayElement(arrayExpElements[idx], rest_subs, valsV[i])
-          end
-        end
-        ARRAY_EXPRESSION(arrayExp.ty, arrayExpElements, arrayExp.literal)
-      end
-
-      (ARRAY_EXPRESSION(__), SUBSCRIPT_WHOLE(__) <| rest_subs) =>
-        begin
-          if listEmpty(rest_subs)
-            arrayExpElements = arrayElements(value)
-          else
-            local valElems = arrayElements(value)
-            arrayExpElements = Expression[assignArrayElement(e, rest_subs, valElems[i]) for (i, e) in enumerate(arrayExp.elements)]
-          end
-          ARRAY_EXPRESSION(arrayExp.ty, arrayExpElements, arrayExp.literal)
-        end
-
-      _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() +
-          ": unimplemented case for " +
-          toString(arrayExp) +
-          toStringList(subscripts) +
-          " = " +
-          toString(value),
-          sourceInfo(),
-        )
-        fail()
-      end
-    end
+  if !(arrayExp isa ARRAY_EXPRESSION)
+    arrayExp = _evalStmtExp(arrayExp, EVALTARGET_IGNORE_ERRORS())
+    arrayExp isa EVAL_FAILURE && return arrayExp
   end
-  return result
-end
-
-function assignExp(@nospecialize(lhs::Expression), @nospecialize(rhs::Expression))::Expression
-  local result::Expression
-  result = begin
-    @match lhs begin
-      RECORD_EXPRESSION(__) => begin
-        assignRecord(lhs, rhs)
-      end
-
-      _ => begin
-        rhs
-      end
-    end
-  end
-  #= TODO: Handle arrays. =#
-  return result
-end
-
-function assignRecord(@nospecialize(lhs::Expression), @nospecialize(rhs::Expression))::Expression
-  local result::Expression
-  result = begin
+  if arrayExp isa ARRAY_EXPRESSION && !listEmpty(subscripts)
+    local sub::Subscript = listHead(subscripts)
+    local rest_subs::List{Subscript} = listRest(subscripts)
     local elems::Vector{Expression}
-    local e::Expression
-    local val::Expression
-    local cls_tree::ClassTree
-    local comps::Vector{InstNode}
-    local binding_exp::Option{Expression}
-    local ty::ModelicaType
-    @match rhs begin
-      RECORD_EXPRESSION(__) => begin
-        @match RECORD_EXPRESSION(elements = elems) = lhs
-        for (i, v) in enumerate(rhs.elements)
-          assignVariable(elems[i], v)
-        end
-        lhs
+    if sub isa SUBSCRIPT_INDEX && isScalarLiteral(sub.index)
+      elems = copy(arrayExp.elements)
+      local idx::Int = toInteger(sub.index)
+      elems[idx] = listEmpty(rest_subs) ? value : assignArrayElement(elems[idx], rest_subs, value)
+      elems[idx] isa EVAL_FAILURE && return EVAL_FAILED
+      return ARRAY_EXPRESSION(arrayExp.ty, elems, arrayExp.literal)
+    elseif sub isa SUBSCRIPT_SLICE
+      local subsV::Vector{Expression} = arrayElements(sub.slice)
+      local valsV::Vector{Expression} = arrayElements(value)
+      elems = copy(arrayExp.elements)
+      for (i, s) in enumerate(subsV)
+        local sidx::Int = toInteger(s)
+        elems[sidx] = listEmpty(rest_subs) ? valsV[i] : assignArrayElement(elems[sidx], rest_subs, valsV[i])
+        elems[sidx] isa EVAL_FAILURE && return EVAL_FAILED
       end
-      CREF_EXPRESSION(__) => begin
-        @match RECORD_EXPRESSION(elements = elems) = lhs
-        cls_tree =
-          classTree(getClass(node(rhs.cref)))
-        comps = getComponents(cls_tree)
-        for (i, c) in enumerate(comps)
-          e = elems[i]
-          ty = getType(c)
-          val = CREF_EXPRESSION(
-            liftArrayLeftList(ty, arrayDims(rhs.ty)),
-            prefixCref(c, ty, nil, rhs.cref),
-          )
-          assignVariable(e, val)
-        end
-        lhs
+      return ARRAY_EXPRESSION(arrayExp.ty, elems, arrayExp.literal)
+    elseif sub isa SUBSCRIPT_WHOLE
+      local valElems::Vector{Expression} = arrayElements(value)
+      if listEmpty(rest_subs)
+        elems = valElems
+      else
+        elems = Expression[assignArrayElement(e, rest_subs, valElems[i]) for (i, e) in enumerate(arrayExp.elements)]
+        any(e -> e isa EVAL_FAILURE, elems) && return EVAL_FAILED
       end
-      _ => begin
-        rhs
-      end
+      return ARRAY_EXPRESSION(arrayExp.ty, elems, arrayExp.literal)
     end
   end
-  return result
+  _internalError("assignArrayElement: unimplemented case for " * toString(arrayExp) * toStringList(subscripts) *
+                 " = " * toString(value))
+  return EVAL_FAILED
 end
 
+"""The value of a variable after `lhs := rhs`: a record's fields assigned one by one, else `rhs`."""
+function assignExp(@nospecialize(lhs::Expression), @nospecialize(rhs::Expression))::Expression
+  #= TODO: Handle arrays. =#
+  return lhs isa RECORD_EXPRESSION ? assignRecord(lhs, rhs) : rhs
+end
+
+"""
+`lhs := rhs` for a record of field cells: from a record value field by field, from a record cref by its
+fields' crefs; `EVAL_FAILED` when a field cannot be assigned.
+"""
+function assignRecord(lhs::RECORD_EXPRESSION, @nospecialize(rhs::Expression))::Expression
+  local elems::Vector{Expression} = lhs.elements
+  if rhs isa RECORD_EXPRESSION
+    for (i, v) in enumerate(rhs.elements)
+      assignVariable(elems[i], v) || return EVAL_FAILED
+    end
+    return lhs
+  elseif rhs isa CREF_EXPRESSION
+    local comps::Vector{InstNode} = getComponents(classTree(getClass(node(rhs.cref))))
+    for (i, c) in enumerate(comps)
+      local ty::ModelicaType = getType(c)
+      local val::Expression = CREF_EXPRESSION(liftArrayLeftList(ty, arrayDims(rhs.ty)), prefixCref(c, ty, nil, rhs.cref))
+      assignVariable(elems[i], val) || return EVAL_FAILED
+    end
+    return lhs
+  end
+  return rhs
+end
+
+"""
+A for statement: the body for each value of the range, until a break, return, assertion or failure;
+`FlowControl.FAILURE` when the range does not evaluate or the loop limit is reached.
+"""
 function evaluateFor(
   iterator::InstNode,
   range::Option,
@@ -1147,155 +1066,107 @@ function evaluateFor(
   source::SourceInfo,
 )::FlowControlType
   local ctrl::FlowControlType = FlowControl.NEXT
-  local range_iter::RangeIterator
-  local iter_exp::Pointer{Expression}
-  local range_exp::Expression
-  local value::Expression
-  local body::Vector{Statement} = forBody
-  local i::Int = 0
   local limit::Int = Flags.getConfigInt(Flags.EVAL_LOOP_LIMIT)
-  range_exp = evalExp(Util.getOption(range), EVALTARGET_STATEMENT(source))
-  range_iter = RangeIterator_fromExp(range_exp)
-    #=  Loop through each value in the iteration range. =#
-  if hasNext(range_iter)
-    @match EXP_NODE(exp = MUTABLE_EXPRESSION(exp = iter_exp)) =
-      iterator
-    while hasNext(range_iter)
-      (range_iter, value) = next(range_iter)
-      #=  Update the mutable expression with the iteration value and evaluate the statement. =#
-      P_Pointer.update(iter_exp, value)
-      ctrl = evaluateStatements(body)
-      if ctrl != FlowControl.NEXT
-        if ctrl == FlowControl.BREAK
-          ctrl = FlowControl.NEXT
-        end
-        break
-      end
-      i = i + 1
-      if i > limit
-        Error.addSourceMessage(
-          Error.EVAL_LOOP_LIMIT_REACHED,
-          list(string(limit)),
-          source,
-        )
-        fail()
-      end
+  local range_exp::Expression = _evalStmtExp(Util.getOption(range), EVALTARGET_STATEMENT(source))
+  range_exp isa EVAL_FAILURE && return FlowControl.FAILURE
+  local range_iter::RangeIterator = RangeIterator_fromExp(range_exp)
+  hasNext(range_iter) || return ctrl
+  local it::Expression = iterator.exp
+  local iter_exp::Pointer{Expression} = (it::MUTABLE_EXPRESSION).exp
+  local value::Expression
+  local i::Int = 0
+  while hasNext(range_iter)
+    (range_iter, value) = next(range_iter)
+    #= Update the mutable expression with the iteration value and evaluate the statement. =#
+    P_Pointer.update(iter_exp, value)
+    ctrl = evaluateStatements(forBody)
+    if ctrl != FlowControl.NEXT
+      ctrl == FlowControl.BREAK && (ctrl = FlowControl.NEXT)
+      break
+    end
+    i += 1
+    if i > limit
+      Error.addSourceMessage(Error.EVAL_LOOP_LIMIT_REACHED, list(string(limit)), source)
+      return FlowControl.FAILURE
     end
   end
   return ctrl
 end
 
+"""The body of the first branch whose condition is true; `FlowControl.FAILURE` when a condition does not evaluate."""
 function evaluateIf(
   branches::Vector{Tuple{Expression, Vector{Statement}}},
   source::SourceInfo,
 )::FlowControlType
-  local ctrl::FlowControlType
-  local cond::Expression
-  local body::Vector{Statement}
-  for branch in branches
-    (cond, body) = branch
-    if isTrue(evalExp(cond, EVALTARGET_STATEMENT(source)))
-      ctrl = evaluateStatements(body)
-      return ctrl
-    end
+  local target::EvalTarget = EVALTARGET_STATEMENT(source)
+  for (cond, body) in branches
+    local c::Expression = _evalStmtExp(cond, target)
+    c isa EVAL_FAILURE && return FlowControl.FAILURE
+    isTrue(c) && return evaluateStatements(body)
   end
-  ctrl = FlowControl.NEXT
-  return ctrl
+  return FlowControl.NEXT
 end
 
 """
-Evaluates assert statments
+An assert statement: a warning goes on, an error is `FlowControl.ASSERTION`; `FlowControl.FAILURE` when the
+condition, message or level does not evaluate.
 """
 function evaluateAssert(@nospecialize(condition::Expression), assertStmt::Statement)::FlowControlType
-  local ctrl::FlowControlType = FlowControl.NEXT
-  local cond::Expression
-  local msg::Expression
-  local lvl::Expression
-  local source::SourceInfo
   local target::EvalTarget = EVALTARGET_STATEMENT(assertStmt.source)
-  if isFalse(evalExp(condition, target))
-    @match ALG_ASSERT(message = msg, level = lvl, source = source) =assertStmt
-    msg = evalExp(msg, target)
-    lvl = evalExp(lvl, target)
-    () = begin
-      @match (msg, lvl) begin
-        (
-          STRING_EXPRESSION(__),
-          ENUM_LITERAL_EXPRESSION(name = "warning"),
-        ) => begin
-          Error.addSourceMessage(
-            Error.ASSERT_TRIGGERED_WARNING,
-            list(msg.value),
-            source,
-          )
-          ()
-        end
-
-        (
-          STRING_EXPRESSION(__),
-          ENUM_LITERAL_EXPRESSION(name = "error"),
-        ) => begin
-          Error.addSourceMessage(
-            Error.ASSERT_TRIGGERED_ERROR,
-            list(msg.value),
-            source,
-          )
-          ctrl = FlowControl.ASSERTION
-          ()
-        end
-        _ => begin
-          Error.assertion(
-            false,
-            getInstanceName() +
-            " failed to evaluate assert(false, " +
-            toString(msg) +
-            ", " +
-            toString(lvl) +
-            ")",
-            sourceInfo(),
-          )
-          fail()
-        end
-      end
+  local cond::Expression = _evalStmtExp(condition, target)
+  cond isa EVAL_FAILURE && return FlowControl.FAILURE
+  isFalse(cond) || return FlowControl.NEXT
+  local msgExp::Expression = assertStmt.message
+  local lvlExp::Expression = assertStmt.level
+  local msg::Expression = _evalStmtExp(msgExp, target)
+  msg isa EVAL_FAILURE && return FlowControl.FAILURE
+  local lvl::Expression = _evalStmtExp(lvlExp, target)
+  lvl isa EVAL_FAILURE && return FlowControl.FAILURE
+  if msg isa STRING_EXPRESSION && lvl isa ENUM_LITERAL_EXPRESSION
+    if lvl.name == "warning"
+      Error.addSourceMessage(Error.ASSERT_TRIGGERED_WARNING, list(msg.value), assertStmt.source)
+      return FlowControl.NEXT
+    elseif lvl.name == "error"
+      Error.addSourceMessage(Error.ASSERT_TRIGGERED_ERROR, list(msg.value), assertStmt.source)
+      return FlowControl.ASSERTION
     end
   end
-  return ctrl
+  _internalError("evaluateAssert failed to evaluate assert(false, " * toString(msg) * ", " * toString(lvl) * ")")
+  return FlowControl.FAILURE
 end
 
+"""A call statement without results; `FlowControl.FAILURE` when the call does not evaluate."""
 function evaluateNoRetCall(@nospecialize(callExp::Expression), source::SourceInfo)::FlowControlType
-  local ctrl::FlowControlType = FlowControl.NEXT
-
-  evalExp(callExp, EVALTARGET_STATEMENT(source))
-  return ctrl
+  local r::Expression = evalExp_impl(callExp, EVALTARGET_STATEMENT(source))
+  return r isa EVAL_FAILURE ? FlowControl.FAILURE : FlowControl.NEXT
 end
 
+"""
+A while statement: the body while the condition is true, until a break, return, assertion or failure;
+`FlowControl.FAILURE` when the condition does not evaluate or the loop limit is reached.
+"""
 function evaluateWhile(
   @nospecialize(condition::Expression),
   body::Vector{Statement},
   source::SourceInfo,
 )::FlowControlType
   local ctrl::FlowControlType = FlowControl.NEXT
-
   local i::Int = 0
   local limit::Int = Flags.getConfigInt(Flags.EVAL_LOOP_LIMIT)
   local target::EvalTarget = EVALTARGET_STATEMENT(source)
-
-  while isTrue(evalExp(condition, target))
-    @assign ctrl = evaluateStatements(body)
+  while true
+    local c::Expression = _evalStmtExp(condition, target)
+    c isa EVAL_FAILURE && return FlowControl.FAILURE
+    isTrue(c) || break
+    ctrl = evaluateStatements(body)
     if ctrl != FlowControl.NEXT
-      if ctrl == FlowControl.BREAK
-        @assign ctrl = FlowControl.NEXT
-      end
+      ctrl == FlowControl.BREAK && (ctrl = FlowControl.NEXT)
       break
     end
-    @assign i = i + 1
+    i += 1
     if i > limit
-      Error.addSourceMessage(
-        Error.EVAL_LOOP_LIMIT_REACHED,
-        list(string(limit)),
-        source,
-      )
-      fail()
+      Error.addSourceMessage(Error.EVAL_LOOP_LIMIT_REACHED, list(string(limit)), source)
+      return FlowControl.FAILURE
     end
   end
   return ctrl
@@ -1556,12 +1427,8 @@ function evaluateKnownExternal(name::String, args::List{<:Expression})::Expressi
       end
 
       _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() + ": failed to evaluate " + name,
-          sourceInfo(),
-        )
-        fail()
+        _internalError("evaluateKnownExternal: failed to evaluate " * name)
+        EVAL_FAILED
       end
     end
   end
@@ -1601,22 +1468,9 @@ function evaluateOpenModelicaRegex(args::List{<:Expression})::Expression
       end
 
       _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() +
-          " failed on OpenModelica_regex" +
-          ListUtil.toString(
-            args,
-            toString,
-            "",
-            "(",
-            ", ",
-            ")",
-            true,
-          ),
-          sourceInfo(),
-        )
-        fail()
+        _internalError("evaluateOpenModelicaRegex: failed on OpenModelica_regex" *
+                       ListUtil.toString(args, toString, "", "(", ", ", ")", true))
+        EVAL_FAILED
       end
     end
   end
@@ -1669,93 +1523,30 @@ function evaluateExternal2(
     map(e, (subexp) -> applyReplacements2(repl, subexp, false))
     for e in extArgs
   )
-  evaluateExternal3(name, ext_args)
+  evaluateExternal3(name, ext_args) || return EVAL_FAILED
   @assign result = createResult(repl, fn.outputs)
   return result
 end
 
-function evaluateExternal3(name::String, args::List{<:Expression})
-  return  () = begin
-    @match name begin
-      "dgeev" => begin
-        Lapack_dgeev(args)
-        ()
-      end
-
-      "dgegv" => begin
-        Lapack_dgegv(args)
-        ()
-      end
-
-      "dgels" => begin
-        Lapack_dgels(args)
-        ()
-      end
-
-      "dgelsx" => begin
-        Lapack_dgelsx(args)
-        ()
-      end
-
-      "dgelsy" => begin
-        Lapack_dgelsy(args)
-        ()
-      end
-
-      "dgesv" => begin
-        Lapack_dgesv(args)
-        ()
-      end
-
-      "dgglse" => begin
-        Lapack_dgglse(args)
-        ()
-      end
-
-      "dgtsv" => begin
-        Lapack_dgtsv(args)
-        ()
-      end
-
-      "dgbsv" => begin
-        Lapack_dgbsv(args)
-        ()
-      end
-
-      "dgesvd" => begin
-        Lapack_dgesvd(args)
-        ()
-      end
-
-      "dgetrf" => begin
-        Lapack_dgetrf(args)
-        ()
-      end
-
-      "dgetrs" => begin
-        Lapack_dgetrs(args)
-        ()
-      end
-
-      "dgetri" => begin
-        Lapack_dgetri(args)
-        ()
-      end
-
-      "dgeqpf" => begin
-        Lapack_dgeqpf(args)
-        ()
-      end
-
-      "dorgqr" => begin
-        Lapack_dorgqr(args)
-        ()
-      end
-
-      "dhseqr" => begin
-        Lapack_dhseqr(args)
-        ()
-      end
-    end
+"""Evaluates the LAPACK routine `name` on `args` (its outputs are cells); false for another name."""
+function evaluateExternal3(name::String, args::List{<:Expression})::Bool
+  @match name begin
+    "dgeev" => (Lapack_dgeev(args); true)
+    "dgegv" => (Lapack_dgegv(args); true)
+    "dgels" => (Lapack_dgels(args); true)
+    "dgelsx" => (Lapack_dgelsx(args); true)
+    "dgelsy" => (Lapack_dgelsy(args); true)
+    "dgesv" => (Lapack_dgesv(args); true)
+    "dgglse" => (Lapack_dgglse(args); true)
+    "dgtsv" => (Lapack_dgtsv(args); true)
+    "dgbsv" => (Lapack_dgbsv(args); true)
+    "dgesvd" => (Lapack_dgesvd(args); true)
+    "dgetrf" => (Lapack_dgetrf(args); true)
+    "dgetrs" => (Lapack_dgetrs(args); true)
+    "dgetri" => (Lapack_dgetri(args); true)
+    "dgeqpf" => (Lapack_dgeqpf(args); true)
+    "dorgqr" => (Lapack_dorgqr(args); true)
+    "dhseqr" => (Lapack_dhseqr(args); true)
+    _ => false
   end
 end

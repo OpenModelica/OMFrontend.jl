@@ -3585,10 +3585,12 @@ function insertGeneratedInners(node::InstNode, topScope::InstNode)
     Error.addSourceMessage(Error.MISSING_INNER_ADDED, list(typeName(n), name), InstNode_info(n))
     if isComponent(n)
       n = instComponent(n, DEFAULT_ATTR, MODIFIER_NOMOD(), true, 0, Ref{Attributes}(DEFAULT_ATTR))
-      try
-        local absynStr::Absyn.STRING = SCodeUtil.getElementNamedAnnotation(definition(classScope(n)), "missingInnerMessage")
-        Error.addSourceMessage(Error.MISSING_INNER_MESSAGE, list(System.unescapedString(str)), InstNode_info(n))
-      catch
+      local cdef::SCode.Element = definition(classScope(n))
+      if SCodeUtil.hasElementNamedAnnotation(cdef, "missingInnerMessage")
+        local msgExp::Absyn.Exp = SCodeUtil.getElementNamedAnnotation(cdef, "missingInnerMessage")
+        if msgExp isa Absyn.STRING
+          Error.addSourceMessage(Error.MISSING_INNER_MESSAGE, list(System.unescapedString(msgExp.value)), InstNode_info(n))
+        end
       end
       @assign inner_comps = Cons{Pointer{InstNode}}(P_Pointer.create(n), inner_comps)
     end

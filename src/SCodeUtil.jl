@@ -88,85 +88,29 @@ function removeGivenSubModNames(submod::SCode.NAMEMOD; namesToRemove::List{Strin
 end
 
 
-"""  Return the Element with the name given as first argument from the Class. """
-function getElementNamed(inIdent::SCode.Ident, inClass::SCode.Element)::SCode.Element
-  local outElement::SCode.Element
-  outElement = begin
-    local elt::SCode.Element
-    local id::String
-    local elts::List{SCode.Element}
-    @match (inIdent, inClass) begin
-      (id, SCode.CLASS(classDef = SCode.PARTS(elementLst = elts))) => begin
-        elt = getElementNamedFromElts(id, elts)
-        elt
-      end
-
-      (
-        id,
-        SCode.CLASS(#= /* adrpo: handle also the case model extends X then X; */ =#
-          classDef = SCode.CLASS_EXTENDS(composition = SCode.PARTS(elementLst = elts)),
-        ),
-      ) => begin
-        @assign elt = getElementNamedFromElts(id, elts)
-        elt
-      end
-    end
-  end
-  return outElement
+"""The elements of a class's own parts (`model extends X` included), or `nil` for another class definition."""
+function _classPartsElements(cls::SCode.Element)::List{SCode.Element}
+  cls isa SCode.CLASS || return nil
+  local cdef::SCode.ClassDef = cls.classDef
+  cdef isa SCode.PARTS && return cdef.elementLst
+  (cdef isa SCode.CLASS_EXTENDS && cdef.composition isa SCode.PARTS) && return cdef.composition.elementLst
+  return nil
 end
 
-"""
-  Helper function to getElementNamed.
-"""
-function getElementNamedFromElts(
-  inIdent::SCode.Ident,
-  inElementLst::List{<:SCode.Element},
-)::SCode.Element
-  local outElement::SCode.Element
-  outElement = begin
-    local elt::SCode.Element
-    local comp::SCode.Element
-    local cdef::SCode.Element
-    local id2::String
-    local id1::String
-    local xs::List{SCode.Element}
-    @matchcontinue (inIdent, inElementLst) begin
-      #= Case 1. Components. =#
-      (id2, comp <| xs) => begin
-        @match SCode.COMPONENT(name = id1) = comp
-        @match true = stringEq(id1, id2)
-        comp
-      end
-
-      (id2, SCode.COMPONENT(name = id1) <| xs) => begin
-        @match false = stringEq(id1, id2)
-        elt = getElementNamedFromElts(id2, xs)
-        elt
-      end
-
-      (id2, SCode.CLASS(name = id1) <| xs) => begin
-        @match false = stringEq(id1, id2)
-        elt = getElementNamedFromElts(id2, xs)
-        elt
-      end
-
-      (id2, SCode.EXTENDS(__) <| xs) => begin
-        elt = getElementNamedFromElts(id2, xs)
-        elt
-      end
-
-      (id2, cdef <| xs && SCode.CLASS(name = id1) <| xs) => begin
-        @match true = stringEq(id1, id2)
-        cdef
-      end
-      #=  Try next. =#
-      (id2, h <| xs) => begin
-        elt = getElementNamedFromElts(id2, xs)
-        elt
-      end
-    end
+"""Whether `id` names an element of a class (`getElementNamed`)."""
+function hasElementNamed(id::SCode.Ident, cls::SCode.Element)::Bool
+  for e in _classPartsElements(cls)
+    (e isa SCode.COMPONENT || e isa SCode.CLASS) && e.name == id && return true
   end
-  return outElement
+  return false
+end
+
+"""The first component or class named `id` of a class's parts; `fail()` when there is none (`hasElementNamed`)."""
+function getElementNamed(id::SCode.Ident, cls::SCode.Element)::SCode.Element
+  for e in _classPartsElements(cls)
+    (e isa SCode.COMPONENT || e isa SCode.CLASS) && e.name == id && return e
+  end
+  fail()
 end
 
 """Returns true if Variability is constant, otherwise false"""
@@ -1900,9 +1844,29 @@ function attrVariability(attr::SCode.ATTR)::SCode.Variability
   return var
 end
 
+"""The annotation of an extends, class or component element, or `NONE()`."""
+function _elementAnnotation(element::SCode.Element)::Option{SCode.ANNOTATION}
+  element isa SCode.EXTENDS && return element.ann
+  element isa SCode.CLASS && return element.cmt.annotation_
+  element isa SCode.COMPONENT && return element.comment.annotation_
+  return NONE()
+end
+
+"""Whether the annotation of an element has an entry `name = value` (`getElementNamedAnnotation`)."""
+function hasElementNamedAnnotation(element::SCode.Element, name::String)::Bool
+  local annOpt::Option{SCode.ANNOTATION} = _elementAnnotation(element)
+  isNone(annOpt) && return false
+  local mod::SCode.Mod = Util.getOption(annOpt).modification
+  mod isa SCode.MOD || return false
+  for sm in mod.subModLst
+    hasNamedAnnotation(sm, name) && return true
+  end
+  return false
+end
+
 """
  Returns the annotation with the given name in the element, or fails if no
- such annotation could be found.
+ such annotation could be found (`hasElementNamedAnnotation`).
 """
 function getElementNamedAnnotation(element::SCode.Element, name::String)::Absyn.Exp
   local exp::Absyn.Exp
