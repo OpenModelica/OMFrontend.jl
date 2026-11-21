@@ -206,18 +206,18 @@ struct ENUM_LITERAL_EXPRESSION <: Expression
   index::Int
 end
 
-struct BOOLEAN_EXPRESSION{T0 <: Bool} <: Expression
-  value::T0
+struct BOOLEAN_EXPRESSION <: Expression
+  value::Bool
 end
 
-struct STRING_EXPRESSION{T0 <: String} <: Expression
-  value::T0
+struct STRING_EXPRESSION <: Expression
+  value::String
 end
 
-struct REAL_EXPRESSION{T0 <: AbstractFloat} <: Expression
-  value::T0
+struct REAL_EXPRESSION <: Expression
+  value::Float64
 end
 
-struct INTEGER_EXPRESSION{T0 <: Integer} <: Expression
-  value::T0
+struct INTEGER_EXPRESSION <: Expression
+  value::Int
 end

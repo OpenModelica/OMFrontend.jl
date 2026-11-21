@@ -35,8 +35,8 @@
 
 abstract type RangeIterator end
 
-struct RANGEITERATOR_INVALID_RANGE{T0 <: Expression} <: RangeIterator
-  exp::T0
+struct RANGEITERATOR_INVALID_RANGE <: RangeIterator
+  exp::Expression
 end
 
 struct RANGEITERATOR_ARRAY_RANGE <: RangeIterator

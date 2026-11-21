@@ -41,16 +41,16 @@ struct SUBSCRIPT_EXPANDED_SLICE <: Subscript
    indices::List{Subscript}
 end
 
-struct SUBSCRIPT_SLICE{T <: Expression} <: Subscript
-  slice::T
+struct SUBSCRIPT_SLICE <: Subscript
+  slice::Expression
 end
 
-struct SUBSCRIPT_INDEX{T <: Expression} <: Subscript
-  index::T
+struct SUBSCRIPT_INDEX <: Subscript
+  index::Expression
 end
 
-struct SUBSCRIPT_UNTYPED{T <: Expression} <: Subscript
-  exp::T
+struct SUBSCRIPT_UNTYPED <: Subscript
+  exp::Expression
 end
 
 mutable struct SUBSCRIPT_RAW_SUBSCRIPT <: Subscript
@@ -890,7 +890,7 @@ end
 
 function listContainsExpShallow(
   subscripts::List{<:Subscript},
-  func::ContainsPred,
+  @nospecialize(func::ContainsPred),
 )::Bool
   local res::Bool
 
@@ -906,7 +906,7 @@ end
 
 function containsExpShallow(
   subscript::Subscript,
-  func::ContainsPred,
+  @nospecialize(func::ContainsPred),
 )::Bool
   local res::Bool
 
@@ -934,7 +934,7 @@ end
 
 function listContainsExp(
   subscripts::List{<:Subscript},
-  func::ContainsPred,
+  @nospecialize(func::ContainsPred),
 )::Bool
   local res::Bool
 
@@ -948,7 +948,7 @@ function listContainsExp(
   return res
 end
 
-function containsExp(subscript::Subscript, func::ContainsPred)::Bool
+function containsExp(subscript::Subscript, @nospecialize(func::ContainsPred))::Bool
   local res::Bool
 
    res = begin

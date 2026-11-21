@@ -1688,7 +1688,7 @@ end
   exp
 end
 
-@nospecializeinfer function callContainsShallow(call::Call, func::ContainsPred) ::Bool
+@nospecializeinfer function callContainsShallow(call::Call, @nospecialize(func::ContainsPred)) ::Bool
   local res::Bool
   res = begin
     local e::Expression
@@ -1749,7 +1749,7 @@ end
   res
 end
 
-function listContainsShallow(expl::Union{List{<:Expression}, Vector{Expression}}, func::ContainsPred)::Bool
+function listContainsShallow(expl::Union{List{<:Expression}, Vector{Expression}}, @nospecialize(func::ContainsPred))::Bool
   local res::Bool
   for e in expl
     if func(e)
@@ -1761,7 +1761,7 @@ function listContainsShallow(expl::Union{List{<:Expression}, Vector{Expression}}
   return res
 end
 
-function crefContainsShallow(cref::ComponentRef, func::ContainsPred) ::Bool
+function crefContainsShallow(cref::ComponentRef, @nospecialize(func::ContainsPred)) ::Bool
   local res::Bool
 
    res = begin
@@ -1778,7 +1778,7 @@ function crefContainsShallow(cref::ComponentRef, func::ContainsPred) ::Bool
   res
 end
 
-function containsShallow(@nospecialize(exp::Expression), func::ContainsPred) ::Bool
+function containsShallow(@nospecialize(exp::Expression), @nospecialize(func::ContainsPred)) ::Bool
   local res::Bool
 
    res = begin
@@ -1881,7 +1881,7 @@ function containsShallow(@nospecialize(exp::Expression), func::ContainsPred) ::B
   res
 end
 
-@nospecializeinfer function callContains(call::Call, func::ContainsPred) ::Bool
+@nospecializeinfer function callContains(call::Call, @nospecialize(func::ContainsPred)) ::Bool
   local res::Bool
 
    res = begin
@@ -1943,7 +1943,7 @@ end
   res
 end
 
-function listContains(expl::List{<:Expression}, func::ContainsPred) ::Bool
+function listContains(expl::List{<:Expression}, @nospecialize(func::ContainsPred)) ::Bool
   local res::Bool
 
   for e in expl
@@ -1956,7 +1956,7 @@ function listContains(expl::List{<:Expression}, func::ContainsPred) ::Bool
   res
 end
 
-function vectorContains(expl::Vector{Expression}, func::ContainsPred)
+function vectorContains(expl::Vector{Expression}, @nospecialize(func::ContainsPred))
   local res::Bool
   for e in expl
     if contains(e, func)
@@ -1968,7 +1968,7 @@ function vectorContains(expl::Vector{Expression}, func::ContainsPred)
   res
 end
 
-function crefContains(cref::ComponentRef, func::ContainsPred) ::Bool
+function crefContains(cref::ComponentRef, @nospecialize(func::ContainsPred)) ::Bool
   local res::Bool
 
    res = begin
@@ -1985,7 +1985,7 @@ function crefContains(cref::ComponentRef, func::ContainsPred) ::Bool
   res
 end
 
-@nospecializeinfer function contains(@nospecialize(exp::Expression), func::ContainsPred) ::Bool
+@nospecializeinfer function contains(@nospecialize(exp::Expression), @nospecialize(func::ContainsPred)) ::Bool
   local res::Bool
   if func(exp)
      res = true
@@ -2072,7 +2072,7 @@ end
   res
 end
 
-function containsOpt(exp::Option{<:Expression}, func::ContainsPred) ::Bool
+function containsOpt(exp::Option{<:Expression}, @nospecialize(func::ContainsPred)) ::Bool
   local res::Bool
   local e::Expression
   res = begin

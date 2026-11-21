@@ -49,10 +49,10 @@ struct PREFIXES
 end
 
 abstract type Class end
-struct TYPED_DERIVED{T0 <: ModelicaType, T1 <: InstNode, T2 <: Restriction} <: Class
-  ty::T0
-  baseClass::T1
-  restriction::T2
+struct TYPED_DERIVED <: Class
+  ty::ModelicaType
+  baseClass::InstNode
+  restriction::Restriction
 end
 
 struct INSTANCED_BUILTIN <: Class
