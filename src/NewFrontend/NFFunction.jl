@@ -190,7 +190,7 @@ function isPartial(fn::MODELICA_FUNCTION)::Bool
   return isPartial(fn.node)
 end
 
-function foldExpParameter(node::InstNode, foldFn::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
+function foldExpParameter(node::InstNode, foldFn::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
 
   local comp::Component
   local cls::Class
@@ -216,12 +216,12 @@ end
 
 function foldExp(
   fn::MODELICA_FUNCTION,
-  foldFn::FoldFunc,
+  foldFn::FT,
   arg::ArgT,
   ::Type{ArgT},
   mapParameters::Bool = true,
   mapBody::Bool = true,
-  )::ArgT where {ArgT}
+  )::ArgT where {FT<:Function, ArgT}
 
   local cls::Class
 

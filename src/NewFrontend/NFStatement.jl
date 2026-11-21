@@ -371,7 +371,7 @@ function toString(stmt::Statement, indent::String = "")::String
   return str
 end
 
-function foldExp(stmt::Statement, func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
+function foldExp(stmt::Statement, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
   () = begin
     @match stmt begin
       ALG_ASSIGNMENT(__) => begin
@@ -441,7 +441,7 @@ function foldExp(stmt::Statement, func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT
   return arg
 end
 
-function foldExpList(stmt::Vector{Statement}, func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
+function foldExpList(stmt::Vector{Statement}, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
   for s in stmt
     arg = foldExp(s, func, arg, ArgT)
   end

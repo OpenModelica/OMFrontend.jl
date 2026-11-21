@@ -643,7 +643,7 @@ end
   return str
 end
 
-function foldDims(ty::ModelicaType, func::FuncT, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
+function foldDims(ty::ModelicaType, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
 
   @assign arg = begin
     @match ty begin

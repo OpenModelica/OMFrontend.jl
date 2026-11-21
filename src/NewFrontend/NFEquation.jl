@@ -482,7 +482,7 @@ end
   return res
 end
 
-@nospecializeinfer function foldExp(@nospecialize(eq::Equation), func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
+@nospecializeinfer function foldExp(@nospecialize(eq::Equation), func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
    () = begin
     @match eq begin
       EQUATION_EQUALITY(__) => begin
@@ -580,7 +580,7 @@ end
   return arg
 end
 
-function foldExpList(eq::Vector{Equation}, func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
+function foldExpList(eq::Vector{Equation}, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
   for e in eq
     arg = foldExp(e, func, arg, ArgT)
   end

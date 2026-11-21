@@ -2717,7 +2717,7 @@ end
 Folds `func` over the subscript expressions of `cref`, from the last part to the first, while the parts are crefs
 (origin CREF); an iterator or scope part ends the fold.
 """
-function foldCref(cref::ComponentRef, func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
+function foldCref(cref::ComponentRef, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
   local acc::ArgT = arg
   local cr::ComponentRef = cref
   local subs::List{Subscript}
@@ -2732,7 +2732,7 @@ function foldCref(cref::ComponentRef, func::FoldFunc, arg::ArgT, ::Type{ArgT})::
   return acc
 end
 
-function foldCall(call::Call, func::FoldFunc, foldArg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
+function foldCall(call::Call, func::FT, foldArg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
   () = begin
     local e::Expression
     @match call begin
@@ -2800,7 +2800,7 @@ function foldCall(call::Call, func::FoldFunc, foldArg::ArgT, ::Type{ArgT})::ArgT
   foldArg
 end
 
-@nospecializeinfer function fold(@nospecialize(exp::Expression), func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
+@nospecializeinfer function fold(@nospecialize(exp::Expression), func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
   local result::ArgT
   result = begin
     local e::Expression
@@ -2953,12 +2953,12 @@ end
 end
 
 """Folds `func` over the expression in `exp`, if any, and its subexpressions (as `fold`)."""
-function foldOpt(exp::Option{Expression}, func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
+function foldOpt(exp::Option{Expression}, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
   return exp === nothing ? arg : fold(something(exp), func, arg, ArgT)
 end
 
 """Folds `func` over the expressions of `expl` in order (as `fold`)."""
-function foldList(expl::Union{List{T}, Vector{T}}, func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {T, ArgT}
+function foldList(expl::Union{List{T}, Vector{T}}, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {T, FT<:Function, ArgT}
   local result::ArgT = arg
   for e in expl
     result = fold(e, func, result, ArgT)
@@ -6100,7 +6100,7 @@ end
   return res
 end
 
-function foldExp(binding::Binding, foldFn::Function, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
+function foldExp(binding::Binding, foldFn::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
   arg = begin
     @match binding begin
       UNTYPED_BINDING(__) => begin

@@ -99,7 +99,7 @@ function apply(
   end
 end
 
-function foldExp(sections::Sections, foldFn::FoldFn, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
+function foldExp(sections::Sections, foldFn::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
   @assign arg = begin
     @match sections begin
       SECTIONS(__) => begin

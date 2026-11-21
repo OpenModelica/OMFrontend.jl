@@ -288,7 +288,7 @@ function classCount(tree::ClassTree)::Int
   return count
 end
 
-function foldComponents(tree::ClassTree, func::FuncT, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
+function foldComponents(tree::ClassTree, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
 
   () = begin
     @match tree begin

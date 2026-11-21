@@ -756,7 +756,7 @@ function mapFoldExpShallowO1(subscript::Subscript, func::MapFunc, arg::ArgT) whe
 end
 
 
-function foldExp(subscript::Subscript, func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
+function foldExp(subscript::Subscript, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
   local result = begin
     @match subscript begin
       SUBSCRIPT_UNTYPED(__) => begin

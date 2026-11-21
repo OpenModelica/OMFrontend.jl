@@ -39,14 +39,14 @@ function toString(alg::ALGORITHM)::String
   return str
 end
 
-function foldExpList(algs::Vector{ALGORITHM}, func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
+function foldExpList(algs::Vector{ALGORITHM}, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
   for alg in algs
     arg = foldExp(alg, func, arg, ArgT)
   end
   return arg
 end
 
-function foldExp(alg::ALGORITHM, func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
+function foldExp(alg::ALGORITHM, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
   for s in alg.statements
     arg = foldExp(s, func, arg, ArgT)
   end

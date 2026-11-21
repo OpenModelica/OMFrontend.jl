@@ -831,7 +831,7 @@ end
   Traverses the tree in depth-first in-order and applies `inFunc(key, value, arg)::FT` to each node, in the
   process updating the argument; `FT` is the argument's type (an abstract tree type when the argument is a tree).
 """
-function fold(inTree::Tree, inFunc::Function, inStartValue::FT, ::Type{FT})::FT where {FT}
+function fold(inTree::Tree, inFunc::FF, inStartValue::FT, ::Type{FT})::FT where {FF<:Function, FT}
   local outResult::FT = inStartValue
   if inTree isa NODE
     outResult = fold(inTree.left, inFunc, outResult, FT)
