@@ -72,7 +72,6 @@ import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 import ..Absyn.Path
 import ..AbsynUtil
-import ..BaseAvlTree
 import ..Frontend.M_Type
 import ..Type
 import OpenModelicaParser.Absyn

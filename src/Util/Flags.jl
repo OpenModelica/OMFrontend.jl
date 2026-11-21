@@ -35,8 +35,6 @@
 
 module Flags
 
-Base.Experimental.@compiler_options(optimize=0, compile=min, infer=no)
-
 using MetaModelica
 import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll

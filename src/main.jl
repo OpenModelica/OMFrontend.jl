@@ -99,11 +99,6 @@ include("./Util/UnorderedSet.jl")
 import .P_UnorderedSet
 const UnorderedSet = P_UnorderedSet
 #= Include various utility structures =#
-include("./Util/BaseAvlSet.jl")
-include("./Util/BaseAvlTree.jl")
-include("./Util/BaseHashTable.jl")
-include("./Util/BaseHashSet.jl")
-
 include("./Util/Global.jl")
 include("./Util/Settings.jl")
 include("./Util/Print.jl")

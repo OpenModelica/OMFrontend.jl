@@ -12,7 +12,7 @@ The package is intentionally low-level. End users typically invoke it through OM
 
 - `src/OMFrontend.jl` — outer module `OMFrontend`. Public API: `parseFile`, `translateToSCode`, `instantiateSCodeToFM`, `instantiateSCodeToDAE`, `flattenModel`, `flattenModelWithMSL`, `flattenModelWithLibraries`, `loadLibrary`, `loadPackageDirectory`, `useLibrary!`, `unloadLibrary`, `loadedLibraries` (the libraries loaded into the session, which `flattenModelWithLibraries` adds), `enableDumpDebug`, `disableDumpDebug`, `toString`, `toFlatModelica`, `exportDAERepresentationToFile`.
 - `src/main.jl` — inner module `Frontend`. The pipeline lives here. It includes everything under `src/Util/`, `src/FrontendUtil/`, `src/FrontendInterfaces/`, and `src/NewFrontend/`.
-- `src/Util/` — generic utilities ported from MetaModelica (Pointer, BaseHashTable, BaseAvlTree, ErrorExt, etc.). Submodules of `Frontend`.
+- `src/Util/` — generic utilities ported from MetaModelica (Pointer, the AVL tree code `baseAvlTreeCode.jl`, ErrorExt, etc.). Submodules of `Frontend`.
 - `src/FrontendUtil/` — `Prefix`.
 - `src/FrontendInterfaces/` — `NFAlias`, `NFInterfaces` thin wrappers and re-exports.
 - `src/NewFrontend/` — the actual NF port (~77 files, prefix `NF`). The hot path lives here. Notable files:

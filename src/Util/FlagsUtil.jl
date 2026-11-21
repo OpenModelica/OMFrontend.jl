@@ -35,8 +35,6 @@
 
 module FlagsUtil
 
-Base.Experimental.@compiler_options(optimize=0, compile=min, infer=no)
-
 using MetaModelica
 import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 #= ExportAll is not good practice but it makes it so that we do not have to write export after each function :( =#
