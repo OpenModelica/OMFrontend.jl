@@ -466,24 +466,6 @@ function toDimension(subscript::Subscript)::Dimension
   return dimension
 end
 
-# function simplifySubscript(subscript::Subscript)::Subscript
-#   local outSubscript::Subscript
-#   outSubscript = begin
-#     @match subscript begin
-#       SUBSCRIPT_INDEX(__) => begin
-#         SUBSCRIPT_INDEX(simplify(subscript.index))
-#       end
-#       SUBSCRIPT_SLICE(__) => begin
-#         SUBSCRIPT_SLICE(simplify(subscript.slice))
-#       end
-#       _ => begin
-#         subscript
-#       end
-#     end
-#   end
-#   return outSubscript
-# end
-
 """
   New variant of simplify with two arguments
 """

@@ -1598,11 +1598,6 @@ function toFlatStreamHelper(fn::MODELICA_FUNCTION, s, fn_name)
     s = IOStream_M.append(s, fn_name)
     return s
   end
-  #fn_body = getBody(fn)
-  #if !listEmpty(fn_body)
-  #s = IOStream_M.append(s, "algorithm\\n")
-  #s = toFlatStreamList(fn_body, "  ", s)
-  #end
   s = IOStream_M.append(s, "\nend ")
   s = IOStream_M.append(s, fn_name)
 end

@@ -148,7 +148,6 @@ include("./NewFrontend/NFComponent.jl")
 include("./NewFrontend/NFImport.jl")
 include("./NewFrontend/LookupTree.jl")
 include("./NewFrontend/DuplicateTree.jl")
-include("./NewFrontend/JLookupTree.jl")
 include("./NewFrontend/NFClassTree.jl")
 include("./NewFrontend/NFEquation.jl")
 

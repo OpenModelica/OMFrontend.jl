@@ -247,7 +247,6 @@ end
 
 const ParallelismType = Int8
 
-const VariabilityType = Int8
 module Variability
 const VariabilityType = Int8
 const CONSTANT::VariabilityType = 1

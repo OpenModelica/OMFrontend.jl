@@ -473,16 +473,6 @@ function toFlatStream(flatModel::FLAT_MODEL, functions::List, printBindingTypes:
       s = IOStream_M.append(s, ";\\n\\n")
     end
   end
-  # WIP
-  # for fn in functions
-  #   if isDefaultRecordConstructor(fn)
-  #     println("!isDefaultRecordConstructor:" * AbsynUtil.pathString(fn.path))
-  #     s = IOStream_M.append(s, "//Automatically Generated Generated Record Constructors \\n\\n")
-  #     s = toFlatStream(fn, s)
-  #     s = IOStream_M.append(s, ";\\n\\n")
-  #     s = IOStream_M.append(s, "//End of Automatically Generated Record Constructors \\n\\n")
-  #   end
-  # end
 
   for ty in collectFlatTypes(flat_model, functions)
     s = toFlatDeclarationStream(ty, s)

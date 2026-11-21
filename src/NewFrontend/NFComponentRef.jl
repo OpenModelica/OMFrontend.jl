@@ -656,30 +656,6 @@ function toString_impl(cref::ComponentRef, strl::List{String})
   return strl
 end
 
-
-# WIP: John
-# function toStringDelim(cref::ComponentRef, delim::String, buffer = IOBuffer())
-#   @match cref begin
-#     COMPONENT_REF_CREF(__) where !(cref.restCref isa  COMPONENT_REF_EMPTY)  => begin
-#       print(buffer, name(cref.node), toStringDelim(cref.restCref, delim, buffer), "")
-#     end
-#     COMPONENT_REF_CREF(__) => begin
-#       print(buffer, string(name(cref.node), toStringList(cref.subscripts)))
-#     end
-#     COMPONENT_REF_WILD(__) => begin
-#       print(buffer, "_")
-#     end
-#     COMPONENT_REF_STRING(__) => begin
-#       print(buffer, toStringDelim(cref.restCref, delim, buffer), delim)
-#     end
-#     _ => begin
-#       buffer
-#     end
-#   end
-#   return String(take!(buffer))
-# end
-
-
 function toString(cref::ComponentRef)
   # TODO Revert to underscore again?
   # NOTE: Maybe it is better to do underscore conversion at a later stage.

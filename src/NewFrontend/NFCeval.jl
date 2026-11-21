@@ -3175,30 +3175,7 @@ function evalBuiltinCat(
   elseif sz == 1
     result = Base.first(es)
   else
-    # print("\nBEFORE EVAL CAT {");
-    # for e in es
-    #   print(toString(e));
-    #   print(",");
-    # end
-    #   print("}\n");
-     (es, dims) = evalCat(
-       n,
-       es,
-       arrayElements,
-       toString,
-     )
-    # print("\nEVAL CAT {");
-    # for e in es
-    #   print(toString(e));
-    #   print(",");
-    # end
-    # print("}\n");
-    # print("\nDimensions {")
-    # for d in dims
-    #   print(String(d))
-    #   print(",")
-    # end
-    # print("}\n")
+    (es, dims) = evalCat(n, es, arrayElements, toString)
     argL::List{Dimension} = nil
     tmp = listReverse(dims)
     while tmp !== nil
