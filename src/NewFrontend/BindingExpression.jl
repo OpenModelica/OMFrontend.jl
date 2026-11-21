@@ -1876,7 +1876,7 @@ function containsShallow(@nospecialize(exp::Expression), @nospecialize(func::Con
   res
 end
 
-@nospecializeinfer function callContains(call::Call, @nospecialize(func::ContainsPred)) ::Bool
+function callContains(call::Call, func::FT)::Bool where {FT<:Function}
   local res::Bool
 
    res = begin
@@ -1900,15 +1900,13 @@ end
         for arg in call.arguments
            (e, _, _) = arg
           if contains(e, func)
-             res = true
-            return
+            return true
           end
         end
         for arg in call.named_args
            (_, e, _, _) = arg
           if contains(e, func)
-             res = true
-            return
+            return true
           end
         end
         false
@@ -1938,7 +1936,7 @@ end
   res
 end
 
-function listContains(expl::List{<:Expression}, @nospecialize(func::ContainsPred)) ::Bool
+function listContains(expl::List{<:Expression}, func::FT)::Bool where {FT<:Function}
   local res::Bool
 
   for e in expl
@@ -1951,7 +1949,7 @@ function listContains(expl::List{<:Expression}, @nospecialize(func::ContainsPred
   res
 end
 
-function vectorContains(expl::Vector{Expression}, @nospecialize(func::ContainsPred))
+function vectorContains(expl::Vector{Expression}, func::FT)::Bool where {FT<:Function}
   local res::Bool
   for e in expl
     if contains(e, func)
@@ -1963,7 +1961,7 @@ function vectorContains(expl::Vector{Expression}, @nospecialize(func::ContainsPr
   res
 end
 
-function crefContains(cref::ComponentRef, @nospecialize(func::ContainsPred)) ::Bool
+function crefContains(cref::ComponentRef, func::FT)::Bool where {FT<:Function}
   local res::Bool
 
    res = begin
@@ -1980,9 +1978,10 @@ function crefContains(cref::ComponentRef, @nospecialize(func::ContainsPred)) ::B
   res
 end
 
-@nospecializeinfer function contains(@nospecialize(exp::Expression), @nospecialize(func::ContainsPred)) ::Bool
+"""Whether `func` holds for `exp` or one of its subexpressions (specialized on `func`)."""
+@nospecializeinfer function contains(@nospecialize(exp::Expression), func::FT)::Bool where {FT<:Function}
   local res::Bool
-  if func(exp)
+  if func(exp)::Bool
      res = true
     return res
   end
@@ -2067,7 +2066,7 @@ end
   res
 end
 
-function containsOpt(exp::Option{<:Expression}, @nospecialize(func::ContainsPred)) ::Bool
+function containsOpt(exp::Option{<:Expression}, func::FT)::Bool where {FT<:Function}
   local res::Bool
   local e::Expression
   res = begin
@@ -2083,7 +2082,7 @@ function containsOpt(exp::Option{<:Expression}, @nospecialize(func::ContainsPred
   res
 end
 
-function mapFoldCrefShallow(cref::ComponentRef, @nospecialize(func::Function), arg::ArgT)  where {ArgT}
+function mapFoldCrefShallow(cref::ComponentRef, func::FT, arg::ArgT)::Tuple{ComponentRef, ArgT} where {FT<:Function, ArgT}
   local outCref::ComponentRef
   outCref = begin
     local subs::List{Subscript}
@@ -2102,7 +2101,8 @@ function mapFoldCrefShallow(cref::ComponentRef, @nospecialize(func::Function), a
   (outCref, arg)
 end
 
-@nospecializeinfer function mapFoldCallIteratorsShallow(iters::List{Tuple{InstNode, Expression}}, @nospecialize(func::Function), arg::ArgT)  where {ArgT}
+function mapFoldCallIteratorsShallow(iters::List{Tuple{InstNode, Expression}}, func::FT,
+                                     arg::ArgT)::Tuple{List{Tuple{InstNode, Expression}}, ArgT} where {FT<:Function, ArgT}
   if listEmpty(iters)
     return (iters, arg)
   end
@@ -2126,7 +2126,7 @@ end
   (outIters, arg)
 end
 
-@nospecializeinfer function mapFoldCallShallow(call::Call, @nospecialize(func::Function), foldArg::ArgT)  where {ArgT}
+function mapFoldCallShallow(call::Call, func::FT, foldArg::ArgT)::Tuple{Call, ArgT} where {FT<:Function, ArgT}
   local outCall::Call
   outCall = begin
     local args::Vector{Expression}
@@ -2210,7 +2210,7 @@ end
   (outCall, foldArg)
 end
 
-function mapFoldOptShallow(exp::Option{Expression}, @nospecialize(func::Function), arg::ArgT)  where {ArgT}
+function mapFoldOptShallow(exp::Option{Expression}, func::FT, arg::ArgT)::Tuple{Option{Expression}, ArgT} where {FT<:Function, ArgT}
 
   local outExp::Option{Expression}
 
@@ -2236,7 +2236,7 @@ function mapFoldOptShallow(exp::Option{Expression}, @nospecialize(func::Function
   (outExp, arg)
 end
 
-function mapFoldClockShallow(@nospecialize(clockExp::Expression), @nospecialize(func::Function), arg::ArgT)  where {ArgT}
+function mapFoldClockShallow(@nospecialize(clockExp::Expression), func::FT, arg::ArgT)::Tuple{Expression, ArgT} where {FT<:Function, ArgT}
 
   local outExp::Expression
 
@@ -2296,7 +2296,11 @@ function mapFoldClockShallow(@nospecialize(clockExp::Expression), @nospecialize(
   (outExp, arg)
 end
 
-@nospecializeinfer function mapFoldShallow(@nospecialize(exp::Expression), @nospecialize(func::Function), arg::ArgT)  where {ArgT}
+"""
+The children of `exp` mapped by `(child, arg) = func(child, arg)`, the fold argument threaded through; `exp` itself
+when no child changed. Specialized on `func` (3 callers, all with a Bool argument: NFEvalConstants).
+"""
+@nospecializeinfer function mapFoldShallow(@nospecialize(exp::Expression), func::FT, arg::ArgT)::Tuple{Expression, ArgT} where {FT<:Function, ArgT}
   local outExp::Expression
   outExp = begin
     local e1::Expression

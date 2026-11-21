@@ -50,6 +50,7 @@ import ..ArrayUtil
 import ..ListUtil
 import ..SCode
 import PrecompileTools
+import ConstructionBase
 import Base.@nospecializeinfer
 #= Import the execstat macro from the enclosing module..=#
 import ..@EXECSTAT

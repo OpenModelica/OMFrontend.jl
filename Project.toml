@@ -4,6 +4,7 @@ authors = ["John Tinnerholm <johti17@liu.se>", "Martin Sjölund <martin.sjolund@
 version = "3.0.0"
 
 [deps]
+ConstructionBase = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
 ExportAll = "ad2082ca-a69e-11e9-38fa-e96309a31fe4"
 ImmutableList = "4a558cac-c1ed-11e9-20da-3584bcd8709a"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
@@ -16,6 +17,7 @@ OMRuntimeExternalC="ada38df0-e20e-11ed-02f3-2b4b19c1ec8a"
 
 [compat]
 julia = "1.13"
+ConstructionBase = "1"
 MetaModelica = "2"
 OpenModelicaParser = "1"
 ImmutableList = "0.6"

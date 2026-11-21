@@ -643,7 +643,7 @@ function toString(subscript::Subscript)::String
   return string
 end
 
-function mapFoldExpShallow(subscript::Subscript, func::MapFunc, arg::ArgT) where {ArgT}
+function mapFoldExpShallow(subscript::Subscript, func::FT, arg::ArgT)::Tuple{Subscript, ArgT} where {FT<:Function, ArgT}
   local outSubscript::Subscript
   outSubscript = begin
     local exp::Expression
@@ -901,10 +901,7 @@ function containsExpShallow(
   return res
 end
 
-function listContainsExp(
-  subscripts::List{<:Subscript},
-  @nospecialize(func::ContainsPred),
-)::Bool
+function listContainsExp(subscripts::List{<:Subscript}, func::FT)::Bool where {FT<:Function}
   local res::Bool
 
   for s in subscripts
@@ -917,7 +914,7 @@ function listContainsExp(
   return res
 end
 
-function containsExp(subscript::Subscript, @nospecialize(func::ContainsPred))::Bool
+function containsExp(subscript::Subscript, func::FT)::Bool where {FT<:Function}
   local res::Bool
 
    res = begin

@@ -876,6 +876,13 @@ end
 """A branch of an if- or when-equation (see `EquationBranchImpl`)."""
 const EquationBranch = EquationBranchImpl{Equation}
 
+#= `@assign x.f = v` rebuilds `x` with `ConstructionBase.constructorof(typeof(x))`, by default the type's UnionAll
+   (`ModifierImpl`): Julia then infers the parameter from the field values at run time, at every `@assign` on a
+   modifier, type or branch (EmptyTanks: 5.7% of a flatten). The concrete type is its own constructor. =#
+ConstructionBase.constructorof(::Type{T}) where {T <: ModelicaTypeImpl} = T
+ConstructionBase.constructorof(::Type{T}) where {T <: ModifierImpl} = T
+ConstructionBase.constructorof(::Type{T}) where {T <: EquationBranchImpl} = T
+
 """An `Equation` of variant `tag` with the given fields, the others `nothing`."""
 @inline _equation(tag::EquationTag, source; exp = nothing, cref = nothing, reinitExp = nothing, message = nothing,
                   condition = nothing, level = nothing, branches = nothing, variables = nothing,
