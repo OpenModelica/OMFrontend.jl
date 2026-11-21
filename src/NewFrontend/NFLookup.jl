@@ -413,23 +413,34 @@ function loadLibrary(nameStr::String, topScope::InstNode)::Bool
   local flags = Flags.getFlags()
   (flags isa Flags.FLAGS && Flags.LOAD_MISSING_LIBRARIES.index <= length(flags.configFlags) &&
    !Flags.getConfigBool(Flags.LOAD_MISSING_LIBRARIES)) && return false
-  return lock(_LIBRARY_LOAD_LOCK) do
-    #= Another task may have loaded it meanwhile. =#
-    lookupElement(nameStr, getClass(topScope)).node !== EMPTY_NODE() && return true
-    local prog = loader(nameStr)
-    prog === nothing && return false
-    local new_libs = InstNode[]
-    for c in prog
-      c isa SCode.CLASS || continue
-      lookupElement(c.name, getClass(topScope)).node === EMPTY_NODE() || continue
-      push!(new_libs, newClass(c, topScope))
-    end
-    isempty(new_libs) && return false
-    local cls = getClass(topScope)
-    cls = setClassTree(appendClasses(classTree(cls), list(new_libs...)), cls)
-    updateClass(cls, topScope)
-    return true
+  lock(_LIBRARY_LOAD_LOCK)
+  try
+    return _loadLibraryLocked(nameStr, topScope, loader)
+  finally
+    unlock(_LIBRARY_LOAD_LOCK)
   end
+end
+
+"""
+`loadLibrary` under its lock: the classes of the library `loader` returns that the top scope does not have yet.
+No closure for the lock: the loader's type is known only at run time (`LIBRARY_LOADER`).
+"""
+function _loadLibraryLocked(nameStr::String, topScope::InstNode, @nospecialize(loader))::Bool
+  #= Another task may have loaded it meanwhile. =#
+  lookupElement(nameStr, getClass(topScope)).node !== EMPTY_NODE() && return true
+  local prog = loader(nameStr)
+  prog === nothing && return false
+  local new_libs::Vector{InstNode} = InstNode[]
+  for c in prog
+    c isa SCode.CLASS || continue
+    lookupElement(c.name, getClass(topScope)).node === EMPTY_NODE() || continue
+    push!(new_libs, newClass(c, topScope))
+  end
+  isempty(new_libs) && return false
+  local cls::Class = getClass(topScope)
+  cls = setClassTree(appendClasses(classTree(cls), list(new_libs...)), cls)
+  updateClass(cls, topScope)
+  return true
 end
 
 """

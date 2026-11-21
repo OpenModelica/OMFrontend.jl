@@ -204,6 +204,41 @@ PrecompileTools.@compile_workload begin
   end
 end
 
-# @recompile_invalidations begin
-#   workload()
-# end
+"""
+The names of the traced precompile statements: OMFrontend and every package loaded with it, under the names the
+trace prints (`ImmutableList.ListDef.Cons`, `Accessors.PropertyLens`), bound when OMFrontend precompiles.
+"""
+module PrecompileNames
+  import ..OMFrontend
+  for m in values(Base.loaded_modules)
+    isdefined(@__MODULE__, nameof(m)) || Core.eval(@__MODULE__, :(const $(nameof(m)) = $m))
+  end
+end
+
+"""The precompile statements traced from cold flattens of MSL models (`utilities/precompileStatements.jl`)."""
+const PRECOMPILE_STATEMENTS_FILE = joinpath(@__DIR__, "precompileStatements.txt")
+include_dependency(PRECOMPILE_STATEMENTS_FILE)
+
+"""
+Compiles the methods a cold flatten of MSL models still compiled at run time after the workload (traced over
+models of each MSL domain, `utilities/coldFlatten.jl`). A statement whose names no longer resolve, after a
+change of the code, is skipped; the number skipped is returned.
+"""
+function runPrecompileStatements()::Int
+  local skipped::Int = 0
+  for line in eachline(PRECOMPILE_STATEMENTS_FILE)
+    isempty(line) && continue
+    try
+      Core.eval(PrecompileNames, Meta.parse(line))::Bool || (skipped += 1)
+    catch
+      skipped += 1
+    end
+  end
+  return skipped
+end
+
+if ccall(:jl_generating_output, Cint, ()) == 1
+  let skipped::Int = runPrecompileStatements()
+    skipped > 0 && @info "Precompile statements skipped: $(skipped) (regenerate with utilities/precompileStatements.jl)"
+  end
+end
