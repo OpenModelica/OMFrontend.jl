@@ -181,12 +181,12 @@ function handleOverconstrainedConnections(flatModel::FLAT_MODEL,
   end
   if isempty(conditionals)
     @EXECSTAT "    oc:findResultGraph" result = findResultGraph(graph)
+    @EXECSTAT "    oc:rootTables" tables = rootTables(graph, result)
     @EXECSTAT "    oc:evalOperators" begin
-      tables = rootTables(graph, result)
       eql = evalConnectionsOperators(graph, tables, eql)
       ieql = evalConnectionsOperators(graph, tables, flatModel.initialEquations)
-      vars = evalConnectionsOperators(graph, tables, flatModel.variables)
     end
+    @EXECSTAT "    oc:evalBindings" vars = evalConnectionsOperators(graph, tables, flatModel.variables)
   else
     @EXECSTAT "    oc:modes" (eql, ieql, vars, result) = resolveModes(graph, conditionals, modelNameQualified, eql,
                                                                      flatModel.initialEquations, flatModel.variables)
