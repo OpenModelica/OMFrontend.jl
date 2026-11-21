@@ -1,4 +1,5 @@
 [![Github Action CI](https://github.com/OpenModelica/OMFrontend.jl/workflows/CI/badge.svg)](https://github.com/OpenModelica/OMFrontend.jl/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://openmodelica.github.io/OMFrontend.jl/coverage.json)](https://github.com/OpenModelica/OMFrontend.jl/actions/workflows/ci.yml?query=branch%3Amaster)
 [![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://OpenModelica.github.io/OMFrontend.jl/dev/)
 [![License: AGPL-3.0 or OSMC-PL](https://img.shields.io/badge/license-AGPL--3.0%20or%20OSMC--PL-lightgrey.svg)](LICENSE.md)
 
