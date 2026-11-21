@@ -4,13 +4,13 @@ Entry point for AI agents working in this repository. Read this fully before edi
 
 ## What This Package Is
 
-OMFrontend.jl is an experimental Julia port of the OpenModelica New Frontend (NF). It parses Modelica source, lowers it to SCode, then instantiates the SCode into either FlatModelica or DAE form. It is the parsing/typing/flattening stage of the OM.jl compiler stack and is consumed by OMBackend.jl downstream.
+OMFrontend.jl is an experimental Julia port of the OpenModelica New Frontend (NF). It parses Modelica source, lowers it to SCode, then instantiates the SCode into a flat model (`FLAT_MODEL`, printable as FlatModelica). It is the parsing/typing/flattening stage of the OM.jl compiler stack and is consumed by OMBackend.jl downstream.
 
 The package is intentionally low-level. End users typically invoke it through OM.jl. Within OM.jl, OMFrontend output is the input to BDAE and SimCode lowering, so changes here have direct effects on backend behaviour even though backend code is not part of this repository.
 
 ## Source Layout
 
-- `src/OMFrontend.jl` — outer module `OMFrontend`. Public API: `parseFile`, `translateToSCode`, `instantiateSCodeToFM`, `instantiateSCodeToDAE`, `flattenModel`, `flattenModelWithMSL`, `flattenModelWithLibraries`, `loadLibrary`, `loadPackageDirectory`, `useLibrary!`, `unloadLibrary`, `loadedLibraries` (the libraries loaded into the session, which `flattenModelWithLibraries` adds), `enableDumpDebug`, `disableDumpDebug`, `toString`, `toFlatModelica`, `exportDAERepresentationToFile`.
+- `src/OMFrontend.jl` — outer module `OMFrontend`. Public API: `parseFile`, `translateToSCode`, `instantiateSCodeToFM`, `flattenModel`, `flattenModelWithMSL`, `flattenModelWithLibraries`, `loadLibrary`, `loadPackageDirectory`, `useLibrary!`, `unloadLibrary`, `loadedLibraries` (the libraries loaded into the session, which `flattenModelWithLibraries` adds), `enableDumpDebug`, `disableDumpDebug`, `toString`, `toFlatModelica`.
 - `src/main.jl` — inner module `Frontend`. The pipeline lives here. It includes everything under `src/Util/`, `src/FrontendUtil/`, `src/FrontendInterfaces/`, and `src/NewFrontend/`.
 - `src/Util/` — generic utilities ported from MetaModelica (Pointer, the AVL tree code `baseAvlTreeCode.jl`, ErrorExt, etc.). Submodules of `Frontend`.
 - `src/FrontendUtil/` — `Prefix`.
@@ -19,9 +19,8 @@ The package is intentionally low-level. End users typically invoke it through OM
   - `NFFlatten.jl`, `NFInst.jl`, `NFTyping.jl`, `NFEvalConstants.jl` — pipeline phases.
   - `NFClassTree.jl`, `NFClass.jl`, `NFComponent.jl`, `NFInstNode.jl` — class and component representation.
   - `NFExpression.jl`, `NFSubscript.jl`, `NFCall.jl`, `NFBinding.jl` — expression, call, and binding ASTs.
-  - `NFConvertDAE.jl` — final lowering to the `DAE` data structures (`src/DAE`).
   - `NFPerfHelpers.jl` — `mapPreservingEq` and `reuseIfRefEqual` performance helpers.
-- `src/SCode/`, `src/DAE/` — the modules `OMFrontend.SCode` and `OMFrontend.DAE` (with `DAE.ClassInf`, `DAE.Values`), formerly the packages SCode.jl and DAE.jl; inside the package they are imported relatively (`import ..SCode`).
+- `src/SCode/` — the module `OMFrontend.SCode`, formerly the package SCode.jl; inside the package they are imported relatively (`import ..SCode`).
 - `src/AbsynToSCode.jl`, `src/SCodeUtil.jl`, `src/AbsynUtil.jl` — Absyn and SCode helpers used during translation.
 - `src/GUI_API.jl`, `src/Util/Corba.jl` — IPC and GUI integration points (not part of the core flatten path).
 - `src/componentGraphics.jl` — a component class's icon and connector placements as Modelica text (`componentGraphics`).
@@ -34,7 +33,6 @@ The package is intentionally low-level. End users typically invoke it through OM
   └─► OpenModelicaParser    -> Absyn program        (parseFile)
         └─► AbsynToSCode    -> SCode program        (translateToSCode)
               └─► NF instantiate / type / flatten -> FlatModel       (instantiateSCodeToFM)
-                                                  └─► DAE form       (instantiateSCodeToDAE)
 ```
 
 The entry helpers `flattenModel`, `flattenModelWithMSL`, and `flattenModelWithLibraries` are convenience wrappers that compose those steps.
@@ -132,18 +130,6 @@ To use them in a submodule, either keep the inline `if referenceEq(...) ... end`
 
 ## Recently Fixed Bugs Worth Knowing
 
-### `TYPES_VAR` stale 6-arg call
-
-- Symptom: `MethodError: no method matching TYPES_VAR(::String, ::ATTR, ::T_REAL, ::UNBOUND, ::Bool, ::Nothing)`.
-- Root cause: `DAE.TYPES_VAR` has 5 fields. The OpenModelica source had a 6-field variant with an extra `bind_from_outside::Bool`. The sibling function `makeTypeRecordVar` at `src/NewFrontend/NFConvertDAE.jl:1679` correctly omitted the extra arg. `makeTypeVar` at `src/NewFrontend/NFConvertDAE.jl:1648` still passed `false,` as a stale 5th arg.
-- Fix: removed the stale `false,` line at `src/NewFrontend/NFConvertDAE.jl:1653`.
-
-### Uniontype dotted-accessor pattern
-
-- Symptom: `FieldError: type DataType has no field 'X'` where X is a record variant name.
-- Cause: OpenModelica source uses `Module.Uniontype.Variant(...)` (for example `DAE.Element.TERMINATE(...)`). The Julia port via `@Uniontype X begin @Record Y ... end` flattens records into the enclosing module, so `Y` is `Module.Y`, NOT `Module.X.Y`.
-- Fix pattern: drop the uniontype prefix (use `DAE.TERMINATE`, not `DAE.Element.TERMINATE`). Valid exception: `DAE.ClassInf.RECORD(...)` is a real nested submodule.
-
 ### `BINDING_EXP` subscript index in function body evaluation
 
 - Symptom: Package constants like `Medium.h_default` are left unresolved in the flat model even though simpler constants (e.g. `Medium.T_default`) evaluate correctly. More specifically, any function that uses a package-level constant as an array subscript index (e.g. `X[Water]` where `Water` is a `constant Integer` in the package) silently fails to evaluate at compile time.
@@ -157,7 +143,7 @@ Test entry: `test/runtests.jl`. The file `cd`s into `test/` so relative paths to
 
 Test groups (top-level `@testset`s in `runtests.jl`):
 - `scodeSanityTest.jl` — Absyn to SCode.
-- `daeTests.jl` — SCode to DAE / FlatModel.
+- `flattenSanityTests.jl` — SCode to FlatModel.
 - `gui_api_tests.jl` — gated behind `OMFRONTEND_TEST_GUI_API=1` because of an outstanding `compileModel`/`isfile` mismatch.
 - `frontendResultTest.jl` — flat model string match against expected output.
 - `mslTests.jl` — exercise components from the Modelica Standard Library.
@@ -199,10 +185,10 @@ The repository maintainer may override this on a per-task basis with an explicit
 - For OMFrontend perf claims, report allocation count and bytes, not wall time. See "Performance Metric" above.
 - Do not speculate about why something happened. If a log file or test output exists, read it. Say "I do not know yet, let me check" instead of guessing.
 - Do not restart a live Julia REPL unless asked. Use `Revise.retry()` first. Restarting throws away minutes of warm precompile.
-- Reference files by repo-relative path with line number where applicable, for example `src/NewFrontend/NFConvertDAE.jl:1653`.
+- Reference files by repo-relative path with line number where applicable, for example `src/NewFrontend/NFFlatten.jl:2089`.
 
 ## Pointers Outside This Repository
 
 - Parser: `OpenModelicaParser` package (formerly OMParser.jl).
-- Absyn / SCode / DAE data structures: `OpenModelicaParser.Absyn` (the `OpenModelicaParser` package), `OMFrontend.SCode`, `OMFrontend.DAE` (`src/SCode`, `src/DAE`).
-- Downstream consumer: `OMBackend.jl`, which lowers OMFrontend output to BDAE and then to MTK / DifferentialEquations.jl. Bug reports that surface as "OMBackend fails on model X" frequently trace back to malformed `DAE.Exp` or `DAE.Element` produced here. When a backend bug points at OMFrontend output, dump the `(FM, funcs)` from `flattenModel` and inspect it before editing backend code.
+- Absyn / SCode data structures: `OpenModelicaParser.Absyn` (the `OpenModelicaParser` package), `OMFrontend.SCode` (`src/SCode`).
+- Downstream consumer: `OMBackend.jl`, which lowers OMFrontend output to BDAE and then to MTK / DifferentialEquations.jl. Bug reports that surface as "OMBackend fails on model X" frequently trace back to a malformed flat model (`FLAT_MODEL`) produced here. When a backend bug points at OMFrontend output, dump the `(FM, funcs)` from `flattenModel` and inspect it before editing backend code.

@@ -40,22 +40,21 @@ scodeProgram = OMFrontend.translateToSCode(program)
 SCode is a lowered, modification-free representation. Most semantic checks
 operate on SCode rather than Absyn.
 
-## Producing a DAE
+## Producing the flat model
 
 ```julia
-(dae, cache) = OMFrontend.instantiateSCodeToDAE("MyModel", scodeProgram)
+(flat, funcs) = OMFrontend.instantiateSCodeToFM("MyModel", scodeProgram)
 ```
 
 The instantiation pass elaborates the chosen model, resolves modifications,
-expands inheritance, and emits a `OMFrontend.DAE.DAElist`
-together with the type cache used during lookup.
+expands inheritance, and flattens the result into a `FLAT_MODEL`
+together with its function tree. This is the output of the frontend and the
+input of [OMBackend.jl](https://github.com/OpenModelica/OMBackend.jl).
 
-## Producing flat Modelica
-
-For tooling that wants a textual, fully-flat view of the model:
+For a textual view of the flat model:
 
 ```julia
-(flat, cache) = OMFrontend.instantiateSCodeToFM("MyModel", scodeProgram)
+str = OMFrontend.toFlatModelica((flat, funcs))
 ```
 
 ## Where to go next

@@ -813,7 +813,7 @@ function createResult(repl::ReplTree.Tree, outputs::List{<:InstNode})::Expressio
   #= The outputs as values, their cells detached (OpenModelica evaluates the fields): a
      record output's fields stayed cells, and one never assigned (MSL Spice3's
      diodeCalcTempDependencies sets m_tBrkdwnV only for a given breakdown voltage) was not
-     seen as empty where the binding is split, then reached the DAE as #EMPTY#. =#
+     seen as empty where the binding is split, then reached the flat model as #EMPTY#. =#
   if listLength(outputs) == 1
     exp = detachCells(evalExp(ReplTree.get(repl, listHead(outputs))))
     assertAssignedOutput(listHead(outputs), exp)

@@ -131,7 +131,7 @@ jobs:
             mo = joinpath(pkgRoot, "test", "Models", "HelloWorld.mo")
             p = OMFrontend.parseFile(mo, 1)
             s = OMFrontend.translateToSCode(p)
-            OMFrontend.instantiateSCodeToDAE("HelloWorld", s)
+            OMFrontend.instantiateSCodeToFM("HelloWorld", s)
             println("Sysimage smoke test OK")
           '
 

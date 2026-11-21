@@ -383,11 +383,11 @@ function getOverconstrainedCref(cref::ComponentRef)::ComponentRef
 end
 
 """  author: adrpo
-           this function gets the connection graph and the existing DAE and:
+           this function gets the connection graph and the existing equations and:
            - returns a list of broken connects and one list of connected connects
-           - evaluates Connections.isRoot in the input DAE
-           - evaluates Connections.uniqueRootIndices in the input DAE
-           - evaluates the rooted operator in the input DAE
+           - evaluates Connections.isRoot in the input equations
+           - evaluates Connections.uniqueRootIndices in the input equations
+           - evaluates the rooted operator in the input equations
 """
 function handleOverconstrainedConnections_dispatch(inGraph::OCConnectionGraph,
                                                    modelNameQualified::String,
@@ -527,9 +527,8 @@ function canonical(inPartition::NFHashTableCG.HashTable, inRef::ComponentRef)::C
 end
 
 """
-  Tries to connect two components whose elements are given. Depending
-  on wheter the connection success or not (i.e are the components already connected),
-  adds either inConnectionDae or inBreakDae to the list of DAE elements.
+  Tries to connect two components whose elements are given. Returns the
+  updated partition.
 """
 function connectBranchComponents(inPartition::NFHashTableCG.HashTable, inRef1::ComponentRef, inRef2::ComponentRef)::NFHashTableCG.HashTable
   local canon1 = canonical(inPartition, inRef1)
@@ -539,9 +538,8 @@ function connectBranchComponents(inPartition::NFHashTableCG.HashTable, inRef1::C
 end
 
 """ Tries to connect two components whose elements are given. Depending
-           on wheter the connection success or not (i.e are the components already
-           connected), adds either inConnectionDae or inBreakDae to the list of
-           DAE elements. """
+           on whether the connection succeeds or not (i.e. are the components already
+           connected), returns the edge as a connected edge or as a broken edge. """
 function connectComponents(inPartition::NFHashTableCG.HashTable, inFlatEdge::FlatEdge)::Tuple{NFHashTableCG.HashTable, FlatEdges, FlatEdges}
   local outBrokenConnections::FlatEdges
   local outConnectedConnections::FlatEdges
@@ -698,7 +696,7 @@ end
 
 """
   Given OCConnectionGraph structure, breaks all connections,
-  determines roots and generates a list of dae elements.
+  determines roots and returns the roots, the connected edges and the broken edges.
 """
 function findResultGraph(inGraph::OCConnectionGraph, modelNameQualified::String) ::Tuple{DefiniteRoots, FlatEdges, FlatEdges}
   local outBrokenConnections::FlatEdges
@@ -1418,7 +1416,7 @@ function printEdges(inEdges::Edges)
   end
 end
 
-""" Prints a list of dae edges to stdout. """
+""" Prints a list of flat edges to stdout. """
 function printFlatEdges(inEdges::FlatEdges)
   @assign _ = begin
     local c1::ComponentRef

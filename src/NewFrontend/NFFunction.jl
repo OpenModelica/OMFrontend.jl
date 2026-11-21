@@ -1955,7 +1955,7 @@ end
        value := ...;
      end $E;
    omc selects the literal with {E.l1, ..., E.ln}[index]; here an if-chain over the literals, which
-   the DAE conversion and the backend take (they have no subscripted expressions). The class is
+   the backend takes (it has no subscripted expressions). The class is
    named $E so that E inside it is the type; the function keeps the call's path. =#
 function makeEnumConversionOp(enumNode::InstNode)::InstNode
   local info = InstNode_info(enumNode)

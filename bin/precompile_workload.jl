@@ -38,5 +38,5 @@ let
     end
 
     scode = OMFrontend.translateToSCode(program)
-    OMFrontend.instantiateSCodeToDAE("HelloWorld", scode)
+    OMFrontend.instantiateSCodeToFM("HelloWorld", scode)
 end

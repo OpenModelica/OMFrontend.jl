@@ -3910,7 +3910,7 @@ end
 end
 
 #= The bound arguments of `function f(b = e, ...)` in the function's input order (they are
-   in the order written; the DAE has no names: the backend places them by the inputs the
+   in the order written; the flat model has no names: the backend places them by the inputs the
    partial application's type no longer has). =#
 function _partialArgsInInputOrder(exp::PARTIAL_FUNCTION_APPLICATION_EXPRESSION, fn::MODELICA_FUNCTION)::Vector{Expression}
   local position = Dict{String, Int}(name(n) => k for (k, n) in enumerate(fn.inputs))

@@ -1900,7 +1900,7 @@ function flattenAlgorithms(
   for alg in algorithms
     @assign alg.statements = flattenAlgorithmStatements(alg.statements, prefix)
     #=
-      CheckModel relies on the ElementSource to know whether a certain algorithm comes from
+      omc's CheckModel relies on the element source to know whether a certain algorithm comes from
       an array component, otherwise is will miscount the number of equations.
     =#
     if hasSubscripts(prefix)
@@ -2090,11 +2090,9 @@ function addElementSourceArrayPrefix(
   source::SourceInfo,
   prefix::ComponentRef,
 )::SourceInfo
-  #=  The backend does not use the ComponentPrefix from ElementSource,
+  #=  The backend does not use a component prefix in the element source
   =#
-  #=  so we skip creating one here to avoid pulling in Prefix constructors
-  =#
-  #=  with incorrect DAE subscript types from the translator port.
+  #=  (a plain SourceInfo), so the source is returned unchanged.
   =#
   return source
 end

@@ -5,8 +5,8 @@ CurrentModule = OMFrontend
 # OMFrontend.jl
 
 `OMFrontend` is the Julia port of the OpenModelica frontend. It parses Modelica
-source, lowers it through SCode, and produces the DAE / flat-Modelica
-representation consumed by [OMBackend.jl](https://github.com/OpenModelica/OMBackend.jl)
+source, lowers it through SCode, and produces the flat model
+(`FLAT_MODEL`, printable as flat Modelica) consumed by [OMBackend.jl](https://github.com/OpenModelica/OMBackend.jl)
 and the wider [OM.jl](https://github.com/OpenModelica/OM.jl) toolchain.
 
 ## What this package does
@@ -14,9 +14,8 @@ and the wider [OM.jl](https://github.com/OpenModelica/OM.jl) toolchain.
 * Parses Modelica via [OpenModelicaParser.jl](https://github.com/OpenModelica/OpenModelicaParser.jl)
   and produces an Absyn tree (`OpenModelicaParser.Absyn`).
 * Translates the abstract syntax tree to SCode (`OMFrontend.SCode`).
-* Instantiates SCode into the DAE representation (`OMFrontend.DAE`) or a flat
-  model for backend lowering.
-* Optionally produces flat Modelica for inspection or downstream use.
+* Instantiates SCode into a flat model (`FLAT_MODEL`) for backend lowering.
+* Optionally prints the flat model as flat Modelica for inspection.
 
 ## Installation
 
@@ -37,7 +36,7 @@ using OMFrontend
 
 p = OMFrontend.parseFile("MyModel.mo")
 scode = OMFrontend.translateToSCode(p)
-(dae, cache) = OMFrontend.instantiateSCodeToDAE("MyModel", scode)
+(flat, funcs) = OMFrontend.instantiateSCodeToFM("MyModel", scode)
 ```
 
 See [Getting started](@ref) for a longer walk-through and the

@@ -7,7 +7,7 @@
 
 An implementation of the OpenModelica New Frontend (NF) in Julia.
 The package parses Modelica source, lowers it to SCode, and instantiates it
-into FlatModelica or DAE form.
+into a flat model (FlatModelica).
 
 For the full compiler suite that builds on top of this package, see
 [OpenModelica.jl](https://github.com/OpenModelica/OM.jl). The API exposed here is
@@ -71,9 +71,8 @@ scodeProgram  = OMFrontend.translateToSCode(absynProgram)
 (FM, funcs)   = OMFrontend.instantiateSCodeToFM("HelloWorld", scodeProgram)
 ```
 
-To obtain the DAE form instead of FlatModelica, call `instantiateSCodeToDAE`
-on the SCode program returned by `translateToSCode`. The data structures are
-`OMFrontend.SCode` and `OMFrontend.DAE` (`src/SCode`, `src/DAE`; formerly the packages SCode.jl and DAE.jl).
+The flat model is the only output of the frontend. The SCode data structures are
+in `OMFrontend.SCode` (`src/SCode`; formerly the package SCode.jl).
 
 ### Discovering and Loading Installed Libraries
 
@@ -140,7 +139,7 @@ disk:
 
 ```julia
 str = OMFrontend.toFlatModelica((FM, funcs))
-OMFrontend.exportDAERepresentationToFile("HelloWorld.flat.mo", str)
+write("HelloWorld.flat.mo", str)
 ```
 
 For debugging the lowering pipeline, `OMFrontend.enableDumpDebug()` writes the
