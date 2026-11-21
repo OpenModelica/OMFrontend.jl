@@ -37,12 +37,13 @@
 module Values
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 @UniontypeDecl Value
 @UniontypeDecl IntRealOp
 
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 
 @Uniontype Value begin
   @Record INTEGER begin

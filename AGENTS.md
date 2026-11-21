@@ -12,7 +12,7 @@ The package is intentionally low-level. End users typically invoke it through OM
 
 - `src/OMFrontend.jl` — outer module `OMFrontend`. Public API: `parseFile`, `translateToSCode`, `instantiateSCodeToFM`, `instantiateSCodeToDAE`, `flattenModel`, `flattenModelWithMSL`, `flattenModelWithLibraries`, `loadLibrary`, `loadPackageDirectory`, `useLibrary!`, `unloadLibrary`, `loadedLibraries` (the libraries loaded into the session, which `flattenModelWithLibraries` adds), `enableDumpDebug`, `disableDumpDebug`, `toString`, `toFlatModelica`, `exportDAERepresentationToFile`.
 - `src/main.jl` — inner module `Frontend`. The pipeline lives here. It includes everything under `src/Util/`, `src/FrontendUtil/`, `src/FrontendInterfaces/`, and `src/NewFrontend/`.
-- `src/Util/` — generic utilities ported from MetaModelica (Pointer, BaseHashTable, BaseAvlTree, ErrorExt, etc.). Submodules of `Frontend`.
+- `src/Util/` — generic utilities ported from MetaModelica (Pointer, the AVL tree code `baseAvlTreeCode.jl`, ErrorExt, etc.). Submodules of `Frontend`.
 - `src/FrontendUtil/` — `Prefix`.
 - `src/FrontendInterfaces/` — `NFAlias`, `NFInterfaces` thin wrappers and re-exports.
 - `src/NewFrontend/` — the actual NF port (~77 files, prefix `NF`). The hot path lives here. Notable files:
@@ -31,7 +31,7 @@ The package is intentionally low-level. End users typically invoke it through OM
 
 ```
 .mo source
-  └─► OMParser              -> Absyn program        (parseFile)
+  └─► OpenModelicaParser    -> Absyn program        (parseFile)
         └─► AbsynToSCode    -> SCode program        (translateToSCode)
               └─► NF instantiate / type / flatten -> FlatModel       (instantiateSCodeToFM)
                                                   └─► DAE form       (instantiateSCodeToDAE)
@@ -174,6 +174,6 @@ The repository maintainer may override this on a per-task basis with an explicit
 
 ## Pointers Outside This Repository
 
-- Parser: `OMParser` package.
-- Absyn / SCode / DAE data structures: `OMParser.Absyn` (the `OMParser` package), `OMFrontend.SCode`, `OMFrontend.DAE` (`src/SCode`, `src/DAE`).
+- Parser: `OpenModelicaParser` package (formerly OMParser.jl).
+- Absyn / SCode / DAE data structures: `OpenModelicaParser.Absyn` (the `OpenModelicaParser` package), `OMFrontend.SCode`, `OMFrontend.DAE` (`src/SCode`, `src/DAE`).
 - Downstream consumer: `OMBackend.jl`, which lowers OMFrontend output to BDAE and then to MTK / DifferentialEquations.jl. Bug reports that surface as "OMBackend fails on model X" frequently trace back to malformed `DAE.Exp` or `DAE.Element` produced here. When a backend bug points at OMFrontend output, dump the `(FM, funcs)` from `flattenModel` and inspect it before editing backend code.

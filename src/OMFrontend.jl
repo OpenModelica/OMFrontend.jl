@@ -40,14 +40,17 @@ module OMFrontend
 
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 #= ArrayUtil and ListUtil (formerly the packages of those names) are OMFrontend's own modules. =#
 include("ArrayUtil/ArrayUtil.jl")
 include("ListUtil/ListUtil.jl")
 include("SCode/SCode.jl")
 include("DAE/DAE.jl")
-import OMParser
+import OpenModelicaParser
+"""The parser package under its former name (OMParser.jl), for code that writes `OMFrontend.OMParser`."""
+const OMParser = OpenModelicaParser
 import PrecompileTools
 import Serialization
 
@@ -122,7 +125,7 @@ const LIBRARY_DEPENDENCIES = Dict{String, Vector{String}}()
 function __init__()
   local packagePath::String = packageRoot()
   if !haskey(NFModelicaBuiltinCache, "NFModelicaBuiltin")
-    local builtinProg::Absyn.Program = OMParser.parseFile(packagePath * "/lib/NFModelicaBuiltin.mo", 2)
+    local builtinProg::Absyn.Program = OpenModelicaParser.parseFile(packagePath * "/lib/NFModelicaBuiltin.mo", 2)
     NFModelicaBuiltinCache["NFModelicaBuiltin"] = Frontend.AbsynToSCode.translateAbsyn2SCode(builtinProg)
   end
   Frontend.Global.initialize()
@@ -148,7 +151,7 @@ import .Frontend.StructuralModeJSON
 Parse a file, returns the syntax tree.
 """
 function parseFile(file::String, acceptedGram::Int64 = 1)::Absyn.Program
-  return OMParser.parseFile(file, acceptedGram)
+  return OpenModelicaParser.parseFile(file, acceptedGram)
 end
 
 """
@@ -189,7 +192,7 @@ modifies), the other classes of `inProgram` (recompilationProgram).
 function keepRecompilationProgram!(flatModel::Frontend.FlatModel, inProgram::SCode.Program)::Nothing
   local metaModel = flatModel.scodeProgram
   metaModel isa SOME || return nothing
-  local name = Frontend.SCodeUtil.elementName(metaModel.data)
+  local name = Frontend.SCodeUtil.elementName(metaModel.value)
   local others = SCode.Element[cls for cls in inProgram if Frontend.SCodeUtil.elementName(cls) != name]
   lock(RECOMPILATION_PROGRAMS_LOCK) do
     RECOMPILATION_PROGRAMS[name] = arrayList(others)
@@ -610,18 +613,20 @@ end
 The format of the library disk cache, part of its key (`_computeLibHash`): change it when the types of the
 serialized SCode program change. 2: the Absyn records are `OMParser.Absyn`'s (were the package Absyn.jl's).
 3: SCode is `OMFrontend.SCode` (was the package SCode.jl).
+4: the Absyn records are `OpenModelicaParser.Absyn`'s, plain structs (were `OMParser.Absyn`'s).
+5: optional values are Base's `Some` (were MetaModelica's `SOME`), `SourceInfo` is `OpenModelicaParser.Absyn`'s.
 """
-const LIB_CACHE_FORMAT = 3
+const LIB_CACHE_FORMAT = 5
 
 """
     _computeLibHash(path::String)::String
 
-The key of a library's disk cache: Julia's version, `LIB_CACHE_FORMAT`, the versions of OMParser and
+The key of a library's disk cache: Julia's version, `LIB_CACHE_FORMAT`, the versions of OpenModelicaParser and
 OMFrontend (the types of the serialized program), and the paths, modification times and sizes of the library's
 `.mo` files.
 """
 function _computeLibHash(path::String)::String
-  local h::UInt64 = hash((string(VERSION), LIB_CACHE_FORMAT, pkgversion(OMParser), pkgversion(@__MODULE__)))
+  local h::UInt64 = hash((string(VERSION), LIB_CACHE_FORMAT, pkgversion(OpenModelicaParser), pkgversion(@__MODULE__)))
   if isfile(path)
     local st = stat(path)
     h = hash((path, st.mtime, st.size), h)
@@ -1363,7 +1368,7 @@ function libraryVersion(key::String, name::String)::String
   for c in get(LIBRARY_CACHE, key, nil)
     (c isa SCode.CLASS && c.name == name) || continue
     local v::Option{Absyn.Exp} = Frontend.SCodeUtil.lookupElementAnnotationBinding(c, "version")
-    (isSome(v) && v.data isa Absyn.STRING) && return v.data.value
+    (isSome(v) && v.value isa Absyn.STRING) && return v.value.value
   end
   local m::Union{Nothing, RegexMatch} = match(r"(\d+)_(\d+)_(\d+)$", key)
   return m === nothing ? "" : join(m.captures, ".")

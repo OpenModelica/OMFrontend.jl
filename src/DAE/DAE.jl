@@ -36,6 +36,7 @@
 module DAE
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 include("DAE_Interface.jl")
@@ -44,7 +45,7 @@ include("ClassInf.jl")
 
 import .ClassInf
 import .Values
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 import ..SCode
 
 const UNIQUEIO = "uniqueouter"::String

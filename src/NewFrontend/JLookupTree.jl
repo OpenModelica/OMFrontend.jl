@@ -41,6 +41,7 @@ module JLookupTree
 
 using ExportAll
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 
 import ..LookupTree
 const Key = LookupTree.Key

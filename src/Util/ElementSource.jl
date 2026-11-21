@@ -38,6 +38,7 @@ module ElementSource
 import ..DAE
 import ..ListUtil
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 
 """
 Constructs the element source.

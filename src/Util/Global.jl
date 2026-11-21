@@ -36,6 +36,7 @@
 module Global
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 import ..System
 

@@ -36,6 +36,7 @@
 module P_UnorderedMap
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 #= Hash map with user-provided hash and equality functions.

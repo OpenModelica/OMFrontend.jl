@@ -104,43 +104,6 @@ function elaborate(
   return (flatModel, connections)
 end
 
-module ExpandableSet
-
-using MetaModelica
-using ExportAll
-
-import ..Frontend.NFConnector
-import ..BaseHashSet
-import ..BaseHashSet.HashSet
-import ..isNodeNameEqual
-import ..toString
-import ..firstName
-
-const Value = Int
-const Key = NFConnector
-const Connector = NFConnector
-
-#= Modelica Extend Clause =#
-include("../Util/baseAvlTreeCode.jl")
-
-function emptySet(size::Int)::HashSet
-  local set::BaseHashSet.HashSet
-  set = BaseHashSet.emptyHashSetWork(
-    size,
-    (hashConnector, isNodeNameEqual, toString),
-  )
-  return set
-end
-
-function hashConnector(conn::Connector, mod::Int)::Int
-  local res::Int
-  res = stringHashDjb2Mod(firstName(conn.name), mod)
-  return res
-end
-
-@exportAll()
-end
-
 """
   Sorts the connections into different categories of connectors based on
   whether they involve expandable connectors, virtual/potentially present

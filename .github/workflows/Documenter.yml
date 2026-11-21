@@ -41,7 +41,7 @@ jobs:
       - name: Checkout sibling OM*.jl packages
         uses: JKRT/OM.jl/.github/actions/checkout-siblings@master
         with:
-          packages: ImmutableList MetaModelica OMParser OMRuntimeExternalC
+          packages: ImmutableList MetaModelica OpenModelicaParser OMRuntimeExternalC
 
       - name: Setup Julia
         uses: julia-actions/setup-julia@v2
@@ -64,7 +64,7 @@ jobs:
             siblings = [
               "../ImmutableList.jl",
               "../MetaModelica.jl",
-              "../OMParser.jl",
+              "../OpenModelicaParser.jl",
               "../OMRuntimeExternalC.jl",
             ]
             Pkg.develop([Pkg.PackageSpec(path = p) for p in siblings])
@@ -85,7 +85,7 @@ jobs:
             siblings = [
               "../ImmutableList.jl",
               "../MetaModelica.jl",
-              "../OMParser.jl",
+              "../OpenModelicaParser.jl",
               "../OMRuntimeExternalC.jl",
             ]
             # Develop OMFrontend together with the siblings in a single call.

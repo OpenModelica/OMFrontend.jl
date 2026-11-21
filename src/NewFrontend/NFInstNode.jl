@@ -46,6 +46,7 @@ module NodeTree
 import ..Frontend.InstNode
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 const Key = String
 const Value = InstNode

@@ -55,7 +55,7 @@ end
   #= dp_nominal_pos evaluated in the elements' shared class is the field over all of them ({2.0, 3.0, 1.0}), an
      operand of another type than the Real the equation was typed for: kept as the reference (NFEvalConstants;
      Buildings' PressureDrop[nRes] resSeries) =#
-  local program = OMFrontend.OMParser.parseString("""
+  local program = OMFrontend.OpenModelicaParser.parseString("""
     package FieldThroughBinding
       model NominalResistance
         parameter Real dp_nominal;

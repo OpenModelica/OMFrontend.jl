@@ -41,6 +41,7 @@ Rewritten by John Tinnerholm(johti17)
 module ConnectionSets
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 import ..ListUtil
@@ -403,7 +404,7 @@ function add(entry, sets::Sets)::Tuple
     push!(nodes, -1) #Letting it expand automatically by via Julia...
   end
   # Register the node index in the index table.
-  elements[entry] = index #BaseHashTable.addNoUpdCheck((entry, index), elements);
+  elements[entry] = index
   setsR = Sets(nodes, elements, index)
   return (setsR, index)
 end

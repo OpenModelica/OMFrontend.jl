@@ -35,12 +35,13 @@
 module ClassInf
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 @UniontypeDecl SMNode
 @UniontypeDecl Event
 
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 import ...SCode
 
 const State = SMNode

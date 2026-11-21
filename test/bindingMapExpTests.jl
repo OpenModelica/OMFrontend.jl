@@ -4,7 +4,7 @@ keeps its variant and its other fields, and an unchanged expression returns
 the same binding.
 =#
 let FE = OMFrontend.Frontend,
-    info = MetaModelica.SOURCEINFO("mapExp.mo", false, 1, 1, 1, 1, 0.0),
+    info = OMFrontend.OpenModelicaParser.Absyn.SOURCEINFO("mapExp.mo", false, 1, 1, 1, 1, 0.0),
     one = FE.INTEGER_EXPRESSION(1),
     toTwo = e -> (e isa FE.INTEGER_EXPRESSION && e.value == 1) ? FE.INTEGER_EXPRESSION(2) : e
 

@@ -33,7 +33,7 @@
 *
 */ =#
 
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 
 function instConstructor(path::Absyn.Path, recordNode::InstNode, info::SourceInfo)::InstNode
   local ctor_ref::ComponentRef

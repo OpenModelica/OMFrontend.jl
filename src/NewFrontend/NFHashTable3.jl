@@ -34,11 +34,11 @@
 */ =#
 
 
-#= Cref-keyed table backed by a Julia Dict with structural hash/equality.
-   Replaces the ported BaseHashTable closure-tuple representation. =#
+#= Cref-keyed table backed by a Julia Dict with structural hash/equality. =#
 module NFHashTable3
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 
 import ..Frontend
 import ..Frontend.NFComponentRef
@@ -57,7 +57,7 @@ function add(entry::Tuple{<:ComponentRef, <:Value}, t::HashTable)::HashTable
   return t
 end
 
-#= Fails (KeyError) when the key is missing, like BaseHashTable.get. =#
+#= Fails (KeyError) when the key is missing. =#
 get(key::ComponentRef, t::HashTable)::Value = t[CrefHashKey(key)]
 
 getOrNothing(key::ComponentRef, t::HashTable)::Union{Value, Nothing} =

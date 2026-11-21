@@ -42,6 +42,7 @@ import ..Frontend.NFType
 const TYPE = Int8
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 const NON_CONNECTOR::Int8 = 0

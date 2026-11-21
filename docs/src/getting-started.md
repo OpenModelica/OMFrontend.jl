@@ -27,8 +27,8 @@ using OMFrontend
 program = OMFrontend.parseFile("MyModel.mo")
 ```
 
-`parseFile` invokes the OMParser bridge and returns an
-`OMParser.Absyn.Program`. The Absyn tree is
+`parseFile` invokes the parser (OpenModelicaParser.jl) and returns an
+`OpenModelicaParser.Absyn.Program`. The Absyn tree is
 the closest representation to the original textual model.
 
 ## Lowering to SCode

@@ -41,10 +41,11 @@ module Frontend
 
 #= Import the parser for precompilation=#
 #= We also use it at the top level(!) =#
-import OMParser
+import OpenModelicaParser
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 import ..ArrayUtil
 import ..DAE
 import ..ListUtil
@@ -82,7 +83,6 @@ end
 include("./Util/ElementSource.jl")
 include("./Util/Pointer.jl")
 include("./Util/System.jl")
-include("./Util/Corba.jl")
 include("./Util/Gettext.jl")
 include("./Util/ErrorTypes.jl")
 include("./Util/ErrorExt.jl")
@@ -98,11 +98,6 @@ include("./Util/UnorderedSet.jl")
 import .P_UnorderedSet
 const UnorderedSet = P_UnorderedSet
 #= Include various utility structures =#
-include("./Util/BaseAvlSet.jl")
-include("./Util/BaseAvlTree.jl")
-include("./Util/BaseHashTable.jl")
-include("./Util/BaseHashSet.jl")
-
 include("./Util/Global.jl")
 include("./Util/Settings.jl")
 include("./Util/Print.jl")
@@ -144,7 +139,8 @@ include("./AbsynToSCode.jl")
 #= Minimal Values stub (OMC legacy, needed by toDAEValue in BindingExpression.jl) =#
 module Values
   using MetaModelica
-  import OMParser.Absyn
+  import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
+  import OpenModelicaParser.Absyn
   abstract type Value end
   struct INTEGER_EXPRESSION <: Value; value::Int; end
   struct REAL_EXPRESSION <: Value; value::Float64; end
@@ -158,6 +154,7 @@ end
 module ValuesUtil
   import ..Values
   using MetaModelica
+  import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
   function makeArray(vals::List)::Values.Value
     Values.ARRAY(vals, list(listLength(vals)))
   end

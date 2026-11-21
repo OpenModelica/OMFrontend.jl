@@ -109,8 +109,8 @@ function classGraphics(cls::Frontend.InstNode, connectors::Vector{String})::Name
     for sm in icon.subModLst
       if sm.ident == "coordinateSystem"
         coordinateSystem = "coordinateSystem" * Frontend.SCodeDump.printModStr(sm.mod)   # the most derived class's
-      elseif sm.ident == "graphics" && sm.mod isa SCode.MOD && isSome(sm.mod.binding) && sm.mod.binding.data isa Absyn.ARRAY
-        append!(items, String[Frontend.AbsynUtil.printExp(x) for x in sm.mod.binding.data.arrayExp])
+      elseif sm.ident == "graphics" && sm.mod isa SCode.MOD && isSome(sm.mod.binding) && sm.mod.binding.value isa Absyn.ARRAY
+        append!(items, String[Frontend.AbsynUtil.printExp(x) for x in sm.mod.binding.value.arrayExp])
       end
     end
     return nothing
@@ -122,5 +122,5 @@ end
 """The annotation `name` (`Icon`, `Placement`) of an SCode comment, or `SCode.NOMOD()`."""
 function classGraphicsAnnotation(cmt::SCode.Comment, name::String)::SCode.Mod
   local ann::Option{SCode.Annotation} = cmt.annotation_
-  return isSome(ann) ? Frontend.SCodeUtil.lookupAnnotation(ann.data, name) : SCode.NOMOD()
+  return isSome(ann) ? Frontend.SCodeUtil.lookupAnnotation(ann.value, name) : SCode.NOMOD()
 end

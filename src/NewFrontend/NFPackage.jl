@@ -37,6 +37,7 @@ module ConstantsSetImpl
 import ..NFComponentRef
 import ..compare as crefCompare
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 ComponentRef = NFComponentRef
 #= Modelica extend clause =#

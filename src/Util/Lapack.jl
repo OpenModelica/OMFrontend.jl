@@ -37,6 +37,7 @@
 module Lapack
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 #= The LAPACK routines the frontend evaluates (omc: Util/Lapack.mo over runtime/lapackimpl.c),

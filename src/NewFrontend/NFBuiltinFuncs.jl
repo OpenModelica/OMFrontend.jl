@@ -36,12 +36,13 @@
 module NFBuiltinFuncs
 
 import ..AbsynUtil
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 import ..DAE
 import ..SCode
 
 using ..Frontend
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 using MetaModelica.Dangerous
 

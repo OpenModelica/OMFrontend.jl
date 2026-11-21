@@ -3,7 +3,7 @@
   Julia 1.12 juliac requires the @main convention.
 
   The static reachability analysis in --trim does not always trace through
-  ccall library-name expressions. OMParser uses the pattern
+  ccall library-name expressions. OpenModelicaParser uses the pattern
       ccall((:parseFile, ensure_installed_lib_path()), ...)
   which leaves `ensure_installed_lib_path` (and the error-path helpers it
   pairs with) reachable only via the ccall lowering. To keep their no-arg
@@ -13,12 +13,12 @@
 =#
 
 using OMFrontend
-import OMParser
+import OpenModelicaParser
 
 @noinline function _pinTrimAnchors()
     try
-        OMParser.ensure_installed_lib_path()
-        OMParser.last_parse_error_message()
+        OpenModelicaParser.ensure_installed_lib_path()
+        OpenModelicaParser.last_parse_error_message()
     catch
         # ensure_installed_lib_path may legitimately throw if the native
         # library is missing; that is a runtime concern, not a trim concern.

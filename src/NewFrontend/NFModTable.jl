@@ -37,6 +37,7 @@ module ModTable
 
 import ..NFModifier
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 using ..Frontend
 

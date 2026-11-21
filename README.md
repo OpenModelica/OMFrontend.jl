@@ -1,4 +1,5 @@
 [![Github Action CI](https://github.com/OpenModelica/OMFrontend.jl/workflows/CI/badge.svg)](https://github.com/OpenModelica/OMFrontend.jl/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://openmodelica.github.io/OMFrontend.jl/coverage.json)](https://github.com/OpenModelica/OMFrontend.jl/actions/workflows/ci.yml?query=branch%3Amaster)
 [![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://OpenModelica.github.io/OMFrontend.jl/dev/)
 [![License: AGPL-3.0 or OSMC-PL](https://img.shields.io/badge/license-AGPL--3.0%20or%20OSMC--PL-lightgrey.svg)](LICENSE.md)
 
@@ -146,7 +147,15 @@ For debugging the lowering pipeline, `OMFrontend.enableDumpDebug()` writes the
 flat model after each compiler phase to the working directory.
 `OMFrontend.disableDumpDebug()` turns it off again.
 
-### Issues, Questions, and Contributing
+## Bug Reports and Contributions
+
+All contributions are welcome: bug reports, fixes, tests, documentation.
+
+- Report a bug as an [issue](https://github.com/OpenModelica/OMFrontend.jl/issues),
+  with the smallest Modelica model that shows it and the OMFrontend.jl version.
+- Send changes as pull requests. Every fix should, where possible, include a small
+  test that reproduces the issue: the smallest model that fails before the fix and
+  passes after it, in `test/`.
 
 OMFrontend.jl is a component of [OM.jl](https://github.com/OpenModelica/OM.jl), and
 the API reflects that low-level role.

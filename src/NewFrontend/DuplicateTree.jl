@@ -35,6 +35,7 @@
 
 module DuplicateTree
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 
 import ..LookupTree
 import ..InstNode

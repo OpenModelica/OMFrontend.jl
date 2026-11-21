@@ -36,6 +36,7 @@
 module SCodeUtil
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 #= Forward declarations for uniontypes until Julia adds support for mutual recursion =#
 
@@ -44,7 +45,7 @@ const FoldFunc = Function
 const TraverseFunc = Function
 
 import ..SCode
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 
 import ..Frontend.AbsynUtil
 import ..Frontend.Util
