@@ -133,6 +133,7 @@ function instantiateRootClass(classPath::Absyn.Path, program::SCode.Program)::In
   @EXECSTAT "instantiate" inst_cls = instantiateN1(cls, EMPTY_NODE())
   ExecStat.execStat("Instantiation")
   insertGeneratedInners(inst_cls, top)
+  endParallelPhase()
   return inst_cls
 end
 
@@ -2405,8 +2406,48 @@ const _INST_SHARED_LOCK = ReentrantLock()
    them, deadlocking. `locked_by` is the ReentrantLock owner field. =#
 _holdsInstSharedLock() = _INST_SHARED_LOCK.locked_by === current_task()
 
+"""
+Whether the current translation fans out: on for instantiation (reset at its start), off from typing on
+(`endParallelPhase`). Typing serially was faster on all 21 benchmark models (MSL 4.1.0, 8 threads, 2026-11-21:
+EngineV6 274 -> 263 ms, Rotational.First 3.1 -> 2.5 ms): the typing claims and fan-outs cost more than they save.
+"""
+const PARALLEL_THIS_TRANSLATION = Ref{Bool}(true)
+
+"""Ends the parallel part of a translation: after instantiation, typing and the rest run serially."""
+function endParallelPhase()::Nothing
+  PARALLEL_THIS_TRANSLATION[] = false
+  return nothing
+end
+
+"""
+The time the siblings of a fan-out site run serially before the rest fan out. A fan-out costs 0.1-0.15 ms on
+8 threads (waking the workers); over the 21 benchmark models 0.4 ms was best (sum 646 ms; 0.1 ms: 695, 0.2 ms: 653,
+0.8 ms: 653, fan-out at once: 665).
+"""
+const FANOUT_AFTER_NS = Ref{UInt64}(400_000)
+
+"""
+    _siblingsFor(body, indices)
+
+`body(i)` for each index: serially while the siblings done so far took less than `FANOUT_AFTER_NS` in all, the rest in
+parallel (`_parallelFor`). Light sibling sets stay serial (MSL Motor: 8 fan-outs of 63 tasks cost 1.1 ms of 4.3);
+heavy ones still fan out (EngineV6 instantiation).
+"""
+function _siblingsFor(body::FT, indices::Vector{Int})::Nothing where {FT<:Function}
+  local t0::UInt64 = time_ns()
+  local n::Int = length(indices)
+  for k in 1:n
+    body(@inbounds indices[k])
+    if k < n && time_ns() - t0 >= FANOUT_AFTER_NS[]
+      _parallelFor(body, @view indices[k + 1:n])
+      return nothing
+    end
+  end
+  return nothing
+end
+
 parallelInstEnabled(n::Int) =
-  PARALLEL_INST[] && Threads.nthreads() >= 2 && n >= PARALLEL_INST_THRESHOLD &&
+  PARALLEL_THIS_TRANSLATION[] && PARALLEL_INST[] && Threads.nthreads() >= 2 && n >= PARALLEL_INST_THRESHOLD &&
   !_holdsInstSharedLock() && _noClaimsHeld()
 
 #= Parallel typing: per-node claim locks. Typing one component can reach into
@@ -2430,7 +2471,7 @@ function _typeClaim(id::UInt64)::ReentrantLock
   end
 end
 
-_parallelTypingActive() = PARALLEL_INST[] && Threads.nthreads() >= 2
+_parallelTypingActive() = PARALLEL_THIS_TRANSLATION[] && PARALLEL_INST[] && Threads.nthreads() >= 2
 
 #= Sibling fan-out: body(i) for each index in its own task. A task's error messages go to the
    spawning task's buffer, and its failure is rethrown as itself: serially a MetaModelica failure
@@ -2511,6 +2552,7 @@ const _REINST_CLASSES_LOCK = ReentrantLock()
 
 function resetInstDiagnostics()
   Threads.atomic_xchg!(INST_CLASS_TOTAL_CALLS, 0)
+  PARALLEL_THIS_TRANSLATION[] = true
   Threads.atomic_xchg!(REINSTANTIATION_COUNT, 0)
   lock(() -> empty!(REINSTANTIATION_CLASSES), _REINST_CLASSES_LOCK)
   lock(() -> empty!(_INLINE_BODY_INFO_CACHE), _INLINE_BODY_INFO_LOCK)

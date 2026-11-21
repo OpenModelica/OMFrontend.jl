@@ -401,11 +401,10 @@ function applyLocalComponents_inst(tree::ClassTree,
     push!(plainIndices, i)
   end
 
-  #= Sibling fan-out. Each worker gets its own attribute out-cell: attributeRef
-     is write-then-read scratch within one instComponent call, never carried
-     between siblings. =#
+  #= Sibling fan-out once the siblings are heavy (_siblingsFor). Each sibling gets its own attribute out-cell:
+     attributeRef is write-then-read scratch within one instComponent call, never carried between siblings. =#
   if parallelInstEnabled(length(plainIndices))
-    _parallelFor(plainIndices) do i
+    _siblingsFor(plainIndices) do i
       local ptr = @inbounds tree.components[i]::Pointer{InstNode}
       local arg = P_Pointer.access(ptr)
       local node = instComponent(arg, attributes, MODIFIER_NOMOD(), useBinding,
