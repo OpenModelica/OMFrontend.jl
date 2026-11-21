@@ -1142,6 +1142,11 @@ function instPackage2(node::InstNode; isRedeclared::Bool = false)::InstNode
   else
     inst = node
     state = CACHE_STATE_NOT_INSTANTIATED
+    local alias::InstNode = packageAlias(node)
+    if !isEmpty(alias)
+      setPackageCache(node, C_PACKAGE(alias, CACHE_STATE_INSTANTIATED))
+      return alias
+    end
   end
     #=  Cache the package node itself first, to avoid instantiation loops if
     =#
@@ -1159,6 +1164,38 @@ function instPackage2(node::InstNode; isRedeclared::Bool = false)::InstNode
 
     #end
   return node
+end
+
+"""
+    packageAlias(node) -> InstNode
+
+The shared instance of the package `node` names when `node` is a plain alias of another package: `package P = A.B`
+without modifications of its own (no modifier, constraining modifier, array dimensions or partial class on either
+side), as the common `redeclare package Medium = A.B`. Its contents are exactly A.B's, so A.B's instance is used
+instead of a copy per alias: one Medium per model instead of one per component, and one copy of its functions in
+the flat model (omc 569b9e7231, `NFInst.packageAlias`). `EMPTY_NODE()` when `node` is not such an alias.
+"""
+function packageAlias(node::InstNode)::InstNode
+  isClass(node) || return EMPTY_NODE()
+  local def::SCode.Element = definition(node)
+  def isa SCode.CLASS || return EMPTY_NODE()
+  (def.restriction isa SCode.R_PACKAGE && def.partialPrefix isa SCode.NOT_PARTIAL) || return EMPTY_NODE()
+  local cdef::SCode.ClassDef = def.classDef
+  cdef isa SCode.DERIVED || return EMPTY_NODE()
+  local ts::Absyn.TypeSpec = cdef.typeSpec
+  (ts isa Absyn.TPATH && ts.arrayDim === nothing && cdef.modifications isa SCode.NOMOD) || return EMPTY_NODE()
+  local cls::Class = getClass(node)
+  (cls isa PARTIAL_CLASS && isEmpty(cls.modifier)) || return EMPTY_NODE()
+  local base::InstNode = listHead(lookupBaseClassName(ts.path, parent(node), InstNode_info(node)))
+  (isAliasablePackage(base) && base !== node) || return EMPTY_NODE()
+  return instPackage(base)
+end
+
+"""A package that is not partial: what a plain package alias may share (omc `NFInst.isAliasablePackage`)."""
+function isAliasablePackage(node::InstNode)::Bool
+  isClass(node) || return false
+  local def::SCode.Element = definition(node)
+  return def isa SCode.CLASS && def.restriction isa SCode.R_PACKAGE && def.partialPrefix isa SCode.NOT_PARTIAL
 end
 
 function modifyExtends(extendsNode::InstNode, scope::InstNode)
