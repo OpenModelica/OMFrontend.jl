@@ -3928,7 +3928,7 @@ end
   if flagSet(origin, ORIGIN_WHEN) &&
      flagNotSet(origin, ORIGIN_CLOCKED)
     if checkLhsInWhen(lhsExp)
-      fold(lhsExp, markStructuralParamsSubs, 0)
+      fold(lhsExp, markStructuralParamsSubs, 0, Int)
     else
       Error.addSourceMessage(
         Error.WHEN_EQ_LHS,
@@ -4331,22 +4331,25 @@ function typeReinit(
   return (crefExp, exp)
 end
 
+"""The crefs that subscript with a for-loop iterator and the position of the iterator among the subscripts."""
+const IteratorCrefs = Vector{Tuple{ComponentRef, Int}}
+
 #= A for-loop without a range (`for i loop x[i] = ...`) iterates over the dimensions the iterator
    subscripts in its body: lower bound to end of that dimension (omc deduceIterationRange*). =#
 function deduceIterationRangeEq(@nospecialize(eq::Equation), iterator::InstNode, info::SourceInfo)::Expression
-  local crefs = foldExp(eq, (e, acc) -> fold(e, (e2, acc2) -> collectIteratorCrefs(e2, iterator, acc2), acc),
-                        Tuple{ComponentRef, Int}[])
+  local crefs::IteratorCrefs = foldExp(eq, (e::Expression, acc::IteratorCrefs) -> fold(e, (e2::Expression, acc2::IteratorCrefs) -> collectIteratorCrefs(e2, iterator, acc2), acc, IteratorCrefs),
+                        IteratorCrefs(), IteratorCrefs)
   return deduceIterationRange(crefs, iterator, info)
 end
 
 function deduceIterationRangeStmt(stmt::Statement, iterator::InstNode, info::SourceInfo)::Expression
-  local crefs = foldExp(stmt, (e, acc) -> fold(e, (e2, acc2) -> collectIteratorCrefs(e2, iterator, acc2), acc),
-                        Tuple{ComponentRef, Int}[])
+  local crefs::IteratorCrefs = foldExp(stmt, (e::Expression, acc::IteratorCrefs) -> fold(e, (e2::Expression, acc2::IteratorCrefs) -> collectIteratorCrefs(e2, iterator, acc2), acc, IteratorCrefs),
+                        IteratorCrefs(), IteratorCrefs)
   return deduceIterationRange(crefs, iterator, info)
 end
 
 function deduceIterationRangeExp(@nospecialize(exp::Expression), iterator::InstNode, info::SourceInfo)::Expression
-  local crefs = fold(exp, (e, acc) -> collectIteratorCrefs(e, iterator, acc), Tuple{ComponentRef, Int}[])
+  local crefs::IteratorCrefs = fold(exp, (e::Expression, acc::IteratorCrefs) -> collectIteratorCrefs(e, iterator, acc), IteratorCrefs(), IteratorCrefs)
   return deduceIterationRange(crefs, iterator, info)
 end
 

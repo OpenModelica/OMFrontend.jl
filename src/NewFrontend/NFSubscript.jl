@@ -756,19 +756,19 @@ function mapFoldExpShallowO1(subscript::Subscript, func::MapFunc, arg::ArgT) whe
 end
 
 
-function foldExp(subscript::Subscript, func::FoldFunc, arg::ArgT) where {ArgT}
+function foldExp(subscript::Subscript, func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
   local result = begin
     @match subscript begin
       SUBSCRIPT_UNTYPED(__) => begin
-        fold(subscript.exp, func, arg)
+        fold(subscript.exp, func, arg, ArgT)
       end
 
       SUBSCRIPT_INDEX(__) => begin
-        fold(subscript.index, func, arg)
+        fold(subscript.index, func, arg, ArgT)
       end
 
       SUBSCRIPT_SLICE(__) => begin
-        fold(subscript.slice, func, arg)
+        fold(subscript.slice, func, arg, ArgT)
       end
 
       _ => begin

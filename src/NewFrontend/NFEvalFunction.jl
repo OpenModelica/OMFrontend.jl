@@ -54,17 +54,10 @@ const Value = Expression
 
 include("../Util/baseAvlTreeCode.jl")
 
-function keyStr(inKey)
-  toString(inKey)
-end
-
-function valueStr(inValue)
-  toString(inValue);
-end
-
-keyCompare = (inKey1::InstNode, inKey2::InstNode) -> begin
-  refCompare(inKey1, inKey2)
-end
+keyStr(inKey::Key)::String = toString(inKey)
+valueStr(inValue::Value)::String = toString(inValue)
+const addConflictDefault = addConflictFail
+keyCompare(inKey1::Key, inKey2::Key)::Int = refCompare(inKey1, inKey2)
 
 @exportAll()
 end

@@ -371,65 +371,65 @@ function toString(stmt::Statement, indent::String = "")::String
   return str
 end
 
-function foldExp(stmt::Statement, func::FoldFunc, arg::ArgT) where {ArgT}
+function foldExp(stmt::Statement, func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
   () = begin
     @match stmt begin
       ALG_ASSIGNMENT(__) => begin
-        arg = func(stmt.lhs, arg)
-        arg = func(stmt.rhs, arg)
+        arg = func(stmt.lhs, arg)::ArgT
+        arg = func(stmt.rhs, arg)::ArgT
         ()
       end
 
       ALG_FOR(__) => begin
-        arg = foldExpList(stmt.body, func, arg)
+        arg = foldExpList(stmt.body, func, arg, ArgT)
         if isSome(stmt.range)
-          arg = func(Util.getOption(stmt.range), arg)
+          arg = func(Util.getOption(stmt.range), arg)::ArgT
         end
         ()
       end
 
       ALG_IF(__) => begin
         for b in stmt.branches
-          arg = func(Util.tuple21(b), arg)
-          arg = foldExpList(Util.tuple22(b), func, arg)
+          arg = func(Util.tuple21(b), arg)::ArgT
+          arg = foldExpList(Util.tuple22(b), func, arg, ArgT)
         end
         ()
       end
 
       ALG_WHEN(__) => begin
         for b in stmt.branches
-          arg = func(Util.tuple21(b), arg)
-          arg = foldExpList(Util.tuple22(b), func, arg)
+          arg = func(Util.tuple21(b), arg)::ArgT
+          arg = foldExpList(Util.tuple22(b), func, arg, ArgT)
         end
         ()
       end
 
       ALG_ASSERT(__) => begin
-        arg = func(stmt.condition, arg)
-        arg = func(stmt.message, arg)
-        arg = func(stmt.level, arg)
+        arg = func(stmt.condition, arg)::ArgT
+        arg = func(stmt.message, arg)::ArgT
+        arg = func(stmt.level, arg)::ArgT
         ()
       end
 
       ALG_TERMINATE(__) => begin
-        arg = func(stmt.message, arg)
+        arg = func(stmt.message, arg)::ArgT
         ()
       end
 
       ALG_REINIT(__) => begin
-        arg = func(stmt.cref, arg)
-        arg = func(stmt.reinitExp, arg)
+        arg = func(stmt.cref, arg)::ArgT
+        arg = func(stmt.reinitExp, arg)::ArgT
         ()
       end
 
       ALG_NORETCALL(__) => begin
-        arg = func(stmt.exp, arg)
+        arg = func(stmt.exp, arg)::ArgT
         ()
       end
 
       ALG_WHILE(__) => begin
-        arg = func(stmt.condition, arg)
-        arg = foldExpList(stmt.body, func, arg)
+        arg = func(stmt.condition, arg)::ArgT
+        arg = foldExpList(stmt.body, func, arg, ArgT)
         ()
       end
 
@@ -441,9 +441,9 @@ function foldExp(stmt::Statement, func::FoldFunc, arg::ArgT) where {ArgT}
   return arg
 end
 
-function foldExpList(stmt::Vector{Statement}, func::FoldFunc, arg::ArgT) where {ArgT}
+function foldExpList(stmt::Vector{Statement}, func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
   for s in stmt
-    arg = foldExp(s, func, arg)
+    arg = foldExp(s, func, arg, ArgT)
   end
   return arg
 end

@@ -39,22 +39,22 @@ const EMPTY_RAW_DIMS = Dimension[]
 
 using OpenModelicaParser.Absyn: Exp, Path #, Subscript
 
-function foldExpList(dims::List{Dimension}, func::FoldFunc, arg::ArgT) where {ArgT}
+function foldExpList(dims::List{Dimension}, func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
   for dim in dims
-    @assign arg = foldExp(dim, func, arg)
+    @assign arg = foldExp(dim, func, arg, ArgT)
   end
   return arg
 end
 
-function foldExp(dim::Dimension, func::FoldFunc, arg::ArgT) where {ArgT}
+function foldExp(dim::Dimension, func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
   local outArg::ArgT
   @assign outArg = begin
     @match dim begin
       DIMENSION_UNTYPED(__) => begin
-        fold(dim.dimension, func, arg)
+        fold(dim.dimension, func, arg, ArgT)
       end
       DIMENSION_EXP(__) => begin
-        fold(dim.exp, func, arg)
+        fold(dim.exp, func, arg, ArgT)
       end
       _ => begin
         arg

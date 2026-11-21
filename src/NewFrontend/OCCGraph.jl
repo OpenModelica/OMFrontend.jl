@@ -872,7 +872,7 @@ end
 
 """True if `eq` calls a Connections operator that is evaluated (rooted, isRoot, uniqueRootIndices)."""
 usesConnectionsOperators(@nospecialize(eq::Equation))::Bool =
-  foldExp(eq, (x, found) -> found || contains(x, isConnectionsOperatorCall), false)
+  foldExp(eq, (x::Expression, found::Bool) -> found || contains(x, isConnectionsOperatorCall), false, Bool)
 
 """The condition of `mode`: each conditional branch's condition, negated where the branch is absent."""
 function modeCondition(cbs::Vector{CONDITIONAL_BRANCH}, mode::Int)::Expression

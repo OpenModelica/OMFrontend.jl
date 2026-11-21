@@ -45,20 +45,11 @@ import ..Frontend.toString
 const Key = String
 const Value = Expression
 
-"""Define the printing functions."""
-function keyStr(key)
-  return key
-end
+keyStr(key::Key)::String = key
 
 include("../Util/baseDictTreeCode.jl")
-addConflictDefault = addConflictReplace
-compFunc(inKey1::Key, inKey2::Key) = begin
-  #Should it default to ==== instead since types are in many cases immutable?
-  res = stringCompare(inKey1, inKey2)
-  return res
-end
-#= Add comp function =#
-keyCompare = compFunc
+const addConflictDefault = addConflictReplace
+keyCompare(inKey1::Key, inKey2::Key)::Int = stringCompare(inKey1, inKey2)
 end #=ParameterTreeImpl=#
 
 const ParameterTree = ParameterTreeImpl.Tree

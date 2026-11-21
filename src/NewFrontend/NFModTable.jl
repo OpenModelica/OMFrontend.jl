@@ -432,7 +432,7 @@ end
 function addConflictFail(newValue::Value, oldValue::Value, key::Key)
   fail()
 end
-addConflictDefault = addConflictFail
+const addConflictDefault = addConflictFail
 
 """Conflict resolving function for add which replaces the old value with the new."""
 function addConflictReplace(newValue::Value, oldValue::Value, key::Key)

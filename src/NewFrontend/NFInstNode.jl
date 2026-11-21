@@ -52,10 +52,8 @@ const Key = String
 const Value = InstNode
 include("../Util/baseDictTreeCode.jl")
 
-keyCompare::Function = (inKey1::String, inKey2::String) -> begin
-  res = stringCompare(inKey1, inKey2)
-  return res
-end
+keyCompare(inKey1::Key, inKey2::Key)::Int = stringCompare(inKey1, inKey2)
+const addConflictDefault = addConflictFail
 
 @exportAll()
 end

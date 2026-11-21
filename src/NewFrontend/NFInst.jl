@@ -4082,8 +4082,8 @@ function updateImplicitVariabilityEq(eq::Equation, inWhen::Bool = false)::Nothin
       nothing
     end
     EQUATION_CONNECT(__)  => begin
-      fold(eq.lhs, markStructuralParamsSubs, 0)
-      fold(eq.rhs, markStructuralParamsSubs, 0)
+      fold(eq.lhs, markStructuralParamsSubs, 0, Int)
+      fold(eq.rhs, markStructuralParamsSubs, 0, Int)
       nothing
     end
     EQUATION_FOR(__)  => begin

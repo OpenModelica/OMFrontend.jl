@@ -74,7 +74,7 @@ const Tree = Dict{Key, Value}
 
 keyCompare(inKey1::String, inKey2::String) = stringCompare(inKey1, inKey2)
 
-keyStr = (key) -> key
+keyStr(key::Key)::String = key
 
 @inline _sortedKeys(tree::Tree) = sort!(collect(keys(tree)); lt = (a, b) -> keyCompare(a, b) < 0)
 
@@ -101,7 +101,7 @@ hasKey(tree::Tree, key::Key)::Bool = haskey(tree, key)
 """Conflict resolving function for add which fails on conflict."""
 addConflictFail(newValue::Value, oldValue::Value, key::Key) = fail()
 
-addConflictDefault::Function = addConflictFail
+const addConflictDefault = addConflictFail
 
 """Conflict resolving function for add which replaces the old value with the new."""
 addConflictReplace(newValue::Value, oldValue::Value, key::Key)::Value = newValue

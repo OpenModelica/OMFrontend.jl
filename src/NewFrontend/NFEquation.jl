@@ -482,31 +482,31 @@ end
   return res
 end
 
-@nospecializeinfer function foldExp(@nospecialize(eq::Equation), func::FoldFunc, arg::ArgT) where {ArgT}
+@nospecializeinfer function foldExp(@nospecialize(eq::Equation), func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
    () = begin
     @match eq begin
       EQUATION_EQUALITY(__) => begin
-         arg = func(eq.lhs, arg)
-         arg = func(eq.rhs, arg)
+         arg = func(eq.lhs, arg)::ArgT
+         arg = func(eq.rhs, arg)::ArgT
         ()
       end
 
       EQUATION_ARRAY_EQUALITY(__) => begin
-         arg = func(eq.lhs, arg)
-         arg = func(eq.rhs, arg)
+         arg = func(eq.lhs, arg)::ArgT
+         arg = func(eq.rhs, arg)::ArgT
         ()
       end
 
       EQUATION_CONNECT(__) => begin
-         arg = func(eq.lhs, arg)
-         arg = func(eq.rhs, arg)
+         arg = func(eq.lhs, arg)::ArgT
+         arg = func(eq.rhs, arg)::ArgT
         ()
       end
 
       EQUATION_FOR(__) => begin
-         arg = foldExpList(eq.body, func, arg)
+         arg = foldExpList(eq.body, func, arg, ArgT)
         if isSome(eq.range)
-           arg = func(Util.getOption(eq.range), arg)
+           arg = func(Util.getOption(eq.range), arg)::ArgT
         end
         ()
       end
@@ -516,8 +516,8 @@ end
            () = begin
             @match b begin
               EQUATION_BRANCH(__) => begin
-                 arg = func(b.condition, arg)
-                 arg = foldExpList(b.body, func, arg)
+                 arg = func(b.condition, arg)::ArgT
+                 arg = foldExpList(b.body, func, arg, ArgT)
                 ()
               end
 
@@ -535,8 +535,8 @@ end
           () = begin
             @match b begin
               EQUATION_BRANCH(__) => begin
-                arg = func(b.condition, arg)
-                arg = foldExpList(b.body, func, arg)
+                arg = func(b.condition, arg)::ArgT
+                arg = foldExpList(b.body, func, arg, ArgT)
                 ()
               end
 
@@ -550,25 +550,25 @@ end
       end
 
       EQUATION_ASSERT(__) => begin
-        arg = func(eq.condition, arg)
-        arg = func(eq.message, arg)
-        arg = func(eq.level, arg)
+        arg = func(eq.condition, arg)::ArgT
+        arg = func(eq.message, arg)::ArgT
+        arg = func(eq.level, arg)::ArgT
         ()
       end
 
       EQUATION_TERMINATE(__) => begin
-        arg = func(eq.message, arg)
+        arg = func(eq.message, arg)::ArgT
         ()
       end
 
       EQUATION_REINIT(__) => begin
-        arg = func(eq.cref, arg)
-        arg = func(eq.reinitExp, arg)
+        arg = func(eq.cref, arg)::ArgT
+        arg = func(eq.reinitExp, arg)::ArgT
         ()
       end
 
       EQUATION_NORETCALL(__) => begin
-        arg = func(eq.exp, arg)
+        arg = func(eq.exp, arg)::ArgT
         ()
       end
 
@@ -580,9 +580,9 @@ end
   return arg
 end
 
-function foldExpList(eq::Vector{Equation}, func::FoldFunc, arg::ArgT) where {ArgT}
+function foldExpList(eq::Vector{Equation}, func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
   for e in eq
-    arg = foldExp(e, func, arg)
+    arg = foldExp(e, func, arg, ArgT)
   end
   return arg
 end

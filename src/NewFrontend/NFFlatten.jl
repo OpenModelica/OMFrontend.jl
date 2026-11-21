@@ -45,22 +45,14 @@ module FunctionTreeImpl
   const Key = Absyn.Path
   const Value = MODELICA_FUNCTION
   include("../Util/baseAvlTreeCode.jl")
-  addConflictDefault = addConflictKeep
-  keyStr = (k) -> begin
-    return AbsynUtil.pathString(k)
-  end
-  valueStr = (vs) -> begin
-    return toFlatString(vs)
-  end
-#= John 2023-04-03:
-Default(Julia) string compare does not give the right result.
-MetaModelica string comp is used instead.
-=#
-  keyCompare = (inKey1::Key, inKey2::Key) -> begin
-    return stringCompare(keyStr(inKey1), keyStr(inKey2))
-  end
+  const addConflictDefault = addConflictKeep
+  keyStr(k::Key)::String = AbsynUtil.pathString(k)
+  valueStr(v::Value)::String = toFlatString(v)
+  #= The order of the path strings (John 2023-04-03: Julia's default comparison of the paths gave another order). =#
+  keyCompare(inKey1::Key, inKey2::Key)::Int = stringCompare(keyStr(inKey1), keyStr(inKey2))
 end #= FunctionTreeImpl =#
-FunctionTree = FunctionTreeImpl.Tree
+"""The functions of a flat model by name."""
+const FunctionTree = FunctionTreeImpl.Tree
 const NFFunctionTree = FunctionTreeImpl
 
 import .FunctionTree
@@ -136,11 +128,11 @@ a mode is a flat model of its own, and the backend generates its code with the m
 functions (a table in a mode was an undefined function).
 """
 function collectModelFuncs(flatModel::FLAT_MODEL, funcs::FunctionTree)::FunctionTree
-  funcs = ArrayUtil.fold(flatModel.variables, collectComponentFuncs, funcs)
-  funcs = ArrayUtil.fold(flatModel.equations, collectEquationFuncs, funcs)
-  funcs = ArrayUtil.fold(flatModel.initialEquations, collectEquationFuncs, funcs)
-  funcs = ArrayUtil.fold(flatModel.algorithms, collectAlgorithmFuncs, funcs)
-  funcs = ArrayUtil.fold(flatModel.initialAlgorithms, collectAlgorithmFuncs, funcs)
+  funcs = ArrayUtil.fold(flatModel.variables, collectComponentFuncs, funcs, FunctionTree)
+  funcs = ArrayUtil.fold(flatModel.equations, collectEquationFuncs, funcs, FunctionTree)
+  funcs = ArrayUtil.fold(flatModel.initialEquations, collectEquationFuncs, funcs, FunctionTree)
+  funcs = ArrayUtil.fold(flatModel.algorithms, collectAlgorithmFuncs, funcs, FunctionTree)
+  funcs = ArrayUtil.fold(flatModel.initialAlgorithms, collectAlgorithmFuncs, funcs, FunctionTree)
   for mode in flatModel.structuralSubmodels
     funcs = collectModelFuncs(mode, funcs)
   end
@@ -401,12 +393,12 @@ function checkDeletedVarRefs(flatModel::FLAT_MODEL)
   end
   for eq in Iterators.flatten((flatModel.equations, flatModel.initialEquations))
     local info::SourceInfo = source(eq)
-    foldExp(eq, (e, arg) -> (checkDeletedVarRefsInExp(e, info); arg), nothing)
+    foldExp(eq, (e::Expression, arg::Nothing) -> (checkDeletedVarRefsInExp(e, info); arg), nothing, Nothing)
   end
   for alg in Iterators.flatten((flatModel.algorithms, flatModel.initialAlgorithms))
     for stmt in alg.statements
       local info::SourceInfo = stmt.source
-      foldExp(stmt, (e, arg) -> (checkDeletedVarRefsInExp(e, info); arg), nothing)
+      foldExp(stmt, (e::Expression, arg::Nothing) -> (checkDeletedVarRefsInExp(e, info); arg), nothing, Nothing)
     end
   end
   return nothing
@@ -418,7 +410,7 @@ function checkDeletedVarRefsInBinding(binding::Binding, info::SourceInfo)
 end
 
 function checkDeletedVarRefsInExp(@nospecialize(exp::Expression), info::SourceInfo)
-  fold(exp, (e, arg) -> begin
+  fold(exp, (e::Expression, arg::Nothing) -> begin
     @match e begin
       CREF_EXPRESSION(__) where {isDeletedCref(e.cref)} => begin
         Error.addSourceMessage(Error.INVALID_DELETED_COMPONENT_CONTEXT, list(toString(e.cref)), info)
@@ -427,7 +419,7 @@ function checkDeletedVarRefsInExp(@nospecialize(exp::Expression), info::SourceIn
       _ => ()
     end
     arg
-  end, nothing)
+  end, nothing, Nothing)
   return nothing
 end
 
@@ -1084,7 +1076,7 @@ end
 function _vectorizeEquationSplit(eqn::Equation, dimensions::List, prefix::ComponentRef)::Vector{Equation}
   local veq = vectorizeEquation(eqn, dimensions, prefix)
   if isvariant(veq, EQUATION_FOR) &&
-     (contains(veq, isConnectEq) || foldExp(veq, (e, acc) -> acc || contains(e, _isConnectionCall), false))
+     (contains(veq, isConnectEq) || foldExp(veq, (e::Expression, acc::Bool) -> acc || contains(e, _isConnectionCall), false, Bool))
     local (connects, rest) = splitForLoop2(Equation[veq])
     local out = Equation[]
     for c in connects
@@ -1866,7 +1858,7 @@ function splitForLoop2(forBody::Vector{Equation})::Tuple{Vector{Equation}, Vecto
           #= Equations that contain a connect or a connection call (Connections.*, inStream,
              actualStream, cardinality) are resolved per scalar: unroll them (omc's splitForLoop2). =#
           if contains(eq, isConnectEq) ||
-             foldExp(eq, (e, acc) -> acc || contains(e, _isConnectionCall), false)
+             foldExp(eq, (e::Expression, acc::Bool) -> acc || contains(e, _isConnectionCall), false, Bool)
             connects = push!(connects, eq)
           else
             nonConnects = push!(nonConnects, eq)
@@ -2245,11 +2237,7 @@ function collectTypeFuncs(ty::ModelicaType, funcs::FunctionTree)::FunctionTree
     local fn::MODELICA_FUNCTION
     @match ty begin
       TYPE_ARRAY(__) => begin
-        funcs = foldExpList(
-          ty.dimensions,
-          collectExpFuncs_traverse,
-          funcs,
-        )
+        funcs = foldExpList(ty.dimensions, collectExpFuncs_traverse, funcs, FunctionTree)
         funcs = collectTypeFuncs(ty.elementType, funcs)
         ()
       end
@@ -2325,15 +2313,15 @@ function collectEquationFuncs(@nospecialize(eq::Equation),
           For equations are always unrolled, so functions in the range doesn't
           matter since they are always evaluated.
         =#
-        funcs = ArrayUtil.fold(eq.body, collectEquationFuncs, funcs)
+        funcs = ArrayUtil.fold(eq.body, collectEquationFuncs, funcs, FunctionTree)
         ()
       end
       EQUATION_IF(__) => begin
-        funcs = ArrayUtil.fold(eq.branches, collectEqBranchFuncs, funcs)
+        funcs = ArrayUtil.fold(eq.branches, collectEqBranchFuncs, funcs, FunctionTree)
         ()
       end
       EQUATION_WHEN(__) => begin
-        funcs = ArrayUtil.fold(eq.branches, collectEqBranchFuncs, funcs)
+        funcs = ArrayUtil.fold(eq.branches, collectEqBranchFuncs, funcs, FunctionTree)
         ()
       end
       EQUATION_ASSERT(__) => begin
@@ -2370,7 +2358,7 @@ function collectEqBranchFuncs(
     @match branch begin
       EQUATION_BRANCH(__) => begin
         funcs = collectExpFuncs(branch.condition, funcs)
-        funcs = ArrayUtil.fold(branch.body, collectEquationFuncs, funcs)
+        funcs = ArrayUtil.fold(branch.body, collectEquationFuncs, funcs, FunctionTree)
         ()
       end
       _ => begin
@@ -2382,7 +2370,7 @@ function collectEqBranchFuncs(
 end
 
 function collectAlgorithmFuncs(alg::ALGORITHM, funcs::FunctionTree)::FunctionTree
-  funcs = ArrayUtil.fold(alg.statements, collectStatementFuncs, funcs)
+  funcs = ArrayUtil.fold(alg.statements, collectStatementFuncs, funcs, FunctionTree)
   return funcs
 end
 
@@ -2397,18 +2385,18 @@ function collectStatementFuncs(@nospecialize(stmt::Statement), funcs::FunctionTr
       end
 
       ALG_FOR(__) => begin
-        funcs = ArrayUtil.fold(stmt.body, collectStatementFuncs, funcs)
+        funcs = ArrayUtil.fold(stmt.body, collectStatementFuncs, funcs, FunctionTree)
         funcs = collectExpFuncs(Util.getOption(stmt.range), funcs)
         ()
       end
 
       ALG_IF(__) => begin
-        funcs = ArrayUtil.fold(stmt.branches, collectStmtBranchFuncs, funcs)
+        funcs = ArrayUtil.fold(stmt.branches, collectStmtBranchFuncs, funcs, FunctionTree)
         ()
       end
 
       ALG_WHEN(__) => begin
-        funcs = ArrayUtil.fold(stmt.branches, collectStmtBranchFuncs, funcs)
+        funcs = ArrayUtil.fold(stmt.branches, collectStmtBranchFuncs, funcs, FunctionTree)
         ()
       end
 
@@ -2436,7 +2424,7 @@ function collectStatementFuncs(@nospecialize(stmt::Statement), funcs::FunctionTr
 
       ALG_WHILE(__) => begin
         funcs = collectExpFuncs(stmt.condition, funcs)
-        funcs = ArrayUtil.fold(stmt.body, collectStatementFuncs, funcs)
+        funcs = ArrayUtil.fold(stmt.body, collectStatementFuncs, funcs, FunctionTree)
         ()
       end
 
@@ -2453,12 +2441,12 @@ function collectStmtBranchFuncs(
   funcs::FunctionTree,
 )::FunctionTree
   funcs = collectExpFuncs(Util.tuple21(branch), funcs)
-  funcs = ArrayUtil.fold(Util.tuple22(branch), collectStatementFuncs, funcs)
+  funcs = ArrayUtil.fold(Util.tuple22(branch), collectStatementFuncs, funcs, FunctionTree)
   return funcs
 end
 
 function collectExpFuncs(exp::Expression, funcs::FunctionTree)::FunctionTree
-  funcs = fold(exp, collectExpFuncs_traverse, funcs)
+  funcs = fold(exp, collectExpFuncs_traverse, funcs, FunctionTree)
   return funcs
 end
 
@@ -2535,7 +2523,7 @@ function collectClassFunctions(clsNode::InstNode, funcs::FunctionTree)::Function
         () = begin
           @match sections begin
             SECTIONS(__) => begin
-              funcs = ArrayUtil.fold(sections.algorithms, collectAlgorithmFuncs, funcs)
+              funcs = ArrayUtil.fold(sections.algorithms, collectAlgorithmFuncs, funcs, FunctionTree)
               ()
             end
 

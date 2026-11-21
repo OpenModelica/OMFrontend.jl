@@ -284,17 +284,14 @@ end
 
 
 
-""" Takes an array, a function, and a start value. The function is applied to
-each array element, and the start value is passed to the function and
-updated. """
-function fold(inArray::Vector{T},
-              inFunction::F,
-              inStartValue) where {T, F<:Function}
-  local outResult = inStartValue
+""" Takes an array, a function, and a start value of type `TO`. The function is applied to each array element,
+and the start value is passed to the function and updated: `inFunction(e, acc)::TO`. """
+function fold(inArray::Vector{T}, inFunction::F, inStartValue::TO, ::Type{TO})::TO where {T, F<:Function, TO}
+  local outResult::TO = inStartValue
   for e in inArray
-    outResult = inFunction(e, outResult)
+    outResult = inFunction(e, outResult)::TO
   end
-  outResult
+  return outResult
 end
 
 # Fold accumulators stay untyped here and in foldIndex, mapFold and mapNoCopy_1: a
@@ -711,16 +708,12 @@ function reverse(inArray::Vector{T})  where {T}
 end
 
 """ output true if all lists in the array are empty """
-function arrayListsEmpty(arr::Array{List{T}})  where {T}
-  local isEmpty::Bool
-  isEmpty = fold(arr, arrayListsEmpty1, true)
-  isEmpty
+function arrayListsEmpty(arr::Array{List{T}})::Bool  where {T}
+  return fold(arr, arrayListsEmpty1, true, Bool)
 end
 
-function arrayListsEmpty1(lst::List{T}, isEmptyIn::Bool)  where {T}
-  local isEmptyOut::Bool
-  isEmptyOut = listEmpty(lst) && isEmptyIn
-  isEmptyOut
+function arrayListsEmpty1(lst::List{T}, isEmptyIn::Bool)::Bool  where {T}
+  return listEmpty(lst) && isEmptyIn
 end
 
 """ Checks if two arrays are equal. """

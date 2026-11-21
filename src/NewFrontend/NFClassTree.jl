@@ -288,34 +288,34 @@ function classCount(tree::ClassTree)::Int
   return count
 end
 
-function foldComponents(tree::ClassTree, func::FuncT, arg::ArgT) where {ArgT}
+function foldComponents(tree::ClassTree, func::FuncT, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
 
   () = begin
     @match tree begin
       CLASS_TREE_PARTIAL_TREE(__) => begin
         for c in tree.components
-          arg = func(c, arg)
+          arg = func(c, arg)::ArgT
         end
         ()
       end
 
       CLASS_TREE_EXPANDED_TREE(__) => begin
         for c in tree.components
-          arg = func(c, arg)
+          arg = func(c, arg)::ArgT
         end
         ()
       end
 
       CLASS_TREE_INSTANTIATED_TREE(__) => begin
         for c in tree.components
-          arg = func(P_Pointer.access(c), arg)
+          arg = func(P_Pointer.access(c), arg)::ArgT
         end
         ()
       end
 
       CLASS_TREE_FLAT_TREE(__) => begin
         for c in tree.components
-          arg = func(c, arg)
+          arg = func(c, arg)::ArgT
         end
         ()
       end

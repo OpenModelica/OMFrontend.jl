@@ -210,7 +210,7 @@ function collectRecordFields(recNode::InstNode)::List{Field}
   local fields::List{Field}
   local tree::ClassTree
   @assign tree = classTree(getClass(recNode))
-  @assign fields = foldComponents(tree, collectRecordField, nil)
+  @assign fields = foldComponents(tree, collectRecordField, nil, List{Field})
   @assign fields = listReverseInPlace(fields)
   return fields
 end

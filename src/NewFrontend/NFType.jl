@@ -643,30 +643,30 @@ end
   return str
 end
 
-@nospecializeinfer function foldDims(ty::ModelicaType, func::FuncT, arg::ArgT) where {ArgT}
+function foldDims(ty::ModelicaType, func::FuncT, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
 
   @assign arg = begin
     @match ty begin
       TYPE_ARRAY(__) => begin
         for d in ty.dimensions
-          arg = func(d, arg)
+          arg = func(d, arg)::ArgT
         end
         arg
       end
 
       TYPE_TUPLE(__) => begin
         for t in ty.types
-          arg = foldDims(t, func, arg)
+          arg = foldDims(t, func, arg, ArgT)
         end
         arg
       end
 
       TYPE_FUNCTION(__) => begin
-        foldDims(returnType(functionOf(ty)), func, arg)
+        foldDims(returnType(functionOf(ty)), func, arg, ArgT)
       end
 
       TYPE_METABOXED(__) => begin
-        foldDims(ty.ty, func, arg)
+        foldDims(ty.ty, func, arg, ArgT)
       end
 
       _ => begin

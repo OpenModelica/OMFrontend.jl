@@ -149,13 +149,13 @@ function verifyStatementBounds(stmt::Statement)
 end
 
 function checkSubscriptBounds(@nospecialize(exp::Expression), info::SourceInfo)
-  fold(exp, (e, arg) -> begin
+  fold(exp, (e::Expression, arg::Nothing) -> begin
     @match e begin
       CREF_EXPRESSION(__) => checkSubscriptBoundsCref(e.cref, info)
       _ => ()
     end
     arg
-  end, nothing)
+  end, nothing, Nothing)
   return nothing
 end
 

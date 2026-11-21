@@ -39,23 +39,17 @@
    and `const Value`. The tree is a `Dict{Key,Value}`; lookup/insert use the
    key type's `hash`/`isequal` (correct for value types like `String`).
    `keyCompare` is used ONLY to order iteration so output matches the former
-   AVL in-order (sorted) traversal. Both `keyCompare` and `addConflictDefault`
-   are reassignable globals the includer overrides after the include, mirroring
+   AVL in-order (sorted) traversal. The includer defines, after the include,
+   `keyCompare(k1::Key, k2::Key)::Int` and `const addConflictDefault`, as for
    baseAvlTreeCode.jl. =#
 
 const Tree = Dict{Key, Value}
 
-#= Overridden by the includer; the AVL used a Bool placeholder here too. =#
-keyCompare::Function = (inKey1::Key, inKey2::Key) -> (inKey1 == inKey2)
+@inline _sortedKeys(tree::Tree) = sort!(collect(keys(tree)); lt = (a::Key, b::Key) -> keyCompare(a, b) < 0)
 
-@inline _sortedKeys(tree::Tree) = sort!(collect(keys(tree)); lt = (a, b) -> keyCompare(a, b) < 0)
-
-function addConflictFail(newValue::Value, oldValue::Value, key::Key)
-  fail()
-end
+addConflictFail(newValue::Value, oldValue::Value, key::Key)::Value = fail()
 addConflictReplace(newValue::Value, oldValue::Value, key::Key)::Value = newValue
 addConflictKeep(newValue::Value, oldValue::Value, key::Key)::Value = oldValue
-addConflictDefault = addConflictFail
 
 """Return an empty tree."""
 new()::Tree = Dict{Key, Value}()

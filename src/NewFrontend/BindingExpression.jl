@@ -69,8 +69,8 @@ if neither expression contains any binding expressions.
 function mostPropagatedSubExpBinary(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression)) ::Tuple{Expression, Int}
   #=  TODO: Optimize this, there's no need to check for bindings in e.g. literal arrays. =#
   local mp = MaxProp(-1, exp1)
-  fold(exp1, mostPropagatedSubExp_traverser, mp)
-  fold(exp2, mostPropagatedSubExp_traverser, mp)
+  fold(exp1, mostPropagatedSubExp_traverser, mp, MaxProp)
+  fold(exp2, mostPropagatedSubExp_traverser, mp, MaxProp)
   (mp.exp, mp.count)
 end
 
@@ -83,7 +83,7 @@ any binding expressions.
 function mostPropagatedSubExp(@nospecialize(exp::Expression))
   #=  TODO: Optimize this, there's no need to check for bindings in e.g. literal arrays. =#
   local mp = MaxProp(-1, exp)
-  fold(exp, mostPropagatedSubExp_traverser, mp)
+  fold(exp, mostPropagatedSubExp_traverser, mp, MaxProp)
   (mp.exp, mp.count)
 end
 
@@ -446,8 +446,9 @@ function _typeRecordExpField!(field::InstNode, @nospecialize(recordExp::Expressi
          the field's type lacked its own dimensions, which serial typing had by its order and parallel typing
          not always (CCCV_StackRC, 1 in 3 runs: OCV_SOC_internal deduced from a Real[3, 2]). =#
       local first::Union{Nothing, CREF_EXPRESSION} =
-        fold(exp, (e, acc) -> (acc === nothing && e isa CREF_EXPRESSION && isComplex(arrayElementType(e.ty))) ? e : acc,
-             nothing)
+        fold(exp, (e::Expression, acc::Union{Nothing, CREF_EXPRESSION}) ->
+               (acc === nothing && e isa CREF_EXPRESSION && isComplex(arrayElementType(e.ty))) ? e : acc,
+             nothing, Union{Nothing, CREF_EXPRESSION})
       first === nothing && return nothing
       return _typeRecordField!(field, first.cref)
     end
@@ -2712,33 +2713,34 @@ function applyList(expl::Union{List{<:Expression},Vector{Expression}}, func::App
   end
 end
 
-function foldCref(cref::ComponentRef, func::FoldFunc, arg::ArgT)  where {ArgT}
-  () = begin
-    @match cref begin
-      COMPONENT_REF_CREF(origin = Origin.CREF)  => begin
-        for s in cref.subscripts
-          arg = foldExp(s, func, arg)
-        end
-        arg = foldCref(cref.restCref, func, arg)
-        ()
-      end
-      _  => begin
-        ()
-      end
+"""
+Folds `func` over the subscript expressions of `cref`, from the last part to the first, while the parts are crefs
+(origin CREF); an iterator or scope part ends the fold.
+"""
+function foldCref(cref::ComponentRef, func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
+  local acc::ArgT = arg
+  local cr::ComponentRef = cref
+  local subs::List{Subscript}
+  while isvariant(cr, COMPONENT_REF_CREF) && cr.origin == Origin.CREF
+    subs = cr.subscripts
+    while subs isa Cons
+      acc = foldExp(subs.head, func, acc, ArgT)
+      subs = subs.tail
     end
+    cr = cr.restCref
   end
-  arg
+  return acc
 end
 
-@nospecializeinfer function foldCall(call::Call, func::FoldFunc, foldArg::ArgT) where {ArgT}
+function foldCall(call::Call, func::FoldFunc, foldArg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
   () = begin
     local e::Expression
     @match call begin
       UNTYPED_CALL(__)  => begin
-        foldArg = foldList(call.arguments, func, foldArg)
+        foldArg = foldList(call.arguments, func, foldArg, ArgT)
         for arg in call.named_args
           (_, e) = arg
-          foldArg = fold(e, func, foldArg)
+          foldArg = fold(e, func, foldArg, ArgT)
         end
         ()
       end
@@ -2746,51 +2748,51 @@ end
       ARG_TYPED_CALL(__)  => begin
         for arg in call.arguments
            (e, _, _) = arg
-           foldArg = fold(e, func, foldArg)
+           foldArg = fold(e, func, foldArg, ArgT)
         end
         for arg in call.named_args
            (_, e, _, _) = arg
-           foldArg = fold(e, func, foldArg)
+           foldArg = fold(e, func, foldArg, ArgT)
         end
         ()
       end
 
       TYPED_CALL(__)  => begin
-         foldArg = foldList(call.arguments, func, foldArg)
+         foldArg = foldList(call.arguments, func, foldArg, ArgT)
         ()
       end
 
       UNTYPED_ARRAY_CONSTRUCTOR(__)  => begin
-         foldArg = fold(call.exp, func, foldArg)
+         foldArg = fold(call.exp, func, foldArg, ArgT)
         for i in call.iters
-           foldArg = fold(last(i), func, foldArg)
+           foldArg = fold(last(i), func, foldArg, ArgT)
         end
         ()
       end
 
       TYPED_ARRAY_CONSTRUCTOR(__)  => begin
-         foldArg = fold(call.exp, func, foldArg)
+         foldArg = fold(call.exp, func, foldArg, ArgT)
         for i in call.iters
-           foldArg = fold(last(i), func, foldArg)
+           foldArg = fold(last(i), func, foldArg, ArgT)
         end
         ()
       end
 
       UNTYPED_REDUCTION(__)  => begin
-         foldArg = fold(call.exp, func, foldArg)
+         foldArg = fold(call.exp, func, foldArg, ArgT)
         for i in call.iters
-           foldArg = fold(last(i), func, foldArg)
+           foldArg = fold(last(i), func, foldArg, ArgT)
         end
         ()
       end
 
       TYPED_REDUCTION(__)  => begin
-         foldArg = fold(call.exp, func, foldArg)
+         foldArg = fold(call.exp, func, foldArg, ArgT)
         for i in call.iters
-           foldArg = fold(last(i), func, foldArg)
+           foldArg = fold(last(i), func, foldArg, ArgT)
         end
-         foldArg = foldOpt(call.defaultExp, func, foldArg)
-         foldArg = foldOpt(Util.tuple31(call.foldExp), func, foldArg)
+         foldArg = foldOpt(call.defaultExp, func, foldArg, ArgT)
+         foldArg = foldOpt(Util.tuple31(call.foldExp), func, foldArg, ArgT)
         ()
       end
     end
@@ -2798,146 +2800,147 @@ end
   foldArg
 end
 
-@nospecializeinfer function fold(@nospecialize(exp::Expression), func::FoldFunc, arg)
-  local result
+@nospecializeinfer function fold(@nospecialize(exp::Expression), func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
+  local result::ArgT
   result = begin
     local e::Expression
     local e1::Expression
     local e2::Expression
     @match exp begin
-      CLKCONST_EXPRESSION(INTEGER_CLOCK(e1, e2))  => begin
-         result = fold(e1, func, arg)
-         result = fold(e2, func, result)
-        result
-      end
-
-      CLKCONST_EXPRESSION(REAL_CLOCK(e1))  => begin
-         result = fold(e1, func, arg)
-        result
-      end
-
-      CLKCONST_EXPRESSION(BOOLEAN_CLOCK(e1, e2))  => begin
-         result = fold(e1, func, arg)
-         result = fold(e2, func, result)
-        result
-      end
-
-      CLKCONST_EXPRESSION(SOLVER_CLOCK(e1, e2))  => begin
-         result = fold(e1, func, arg)
-         result = fold(e2, func, result)
-        result
-      end
-
       CREF_EXPRESSION(__)  => begin
-        foldCref(exp.cref, func, arg)
+        foldCref(exp.cref, func, arg, ArgT)
       end
 
       ARRAY_EXPRESSION(__)  => begin
-        foldList(exp.elements, func, arg)
+        foldList(exp.elements, func, arg, ArgT)
       end
 
       MATRIX_EXPRESSION(__)  => begin
          result = arg
         for row in exp.elements
-           result = foldList(row, func, result)
+           result = foldList(row, func, result, ArgT)
         end
         result
       end
 
       RANGE_EXPRESSION(__)  => begin
-         result = fold(exp.start, func, arg)
-         result = foldOpt(exp.step, func, result)
-        fold(exp.stop, func, result)
+         result = fold(exp.start, func, arg, ArgT)
+         result = foldOpt(exp.step, func, result, ArgT)
+        fold(exp.stop, func, result, ArgT)
       end
 
       TUPLE_EXPRESSION(__)  => begin
-        foldList(exp.elements, func, arg)
+        foldList(exp.elements, func, arg, ArgT)
       end
 
       RECORD_EXPRESSION(__)  => begin
-        foldList(exp.elements, func, arg)
+        foldList(exp.elements, func, arg, ArgT)
       end
 
       CALL_EXPRESSION(__)  => begin
-        foldCall(exp.call, func, arg)
+        foldCall(exp.call, func, arg, ArgT)
       end
 
       SIZE_EXPRESSION(dimIndex = SOME(e))  => begin
-         result = fold(exp.exp, func, arg)
-        fold(e, func, result)
+         result = fold(exp.exp, func, arg, ArgT)
+        fold(e, func, result, ArgT)
       end
 
       SIZE_EXPRESSION(__)  => begin
-        fold(exp.exp, func, arg)
+        fold(exp.exp, func, arg, ArgT)
       end
 
       BINARY_EXPRESSION(__)  => begin
-         result = fold(exp.exp1, func, arg)
-        fold(exp.exp2, func, result)
+         result = fold(exp.exp1, func, arg, ArgT)
+        fold(exp.exp2, func, result, ArgT)
       end
 
       UNARY_EXPRESSION(__)  => begin
-        fold(exp.exp, func, arg)
+        fold(exp.exp, func, arg, ArgT)
       end
 
       LBINARY_EXPRESSION(__)  => begin
-         result = fold(exp.exp1, func, arg)
-        fold(exp.exp2, func, result)
+         result = fold(exp.exp1, func, arg, ArgT)
+        fold(exp.exp2, func, result, ArgT)
       end
 
       LUNARY_EXPRESSION(__)  => begin
-        fold(exp.exp, func, arg)
+        fold(exp.exp, func, arg, ArgT)
       end
 
       RELATION_EXPRESSION(__)  => begin
-         result = fold(exp.exp1, func, arg)
-        fold(exp.exp2, func, result)
+         result = fold(exp.exp1, func, arg, ArgT)
+        fold(exp.exp2, func, result, ArgT)
       end
 
       IF_EXPRESSION(__)  => begin
-         result = fold(exp.condition, func, arg)
-         result = fold(exp.trueBranch, func, result)
-        fold(exp.falseBranch, func, result)
+         result = fold(exp.condition, func, arg, ArgT)
+         result = fold(exp.trueBranch, func, result, ArgT)
+        fold(exp.falseBranch, func, result, ArgT)
       end
 
       CAST_EXPRESSION(__)  => begin
-        fold(exp.exp, func, arg)
+        fold(exp.exp, func, arg, ArgT)
       end
 
       UNBOX_EXPRESSION(__)  => begin
-        fold(exp.exp, func, arg)
+        fold(exp.exp, func, arg, ArgT)
       end
 
       SUBSCRIPTED_EXP_EXPRESSION(__)  => begin
-        result = fold(exp.exp, func, arg)
+        result = fold(exp.exp, func, arg, ArgT)
         for s in exp.subscripts
-          result = foldExp(s, func, result)
+          result = foldExp(s, func, result, ArgT)
         end
         result
       end
 
       TUPLE_ELEMENT_EXPRESSION(__)  => begin
-        fold(exp.tupleExp, func, arg)
+        fold(exp.tupleExp, func, arg, ArgT)
       end
 
       RECORD_ELEMENT_EXPRESSION(__)  => begin
-        fold(exp.recordExp, func, arg)
+        fold(exp.recordExp, func, arg, ArgT)
       end
 
       BOX_EXPRESSION(__)  => begin
-        fold(exp.exp, func, arg)
+        fold(exp.exp, func, arg, ArgT)
       end
 
       MUTABLE_EXPRESSION(__)  => begin
-        fold(P_Pointer.access(exp.exp), func, arg)
+        fold(P_Pointer.access(exp.exp), func, arg, ArgT)
       end
 
       PARTIAL_FUNCTION_APPLICATION_EXPRESSION(__)  => begin
-        foldList(exp.args, func, arg)
+        foldList(exp.args, func, arg, ArgT)
       end
 
       BINDING_EXP(__)  => begin
-        fold(exp.exp, func, arg)
+        fold(exp.exp, func, arg, ArgT)
+      end
+
+      #= Clocks last: rare, and their nested patterns cost a test for every expression before them. =#
+      CLKCONST_EXPRESSION(INTEGER_CLOCK(e1, e2))  => begin
+         result = fold(e1, func, arg, ArgT)
+         result = fold(e2, func, result, ArgT)
+        result
+      end
+
+      CLKCONST_EXPRESSION(REAL_CLOCK(e1))  => begin
+         result = fold(e1, func, arg, ArgT)
+        result
+      end
+
+      CLKCONST_EXPRESSION(BOOLEAN_CLOCK(e1, e2))  => begin
+         result = fold(e1, func, arg, ArgT)
+         result = fold(e2, func, result, ArgT)
+        result
+      end
+
+      CLKCONST_EXPRESSION(SOLVER_CLOCK(e1, e2))  => begin
+         result = fold(e1, func, arg, ArgT)
+         result = fold(e2, func, result, ArgT)
+        result
       end
 
       _  => begin
@@ -2945,34 +2948,22 @@ end
       end
     end
   end
-  result = func(exp, result)
+  result = func(exp, result)::ArgT
   return result
 end
 
-function foldOpt(exp::Option{Expression}, func::FoldFunc, arg::ArgT)  where {ArgT}
-  local result::ArgT
-
-   result = begin
-    local e::Expression
-    @match exp begin
-      SOME(e)  => begin
-        func(e, arg)
-      end
-
-      _  => begin
-        arg
-      end
-    end
-  end
-  result
+"""Folds `func` over the expression in `exp`, if any, and its subexpressions (as `fold`)."""
+function foldOpt(exp::Option{Expression}, func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
+  return exp === nothing ? arg : fold(something(exp), func, arg, ArgT)
 end
 
-function foldList(expl::Union{List{T}, Vector{T}}, func::FoldFunc, arg) where T
-  local result = arg
+"""Folds `func` over the expressions of `expl` in order (as `fold`)."""
+function foldList(expl::Union{List{T}, Vector{T}}, func::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {T, ArgT}
+  local result::ArgT = arg
   for e in expl
-    result = fold(e, func, result)
+    result = fold(e, func, result, ArgT)
   end
-  result
+  return result
 end
 
 function mapArrayElements(exp::ARRAY_EXPRESSION, @nospecialize(func::Function))
@@ -6109,23 +6100,23 @@ end
   return res
 end
 
-@nospecializeinfer function foldExp(binding::Binding, foldFn::Function, arg::ArgT) where {ArgT}
+function foldExp(binding::Binding, foldFn::Function, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
   arg = begin
     @match binding begin
       UNTYPED_BINDING(__) => begin
-        fold(binding.bindingExp, foldFn, arg)
+        fold(binding.bindingExp, foldFn, arg, ArgT)
       end
 
       TYPED_BINDING(__) => begin
-        fold(binding.bindingExp, foldFn, arg)
+        fold(binding.bindingExp, foldFn, arg, ArgT)
       end
 
       FLAT_BINDING(__) => begin
-        fold(binding.bindingExp, foldFn, arg)
+        fold(binding.bindingExp, foldFn, arg, ArgT)
       end
 
       CEVAL_BINDING(__) => begin
-        fold(binding.bindingExp, foldFn, arg)
+        fold(binding.bindingExp, foldFn, arg, ArgT)
       end
 
       _ => begin

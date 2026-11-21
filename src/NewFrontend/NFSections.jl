@@ -99,19 +99,19 @@ function apply(
   end
 end
 
-function foldExp(sections::Sections, foldFn::FoldFn, arg::ArgT) where {ArgT}
+function foldExp(sections::Sections, foldFn::FoldFn, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
   @assign arg = begin
     @match sections begin
       SECTIONS(__) => begin
-        arg = foldExpList(sections.equations, foldFn, arg)
-        arg = foldExpList(sections.initialEquations, foldFn, arg)
-        arg = foldExpList(sections.algorithms, foldFn, arg)
-        arg = foldExpList(sections.initialAlgorithms, foldFn, arg)
+        arg = foldExpList(sections.equations, foldFn, arg, ArgT)
+        arg = foldExpList(sections.initialEquations, foldFn, arg, ArgT)
+        arg = foldExpList(sections.algorithms, foldFn, arg, ArgT)
+        arg = foldExpList(sections.initialAlgorithms, foldFn, arg, ArgT)
         arg
       end
       SECTIONS_EXTERNAL(__) => begin
         for e in sections.args
-          arg = foldFn(e, arg)
+          arg = foldFn(e, arg)::ArgT
         end
         arg
       end

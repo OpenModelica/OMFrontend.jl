@@ -48,22 +48,10 @@ const Value = ModelicaType
 
 include("../Util/baseAvlTreeCode.jl")
 
-function keyStr(k)
-  return AbsynUtil.pathString(k)
-end
-
-valueStr = (vs) -> begin
-  return toString(vs)
-end
-
-addConflictDefault = addConflictReplace
-#= John 2023-04-03:
-  Default(Julia) string compare does not give the right result.
-  MetaModelica string comp is used instead.
-=#
-keyCompare = (inKey1::Key, inKey2::Key) -> begin
-  return AbsynUtil.pathCompareNoQual(inKey1, inKey2)
-end
+keyStr(k::Key)::String = AbsynUtil.pathString(k)
+valueStr(v::Value)::String = toString(v)
+const addConflictDefault = addConflictReplace
+keyCompare(inKey1::Key, inKey2::Key)::Int = AbsynUtil.pathCompareNoQual(inKey1, inKey2)
 
 @exportAll()
 end
@@ -218,14 +206,10 @@ function collectComponentFlatTypes(componentArg::InstNode, types::TypeTree)::Typ
 end
 
 function collectFunctionFlatTypes(fn::MODELICA_FUNCTION, types::TypeTree)::TypeTree
-  types = foldComponents(
-    classTree(getClass(fn.node)),
-    collectComponentFlatTypes,
-    types,
-  )
+  types = foldComponents(classTree(getClass(fn.node)), collectComponentFlatTypes, types, TypeTree)
   #= External functions do not have a function body. =#
   if !isExternal(fn)
-    types = ArrayUtil.fold(getBody(fn), collectStatementFlatTypes, types)
+    types = ArrayUtil.fold(getBody(fn), collectStatementFlatTypes, types, TypeTree)
   end
   return types
 end
@@ -248,14 +232,14 @@ end
 
 function collectExpFlatTypes(exp::Expression, types::TypeTree)::TypeTree
 
-  @assign types = fold(exp, collectExpFlatTypes_traverse, types)
+  @assign types = fold(exp, collectExpFlatTypes_traverse, types, TypeTree)
   return types
 end
 
 function collectStmtBranchFlatTypes(branch::Tuple{<:Expression, Vector{<:Statement}},
                                     types::TypeTree)
   types = collectExpFlatTypes(Util.tuple21(branch), types)
-  types = ArrayUtil.fold(Util.tuple22(branch), collectStatementFlatTypes, types)
+  types = ArrayUtil.fold(Util.tuple22(branch), collectStatementFlatTypes, types, TypeTree)
   return types
 end
 
@@ -269,18 +253,18 @@ function collectStatementFlatTypes(stmt::Statement, types::TypeTree)::TypeTree
         ()
       end
       ALG_FOR(__) => begin
-         types = ArrayUtil.fold(stmt.body, collectStatementFlatTypes, types)
+         types = ArrayUtil.fold(stmt.body, collectStatementFlatTypes, types, TypeTree)
          types = collectExpFlatTypes(Util.getOption(stmt.range), types)
         ()
       end
 
       ALG_IF(__) => begin
-         types = ArrayUtil.fold(stmt.branches, collectStmtBranchFlatTypes, types)
+         types = ArrayUtil.fold(stmt.branches, collectStmtBranchFlatTypes, types, TypeTree)
         ()
       end
 
       ALG_WHEN(__) => begin
-         types = ArrayUtil.fold(stmt.branches, collectStmtBranchFlatTypes, types)
+         types = ArrayUtil.fold(stmt.branches, collectStmtBranchFlatTypes, types, TypeTree)
         ()
       end
 
@@ -308,7 +292,7 @@ function collectStatementFlatTypes(stmt::Statement, types::TypeTree)::TypeTree
 
       ALG_WHILE(__) => begin
          types = collectExpFlatTypes(stmt.condition, types)
-         types = ArrayUtil.fold(stmt.body, collectStatementFlatTypes, types)
+         types = ArrayUtil.fold(stmt.body, collectStatementFlatTypes, types, TypeTree)
         ()
       end
 
@@ -322,7 +306,7 @@ end
 
 function collectAlgorithmFlatTypes(alg::ALGORITHM, types::TypeTree)::TypeTree
 
-  @assign types = ArrayUtil.fold(alg.statements, collectStatementFlatTypes, types)
+  @assign types = ArrayUtil.fold(alg.statements, collectStatementFlatTypes, types, TypeTree)
   return types
 end
 
@@ -334,7 +318,7 @@ function collectEqBranchFlatTypes(
     @match branch begin
       EQUATION_BRANCH(__) => begin
         types = collectExpFlatTypes(branch.condition, types)
-        types = ArrayUtil.fold(branch.body, collectEquationFlatTypes, types)
+        types = ArrayUtil.fold(branch.body, collectEquationFlatTypes, types, TypeTree)
         ()
       end
       _ => begin
@@ -364,17 +348,17 @@ function collectEquationFlatTypes(eq::Equation, types::TypeTree)::TypeTree
       end
 
       EQUATION_FOR(__) => begin
-        types = ArrayUtil.fold(eq.body, collectEquationFlatTypes, types)
+        types = ArrayUtil.fold(eq.body, collectEquationFlatTypes, types, TypeTree)
         ()
       end
 
       EQUATION_IF(__) => begin
-        types = ArrayUtil.fold(eq.branches, collectEqBranchFlatTypes, types)
+        types = ArrayUtil.fold(eq.branches, collectEqBranchFlatTypes, types, TypeTree)
         ()
       end
 
       EQUATION_WHEN(__) => begin
-        types = ArrayUtil.fold(eq.branches, collectEqBranchFlatTypes, types)
+        types = ArrayUtil.fold(eq.branches, collectEqBranchFlatTypes, types, TypeTree)
         ()
       end
 
@@ -423,11 +407,7 @@ function collectFlatType(ty::ModelicaType, types::TypeTree)::TypeTree
         ()
       end
       TYPE_ARRAY(__) => begin
-        types = foldExpList(
-          ty.dimensions,
-          collectExpFlatTypes_traverse,
-          types,
-        )
+        types = foldExpList(ty.dimensions, collectExpFlatTypes_traverse, types, TypeTree)
         types = collectFlatType(ty.elementType, types)
         ()
       end
@@ -458,11 +438,11 @@ end
 function collectFlatTypes(flatModel::FLAT_MODEL, functions::List{MODELICA_FUNCTION})
   local types::TypeTree
   types = TypeTreeImpl.new()
-  types = ArrayUtil.fold(flatModel.variables, collectVariableFlatTypes, types)
-  types = ArrayUtil.fold(flatModel.equations, collectEquationFlatTypes, types)
-  types = ArrayUtil.fold(flatModel.initialEquations, collectEquationFlatTypes, types)
-  types = ArrayUtil.fold(flatModel.algorithms, collectAlgorithmFlatTypes, types)
-  types = ArrayUtil.fold(flatModel.initialAlgorithms, collectAlgorithmFlatTypes, types)
+  types = ArrayUtil.fold(flatModel.variables, collectVariableFlatTypes, types, TypeTree)
+  types = ArrayUtil.fold(flatModel.equations, collectEquationFlatTypes, types, TypeTree)
+  types = ArrayUtil.fold(flatModel.initialEquations, collectEquationFlatTypes, types, TypeTree)
+  types = ArrayUtil.fold(flatModel.algorithms, collectAlgorithmFlatTypes, types, TypeTree)
+  types = ArrayUtil.fold(flatModel.initialAlgorithms, collectAlgorithmFlatTypes, types, TypeTree)
   types = ListUtil.fold(functions, collectFunctionFlatTypes, types, TypeTree)
   #println(TypeTreeImpl.printTreeStr(types))
   local typeLst = TypeTreeImpl.listValues(types)

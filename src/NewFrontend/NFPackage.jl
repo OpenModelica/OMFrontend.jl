@@ -36,6 +36,7 @@
 module ConstantsSetImpl
 import ..ComponentRef
 import ..compare as crefCompare
+import ..toString
 using MetaModelica
 import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
@@ -43,13 +44,15 @@ using ExportAll
 const Key = ComponentRef
 const Value = Int
 include("../Util/baseAvlTreeCode.jl")
-#= The base tree's placeholder keyCompare returns a Bool; the AVL needs the
-   three-way cref ordering or distinct keys collapse into one entry. =#
-keyCompare = (inKey1::Key, inKey2::Key) -> crefCompare(inKey1, inKey2)
+keyCompare(inKey1::Key, inKey2::Key)::Int = crefCompare(inKey1, inKey2)
+keyStr(inKey::Key)::String = toString(inKey)
+valueStr(inValue::Value)::String = string(inValue)
+const addConflictDefault = addConflictFail
 @exportAll()
 end
 
-Constants = ConstantsSetImpl.Tree
+"""The package constants a model reads, as a set of crefs."""
+const Constants = ConstantsSetImpl.Tree
 
 """
     collectConstants(flatModel, functions) -> (FLAT_MODEL, FunctionTree)
@@ -65,24 +68,16 @@ function collectConstants(flatModel::FLAT_MODEL, functions::FunctionTree)::Tuple
   local constants::Constants
   constants = ConstantsSetImpl.new()
   constants =
-    ArrayUtil.fold(flatModel.variables, collectVariableConstants, constants)
+    ArrayUtil.fold(flatModel.variables, collectVariableConstants, constants, Constants)
   constants =
-    foldExpList(flatModel.equations, collectExpConstants, constants)
-  constants = foldExpList(
-    flatModel.initialEquations,
-    collectExpConstants,
-    constants,
-  )
+    foldExpList(flatModel.equations, collectExpConstants, constants, Constants)
+  constants = foldExpList(flatModel.initialEquations, collectExpConstants, constants, Constants)
   constants =
-    foldExpList(flatModel.algorithms, collectExpConstants, constants)
-  constants = foldExpList(
-    flatModel.initialAlgorithms,
-    collectExpConstants,
-    constants,
-  )
-  constants = FunctionTreeImpl.fold(functions, collectFuncConstants, constants)
+    foldExpList(flatModel.algorithms, collectExpConstants, constants, Constants)
+  constants = foldExpList(flatModel.initialAlgorithms, collectExpConstants, constants, Constants)
+  constants = FunctionTreeImpl.fold(functions, collectFuncConstants, constants, Constants)
   vars = VARIABLE[_withValueBinding(Variable_fromCref(c)) for c in ConstantsSetImpl.listKeys(constants)]
-  functions = ArrayUtil.fold(vars, collectComponentFuncs, functions)
+  functions = ArrayUtil.fold(vars, collectComponentFuncs, functions, FunctionTree)
   @assign flatModel.variables = vcat(vars, flatModel.variables)
 #  execStat(getInstanceName()) TODO
   return (flatModel, functions)
@@ -116,7 +111,7 @@ end
 
 function collectExpConstants(exp::Expression, constants::Constants)::Constants
   @assign constants =
-    fold(exp, collectExpConstants_traverser, constants)
+    fold(exp, collectExpConstants_traverser, constants, Constants)
   return constants
 end
 
@@ -178,11 +173,7 @@ function collectFuncConstants(
          () = begin
           @match sections begin
             SECTIONS(__) => begin
-              @assign constants = foldExpList(
-                sections.algorithms,
-                collectExpConstants,
-                constants,
-              )
+              @assign constants = foldExpList(sections.algorithms, collectExpConstants, constants, Constants)
               ()
             end
 

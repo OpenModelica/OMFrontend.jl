@@ -190,27 +190,19 @@ function isPartial(fn::MODELICA_FUNCTION)::Bool
   return isPartial(fn.node)
 end
 
-function foldExpParameter(node::InstNode, foldFn::FoldFunc, arg::ArgT) where {ArgT}
+function foldExpParameter(node::InstNode, foldFn::FoldFunc, arg::ArgT, ::Type{ArgT})::ArgT where {ArgT}
 
   local comp::Component
   local cls::Class
 
   @assign comp = component(node)
-  @assign arg = foldExp(getBinding(comp), foldFn, arg)
+  @assign arg = foldExp(getBinding(comp), foldFn, arg, ArgT)
    () = begin
     @match comp begin
       TYPED_COMPONENT(__) => begin
-        @assign arg = foldDims(
-          comp.ty,
-          (dim, acc) -> foldExp(dim, foldFn, acc),
-          arg,
-        )
+        @assign arg = foldDims(comp.ty, (dim::Dimension, acc::ArgT) -> foldExp(dim, foldFn, acc, ArgT), arg, ArgT)
         @assign cls = getClass(comp.classInst)
-        @assign arg = foldComponents(
-          classTree(cls),
-          (node, acc) -> foldExpParameter(node, foldFn, acc),
-          arg,
-        )
+        @assign arg = foldComponents(classTree(cls), (node::InstNode, acc::ArgT) -> foldExpParameter(node, foldFn, acc, ArgT), arg, ArgT)
         ()
       end
 
@@ -226,22 +218,19 @@ function foldExp(
   fn::MODELICA_FUNCTION,
   foldFn::FoldFunc,
   arg::ArgT,
+  ::Type{ArgT},
   mapParameters::Bool = true,
   mapBody::Bool = true,
-  ) where {ArgT}
+  )::ArgT where {ArgT}
 
   local cls::Class
 
   @assign cls = getClass(fn.node)
   if mapParameters
-    @assign arg = foldComponents(
-      classTree(cls),
-      (node, acc) -> foldExpParameter(node, foldFn, acc),
-      arg,
-    )
+    @assign arg = foldComponents(classTree(cls), (node::InstNode, acc::ArgT) -> foldExpParameter(node, foldFn, acc, ArgT), arg, ArgT)
   end
   if mapBody
-    @assign arg = P_Sections.Sections.foldExp(getSections(cls), foldFn, arg)
+    @assign arg = P_Sections.Sections.foldExp(getSections(cls), foldFn, arg, ArgT)
   end
   return arg
 end
@@ -808,7 +797,7 @@ root of each cref (omc ComponentRef.last: a in a.b.c, for local record instances
 """
 function localDependencies(compNode::InstNode, self::Int, nodes::Vector{InstNode})::Set{Int}
   local deps::Set{Int} = Set{Int}()
-  local add_cref = (e, acc) -> begin
+  local add_cref = (e::Expression, acc::Nothing) -> begin
     if e isa CREF_EXPRESSION && isvariant(e.cref, COMPONENT_REF_CREF)
       local cr::ComponentRef = e.cref
       while isvariant(cr.restCref, COMPONENT_REF_CREF)
@@ -820,10 +809,10 @@ function localDependencies(compNode::InstNode, self::Int, nodes::Vector{InstNode
     acc
   end
   local b::Binding = getBinding(component(compNode))
-  hasExp(b) && fold(getExp(b), add_cref, nothing)
+  hasExp(b) && fold(getExp(b), add_cref, nothing, Nothing)
   for d in arrayDims(getType(compNode))
     @match d begin
-      DIMENSION_EXP(__) => fold(d.exp, add_cref, nothing)
+      DIMENSION_EXP(__) => fold(d.exp, add_cref, nothing, Nothing)
       _ => ()
     end
   end
@@ -2618,7 +2607,7 @@ function analyseUnusedParametersExp(
 )::List{InstNode}
 
   if !listEmpty(params)
-    @assign params = fold(exp, analyseUnusedParametersExp2, params)
+    @assign params = fold(exp, analyseUnusedParametersExp2, params, List{InstNode})
   end
   return params
 end
@@ -2629,7 +2618,7 @@ function analyseUnusedParameters(fn::MODELICA_FUNCTION)::List{Int}
   local inputs::List{InstNode}
   local index::Int
 
-  @assign inputs = foldExp(fn, analyseUnusedParametersExp, fn.inputs)
+  @assign inputs = foldExp(fn, analyseUnusedParametersExp, fn.inputs, List{InstNode})
   for i in inputs
     @assign index =
       ListUtil.positionOnTrue(fn.inputs, (inp) -> refEqual(i, inp))
