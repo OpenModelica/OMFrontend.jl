@@ -6,12 +6,17 @@ const KEEP_ARRAYS_FILE = "./KeepArrays/KeepArrays.mo"
 const _FLOW_SUM = r"^\(?-?[\w.\[\]$]+\)?(?:[-+][\w.\[\]$]+)+=0\.0$"
 
 """
-  An equation (its text without spaces) with the terms of a connection's flow sum sorted. The
-  connection sets keep their connectors in insertion order, and the two flattens add the flows of
-  an array connector in a different order, so a sum's terms may come in a different order.
+  An equation (its text without spaces) with the terms of a connection's flow sum sorted, and the
+  sides of any other equation. The connection sets keep their connectors in insertion order, and the
+  two flattens add the flows of an array connector in a different order, so a sum's terms may come
+  in a different order; a potential equation rerolled into a for-equation has one orientation for
+  all its elements, the scalar ones that of each set.
 """
 function _canonicalEquation(eq::String)::String
-  occursin(_FLOW_SUM, eq) || return eq
+  if !occursin(_FLOW_SUM, eq)
+    local sides::Vector{SubString{String}} = split(eq, "=")
+    return length(sides) == 2 ? join(sort(sides), "=") : eq
+  end
   local terms::Vector{String} = [m.match for m in eachmatch(r"\(?[-+]?[\w.\[\]$]+\)?", replace(eq, "=0.0" => ""))]
   local signed::Vector{String} = [(startswith(t, "(-") || startswith(t, "-") ? "-" : "+") * strip(t, ['(', ')', '-', '+']) for t in terms]
   return join(sort(signed)) * "=0.0"
@@ -48,7 +53,9 @@ end
   local scode = OMFrontend.translateToSCode(OMFrontend.parseFile(KEEP_ARRAYS_FILE))
   local text = OMFrontend.toFlatModelica(OMFrontend.instantiateSCodeToFM("KeepArrays.ComponentArrayConnects", scode; scalarize = false))
   @test !occursin("connect(", text)
-  @test occursin("'t.g1.y'[1] = /*Equality*/'t.g2.u'[1]", text) || occursin("'t.g2.u'[1] = /*Equality*/'t.g1.y'[1]", text)
+  #= the connects of the component array's elements, one for-equation (rerolled connection equations) =#
+  @test occursin("'t.g1.y'['\$i1'] = /*Equality*/'t.g2.u'['\$i1']", text) ||
+        occursin("'t.g2.u'['\$i1'] = /*Equality*/'t.g1.y'['\$i1']", text)
 end
 
 @testset "A parameter field of a component array read in its class: the reference kept" begin

@@ -256,6 +256,7 @@ include("./NewFrontend/NFConnectionSets.jl")
 include("./NewFrontend/NFCardinalityTable.jl")
 
 include("./NewFrontend/NFConnectEquations.jl")
+include("./NewFrontend/NFRerollConnects.jl")
 import .NFCardinalityTable
 include("./NewFrontend/NFFunctionDerivative.jl")
 

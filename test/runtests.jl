@@ -107,6 +107,10 @@ end
     include("keepArraysTests.jl")
   end
 
+  @testset "Array connects (connection equations as for-equations)" begin
+    include("arrayConnectTests.jl")
+  end
+
   include("omcTestsuiteTests.jl")
 
   @testset "Algorithm-level for-loop unrolling" begin

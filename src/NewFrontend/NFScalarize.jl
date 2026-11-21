@@ -330,7 +330,9 @@ end
 function _replaceIteratorInCrefParts(cr::ComponentRef, iterator::InstNode, @nospecialize(value::Expression))::ComponentRef
   isvariant(cr, COMPONENT_REF_CREF) || return cr
   local rest = _replaceIteratorInCrefParts(cr.restCref, iterator, value)
-  local subs = list(mapExp(sub, (e) -> replaceIterator(e, iterator, value)) for sub in cr.subscripts)
+  #= simplified: the model's simplification does not visit the subscripts of prefix parts (`r[$i1 + 1].p.i` of a
+     rerolled connection equation is `r[2].p.i`, not `r[1 + 1].p.i`) =#
+  local subs = list(mapExp(sub, (e) -> simplify(replaceIterator(e, iterator, value))) for sub in cr.subscripts)
   return COMPONENT_REF_CREF(cr.node, subs, cr.ty, cr.origin, rest)
 end
 

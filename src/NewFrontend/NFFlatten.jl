@@ -2126,6 +2126,10 @@ function resolveConnections(flatModel::FlatModel, name::String)::FlatModel
   @EXECSTAT "  rc:extractSets" (csets_array, _) = ConnectionSets.extractSets(csets)
   #=  generate the equations =#
   @EXECSTAT "  rc:generateEquations" conn_eql = generateEquations(csets_array) #=In NFConnectEquations=#
+  #=  not scalarizing: the scalar connection equations as for-equations where they differ only in affine subscripts =#
+  if !Flags.isSet(Flags.NF_SCALARIZE)
+    @EXECSTAT "  rc:reroll" conn_eql = rerollConnectEquations(conn_eql)
+  end
   #=  append the equalityConstraint call equations for the broken connects =#
   if System.getHasOverconstrainedConnectors()
     local flatBrokenEQL = listArray(ListUtil.flatten(ListUtil.map(broken, Util.tuple33)))
