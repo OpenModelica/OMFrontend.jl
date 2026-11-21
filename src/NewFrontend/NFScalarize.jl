@@ -40,8 +40,8 @@ function scalarize(flatModel::FlatModel, name::String)::FlatModel
   end
   local equations = scalarizeEquations(mapExpList(flatModel.equations, expandComplexCref))
   local initialEquations = scalarizeEquations(mapExpList(flatModel.initialEquations, expandComplexCref))
-  local algorithms = Algorithm[scalarizeAlgorithm(a) for a in flatModel.algorithms]
-  local initialAlgorithms = Algorithm[scalarizeAlgorithm(a) for a in flatModel.initialAlgorithms]
+  local algorithms = ALGORITHM[scalarizeAlgorithm(a) for a in flatModel.algorithms]
+  local initialAlgorithms = ALGORITHM[scalarizeAlgorithm(a) for a in flatModel.initialAlgorithms]
   @assign begin
     flatModel.variables = vars
     flatModel.equations = equations
@@ -74,7 +74,7 @@ function scalarizeKeptArrays(flatModel::FlatModel)::FlatModel
      of an array variable without (literal) subscripts on its array parts becomes the array of
      its elements (the variable table knows the dimensions; the parts of a cref in a
      vectorized equation do not always carry them). =#
-  local table = Dict{String, Tuple{Vector{ComponentRef}, Vector{Int}, NFType}}()
+  local table = Dict{String, Tuple{Vector{ComponentRef}, Vector{Int}, ModelicaType}}()
   for v in flatModel.variables
     if isArray(v.ty) && hasKnownSize(v.ty) && !isEmptyArray(v.ty)
       table[_unsubscriptedName(v.name)] = (_expandArrayParts(v.name), [size(d) for d in arrayDims(v.ty)], arrayElementType(v.ty))
@@ -102,15 +102,15 @@ end
    array (vectorizeAlgorithm, iterators named $i...): one algorithm per element instead, with
    the iterator replaced in every cref part, as a scalarizing flatten gives (the backend lowers
    when-statements per element). Loops written in the model stay. =#
-function _unrollVectorizedAlgorithms(algs::Vector{Algorithm})::Vector{Algorithm}
-  local out = Algorithm[]
+function _unrollVectorizedAlgorithms(algs::Vector{ALGORITHM})::Vector{ALGORITHM}
+  local out = ALGORITHM[]
   for alg in algs
     _unrollVectorizedAlgorithm!(out, alg.statements, alg.source)
   end
   return out
 end
 
-function _unrollVectorizedAlgorithm!(out::Vector{Algorithm}, stmts::Vector{Statement}, source)
+function _unrollVectorizedAlgorithm!(out::Vector{ALGORITHM}, stmts::Vector{Statement}, source)
   if length(stmts) == 1 && isvariant(stmts[1], ALG_FOR) && startswith(name(stmts[1].iterator), "\$") &&
      isSome(stmts[1].range)
     local loop = stmts[1]
@@ -290,7 +290,7 @@ function _expandPrefixArrayCref(@nospecialize(exp::Expression))::Expression
   return _nestedCrefArray(_expandArrayParts(cr), dims, arrayElementType(exp.ty), 0)
 end
 
-function _nestedCrefArray(crefs::Vector{ComponentRef}, dims::Vector{Int}, elty::NFType, offset::Int)::Expression
+function _nestedCrefArray(crefs::Vector{ComponentRef}, dims::Vector{Int}, elty::ModelicaType, offset::Int)::Expression
   if length(dims) == 1
     local elems = Expression[CREF_EXPRESSION(elty, crefs[offset + i]) for i in 1:dims[1]]
     return makeArray(liftArrayLeft(elty, fromInteger(dims[1])), elems)
@@ -384,7 +384,7 @@ end
 function scalarizeVariable(var::Variable, vars::Vector{Variable})
   local name::ComponentRef
   local binding::Binding
-  local ty::M_Type
+  local ty::ModelicaType
   local vis::VisibilityType
   local attr::Attributes
   local ty_attr::Vector{Tuple{String, Binding}}
@@ -591,7 +591,7 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
     local rhs_iter::ExpressionIterator
     local lhs::Expression
     local rhs::Expression
-    local ty::M_Type
+    local ty::ModelicaType
     local src::DAE.ElementSource
     local info::SourceInfo
     @match eq begin
@@ -765,7 +765,7 @@ ones runs). Add the scalarized if equation to the list of equations unless we
 don't have any branches left.
 """
 function scalarizeIfEquation(
-  branches::Vector{<:Equation_Branch},
+  branches::Vector{<:EquationBranch},
   source::DAE.ElementSource,
   equations::Vector{Equation},
 )
@@ -788,7 +788,7 @@ function scalarizeIfEquation(
 end
 
 function scalarizeWhenEquation(
-  branches::Vector{<:Equation_Branch},
+  branches::Vector{<:EquationBranch},
   source::DAE.ElementSource,
   equations::Vector{Equation},
   )
@@ -808,7 +808,7 @@ function scalarizeWhenEquation(
   return equations
 end
 
-function scalarizeAlgorithm(alg::Algorithm)::Algorithm
+function scalarizeAlgorithm(alg::ALGORITHM)::ALGORITHM
   @assign alg.statements = scalarizeStatements(alg.statements)
   return alg
 end

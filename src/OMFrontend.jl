@@ -388,14 +388,14 @@ function writeFlatModelicaToFile(fm, fLst;
 end
 
 """
-    cacheToFunctionList(cache::Frontend.FunctionTreeImpl.Tree)::List{Frontend.M_FUNCTION}
+    cacheToFunctionList(cache::Frontend.FunctionTreeImpl.Tree)::List{Frontend.MODELICA_FUNCTION}
 
 The functions of a function tree (the function cache, keyed by path) as a list, in the tree's
 order: OMBackend's `FunctionList`. `map` over the tree's `(path, function)` list returns a list
-whose element type is the functions' concrete type, `M_FUNCTION` (ImmutableList 0.6); the tree's
-values are typed on the abstract `M_Function`.
+whose element type is the functions' concrete type, `MODELICA_FUNCTION` (ImmutableList 0.6); the tree's
+values are typed on the abstract `MODELICA_FUNCTION`.
 """
-function cacheToFunctionList(cache::Frontend.FunctionTreeImpl.Tree)::List{Frontend.M_FUNCTION}
+function cacheToFunctionList(cache::Frontend.FunctionTreeImpl.Tree)::List{Frontend.MODELICA_FUNCTION}
   return map(last, Frontend.FunctionTreeImpl.toList(cache))
 end
 

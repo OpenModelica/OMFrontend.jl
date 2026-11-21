@@ -33,10 +33,10 @@
 *
 */ =#
 
-@Uniontype NFVariable begin
+@Uniontype Variable begin
   @Record VARIABLE begin
     name::ComponentRef
-    ty::NFType
+    ty::ModelicaType
     binding::Binding
     visibility::VisibilityType
     attributes::Attributes
@@ -45,7 +45,6 @@
     info::SourceInfo
   end
 end
-const Variable = NFVariable
 
 function toFlatStream(var::Variable,
   indent::String = "",
@@ -215,7 +214,7 @@ function Variable_fromCref(cref::ComponentRef)::Variable
   local variable::Variable
   local nodeVar::InstNode
   local comp::Component
-  local ty::M_Type
+  local ty::ModelicaType
   local binding::Binding
   local vis::VisibilityType
   local attr::Attributes
@@ -237,7 +236,7 @@ function Variable_fromCrefNoBinding(cref::ComponentRef)::Variable
   local variable::Variable
   local nodeVar::InstNode
   local comp::Component
-  local ty::M_Type
+  local ty::ModelicaType
   local binding::Binding
   local vis::VisibilityType
   local attr::Attributes

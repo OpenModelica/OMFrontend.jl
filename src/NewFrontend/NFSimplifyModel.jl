@@ -161,7 +161,7 @@ function simplifyEquation(@nospecialize(eq::Equation), equations::Vector{Equatio
     local e::Expression
     local lhs::Expression
     local rhs::Expression
-    local ty::M_Type
+    local ty::ModelicaType
     @match eq begin
       EQUATION_EQUALITY(__) => begin
         simplifyEqualityEquation(eq, equations)
@@ -233,7 +233,7 @@ end
 function simplifyEqualityEquation(eq::Equation, equations::Vector{Equation})
   local lhs::Expression
   local rhs::Expression
-  local ty::M_Type
+  local ty::ModelicaType
   local src::DAE.ElementSource
   #@info "Simplify equality equation..." toString(eq)
   if typeof(eq.rhs) == ARRAY_EXPRESSION
@@ -272,8 +272,8 @@ function simplifyEqualityEquation(eq::Equation, equations::Vector{Equation})
   return equations
 end
 
-function simplifyAlgorithms(algs::Vector{Algorithm})
-  local outAlgs::Vector{Algorithm} = Algorithm[]
+function simplifyAlgorithms(algs::Vector{ALGORITHM})
+  local outAlgs::Vector{ALGORITHM} = ALGORITHM[]
   for alg in algs
     alg = simplifyAlgorithm(alg)
     if !isempty(alg.statements)
@@ -283,7 +283,7 @@ function simplifyAlgorithms(algs::Vector{Algorithm})
   return outAlgs
 end
 
-function simplifyAlgorithm(alg::Algorithm)::Algorithm
+function simplifyAlgorithm(alg::ALGORITHM)::ALGORITHM
 
   @assign alg.statements = simplifyStatements(alg.statements)
   return alg
@@ -302,7 +302,7 @@ function simplifyStatement(stmt::Statement, statements::Vector{Statement})
     local e::Expression
     local lhs::Expression
     local rhs::Expression
-    local ty::M_Type
+    local ty::ModelicaType
     local dim::Dimension
     local body::Vector{Statement}
     @match stmt begin
@@ -355,7 +355,7 @@ function simplifyAssignment(stmt::Statement, statements::Vector{Statement})
   local rhs::Expression
   local rhs_exp::Expression
   local rhs_rest::List{Expression}
-  local ty::M_Type
+  local ty::ModelicaType
   local src::DAE.ElementSource
   @match ALG_ASSIGNMENT(lhs = lhs, rhs = rhs, ty = ty, source = src) = stmt
   ty = mapDims(ty, simplifyDimension)
@@ -396,15 +396,15 @@ end
 function simplifyTupleElement(
   lhsTuple::List{Expression},
   rhsTuple::List{Expression},
-  ty::M_Type,
+  ty::ModelicaType,
   src::DAE.ElementSource,
   makeFn::MakeElement,
   statements::Vector{E},
 ) where {E <: Union{Statement, Equation}}
   local rhs::Expression
   local rest_rhs::List{Expression} = rhsTuple
-  local ety::M_Type
-  local rest_ty::List{M_Type}
+  local ety::ModelicaType
+  local rest_ty::List{ModelicaType}
   @match TYPE_TUPLE(types = rest_ty) = ty
   for lhs in lhsTuple
     @match _cons(rhs, rest_rhs) = rest_rhs
@@ -418,7 +418,7 @@ end
 
 """Replaces tuple elements that has one or more zero dimension with _."""
 function removeEmptyTupleElements(exp::Expression)
-  local tyl::List{M_Type}
+  local tyl::List{ModelicaType}
   local rExp
   rExp = @match exp begin
     TUPLE_EXPRESSION(ty = TYPE_TUPLE(types = tyl)) => begin
@@ -455,7 +455,7 @@ function removeEmptyFunctionArguments(@nospecialize(exp::Expression), isArg = fa
 end
 
 function simplifyIfEqBranches(
-  branches::Vector{<:Equation_Branch},
+  branches::Vector{<:EquationBranch},
   src::DAE.ElementSource,
   elements::Vector{Equation},
 )::Vector{Equation}
@@ -564,9 +564,9 @@ function simplifyIfStmtBranches(
   return elements
 end
 
-function simplifyFunction(func::M_Function)
+function simplifyFunction(func::MODELICA_FUNCTION)
   local cls::Class
-  local fn_body::Algorithm
+  local fn_body::ALGORITHM
   local sections::Sections
   if !isSimplified(func)
     markSimplified(func)

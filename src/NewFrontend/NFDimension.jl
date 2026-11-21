@@ -130,7 +130,7 @@ function sizeExp(dim::Dimension)::Expression
   local sizeExp::Expression
 
   @assign sizeExp = begin
-    local ty::M_Type
+    local ty::ModelicaType
     @match dim begin
       DIMENSION_INTEGER(__) => begin
         INTEGER_EXPRESSION(dim.size)
@@ -157,7 +157,7 @@ function endExp(dim::Dimension, cref::ComponentRef, index::Int)::Expression
   local sizeExp::Expression
 
   @assign sizeExp = begin
-    local ty::M_Type
+    local ty::ModelicaType
     @match dim begin
       DIMENSION_INTEGER(__) => begin
         INTEGER_EXPRESSION(dim.size)
@@ -204,7 +204,7 @@ function toString(dim::Dimension)::String
   local str::String
 
   @assign str = begin
-    local ty::M_Type
+    local ty::ModelicaType
     @match dim begin
       DIMENSION_INTEGER(__) => begin
         string(dim.size)
@@ -241,7 +241,7 @@ function toFlatString(dim::Dimension)::String
   local str::String
 
   @assign str = begin
-    local ty::M_Type
+    local ty::ModelicaType
     @match dim begin
       DIMENSION_INTEGER(__) => begin
         string(dim.size)
@@ -272,8 +272,8 @@ function toFlatString(dim::Dimension)::String
 end
 
 """Returns the expected type of a subscript for the given dimension."""
-function subscriptType(dim::Dimension)::M_Type
-  local ty::M_Type
+function subscriptType(dim::Dimension)::ModelicaType
+  local ty::ModelicaType
   ty = begin
     @match dim begin
       DIMENSION_INTEGER(__) => begin
@@ -438,7 +438,7 @@ end
 function size(dim::Dimension)::Int
   local sz::Int
   @assign sz = begin
-    local ty::M_Type
+    local ty::ModelicaType
     @match dim begin
       DIMENSION_INTEGER(__) => begin
         dim.size
@@ -516,7 +516,7 @@ function toDAE(dim::Dimension)::DAE.Dimension
   local daeDim::DAE.Dimension
 
   @assign daeDim = begin
-    local ty::M_Type
+    local ty::ModelicaType
     @match dim begin
       DIMENSION_INTEGER(__) => begin
         DAE.DIM_INTEGER(dim.size)
@@ -553,7 +553,7 @@ function fromExp(@nospecialize(exp::Expression), var::VariabilityType)::Dimensio
   @assign dim = begin
     local cls::Class
     local cref::ComponentRef
-    local ty::M_Type
+    local ty::ModelicaType
     @match exp begin
       INTEGER_EXPRESSION(__) => begin
         DIMENSION_INTEGER(exp.value, var)

@@ -1317,7 +1317,7 @@ end
 """Creates a class tree for an enumeration type."""
 function fromEnumeration(
   literals::List{<:SCode.Enum},
-  enumType::M_Type,
+  enumType::ModelicaType,
   enumClass::InstNode,
 )::ClassTree #= The InstNode of the enumeration type =#
   local tree::ClassTree

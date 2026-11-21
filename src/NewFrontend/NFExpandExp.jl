@@ -41,11 +41,11 @@ const MakeFn = Function
 function expandGeneric2(
   subs::List{<:List{<:Subscript}},
   exp::Expression,
-  ty::M_Type,
+  ty::ModelicaType,
   accum::List{<:Subscript} = nil,
 )::Expression
   local outExp::Expression
-  local t::M_Type
+  local t::ModelicaType
   local sub::List{Subscript}
   local expl::Vector{Expression}
   local rest_subs::List{List{Subscript}}
@@ -72,7 +72,7 @@ end
 function expandGeneric(@nospecialize(exp::Expression))::Tuple{Expression, Bool}
   local expanded::Bool
   local outExp::Expression
-  local ty::M_Type
+  local ty::ModelicaType
   local dims::List{Dimension}
   local subs::List{List{Subscript}}
 #  @info "expandGeneric with" toString(exp)
@@ -109,7 +109,7 @@ function expandCast(exp::CAST_EXPRESSION)::Tuple{Expression, Bool}
   return (exp, expanded)
 end
 
-function makeLogicalUnaryOp(@nospecialize(exp1::Expression), op::Operator)::Expression
+function makeLogicalUnaryOp(@nospecialize(exp1::Expression), op::OPERATOR)::Expression
   local exp::Expression = LUNARY_EXPRESSION(op, exp1)
   return exp
 end
@@ -125,7 +125,7 @@ function expandLogicalUnary(exp::LUNARY_EXPRESSION)::Tuple{Expression, Bool}
   return (exp, false)
 end
 
-function makeLBinaryOp(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression))::Expression
+function makeLBinaryOp(@nospecialize(exp1::Expression), op::OPERATOR, @nospecialize(exp2::Expression))::Expression
   local exp::Expression
 
   if isScalarLiteral(exp1) &&
@@ -143,7 +143,7 @@ function expandLogicalBinary(@nospecialize(exp::Expression))::Tuple{Expression, 
 
   local exp1::Expression
   local exp2::Expression
-  local op::Operator
+  local op::OPERATOR
 
   @match LBINARY_EXPRESSION(exp1 = exp1, operator = op, exp2 = exp2) = exp
   if isArray(typeOf(op))
@@ -214,7 +214,7 @@ function expandBinaryPowMatrix(@nospecialize(exp::Expression))::Tuple{Expression
 
   local exp1::Expression
   local exp2::Expression
-  local op::Operator
+  local op::OPERATOR
   local n::Int
 
   @match BINARY_EXPRESSION(exp1 = exp1, operator = op, exp2 = exp2) = exp
@@ -264,9 +264,9 @@ function makeBinaryMatrixProduct(@nospecialize(exp1::Expression), @nospecialize(
 
   local expl1::Vector{Expression}
   local expl2::Vector{Expression}
-  local ty::M_Type
-  local row_ty::M_Type
-  local mat_ty::M_Type
+  local ty::ModelicaType
+  local row_ty::ModelicaType
+  local mat_ty::ModelicaType
   local n::Dimension
   local p::Dimension
 
@@ -328,10 +328,10 @@ function makeScalarProduct(@nospecialize(exp1::Expression), @nospecialize(exp2::
   local expL1::List{Expression}
   local expL2::List{Expression}
 
-  local ty::M_Type
-  local elem_ty::M_Type
-  local mul_op::Operator
-  local add_op::Operator
+  local ty::ModelicaType
+  local elem_ty::ModelicaType
+  local mul_op::OPERATOR
+  local add_op::OPERATOR
 
   @match ARRAY_EXPRESSION(ty, expV1) = exp1
   @match ARRAY_EXPRESSION(_, expV2) = exp2
@@ -383,7 +383,7 @@ function expandBinaryMatrixVector(@nospecialize(exp::Expression))::Tuple{Express
   local expL::List{Expression}
   local expV::Vector{Expression}
 
-  local ty::M_Type
+  local ty::ModelicaType
   local n::Dimension
 
   @match BINARY_EXPRESSION(exp1 = exp1, exp2 = exp2) = exp
@@ -418,7 +418,7 @@ function expandBinaryVectorMatrix(@nospecialize(exp::Expression))::Tuple{Express
   local exp1::Expression
   local exp2::Expression
   local expl::Vector{Expression}
-  local ty::M_Type
+  local ty::ModelicaType
   local m::Dimension
 
   @match BINARY_EXPRESSION(exp1 = exp1, exp2 = exp2) = exp
@@ -455,7 +455,7 @@ function expandBinaryArrayScalar(
   local exp1::Expression
   local exp2::Expression
   local expl::List{Expression}
-  local op::Operator
+  local op::OPERATOR
   @match BINARY_EXPRESSION(exp1 = exp1, operator = op, exp2 = exp2) = exp
   (exp1, expanded) = expand(exp1)
   if expanded
@@ -482,7 +482,7 @@ function expandBinaryScalarArray(
   local exp1::Expression
   local exp2::Expression
   local expl::List{Expression}
-  local op::Operator
+  local op::OPERATOR
   @match BINARY_EXPRESSION(exp1 = exp1, operator = op, exp2 = exp2) = exp
   (exp2, expanded) = expand(exp2)
   if expanded
@@ -502,7 +502,7 @@ end
 
 function expandBinaryElementWise2(
   exp1::Expression,
-  op::Operator,
+  op::OPERATOR,
   exp2::Expression,
   func::MakeFn,
 )::Expression
@@ -510,8 +510,8 @@ function expandBinaryElementWise2(
   local expl1::List{Expression}
   local expl2::List{Expression}
   local expl::List{Expression}
-  local ty::M_Type
-  local eop::Operator
+  local ty::ModelicaType
+  local eop::OPERATOR
   expl1 = arrayList(arrayElements(exp1))
   expl2 = arrayList(arrayElements(exp2))
   ty = typeOf(op)
@@ -534,7 +534,7 @@ function expandBinaryElementWise(@nospecialize(exp::Expression))::Tuple{Expressi
   local outExp::Expression
   local exp1::Expression
   local exp2::Expression
-  local op::Operator
+  local op::OPERATOR
   @match BINARY_EXPRESSION(exp1 = exp1, operator = op, exp2 = exp2) = exp
   if isArray(typeOf(op))
      (exp1, expanded) = expand(exp1)
@@ -553,7 +553,7 @@ function expandBinaryElementWise(@nospecialize(exp::Expression))::Tuple{Expressi
   return (outExp, expanded)
 end
 
-function expandBinary(@nospecialize(exp::Expression), op::Operator)::Tuple{Expression, Bool}
+function expandBinary(@nospecialize(exp::Expression), op::OPERATOR)::Tuple{Expression, Bool}
   local expanded::Bool
   local outExp::Expression
 
@@ -637,7 +637,7 @@ function expandSize(@nospecialize(exp::Expression))::Tuple{Expression, Bool}
   @assign outExp = begin
     local dims::Int
     local e::Expression
-    local ty::M_Type
+    local ty::ModelicaType
     local expl::List{Expression}
     @match exp begin
       SIZE_EXPRESSION(exp = e, dimIndex = NONE()) => begin
@@ -665,7 +665,7 @@ end
 
 function expandArrayConstructor2(
   exp::Expression,
-  ty::M_Type,
+  ty::ModelicaType,
   ranges::List{<:Expression},
   iterators::List{<:Pointer{<:Expression}},
 )::Expression
@@ -677,7 +677,7 @@ function expandArrayConstructor2(
   local iters_rest::List{Pointer{Expression}}
   local range_iter::ExpressionIterator
   local value::Expression
-  local el_ty::M_Type
+  local el_ty::ModelicaType
   if listEmpty(ranges)
     (result,_) = expand(simplify(exp))
   else
@@ -707,7 +707,7 @@ end
 
 function expandArrayConstructor(
   exp::Expression,
-  ty::M_Type,
+  ty::ModelicaType,
   iterators::List{<:Tuple{<:InstNode, Expression}},
 )::Tuple{Expression, Bool}
   local expanded::Bool = true
@@ -739,10 +739,10 @@ end
 
 function expandBuiltinGeneric2(
   exp::Expression,
-  fn::M_Function,
-  ty::M_Type,
+  fn::MODELICA_FUNCTION,
+  ty::ModelicaType,
   var::VariabilityType,
-  attr::CallAttributes
+  attr::CALL_ATTR
 )::Expression
 
   @assign exp = begin
@@ -768,8 +768,8 @@ end
 function expandBuiltinGeneric(call::Call)::Tuple{Expression, Bool}
   local expanded::Bool = true
   local outExp::Expression
-  local fn::M_Function
-  local ty::M_Type
+  local fn::MODELICA_FUNCTION
+  local ty::ModelicaType
   local var::VariabilityType
   local attr::CALL_ATTR
   local arg::Expression
@@ -839,7 +839,7 @@ function expandBuiltinCat(args::Vector{Expression}, call::Call)::Tuple{Expressio
 end
 
 function expand(
-  fn::M_Function,
+  fn::MODELICA_FUNCTION,
   args::Vector{Expression},
   call::Call,
   )::Tuple{Expression, Bool}
@@ -921,7 +921,7 @@ end
   local expanded::Bool
   local outExp::Expression
   local range_iter::RangeIterator
-  local ty::M_Type
+  local ty::ModelicaType
   @match RANGE_EXPRESSION(ty = ty) = exp
   expanded = hasKnownSize(ty)
   if expanded
@@ -932,7 +932,7 @@ end
   return (outExp, expanded)
 end
 
-function expandTypename(ty::M_Type)::Expression
+function expandTypename(ty::ModelicaType)::Expression
   local outExp::Expression
 
   @assign outExp = begin
@@ -969,12 +969,12 @@ function expandCref4(
   accum,#::List{List{Subscript}}, #= = nil, =#
   restSubs,#::List{List{Subscript}},
   cref::ComponentRef,
-  crefType::NFType,
+  crefType::ModelicaType,
 )::Expression
   local arrayExp::Expression
 
   local expl::Vector{Expression} = Expression[]
-  local arr_ty::M_Type
+  local arr_ty::ModelicaType
   local slice::List{Subscript}
   local rest::List{Subscript}
   arrayExp = begin
@@ -1017,7 +1017,7 @@ end
 function expandCref3(
   subs::List{List{Subscript}},
   cref::ComponentRef,
-  crefType::M_Type,
+  crefType::ModelicaType,
   accum = nil,
 )::Expression
   local arrayExp::Expression

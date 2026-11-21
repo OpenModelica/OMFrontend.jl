@@ -898,7 +898,7 @@ end
   return sourceVar
 end
 
-function makeIf(branches::Vector{<:Equation_Branch}, src::DAE.ElementSource)
+function makeIf(branches::Vector{<:EquationBranch}, src::DAE.ElementSource)
   local eq::Equation
    eq = EQUATION_IF(branches, src)
   return eq
@@ -917,7 +917,7 @@ end
 function makeEquality(
   lhs::Expression,
   rhs::Expression,
-  ty::M_Type,
+  ty::ModelicaType,
   src::DAE.SOURCE,
 )::Equation
   local eq::Equation

@@ -99,7 +99,7 @@ Same as type bindings but use ref to handle multiple returns instead of tuples.
 function typeBindingsRefs(cls::InstNode,
                        component::InstNode,
                           origin::ORIGIN_Type,
-                          tyRef::Ref{NFType},
+                          tyRef::Ref{ModelicaType},
                           varRef::Ref{VariabilityType})::Nothing
   local c::Class
   local cls_tree::ClassTree
@@ -159,7 +159,7 @@ end
 function typeComponentBindingRef(inComponent::InstNode,
                                  origin::ORIGIN_Type,
                                  typeChildren::Bool,
-                                 tyRef::Ref{NFType},
+                                 tyRef::Ref{ModelicaType},
                                  varRef::Ref{VariabilityType})
   #= A component removed by `break` (omc). =#
   isvariant(inComponent, EMPTY_NODE) && return inComponent
@@ -172,7 +172,7 @@ end
 
 function typeComponentBindingRef(inComponent::InstNode,
                                  origin::ORIGIN_Type,
-                                 tyRef::Ref{NFType},
+                                 tyRef::Ref{ModelicaType},
                                  varRef::Ref{VariabilityType})
   #= A component removed by `break` (omc). =#
   isvariant(inComponent, EMPTY_NODE) && return inComponent
@@ -189,7 +189,7 @@ function typeComponentBindingRef2_typed(
   c::Component,
   origin::ORIGIN_Type,
   typeChildren::Bool,
-  tyRef::Ref{NFType},
+  tyRef::Ref{ModelicaType},
   varRef::Ref{VariabilityType}
   )::InstNode
   if isvariant(c.binding, UNTYPED_BINDING)
@@ -249,7 +249,7 @@ function typeBindingPayload!(
   node::InstNode,
   c::Component,
   origin::ORIGIN_Type,
-  tyRef::Ref{NFType},
+  tyRef::Ref{ModelicaType},
   varRef::Ref{VariabilityType}
   )::InstNode
   local nameStr::String = name(inComponent)
@@ -311,7 +311,7 @@ function typeComponentBindingRef2_typeAttr(
   c::Component,
   origin::ORIGIN_Type,
   typeChildren::Bool,
-  tyRef::Ref{NFType},
+  tyRef::Ref{ModelicaType},
   varRef::Ref{VariabilityType})
   if isvariant(c.modifier, MODIFIER_NOMOD)
     return node
@@ -418,7 +418,7 @@ end
 
 function typeComponentBindingRef2(inComponent::InstNode, node::InstNode, c::Component,
                                   origin::ORIGIN_Type, typeChildren::Bool,
-                                  tyRef::Ref{NFType}, varRef::Ref{VariabilityType})
+                                  tyRef::Ref{ModelicaType}, varRef::Ref{VariabilityType})
   if isvariant(c, TYPED_COMPONENT)
     return typeComponentBindingRef2_typed(inComponent, node, c, origin, typeChildren, tyRef, varRef)
   elseif isvariant(c, TYPE_ATTRIBUTE)
@@ -497,10 +497,10 @@ function typeComponentBinding2_typed(
 end
 
 function typeBinding(inBinding::Binding, origin::Int,
-                     tyRef::Ref{NFType} = Ref{NFType}(TYPE_UNKNOWN()),
+                     tyRef::Ref{ModelicaType} = Ref{ModelicaType}(TYPE_UNKNOWN()),
                      varRef::Ref{VariabilityType} = Ref{VariabilityType}(Variability.CONSTANT))::Binding
   local exp::Expression
-  local ty::NFType
+  local ty::ModelicaType
   local var::VariabilityType
   local info::SourceInfo
   local each_ty::Int
@@ -541,16 +541,16 @@ function typeBindingExpRef(
   exp::BINDING_EXP,
   origin::ORIGIN_Type,
   info::SourceInfo,
-  tyRef::Ref{NFType},
+  tyRef::Ref{ModelicaType},
   variabilityRef::Ref{VariabilityType}
   )::BINDING_EXP
   local variability::VariabilityType
-  local ty::NFType
+  local ty::ModelicaType
   local outExp::BINDING_EXP
   local e::Expression
   local parents::List{InstNode}
   local is_each::Bool
-  local exp_ty::NFType
+  local exp_ty::ModelicaType
   @match BINDING_EXP(e, _, _, parents, is_each) = exp
   e = typeExp2(e, origin, info, tyRef, variabilityRef)
   exp_ty = tyRef.x

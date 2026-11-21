@@ -40,7 +40,7 @@ const INLINE_POST_SUB_MAX_NODES = Ref{Int}(2)
 
 #= Per-function body info cache. Body-only stats (hasCall, node count) are
    independent of call-site arguments, so we compute them once per
-   `M_FUNCTION` and reuse across every call site. The previous unconditional
+   `MODELICA_FUNCTION` and reuse across every call site. The previous unconditional
    per-call walk dominated flatten time on MultiBody (hundreds of call sites
    to a small pool of distinct helpers). =#
 #= (hasCall, nodeCount) tuple cache keyed by the function node's payload-cell
@@ -205,7 +205,7 @@ end
 function inlineCall(call::Call, top = nothing)::Expression
   local exp::Expression
   exp = begin
-    local fn::M_Function
+    local fn::MODELICA_FUNCTION
     local arg::Expression
     local args::Vector{Expression}
     local inputs::List{InstNode}
@@ -215,7 +215,7 @@ function inlineCall(call::Call, top = nothing)::Expression
     local stmt::Statement
     @match call begin
       TYPED_CALL(
-        fn = fn && M_FUNCTION(inputs = inputs, outputs = outputs, locals = locals),
+        fn = fn && MODELICA_FUNCTION(inputs = inputs, outputs = outputs, locals = locals),
         arguments = args,
       ) => begin
         #= External functions can't be inlined =#
@@ -294,9 +294,9 @@ end
    assignment statements within function classes are implicitly treated with
    noEvent"). An inlined body keeps that: its relations are wrapped in
    noEvent (e.g. MSL Frames.Internal.maxWithoutEvent, `if u1 > u2 ...`). =#
-const _NO_EVENT_FN_CACHE = Dict{UInt, M_FUNCTION}()
+const _NO_EVENT_FN_CACHE = Dict{UInt, MODELICA_FUNCTION}()
 
-function _noEventFunction(top::InstNode)::M_FUNCTION
+function _noEventFunction(top::InstNode)::MODELICA_FUNCTION
   return lock(_INST_SHARED_LOCK) do
     get!(_NO_EVENT_FN_CACHE, _refId(top)) do
       local (fnRef, _, _) = instFunctionRef(lookupFunctionSimple("noEvent", top), AbsynUtil.dummyInfo)
@@ -352,8 +352,8 @@ function _freeDimensions(cr::ComponentRef)::Int
 end
 
 function replaceCrefNode(@nospecialize(exp::Expression), node::InstNode, @nospecialize(value::Expression))::Expression
-  local ty::M_Type
-  local repl_ty::M_Type
+  local ty::ModelicaType
+  local repl_ty::ModelicaType
   if exp isa CREF_EXPRESSION && isvariant(exp.cref, COMPONENT_REF_CREF)
     local cr = exp.cref
     local basePart = cr

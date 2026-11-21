@@ -71,10 +71,10 @@ end
 
 #= Component is an abstract supertype with a SINGLE concrete tagged struct
    (ComponentImpl). Keeping the abstract type lets `::Component` fields (e.g.
-   InstNode.component) forward-reference it without the NFType<->InstNode<->Component
+   InstNode.component) forward-reference it without the ModelicaType<->InstNode<->Component
    concrete cycle, while collapsing the 8 old variants into one concrete struct so
    the compiler devirtualizes `::Component` (one subtype) and @match tag-dispatches.
-   Variants are field-disjoint, so this is hand-written (as with InstNode/NFType). =#
+   Variants are field-disjoint, so this is hand-written (as with InstNode/ModelicaType). =#
 abstract type Component end
 
 @enum ComponentTag::UInt8 CT_EMPTY CT_DELETED CT_ENUM_LITERAL CT_ITERATOR CT_TYPE_ATTRIBUTE CT_TYPED CT_UNTYPED CT_DEF
@@ -83,7 +83,7 @@ struct ComponentImpl <: Component
   tag::ComponentTag
   component::Union{Component,Nothing}
   literal::Union{Expression,Nothing}
-  ty::Union{M_Type,Nothing}
+  ty::Union{ModelicaType,Nothing}
   variability::Int8
   info::Union{SourceInfo,Nothing}
   modifier::Union{Modifier,Nothing}
@@ -924,7 +924,7 @@ function isTyped(component::Component)
   return isTyped
 end
 
-function setType(ty::M_Type, component::Component)
+function setType(ty::ModelicaType, component::Component)
 
    component = begin
     @match component begin
@@ -956,7 +956,7 @@ function setType(ty::M_Type, component::Component)
 end
 
 function getType(component::Component)
-  local ty::M_Type
+  local ty::ModelicaType
 
    ty = begin
     @match component begin
@@ -1101,7 +1101,7 @@ function definition(component::Component)
   return def
 end
 
-function newEnum(enumType::M_Type, literalName::String, literalIndex::Int)
+function newEnum(enumType::ModelicaType, literalName::String, literalIndex::Int)
   local component::Component
   component =
     ENUM_LITERAL_COMPONENT(ENUM_LITERAL_EXPRESSION(enumType, literalName, literalIndex))
@@ -1112,11 +1112,11 @@ function new(definition::SCode.Element)
   COMPONENT_DEF(definition, MODIFIER_NOMOD())
 end
 
-function newIterator(iterType::Type, info::SourceInfo)
+function newIterator(iterType::ModelicaType, info::SourceInfo)
   ITERATOR_COMPONENT(iterType, Variability.IMPLICITLY_DISCRETE, info);
 end
 
-function toFlatString(attr::Attributes, ty::M_Type; isTopLevel = true)
+function toFlatString(attr::Attributes, ty::ModelicaType; isTopLevel = true)
   local str::String = ""
   if attr.isFinal
     str = str * "final "
@@ -1128,7 +1128,7 @@ function toFlatString(attr::Attributes, ty::M_Type; isTopLevel = true)
   return str
 end
 
-function toString(attr::Attributes, ty::M_Type)
+function toString(attr::Attributes, ty::ModelicaType)
   local str::String
   str =
     (

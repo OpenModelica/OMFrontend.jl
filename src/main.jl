@@ -182,54 +182,10 @@ include("./NewFrontend/JLookupTree.jl")
 include("./NewFrontend/NFClassTree.jl")
 include("./NewFrontend/NFEquation.jl")
 
-#= Declare the signature for a M_Function early.. =#
-abstract type M_Function end
-struct M_FUNCTION <: M_Function
-  path::Absyn.Path
-  node::InstNode
-  inputs::List{InstNode}
-  outputs::List{InstNode}
-  locals::List{InstNode}
-  slots::List{Slot}
-  returnType::NFType
-  attributes::DAE.FunctionAttributes
-  derivatives::List{FunctionDerivative}
-  status::Pointer
-  callCounter::Pointer
-  #= The inputs a partial derivative of a function is taken with respect to, by index
-     (`function df = der(f, x)`; omc derivedInputs), empty for other functions. =#
-  derivedInputs::List{Int}
-  #= One constructor for all argument types (docstring below the struct). =#
-  function M_FUNCTION(@nospecialize(path::Absyn.Path), @nospecialize(node::InstNode), @nospecialize(inputs::List),
-                      @nospecialize(outputs::List), @nospecialize(locals::List), @nospecialize(slots::List),
-                      @nospecialize(returnType::NFType), @nospecialize(attributes::DAE.FunctionAttributes),
-                      @nospecialize(derivatives::List), @nospecialize(status::Pointer),
-                      @nospecialize(callCounter::Pointer), @nospecialize(derivedInputs::List))
-    return new(path, node, inputs, outputs, locals, slots, returnType, attributes, derivatives, status, callCounter,
-               derivedInputs)
-  end
-end
-
-"""
-    M_FUNCTION(path, node, inputs, outputs, locals, slots, returnType, attributes, derivatives, status, callCounter[, derivedInputs])
-
-A function. One constructor for all argument types (the default one was compiled per combination of `Cons`/`Nil`
-lists and path kinds at run time). The lists are `List` of any element type, as the default constructor took them:
-`new` converts them to the field types (a `Cons{Any}` built at run time). `derivedInputs` defaults to `nil`.
-"""
-M_FUNCTION(@nospecialize(path::Absyn.Path), @nospecialize(node::InstNode), @nospecialize(inputs::List),
-           @nospecialize(outputs::List), @nospecialize(locals::List), @nospecialize(slots::List),
-           @nospecialize(returnType::NFType), @nospecialize(attributes::DAE.FunctionAttributes),
-           @nospecialize(derivatives::List), @nospecialize(status::Pointer), @nospecialize(callCounter::Pointer)) =
-  M_FUNCTION(path, node, inputs, outputs, locals, slots, returnType, attributes, derivatives, status, callCounter, nil)
-
 include("./NewFrontend/NFInstNode.jl")
 include("./NewFrontend/NFSections.jl")
 include("./NewFrontend/NFRecord.jl")
 include("./NewFrontend/NFOperatorOverloading.jl")
-#= NFComponentRef uses @CUniontype; its compacted_tag_info registration must be
-   evaluated before any file whose @match patterns destructure crefs (NFCeval
-   is the first), so @match compiles the tag-dispatch path, not the record path. =#
 include("./NewFrontend/NFComponentRef.jl")
 include("./NewFrontend/NFBinding.jl")
 include("./NewFrontend/NFModifier.jl")

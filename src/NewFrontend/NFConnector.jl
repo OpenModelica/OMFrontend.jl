@@ -40,16 +40,15 @@ const Face = (() -> begin #= Enumeration =#
 end)()
 const FaceType = Int
 
-@Uniontype NFConnector begin
+@Uniontype Connector begin
   @Record CONNECTOR begin
     name::ComponentRef
-    ty::NFType
+    ty::ModelicaType
     face::FaceType
     cty::ConnectorType.TYPE
     source::DAE.ElementSource
   end
 end
-const Connector = NFConnector
 
 const ScalarizeSetting = (() -> begin #= Enumeration =#
                     NONE = 1  #= a[2].b[2] => {a[2].b[2]} =#
@@ -138,7 +137,7 @@ function Connector_getInfo(conn::Connector)::SourceInfo
   return conn.source.info
 end
 
-function getType(conn::Connector)::M_Type
+function getType(conn::Connector)::ModelicaType
   return conn.ty
 end
 
@@ -177,7 +176,7 @@ end
 
 function fromFacedCref(
   cref::ComponentRef,
-  ty::NFType,
+  ty::ModelicaType,
   face::FaceType,
   source::DAE.ElementSource,
 )::Connector
@@ -194,7 +193,7 @@ function fromFacedCref(
   return CONNECTOR(simplifySubscripts(cref), ty, face, cty, source)
 end
 
-function fromCref(cref::ComponentRef, ty::NFType, source::DAE.ElementSource)::Connector
+function fromCref(cref::ComponentRef, ty::ModelicaType, source::DAE.ElementSource)::Connector
   return fromFacedCref(cref, ty, crefFace(cref), source)
 end
 
@@ -210,7 +209,7 @@ function splitImpl2(
 
   local c::Component
   local cref::ComponentRef
-  local ty::M_Type
+  local ty::ModelicaType
   local cty::ConnectorType.TYPE
 
   for comp in comps
@@ -238,7 +237,7 @@ end
 
 function splitImpl(
   name::ComponentRef,
-  ty::NFType,
+  ty::ModelicaType,
   face::FaceType,
   source::DAE.ElementSource,
   cty::ConnectorType.TYPE,
@@ -247,7 +246,7 @@ function splitImpl(
   dims::List{<:Dimension} = nil,
 )::List{Connector} #= accumulated dimensions if splitArrays = false =#
   conns = begin
-    local ety::M_Type
+    local ety::ModelicaType
     local ct::ComplexType
     local tree::ClassTree
     @match ty begin

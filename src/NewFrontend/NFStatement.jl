@@ -628,7 +628,7 @@ end
 function makeAssignment(
   lhs::Expression,
   rhs::Expression,
-  ty::M_Type,
+  ty::ModelicaType,
   src::DAE.ElementSource,
 )::Statement
   local stmt::Statement
@@ -637,7 +637,7 @@ function makeAssignment(
   return stmt
 end
 
-function updateImplicitVariabilityAlg(alg::Algorithm)
+function updateImplicitVariabilityAlg(alg::ALGORITHM)
   updateImplicitVariabilityStmts(alg.statements)
 end
 
@@ -782,7 +782,7 @@ function instStatement(scodeStmt::SCode.Statement, scope::InstNode, origin::ORIG
       end
 
       SCode.ALG_IF(info = info) => begin
-        branches = Tuple{NFExpression, Vector{Statement}}[]
+        branches = Tuple{Expression, Vector{Statement}}[]
         next_origin = setFlag(origin, ORIGIN_FOR)
         for branch in _cons((scodeStmt.boolExpr, scodeStmt.trueBranch), scodeStmt.elseIfBranch)
           exp1 = instExp(Util.tuple21(branch), scope, info)
@@ -807,7 +807,7 @@ function instStatement(scodeStmt::SCode.Statement, scope::InstNode, origin::ORIG
           end
         end
         #= Preallocate =#
-        branches = Tuple{NFExpression, Vector{Statement}}[]
+        branches = Tuple{Expression, Vector{Statement}}[]
         for (i, branch) in enumerate(scodeStmt.branches)
           exp1 = instExp(Util.tuple21(branch), scope, info)
           next_origin = setFlag(origin, ORIGIN_WHEN)
@@ -883,13 +883,13 @@ statement
 end
 
 function instAlgorithmSections(algorithmSections::List{<:SCode.AlgorithmSection}, scope::InstNode, origin::ORIGIN_Type)
-  local algs::Vector{Algorithm}
-  algs = Algorithm[instAlgorithmSection(alg, scope, origin) for alg in algorithmSections]
+  local algs::Vector{ALGORITHM}
+  algs = ALGORITHM[instAlgorithmSection(alg, scope, origin) for alg in algorithmSections]
   algs
 end
 
-function instAlgorithmSection(algorithmSection::SCode.AlgorithmSection, scope::InstNode, origin::ORIGIN_Type)::Algorithm
-  local alg::Algorithm
+function instAlgorithmSection(algorithmSection::SCode.AlgorithmSection, scope::InstNode, origin::ORIGIN_Type)::ALGORITHM
+  local alg::ALGORITHM
   alg = ALGORITHM(instStatements(algorithmSection.statements, scope, origin), DAE.emptyElementSource)
   alg
 end

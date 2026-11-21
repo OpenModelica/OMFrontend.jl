@@ -41,10 +41,9 @@ using MetaModelica
 import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 
 import ..Frontend
-import ..Frontend.NFComponentRef
+import ..Frontend.ComponentRef
 import ..Frontend.CrefHashKey
 
-const ComponentRef = NFComponentRef
 const Key = ComponentRef
 const Value = ComponentRef
 const HashTable = Dict{CrefHashKey, Value}

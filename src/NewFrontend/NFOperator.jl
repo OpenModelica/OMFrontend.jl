@@ -33,8 +33,6 @@
 *
 */ =#
 
-@UniontypeDecl NFOperator
-
 """
   Structure describing different operators
 """
@@ -118,15 +116,10 @@ const Op = OpStruct(
 
 const OpType = Int
 
-abstract type NFOperator end
+#= OPERATOR is defined in FrontendInterfaces/NFInterfaces.jl, before the expressions that hold one. =#
 
-struct OPERATOR{T <: Integer} <: NFOperator
-  ty::M_Type
-  op::T
-end
-
-function negate(op::Operator)::Operator
-  local outOp::Operator
+function negate(op::OPERATOR)::OPERATOR
+  local outOp::OPERATOR
   local neg_op::OpType
   neg_op = begin
     @match op.op begin
@@ -163,7 +156,7 @@ function negate(op::Operator)::Operator
   return outOp
 end
 
-function isElementWise(op::Operator)::Bool
+function isElementWise(op::OPERATOR)::Bool
   local ew::Bool
   ew = begin
     @match op.op begin
@@ -195,7 +188,7 @@ function isElementWise(op::Operator)::Bool
   return ew
 end
 
-function stripEW(op::Operator)
+function stripEW(op::OPERATOR)
   opOP = @match op.op begin
     Op.ADD_EW => begin
       Op.ADD
@@ -223,8 +216,8 @@ function stripEW(op::Operator)
   return OPERATOR(op.ty, opOP)
 end
 
-function makeArrayScalar(ty::M_Type, op::OpType)::Operator
-  local outOp::Operator
+function makeArrayScalar(ty::ModelicaType, op::OpType)::OPERATOR
+  local outOp::OPERATOR
   local o::OpType
   o = begin
     @match op begin
@@ -253,8 +246,8 @@ function makeArrayScalar(ty::M_Type, op::OpType)::Operator
   return outOp
 end
 
-function makeScalarArray(ty::M_Type, op::OpType)::Operator
-  local outOp::Operator
+function makeScalarArray(ty::ModelicaType, op::OpType)::OPERATOR
+  local outOp::OPERATOR
   local o::OpType
   o = begin
     @match op begin
@@ -283,82 +276,82 @@ function makeScalarArray(ty::M_Type, op::OpType)::Operator
   return outOp
 end
 
-function makeNotEqual(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.NEQUAL)
+function makeNotEqual(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.NEQUAL)
   return op
 end
 
-function makeEqual(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.EQUAL)
+function makeEqual(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.EQUAL)
   return op
 end
 
-function makeGreaterEq(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.GREATEREQ)
+function makeGreaterEq(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.GREATEREQ)
   return op
 end
 
-function makeGreater(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.GREATER)
+function makeGreater(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.GREATER)
   return op
 end
 
-function makeLessEq(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.LESSEQ)
+function makeLessEq(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.LESSEQ)
   return op
 end
 
-function makeLess(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.LESS)
+function makeLess(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.LESS)
   return op
 end
 
-function makeNot(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.NOT)
+function makeNot(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.NOT)
   return op
 end
 
-function makeOr(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.OR)
+function makeOr(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.OR)
   return op
 end
 
-function makeAnd(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.AND)
+function makeAnd(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.AND)
   return op
 end
 
-function makeUMinus(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.UMINUS)
+function makeUMinus(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.UMINUS)
   return op
 end
 
-function makePow(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.POW)
+function makePow(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.POW)
   return op
 end
 
-function makeDiv(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.DIV)
+function makeDiv(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.DIV)
   return op
 end
 
-function makeMul(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.MUL)
+function makeMul(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.MUL)
   return op
 end
 
-function makeSub(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.SUB)
+function makeSub(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.SUB)
   return op
 end
 
-function makeAdd(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.ADD)
+function makeAdd(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.ADD)
   return op
 end
 
-function isNonAssociative(op::Operator)::Bool
+function isNonAssociative(op::OPERATOR)::Bool
   local isNonAssociative::Bool
 
   @assign isNonAssociative = begin
@@ -391,7 +384,7 @@ function isNonAssociative(op::Operator)::Bool
   return isNonAssociative
 end
 
-function isAssociative(op::Operator)::Bool
+function isAssociative(op::OPERATOR)::Bool
   local isAssoc::Bool
 
   isAssoc = begin
@@ -419,7 +412,7 @@ function isAssociative(op::Operator)::Bool
   return isAssoc
 end
 
-function priority(op::Operator, lhs::Bool)::Int
+function priority(op::OPERATOR, lhs::Bool)::Int
   local priority::Int
 
   @assign priority = begin
@@ -492,7 +485,7 @@ function priority(op::Operator, lhs::Bool)::Int
   return priority
 end
 
-function symbol(op::Operator, spacing::String = " ")::String
+function symbol(op::OPERATOR, spacing::String = " ")::String
   local symbol::String
 
   @assign symbol = begin
@@ -651,24 +644,24 @@ end
 
 function unlift(op::OPERATOR)
   local ty = unliftArray(op.ty)
-  return OPERATOR{Int}(ty, op.op)
+  return OPERATOR(ty, op.op)
 end
 
 function scalarize(op::OPERATOR)
   local ty = arrayElementType(op.ty)
-  return OPERATOR{Int}(ty, op.op)
+  return OPERATOR(ty, op.op)
 end
 
-function setType(ty::M_Type, op::OPERATOR)
-  return OPERATOR{Int}(ty, op.op)
+function setType(ty::ModelicaType, op::OPERATOR)
+  return OPERATOR(ty, op.op)
 end
 
-function typeOf(op::Operator)::M_Type
-  local ty::M_Type = op.ty
+function typeOf(op::OPERATOR)::ModelicaType
+  local ty::ModelicaType = op.ty
   return ty
 end
 
-function toDAE(op::Operator)::DAE.Operator #Tuple{DAE.Operator, Bool}
+function toDAE(op::OPERATOR)::DAE.Operator #Tuple{DAE.Operator, Bool}
   local swapArguments::Bool = false #= The DAE structure only has array*scalar, not scalar*array, etc =#
   local daeOp::DAE.Operator
   local ty::DAE.Type
@@ -834,8 +827,8 @@ function toDAE(op::Operator)::DAE.Operator #Tuple{DAE.Operator, Bool}
   return daeOp #, swapArguments) #= The DAE structure only has array*scalar, not scalar*array, etc =#
 end
 
-function fromAbsyn(inOperator::Absyn.Operator)::Operator
-  local outOperator::Operator
+function fromAbsyn(inOperator::Absyn.Operator)::OPERATOR
+  local outOperator::OPERATOR
   local op::OpType
   op = begin
     @match inOperator begin
@@ -936,7 +929,7 @@ function fromAbsyn(inOperator::Absyn.Operator)::Operator
   return outOperator
 end
 
-function compare(op1::Operator, op2::Operator)::Int
+function compare(op1::OPERATOR, op2::OPERATOR)::Int
   local comp::Int
   local o1::OpType = op1.op
   local o2::OpType = op2.op

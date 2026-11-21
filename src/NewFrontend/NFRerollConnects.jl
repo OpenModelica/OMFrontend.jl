@@ -112,12 +112,8 @@ function _isSum(@nospecialize(exp::Expression))::Bool
   return exp isa BINARY_EXPRESSION && _isAdd(exp.operator)
 end
 
-"""
-Whether `op` is `+`. A method for `OPERATOR`, whose `op` field is a type parameter: the comparison is compiled for
-the concrete integer type.
-"""
+"""Whether `op` is `+`."""
 _isAdd(op::OPERATOR)::Bool = op.op == Op.ADD
-_isAdd(op::Operator)::Bool = false
 
 """
 The terms of a sum (`a + b + c`, nested binary additions).
@@ -147,7 +143,7 @@ end
 """
 function _rerollCanonical(@nospecialize(exp::Expression))::Expression
   _isSum(exp) || return exp
-  local op::Operator = (exp::BINARY_EXPRESSION).operator
+  local op::OPERATOR = (exp::BINARY_EXPRESSION).operator
   local keyed::Vector{Tuple{String, Vector{Int}, Expression}} = Tuple{String, Vector{Int}, Expression}[]
   for t in _rerollTerms!(Expression[], exp)
     local (key::String, vals::Vector{Int}) = _rerollShape(t)
@@ -167,7 +163,7 @@ the union of all variants' field types, so an EQUATION_EQUALITY's are asserted.)
 """
 function _rerollable(eq::Equation)::Bool
   isvariant(eq, EQUATION_EQUALITY) || return false
-  return !isArray(eq.ty::M_Type) && _rerollable(eq.lhs::Expression) && _rerollable(eq.rhs::Expression)
+  return !isArray(eq.ty::ModelicaType) && _rerollable(eq.lhs::Expression) && _rerollable(eq.rhs::Expression)
 end
 
 """
@@ -184,7 +180,7 @@ function _rerollMember(eq::Equation)::Tuple{Equation, String, Vector{Int}, Bool}
     (lhs, rhs, l, r) = (rhs, lhs, r, l)
   end
   local vals::Vector{Int} = vcat(l[2], r[2])
-  return (EQUATION_EQUALITY(lhs, rhs, eq.ty::M_Type, eq.source), l[1] * " = " * r[1], vals, swapped)
+  return (EQUATION_EQUALITY(lhs, rhs, eq.ty::ModelicaType, eq.source), l[1] * " = " * r[1], vals, swapped)
 end
 
 """
@@ -219,7 +215,7 @@ function _rerollLoop(eq::Equation, base::Vector{Int}, step::Vector{Int}, n::Int,
   local vals::Vector{Int} = Int[]
   local lhs::Expression = _rerollMapExp(eq.lhs::Expression, vals, subs)
   local rhs::Expression = _rerollMapExp(eq.rhs::Expression, vals, subs)
-  local ty::M_Type = eq.ty::M_Type
+  local ty::ModelicaType = eq.ty::ModelicaType
   local body::Equation = swapped ? EQUATION_EQUALITY(rhs, lhs, ty, eq.source) : EQUATION_EQUALITY(lhs, rhs, ty, eq.source)
   local range::Expression = makeRange(INTEGER_EXPRESSION(1), NONE(), INTEGER_EXPRESSION(n))
   return EQUATION_FOR(iterNode, SOME(range), Equation[body], eq.source)

@@ -33,7 +33,7 @@
 *
 */ =#
 
-@Uniontype NFComplexType begin
+@Uniontype ComplexType begin
 @Record COMPLEX_CLASS begin
 end
 

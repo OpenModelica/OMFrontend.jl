@@ -42,15 +42,7 @@ end
 
 const Origin::ORIGIN_STRUCT = ORIGIN_STRUCT(1,2,3)
 
-#= Compacted so the recursive restCref spine is concretely typed
-   (NFComponentRefData) for inference-friendly cref traversal. =#
-@CUniontype NFComponentRef begin
-  COMPONENT_REF_WILD()
-  COMPONENT_REF_EMPTY()
-  COMPONENT_REF_CREF(node::InstNode, subscripts::List{Subscript}, ty::NFType, origin::Int, restCref::NFComponentRef)
-end
-
-const ComponentRef = NFComponentRef
+#= The ComponentRef struct and its constructors are in FrontendInterfaces/NFInterfaces.jl. =#
 
 function isComplexArray2(cref::ComponentRef)::Bool
   local complexArray::Bool
@@ -692,7 +684,7 @@ function toDAE_impl(
   local dcref::DAE.ComponentRef
 
    dcref = begin
-    local ty::M_Type
+    local ty::ModelicaType
     local dty::DAE.Type
     @match cref begin
       COMPONENT_REF_EMPTY(__) => begin
@@ -1121,8 +1113,8 @@ function nodeVariability(cref::ComponentRef)::VariabilityType
   return var
 end
 
-function getSubscriptedType2(restCref::ComponentRef, accumTy::NFType)::NFType
-  local ty::NFType
+function getSubscriptedType2(restCref::ComponentRef, accumTy::ModelicaType)::ModelicaType
+  local ty::ModelicaType
    ty = begin
     @match restCref begin
       COMPONENT_REF_CREF(origin = Origin.CREF) => begin
@@ -1141,8 +1133,8 @@ function getSubscriptedType2(restCref::ComponentRef, accumTy::NFType)::NFType
 end
 
 """Returns the type of a cref, with the subscripts taken into account."""
-function getSubscriptedType(cref::ComponentRef)::NFType
-  local ty::NFType
+function getSubscriptedType(cref::ComponentRef)::ModelicaType
+  local ty::ModelicaType
    ty = begin
     @match cref begin
       COMPONENT_REF_CREF(__) => begin
@@ -1160,8 +1152,8 @@ end
   Returns the type of the component the given cref refers to, without taking
   subscripts into account.
 """
-function getComponentType(cref::ComponentRef)::M_Type
-  local ty::M_Type
+function getComponentType(cref::ComponentRef)::ModelicaType
+  local ty::ModelicaType
 
    ty = begin
     @match cref begin
@@ -1335,7 +1327,7 @@ function isEmpty(cref::ComponentRef)::Bool
   return isEmpty
 end
 
-function makeIterator(node::InstNode, ty::NFType)::ComponentRef
+function makeIterator(node::InstNode, ty::ModelicaType)::ComponentRef
   local cref::ComponentRef = COMPONENT_REF_CREF(node, nil, ty, Origin.ITERATOR, COMPONENT_REF_EMPTY())
   return cref
 end
@@ -1384,7 +1376,7 @@ end
 
 function prefixScope(
   node::InstNode,
-  ty::NFType,
+  ty::ModelicaType,
   subs::List{<:Subscript},
   restCref::ComponentRef,
 )::ComponentRef
@@ -1394,7 +1386,7 @@ end
 
 function prefixCref(
   node::InstNode,
-  ty::M_Type,
+  ty::ModelicaType,
   subs::List{<:Subscript},
   restCref::ComponentRef,
   )::ComponentRef
@@ -1404,7 +1396,7 @@ end
 
 function fromNode(
   node::InstNode,
-  ty::NFType,
+  ty::ModelicaType,
   subs::List{<:Subscript} = nil,
   origin::OriginType = Origin.CREF,
 )::ComponentRef

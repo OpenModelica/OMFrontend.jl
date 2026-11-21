@@ -33,7 +33,7 @@
 *
 */ =#
 
-@Mutable_Uniontype NFExpressionIterator begin
+@Mutable_Uniontype ExpressionIterator begin
   @Record EXPRESSION_REPEAT_ITERATOR begin
     current::List{Expression}
     all::List{Expression}
@@ -279,7 +279,7 @@ function nextArraySlice(
 end
 
 
-function toString(@nospecialize(iterator::NFExpressionIterator))
+function toString(@nospecialize(iterator::ExpressionIterator))
   local buffer = IOBuffer()
   println(buffer, "$(typeof(iterator)):")
   @match iterator begin

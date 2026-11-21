@@ -48,9 +48,9 @@ import ..ListUtil
 import Base.string
 import Base.length
 
-import ..NFConnector
+import ..Connector
 import ..CONNECTOR
-import ..NFConnections
+import ..Connections
 import ..Frontend.CONNECTION
 import ..Frontend.split
 import ..Frontend.toString
@@ -59,8 +59,6 @@ import ..Frontend.isEqual
 import ..Frontend.name
 import ..Frontend.isPrefix
 import ..Frontend.hashStructural
-const Connector = NFConnector
-const Connections = NFConnections
 const Entry = Connector
 
 """

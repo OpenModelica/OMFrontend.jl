@@ -35,28 +35,65 @@
 
 module ModTable
 
-import ..NFModifier
+import ..ModifierImpl
 using MetaModelica
 import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 using ..Frontend
 
 const Key = String
-const Value = NFModifier
-#= Modelica extend clause =#
 
 const keyCompare = (inKey1::String, inKey2::String) -> begin
   res = stringCompare(inKey1, inKey2)
   return res
 end
 
+@enum TreeTag::UInt8 EMPTY_TAG LEAF_TAG NODE_TAG
+"""
+    Tree
 
-#= The binary tree data structure. Compacted so the recursive left/right
-   spine is concretely typed (TreeData) for inference-friendly traversal. =#
-@CUniontype Tree begin
+The modifier table, an AVL tree from names to modifiers: one tagged struct for all variants (`tag`).
+
+- `EMPTY()`: no fields (a shared singleton).
+- `LEAF(key, value)`: one entry.
+- `NODE(key, value, height, left, right)`: an entry with its subtrees.
+
+A variant's fields are the first ones of the struct; the others stay `#undef` (never read for that variant).
+`value` is a `ModifierImpl{Tree}`, the frontend's `Modifier` (defined after this module, as it holds a `Tree`).
+"""
+struct Tree
+  tag::TreeTag
+  key::Key
+  value::ModifierImpl{Tree}
+  height::Int
+  left::Tree
+  right::Tree
+  Tree(tag) = new(tag)
+  Tree(tag, key, value) = new(tag, key, value)
+  Tree(tag, key, value, height, left, right) = new(tag, key, value, height, left, right)
+end
+
+const Value = ModifierImpl{Tree}
+
+const _EMPTY = Tree(EMPTY_TAG)
+EMPTY() = _EMPTY
+LEAF(key, value) = Tree(LEAF_TAG, key, value)
+LEAF(; key, value) = LEAF(key, value)
+NODE(key, value, height, left, right) = Tree(NODE_TAG, key, value, height, left, right)
+NODE(; key, value, height, left, right) = NODE(key, value, height, left, right)
+
+@registerVariants Tree begin
   EMPTY()
-  LEAF(key::Key, value::Value)
-  NODE(key::Key, value::Value, height::Int, left::Tree, right::Tree)
+  LEAF(key, value)
+  NODE(key, value, height, left, right)
+end
+
+"""`@assign` on a `Tree`: rebuilt from its variant's own fields (the default reads the `#undef` ones)."""
+function MetaModelica.Accessors.ConstructionBase.setproperties(obj::Tree, patch::NamedTuple)
+  local pick(f::Symbol) = haskey(patch, f) ? getfield(patch, f) : getfield(obj, f)
+  obj.tag === EMPTY_TAG && return obj
+  obj.tag === LEAF_TAG && return Tree(LEAF_TAG, pick(:key), pick(:value))
+  return Tree(NODE_TAG, pick(:key), pick(:value), pick(:height), pick(:left), pick(:right))
 end
 
 """  Return an empty tree """

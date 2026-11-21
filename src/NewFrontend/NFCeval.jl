@@ -685,7 +685,7 @@ end
 #= Whether a cref without its enclosing elements' subscripts reads its own element (its type
    has not their dimensions: a binding in the elements' shared class) rather than the array
    (`bld.m_flow_nominal` read from outside, typed over bld). =#
-function _readsOwnElement(cref::ComponentRef, @nospecialize(defaultExp::Expression), compType::NFType,
+function _readsOwnElement(cref::ComponentRef, @nospecialize(defaultExp::Expression), compType::ModelicaType,
                           extra::Int)::Bool
   local own = dimensionCount(compType) - count(isScalar, getSubscripts(cref))
   return dimensionCount(typeOf(defaultExp)) < own + extra
@@ -895,8 +895,8 @@ function subscriptEvaluatedBinding2(
 
    exp = begin
     local e::Expression
-    local exp_ty::M_Type
-    local bind_ty::M_Type
+    local exp_ty::ModelicaType
+    local bind_ty::ModelicaType
     local parents::List{InstNode}
     local accum_subs::List{Subscript}
     local subs::List{Subscript}
@@ -1075,8 +1075,8 @@ function makeComponentBinding(
   local tree::ClassTree
   local comps::Vector{InstNode}
   local fields::List{Expression}
-  local ty::M_Type
-  local exp_ty::M_Type
+  local ty::ModelicaType
+  local exp_ty::ModelicaType
   local rec_node::InstNode
   local exp::Expression
   local rest_cr::ComponentRef
@@ -1194,7 +1194,7 @@ _isCrefExp(@nospecialize(exp::Expression))::Bool = stripBindingInfo(exp) isa CRE
 function makeRecordBindingExp(
   typeNode::InstNode,
   recordNode::InstNode,
-  recordType::M_Type,
+  recordType::ModelicaType,
   cref::ComponentRef,
   )
   local exp::Expression
@@ -1202,7 +1202,7 @@ function makeRecordBindingExp(
   local comps::Vector{InstNode}
   local args::Vector{Expression} = Expression[]
   local fields::List{Field}
-  local ty::M_Type
+  local ty::ModelicaType
   local c::InstNode
   local cr::ComponentRef
   local arg::Expression
@@ -1225,7 +1225,7 @@ end
 function splitRecordArrayExp(@nospecialize(exp::Expression))::Expression
 
   local path::Absyn.Path
-  local ty::M_Type
+  local ty::ModelicaType
   local expl::Vector{Expression}
 
   @match RECORD_EXPRESSION(path, ty, expl) = exp
@@ -1234,7 +1234,7 @@ function splitRecordArrayExp(@nospecialize(exp::Expression))::Expression
   return exp
 end
 
-function evalTypename(ty::M_Type, @nospecialize(originExp::Expression), @nospecialize(target::EvalTarget))::Expression
+function evalTypename(ty::ModelicaType, @nospecialize(originExp::Expression), @nospecialize(target::EvalTarget))::Expression
   local exp::Expression
 
   #=  Only expand the typename into an array if it's used as a range, and keep
@@ -1252,7 +1252,7 @@ end
 function evalRange(@nospecialize(rangeExp::Expression), @nospecialize(target::EvalTarget))::Expression
   local result::Expression
 
-  local ty::M_Type
+  local ty::ModelicaType
   local start_exp::Expression
   local stop_exp::Expression
   local step_exp::Option{Expression}
@@ -1292,7 +1292,7 @@ function evalRangeExp(@nospecialize(rangeExp::Expression))::Expression
   local stop::Expression
   local opt_step::Option{Expression}
   local expl::Vector{Expression}
-  local ty::M_Type
+  local ty::ModelicaType
   local literals::List{String}
   local istep::Int
 
@@ -1327,7 +1327,7 @@ function evalRangeExp(@nospecialize(rangeExp::Expression))::Expression
           fail()
         end
       end
-    end::Tuple{M_Type, Vector{Expression}}
+    end::Tuple{ModelicaType, Vector{Expression}}
   else
      (ty, expl) = begin
       @match (start, stop) begin
@@ -1364,7 +1364,7 @@ function evalRangeExp(@nospecialize(rangeExp::Expression))::Expression
           fail()
         end
       end
-     end::Tuple{M_Type, Vector{Expression}}
+     end::Tuple{ModelicaType, Vector{Expression}}
   end
   exp = makeArray(
     TYPE_ARRAY(ty, list(fromInteger(length(expl)))), expl
@@ -1397,7 +1397,7 @@ end
 
 function evalBinaryOp(
   @nospecialize(exp1::Expression),
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
   @nospecialize(target::EvalTarget = EVALTARGET_IGNORE_ERRORS()),
 )::Expression
@@ -1425,7 +1425,7 @@ function evalBinaryExp(@nospecialize(binaryExp::Expression), @nospecialize(targe
   local result::Expression
   local e1::Expression
   local e2::Expression
-  local op::Operator
+  local op::OPERATOR
 
   @match BINARY_EXPRESSION(exp1 = e1, operator = op, exp2 = e2) = binaryExp
   #= After bindingExpMap unwraps binding expressions, operands may still
@@ -1439,7 +1439,7 @@ end
 
 function evalBinaryOp_dispatch(
   @nospecialize(exp1::Expression),
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
   @nospecialize(target::EvalTarget = EVALTARGET_IGNORE_ERRORS()),
 )::Expression
@@ -1837,7 +1837,7 @@ function evalBinaryMulVectorMatrix(@nospecialize(vectorExp::Expression), @nospec
 
   local expl::Vector{Expression}
   local m::Dimension
-  local ty::M_Type
+  local ty::ModelicaType
 
    exp = begin
     @match transposeArray(matrixExp) begin
@@ -1865,7 +1865,7 @@ function evalBinaryMulMatrixVector(@nospecialize(matrixExp::Expression), @nospec
 
   local expl::Vector{Expression}
   local n::Dimension
-  local ty::M_Type
+  local ty::ModelicaType
 
    exp = begin
     @match matrixExp begin
@@ -1892,7 +1892,7 @@ function evalBinaryScalarProduct(@nospecialize(exp1::Expression), @nospecialize(
   local exp::Expression
 
    exp = begin
-    local elem_ty::M_Type
+    local elem_ty::ModelicaType
     @match (exp1, exp2) begin
       (
         ARRAY_EXPRESSION(ty = TYPE_ARRAY(elem_ty)),
@@ -1927,9 +1927,9 @@ function evalBinaryMatrixProduct(@nospecialize(exp1::Expression), @nospecialize(
   local e2::Expression
   local expl1::Vector{Expression}
   local expl2::Vector{Expression}
-  local elem_ty::M_Type
-  local row_ty::M_Type
-  local mat_ty::M_Type
+  local elem_ty::ModelicaType
+  local row_ty::ModelicaType
+  local mat_ty::ModelicaType
   local n::Dimension
   local p::Dimension
 
@@ -2037,7 +2037,7 @@ function evalBinaryPowMatrix2(@nospecialize(matrix::Expression), n::Int)::Expres
   return exp
 end
 
-function evalUnaryOp(@nospecialize(exp1::Expression), op::Operator)::Expression
+function evalUnaryOp(@nospecialize(exp1::Expression), op::OPERATOR)::Expression
   local exp::Expression
 
    exp = begin
@@ -2093,7 +2093,7 @@ end
 
 function evalLogicBinaryOp(
   @nospecialize(exp1::Expression),
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
   @nospecialize(target::EvalTarget = EVALTARGET_IGNORE_ERRORS()),
 )::Expression
@@ -2142,7 +2142,7 @@ function evalLogicBinaryExp(@nospecialize(binaryExp::Expression), @nospecialize(
 
   local e1::Expression
   local e2::Expression
-  local op::Operator
+  local op::OPERATOR
 
   @match LBINARY_EXPRESSION(exp1 = e1, operator = op, exp2 = e2) = binaryExp
    result = evalLogicBinaryOp_dispatch(e1, op, e2, target)
@@ -2151,7 +2151,7 @@ end
 
 function evalLogicBinaryOp_dispatch(
   @nospecialize(exp1::Expression),
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
   @nospecialize(target::EvalTarget),
 )::Expression
@@ -2265,7 +2265,7 @@ function evalLogicBinaryOr(
   return exp
 end
 
-function evalLogicUnaryOp(@nospecialize(exp1::Expression), op::Operator)::Expression
+function evalLogicUnaryOp(@nospecialize(exp1::Expression), op::OPERATOR)::Expression
   local exp::Expression
 
    exp = begin
@@ -2314,7 +2314,7 @@ function evalLogicUnaryNot(@nospecialize(exp1::Expression))::Expression
   return exp
 end
 
-function evalRelationOp(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression))::Expression
+function evalRelationOp(@nospecialize(exp1::Expression), op::OPERATOR, @nospecialize(exp2::Expression))::Expression
   local exp::Expression
 
   local max_prop_exp::Expression
@@ -2340,7 +2340,7 @@ function evalRelationExp(@nospecialize(relationExp::Expression))::Expression
 
   local e1::Expression
   local e2::Expression
-  local op::Operator
+  local op::OPERATOR
 
   @match RELATION_EXPRESSION(exp1 = e1, operator = op, exp2 = e2) = relationExp
    result = evalRelationOp_dispatch(e1, op, e2)
@@ -2349,7 +2349,7 @@ end
 
 function evalRelationOp_dispatch(
   @nospecialize(exp1::Expression),
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
 )::Expression
   local exp::Expression
@@ -2740,7 +2740,7 @@ function evalIfExp2(@nospecialize(ifExp::Expression), @nospecialize(target::Eval
   return result
 end
 
-function evalCast(@nospecialize(castExp::Expression), castTy::M_Type)::Expression
+function evalCast(@nospecialize(castExp::Expression), castTy::ModelicaType)::Expression
   local exp::Expression
 
    exp = typeCast(castExp, castTy)
@@ -2813,7 +2813,7 @@ end
 #Note was originally called evalBuiltinCallExp, but the translator seems to have butchered the name for this function..
 function evalxp(@nospecialize(callExp::Expression), @nospecialize(target::EvalTarget))::Expression
   local result::Expression
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local args::Vector{Expression}
   @match CALL_EXPRESSION(call = TYPED_CALL(fn = fn, arguments = args)) = callExp
   result = ceval(fn, args, target)
@@ -2821,7 +2821,7 @@ function evalxp(@nospecialize(callExp::Expression), @nospecialize(target::EvalTa
 end
 
 function ceval(
-  fn::M_Function,
+  fn::MODELICA_FUNCTION,
   args::Vector{Expression},
   @nospecialize(target::EvalTarget),
 )::Expression
@@ -3075,14 +3075,14 @@ end
 
 function evalNormalCallExp(@nospecialize(callExp::Expression))::Expression
   local result::Expression
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local args::Vector{Expression}
   @match CALL_EXPRESSION(call = TYPED_CALL(fn = fn, arguments = args)) = callExp
   result = evalNormalCall(fn, args)
   return result
 end
 
-function evalNormalCall(fn::M_Function, args::Vector{Expression})::Expression
+function evalNormalCall(fn::MODELICA_FUNCTION, args::Vector{Expression})::Expression
   local result::Expression = evaluate(fn, args) #=TODO: Fix the interface here later.=#
   return result
 end
@@ -3141,7 +3141,7 @@ end
 
 function evalBuiltinArray(args::Union{List{Expression}, Vector{Expression}})::Expression
   local result::Expression
-  local ty::M_Type
+  local ty::ModelicaType
   ty = typeOf(Base.first(args))
   ty = liftArrayLeft(ty, fromInteger(length(args)))
   result = makeArray(ty, args, literal = true)
@@ -3220,7 +3220,7 @@ function evalBuiltinCat(
   local n::Int
   local nd::Int
   local sz::Int
-  local ty::M_Type
+  local ty::ModelicaType
   local es::Vector{Expression}
   local dims::List{Int}
   @match INTEGER_EXPRESSION(n) = argN
@@ -3359,8 +3359,8 @@ end
 function evalBuiltinDiagonal(@nospecialize(arg::Expression))::Expression
   local result::Expression
 
-  local elem_ty::M_Type
-  local row_ty::M_Type
+  local elem_ty::ModelicaType
+  local row_ty::ModelicaType
   local zero::Expression
   local elems::Vector{Expression}
   local n::Int
@@ -3477,7 +3477,7 @@ function evalBuiltinFill2(@nospecialize(fillValue::Expression), dims::Union{Vect
   local result::Expression = fillValue
   local dim_size::Int
   local arr::Vector{Expression}
-  local arr_ty::M_Type = typeOf(result)
+  local arr_ty::ModelicaType = typeOf(result)
   for d in reverse(dims)
     dim_size = begin
       @match d begin
@@ -3641,7 +3641,7 @@ function evalBuiltinMatrix(@nospecialize(arg::Expression))::Expression
     local dim_count::Int
     local dim1::Dimension
     local dim2::Dimension
-    local ty::M_Type
+    local ty::ModelicaType
     @match arg begin
       ARRAY_EXPRESSION(ty = ty) => begin
          dim_count = dimensionCount(ty)
@@ -3674,7 +3674,7 @@ function evalBuiltinMatrix(@nospecialize(arg::Expression))::Expression
   return result
 end
 
-function evalBuiltinMatrix2(@nospecialize(arg::Expression), ty::M_Type)::Expression
+function evalBuiltinMatrix2(@nospecialize(arg::Expression), ty::ModelicaType)::Expression
   local result::Expression
 
    result = begin
@@ -3696,11 +3696,11 @@ function evalBuiltinMatrix2(@nospecialize(arg::Expression), ty::M_Type)::Express
   return result
 end
 
-function evalBuiltinMax(args::Vector{Expression}, fn::M_Function)::Expression
+function evalBuiltinMax(args::Vector{Expression}, fn::MODELICA_FUNCTION)::Expression
   local result::Expression
   local e1::Expression
   local e2::Expression
-  local ty::M_Type
+  local ty::ModelicaType
   result = begin
     @match args begin
       [e1, e2] => begin
@@ -3788,10 +3788,10 @@ function evalBuiltinMax2(@nospecialize(exp1::Expression), @nospecialize(exp2::Ex
   return result
 end
 
-function evalBuiltinMin(args::Union{List{Expression}, Vector{Expression}}, fn::M_Function)::Expression
+function evalBuiltinMin(args::Union{List{Expression}, Vector{Expression}}, fn::MODELICA_FUNCTION)::Expression
   local result::Expression
   local e1::Expression
-  local ty::M_Type
+  local ty::ModelicaType
   local nArgs::Int = length(args)
 
   if nArgs == 2
@@ -4162,7 +4162,7 @@ function evalBuiltinSkew(@nospecialize(arg::Expression))::Expression
   local y1::Expression
   local y2::Expression
   local y3::Expression
-  local ty::M_Type
+  local ty::ModelicaType
   local zero::Expression
   local literal::Bool
 
@@ -4370,7 +4370,7 @@ function evalBuiltinSymmetric(@nospecialize(arg::Expression))::Expression
   local result::Expression
 
   local n::Int
-  local row_ty::M_Type
+  local row_ty::ModelicaType
 
    result = begin
     @match arg begin
@@ -4438,7 +4438,7 @@ function evalBuiltinTranspose(@nospecialize(arg::Expression))::Expression
   local result::Expression
   local dim1::Dimension
   local dim2::Dimension
-  local ty::M_Type
+  local ty::ModelicaType
   local literal::Bool
   result = begin
     @match arg begin
@@ -4468,7 +4468,7 @@ function evalBuiltinVector(@nospecialize(arg::Expression))::Expression
   local result::Expression
 
   local expl::List{Expression}
-  local ty::M_Type
+  local ty::ModelicaType
 
    expl = fold(arg, evalBuiltinVector2, nil)
    ty = liftArrayLeft(
@@ -4502,7 +4502,7 @@ function evalBuiltinZeros(args::Union{List{Expression}, Vector{Expression}})::Ex
 end
 
 function evalUriToFilename(
-  fn::M_Function,
+  fn::MODELICA_FUNCTION,
   args::Union{List{Expression}, Vector{<:Expression}},
   @nospecialize(target::EvalTarget),
 )::Expression
@@ -4511,7 +4511,7 @@ function evalUriToFilename(
   local e::Expression
   local arg::Expression
   local s::String
-  local f::M_Function
+  local f::MODELICA_FUNCTION
 
    arg = args[1]
    result = begin
@@ -4805,7 +4805,7 @@ function evalSolverClock(args::List{Expression})::Expression
 end
 
 function evalBuiltinDynamicSelect(
-  fn::M_Function,
+  fn::MODELICA_FUNCTION,
   args::List{Expression},
   @nospecialize(target::EvalTarget),
 )::Expression
@@ -4840,8 +4840,8 @@ function evalArrayConstructor2(
   local e::Expression
   local ranges::List{Expression}
   local iters::List{Pointer{Expression}}
-  local types::List{M_Type} = nil
-  local ty::M_Type
+  local types::List{ModelicaType} = nil
+  local ty::ModelicaType
 
    (e, ranges, iters) = createIterationRanges(exp, iterators)
    result = evalArrayConstructor3(e, ranges, iters)
@@ -4890,7 +4890,7 @@ function evalArrayConstructor3(
   local iters_rest::List{Pointer{Expression}}
   local range_iter::ExpressionIterator
   local value::Expression
-  local ty::M_Type
+  local ty::ModelicaType
   if listEmpty(ranges)
     return evalExp_impl(exp, EVALTARGET_IGNORE_ERRORS())
   end
@@ -4912,7 +4912,7 @@ function evalArrayConstructor3(
 end
 
 function evalReduction(
-  fn::M_Function,
+  fn::MODELICA_FUNCTION,
   @nospecialize(exp::Expression),
   iterators::List{<:Tuple{<:InstNode, Expression}},
 )::Expression
@@ -4926,7 +4926,7 @@ function evalReduction(
 end
 
 function evalReduction2(
-  fn::M_Function,
+  fn::MODELICA_FUNCTION,
   @nospecialize(exp::Expression),
   iterators::List{<:Tuple{<:InstNode, Expression}},
 )::Expression
@@ -4937,7 +4937,7 @@ function evalReduction2(
   local ranges::List{Expression}
   local iters::List{Pointer{Expression}}
   local red_fn::Function
-  local ty::M_Type
+  local ty::ModelicaType
 
    #= The type before the iterators are replaced by their (Integer-initialized) values. =#
    ty = typeOf(exp)
@@ -4992,7 +4992,7 @@ function evalReduction3(
   local iters_rest::List{Pointer{Expression}}
   local range_iter::ExpressionIterator
   local value::Expression
-  local el_ty::M_Type
+  local el_ty::ModelicaType
 
   if listEmpty(ranges)
      result = fn(foldExp, evalExp_impl(exp, EVALTARGET_IGNORE_ERRORS()))
@@ -5020,7 +5020,7 @@ function evalSize(
   local index::Int
   local ty_err::TypingError
   local dim::Dimension
-  local ty::M_Type
+  local ty::ModelicaType
   local expl::List{Expression}
   local info::SourceInfo
   info = EvalTarget_getInfo(target)
@@ -5107,7 +5107,7 @@ end
 
 #= The field of a record, or of each record of an array of records (Buildings' chillers'
    perChi[numChi]: its records' nCapFunT). =#
-function _recordElementOf(@nospecialize(x::Expression), index::Int, @nospecialize(ty::M_Type), fieldName::String)::Expression
+function _recordElementOf(@nospecialize(x::Expression), index::Int, @nospecialize(ty::ModelicaType), fieldName::String)::Expression
   if x isa ARRAY_EXPRESSION
     local ety = isArray(ty) ? unliftArray(ty) : ty
     return ARRAY_EXPRESSION(ty, Expression[_recordElementOf(el, index, ety, fieldName) for el in x.elements], x.literal)

@@ -38,12 +38,12 @@ module FunctionTreeImpl
   import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
   using ExportAll
   import ..Absyn
-  import ..Frontend.M_Function
+  import ..Frontend.MODELICA_FUNCTION
   import ..Frontend.toString
   import ..Frontend.toFlatString
   import ..Frontend.AbsynUtil
   const Key = Absyn.Path
-  const Value = M_Function
+  const Value = MODELICA_FUNCTION
   include("../Util/baseAvlTreeCode.jl")
   addConflictDefault = addConflictKeep
   keyStr = (k) -> begin
@@ -71,8 +71,8 @@ function flatten(classInst::InstNode, name::String; prefix = COMPONENT_REF_EMPTY
   local vars::Vector{Variable}
   local eql::Vector{Equation}
   local ieql::Vector{Equation}
-  local alg::Vector{Algorithm}
-  local ialg::Vector{Algorithm}
+  local alg::Vector{ALGORITHM}
+  local ialg::Vector{ALGORITHM}
   local structuralSubmodels::List{FLAT_MODEL} = nil
   local cmt::Option{SCode.Comment}
   sections = SECTIONS_EMPTY()
@@ -111,8 +111,8 @@ function flatten(classInst::InstNode, name::String; prefix = COMPONENT_REF_EMPTY
                    vars,
                    Equation[],
                    Equation[],
-                   Algorithm[],
-                   Algorithm[],
+                   ALGORITHM[],
+                   ALGORITHM[],
                    nil,
                    NONE(),
                    cmt)
@@ -267,7 +267,7 @@ function flattenComponent(
   #@info "FLATTEN COMPONENT: " * toString(inComponent)
   local comp_node::InstNode
   local c::Component
-  local ty::M_Type
+  local ty::ModelicaType
   local condition::Binding
   local cls::Class
   local vis::VisibilityType
@@ -359,7 +359,7 @@ end
 #= A ragged dimension (an expression, typeDimensionUntyped) for one element of the enclosing arrays
    of components: evaluated in the context of the element's cref, a binding from the arrays'
    modifier read for that element (omc: split indices resolved by the prefix). =#
-function flattenRaggedDimensions(@nospecialize(ty::M_Type), cref::ComponentRef)::M_Type
+function flattenRaggedDimensions(@nospecialize(ty::ModelicaType), cref::ComponentRef)::ModelicaType
   isArray(ty) || return ty
   any(d -> isvariant(d, DIMENSION_EXP) && !isLiteral(d.exp), arrayDims(ty)) || return ty
   return mapDims(ty, d -> flattenRaggedDimension(d, cref))
@@ -551,7 +551,7 @@ function deleteClassComponents(clsNode::InstNode)
   end
 end
 
-function isComplexComponent(ty::NFType)::Bool
+function isComplexComponent(ty::ModelicaType)::Bool
   local isComplex::Bool
   @assign isComplex = begin
     @match ty begin
@@ -668,7 +668,7 @@ end
 """
 omc Flatten.checkUnspecifiedEnumType: a component may not have the type enumeration(:).
 """
-function checkUnspecifiedEnumType(ty::NFType, node::InstNode, info::SourceInfo)
+function checkUnspecifiedEnumType(ty::ModelicaType, node::InstNode, info::SourceInfo)
   if isEnumeration(ty) && listEmpty(ty.literals)
     Error.addSourceMessage(Error.UNSPECIFIED_ENUM_COMPONENT, list(name(node)), info)
     fail()
@@ -813,7 +813,7 @@ function flattenComplexComponent(
   node::InstNode,
   comp::Component,
   cls::Class,
-  ty::NFType,
+  ty::ModelicaType,
   visibility::VisibilityType,
   outerBinding::Option{<:Binding},
   prefix::ComponentRef,
@@ -944,7 +944,7 @@ function flattenArray(
       visibility,
       binding,
       Variable[],
-      SECTIONS(Equation[], Equation[], Algorithm[], Algorithm[]),
+      SECTIONS(Equation[], Equation[], ALGORITHM[], ALGORITHM[]),
       nil #= No structural submodels =#
     )
     #= A ragged class, an element's dimension from its own parameters (Buildings' MultiLayer lay[nLay] with
@@ -1043,7 +1043,7 @@ function _flattenRaggedArray(cls::Class, dimensions::List{<:Dimension}, prefix::
   try
     local (vrs::Vector{Variable}, sects::Sections) =
       flattenArray(cls, dimensions, prefix, visibility, binding, Variable[],
-                   SECTIONS(Equation[], Equation[], Algorithm[], Algorithm[]), subscripts; elementwise = true)
+                   SECTIONS(Equation[], Equation[], ALGORITHM[], ALGORITHM[]), subscripts; elementwise = true)
     for v in vrs
       scalarizeVariable(v, vars)
     end
@@ -1072,7 +1072,7 @@ end
 Whether `ty` has a ragged dimension: its sizes per element of the enclosing arrays of components, an array
 (`flattenRaggedDimension` in the context of an array of components flattened once, `{2, 1, 2}`).
 """
-function _hasRaggedDimension(@nospecialize(ty::M_Type))::Bool
+function _hasRaggedDimension(@nospecialize(ty::ModelicaType))::Bool
   isArray(ty) || return false
   return any(d -> isvariant(d, DIMENSION_EXP) && isArray(typeOf(d.exp)), arrayDims(ty))
 end
@@ -1151,10 +1151,10 @@ function elementBindingEquation(eqn::Equation, dimensions::List, subscripts::Lis
 end
 
 function vectorizeAlgorithm(
-  alg::Algorithm,
+  alg::ALGORITHM,
   dimensions::List{Dimension},
   prefix::ComponentRef
-)::Algorithm
+)::ALGORITHM
   #=  let simple assignment as is =#
   if length(alg.statements) == 1
     local stmt = alg.statements[1]
@@ -1312,7 +1312,7 @@ function subscriptBindingOpt(
 )::Option{Binding}
   local b::Binding
   local exp::Expression
-  local ty::M_Type
+  local ty::ModelicaType
   if isSome(binding)
     @match SOME(b) = binding
     @assign binding = begin
@@ -1533,8 +1533,8 @@ function flattenSections(
   () = begin
     local eq::Vector{Equation}
     local ieq::Vector{Equation}
-    local alg::Vector{Algorithm}
-    local ialg::Vector{Algorithm}
+    local alg::Vector{ALGORITHM}
+    local ialg::Vector{ALGORITHM}
     @match sections begin
       SECTIONS(__) => begin
         eq = flattenEquations(sections.equations, prefix)
@@ -1599,7 +1599,7 @@ function flattenEquation(
         flattenIfEquation(eq, prefix, inEquations)
       end
       EQUATION_WHEN(__) => begin
-        @assign eq.branches = Equation_Branch[flattenEqBranch(b, prefix) for b in eq.branches]
+        @assign eq.branches = EquationBranch[flattenEqBranch(b, prefix) for b in eq.branches]
         push!(inEquations, eq)
       end
       EQUATION_ASSERT(__) => begin
@@ -1634,7 +1634,7 @@ function flattenIfEquation(
   prefix::ComponentRef,
   equations::Vector{Equation},
 )
-  local branch::Equation_Branch
+  local branch::EquationBranch
   local branches::Vector{EquationBranch}
   local bl::Vector{EquationBranch} = EquationBranch[]
   local cond::Expression
@@ -1739,7 +1739,7 @@ function isConnectEq(eq::Equation)::Bool
   local isConnect::Bool
 
   @assign isConnect = begin
-    local fn::M_Function
+    local fn::MODELICA_FUNCTION
     @match eq begin
       EQUATION_CONNECT(__) => begin
         true
@@ -1760,9 +1760,9 @@ function isConnectEq(eq::Equation)::Bool
 end
 
 function flattenEqBranch(
-  @nospecialize(branch::Equation_Branch),
+  @nospecialize(branch::EquationBranch),
   prefix::ComponentRef,
-)::Equation_Branch
+)::EquationBranch
   local exp::Expression
   local eql::Vector{Equation}
   local var::VariabilityType
@@ -1894,9 +1894,9 @@ function _isConnectionCall(exp::Expression)::Bool
 end
 
 function flattenAlgorithms(
-  algorithms::Vector{Algorithm},
+  algorithms::Vector{ALGORITHM},
   prefix::ComponentRef)
-  local outAlgorithms::Vector{Algorithm} = Algorithm[]
+  local outAlgorithms::Vector{ALGORITHM} = ALGORITHM[]
   for alg in algorithms
     @assign alg.statements = flattenAlgorithmStatements(alg.statements, prefix)
     #=
@@ -2240,11 +2240,11 @@ function collectBindingFuncs(binding::Binding, funcs::FunctionTree)::FunctionTre
   return funcs
 end
 
-function collectTypeFuncs(ty::NFType, funcs::FunctionTree)::FunctionTree
+function collectTypeFuncs(ty::ModelicaType, funcs::FunctionTree)::FunctionTree
    () = begin
     local con::InstNode
     local de::InstNode
-    local fn::M_Function
+    local fn::MODELICA_FUNCTION
     @match ty begin
       TYPE_ARRAY(__) => begin
         funcs = foldExpList(
@@ -2256,8 +2256,8 @@ function collectTypeFuncs(ty::NFType, funcs::FunctionTree)::FunctionTree
         ()
       end
 
-      TYPE_FUNCTION(fn = fn) => begin
-        funcs = flattenFunction(fn, funcs)
+      TYPE_FUNCTION(__) => begin
+        funcs = flattenFunction(functionOf(ty), funcs)
         ()
       end
 
@@ -2287,7 +2287,7 @@ end
 
 function collectStructor(node::InstNode, funcs::FunctionTree)::FunctionTree
   local cache::CachedData
-  local fn::List{M_Function}
+  local fn::List{MODELICA_FUNCTION}
   cache = getFuncCache(node)
    () = begin
     @match cache begin
@@ -2365,7 +2365,7 @@ function collectEquationFuncs(@nospecialize(eq::Equation),
 end
 
 function collectEqBranchFuncs(
-  @nospecialize(branch::Equation_Branch),
+  @nospecialize(branch::EquationBranch),
   @nospecialize(funcs::FunctionTree),
   )::FunctionTree
   () = begin
@@ -2383,7 +2383,7 @@ function collectEqBranchFuncs(
   return funcs
 end
 
-function collectAlgorithmFuncs(alg::Algorithm, funcs::FunctionTree)::FunctionTree
+function collectAlgorithmFuncs(alg::ALGORITHM, funcs::FunctionTree)::FunctionTree
   funcs = ArrayUtil.fold(alg.statements, collectStatementFuncs, funcs)
   return funcs
 end
@@ -2466,7 +2466,7 @@ end
 
 function collectExpFuncs_traverse(exp::Expression, funcs::FunctionTree)::FunctionTree
    () = begin
-    local fn::M_Function
+    local fn::MODELICA_FUNCTION
     @match exp begin
       CALL_EXPRESSION(__) => begin
         funcs = flattenFunction(typedFunction(exp.call), funcs)
@@ -2494,8 +2494,8 @@ function collectExpFuncs_traverse(exp::Expression, funcs::FunctionTree)::Functio
   return funcs
 end
 
-function flattenFunction(func::M_Function, funcs::FunctionTree)::FunctionTree
-  local fn::M_Function = func
+function flattenFunction(func::MODELICA_FUNCTION, funcs::FunctionTree)::FunctionTree
+  local fn::MODELICA_FUNCTION = func
   if !isCollected(fn)
     fn = evaluateFunction(fn)
     simplifyFunction(fn)

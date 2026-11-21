@@ -154,7 +154,7 @@ function lookupConnector(cref::Absyn.ComponentRef, scope::InstNode #= The scope 
 end
 
 function fixTypenameState(n::InstNode, state::LookupState)
-  local ty::NFType
+  local ty::ModelicaType
   if isClass(n)
     ty = getType(expand(n))
     state = begin

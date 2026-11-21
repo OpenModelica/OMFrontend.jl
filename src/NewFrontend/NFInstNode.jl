@@ -73,7 +73,7 @@ struct C_TOP_SCOPE <: CachedData
 end
 
 mutable struct C_FUNCTION <: CachedData
-  funcs::Vector{M_FUNCTION}
+  funcs::Vector{MODELICA_FUNCTION}
   typed::Bool
   specialBuiltin::Bool
 end
@@ -124,17 +124,17 @@ function getFuncCache(in_caches::Vector{<:CachedData})
   out_cache
 end
 
-function addFunc(fn::M_Function, specialBuiltin::Bool, caches::Vector{<:CachedData})
+function addFunc(fn::MODELICA_FUNCTION, specialBuiltin::Bool, caches::Vector{<:CachedData})
   local func_cache::CachedData
    func_cache = getFuncCache(caches)
    func_cache = begin
     @match func_cache begin
       C_NO_CACHE(__)  => begin
-        C_FUNCTION(M_Function[fn], false, specialBuiltin)
+        C_FUNCTION(MODELICA_FUNCTION[fn], false, specialBuiltin)
       end
 
       C_FUNCTION(__)  => begin
-        C_FUNCTION(Base.append!(func_cache.funcs, M_FUNCTION[fn]), false, func_cache.specialBuiltin || specialBuiltin)
+        C_FUNCTION(Base.append!(func_cache.funcs, MODELICA_FUNCTION[fn]), false, func_cache.specialBuiltin || specialBuiltin)
       end
 
       _  => begin
@@ -154,7 +154,7 @@ function initFunc(caches::Vector{<:CachedData})
    func_cache = begin
     @match func_cache begin
       C_NO_CACHE(__)  => begin
-        C_FUNCTION(M_FUNCTION[], false, false)
+        C_FUNCTION(MODELICA_FUNCTION[], false, false)
       end
       C_FUNCTION(__)  => begin
         func_cache
@@ -894,7 +894,7 @@ function getFuncCache(inNode::InstNode)
   func_cache
 end
 
-function cacheAddFunc(node::InstNode, fn::M_Function, specialBuiltin::Bool)
+function cacheAddFunc(node::InstNode, fn::MODELICA_FUNCTION, specialBuiltin::Bool)
    () = begin
     @match node begin
       CLASS_NODE(__)  => begin
@@ -1380,7 +1380,7 @@ function classApply(node::InstNode, func::FuncType, arg::ArgT)  where {ArgT}
 end
 
 function getType(node::InstNode)
-  local ty::M_Type
+  local ty::ModelicaType
    ty = begin
     @match node begin
       CLASS_NODE(__)  => begin
@@ -2250,11 +2250,11 @@ function new(definition::SCode.Element, parent::InstNode)
   node
 end
 
-function newIterator(name::String, ty::NFType, info::SourceInfo)
+function newIterator(name::String, ty::ModelicaType, info::SourceInfo)
   local iterator = fromComponent(name, newIterator(ty, info), EMPTY_NODE())
   return iterator
 end
 
-function newIndexedIterator(index::Int, ty::NFType, info)
+function newIndexedIterator(index::Int, ty::ModelicaType, info)
   newIterator("\$i" + string(index), ty, info);
 end

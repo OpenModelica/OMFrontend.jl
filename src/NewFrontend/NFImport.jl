@@ -33,10 +33,9 @@
 *
 */ =#
 
-@UniontypeDecl NFImport
-const Import = NFImport
+@UniontypeDecl Import
 
-@Uniontype NFImport begin
+@Uniontype Import begin
   @Record CONFLICTING_IMPORT begin
     imp1::Import
     imp2::Import

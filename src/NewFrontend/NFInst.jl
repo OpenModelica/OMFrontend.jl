@@ -218,7 +218,7 @@ end
   Resolves connections and evaluates constants. Models with recompilation
   directives keep the SCode program in the flat model. The if-equations of
   dynamic overconstrained connectors (DOCC) are resolved with the connections
-  (NFOCConnectionGraph.resolveModes).
+  (OCConnectionGraph.resolveModes).
 """
 function resolveAndEvaluate(flat_model::FlatModel, program::SCode.Program, name::String)::FlatModel
   local recompilationEnabled = recompilationDirectiveExists(flat_model.equations)
@@ -417,7 +417,7 @@ function partialInstClass2(definition::SCode.Element, scope::InstNode) ::Class
   local cls::Class
   local cdef::SCode.ClassDef
   local ce_cdef::SCode.ClassDef
-  local ty::M_Type
+  local ty::ModelicaType
   local prefs::Prefixes
 #  Error.assertion(SCodeUtil.elementIsClass(definition), getInstanceName() + " got non-class element", sourceInfo())
   @match SCode.CLASS(classDef = cdef) = definition
@@ -466,8 +466,8 @@ function instClassPrefixes(cls::SCode.Element) ::Prefixes
   prefixes
 end
 
-function makeEnumerationType(literals::List{<:SCode.Enum}, scope::InstNode) ::M_Type
-  local ty::M_Type
+function makeEnumerationType(literals::List{<:SCode.Enum}, scope::InstNode) ::ModelicaType
+  local ty::ModelicaType
 
   local lits::List{String}
   local path::Absyn.Path
@@ -933,7 +933,7 @@ function instClassDef(cls::INSTANCED_CLASS,
   local mod::Modifier
   local outer_mod::Modifier
   local res::Restriction
-  local ty::M_Type
+  local ty::ModelicaType
   local attrs::Attributes
   #= Track re-instantiation for diagnostics =#
   local reinstCount = Threads.atomic_add!(REINSTANTIATION_COUNT, 1) + 1
@@ -1049,7 +1049,7 @@ function instClassDef(cls::EXPANDED_CLASS,
   local mod::Modifier
   local outer_mod::Modifier
   local res::Restriction
-  local ty::M_Type
+  local ty::ModelicaType
   local attrs::Attributes
   res = cls.restriction
   #=  Skip instantiating the class tree if the class is a base class,
@@ -1113,7 +1113,7 @@ function updateClassConnectorType(res::Restriction, attrs::Attributes) ::Attribu
 end
 
 """Instantiates the constructor and destructor for an ExternalObject class."""
-function instExternalObjectStructors(ty::M_Type, parentNode::InstNode)
+function instExternalObjectStructors(ty::ModelicaType, parentNode::InstNode)
   local constructor::InstNode
   local destructor::InstNode
   local par::InstNode
@@ -2723,7 +2723,7 @@ function instExpressions(node::InstNode,
   local dims::Vector{Dimension}
   local dim_scope::InstNode
   local info::SourceInfo
-  local ty::NFType
+  local ty::ModelicaType
   @match cls begin
     EXPANDED_CLASS(elements = cls_tree, restriction = RESTRICTION_TYPE(__))  => begin
       #=  Long class declaration of a type.
@@ -2815,8 +2815,8 @@ function instExpressions(node::InstNode,
   end #= try/finally for instExpressions depth guard =#
 end
 
-function makeComplexType(restriction::Restriction, node::InstNode, cls::Class)::NFType
-  local ty::NFType
+function makeComplexType(restriction::Restriction, node::InstNode, cls::Class)::ModelicaType
+  local ty::ModelicaType
   local cty::ComplexType
   cty = begin
     @match restriction begin
@@ -2845,7 +2845,7 @@ function makeRecordComplexType(node::InstNode, cls::Class) ::ComplexType
   COMPLEX_RECORD(cls_node, nil)
 end
 
-function instComplexType(ty::NFType)
+function instComplexType(ty::ModelicaType)
    () = begin
     local node::InstNode
     local cache::CachedData
@@ -3031,7 +3031,7 @@ end
     local e2::Expression
     local e3::Expression
     local oe::Option{Expression}
-    local op::Operator
+    local op::OPERATOR
     local expl::List{Expression}
     local expll::Vector{Vector{Expression}}
     @match absynExp begin
@@ -3160,7 +3160,7 @@ function instCref(absynCref::Absyn.ComponentRef, scope::InstNode, info::SourceIn
   local cref::ComponentRef
   local prefixed_cref::ComponentRef
   local found_scope::InstNode
-  local ty::M_Type
+  local ty::ModelicaType
   local comp::Component
   cref  = begin
     @match absynCref begin
@@ -3263,7 +3263,7 @@ end
 
 function instCrefTypename(cref::ComponentRef, node::InstNode, info::SourceInfo)::Expression
   local crefExp::Expression
-  local ty::NFType
+  local ty::ModelicaType
   checkUnsubscriptableCref(cref, info)
    ty = getType(node)
    ty = begin
@@ -3368,8 +3368,8 @@ function instSections2(parts::SCode.ClassDef, scope::InstNode, sections::Section
   sections = begin
     local eq::Vector{Equation}
     local ieq::Vector{Equation}
-    local alg::Vector{Algorithm}
-    local ialg::Vector{Algorithm}
+    local alg::Vector{ALGORITHM}
+    local ialg::Vector{ALGORITHM}
     local ext_decl::SCode.ExternalDecl
     local origin::ORIGIN_Type
     local iorigin::ORIGIN_Type
@@ -3652,7 +3652,7 @@ function makeSource(comment::SCode.Comment, info::SourceInfo)
   source
 end
 
-function addIteratorToScope(name::String, scope::InstNode, info::SourceInfo, iter_type::NFType = TYPE_UNKNOWN()) ::Tuple{InstNode, InstNode}
+function addIteratorToScope(name::String, scope::InstNode, info::SourceInfo, iter_type::ModelicaType = TYPE_UNKNOWN()) ::Tuple{InstNode, InstNode}
   local iterator::InstNode
   local iter_comp::Component
   scope = openImplicitScope(scope)

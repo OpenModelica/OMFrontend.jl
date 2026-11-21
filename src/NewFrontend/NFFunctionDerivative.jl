@@ -33,7 +33,7 @@
 *
 */ =#
 
-@UniontypeDecl NFFunctionDerivative
+@UniontypeDecl FunctionDerivative
 
 Condition = (() -> begin #= Enumeration =#
   ZERO_DERIVATIVE = 1
@@ -43,7 +43,7 @@ Condition = (() -> begin #= Enumeration =#
 const ConditionType = Int
 
 
-@Uniontype NFFunctionDerivative begin
+@Uniontype FunctionDerivative begin
   @Record FUNCTION_DER begin
     derivativeFn::InstNode
     derivedFn::InstNode
@@ -101,7 +101,7 @@ end
 function typeDerivative(fnDer::FunctionDerivative)
   local mk::MatchKindType
   local order::Expression
-  local order_ty::M_Type
+  local order_ty::ModelicaType
   local var::VariabilityType
   local infoVar::SourceInfo
 
@@ -139,7 +139,7 @@ function typeDerivative(fnDer::FunctionDerivative)
   return order
 end
 
-function instDerivatives(fnNode::InstNode, fn::M_Function)::List{FunctionDerivative}
+function instDerivatives(fnNode::InstNode, fn::MODELICA_FUNCTION)::List{FunctionDerivative}
   local ders::List{FunctionDerivative} = nil
   local der_mods::List{SCode.Mod}
   local scope::InstNode
@@ -151,7 +151,7 @@ function instDerivatives(fnNode::InstNode, fn::M_Function)::List{FunctionDerivat
   return ders
 end
 
-function addLowerOrderDerivative2(fn::M_Function, lowerDerNode::InstNode)
+function addLowerOrderDerivative2(fn::MODELICA_FUNCTION, lowerDerNode::InstNode)
   fnDerivatives = list(
     begin
       if fn_der isa FUNCTION_DER
@@ -164,7 +164,7 @@ function addLowerOrderDerivative2(fn::M_Function, lowerDerNode::InstNode)
       end
     end
     for fn_der in fn.derivatives)
-  local f = M_FUNCTION(fn.path,
+  local f = MODELICA_FUNCTION(fn.path,
                        fn.node,
                        fn.inputs,
                        fn.outputs,
@@ -185,7 +185,7 @@ function addLowerOrderDerivative(fnNode::InstNode, lowerDerNode::InstNode)
   )
 end
 
-function getInputIndex(nameArg::String, fn::M_Function, info::SourceInfo)::Int
+function getInputIndex(nameArg::String, fn::MODELICA_FUNCTION, info::SourceInfo)::Int
   local index::Int = 1
 
   for i in fn.inputs
@@ -205,7 +205,7 @@ end
 
 function getDerivativeAttributes(
   attrs::List{<:SCode.SubMod},
-  fn::M_Function,
+  fn::MODELICA_FUNCTION,
   scope::InstNode,
   info::SourceInfo,
 )::Tuple{Expression, List{Tuple{Int, String, ConditionType}}}
@@ -282,7 +282,7 @@ end
 function instDerivativeMod(
   mod::SCode.Mod,
   fnNode::InstNode,
-  fn::M_Function,
+  fn::MODELICA_FUNCTION,
   scope::InstNode,
   fnDers::List{<:FunctionDerivative},
 )::List{FunctionDerivative}

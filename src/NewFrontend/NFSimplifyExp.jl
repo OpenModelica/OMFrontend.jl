@@ -161,7 +161,7 @@ end
   local stop_exp2::Expression
   local step_exp1::Option{Expression}
   local step_exp2::Option{Expression}
-  local ty::M_Type
+  local ty::ModelicaType
 
   @match RANGE_EXPRESSION(
     ty = ty,
@@ -338,8 +338,8 @@ function simplifySumProduct(arg::Expression, call::Call, isSum::Bool)
 
   local expanded::Bool
   local args::Vector{Expression}
-  local ty::M_Type
-  local op::Operator
+  local ty::ModelicaType
+  local op::OPERATOR
 
   (exp, expanded) = expand(arg)
   if expanded
@@ -393,7 +393,7 @@ end
 
 function simplifyArrayConstructor(call::Call)
   local outExp::Expression
-  local ty::M_Type
+  local ty::ModelicaType
   local var::VariabilityType
   local exp::Expression
   local e::Expression
@@ -481,7 +481,7 @@ end
 
 #= Reuse `orig` when the fallback would rebuild the identical binary (same
    operands by identity, same operator); otherwise allocate a fresh node. =#
-@inline function reuseBinary(@nospecialize(orig), @nospecialize(e1), op::Operator, @nospecialize(e2))
+@inline function reuseBinary(@nospecialize(orig), @nospecialize(e1), op::OPERATOR, @nospecialize(e2))
   if orig isa BINARY_EXPRESSION && orig.operator === op &&
      referenceEq(orig.exp1, e1) && referenceEq(orig.exp2, e2)
     return orig
@@ -494,7 +494,7 @@ end
   local e2::Expression
   local se1::Expression
   local se2::Expression
-  local op::Operator
+  local op::OPERATOR
   @match BINARY_EXPRESSION(e1, op, e2) = binaryExp
   se1 = simplify(e1)
   se2 = simplify(e2)
@@ -505,7 +505,7 @@ end
   return binaryExp
 end
 
-@nospecializeinfer function simplifyBinaryOp(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
+@nospecializeinfer function simplifyBinaryOp(@nospecialize(exp1::Expression), op::OPERATOR, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local outExp::Expression
 
   if isLiteral(exp1) && isLiteral(exp2)
@@ -547,7 +547,7 @@ end
   return outExp
 end
 
-@nospecializeinfer function simplifyBinaryAdd(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
+@nospecializeinfer function simplifyBinaryAdd(@nospecialize(exp1::Expression), op::OPERATOR, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local outExp::Expression
 
   if isZero(exp1)
@@ -572,7 +572,7 @@ end
   return outExp
 end
 
-@nospecializeinfer function simplifyBinarySub(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
+@nospecializeinfer function simplifyBinarySub(@nospecialize(exp1::Expression), op::OPERATOR, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local outExp::Expression
 
   if isZero(exp1)
@@ -602,7 +602,7 @@ end
 
 @nospecializeinfer function simplifyBinaryMul(
   @nospecialize(exp1::Expression),
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
   switched::Bool = false,
   @nospecialize(orig = nothing),
@@ -644,7 +644,7 @@ end
   return outExp
 end
 
-@nospecializeinfer function simplifyBinaryDiv(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
+@nospecializeinfer function simplifyBinaryDiv(@nospecialize(exp1::Expression), op::OPERATOR, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local outExp::Expression
 
   #=  e / 1 = e
@@ -663,7 +663,7 @@ end
   return outExp
 end
 
-@nospecializeinfer function simplifyBinaryPow(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
+@nospecializeinfer function simplifyBinaryPow(@nospecialize(exp1::Expression), op::OPERATOR, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local outExp::Expression
 
   if isZero(exp2)
@@ -679,7 +679,7 @@ end
 @nospecializeinfer function simplifyUnary(@nospecialize(unaryExp::Expression))
   local e::Expression
   local se::Expression
-  local op::Operator
+  local op::OPERATOR
   @match UNARY_EXPRESSION(op, e) = unaryExp
    se = simplify(e)
    unaryExp = simplifyUnaryOp(se, op, unaryExp)
@@ -689,7 +689,7 @@ end
   return unaryExp
 end
 
-@nospecializeinfer function simplifyUnaryOp(@nospecialize(exp::Expression), op::Operator, @nospecialize(orig = nothing))
+@nospecializeinfer function simplifyUnaryOp(@nospecialize(exp::Expression), op::OPERATOR, @nospecialize(orig = nothing))
   local outExp::Expression
   if isLiteral(exp)
     outExp = evalUnaryOp(exp, op)
@@ -708,7 +708,7 @@ end
   local e2::Expression
   local se1::Expression
   local se2::Expression
-  local op::Operator
+  local op::OPERATOR
 
   @match LBINARY_EXPRESSION(e1, op, e2) = binaryExp
    se1 = simplify(e1)
@@ -728,7 +728,7 @@ end
 end
 
 #= Reuse `orig` when the LBINARY fallback would rebuild the identical node. =#
-@inline function reuseLBinary(@nospecialize(orig), @nospecialize(e1), op::Operator, @nospecialize(e2))
+@inline function reuseLBinary(@nospecialize(orig), @nospecialize(e1), op::OPERATOR, @nospecialize(e2))
   if orig isa LBINARY_EXPRESSION && orig.operator === op &&
      referenceEq(orig.exp1, e1) && referenceEq(orig.exp2, e2)
     return orig
@@ -738,7 +738,7 @@ end
 
 @nospecializeinfer function simplifyLogicBinaryAnd(
   @nospecialize(exp1::Expression),
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
   @nospecialize(orig = nothing),
 )
@@ -746,7 +746,7 @@ end
 
    exp = begin
     local expl::List{Expression}
-    local o::Operator
+    local o::OPERATOR
     #=  false and e => false
     =#
     @match (exp1, exp2) begin
@@ -790,12 +790,12 @@ end
   return exp
 end
 
-@nospecializeinfer function simplifyLogicBinaryOr(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
+@nospecializeinfer function simplifyLogicBinaryOr(@nospecialize(exp1::Expression), op::OPERATOR, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local exp::Expression
 
    exp = begin
     local expl::List{Expression}
-    local o::Operator
+    local o::OPERATOR
     #=  true or e => true
     =#
     @match (exp1, exp2) begin
@@ -842,7 +842,7 @@ end
 @nospecializeinfer function simplifyLogicUnary(@nospecialize(unaryExp::Expression))
   local e::Expression
   local se::Expression
-  local op::Operator
+  local op::OPERATOR
   @match LUNARY_EXPRESSION(op, e) = unaryExp
   se = simplify(e)
   if isLiteral(se)
@@ -859,7 +859,7 @@ end
   local e2::Expression
   local se1::Expression
   local se2::Expression
-  local op::Operator
+  local op::OPERATOR
 
   @match RELATION_EXPRESSION(e1, op, e2) = relationExp
    se1 = simplify(e1)
@@ -909,10 +909,10 @@ end
   return ifExp
 end
 
-@nospecializeinfer function simplifyCast(@nospecialize(exp::Expression), ty::NFType)
+@nospecializeinfer function simplifyCast(@nospecialize(exp::Expression), ty::ModelicaType)
   local castExp::Expression
   castExp = begin
-    local ety::NFType
+    local ety::ModelicaType
     @match (ty, exp) begin
       (TYPE_REAL(__), INTEGER_EXPRESSION(__)) => begin
         REAL_EXPRESSION(intReal(exp.value))
@@ -935,7 +935,7 @@ end
 @nospecializeinfer function simplifySubscriptedExp(@nospecialize(subscriptedExp::Expression); split = false)
   local e::Expression
   local subs::List{Subscript}
-  local ty::NFType
+  local ty::ModelicaType
   @match SUBSCRIPTED_EXP_EXPRESSION(e, subs, ty) = subscriptedExp
   subscriptedExp = simplify(e)
   subs = simplifyList(subs, arrayDims(typeOf(e)))
@@ -959,7 +959,7 @@ end
 @nospecializeinfer function simplifyTupleElement(@nospecialize(tupleExp::Expression))
   local e::Expression
   local index::Int
-  local ty::M_Type
+  local ty::ModelicaType
   @match TUPLE_ELEMENT_EXPRESSION(e, index, ty) = tupleExp
   e = simplify(e)
   tupleExp = tupleElement(e, ty, index)

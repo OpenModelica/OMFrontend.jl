@@ -156,7 +156,7 @@ function evaluateExpTraverser(
   local outExp::Expression
   local e::Expression
   local cref::ComponentRef
-  local ty::M_Type
+  local ty::ModelicaType
   local var::VariabilityType
   outExp = begin
     @match exp begin
@@ -258,7 +258,7 @@ function evaluateEquation(@nospecialize(eq::Equation), constVariability::Variabi
     local e1::Expression
     local e2::Expression
     local e3::Expression
-    local ty::M_Type
+    local ty::ModelicaType
     @match eq begin
       EQUATION_EQUALITY(__) => begin
         local ty = mapDims(eq.ty, evaluateDimension)
@@ -280,11 +280,11 @@ function evaluateEquation(@nospecialize(eq::Equation), constVariability::Variabi
         EQUATION_FOR(eq.iterator, eqRange, eqBody, eq.source)
       end
       EQUATION_IF(__) => begin
-        local eqBranches = Equation_Branch[evaluateEqBranch(b, constVariability) for b in eq.branches]
+        local eqBranches = EquationBranch[evaluateEqBranch(b, constVariability) for b in eq.branches]
         EQUATION_IF(eqBranches, eq.source)
       end
       EQUATION_WHEN(__) => begin
-        local eqBranches = Equation_Branch[evaluateEqBranch(b, constVariability) for b in eq.branches]
+        local eqBranches = EquationBranch[evaluateEqBranch(b, constVariability) for b in eq.branches]
         EQUATION_WHEN(eqBranches, eq.source)
       end
       EQUATION_ASSERT(__) => begin
@@ -313,8 +313,8 @@ function evaluateEquation(@nospecialize(eq::Equation), constVariability::Variabi
   return eq
 end
 
-function evaluateEqBranch(branch::Equation_Branch, constVariability::VariabilityType)
-  local outBranch::Equation_Branch
+function evaluateEqBranch(branch::EquationBranch, constVariability::VariabilityType)
+  local outBranch::EquationBranch
   outBranch = begin
     local condition::Expression
     local body
@@ -333,14 +333,14 @@ function evaluateEqBranch(branch::Equation_Branch, constVariability::Variability
 end
 
 function evaluateAlgorithms(
-  algs::Vector{Algorithm},
+  algs::Vector{ALGORITHM},
   constVariability::VariabilityType,
 )
-  local outAlgs::Vector{Algorithm} = [evaluateAlgorithm(a, constVariability) for a in algs]
+  local outAlgs::Vector{ALGORITHM} = [evaluateAlgorithm(a, constVariability) for a in algs]
   return outAlgs
 end
 
-function evaluateAlgorithm(alg::Algorithm, constVariability::VariabilityType)
+function evaluateAlgorithm(alg::ALGORITHM, constVariability::VariabilityType)
   @assign alg.statements = evaluateStatements(alg.statements, constVariability)
   return alg
 end
@@ -358,7 +358,7 @@ function evaluateStatement(stmt::Statement, constVariability::VariabilityType)::
     local e1::Expression
     local e2::Expression
     local e3::Expression
-    local ty::M_Type
+    local ty::ModelicaType
     @match stmt begin
       ALG_ASSIGNMENT(__) => begin
         ty = mapDims(stmt.ty, evaluateDimension)
@@ -437,9 +437,9 @@ function evaluateStmtBranch(
   return outBranch
 end
 
-function evaluateFunction(func::M_Function)::M_Function
+function evaluateFunction(func::MODELICA_FUNCTION)::MODELICA_FUNCTION
   local cls::Class
-  local fn_body::Algorithm
+  local fn_body::ALGORITHM
   local sections::Sections
   if !isEvaluated(func)
     markEvaluated(func)

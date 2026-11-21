@@ -52,9 +52,9 @@ function needSpecialHandling(call::Call) ::Bool
   special
 end
 
-@nospecializeinfer function typeSpecial(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+@nospecializeinfer function typeSpecial(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
 
   local cref::ComponentRef
@@ -294,7 +294,7 @@ function makeArrayExp(posArgs::Union{List{<:Expression}, Vector{<:Expression}}, 
   local fn_ref::ComponentRef
   local args::Vector{Expression}
   local named_args::Vector{NamedArg}
-  local ty::M_Type
+  local ty::ModelicaType
 
   assertNoNamedParams("array", namedArgs, info)
   #=  array can take any number of arguments, but needs at least one.
@@ -310,29 +310,29 @@ end
 
 function makeCatExp(n::Int,
                     args::Vector{Expression},
-                    tys::Vector{M_Type},
-                    variability::VariabilityType, info::SourceInfo)::Tuple{CALL_EXPRESSION, M_Type}
-  local ty::M_Type
+                    tys::Vector{ModelicaType},
+                    variability::VariabilityType, info::SourceInfo)::Tuple{CALL_EXPRESSION, ModelicaType}
+  local ty::ModelicaType
   local callExp::Expression
 
   local arg2::Expression
   local args2::Vector{Expression} = Expression[]
   local res::Vector{Expression}
-  local tys2::Vector{M_Type} = tys
-  local tys3::Vector{M_Type}
+  local tys2::Vector{ModelicaType} = tys
+  local tys3::Vector{ModelicaType}
   local dimsLst::List{List{Dimension}} = nil
   local dims::List{Dimension}
-  local resTy::M_Type = TYPE_UNKNOWN()
-  local ty1::M_Type
-  local ty2::M_Type
-  local resTyToMatch::M_Type
+  local resTy::ModelicaType = TYPE_UNKNOWN()
+  local ty1::ModelicaType
+  local ty2::ModelicaType
+  local resTyToMatch::ModelicaType
   local mk::MatchKindType
   local maxn::Int
   local pos::Int
   local sumDim::Dimension
 
   local INT_EXPR_ZERO = INTEGER_EXPRESSION(0)
-  local tyRef = Ref{NFType}(TYPE_UNKNOWN())
+  local tyRef = Ref{ModelicaType}(TYPE_UNKNOWN())
   local mkRef = Ref{MatchKindType}(MatchKind.NOT_COMPATIBLE)
   @assert length(args) == length(tys) && length(args) >= 1
   #Error.assertion(, getInstanceName() + " got wrong input sizes", sourceInfo())
@@ -367,7 +367,7 @@ function makeCatExp(n::Int,
     Error.addSourceMessageAndFail(Error.NF_CAT_WRONG_DIMENSION, list(string(maxn), string(n)), info)
   end
   tys2 = tys
-  tys3 = M_Type[]
+  tys3 = ModelicaType[]
   args2 = Expression[]
   pos = length(args) + 2
   #=  Second: Try to match the element type of all the arguments
@@ -422,7 +422,7 @@ function makeCatExp(n::Int,
   =#
   resTy = TYPE_ARRAY(arrayElementType(resTy), ListUtil.set(arrayDims(resTy), n, sumDim))
   tys2 = tys3
-  tys3 = M_Type[]
+  tys3 = ModelicaType[]
   res = Expression[]
   pos = length(args) + 2
   i = 1
@@ -452,39 +452,39 @@ end
 ```
 makeCatExpRef(n::Int,
                        args::Vector{Expression},
-                       tys::Vector{M_Type},
+                       tys::Vector{ModelicaType},
                        variability::VariabilityType,
                        info::SourceInfo,
-                       tyRef::Ref{NFType},)::CALL_EXPRESSION
+                       tyRef::Ref{ModelicaType},)::CALL_EXPRESSION
 ```
 Same as makeCatExp. Updates the tyValue in place instead of using Julia MRV.
 """
 function makeCatExpRef(n::Int,
                        args::Vector{Expression},
-                       tys::Vector{NFType},
+                       tys::Vector{ModelicaType},
                        variability::VariabilityType,
                        info::SourceInfo,
-                       tyRef::Ref{NFType})::CALL_EXPRESSION
-  local ty::M_Type
+                       tyRef::Ref{ModelicaType})::CALL_EXPRESSION
+  local ty::ModelicaType
   local callExp::Expression
   local arg2::Expression
   local args2::Vector{Expression} = Expression[]
   local res::Vector{Expression}
-  local tys2::Vector{M_Type} = tys
-  local tys3::Vector{M_Type}
+  local tys2::Vector{ModelicaType} = tys
+  local tys3::Vector{ModelicaType}
   local dimsLst::List{List{Dimension}} = nil
   local dims::List{Dimension}
-  local resTy::M_Type = TYPE_UNKNOWN()
-  local ty1::M_Type
-  local ty2::M_Type
-  local resTyToMatch::M_Type
+  local resTy::ModelicaType = TYPE_UNKNOWN()
+  local ty1::ModelicaType
+  local ty2::ModelicaType
+  local resTyToMatch::ModelicaType
   local mk::MatchKindType
   local maxn::Int
   local pos::Int
   local sumDim::Dimension
 
   local INT_EXPR_ZERO = INTEGER_EXPRESSION(0)
-  #local tyRef = Ref{NFType}(TYPE_UNKNOWN())
+  #local tyRef = Ref{ModelicaType}(TYPE_UNKNOWN())
   local mkRef = Ref{MatchKindType}(MatchKind.NOT_COMPATIBLE)
   @assert length(args) == length(tys) && length(args) >= 1
   #=
@@ -519,7 +519,7 @@ function makeCatExpRef(n::Int,
     Error.addSourceMessageAndFail(Error.NF_CAT_WRONG_DIMENSION, list(string(maxn), string(n)), info)
   end
   tys2 = tys
-  tys3 = M_Type[]
+  tys3 = ModelicaType[]
   args2 = Expression[]
   pos = length(args) + 2
   #=  Second: Try to match the element type of all the arguments =#
@@ -570,7 +570,7 @@ function makeCatExpRef(n::Int,
   =#
   resTy = TYPE_ARRAY(arrayElementType(resTy), ListUtil.set(arrayDims(resTy), n, sumDim))
   tys2 = tys3
-  tys3 = M_Type[]
+  tys3 = ModelicaType[]
   res = Expression[]
   pos = length(args) + 2
   i = 1
@@ -604,12 +604,12 @@ function assertNoNamedParams(fnName::String, namedArgs::Union{Vector{<:NamedArg}
   end
 end
 
-function typeStringCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeStringCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local var::VariabilityType
-  local outType::M_Type
+  local outType::ModelicaType
   local callExp::Expression
 
-  local arg_ty::M_Type
+  local arg_ty::ModelicaType
   local args::Vector{TypedArg}
   local named_args::Vector{TypedNamedArg}
   local ty_call::Call
@@ -624,9 +624,9 @@ function typeStringCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
   (callExp, outType, var)
 end
 
-function typeBuiltinStringCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeBuiltinStringCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local var::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
 
   local ty_call::Call
@@ -638,11 +638,11 @@ function typeBuiltinStringCall(call::Call, origin::ORIGIN_Type, info::SourceInfo
   (callExp, ty, var)
 end
 
-function typeOverloadedStringCall(overloadedType::M_Type, args::Vector{TypedArg}, namedArgs::Vector{TypedNamedArg}, call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeOverloadedStringCall(overloadedType::ModelicaType, args::Vector{TypedArg}, namedArgs::Vector{TypedNamedArg}, call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local var::VariabilityType = Variability.CONSTANT
-  local outType::M_Type
+  local outType::ModelicaType
   local fn_ref::ComponentRef
-  local candidates::Vector{M_Function}
+  local candidates::Vector{MODELICA_FUNCTION}
   local recopnode::InstNode
   local matchedFunc::MatchedFunction
   local matchedFunctions::Vector{MatchedFunction}
@@ -657,7 +657,7 @@ function typeOverloadedStringCall(overloadedType::M_Type, args::Vector{TypedArg}
     fail()
   end
   (fn_ref, _, _) = instFunctionRef(fn_ref, InstNode_info(recopnode))
-  candidates = M_Function[fn for fn in typeRefCache(fn_ref)]
+  candidates = MODELICA_FUNCTION[fn for fn in typeRefCache(fn_ref)]
   matchedFunctions = matchFunctionsSilent(candidates, args, namedArgs, info)
   exactMatches = getExactMatches(matchedFunctions)
   if isempty(exactMatches)
@@ -665,7 +665,7 @@ function typeOverloadedStringCall(overloadedType::M_Type, args::Vector{TypedArg}
     fail()
   end
   if length(exactMatches) > 1
-    Error.addSourceMessage(Error.AMBIGUOUS_MATCHING_FUNCTIONS_NFINST, list(typedString(call), candidateFuncListString(M_Function[mfn.func for mfn in matchedFunctions])), info)
+    Error.addSourceMessage(Error.AMBIGUOUS_MATCHING_FUNCTIONS_NFINST, list(typedString(call), candidateFuncListString(MODELICA_FUNCTION[mfn.func for mfn in matchedFunctions])), info)
     fail()
   end
   matchedFunc = exactMatches[1]
@@ -680,12 +680,12 @@ end
   Types a function call that can be typed normally, but which always has
   discrete variability regardless of the variability of the arguments.
 """
-function typeDiscreteCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeDiscreteCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local var::VariabilityType = Variability.DISCRETE
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
   local argtycall::Call
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local args::List{TypedArg}
   local start::TypedArg
   local interval::TypedArg
@@ -695,14 +695,14 @@ function typeDiscreteCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::T
   (callExp, ty, var)
 end
 
-function typeNdimsCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeNdimsCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType = Variability.PARAMETER
-  local ty::M_Type = TYPE_INTEGER()
+  local ty::ModelicaType = TYPE_INTEGER()
   local callExp::Expression
 
   local args::Vector{Expression}
   local named_args::Vector{NamedArg}
-  local arg_ty::M_Type
+  local arg_ty::ModelicaType
 
   @match UNTYPED_CALL(arguments = args, named_args = named_args) = call
   assertNoNamedParams("ndims", named_args, info)
@@ -719,17 +719,17 @@ function typeNdimsCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tupl
   (callExp, ty, variability)
 end
 
-function typePreCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tuple{Expression, NFType, VariabilityType}
+function typePreCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
    (callExp, ty, variability) = typePreChangeCall("pre", call, origin, info)
   (callExp, ty, variability)
 end
 
-function typeChangeCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, NFType, VariabilityType}
+function typeChangeCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
 
    (callExp, ty, variability) = typePreChangeCall("change", call, origin, info)
@@ -737,9 +737,9 @@ function typeChangeCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
   (callExp, ty, variability)
 end
 
-function typePreChangeCall(@nospecialize(name::String), call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, NFType, VariabilityType}
+function typePreChangeCall(@nospecialize(name::String), call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType = Variability.DISCRETE
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
 
   local fn_ref::ComponentRef
@@ -747,7 +747,7 @@ function typePreChangeCall(@nospecialize(name::String), call::Call, origin::ORIG
   local named_args::Vector{NamedArg}
   local arg::Expression
   local var::VariabilityType
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
 
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
   assertNoNamedParams(name, named_args, info)
@@ -773,17 +773,17 @@ function typePreChangeCall(@nospecialize(name::String), call::Call, origin::ORIG
   (callExp, ty, variability)
 end
 
-function typeDerCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, NFType, VariabilityType}
+function typeDerCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
 
   local fn_ref::ComponentRef
   local args::Vector{Expression}
   local named_args::Vector{NamedArg}
   local arg::Expression
-  local fn::M_Function
-  local ety::M_Type
+  local fn::MODELICA_FUNCTION
+  local ety::ModelicaType
 
   #=  der may not be used in a function context.
   =#
@@ -820,16 +820,16 @@ function typeDerCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{
   (callExp, ty, variability)
 end
 
-function typeDiagonalCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tuple{Expression, M_Type, VariabilityType}
+function typeDiagonalCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
   local fn_ref::ComponentRef
   local args::Vector{Expression}
   local named_args::Vector{NamedArg}
   local arg::Expression
   local dim::Dimension
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
   assertNoNamedParams("diagonal", named_args, info)
   if length(args) != 1
@@ -852,16 +852,16 @@ function typeDiagonalCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tu
   (callExp, ty, variability)
 end
 
-function typeEdgeCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, NFType, VariabilityType}
+function typeEdgeCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType = Variability.DISCRETE
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
   local argtycall::Call
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local args::Vector{TypedArg}
   local arg::TypedArg
   local fn_node::InstNode
-  local ca::CallAttributes
+  local ca::CALL_ATTR
   #=  edge may not be used in a function context. =#
   if flagSet(origin, ORIGIN_FUNCTION)
     Error.addSourceMessage(Error.EXP_INVALID_IN_FUNCTION, list("edge"), info)
@@ -885,7 +885,7 @@ end
 """
 omc typeMinMaxCall: the argument types min and max accept.
 """
-function minMaxValidType(ty::M_Type)::Bool
+function minMaxValidType(ty::ModelicaType)::Bool
   return isReal(ty) || isInteger(ty) || isBoolean(ty) || isEnumeration(ty)
 end
 
@@ -902,20 +902,20 @@ function minMaxInvalidArgsError(call::Call, name::String, info::SourceInfo)
          name + "(enumeration(:)[:, ...]) => enumeration(:)"), info)
 end
 
-function typeMinMaxCall(name::String, call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeMinMaxCall(name::String, call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local var::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
 
   local fn_ref::ComponentRef
   local args::Vector{Expression}
   local named_args::Vector{NamedArg}
   local arg::Expression
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local arg1::Expression
   local arg2::Expression
-  local ty1::M_Type
-  local ty2::M_Type
+  local ty1::ModelicaType
+  local ty2::ModelicaType
   local var1::VariabilityType
   local var2::VariabilityType
   local mk::Int #TypeCheck.MatchKind
@@ -964,18 +964,18 @@ function typeMinMaxCall(name::String, call::Call, origin::ORIGIN_Type, info::Sou
   (callExp, ty, var)
 end
 
-function typeSumCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeSumCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
 
   local fn_ref::ComponentRef
   local args::Vector{Expression}
   local named_args::Vector{NamedArg}
   local arg::Expression
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local expanded::Bool
-  local op::Operator
+  local op::OPERATOR
 
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
   assertNoNamedParams("sum", named_args, info)
@@ -989,18 +989,18 @@ function typeSumCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{
   (callExp, ty, variability)
 end
 
-function typeProductCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeProductCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
 
   local fn_ref::ComponentRef
   local args::Vector{Expression}
   local named_args::Vector{NamedArg}
   local arg::Expression
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local expanded::Bool
-  local op::Operator
+  local op::OPERATOR
 
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
   assertNoNamedParams("product", named_args, info)
@@ -1017,7 +1017,7 @@ end
 
 #= pure(f(x)): the call of an impure function, made pure (omc typePureCall; the port has no
    purity on calls: the call itself). =#
-function typePureCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typePureCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local tcall = typeMatchNormalCall(call, origin, info)
   local args = tcall.arguments
   local arg = length(args) == 1 ? unbox(args[1]) : EMPTY_EXPRESSION(TYPE_UNKNOWN())
@@ -1030,17 +1030,17 @@ end
 
 #= promote(A, n): A with trailing dimensions of size 1 up to n dimensions (omc typePromoteCall;
    omc requires --std=experimental, the port has no language standard flag). =#
-function typePromoteCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typePromoteCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
   local fn_ref::ComponentRef
   local args::Vector{Expression}
   local named_args::Vector{NamedArg}
   local exp_arg::Expression
   local n_arg::Expression
-  local exp_ty::M_Type
-  local n_ty::M_Type
+  local exp_ty::ModelicaType
+  local n_ty::ModelicaType
   local n_var::VariabilityType
   local n::Int
   if !Config.languageStandardAtLeast(Config.LanguageStandard.experimental)
@@ -1067,9 +1067,9 @@ function typePromoteCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tu
   (callExp, ty, variability)
 end
 
-function typeSmoothCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeSmoothCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
 
   local fn_ref::ComponentRef
@@ -1077,10 +1077,10 @@ function typeSmoothCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
   local named_args::Vector{NamedArg}
   local arg1::Expression
   local arg2::Expression
-  local ty1::M_Type
-  local ty2::M_Type
+  local ty1::ModelicaType
+  local ty2::ModelicaType
   local var::VariabilityType
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local mk::MatchKindType
 
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
@@ -1116,9 +1116,9 @@ function typeSmoothCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
   (callExp, ty, variability)
 end
 
-function typeFillCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeFillCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
   local fn_ref::ComponentRef
   local args::Vector{Expression}
@@ -1139,17 +1139,17 @@ function typeFillCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple
 end
 
 function typeFillCall2(fnRef::ComponentRef,
-                       fillType::M_Type,
+                       fillType::ModelicaType,
                        @nospecialize(fillArg::Expression),
                        dimensionArgs::Vector{Expression},
-                       origin::ORIGIN_Type, info::SourceInfo)::Tuple{Expression, M_Type, VariabilityType}
+                       origin::ORIGIN_Type, info::SourceInfo)::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType = Variability.CONSTANT
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
   local ty_args::Vector{Expression} = Vector{Expression}(undef, length(dimensionArgs))
   local arg_var::VariabilityType
-  local arg_ty::M_Type
-  local fn::M_Function
+  local arg_ty::ModelicaType
+  local fn::MODELICA_FUNCTION
   local dims::List{Dimension}
   local evaluated::Bool
 
@@ -1190,9 +1190,9 @@ function typeFillCall2(fnRef::ComponentRef,
   (callExp, ty, variability)
 end
 
-function typeZerosOnesCall(name::String, call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeZerosOnesCall(name::String, call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
 
   local fn_ref::ComponentRef
@@ -1218,16 +1218,16 @@ function typeZerosOnesCall(name::String, call::Call, origin::ORIGIN_Type, info::
   (callExp, ty, variability)
 end
 
-function typeScalarCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeScalarCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
 
   local fn_ref::ComponentRef
   local args::Vector{Expression}
   local named_args::Vector{NamedArg}
   local arg::Expression
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local expanded::Bool
 
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
@@ -1258,9 +1258,9 @@ function typeScalarCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
   (callExp, ty, variability)
 end
 
-function typeVectorCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeVectorCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
 
   local fn_ref::ComponentRef
@@ -1268,7 +1268,7 @@ function typeVectorCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
   local named_args::Vector{NamedArg}
   local arg::Expression
   local var::VariabilityType
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local vector_dim::Dimension = fromInteger(1)
   local dim_found::Bool = false
 
@@ -1303,16 +1303,16 @@ function typeVectorCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
   (callExp, ty, variability)
 end
 
-function typeMatrixCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeMatrixCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
   local fn_ref::ComponentRef
   local args::Vector{Expression}
   local named_args::Vector{NamedArg}
   local arg::Expression
   local var::VariabilityType
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local dims::List{Dimension}
   local dim1::Dimension
   local dim2::Dimension
@@ -1354,19 +1354,19 @@ function typeMatrixCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
   return (callExp, ty, variability)
 end
 
-function typeCatCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeCatCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
   local fn_ref::ComponentRef
   local args::Vector{Expression}
   local res::Vector{Expression}
   local named_args::Vector{NamedArg}
-  local tys::Vector{M_Type}
+  local tys::Vector{ModelicaType}
   local arg::Expression
   local var::VariabilityType
   local mk::MatchKindType
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local n::Int
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
   assertNoNamedParams("cat", named_args, info)
@@ -1381,7 +1381,7 @@ function typeCatCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{
   end
   @match INTEGER_EXPRESSION(n) = evalExp(arg, EVALTARGET_GENERIC(info))
   res = Expression[]
-  tys = M_Type[]
+  tys = ModelicaType[]
   for a in args
     (arg, ty, var) = typeExp(a, origin, info)
     variability = variabilityMax(var, variability)
@@ -1392,16 +1392,16 @@ function typeCatCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{
   (callExp, ty, variability)
 end
 
-function typeSymmetricCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeSymmetricCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
 
   local fn_ref::ComponentRef
   local args::Vector{Expression}
   local named_args::Vector{NamedArg}
   local arg::Expression
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
 
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
   assertNoNamedParams("symmetric", named_args, info)
@@ -1417,9 +1417,9 @@ function typeSymmetricCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::
   (callExp, ty, variability)
 end
 
-function typeTransposeCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeTransposeCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
 
   local fn_ref::ComponentRef
@@ -1429,7 +1429,7 @@ function typeTransposeCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::
   local dim1::Dimension
   local dim2::Dimension
   local rest_dims::List{Dimension}
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
 
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
   assertNoNamedParams("transpose", named_args, info)
@@ -1453,15 +1453,15 @@ function typeTransposeCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::
   (callExp, ty, variability)
 end
 
-function typeCardinalityCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeCardinalityCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local var::VariabilityType = Variability.PARAMETER
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
   local fn_ref::ComponentRef
   local args::Vector{Expression}
   local named_args::Vector{NamedArg}
   local arg::Expression
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local nodeVar::InstNode
   #=  cardinality may only be used in a condition of an assert or
   =#
@@ -1496,16 +1496,16 @@ function typeCardinalityCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) 
   return (callExp, ty, var)
 end
 
-function typeBranchCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeBranchCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local var::VariabilityType = Variability.PARAMETER
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
   local fn_ref::ComponentRef
   local args::Vector{Expression}
   local named_args::Vector{NamedArg}
   local arg1::Expression
   local arg2::Expression
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
   assertNoNamedParams("Connections.branch", named_args, info)
   if length(args) != 2
@@ -1645,15 +1645,15 @@ function typeStructuralTransition(call::Call, origin::ORIGIN_Type, info::SourceI
   return (callExp, retType, Variability.PARAMETER#=TODO should change this..=#)
 end
 
-function typeIsRootCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeIsRootCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local var::VariabilityType = Variability.PARAMETER
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
   local fn_ref::ComponentRef
   local args::Vector{Expression}
   local named_args::Vector{NamedArg}
   local arg::Expression
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
   assertNoNamedParams("Connections.isRoot", named_args, info)
   System.setUsesConnectionsOperators(true)
@@ -1671,16 +1671,16 @@ function typeIsRootCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
   (callExp, ty, var)
 end
 
-function typePotentialRootCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typePotentialRootCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local var::VariabilityType = Variability.PARAMETER
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
   local fn_ref::ComponentRef
   local args::Vector{Expression}
   local named_args::Vector{NamedArg}
   local arg1::Expression
   local arg2::Expression
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local args_len::Int
   local name::String
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
@@ -1719,15 +1719,15 @@ function typePotentialRootCall(call::Call, origin::ORIGIN_Type, info::SourceInfo
   (callExp, ty, var)
 end
 
-function typeRootCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tuple{Expression, M_Type, VariabilityType}
+function typeRootCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tuple{Expression, ModelicaType, VariabilityType}
   local var::VariabilityType = Variability.PARAMETER
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
   local fn_ref::ComponentRef
   local args::Vector{Expression}
   local named_args::Vector{NamedArg}
   local arg::Expression
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
   assertNoNamedParams("Connections.root", named_args, info)
   if length(args) != 1
@@ -1744,15 +1744,15 @@ function typeRootCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tuple{
   return (callExp, ty, var)
 end
 
-function typeRootedCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tuple{Expression, M_Type, VariabilityType}
+function typeRootedCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tuple{Expression, ModelicaType, VariabilityType}
   local var::VariabilityType = Variability.PARAMETER
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
   local fn_ref::ComponentRef
   local args::Vector{Expression}
   local named_args::Vector{NamedArg}
   local arg::Expression
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
   assertNoNamedParams("Connections.rooted", named_args, info)
   System.setUsesConnectionsOperators(true)
@@ -1774,9 +1774,9 @@ function typeRootedCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tupl
 end
 
 """see also typeUniqueRootIndicesCall"""
-function typeUniqueRootCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeUniqueRootCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local var::VariabilityType = Variability.PARAMETER
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
 
   local fn_ref::ComponentRef
@@ -1784,7 +1784,7 @@ function typeUniqueRootCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) :
   local named_args::Vector{NamedArg}
   local arg1::Expression
   local arg2::Expression
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local args_len::Int
   local name::String
 
@@ -1832,9 +1832,9 @@ end
                   http:www.ep.liu.se/ecp/043/041/ecp09430108.pdf
                   for a specification of this operator
                 """
-                function typeUniqueRootIndicesCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+                function typeUniqueRootIndicesCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
                   local var::VariabilityType = Variability.PARAMETER
-                  local ty::M_Type
+                  local ty::ModelicaType
                   local callExp::Expression
 
                   local fn_ref::ComponentRef
@@ -1843,12 +1843,12 @@ end
                   local arg1::Expression
                   local arg2::Expression
                   local arg3::Expression
-                  local fn::M_Function
+                  local fn::MODELICA_FUNCTION
                   local args_len::Int
                   local name::String
-                  local ty1::M_Type
-                  local ty2::M_Type
-                  local ty3::M_Type
+                  local ty1::ModelicaType
+                  local ty2::ModelicaType
+                  local ty3::ModelicaType
 
 #                  Error.addSourceMessage(Error.NON_STANDARD_OPERATOR, list("Connections.uniqueRootIndices"), info) TODO
                   System.setUsesConnectionsOperators(true)
@@ -1892,9 +1892,9 @@ end
 """
   This function checks the arguments to connectors
 """
-function checkConnectionsArgument(@nospecialize(arg::Expression), ty::M_Type, fnRef::ComponentRef, argIndex::Int, info::SourceInfo)
+function checkConnectionsArgument(@nospecialize(arg::Expression), ty::ModelicaType, fnRef::ComponentRef, argIndex::Int, info::SourceInfo)
    () = begin
-    local ty2::M_Type
+    local ty2::ModelicaType
     local node::InstNode
     local valid_cref::Bool
     local isConnectorBool::Bool
@@ -1967,16 +1967,16 @@ function checkConnectionsArgument(@nospecialize(arg::Expression), ty::M_Type, fn
   end
 end
 
-function typeNoEventCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeNoEventCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
 
   local fn_ref::ComponentRef
   local args::Vector{Expression}
   local named_args::Vector{NamedArg}
   local arg::Expression
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
 
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
   assertNoNamedParams("noEvent", named_args, info)
@@ -1999,9 +1999,9 @@ path of the root (scopePath with includeRoot) was `Modelica.Blocks.Examples.Nois
 ContinuousTurbulence.whiteNoise`: every MSL noise block's automatic local seed, a hash of the name,
 differed from omc's, and with it each random sequence.
 """
-function typeGetInstanceName(call::Call) ::Tuple{Expression, M_Type, VariabilityType}
+function typeGetInstanceName(call::Call) ::Tuple{Expression, ModelicaType, VariabilityType}
   local var::VariabilityType = Variability.CONSTANT
-  local ty::M_Type = TYPE_STRING()
+  local ty::ModelicaType = TYPE_STRING()
   local result::Expression
   local scope::InstNode
   @match UNTYPED_CALL(call_scope = scope) = call
@@ -2013,9 +2013,9 @@ function typeGetInstanceName(call::Call) ::Tuple{Expression, M_Type, Variability
   (result, ty, var)
 end
 
-function typeClockCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeClockCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local var::VariabilityType = Variability.PARAMETER
-  local outType::M_Type = TYPE_CLOCK()
+  local outType::ModelicaType = TYPE_CLOCK()
   local callExp::Expression
   local args::Vector{Expression}
   @match TYPED_CALL(arguments = args) = typeMatchNormalCall(call, origin, info)
@@ -2047,27 +2047,27 @@ function typeClockCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tupl
   return (callExp, outType, var)
 end
 
-function typeSampleCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tuple{Expression, M_Type, VariabilityType}
+function typeSampleCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tuple{Expression, ModelicaType, VariabilityType}
   local var::VariabilityType
-  local outType::M_Type
+  local outType::ModelicaType
   local callExp::Expression
 
   local ty_call::Call
-  local arg_ty::M_Type
+  local arg_ty::ModelicaType
   local args::Vector{TypedArg}
   local namedArgs::Vector{TypedNamedArg}
   local e::Expression
   local e1::Expression
   local e2::Expression
-  local t::M_Type
-  local t1::M_Type
-  local t2::M_Type
+  local t::ModelicaType
+  local t1::ModelicaType
+  local t2::ModelicaType
   local v::VariabilityType
   local v1::VariabilityType
   local v2::VariabilityType
   local fn_ref::ComponentRef
-  local normalSample::M_Function
-  local clockedSample::M_Function
+  local normalSample::MODELICA_FUNCTION
+  local clockedSample::MODELICA_FUNCTION
   local recopnode::InstNode
 
   @match ARG_TYPED_CALL(fn_ref, args, namedArgs) = typeNormalCall(call, origin, info)
@@ -2136,9 +2136,9 @@ function typeSampleCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tupl
   (callExp, outType, var)
 end
 
-function typeActualInStreamCall(name::String, call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeActualInStreamCall(name::String, call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType = Variability.DISCRETE
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
 
   local fn_ref::ComponentRef
@@ -2147,7 +2147,7 @@ function typeActualInStreamCall(name::String, call::Call, origin::ORIGIN_Type, i
   local named_args::Vector{NamedArg}
   local arg::Expression
   local var::VariabilityType
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local arg_node::InstNode
 
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
@@ -2162,7 +2162,7 @@ function typeActualInStreamCall(name::String, call::Call, origin::ORIGIN_Type, i
   (callExp, ty, Variability.CONTINUOUS)
 end
 
-function typeActualInStreamCall2(name::String, fn::M_Function, @nospecialize(arg::Expression), var::VariabilityType, info::SourceInfo) ::Expression
+function typeActualInStreamCall2(name::String, fn::MODELICA_FUNCTION, @nospecialize(arg::Expression), var::VariabilityType, info::SourceInfo) ::Expression
   local callExp::Expression
 
   @assign callExp = begin
@@ -2200,9 +2200,9 @@ function typeActualInStreamCall2(name::String, fn::M_Function, @nospecialize(arg
   callExp
 end
 
-function typeDynamicSelectCall(name::String, call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, M_Type, VariabilityType}
+function typeDynamicSelectCall(name::String, call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType = Variability.CONTINUOUS
-  local ty::M_Type
+  local ty::ModelicaType
   local callExp::Expression
 
   local fn_ref::ComponentRef
@@ -2213,10 +2213,10 @@ function typeDynamicSelectCall(name::String, call::Call, origin::ORIGIN_Type, in
   local arg2::Expression
   local var1::VariabilityType
   local var2::VariabilityType
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local arg_node::InstNode
-  local ty1::M_Type
-  local ty2::M_Type
+  local ty1::ModelicaType
+  local ty2::ModelicaType
   local expStatic::Expression
   local expDynamic::Expression
 

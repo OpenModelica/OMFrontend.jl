@@ -38,8 +38,7 @@ import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 #= Forward declarations for uniontypes until Julia adds support for mutual recursion =#
 
-@UniontypeDecl NFConnection
-const Connection = NFConnection
+@UniontypeDecl Connection
 
 function toString(conn::Connection)::String
   local str::String
@@ -64,11 +63,11 @@ function Base.string(conn::Connection)::String
 end
 
 
-@Uniontype NFConnection begin
+@Uniontype Connection begin
   @Record CONNECTION begin
     #=  TODO: This should be Connector, but the import above doesn't work due to some compiler bug.=#
-    lhs::NFConnector
-    rhs::NFConnector
+    lhs::Connector
+    rhs::Connector
   end
 end
 

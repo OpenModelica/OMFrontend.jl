@@ -33,13 +33,13 @@
 *
 */ =#
 
-abstract type NFRangeIterator end
+abstract type RangeIterator end
 
-struct RANGEITERATOR_INVALID_RANGE{T0 <: Expression} <: NFRangeIterator
+struct RANGEITERATOR_INVALID_RANGE{T0 <: Expression} <: RangeIterator
   exp::T0
 end
 
-struct RANGEITERATOR_ARRAY_RANGE <: NFRangeIterator
+struct RANGEITERATOR_ARRAY_RANGE <: RangeIterator
   values::List{Expression}
 end
 
@@ -49,7 +49,7 @@ concrete (`Float64`, `Int`), as every constructor call passes them, so a matched
 type parameters they had (`T0 <: AbstractFloat`, `T1 <: Integer`) left `current + 1` a dynamic `+(::Integer, ::Int)`,
 which a package adding `+` methods invalidated with all its callers at each load (2026-11-16).
 """
-struct RANGEITERATOR_REAL_RANGE <: NFRangeIterator
+struct RANGEITERATOR_REAL_RANGE <: RangeIterator
   start::Float64
   stepsize::Float64
   current::Int
@@ -57,19 +57,18 @@ struct RANGEITERATOR_REAL_RANGE <: NFRangeIterator
 end
 
 """An iterator over an Integer range with a step (concrete `Int` fields, see `RANGEITERATOR_REAL_RANGE`)."""
-struct RANGEITERATOR_INT_STEP_RANGE <: NFRangeIterator
+struct RANGEITERATOR_INT_STEP_RANGE <: RangeIterator
   current::Int
   stepsize::Int
   last::Int
 end
 
 """An iterator over an Integer range `current:last` (concrete `Int` fields, see `RANGEITERATOR_REAL_RANGE`)."""
-struct RANGEITERATOR_INT_RANGE <: NFRangeIterator
+struct RANGEITERATOR_INT_RANGE <: RangeIterator
   current::Int
   last::Int
 end
 
-const RangeIterator = NFRangeIterator
 
 function fold(iterator::RangeIterator, func::FuncT, arg::ArgT) where {ArgT}
   local iter::RangeIterator = iterator
@@ -204,7 +203,7 @@ end
 function fromDim(dim::Dimension)::RangeIterator
   local iterator::RangeIterator
   iterator = begin
-    local ty::M_Type
+    local ty::ModelicaType
     local expl::List{Expression}
     @match dim begin
       DIMENSION_INTEGER(__) => begin
@@ -252,7 +251,7 @@ function RangeIterator_fromExp(@nospecialize(exp::Expression))::RangeIterator
     local rstart::AbstractFloat
     local rstep::AbstractFloat
     local rstop::AbstractFloat
-    local ty::M_Type
+    local ty::ModelicaType
     local literals::List{String}
     local path::Absyn.Path
     local values::List{Expression}

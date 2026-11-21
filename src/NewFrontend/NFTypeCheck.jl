@@ -88,15 +88,15 @@ end
 
 function checkBinaryOperation(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  operator::Operator,
+  operator::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local resultType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local binaryExp::Expression
 
   if isComplex(arrayElementType(type1)) ||
@@ -172,21 +172,21 @@ end
 
 function checkOverloadedBinaryOperator(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local op_str::String
-  local candidates::Vector{M_Function}
-  local ety1::M_Type
-  local ety2::M_Type
+  local candidates::Vector{MODELICA_FUNCTION}
+  local ety1::ModelicaType
+  local ety2::ModelicaType
 
   op_str = symbol(stripEW(op), "'")
   ety1 = arrayElementType(type1)
@@ -238,17 +238,17 @@ end
 
 function matchOverloadedBinaryOperator(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
   showErrors::Bool = true,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local args::Vector{TypedArg}
@@ -256,7 +256,7 @@ function matchOverloadedBinaryOperator(
   local matchedFunc::MatchedFunction
   local matchedFunctions::Vector{MatchedFunction}
   local exactMatches::Vector{MatchedFunction}
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local oop::Op
 
   args = TypedArg[(exp1, type1, var1), (exp2, type2, var2)]
@@ -385,21 +385,21 @@ end
 
 function checkBinaryOperationBoxed(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local e1::Expression
   local e2::Expression
-  local ty1::M_Type
-  local ty2::M_Type
+  local ty1::ModelicaType
+  local ty2::ModelicaType
 
    (e1, ty1) = matchTypes(type1, unbox(type1), exp1)
    (e2, ty2) = matchTypes(type2, unbox(type2), exp2)
@@ -409,16 +409,16 @@ end
 
 function checkOverloadedBinaryArrayAddSub(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local e1::Expression
@@ -453,22 +453,22 @@ end
 
 function checkOverloadedBinaryArrayAddSub2(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
    (outExp, outType) = begin
-    local ty::M_Type
-    local ty1::M_Type
-    local ty2::M_Type
+    local ty::ModelicaType
+    local ty1::ModelicaType
+    local ty2::ModelicaType
     local e::Expression
     local e2::Expression
     local expl::Vector{Expression}
@@ -549,16 +549,16 @@ end
 
 function checkOverloadedBinaryArrayMul(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local valid::Bool
@@ -647,16 +647,16 @@ end
 
 function checkOverloadedBinaryScalarArray(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
    (exp2_expanded, _) = expand(exp2)
@@ -676,20 +676,20 @@ end
 
 function checkOverloadedBinaryScalarArray2(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local expl::Vector{Expression}
-  local ty::M_Type
+  local ty::ModelicaType
 
    (outExp, outType) = begin
     @match exp2 begin
@@ -761,16 +761,16 @@ end
 
 function checkOverloadedBinaryArrayScalar(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
    (exp1_expanded, _) = expand(exp1)
@@ -790,21 +790,21 @@ end
 
 function checkOverloadedBinaryArrayScalar2(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local e1::Expression
   local expl::Vector{Expression}
-  local ty::M_Type
+  local ty::ModelicaType
 
    (outExp, outType) = begin
     @match exp1 begin
@@ -876,16 +876,16 @@ end
 
 function checkOverloadedBinaryArrayDiv(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   if isArray(type1) && isScalar(type2)
@@ -912,16 +912,16 @@ end
 
 function checkOverloadedBinaryArrayEW(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local e1::Expression
@@ -929,7 +929,7 @@ function checkOverloadedBinaryArrayEW(
   local mk::MatchKindType
   local expl1::Vector{Expression}
   local expl2::Vector{Expression}
-  local ty::M_Type
+  local ty::ModelicaType
 
   if isArray(type1) && isArray(type2)
      (e1, e2, _, mk) = matchExpressions(exp1, type1, exp2, type2, true)
@@ -958,25 +958,25 @@ end
 
 function checkOverloadedBinaryArrayEW2(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local e2::Expression
   local expl::Vector{Expression}
   local expl1::Vector{Expression}
   local expl2::Vector{Expression}
-  local ty::M_Type
-  local ty1::M_Type
-  local ty2::M_Type
+  local ty::ModelicaType
+  local ty1::ModelicaType
+  local ty2::ModelicaType
   local is_array1::Bool
   local is_array2::Bool
 
@@ -1072,15 +1072,15 @@ function checkOverloadedBinaryArrayEW2(
 end
 
 function implicitConstructAndMatch(
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   @nospecialize(inExp1::Expression),
-  inType1::M_Type,
-  op::Operator,
+  inType1::ModelicaType,
+  op::OPERATOR,
   @nospecialize(inExp2::Expression),
-  inType2::M_Type,
+  inType2::ModelicaType,
   info::SourceInfo,
-  )::Tuple{Expression, M_Type}
-  local outType::M_Type
+  )::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local inputs::List{InstNode}
@@ -1090,13 +1090,13 @@ function implicitConstructAndMatch(
   local mk1::MatchKindType
   local mk2::MatchKindType
   local fn_ref::ComponentRef
-  local operfn::M_Function
-  local matchedfuncs::List{Tuple{M_Function, List{Expression}, VariabilityType}} = nil
+  local operfn::MODELICA_FUNCTION
+  local matchedfuncs::List{Tuple{MODELICA_FUNCTION, List{Expression}, VariabilityType}} = nil
   local exp1::Expression
   local exp2::Expression
-  local ty::M_Type
-  local arg1_ty::M_Type
-  local arg2_ty::M_Type
+  local ty::ModelicaType
+  local arg1_ty::ModelicaType
+  local arg2_ty::ModelicaType
   local var::VariabilityType
   local matched::Bool
   local arg1_info::SourceInfo
@@ -1172,17 +1172,17 @@ end
 
 function implicitConstructAndMatch2(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  paramType1::M_Type,
+  paramType1::ModelicaType,
   paramInfo1::SourceInfo,
-  paramType2::M_Type,
+  paramType2::ModelicaType,
   paramInfo2::SourceInfo,
   scope::InstNode,
-  fn::M_Function,
+  fn::MODELICA_FUNCTION,
   reverseArgs::Bool,
-  matchedFns::List{<:Tuple{<:M_Function, List{<:Expression}, VariabilityType}},
-)::Tuple{List{Tuple{M_Function, List{Expression}, VariabilityType}}, Bool}
+  matchedFns::List{<:Tuple{MODELICA_FUNCTION, List{<:Expression}, VariabilityType}},
+)::Tuple{List{Tuple{MODELICA_FUNCTION, List{Expression}, VariabilityType}}, Bool}
   local matched::Bool
 
   local fn_ref::ComponentRef
@@ -1190,7 +1190,7 @@ function implicitConstructAndMatch2(
   local e2::Expression
   local mk::MatchKindType
   local var::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
 
    (e1, _, mk) = matchTypes(paramType1, type1, exp1, false)
   #=  We only want overloaded constructors when trying to implicitly construct.
@@ -1205,7 +1205,7 @@ function implicitConstructAndMatch2(
      (e2, ty, var) = typeCall(e2, 0, paramInfo1)
      (_, _, mk) = matchTypes(paramType2, ty, e2, false)
     if mk == MatchKind.EXACT
-      matchedFns = Cons{Tuple{M_Function, List{Expression}, VariabilityType}}(
+      matchedFns = Cons{Tuple{MODELICA_FUNCTION, List{Expression}, VariabilityType}}(
         (fn,
          if reverseArgs
            list(e2, e1)
@@ -1227,12 +1227,12 @@ end
 
 function checkBinaryOperationAdd(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local resultType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local binaryExp::Expression
 
   local e1::Expression
@@ -1271,12 +1271,12 @@ end
 
 function checkBinaryOperationSub(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local resultType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local binaryExp::Expression
 
   local e1::Expression
@@ -1311,18 +1311,18 @@ end
 
 @nospecializeinfer function checkBinaryOperationMul(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   info::SourceInfo,
-)::Tuple{Expression, NFType}
-  local resultType::NFType
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local binaryExp::Expression
 
   local e1::Expression
   local e2::Expression
-  local ty1::M_Type
-  local ty2::M_Type
+  local ty1::ModelicaType
+  local ty2::ModelicaType
   local dims1::List{Dimension}
   local dims2::List{Dimension}
   local dim11::Dimension
@@ -1418,21 +1418,21 @@ end
 
 function checkBinaryOperationDiv(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   info::SourceInfo,
   isElementWise::Bool,
-)::Tuple{Expression, NFType}
-  local resultType::NFType
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local binaryExp::Expression
   local e1::Expression
   local e2::Expression
-  local ty1::NFType
-  local ty2::NFType
+  local ty1::ModelicaType
+  local ty2::ModelicaType
   local mk::MatchKindType
   local valid::Bool
-  local op::Operator
+  local op::OPERATOR
   (e1, ty1, mk) =
     matchTypes(type1, setArrayElementType(type1, TYPE_REAL()), exp1, #=allowUnknown=# true)
   valid = isCompatibleMatch(mk)
@@ -1490,19 +1490,19 @@ end
 
 function checkBinaryOperationPow(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   info::SourceInfo,
-)::Tuple{Expression, NFType}
-  local resultType::NFType
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local binaryExp::Expression
 
   local e1::Expression
   local e2::Expression
   local mk::MatchKindType
   local valid::Bool
-  local op::Operator
+  local op::OPERATOR
 
   #=  The first operand of ^ should be Real. =#
   (e1, resultType, mk) =
@@ -1531,21 +1531,21 @@ end
 
 function checkBinaryOperationPowEW(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   info::SourceInfo,
-)::Tuple{Expression, NFType}
-  local resultType::NFType
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local binaryExp::Expression
 
   local e1::Expression
   local e2::Expression
-  local ty1::NFType
-  local ty2::NFType
+  local ty1::ModelicaType
+  local ty2::ModelicaType
   local mk::MatchKindType
   local valid::Bool
-  local op::Operator
+  local op::OPERATOR
 
   #=  Exponentiation always returns a Real value, so instead of checking if the types
   =#
@@ -1597,23 +1597,23 @@ end
 
 function checkBinaryOperationEW(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   elemOp::OpType,
   info::SourceInfo,
-)::Tuple{Expression, NFType}
-  local resultType::NFType
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local binaryExp::Expression
   local e1::Expression
   local e2::Expression
-  local ty1::NFType
-  local ty2::NFType
+  local ty1::ModelicaType
+  local ty2::ModelicaType
   local mk::MatchKindType
   local valid::Bool
   local is_arr1::Bool
   local is_arr2::Bool
-  local op::Operator
+  local op::OPERATOR
   is_arr1 = isArray(type1)
   is_arr2 = isArray(type2)
   if is_arr1 && is_arr2
@@ -1683,16 +1683,16 @@ end
 
 function checkUnaryOperation(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   var1::VariabilityType,
-  operator::Operator,
+  operator::OPERATOR,
   info::SourceInfo,
-)::Tuple{Expression, NFType}
-  local unaryType::NFType
+)::Tuple{Expression, ModelicaType}
+  local unaryType::ModelicaType
   local unaryExp::Expression
 
   local valid::Bool = true
-  local op::Operator
+  local op::OPERATOR
 
   if isComplex(arrayElementType(type1))
      (unaryExp, unaryType) =
@@ -1722,20 +1722,20 @@ end
 
 function checkOverloadedUnaryOperator(
   @nospecialize(inExp1::Expression),
-  inType1::NFType,
+  inType1::ModelicaType,
   var::VariabilityType,
-  inOp::Operator,
+  inOp::OPERATOR,
   info::SourceInfo,
-)::Tuple{Expression, NFType}
-  local outType::NFType
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local opstr::String
-  local operfn::M_Function
+  local operfn::MODELICA_FUNCTION
   local node1::InstNode
   local fn_node::InstNode
   local fn_ref::ComponentRef
-  local candidates::Vector{M_Function}
+  local candidates::Vector{MODELICA_FUNCTION}
   local matched::Bool
   local args::Vector{TypedArg}
   local matchKind::FunctionMatchKind
@@ -1790,15 +1790,15 @@ end
 
 function checkLogicalBinaryOperation(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   var1::VariabilityType,
-  operator::Operator,
+  operator::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   var2::VariabilityType,
   info::SourceInfo,
-)::Tuple{Expression, NFType}
-  local resultType::NFType
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local outExp::Expression
 
   local e1::Expression
@@ -1825,12 +1825,12 @@ end
 
 function checkLogicalUnaryOperation(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   var1::VariabilityType,
-  operator::Operator,
+  operator::OPERATOR,
   info::SourceInfo,
-)::Tuple{Expression, NFType}
-  local resultType::NFType = type1
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType = type1
   local outExp::Expression
 
   local e1::Expression
@@ -1852,21 +1852,21 @@ end
 
 function checkRelationOperation(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   var1::VariabilityType,
-  operator::Operator,
+  operator::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   var2::VariabilityType,
   origin::ORIGIN_Type,
   info::SourceInfo,
-)::Tuple{Expression, NFType}
-  local resultType::NFType
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local outExp::Expression
 
   local e1::Expression
   local e2::Expression
-  local ty::NFType
+  local ty::ModelicaType
   local mk::MatchKindType
   local valid::Bool
   local o::OpType
@@ -1930,7 +1930,7 @@ end
 
 function printUnresolvableTypeError(
   @nospecialize(exp::Expression),
-  types::List{<:NFType},
+  types::List{<:ModelicaType},
   info::SourceInfo,
   printError::Bool = true,
 )
@@ -1951,9 +1951,9 @@ end
 
 @nospecializeinfer function matchExpressions(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   allowUnknown::Bool = false,
   )
 
@@ -1983,14 +1983,14 @@ end
 
 function matchExpressions2(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   allowUnknown::Bool = false,
-)::Tuple{Expression, Expression, NFType, MatchKindType}
+)::Tuple{Expression, Expression, ModelicaType, MatchKindType}
   local e1::Expression
   local e2::Expression
-  local cty::NFType
+  local cty::ModelicaType
   local mk::MatchKindType
 
   #=
@@ -2099,13 +2099,13 @@ function matchExpressions2(
 end
 
 @nospecializeinfer function matchTypes(
-  @nospecialize(actualType::NFType),
-  @nospecialize(expectedType::NFType),
+  @nospecialize(actualType::ModelicaType),
+  @nospecialize(expectedType::ModelicaType),
   @nospecialize(expression::Expression),
   allowUnknown::Bool = false,
-  )::Tuple{Expression, NFType, Int}
+  )::Tuple{Expression, ModelicaType, Int}
   local matchKind::MatchKindType
-  local compatibleType::NFType
+  local compatibleType::ModelicaType
   #=  Return true if the references are the same. =#
   if referenceEq(actualType, expectedType)
     compatibleType = actualType
@@ -2216,12 +2216,12 @@ function matchTypesRef(
   actualType::T1,
   expectedType::T2,
   @nospecialize(expression::Expression),
-  refTyExp::Ref{NFType},
+  refTyExp::Ref{ModelicaType},
   refMatchKind::Ref{MatchKindType},
   allowUnknown::Bool = false,
-  )::Expression where {T1 <: NFType, T2 <: NFType}
+  )::Expression where {T1 <: ModelicaType, T2 <: ModelicaType}
   local matchKind::MatchKindType
-  local compatibleType::NFType
+  local compatibleType::ModelicaType
   #=  Return true if the references are the same. =#
   if referenceEq(actualType, expectedType)
     compatibleType = actualType
@@ -2333,15 +2333,15 @@ function matchTypesRef(
 end
 
 function matchTypes_castRef(
-  actualType::NFType,
-  expectedType::NFType,
+  actualType::ModelicaType,
+  expectedType::ModelicaType,
   @nospecialize(expression::Expression),
-  refTyExp::Ref{NFType},
+  refTyExp::Ref{ModelicaType},
   refMatchKind::Ref{MatchKindType},
   allowUnknown::Bool = false,
   )::Expression
   local matchKind::MatchKindType
-  local compatibleType::NFType
+  local compatibleType::ModelicaType
   matchKind = begin
     @match (actualType, expectedType) begin
       (TYPE_INTEGER(__), TYPE_REAL(__)) => begin
@@ -2469,13 +2469,13 @@ end
 
 function matchExpressions_cast(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   allowUnknown::Bool,
-)::Tuple{Expression, Expression, NFType, MatchKindType}
+)::Tuple{Expression, Expression, ModelicaType, MatchKindType}
   local matchKind::MatchKindType
-  local compatibleType::NFType
+  local compatibleType::ModelicaType
 
    (compatibleType, matchKind) = begin
     @match (type1, type2) begin
@@ -2590,13 +2590,13 @@ function matchExpressions_cast(
 end
 
 function matchComplexTypes(
-  actualType::NFType,
-  expectedType::NFType,
+  actualType::ModelicaType,
+  expectedType::ModelicaType,
   @nospecialize(expression::Expression),
   allowUnknown::Bool,
-)::Tuple{Expression, NFType, MatchKindType}
+)::Tuple{Expression, ModelicaType, MatchKindType}
   local matchKind::MatchKindType = MatchKind.NOT_COMPATIBLE
-  local compatibleType::NFType = actualType
+  local compatibleType::ModelicaType = actualType
 
   local cls1::Class
   local cls2::Class
@@ -2605,7 +2605,7 @@ function matchComplexTypes(
   local comps1::Vector{InstNode}
   local comps2::Vector{InstNode}
   local path::Absyn.Path
-  local ty::NFType
+  local ty::ModelicaType
   local cty1::ComplexType
   local cty2::ComplexType
   local e::Expression
@@ -2775,13 +2775,13 @@ function matchComponentList(
 end
 
 function matchFunctionTypes(
-  actualType::NFType,
-  expectedType::NFType,
+  actualType::ModelicaType,
+  expectedType::ModelicaType,
   @nospecialize(expression::Expression),
   allowUnknown::Bool,
-)::Tuple{Expression, NFType, MatchKindType}
+)::Tuple{Expression, ModelicaType, MatchKindType}
   local matchKind::MatchKindType = MatchKind.EXACT
-  local compatibleType::NFType = actualType
+  local compatibleType::ModelicaType = actualType
   local inputs1::List{InstNode}
   local inputs2::List{InstNode}
   local remaining_inputs::List{InstNode}
@@ -2796,10 +2796,10 @@ function matchFunctionTypes(
   local matching::Bool
 
   @match TYPE_FUNCTION(
-    fn = M_FUNCTION(inputs = inputs1, outputs = outputs1, slots = slots1),
+    fn = MODELICA_FUNCTION(inputs = inputs1, outputs = outputs1, slots = slots1),
   ) = actualType
   @match TYPE_FUNCTION(
-    fn = M_FUNCTION(inputs = inputs2, outputs = outputs2, slots = slots2),
+    fn = MODELICA_FUNCTION(inputs = inputs2, outputs = outputs2, slots = slots2),
   ) = expectedType
   #=  The functions must have the same number of outputs.
   =#
@@ -2877,7 +2877,7 @@ function matchFunctionParameters(
   return matching
 end
 
-function matchEnumerationTypes(type1::NFType, type2::NFType)::MatchKindType
+function matchEnumerationTypes(type1::ModelicaType, type2::ModelicaType)::MatchKindType
   local matchKind::MatchKindType
   local lits1::List{String}
   local lits2::List{String}
@@ -2893,16 +2893,16 @@ end
 
 function matchArrayExpressions(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   allowUnknown::Bool,
-)::Tuple{Expression, Expression, NFType, MatchKindType}
+)::Tuple{Expression, Expression, ModelicaType, MatchKindType}
   local matchKind::MatchKindType
-  local compatibleType::NFType
+  local compatibleType::ModelicaType
 
-  local ety1::NFType
-  local ety2::NFType
+  local ety1::ModelicaType
+  local ety2::ModelicaType
   local dims1::List{Dimension}
   local dims2::List{Dimension}
 
@@ -2920,16 +2920,16 @@ function matchArrayExpressions(
 end
 
 function matchArrayTypes(
-  arrayType1::NFType,
-  arrayType2::NFType,
+  arrayType1::ModelicaType,
+  arrayType2::ModelicaType,
   @nospecialize(expression::Expression),
   allowUnknown::Bool,
-)::Tuple{Expression, NFType, Int}
+)::Tuple{Expression, ModelicaType, Int}
   local matchKind::MatchKindType
-  local compatibleType::NFType
+  local compatibleType::ModelicaType
 
-  local ety1::NFType
-  local ety2::NFType
+  local ety1::ModelicaType
+  local ety2::ModelicaType
   local dims1::List{Dimension}
   local dims2::List{Dimension}
 
@@ -2946,17 +2946,17 @@ end
 
 
 function matchArrayTypesRef(
-  arrayType1::NFType,
-  arrayType2::NFType,
+  arrayType1::ModelicaType,
+  arrayType2::ModelicaType,
   @nospecialize(expression::Expression),
-  refTyExp::Ref{NFType},
+  refTyExp::Ref{ModelicaType},
   refMatchKind::Ref{MatchKindType},
   allowUnknown::Bool,
 )::Expression
   local matchKind::MatchKindType
-  local compatibleType::NFType
-  local ety1::NFType
-  local ety2::NFType
+  local compatibleType::ModelicaType
+  local ety1::ModelicaType
+  local ety2::ModelicaType
   local dims1::List{Dimension}
   local dims2::List{Dimension}
   @match TYPE_ARRAY(elementType = ety1, dimensions = dims1) = arrayType1
@@ -2977,7 +2977,7 @@ end
 function matchArrayDimsRef(
   dims1::List{Dimension},
   dims2::List{Dimension},
-  ty::NFType,
+  ty::ModelicaType,
   matchKind::MatchKindType,
   refTyExp,
   refMatchKind,
@@ -3024,10 +3024,10 @@ end
 function matchArrayDims(
   dims1::List{<:Dimension},
   dims2::List{<:Dimension},
-  ty::NFType,
+  ty::ModelicaType,
   matchKind::MatchKindType,
   allowUnknown::Bool,
-)::Tuple{NFType, Int}
+)::Tuple{ModelicaType, Int}
   local rest_dims2::List{Dimension} = dims2
   local dim2::Dimension
   local compat::Bool
@@ -3117,17 +3117,17 @@ end
 
 
 function matchTupleTypes(
-  tupleType1::NFType,
-  tupleType2::NFType,
+  tupleType1::ModelicaType,
+  tupleType2::ModelicaType,
   @nospecialize(expression::Expression),
   allowUnknown::Bool,
-)::Tuple{Expression, NFType, MatchKindType}
+)::Tuple{Expression, ModelicaType, MatchKindType}
   local matchKind::MatchKindType = MatchKind.EXACT
-  local compatibleType::NFType = tupleType1
+  local compatibleType::ModelicaType = tupleType1
 
-  local tyl1::List{NFType}
-  local tyl2::List{NFType}
-  local ty1::NFType
+  local tyl1::List{ModelicaType}
+  local tyl2::List{ModelicaType}
+  local ty1::ModelicaType
 
   @match TYPE_TUPLE(types = tyl1) = tupleType1
   @match TYPE_TUPLE(types = tyl2) = tupleType2
@@ -3152,13 +3152,13 @@ end
 
 function matchBoxedExpressions(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   allowUnknown::Bool,
-)::Tuple{Expression, Expression, NFType, MatchKindType}
+)::Tuple{Expression, Expression, ModelicaType, MatchKindType}
   local matchKind::MatchKindType
-  local compatibleType::NFType
+  local compatibleType::ModelicaType
 
   local e1::Expression
   local e2::Expression
@@ -3176,13 +3176,13 @@ function matchBoxedExpressions(
 end
 
 function matchTypes_cast(
-  actualType::NFType,
-  expectedType::NFType,
+  actualType::ModelicaType,
+  expectedType::ModelicaType,
   @nospecialize(expression::Expression),
   allowUnknown::Bool = false,
-)::Tuple{Expression, NFType, MatchKindType}
+)::Tuple{Expression, ModelicaType, MatchKindType}
   local matchKind::MatchKindType
-  local compatibleType::NFType
+  local compatibleType::ModelicaType
 
    (compatibleType, matchKind) = begin
     @match (actualType, expectedType) begin
@@ -3314,10 +3314,10 @@ function getRangeType(
   @nospecialize(startExp::Expression),
   @nospecialize(stepExp::Option{<:Expression}),
   @nospecialize(stopExp::Expression),
-  rangeElemType::NFType,
+  rangeElemType::ModelicaType,
   info::SourceInfo,
-)::NFType
-  local rangeType::NFType
+)::ModelicaType
+  local rangeType::ModelicaType
 
   local step_exp::Expression
   local dim::Dimension
@@ -3654,15 +3654,15 @@ end
 
 function matchBinding(
   binding::Binding,
-  componentType::NFType,
+  componentType::ModelicaType,
   name::String,
   component::InstNode,
   )::Binding
   local ty_match::MatchKindType
   local exp::Expression
-  local ty::NFType
-  local exp_ty::NFType
-  local comp_ty::NFType
+  local ty::ModelicaType
+  local exp_ty::ModelicaType
+  local comp_ty::ModelicaType
   local dims::List{List{Dimension}}
   @match binding begin
     TYPED_BINDING(bindingExp = exp) => begin
@@ -3686,7 +3686,7 @@ function matchBinding(
             exp_ty = binding.bindingType
           end
         end
-      local tyRef = Ref{NFType}(TYPE_UNKNOWN())
+      local tyRef = Ref{ModelicaType}(TYPE_UNKNOWN())
       local mkRef = Ref{MatchKindType}(MatchKind.NOT_COMPATIBLE)
       exp = matchTypesRef(exp_ty, comp_ty, exp, tyRef, mkRef, #=allowUnknown=# true)
       ty = tyRef.x
@@ -3721,8 +3721,8 @@ end
 function printBindingTypeError(
   name::String,
   binding::Binding,
-  componentType::NFType,
-  bindingType::NFType,
+  componentType::ModelicaType,
+  bindingType::ModelicaType,
   component::InstNode,
 )
   local binding_info::SourceInfo
@@ -3778,7 +3778,7 @@ end
 
 """ #= Checks that an expression used as a dimension has a valid type for a
    dimension, otherwise prints an error and fails. =#"""
-@nospecializeinfer function checkDimensionType(@nospecialize(exp::Expression), ty::NFType, info::SourceInfo)
+@nospecializeinfer function checkDimensionType(@nospecialize(exp::Expression), ty::ModelicaType, info::SourceInfo)
   return if !isInteger(ty)
      () = begin
       @match exp begin
@@ -3805,8 +3805,8 @@ end
   end
 end
 
-@nospecializeinfer function checkReductionType(ty::NFType, name::Absyn.Path, @nospecialize(exp::Expression), info::SourceInfo)
-  local ety::NFType
+@nospecializeinfer function checkReductionType(ty::ModelicaType, name::Absyn.Path, @nospecialize(exp::Expression), info::SourceInfo)
+  local ety::ModelicaType
   local err::String
   @assign err = begin
     @match name begin
@@ -3921,7 +3921,7 @@ end
   end
 end
 
-@nospecializeinfer function checkSumComplexType(ty::NFType, @nospecialize(exp::Expression), info::SourceInfo)::Bool
+@nospecializeinfer function checkSumComplexType(ty::ModelicaType, @nospecialize(exp::Expression), info::SourceInfo)::Bool
   local valid::Bool = true
   local cls_node::InstNode
   local op_node::InstNode

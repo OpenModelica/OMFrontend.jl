@@ -36,22 +36,14 @@
 const EquationFn = Function
 const AlgorithmFn = Function
 const FoldFn = Function
-const MapFn = Function
-const EquationFn = Function
-const AlgorithmFn = Function
-const EquationFn = Function
-const AlgorithmFn = Function
-#=Necessary redefinitions=#
-const Sections = NFSections
-const Algorithm = AlgorithmImpl
 
-abstract type NFSections
+abstract type Sections
 end
 
-struct SECTIONS_EMPTY <: NFSections
+struct SECTIONS_EMPTY <: Sections
 end
 
-mutable struct SECTIONS_EXTERNAL <: NFSections
+mutable struct SECTIONS_EXTERNAL <: Sections
   name::String
   args::List{Expression}
   outputRef::ComponentRef
@@ -60,11 +52,11 @@ mutable struct SECTIONS_EXTERNAL <: NFSections
   explicit::Bool
 end
 
-mutable struct SECTIONS <: NFSections
+mutable struct SECTIONS <: Sections
   equations::Vector{Equation}
   initialEquations::Vector{Equation}
-  algorithms::Vector{Algorithm}
-  initialAlgorithms::Vector{Algorithm}
+  algorithms::Vector{ALGORITHM}
+  initialAlgorithms::Vector{ALGORITHM}
 end
 
 function isEmpty(sections::Sections)
@@ -134,8 +126,8 @@ end
 function mapExp(sections::Sections, mapFn::MapFn)::Sections
   local eq::Vector{Equation}
   local ieq::Vector{Equation}
-  local alg::Vector{Algorithm}
-  local ialg::Vector{Algorithm}
+  local alg::Vector{ALGORITHM}
+  local ialg::Vector{ALGORITHM}
   sections = begin
     @match sections begin
       SECTIONS(__) => begin
@@ -167,8 +159,8 @@ function map1(
 ) where {ArgT}
   local eq::Vector{Equation}
   local ieq::Vector{Equation}
-  local alg::Vector{Algorithm}
-  local ialg::Vector{Algorithm}
+  local alg::Vector{ALGORITHM}
+  local ialg::Vector{ALGORITHM}
   () = begin
     @match sections begin
       SECTIONS(__) => begin
@@ -196,15 +188,15 @@ function map(
 )
   local eq::Vector{Equation}
   local ieq::Vector{Equation}
-  local alg::Vector{Algorithm}
-  local ialg::Vector{Algorithm}
+  local alg::Vector{ALGORITHM}
+  local ialg::Vector{ALGORITHM}
   () = begin
     @match sections begin
       SECTIONS(__) => begin
         eq = Equation[eqFn(e) for e in sections.equations]
         ieq = Equation[ieqFn(e) for e in sections.initialEquations]
-        alg = Algorithm[algFn(a) for a in sections.algorithms]
-        ialg = Algorithm[ialgFn(a) for a in sections.initialAlgorithms]
+        alg = ALGORITHM[algFn(a) for a in sections.algorithms]
+        ialg = ALGORITHM[ialgFn(a) for a in sections.initialAlgorithms]
         sections = SECTIONS(eq, ieq, alg, ialg)
         ()
       end
@@ -244,8 +236,8 @@ end
 function append(
   equations::Vector{Equation},
   initialEquations::Vector{Equation},
-  algorithms::Vector{Algorithm},
-  initialAlgorithms::Vector{Algorithm},
+  algorithms::Vector{ALGORITHM},
+  initialAlgorithms::Vector{ALGORITHM},
   sections::Sections,
 )
   sections = begin
@@ -268,7 +260,7 @@ function append(
 end
 
 function prependAlgorithm(
-  alg::Algorithm,
+  alg::ALGORITHM,
   sections::Sections,
   isInitial::Bool = false,
 )::Sections
@@ -287,9 +279,9 @@ function prependAlgorithm(
 
       SECTIONS_EMPTY(__) => begin
         if isInitial
-          SECTIONS(Equation[], Equation[], Algorithm[], Algorithm[alg])
+          SECTIONS(Equation[], Equation[], ALGORITHM[], ALGORITHM[alg])
         else
-          SECTIONS(Equation[], Equation[], Algorithm[alg], Algorithm[])
+          SECTIONS(Equation[], Equation[], ALGORITHM[alg], ALGORITHM[])
         end
       end
 
@@ -390,9 +382,9 @@ function prependEquation(
 
       SECTIONS_EMPTY(__) => begin
         if isInitial
-          SECTIONS(Equation[], Equation[eq], Algorithm[], Algorithm[])
+          SECTIONS(Equation[], Equation[eq], ALGORITHM[], ALGORITHM[])
         else
-          SECTIONS([eq], Equation[], Algorithm[], Algorithm[])
+          SECTIONS([eq], Equation[], ALGORITHM[], ALGORITHM[])
         end
       end
 
@@ -412,8 +404,8 @@ end
 function prepend(
   equations::Vector{Equation},
   initialEquations::Vector{Equation},
-  algorithms::Vector{Algorithm},
-  initialAlgorithms::Vector{Algorithm},
+  algorithms::Vector{ALGORITHM},
+  initialAlgorithms::Vector{ALGORITHM},
   sections::Sections,
 )
   sections = begin
@@ -437,8 +429,8 @@ end
 function new(
   equations::Vector{Equation},
   initialEquations::Vector{Equation},
-  algorithms::Vector{Algorithm},
-  initialAlgorithms::Vector{Algorithm},
+  algorithms::Vector{ALGORITHM},
+  initialAlgorithms::Vector{ALGORITHM},
   )
   local sections::Sections
   if isempty(equations) &&

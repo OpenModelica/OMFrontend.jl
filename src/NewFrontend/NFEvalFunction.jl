@@ -43,13 +43,12 @@ using MetaModelica
 import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
-import ..Frontend.NFExpression
+import ..Frontend.Expression
 import ..Frontend.InstNode
 import ..Frontend.refCompare
 import ..Frontend.toString
 import ..Frontend.Util
 
-const Expression = NFExpression
 const Key = InstNode
 const Value = Expression
 
@@ -90,7 +89,7 @@ const _EVAL_RECURSION_LIMIT_CACHE = Ref{Int}(-1)
   return v
 end
 
-function evaluate(fn::M_Function, args::Vector{Expression})::Expression
+function evaluate(fn::MODELICA_FUNCTION, args::Vector{Expression})::Expression
   local result::Expression
   #= A partial derivative is differentiated by the backend, not the function's body (omc). =#
   isPartialDerivative(fn) && fail()
@@ -118,19 +117,19 @@ end
 end
 
 #= Sets the depth; the entry goes at 0 (the table holds the functions being evaluated). =#
-@inline function _setEvalDepth!(depths::IdDict{Any, Int}, counter::Pointer, depth::Int)::Nothing
+@inline function _setEvalDepth!(depths::IdDict{Any, Int}, counter::Base.RefValue{Int}, depth::Int)::Nothing
   depth > 0 ? (depths[counter] = depth) : delete!(depths, counter)
   return nothing
 end
 
-function evaluateNormal(fn::M_Function, args::Vector{Expression})::Expression
+function evaluateNormal(fn::MODELICA_FUNCTION, args::Vector{Expression})::Expression
   local result::Expression
   local fn_body::Vector{Statement}
   local bindings::List{Binding}
   local repl::ReplTree.Tree
   local call_count::Int
   local limit::Int
-  local call_counter::Pointer = fn.callCounter
+  local call_counter::Base.RefValue{Int} = fn.callCounter
   local ctrl::FlowControlType
   #=
   The function's evaluation depth in this task is increased by one at the
@@ -180,7 +179,7 @@ function evaluateNormal(fn::M_Function, args::Vector{Expression})::Expression
   return result
 end
 
-function evaluateExternal(fn::M_Function, args::Vector{Expression})::Expression
+function evaluateExternal(fn::MODELICA_FUNCTION, args::Vector{Expression})::Expression
   local result::Expression
 
   local name::String
@@ -235,7 +234,7 @@ end
    Boolean and String arguments and an explicit return value (omc DimUnknown16:
    `external "C" dim = strlen("aa")`). Nothing when the call is not of that form or the symbol is
    not found. =#
-function callExternalFunction(name::String, fn::M_FUNCTION, args::Vector{Expression}, extArgs::List{Expression},
+function callExternalFunction(name::String, fn::MODELICA_FUNCTION, args::Vector{Expression}, extArgs::List{Expression},
                               outputRef::ComponentRef, ann::Option{SCode.Annotation})::Union{Expression, Nothing}
   isEmpty(outputRef) && return nothing
   local ret_ty = nodeType(outputRef)
@@ -259,7 +258,7 @@ function callExternalFunction(name::String, fn::M_FUNCTION, args::Vector{Express
 end
 
 #= The C type of a scalar of the external interface (Modelica Integer and Boolean are int). =#
-function _externalCType(ty::M_Type)::Any
+function _externalCType(ty::ModelicaType)::Any
   isInteger(ty) && return Cint
   isReal(ty) && return Cdouble
   isBoolean(ty) && return Cint
@@ -268,7 +267,7 @@ function _externalCType(ty::M_Type)::Any
 end
 
 #= An external call's argument: a literal, or an input given a literal value. =#
-function _externalArgValue(@nospecialize(a::Expression), fn::M_FUNCTION, args::Vector{Expression})::Union{Tuple{Any, Any}, Nothing}
+function _externalArgValue(@nospecialize(a::Expression), fn::MODELICA_FUNCTION, args::Vector{Expression})::Union{Tuple{Any, Any}, Nothing}
   local e = a
   if e isa CREF_EXPRESSION
     local k = findfirst(i -> refEqual(i, node(e.cref)), Base.collect(fn.inputs))
@@ -333,8 +332,8 @@ end
   CALL(R, {1.0, 2.0}) => RECORD(R, {1.0, 0.5, 2.0});
 """
 function evaluateRecordConstructor(
-  fn::M_Function,
-  ty::M_Type,
+  fn::MODELICA_FUNCTION,
+  ty::ModelicaType,
   args::Vector{Expression};
   evaluate::Bool = true,
 )::Expression
@@ -390,11 +389,11 @@ end
 The replacements of one evaluation of `fn` with the arguments `args`: each input's argument value, each output's
 and local's binding in a cell (assignable), with the references among them replaced.
 """
-function createReplacements(fn::M_Function, args::Vector{Expression})::ReplTree.Tree
-  #= M_FUNCTION is the only M_Function: its fields typed =#
-  local inputs::List{InstNode} = (fn::M_FUNCTION).inputs
-  local outputs::List{InstNode} = (fn::M_FUNCTION).outputs
-  local locals::List{InstNode} = (fn::M_FUNCTION).locals
+function createReplacements(fn::MODELICA_FUNCTION, args::Vector{Expression})::ReplTree.Tree
+  #= MODELICA_FUNCTION is the only MODELICA_FUNCTION: its fields typed =#
+  local inputs::List{InstNode} = (fn::MODELICA_FUNCTION).inputs
+  local outputs::List{InstNode} = (fn::MODELICA_FUNCTION).outputs
+  local locals::List{InstNode} = (fn::MODELICA_FUNCTION).locals
   local repl::ReplTree.Tree = ReplTree.new()
   local arg::Expression
   local j::Int = 0
@@ -470,7 +469,7 @@ end
 
 function buildBinding(node::InstNode, repl::ReplTree.Tree)::Expression
   local result::Expression
-  local ty::M_Type
+  local ty::ModelicaType
   ty = getType(node)
   ty = mapDims(ty, (expArg) -> applyReplacementsDim(repl, expArg))
   #@info "Our node is a " toString(ty) typeof(ty)
@@ -648,9 +647,9 @@ function isFunctionPointerExp(@nospecialize(exp::Expression))::Bool
 end
 
 #= The functions cached on a node's class, none when it has no function cache. =#
-function _cachedFuncsOrEmpty(node::InstNode)::Vector{M_FUNCTION}
+function _cachedFuncsOrEmpty(node::InstNode)::Vector{MODELICA_FUNCTION}
   local cache = getFuncCache(classScope(node))
-  return cache isa C_FUNCTION ? M_FUNCTION[f for f in cache.funcs] : M_FUNCTION[]
+  return cache isa C_FUNCTION ? MODELICA_FUNCTION[f for f in cache.funcs] : MODELICA_FUNCTION[]
 end
 
 #= A call of a function given as a function pointer argument: a call of the function it points
@@ -661,7 +660,7 @@ function applyReplacementCall(repl::ReplTree.Tree, call::Call, @nospecialize(exp
       local repl_exp = ReplTree.tryGet(repl, call.fn.node)
       repl_exp === nothing && return exp
       if repl_exp isa CREF_EXPRESSION && isvariant(repl_exp.ty, TYPE_FUNCTION)
-        local fn = repl_exp.ty.fn
+        local fn::MODELICA_FUNCTION = functionOf(repl_exp.ty)
         local args = mergeFunctionApplicationArgs(call.fn, call.arguments, fn, Expression[], String[])
         return CALL_EXPRESSION(TYPED_CALL(fn, call.ty, call.var, args, call.attributes))
       elseif repl_exp isa PARTIAL_FUNCTION_APPLICATION_EXPRESSION
@@ -680,7 +679,7 @@ end
 
 #= The arguments of a call of newFn replacing one of oldFn: newFn's defaults, oldFn's arguments by
    name, then the partial application's named ones (omc mergeFunctionApplicationArgs). =#
-function mergeFunctionApplicationArgs(oldFn::M_FUNCTION, oldArgs::Vector{Expression}, newFn::M_FUNCTION,
+function mergeFunctionApplicationArgs(oldFn::MODELICA_FUNCTION, oldArgs::Vector{Expression}, newFn::MODELICA_FUNCTION,
                                       newArgs::Vector{Expression}, argNames::Vector{String})::Vector{Expression}
   local arg_map = Dict{String, Expression}()
   for sl in newFn.slots
@@ -809,7 +808,7 @@ end
 function createResult(repl::ReplTree.Tree, outputs::List{<:InstNode})::Expression
   local exp::Expression
   local expl::List{Expression}
-  local types::List{M_Type}
+  local types::List{ModelicaType}
   local e::Expression
   #= The outputs as values, their cells detached (OpenModelica evaluates the fields): a
      record output's fields stayed cells, and one never assigned (MSL Spice3's
@@ -1154,7 +1153,7 @@ function assignRecord(@nospecialize(lhs::Expression), @nospecialize(rhs::Express
     local cls_tree::ClassTree
     local comps::Vector{InstNode}
     local binding_exp::Option{Expression}
-    local ty::M_Type
+    local ty::ModelicaType
     @match rhs begin
       RECORD_EXPRESSION(__) => begin
         @match RECORD_EXPRESSION(elements = elems) = lhs
@@ -1420,7 +1419,7 @@ const FILE_TYPE_PATH =
       Absyn.QUALIFIED("Types", Absyn.IDENT("FileType")),
     ),
   )::Absyn.Path
-const FILE_TYPE_TYPE = TYPE_ENUMERATION(FILE_TYPE_PATH, FILE_TYPE_NAMES)::M_Type
+const FILE_TYPE_TYPE = TYPE_ENUMERATION(FILE_TYPE_PATH, FILE_TYPE_NAMES)::ModelicaType
 const FILE_TYPE_LITERALS =
   list(
     ENUM_LITERAL_EXPRESSION(FILE_TYPE_TYPE, "NoFile", 1),
@@ -1437,7 +1436,7 @@ const COMPARE_PATH =
       Absyn.QUALIFIED("Types", Absyn.IDENT("Compare")),
     ),
   )::Absyn.Path
-const COMPARE_TYPE = TYPE_ENUMERATION(COMPARE_PATH, COMPARE_NAMES)::M_Type
+const COMPARE_TYPE = TYPE_ENUMERATION(COMPARE_PATH, COMPARE_NAMES)::ModelicaType
 const COMPARE_LITERALS =
   list(
     ENUM_LITERAL_EXPRESSION(COMPARE_TYPE, "Less", 1),
@@ -1626,7 +1625,7 @@ function evaluateOpenModelicaRegex(args::List{<:Expression})::Expression
   local insensitive::Bool
   local strs::List{String}
   local expl::List{Expression}
-  local strs_ty::M_Type
+  local strs_ty::ModelicaType
   local strs_exp::Expression
 
   @assign result = begin
@@ -1680,7 +1679,7 @@ function evaluateModelicaIO_readRealMatrix(
   local result::Expression
 
   local matrix::Matrix{Float64}
-  local ty::M_Type
+  local ty::ModelicaType
 
   @assign matrix = ModelicaExternalC.ModelicaIO_readRealMatrix(
     fileName,
@@ -1702,7 +1701,7 @@ end
 
 function evaluateExternal2(
   name::String,
-  fn::M_Function,
+  fn::MODELICA_FUNCTION,
   args::Vector{Expression},
   extArgs::List{<:Expression},
 )::Expression

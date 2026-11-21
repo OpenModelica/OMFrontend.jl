@@ -40,8 +40,8 @@ struct FLAT_MODEL <: FlatModel
   variables::Vector{Variable}
   equations::Vector{Equation}
   initialEquations::Vector{Equation}
-  algorithms::Vector{Algorithm}
-  initialAlgorithms::Vector{Algorithm}
+  algorithms::Vector{ALGORITHM}
+  initialAlgorithms::Vector{ALGORITHM}
   #= VSS Modelica extension =#
   structuralSubmodels::List{FlatModel}
   scodeProgram::Option{SCode.CLASS}
@@ -57,8 +57,8 @@ struct FLAT_MODEL <: FlatModel
   variables::Vector{Variable}
   equations::Vector{Equation}
   initialEquations::Vector{Equation}
-  algorithms::Vector{Algorithm}
-  initialAlgorithms::Vector{Algorithm}
+  algorithms::Vector{ALGORITHM}
+  initialAlgorithms::Vector{ALGORITHM}
   #= VSS Modelica extension =#
   structuralSubmodels::List{FlatModel}
   scodeProgram::Option{SCode.CLASS}
@@ -72,13 +72,12 @@ import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 import ..Absyn.Path
 import ..AbsynUtil
-import ..Frontend.M_Type
-import ..Type
+import ..Frontend.ModelicaType
 import OpenModelicaParser.Absyn
 import ..toString
 
 const Key = Absyn.Path
-const Value = M_Type
+const Value = ModelicaType
 
 include("../Util/baseAvlTreeCode.jl")
 
@@ -111,7 +110,7 @@ function reconstructRecordInstance(
   local recordVar::Variable
   local record_node::InstNode
   local record_comp::Component
-  local record_ty::M_Type
+  local record_ty::ModelicaType
   local field_exps::List{Expression}
   local record_exp::Expression
   local record_binding::Binding
@@ -164,7 +163,7 @@ function reconstructRecordInstances(variables::Vector{Variable})
   local record_vars::List{Variable}
   local var::Variable
   local parent_cr::ComponentRef
-  local parent_ty::M_Type
+  local parent_ty::ModelicaType
   while !listEmpty(rest_vars)
     @match _cons(var, rest_vars) = rest_vars
     parent_cr = rest(var.name)
@@ -223,11 +222,11 @@ end
 function collectSubscriptedFlatType(
   exp::Expression,
   subs::List{<:Subscript},
-  subscriptedTy::M_Type,
+  subscriptedTy::ModelicaType,
   types::TypeTree,
 )::TypeTree
-  local exp_ty::M_Type
-  local sub_tyl::List{M_Type}
+  local exp_ty::ModelicaType
+  local sub_tyl::List{ModelicaType}
   local dims::List{Dimension}
   local strl::List{String}
   local name::String
@@ -251,7 +250,7 @@ function collectComponentFlatTypes(componentArg::InstNode, types::TypeTree)::Typ
   return types
 end
 
-function collectFunctionFlatTypes(fn::M_Function, types::TypeTree)::TypeTree
+function collectFunctionFlatTypes(fn::MODELICA_FUNCTION, types::TypeTree)::TypeTree
   types = foldComponents(
     classTree(getClass(fn.node)),
     collectComponentFlatTypes,
@@ -354,14 +353,14 @@ function collectStatementFlatTypes(stmt::Statement, types::TypeTree)::TypeTree
   return types
 end
 
-function collectAlgorithmFlatTypes(alg::Algorithm, types::TypeTree)::TypeTree
+function collectAlgorithmFlatTypes(alg::ALGORITHM, types::TypeTree)::TypeTree
 
   @assign types = ArrayUtil.fold(alg.statements, collectStatementFlatTypes, types)
   return types
 end
 
 function collectEqBranchFlatTypes(
-  branch::Equation_Branch,
+  branch::EquationBranch,
   types::TypeTree,
 )::TypeTree
   () = begin
@@ -449,7 +448,7 @@ function collectBindingFlatTypes(binding::Binding, types::TypeTree)::TypeTree
   return types
 end
 
-function collectFlatType(ty::M_Type, types::TypeTree)::TypeTree
+function collectFlatType(ty::ModelicaType, types::TypeTree)::TypeTree
   () = begin
     @match ty begin
       TYPE_ENUMERATION(__) => begin
@@ -489,7 +488,7 @@ function collectVariableFlatTypes(var::Variable, types::TypeTree)
   return types
 end
 
-function collectFlatTypes(flatModel::FlatModel, functions::List{<:M_Function})
+function collectFlatTypes(flatModel::FlatModel, functions::List{MODELICA_FUNCTION})
   local types::TypeTree
   types = TypeTreeImpl.new()
   types = ArrayUtil.fold(flatModel.variables, collectVariableFlatTypes, types)

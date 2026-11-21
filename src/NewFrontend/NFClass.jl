@@ -49,20 +49,20 @@ struct DAE_TYPE <: Class
   ty::DAE.Type
 end
 
-struct TYPED_DERIVED{T0 <: NFType, T1 <: InstNode, T2 <: Restriction} <: Class
+struct TYPED_DERIVED{T0 <: ModelicaType, T1 <: InstNode, T2 <: Restriction} <: Class
   ty::T0
   baseClass::T1
   restriction::T2
 end
 
 struct INSTANCED_BUILTIN <: Class
-  ty::NFType
+  ty::ModelicaType
   elements::ClassTree
   restriction::Restriction
 end
 
 struct INSTANCED_CLASS <: Class
-  ty::NFType
+  ty::ModelicaType
   elements::ClassTree
   sections::Sections
   restriction::Restriction
@@ -85,7 +85,7 @@ struct EXPANDED_CLASS <: Class
 end
 
 struct PARTIAL_BUILTIN <: Class
-  ty::NFType
+  ty::ModelicaType
   elements::ClassTree
   modifier::Modifier
   prefixes::Prefixes
@@ -185,7 +185,7 @@ returned, not failed: a failure outside a cheap-throw scope, in a task of the pa
 """
 function makeRecordExp(clsNode::InstNode)::Union{Nothing, Expression}
   local cls::Class
-  local ty::M_Type
+  local ty::ModelicaType
   local ty_node::InstNode
   local fields::Vector{InstNode}
   @assign cls = getClass(clsNode)
@@ -445,7 +445,7 @@ function restriction(cls::Class)::Restriction
   return res
 end
 
-function setType(ty::M_Type, @nospecialize(cls::Class))
+function setType(ty::ModelicaType, @nospecialize(cls::Class))
    () = begin
     @match cls begin
       PARTIAL_BUILTIN(__) => begin
@@ -481,8 +481,8 @@ function setType(ty::M_Type, @nospecialize(cls::Class))
   return cls
 end
 
-function getType(cls::Class, clsNode::InstNode)::NFType
-  local ty::NFType
+function getType(cls::Class, clsNode::InstNode)::ModelicaType
+  local ty::ModelicaType
   @assign ty = begin
     @match cls begin
       PARTIAL_BUILTIN(__) => begin
@@ -889,7 +889,7 @@ end
 
 function fromEnumeration(
   literals::List{<:SCode.Enum},
-  enumType::M_Type,
+  enumType::ModelicaType,
   prefixes::Prefixes,
   enumClass::InstNode)
   local cls::Class

@@ -236,11 +236,11 @@ end
 """
   Checks that the left-hand sides of the given if-equation branches consists
   of the same set of crefs, and adds that set to the given set of crefs (omc's
-  NFVerifyModel.whenEquationIfCrefs; the branches are the if-equation's
-  `Equation_Branch`es: an if-equation in an elsewhen was a MethodError).
+  VerifyModel.whenEquationIfCrefs; the branches are the if-equation's
+  `EquationBranch`es: an if-equation in an elsewhen was a MethodError).
 """
 function whenEquationIfCrefs(
-  branches::Union{List{<:Equation_Branch}, Vector{<:Equation_Branch}},
+  branches::Union{List{<:EquationBranch}, Vector{<:EquationBranch}},
   source::DAE.ElementSource,
   crefs::List{<:ComponentRef},
 )::List{ComponentRef}
@@ -317,12 +317,12 @@ end
 
 """ Checks that each branch in a when-equation has the same set of crefs on the lhs. """
 function verifyWhenEquation(
-  branches::List{<:Equation_Branch},
+  branches::List{<:EquationBranch},
   source::DAE.ElementSource,
 )
   local crefs1::List{ComponentRef}
   local crefs2::List{ComponentRef}
-  local rest_branches::List{Equation_Branch}
+  local rest_branches::List{EquationBranch}
   local body::Vector{Equation}
   #=  Only when-equation with more than one branch needs to be checked. =#
   if ListUtil.hasOneElement(branches)

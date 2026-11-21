@@ -64,24 +64,8 @@ end #=ParameterTreeImpl=#
 const ParameterTree = ParameterTreeImpl.Tree
 
 
-abstract type CallAttributes end
-
-"""
-```CALL_ATTR```
-This struct specifies the attributes for a call.
-"""
-mutable struct CALL_ATTR <: CallAttributes
-  tuple_::Bool #=tuple =#
-  builtin::Bool #=builtin Function call =#
-  isImpure::Bool #=if the function has prefix *impure* is true, else false =#
-  isFunctionPointerCall::Bool
-  inlineType::DAE.InlineType
-  tailCall::DAE.TailCall #=Input variables of the function if the call is tail-recursive =#
-end
-
-@UniontypeDecl CallAttributes
-
-function toDAE(attr::CallAttributes, returnType::NFType)::DAE.CallAttributes
+#= CALL_ATTR is defined in FrontendInterfaces/NFInterfaces.jl, before Call. =#
+function toDAE(attr::CALL_ATTR, returnType::ModelicaType)::DAE.CallAttributes
   local fattr::DAE.CallAttributes
    fattr = DAE.CALL_ATTR(
      toDAE(returnType),
@@ -95,12 +79,12 @@ function toDAE(attr::CallAttributes, returnType::NFType)::DAE.CallAttributes
   return fattr
 end
 
-function typeCast(callExp::CALL_EXPRESSION, ty::NFType)
+function typeCast(callExp::CALL_EXPRESSION, ty::ModelicaType)
   @match CALL_EXPRESSION(call = call) = callExp
   return _typeCastCall(call, ty, callExp)
 end
 
-function _typeCastCall(call::Call, ty::NFType, callExp::CALL_EXPRESSION)
+function _typeCastCall(call::Call, ty::ModelicaType, callExp::CALL_EXPRESSION)
   if isvariant(call, TYPED_CALL)
     isBuiltin(call.fn) || return CAST_EXPRESSION(setArrayElementType(typeOf(call), ty), callExp)
     local cast_ty = setArrayElementType(call.ty, ty)
@@ -123,7 +107,7 @@ end
 function retype(call::Call)::Call
 
    () = begin
-    local ty::NFType
+    local ty::ModelicaType
     local dims::List{Dimension}
     @match call begin
       TYPED_ARRAY_CONSTRUCTOR(__) => begin
@@ -151,7 +135,7 @@ function isVectorizeable(call::Call)::Bool
   isVect = begin
     local name::String
     @match call begin
-      TYPED_CALL(fn = M_FUNCTION(path = Absyn.IDENT(name = name))) => begin
+      TYPED_CALL(fn = MODELICA_FUNCTION(path = Absyn.IDENT(name = name))) => begin
         begin
           @match name begin #TODO add other special functions here.
             "der" => begin
@@ -473,7 +457,7 @@ function toString(call::Call)::String
   return str
 end
 
-function toRecordExpression(call::Call, ty::NFType)::Expression
+function toRecordExpression(call::Call, ty::ModelicaType)::Expression
   local exp::Expression
    exp = begin
     @match call begin
@@ -539,8 +523,8 @@ function functionName(call::Call)::Absyn.Path
   return nameV
 end
 
-function typedFunction(call::Call)::M_Function
-  local fn::M_Function
+function typedFunction(call::Call)::MODELICA_FUNCTION
+  local fn::MODELICA_FUNCTION
    fn = begin
     @match call begin
       TYPED_CALL(__) => begin
@@ -717,7 +701,7 @@ function variability(call::Call)::VariabilityType
   return var
 end
 
-function setType(call::Call, ty::NFType)
+function setType(call::Call, ty::ModelicaType)
   local callWithNewType = if isvariant(call, TYPED_CALL)
     TYPED_CALL(call.fn, ty, call.var, call.arguments, call.attributes)
   elseif isvariant(call, TYPED_ARRAY_CONSTRUCTOR)
@@ -729,8 +713,8 @@ function setType(call::Call, ty::NFType)
   return callWithNewType
 end
 
-function typeOf(call::Call)::NFType
-  local ty::NFType
+function typeOf(call::Call)::ModelicaType
+  local ty::ModelicaType
    ty = begin
     @match call begin
       TYPED_CALL(__) || TYPED_ARRAY_CONSTRUCTOR(__) ||  TYPED_REDUCTION(__) =>  begin
@@ -745,14 +729,14 @@ function typeOf(call::Call)::NFType
 end
 
 function matchTypedNormalCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Call
-  local func::M_Function
+  local func::MODELICA_FUNCTION
   local args::Vector{Expression}
   local typed_args::Vector{TypedArg}
   local matchedFunc::MatchedFunction
   local scope::InstNode
   local var::VariabilityType
   local arg_var::VariabilityType
-  local ty::NFType
+  local ty::ModelicaType
   local arg_exp::Expression
   @match ARG_TYPED_CALL(call_scope = scope) = call
    matchedFunc = checkMatchingFunctions(call, info)
@@ -834,13 +818,13 @@ function unboxArgs(call::Call)::Call
 end
 
 function makeTypedCall(
-  @nospecialize(fn::M_Function),
+  @nospecialize(fn::MODELICA_FUNCTION),
   @nospecialize(args::Vector{Expression}),
   @nospecialize(variability::VariabilityType),
-  returnType::NFType = fn.returnType,
+  returnType::ModelicaType = fn.returnType,
 )::Call
   local call::Call
-  local ca::CallAttributes
+  local ca::CALL_ATTR
    ca = CALL_ATTR(
     isTuple(returnType),
     isBuiltin(fn),
@@ -854,7 +838,7 @@ function makeTypedCall(
 end
 
 function typeNormalCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Call
-  local fnl::Vector{M_FUNCTION} = typeRefCache(call.ref)
+  local fnl::Vector{MODELICA_FUNCTION} = typeRefCache(call.ref)
   call = typeArgs(call, origin, info)
   return call
 end
@@ -874,7 +858,7 @@ function typeCall(
   callExp::Expression,
   origin::ORIGIN_Type,
   info::SourceInfo,
-  )::Tuple{Expression, NFType, Int64}
+  )::Tuple{Expression, ModelicaType, Int64}
   arg1 = callExp
   arg2 = origin
   arg3 = info
@@ -895,9 +879,9 @@ function typeCall2(
   callExp::CALL_EXPRESSION,
   origin::ORIGIN_Type,
   info::SourceInfo,
-  )::Tuple{Expression, NFType, Int64}
+  )::Tuple{Expression, ModelicaType, Int64}
   local var::VariabilityType
-  local ty::NFType
+  local ty::ModelicaType
   local outExp::Expression
   local call::Call
   local ty_call::Call
@@ -973,8 +957,8 @@ function instantiate(
   return callExp
 end
 
-function getSpecialReturnType(fn::M_Function, args::Vector{Expression})::NFType
-  local ty::NFType
+function getSpecialReturnType(fn::MODELICA_FUNCTION, args::Vector{Expression})::ModelicaType
+  local ty::ModelicaType
 
    ty = begin
     @match fn.path begin
@@ -1041,7 +1025,7 @@ end
 #= A polymorphic output's type from the input of the same polymorphic type, less that input's
    dimensions (`T[:]` and Real[2, 3] give T = Real[3]); noClock(u) is u's type (omc
    resolvePolymorphicReturnType). =#
-function resolvePolymorphicReturnType(fn::M_Function, args::Vector{Expression}, ty::NFType)::NFType
+function resolvePolymorphicReturnType(fn::MODELICA_FUNCTION, args::Vector{Expression}, ty::ModelicaType)::ModelicaType
   if isvariant(ty, TYPE_POLYMORPHIC)
     local i = 0
     for inp in fn.inputs
@@ -1093,11 +1077,11 @@ function evaluateCallTypeDimExp(@nospecialize(exp::Expression), ptree::Parameter
 end
 
 function buildParameterTree(
-  fnArgs::Tuple{M_Function, Vector{Expression}},
+  fnArgs::Tuple{MODELICA_FUNCTION, Vector{Expression}},
   ptree::ParameterTree,
   )::ParameterTree
   #@info "Constructing a parameter tree...."
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local arg::Expression
   if !(ParameterTreeImpl.isEmpty(ptree))
     return ptree
@@ -1116,7 +1100,7 @@ end
 
 function evaluateCallTypeDim(
   dim::Dimension,
-  fnArgs::Tuple{M_Function, Vector{Expression}},
+  fnArgs::Tuple{MODELICA_FUNCTION, Vector{Expression}},
   ptree::ParameterTree,
   )::Tuple{Dimension, ParameterTree}
    dim = begin
@@ -1149,15 +1133,15 @@ function evaluateCallTypeDim(
 end
 
 function evaluateCallType(
-  ty::NFType,
-  fn::M_Function,
+  ty::ModelicaType,
+  fn::MODELICA_FUNCTION,
   args::Vector{Expression},
   ptree::ParameterTree = ParameterTreeImpl.EMPTY(),
   outputIndex::Int = 1,
-  )::Tuple{NFType, ParameterTree}
+  )::Tuple{ModelicaType, ParameterTree}
    ty = begin
     local dims::List{Dimension}
-    local tys::Vector{NFType}
+    local tys::Vector{ModelicaType}
     @match ty begin
       TYPE_ARRAY(__) => begin
         (dims, ptree) = ListUtil.map1Fold(ty.dimensions, evaluateCallTypeDim, (fn, args), ptree)
@@ -1165,7 +1149,7 @@ function evaluateCallType(
         TYPE_ARRAY(ty.elementType, tyDimensions)
       end
       TYPE_TUPLE(__) => begin
-        tys = NFType[]
+        tys = ModelicaType[]
         for (i, t) in enumerate(ty.types)
           (t, ptree) = evaluateCallType(t, fn, args, ptree, i)
           push!(tys, t)
@@ -1240,8 +1224,8 @@ function vectorizeCall(
   )::Call
   #@info "vectorizeCall" toString(base_call)
   local vectorized_call::Call
-  local ty::NFType
-  local vect_ty::NFType
+  local ty::ModelicaType
+  local vect_ty::ModelicaType
   local exp::Expression
   local iters::List{Tuple{InstNode, Expression}}
   local iter::InstNode
@@ -1338,8 +1322,8 @@ function checkMatchingFunctions(call::Call, info::SourceInfo)
   local matchedFunc::MatchedFunction
   local matchedFunctions::Vector{MatchedFunction}
   local exactMatches::Vector{MatchedFunction}
-  local func::M_Function
-  local allfuncs::Vector{M_Function}
+  local func::MODELICA_FUNCTION
+  local allfuncs::Vector{MODELICA_FUNCTION}
   local fn_node::InstNode
   local numerr::Int = 0 # TODO Error.getNumErrorMessages()
   local errors::List{Int}
@@ -1350,7 +1334,7 @@ function checkMatchingFunctions(call::Call, info::SourceInfo)
       ARG_TYPED_CALL(ref = COMPONENT_REF_CREF(node = fn_node)) => begin
         allfuncs = getCachedFuncs(fn_node)
         if length(allfuncs) > 1
-          allfuncs = M_FUNCTION[fn for fn in allfuncs if !isDefaultRecordConstructor(fn)]
+          allfuncs = MODELICA_FUNCTION[fn for fn in allfuncs if !isDefaultRecordConstructor(fn)]
         end
         matchFunctions(allfuncs, call.arguments, call.named_args, info)
       end
@@ -1402,7 +1386,7 @@ function checkMatchingFunctions(call::Call, info::SourceInfo)
   if isBuiltin(matchedFunc.func)
     func = matchedFunc.func
     local funcPath = nameConsiderBuiltin(func)
-    func = M_FUNCTION(funcPath,
+    func = MODELICA_FUNCTION(funcPath,
                func.node,
                func.inputs,
                func.outputs,
@@ -1422,7 +1406,7 @@ end
 function typeArgs(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Call
    call = begin
     local arg::Expression
-    local arg_ty::NFType
+    local arg_ty::ModelicaType
     local arg_var::VariabilityType
     local typedArgs::Vector{TypedArg}
     local typedNamedArgs::Vector{TypedNamedArg}
@@ -1432,7 +1416,7 @@ function typeArgs(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Call
       UNTYPED_CALL(__) => begin
         typedArgs = Vector{TypedArg}(undef, length(call.arguments))
         next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
-        local tyRef = Ref{NFType}(TYPE_UNKNOWN())
+        local tyRef = Ref{ModelicaType}(TYPE_UNKNOWN())
         local varRef = Ref{VariabilityType}(Variability.CONSTANT)
         for (i, arg) in enumerate(call.arguments)
           e = typeExp2(arg, next_origin, info, tyRef, varRef)
@@ -1441,7 +1425,7 @@ function typeArgs(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Call
         typedNamedArgs = Vector{TypedNamedArg}(undef, length(call.named_args))
         for (i,narg) in enumerate(call.named_args)
           #(name, arg) = narg
-          typedNamedArgs[i] = (narg[1], typeExp(narg[2], next_origin, info)...)#::Tuple{Expression, NFType, Int}
+          typedNamedArgs[i] = (narg[1], typeExp(narg[2], next_origin, info)...)#::Tuple{Expression, ModelicaType, Int}
           # = T#(name, arg, arg_ty, arg_var)
         end
         ARG_TYPED_CALL(call.ref, typedArgs, typedNamedArgs, call.call_scope)
@@ -1451,7 +1435,7 @@ function typeArgs(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Call
   return call
 end
 
-function reductionFoldIterator(name::String, ty::NFType)::Expression
+function reductionFoldIterator(name::String, ty::ModelicaType)::Expression
   local iterExp::Expression
 
    iterExp = CREF_EXPRESSION(
@@ -1462,17 +1446,17 @@ function reductionFoldIterator(name::String, ty::NFType)::Expression
 end
 
 function reductionFoldExpression(
-  reductionFn::M_Function,
-  reductionType::NFType,
+  reductionFn::MODELICA_FUNCTION,
+  reductionType::ModelicaType,
   reductionVar::VariabilityType,
   foldId::String,
   resultId::String,
 )::Option{Expression}
   local foldExp::Option{Expression}
 
-  local ty::NFType
+  local ty::ModelicaType
   local op_node::InstNode
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
 
   if isComplex(reductionType)
      foldExp = begin
@@ -1549,7 +1533,7 @@ function reductionFoldExpression(
   return foldExp
 end
 
-function reductionDefaultValue(fn::M_Function, ty::NFType)::Option{Expression}
+function reductionDefaultValue(fn::MODELICA_FUNCTION, ty::ModelicaType)::Option{Expression}
   local defaultValue::Option{Expression}
 
   if isArray(ty)
@@ -1595,9 +1579,9 @@ function typeReduction(
   call::Call,
   origin::ORIGIN_Type,
   info::SourceInfo,
-)::Tuple{Call, NFType, VariabilityType}
+)::Tuple{Call, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::NFType
+  local ty::ModelicaType
   local range::Expression
   local arg::Expression
   local default_exp::Option{Expression}
@@ -1607,7 +1591,7 @@ function typeReduction(
   local exp_var::VariabilityType
   local iters::List{Tuple{InstNode, Expression}} = nil
   local next_origin::ORIGIN_Type
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local fold_id::String
   local res_id::String
   local fold_tuple::Tuple{Option{Expression}, String, String}
@@ -1661,12 +1645,12 @@ function typeArrayConstructor(
   call::Call,
   @nospecialize(origin::ORIGIN_Type),
   @nospecialize(info::SourceInfo),
-)::Tuple{Call, NFType, VariabilityType}
+)::Tuple{Call, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::NFType
+  local ty::ModelicaType
   local arg::Expression
   local range::Expression
-  local iter_ty::NFType
+  local iter_ty::ModelicaType
   local iter_var::VariabilityType
   local exp_var::VariabilityType
   local iter::InstNode
@@ -1689,7 +1673,7 @@ function typeArrayConstructor(
             range = deduceIterationRangeExp(CALL_EXPRESSION(call), iter, info)
           end
           (range, iter_ty, iter_var) =
-            Base.inferencebarrier(typeIterator(iter, range, next_origin, is_structural)::Tuple{Expression, NFType, VariabilityType})
+            Base.inferencebarrier(typeIterator(iter, range, next_origin, is_structural)::Tuple{Expression, ModelicaType, VariabilityType})
           if is_structural
             local erange = evalExp(range, EVALTARGET_RANGE(info))
             #= Not a value over the enclosing arrays of components, more dimensions than the range
@@ -1737,7 +1721,7 @@ function instIterators(
   local outScope::InstNode = scope
   local range::Expression
   local iter::InstNode
-  local ty::NFType
+  local ty::ModelicaType
   #= Last to first, so a range can use a later iterator (`j in 1:i, i in 1:4`, omc instIterators). =#
   for i in listReverse(inIters)
     #= A missing range (`{x[i] for i}`) is deduced during typing from the subscripts the iterator

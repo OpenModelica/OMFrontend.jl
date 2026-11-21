@@ -110,7 +110,7 @@ function bindingExpMap3(@nospecialize(exp::Expression), evalFunc::EvalFunc, subs
   local result::Expression
   local e1::Expression
   local e2::Expression
-  local op::Operator
+  local op::OPERATOR
    result = map(exp, @closure (x) -> bindingExpMap4(x, subs)) #TODO?
    result = evalFunc(result)
   result
@@ -118,8 +118,8 @@ end
 
 function bindingExpMap2(@nospecialize(exp::Expression), evalFunc::EvalFunc, mostPropagatedCount::Int, @nospecialize(mostPropagatedExp::Expression))
   local result::Expression
-  local exp_ty::M_Type
-  local bind_ty::M_Type
+  local exp_ty::ModelicaType
+  local bind_ty::ModelicaType
   local dims::List{Dimension}
   local e::Expression
   local parents::List{InstNode}
@@ -179,8 +179,8 @@ end
   number of dimensions it's been propagated through.
 """
 function bindingExpType(@nospecialize(exp::Expression), propagatedDimCount::Int)
-  local bindingType::M_Type
-  local expType::M_Type
+  local bindingType::ModelicaType
+  local expType::ModelicaType
   expType = typeOf(exp)
   bindingType = if propagatedDimCount > 0
     unliftArrayN(propagatedDimCount, expType)
@@ -267,7 +267,7 @@ function isBindingExp(@nospecialize(exp::Expression)) ::Bool
   isBindingExp
 end
 
-function nthEnumLiteral(ty::M_Type, n::Int) ::Expression
+function nthEnumLiteral(ty::ModelicaType, n::Int) ::Expression
   local exp::Expression
   exp = ENUM_LITERAL_EXPRESSION(ty, nthEnumLiteral(ty, n), n)
   exp
@@ -343,7 +343,7 @@ function splitRecordCref(@nospecialize(exp::Expression)) ::Expression
     local cls::InstNode
     local cr::ComponentRef
     local field_cr::ComponentRef
-    local ty::M_Type
+    local ty::ModelicaType
     @match outExp begin
       CREF_EXPRESSION(ty = TYPE_COMPLEX(cls = cls), cref = cr)  => begin
         local comps::Vector{InstNode} = getComponents(classTree(getClass(cls)))
@@ -465,7 +465,7 @@ function recordElement(elementName::String, @nospecialize(recordExp::Expression)
     local node::InstNode
     local cls::Class
     local cls_tree::ClassTree
-    local ty::M_Type
+    local ty::ModelicaType
     local index::Int
     local expl::List{Expression}
     local cref::ComponentRef
@@ -538,10 +538,10 @@ function recordElement(elementName::String, @nospecialize(recordExp::Expression)
   outExp
 end
 
-function tupleElement(@nospecialize(exp::Expression), ty::M_Type, index::Int) ::Expression
+function tupleElement(@nospecialize(exp::Expression), ty::ModelicaType, index::Int) ::Expression
   local tupleElem::Expression
   tupleElem = begin
-    local ety::M_Type
+    local ety::ModelicaType
     @match exp begin
       TUPLE_EXPRESSION(__)  => begin
         listGet(exp.elements, index)
@@ -814,11 +814,11 @@ end
   var
 end
 
-function promote2(@nospecialize(exp::Expression), isArray::Bool, dims::Int, types::List{<:M_Type}) ::Expression
+function promote2(@nospecialize(exp::Expression), isArray::Bool, dims::Int, types::List{<:ModelicaType}) ::Expression
   local outExp::Expression
    outExp = begin
-    local ty::M_Type
-    local rest_ty::List{M_Type}
+    local ty::ModelicaType
+    local rest_ty::List{ModelicaType}
     local arr_exp::Expression
     local expanded::Bool
     #=  No types left, we're done!
@@ -860,10 +860,10 @@ function promote2(@nospecialize(exp::Expression), isArray::Bool, dims::Int, type
   outExp
 end
 
-function promote(@nospecialize(e::Expression), ty::M_Type, n::Int) ::Tuple{Expression, M_Type}
+function promote(@nospecialize(e::Expression), ty::ModelicaType, n::Int) ::Tuple{Expression, ModelicaType}
   local dims::List{Dimension}
-  local ety::M_Type
-  local tys::List{M_Type} = nil
+  local ety::ModelicaType
+  local tys::List{ModelicaType} = nil
   local is_array::Bool
   #=  Construct the dimensions that needs to be added. =#
    dims = list(fromInteger(1) for i in dimensionCount(ty):n - 1)
@@ -873,7 +873,7 @@ function promote(@nospecialize(e::Expression), ty::M_Type, n::Int) ::Tuple{Expre
      ety = arrayElementType(ty)
      ty = liftArrayLeftList(ety, dims)
     while ! listEmpty(dims)
-       tys = Cons{NFType}(liftArrayLeftList(ety, dims), tys)
+       tys = Cons{ModelicaType}(liftArrayLeftList(ety, dims), tys)
        dims = listRest(dims)
     end
      e = promote2(e, is_array, n, listReverse(tys))
@@ -886,10 +886,10 @@ function promote(@nospecialize(e::Expression), ty::M_Type, n::Int) ::Tuple{Expre
   (e, ty)
 end
 
-function promoteRef(@nospecialize(e::Expression), ty::M_Type, n::Int, tyRef::Ref{NFType})::Expression
+function promoteRef(@nospecialize(e::Expression), ty::ModelicaType, n::Int, tyRef::Ref{ModelicaType})::Expression
   local dims::List{Dimension}
-  local ety::M_Type
-  local tys::List{M_Type} = nil
+  local ety::ModelicaType
+  local tys::List{ModelicaType} = nil
   local is_array::Bool
   #=  Construct the dimensions that needs to be added. =#
    dims = list(fromInteger(1) for i in dimensionCount(ty):n - 1)
@@ -899,7 +899,7 @@ function promoteRef(@nospecialize(e::Expression), ty::M_Type, n::Int, tyRef::Ref
      ety = arrayElementType(ty)
      ty = liftArrayLeftList(ety, dims)
     while ! listEmpty(dims)
-       tys = Cons{NFType}(liftArrayLeftList(ety, dims), tys)
+       tys = Cons{ModelicaType}(liftArrayLeftList(ety, dims), tys)
        dims = listRest(dims)
     end
      e = promote2(e, is_array, n, listReverse(tys))
@@ -913,14 +913,14 @@ function promoteRef(@nospecialize(e::Expression), ty::M_Type, n::Int, tyRef::Ref
   e
 end
 
-function makeIdentityMatrix(n::Int, elementType::M_Type) ::Expression
+function makeIdentityMatrix(n::Int, elementType::ModelicaType) ::Expression
   local matrix::Expression
 
   local zero::Expression
   local one::Expression
   local row::List{Expression}
   local rows::List{Expression} = nil
-  local row_ty::M_Type
+  local row_ty::ModelicaType
 
   zero = makeZero(elementType)
   one = makeOne(elementType)
@@ -946,8 +946,8 @@ function transposeArray(@nospecialize(arrayExp::Expression)) ::Expression
   local dim1::Dimension
   local dim2::Dimension
   local rest_dims::List{Dimension}
-  local ty::M_Type
-  local row_ty::M_Type
+  local ty::ModelicaType
+  local row_ty::ModelicaType
   local expl::Vector{Expression}
   local matrix::Vector{Vector{Expression}}
   local literal::Bool
@@ -966,7 +966,7 @@ end
 function hasArrayCall2(@nospecialize(exp::Expression)) ::Bool
   local hasArrayCall::Bool
   local call::Call
-  local ty::M_Type
+  local ty::ModelicaType
   hasArrayCall = begin
     @match exp begin
       CALL_EXPRESSION(call = call)  => begin
@@ -1093,7 +1093,7 @@ function unbox(@nospecialize(boxedExp::Expression)) ::Expression
   local exp::Expression
 
    exp = begin
-    local ty::M_Type
+    local ty::ModelicaType
     @match boxedExp begin
       BOX_EXPRESSION(__)  => begin
         boxedExp.exp
@@ -1129,7 +1129,7 @@ function box(@nospecialize(exp::Expression)) ::Expression
   boxedExp
 end
 
-function makeMinValue(ty::M_Type) ::Expression
+function makeMinValue(ty::ModelicaType) ::Expression
   local exp::Expression
 
    exp = begin
@@ -1158,7 +1158,7 @@ function makeMinValue(ty::M_Type) ::Expression
   exp
 end
 
-function makeMaxValue(ty::M_Type) ::Expression
+function makeMaxValue(ty::ModelicaType) ::Expression
   local exp::Expression
 
    exp = begin
@@ -1187,7 +1187,7 @@ function makeMaxValue(ty::M_Type) ::Expression
   exp
 end
 
-function makeOne(ty::M_Type) ::Expression
+function makeOne(ty::ModelicaType) ::Expression
   local zeroExp::Expression
 
    zeroExp = begin
@@ -1211,7 +1211,7 @@ end
 function makeOperatorRecordZero(recordNode::InstNode) ::Expression
   local zeroExp::Expression
   local op_node::InstNode
-  local fn::M_FUNCTION
+  local fn::MODELICA_FUNCTION
   op_node = lookupElementNode("'0'", getClass(recordNode))
   instFunctionNode(op_node)
   fns = typeNodeCache(op_node)
@@ -1221,7 +1221,7 @@ function makeOperatorRecordZero(recordNode::InstNode) ::Expression
   zeroExp
 end
 
-function makeZero(ty::M_Type) ::Expression
+function makeZero(ty::ModelicaType) ::Expression
   local zeroExp::Expression
 
    zeroExp = begin
@@ -1250,8 +1250,8 @@ end
   Creates an array with the given dimension, where each element is the given
   expression. Example: liftArray([3], 1) => {1, 1, 1}
 """
-function liftArray(dim::Dimension, @nospecialize(exp::Expression)) ::Tuple{Expression, M_Type}
-  local arrayType::M_Type = typeOf(exp)
+function liftArray(dim::Dimension, @nospecialize(exp::Expression)) ::Tuple{Expression, ModelicaType}
+  local arrayType::ModelicaType = typeOf(exp)
   local expl::Vector{Expression} = Expression[]
   for i in 1:size(dim)
     #expl = _cons(exp, expl)
@@ -1266,11 +1266,11 @@ end
   Creates an array with the given type, filling it with the given scalar
   expression.
 """
-function fillType(ty::M_Type, @nospecialize(fillExp::Expression)) ::Expression
+function fillType(ty::ModelicaType, @nospecialize(fillExp::Expression)) ::Expression
   local exp::Expression = fillExp
   local dims::List{Dimension} = arrayDims(ty)
   local expl::Vector{Expression}
-  local arr_ty::M_Type = arrayElementType(ty)
+  local arr_ty::ModelicaType = arrayElementType(ty)
   #= Innermost dimension first: each pass lifts the array by one dimension on the left. =#
   for dim in listReverse(dims)
     expl  = Expression[]
@@ -1483,7 +1483,7 @@ end
 omc Expression.makeDefaultValue: a value of type ty for a variable without a start value:
 0 (min if min >= 0, max if max <= 0), "", false, the first enumeration literal (min if given).
 """
-function makeDefaultValue(ty::NFType, min::Union{Expression, Nothing} = nothing,
+function makeDefaultValue(ty::ModelicaType, min::Union{Expression, Nothing} = nothing,
                           max::Union{Expression, Nothing} = nothing)::Expression
   if isInteger(ty) || isReal(ty)
     min !== nothing && isNonNegative(min) && return min
@@ -2140,7 +2140,7 @@ end
     local tnargs::Vector{TypedNamedArg}
     local s::String
     local e::Expression
-    local t::M_Type
+    local t::ModelicaType
     local v::VariabilityType
     local iters::List{Tuple{InstNode, Expression}}
     local default_exp::Option{Expression}
@@ -3024,7 +3024,7 @@ end
     local tnargs::Vector{TypedNamedArg}
     local s::String
     local e::Expression
-    local t::M_Type
+    local t::ModelicaType
     local v::VariabilityType
     local iters::List{Tuple{InstNode, Expression}}
     local default_exp::Option{Expression}
@@ -3480,7 +3480,7 @@ end
     local tnargs::Vector{TypedNamedArg}
     local s::String
     local e::Expression
-    local t::M_Type
+    local t::ModelicaType
     local v::VariabilityType
     local iters::List{Tuple{InstNode, Expression}}
     local default_exp::Option{Expression}
@@ -3909,7 +3909,7 @@ end
   dimCount
 end
 
-function toDAEValueRecord(ty::M_Type, path::Absyn.Path, args::List{<:Expression}) ::Values.Value
+function toDAEValueRecord(ty::ModelicaType, path::Absyn.Path, args::List{<:Expression}) ::Values.Value
   local value::Values.Value
 
   local field_names::List{String} = nil
@@ -3943,7 +3943,7 @@ end
   local value::Values.Value
 
    value = begin
-    local ty::M_Type
+    local ty::ModelicaType
     local vals::List{Values.Value}
     local fields::List{Field}
     local field_names::List{String}
@@ -3991,11 +3991,11 @@ function toDAEValueOpt(exp::Option{<:Expression}) ::Option{Values.Value}
   value
 end
 
-function toDAERecord(ty::M_Type, path::Absyn.Path, args::Vector{<:Expression}) ::DAE.Exp
+function toDAERecord(ty::ModelicaType, path::Absyn.Path, args::Vector{<:Expression}) ::DAE.Exp
   toDAERecord(ty, path, list(args...))
 end
 
-function toDAERecord(ty::M_Type, path::Absyn.Path, args::List{<:Expression}) ::DAE.Exp
+function toDAERecord(ty::ModelicaType, path::Absyn.Path, args::List{<:Expression}) ::DAE.Exp
   local exp::DAE.Exp
 
   local field_names::List{String} = nil
@@ -4040,7 +4040,7 @@ end
 #= The bound arguments of `function f(b = e, ...)` in the function's input order (they are
    in the order written; the DAE has no names: the backend places them by the inputs the
    partial application's type no longer has). =#
-function _partialArgsInInputOrder(exp::PARTIAL_FUNCTION_APPLICATION_EXPRESSION, fn::M_Function)::Vector{Expression}
+function _partialArgsInInputOrder(exp::PARTIAL_FUNCTION_APPLICATION_EXPRESSION, fn::MODELICA_FUNCTION)::Vector{Expression}
   local position = Dict{String, Int}(name(n) => k for (k, n) in enumerate(fn.inputs))
   local args = Expression[a for a in exp.args]
   local order = sortperm([get(position, nm, typemax(Int)) for nm in exp.argNames])
@@ -4051,13 +4051,13 @@ end
   local dexp::DAE.Exp
   local changed::Bool = true
    dexp = begin
-    local ty::M_Type
+    local ty::ModelicaType
     local daeOp::DAE.Operator
     local swap::Bool
     local dae1::DAE.Exp
     local dae2::DAE.Exp
     local names::List{String}
-    local fn::M_Function
+    local fn::MODELICA_FUNCTION
     @match exp begin
       INTEGER_EXPRESSION(__)  => begin
         DAE.ICONST(exp.value)
@@ -4385,8 +4385,8 @@ end
 
 function toFlatSubscriptedString(@nospecialize(exp::Expression), subs::List{<:Subscript}; inFunction = false)
   local str::String
-  local exp_ty::M_Type
-  local sub_tyl::List{M_Type}
+  local exp_ty::ModelicaType
+  local sub_tyl::List{ModelicaType}
   local dims::List{Dimension}
   local strl::List{String}
   local name::String
@@ -4415,7 +4415,7 @@ end
 
 @nospecializeinfer function toFlatString(exp::Expression; inFunction = false)
   local str::String
-  local t::M_Type
+  local t::ModelicaType
   local clk::ClockKind
   str = begin
     @match exp begin
@@ -4609,7 +4609,7 @@ end
 
 @nospecializeinfer function toString(@nospecialize(exp::Expression))
   local str::String
-  local t::M_Type
+  local t::ModelicaType
   local clk::ClockKind
   str = begin
     @match exp begin
@@ -4810,7 +4810,7 @@ function toInteger(@nospecialize(exp::Expression)) ::Int
   i
 end
 
-function makeEnumLiterals(enumType::M_Type) ::List{Expression}
+function makeEnumLiterals(enumType::ModelicaType) ::List{Expression}
   local literals::List{Expression}
 
   local lits::List{String}
@@ -4820,7 +4820,7 @@ function makeEnumLiterals(enumType::M_Type) ::List{Expression}
   literals
 end
 
-function makeEnumLiteral(enumType::M_Type, index::Int) ::Expression
+function makeEnumLiteral(enumType::ModelicaType, index::Int) ::Expression
   local literal::Expression
 
   local literals::List{String}
@@ -4830,17 +4830,17 @@ function makeEnumLiteral(enumType::M_Type, index::Int) ::Expression
   literal
 end
 
-function arrayFromList(inExps::List{<:Expression}, elemTy::M_Type, inDims::List{<:Dimension}) ::Expression
+function arrayFromList(inExps::List{<:Expression}, elemTy::ModelicaType, inDims::List{<:Dimension}) ::Expression
   local outExp::Expression
   outExp = arrayFromList_impl(inExps, elemTy, listReverse(inDims))
   outExp
 end
 
-function arrayFromList_impl(inExps::List{<:Expression}, elemTy::M_Type, inDims::List{<:Dimension}) ::Expression
+function arrayFromList_impl(inExps::List{<:Expression}, elemTy::ModelicaType, inDims::List{<:Dimension}) ::Expression
   local outExp::Expression
   local ldim::Dimension
   local restdims::List{Dimension}
-  local ty::M_Type
+  local ty::ModelicaType
   local newlst::List{Expression}
   local partexps::List{List{Expression}}
   local dimsize::Int
@@ -4867,18 +4867,18 @@ end
 """
 Same as arrayFromList but for ```Vector{Expression}```
 """
-function arrayFromVector(inExps::Vector{Expression}, elemTy::M_Type, inDims::List{Dimension})::Expression
+function arrayFromVector(inExps::Vector{Expression}, elemTy::ModelicaType, inDims::List{Dimension})::Expression
   local outExp::Expression
   outExp = arrayFromVectorImpl(inExps, elemTy, listReverse(inDims))
 end
 
 function arrayFromVectorImpl(inExps::Vector{Expression},
-                             elemTy::M_Type,
+                             elemTy::ModelicaType,
                              inDims::List{Dimension})::Expression
   local outExp::Expression
   local ldim::Dimension
   local restdims::List{Dimension}
-  local ty::M_Type
+  local ty::ModelicaType
   local newVec::Vector{Expression}
   local partexps::Vector{Vector{Expression}} #=A Vector of Vectors...=#
   local dimsize::Int
@@ -4935,7 +4935,7 @@ function makeSubscriptedExp(subscripts::List{<:Subscript}, @nospecialize(exp::Ex
   local e::Expression
   local subs::List{Subscript}
   local extra_subs::List{Subscript}
-  local ty::M_Type
+  local ty::ModelicaType
   local dim_count::Int
 
   #=  If the expression is already a SUBSCRIPTED_EXP_EXPRESSION we need to concatenate the
@@ -4979,7 +4979,7 @@ end
 function applyIndexSubscriptArrayConstructor(call::Call, index::Subscript) ::Expression
   local subscriptedExp::Expression
 
-  local ty::M_Type
+  local ty::ModelicaType
   local var::VariabilityType
   local exp::Expression
   local iter_exp::Expression
@@ -5015,7 +5015,7 @@ function applySubscriptCall(subscript::Subscript, @nospecialize(exp::Expression)
   @match CALL_EXPRESSION(call = call) = exp
   outExp = begin
     local arg::Expression
-    local ty::M_Type
+    local ty::ModelicaType
     @match call begin
       TYPED_CALL(__) where (length(call.arguments) == 1 && isSubscriptableBuiltin(call.fn))  => begin
         arg = applySubscript(subscript, call.arguments[1], restSubscripts)
@@ -5083,7 +5083,7 @@ function applyIndexSubscriptRange(@nospecialize(rangeExp::Expression), index::Su
   local start_exp::Expression
   local stop_exp::Expression
   local step_exp::Option{Expression}
-  local ty::M_Type
+  local ty::ModelicaType
 
   @match SUBSCRIPT_INDEX(index = index_exp) = index
   if isScalarLiteral(index_exp)
@@ -5107,7 +5107,7 @@ function applySubscriptRange(subscript::Subscript, @nospecialize(exp::Expression
   local start_exp::Expression
   local stop_exp::Expression
   local step_exp::Option{Expression}
-  local ty::M_Type
+  local ty::ModelicaType
   local expl::Vector{Expression}
   (sub, _) = expandSlice(subscript)
   outExp = begin
@@ -5168,7 +5168,7 @@ function applySubscriptArray(inSubscript::Subscript, @nospecialize(exp::Expressi
   local s::Subscript
   local rest_subs::List{Subscript}
   local expl::Vector{Expression}
-  local ty::M_Type
+  local ty::ModelicaType
   local el_count::Int
   local literal::Bool
 
@@ -5219,7 +5219,7 @@ function applySubscriptArray(inSubscript::Subscript, @nospecialize(exp::Expressi
   outExp
 end
 
-function applyIndexSubscriptTypename(ty::M_Type, index::Subscript) ::Expression
+function applyIndexSubscriptTypename(ty::ModelicaType, index::Subscript) ::Expression
   local subscriptedExp::Expression
 
   local idx_exp::Expression
@@ -5249,7 +5249,7 @@ function applyIndexSubscriptTypename(ty::M_Type, index::Subscript) ::Expression
   subscriptedExp
 end
 
-function applySubscriptTypename(subscript::Subscript, ty::M_Type) ::Expression
+function applySubscriptTypename(subscript::Subscript, ty::ModelicaType) ::Expression
   local outExp::Expression
   local sub::Subscript
   local index::Int
@@ -5281,7 +5281,7 @@ end
 function applySubscriptCref(subscript::Subscript, cref::ComponentRef, restSubscripts::List{<:Subscript}) ::Expression
   local outExp::Expression
   local cr::ComponentRef
-  local ty::M_Type
+  local ty::ModelicaType
   cr = applySubscripts(Cons{Subscript}(subscript, restSubscripts), cref)
   ty = getSubscriptedType(cr)
   outExp = CREF_EXPRESSION(ty, cr)
@@ -5347,11 +5347,11 @@ end
 
 """
 ```
-makeRecord(recordName::Absyn.Path, recordType::M_Type, fields::Vector{Expression})
+makeRecord(recordName::Absyn.Path, recordType::ModelicaType, fields::Vector{Expression})
 ```
   Creates a record expression.
 """
-function makeRecord(recordName::Absyn.Path, recordType::M_Type, fields::Vector{Expression})
+function makeRecord(recordName::Absyn.Path, recordType::ModelicaType, fields::Vector{Expression})
   local exp::Expression
   exp = RECORD_EXPRESSION(recordName, recordType, fields)
   exp
@@ -5364,7 +5364,7 @@ end
 
 function makeRealMatrix(values::List{<:List{<:AbstractFloat}}) ::Expression
   local exp::Expression
-  local ty::M_Type
+  local ty::ModelicaType
   local expl::Vector{Expression}
   if listEmpty(values)
      ty = TYPE_ARRAY(TYPE_REAL(), list(fromInteger(0), DIMENSION_UNKNOWN()))
@@ -5392,7 +5392,7 @@ function makeIntegerArray(values::List{Int})
   exp
 end
 
-function makeEmptyArray(ty::M_Type)
+function makeEmptyArray(ty::ModelicaType)
   local outExp::Expression
    outExp = ARRAY_EXPRESSION(ty, Expression[], true)
   outExp
@@ -5401,7 +5401,7 @@ end
 """
 Generic make array function
 """
-function makeArray(ty::NFType, expl::List; literal::Bool = false)
+function makeArray(ty::ModelicaType, expl::List; literal::Bool = false)
   # @warn "Called make array with old interface"
   # st = stacktrace()
   # println(st[3])  # 2 because 1 is the current function itself
@@ -5411,7 +5411,7 @@ end
 """
 Generic make array function for vectors
 """
-function makeArray(ty::NFType, expV::Vector{T}; literal::Bool = false) where {T}
+function makeArray(ty::ModelicaType, expV::Vector{T}; literal::Bool = false) where {T}
   ARRAY_EXPRESSION(ty, expV, literal)
 end
 
@@ -5440,10 +5440,10 @@ end
    The function does not check that the cast is valid, and expressions that
    can't be converted outright will be wrapped as a CAST expression.
  """
- function typeCast(@nospecialize(exp::Expression), ty::NFType) ::Expression
-   local t::NFType
-   local t2::NFType
-   local ety::NFType
+ function typeCast(@nospecialize(exp::Expression), ty::ModelicaType) ::Expression
+   local t::ModelicaType
+   local t2::ModelicaType
+   local ety::ModelicaType
    local el::Vector{Expression}
     ety = arrayElementType(ty)
     exp = begin
@@ -5524,12 +5524,12 @@ end
    exp
  end
 
-function typeCastOpt(exp::Option{<:Expression}, ty::M_Type) ::Option{Expression}
+function typeCastOpt(exp::Option{<:Expression}, ty::ModelicaType) ::Option{Expression}
   local outExp::Option{Expression} = Util.applyOption(exp, (e) -> typeCast(e, ty))
   outExp
 end
 
-function setType(ty::NFType, @nospecialize(exp::Expression))
+function setType(ty::ModelicaType, @nospecialize(exp::Expression))
   retExp = @match exp begin
     ENUM_LITERAL_EXPRESSION(__)  => begin
       ENUM_LITERAL_EXPRESSION(ty, exp.name, exp.index)
@@ -5604,7 +5604,7 @@ end
 
 
 @nospecializeinfer function typeOf(@nospecialize(exp::Expression))
-  local ty::M_Type
+  local ty::ModelicaType
   ty = begin
     @match exp begin
       INTEGER_EXPRESSION(__)  => begin
@@ -5841,14 +5841,14 @@ end
     local s::String
     local b::Bool
     local cr::ComponentRef
-    local ty::M_Type
+    local ty::ModelicaType
     local expl
     local e1::Expression
     local e2::Expression
     local e3::Expression
     local oe::Option{Expression}
     local p::Path
-    local op::Operator
+    local op::OPERATOR
     local c::Call
     local subs::List{Subscript}
     local clk1::ClockKind
@@ -6844,7 +6844,7 @@ end
 end
 
 function getType(binding::Binding)
-  local ty::NFType
+  local ty::ModelicaType
    ty = begin
     @match binding begin
       UNBOUND(__) => begin
@@ -6932,7 +6932,7 @@ end
 @nospecializeinfer function recordFieldBinding(fieldNode::InstNode, recordBinding::Binding)
   local fieldBinding::Binding = recordBinding
   local exp::Expression
-  local ty::M_Type
+  local ty::ModelicaType
   local var::VariabilityType
   local field_name::String = name(fieldNode)
 

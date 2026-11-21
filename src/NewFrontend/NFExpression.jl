@@ -53,171 +53,171 @@
   end
 end
 
-abstract type NFExpression end
+abstract type Expression end
 
-mutable struct BINDING_EXP <: NFExpression #TODO: Revert to mutable. Seems not to be the issue for unrolling...
+mutable struct BINDING_EXP <: Expression #TODO: Revert to mutable. Seems not to be the issue for unrolling...
   exp::Expression
-  expType #= The actual type of exp. =#::NFType
-  bindingType #= The type of the propagated binding. =#::NFType
+  expType #= The actual type of exp. =#::ModelicaType
+  bindingType #= The type of the propagated binding. =#::ModelicaType
   parents::List{InstNode}
   isEach::Bool
 end
 
-struct PARTIAL_FUNCTION_APPLICATION_EXPRESSION <: NFExpression
+struct PARTIAL_FUNCTION_APPLICATION_EXPRESSION <: Expression
   fn::ComponentRef
   args::List{Expression}
   argNames::List{String}
-  ty::NFType
+  ty::ModelicaType
 end
 
-struct CLKCONST_EXPRESSION <: NFExpression
+struct CLKCONST_EXPRESSION <: Expression
   clk #= Clock kinds =#::ClockKind
 end
 
-struct EMPTY_EXPRESSION <: NFExpression
-  ty::NFType
+struct EMPTY_EXPRESSION <: Expression
+  ty::ModelicaType
 end
 
-struct MUTABLE_EXPRESSION <: NFExpression
+struct MUTABLE_EXPRESSION <: Expression
   exp::Pointer{Expression}
 end
 
-struct BOX_EXPRESSION <: NFExpression
+struct BOX_EXPRESSION <: Expression
   exp::Expression
 end
 
-struct RECORD_ELEMENT_EXPRESSION <: NFExpression
+struct RECORD_ELEMENT_EXPRESSION <: Expression
   recordExp::Expression
   index::Int
   fieldName::String
-  ty::NFType
+  ty::ModelicaType
 end
 
-struct TUPLE_ELEMENT_EXPRESSION <: NFExpression
+struct TUPLE_ELEMENT_EXPRESSION <: Expression
   tupleExp::Expression
   index::Int
-  ty::NFType
+  ty::ModelicaType
 end
 
-struct SUBSCRIPTED_EXP_EXPRESSION <: NFExpression
+struct SUBSCRIPTED_EXP_EXPRESSION <: Expression
   exp::Expression
   subscripts::List{Subscript}
-  ty::NFType
+  ty::ModelicaType
 end
 
-struct UNBOX_EXPRESSION <: NFExpression
+struct UNBOX_EXPRESSION <: Expression
   exp::Expression
-  ty::NFType
+  ty::ModelicaType
 end
 
-struct CAST_EXPRESSION <: NFExpression
-  ty::NFType
+struct CAST_EXPRESSION <: Expression
+  ty::ModelicaType
   exp::Expression
 end
 
-struct IF_EXPRESSION <: NFExpression
+struct IF_EXPRESSION <: Expression
   condition::Expression
   trueBranch::Expression
   falseBranch::Expression
 end
 
-mutable struct RELATION_EXPRESSION <: NFExpression
+mutable struct RELATION_EXPRESSION <: Expression
   exp1::Expression
-  operator::Operator
+  operator::OPERATOR
   exp2::Expression
 end
 
-mutable struct LUNARY_EXPRESSION <: NFExpression
-  operator::Operator
+mutable struct LUNARY_EXPRESSION <: Expression
+  operator::OPERATOR
   exp::Expression
 end
 
-mutable struct LBINARY_EXPRESSION <: NFExpression
+mutable struct LBINARY_EXPRESSION <: Expression
   exp1::Expression
-  operator::Operator
+  operator::OPERATOR
   exp2::Expression
 end
 
-mutable struct UNARY_EXPRESSION <: NFExpression
-  operator::Operator
+mutable struct UNARY_EXPRESSION <: Expression
+  operator::OPERATOR
   exp::Expression
 end
 
-mutable struct BINARY_EXPRESSION <: NFExpression
+mutable struct BINARY_EXPRESSION <: Expression
   exp1::Expression
-  operator::Operator
+  operator::OPERATOR
   exp2::Expression
 end
 
-struct END_EXPRESSION <: NFExpression
+struct END_EXPRESSION <: Expression
 end
 
-struct SIZE_EXPRESSION <: NFExpression
+struct SIZE_EXPRESSION <: Expression
   exp::Expression
   dimIndex::Option{Expression}
 end
 
-struct CALL_EXPRESSION <: NFExpression
+struct CALL_EXPRESSION <: Expression
   call::Call
 end
 
-mutable struct RECORD_EXPRESSION <: NFExpression
+mutable struct RECORD_EXPRESSION <: Expression
   #=  Maybe not needed since the type contains the name. Prefix? =#
   const path::Absyn.Path
-  const ty::NFType
+  const ty::ModelicaType
   elements::Vector{Expression}
 end
 
-struct TUPLE_EXPRESSION <: NFExpression
-  ty::NFType
+struct TUPLE_EXPRESSION <: Expression
+  ty::ModelicaType
   elements::List{Expression}
 end
 
-struct RANGE_EXPRESSION <: NFExpression
-  ty::NFType
+struct RANGE_EXPRESSION <: Expression
+  ty::ModelicaType
   start::Expression
   step::Option{Expression}
   stop::Expression
 end
 
-struct MATRIX_EXPRESSION <: NFExpression
+struct MATRIX_EXPRESSION <: Expression
   #=  Does not have a type since we only keep this operator before type-checking =#
   elements::Vector{Vector{Expression}}
 end
 
-struct ARRAY_EXPRESSION <: NFExpression
-  ty::NFType
+struct ARRAY_EXPRESSION <: Expression
+  ty::ModelicaType
   elements::Vector{Expression}
   literal::Bool #= True if the array is known to only contain literal expressions. =#
 end
 
-struct TYPENAME_EXPRESSION <: NFExpression
-  ty::NFType
+struct TYPENAME_EXPRESSION <: Expression
+  ty::ModelicaType
 end
 
-mutable struct CREF_EXPRESSION <: NFExpression
-  ty::NFType
+mutable struct CREF_EXPRESSION <: Expression
+  ty::ModelicaType
   cref::ComponentRef
 end
 
-struct ENUM_LITERAL_EXPRESSION <: NFExpression
-  ty::NFType
+struct ENUM_LITERAL_EXPRESSION <: Expression
+  ty::ModelicaType
   name::String
   index::Int
 end
 
-struct BOOLEAN_EXPRESSION{T0 <: Bool} <: NFExpression
+struct BOOLEAN_EXPRESSION{T0 <: Bool} <: Expression
   value::T0
 end
 
-struct STRING_EXPRESSION{T0 <: String} <: NFExpression
+struct STRING_EXPRESSION{T0 <: String} <: Expression
   value::T0
 end
 
-struct REAL_EXPRESSION{T0 <: AbstractFloat} <: NFExpression
+struct REAL_EXPRESSION{T0 <: AbstractFloat} <: Expression
   value::T0
 end
 
-struct INTEGER_EXPRESSION{T0 <: Integer} <: NFExpression
+struct INTEGER_EXPRESSION{T0 <: Integer} <: Expression
   value::T0
 end

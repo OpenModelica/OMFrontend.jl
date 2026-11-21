@@ -33,9 +33,9 @@
 *
 */ =#
 
-@UniontypeDecl NFRestriction
+@UniontypeDecl Restriction
 
-@Uniontype NFRestriction begin
+@Uniontype Restriction begin
   @Record RESTRICTION_UNKNOWN begin
   end
 
@@ -75,7 +75,6 @@
   end
 end
 
-const Restriction = NFRestriction
 
 function toString(res::Restriction)::String
   local str::String

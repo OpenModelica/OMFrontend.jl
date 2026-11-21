@@ -34,12 +34,11 @@
 */ =#
 
 module ConstantsSetImpl
-import ..NFComponentRef
+import ..ComponentRef
 import ..compare as crefCompare
 using MetaModelica
 import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
-ComponentRef = NFComponentRef
 #= Modelica extend clause =#
 const Key = ComponentRef
 const Value = Int
@@ -155,7 +154,7 @@ end
 
 function collectFuncConstants(
   name::Absyn.Path,
-  func::M_Function,
+  func::MODELICA_FUNCTION,
   constants::Constants,
 )::Constants
 

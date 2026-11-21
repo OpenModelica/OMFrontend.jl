@@ -265,7 +265,7 @@ function mapFoldCallShallowRef(call::Call, @nospecialize(func::Function), foldAr
     local tnargs::Vector{TypedNamedArg}
     local s::String
     local e::Expression
-    local t::M_Type
+    local t::ModelicaType
     local v::VariabilityType
     local iters::List{Tuple{InstNode, Expression}}
     local default_exp::Option{Expression}

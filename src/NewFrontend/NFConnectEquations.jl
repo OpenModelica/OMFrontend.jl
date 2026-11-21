@@ -262,7 +262,7 @@ function makeEqualityAssert(
   local lhs_exp::Expression
   local rhs_exp::Expression
   local exp::Expression
-  local ty::M_Type
+  local ty::ModelicaType
 
   @assign source = ElementSource.mergeSources(lhsSource, rhsSource)
   #= source := ElementSource.addElementSourceConnect(source, (lhsCref, rhsCref));
@@ -836,8 +836,8 @@ function evaluateOperatorReductionExp(
   local outExp::Expression
 
   local call::Call
-  local fn::M_Function
-  local ty::M_Type
+  local fn::MODELICA_FUNCTION
+  local ty::ModelicaType
   local arg::Expression
   local iter_exp::Expression
   local iters::List{Tuple{InstNode, Expression}} = nil
@@ -1070,7 +1070,7 @@ function evaluateActualStream(
   local flow_exp::Expression
   local stream_exp::Expression
   local instream_exp::Expression
-  local op::Operator
+  local op::OPERATOR
 
   @assign flow_cr = associatedFlowCref(streamCref)
   @assign flow_dir = evaluateFlowDirection(flow_cr)
@@ -1112,7 +1112,7 @@ end
 function evaluateActualStreamMul(
   crefExp::Expression,
   actualStreamArg::Expression,
-  op::Operator,
+  op::OPERATOR,
   sets::ConnectionSets.Sets,
   setsArray::Vector{<:List{<:Connector}},
   ctable::CardinalityTable.Table,
@@ -1261,7 +1261,7 @@ end
 function associatedFlowCref(streamCref::ComponentRef)::ComponentRef
   local flowCref::ComponentRef
 
-  local ty::M_Type
+  local ty::ModelicaType
   local rest_cr::ComponentRef
   local flow_node::InstNode
 

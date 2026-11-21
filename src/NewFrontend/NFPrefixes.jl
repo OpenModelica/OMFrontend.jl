@@ -37,7 +37,7 @@
 
 module ConnectorType
 
-import ..Frontend.NFType
+import ..Frontend.ModelicaType
 
 const TYPE = Int8
 
@@ -587,7 +587,7 @@ function variabilityString(var)::String
   return str
 end
 
-function unparseVariability(var::VariabilityType, ty::NFType)::String
+function unparseVariability(var::VariabilityType, ty::ModelicaType)::String
   local str::String
   @assign str = begin
     @match var begin

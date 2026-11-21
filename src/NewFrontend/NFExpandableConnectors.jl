@@ -221,7 +221,7 @@ function getExpandableConnectorsInConnector(c1::Connector)::List{Connector}
   local nodes::List{InstNode}
   local par_name::ComponentRef
   local name::ComponentRef
-  local ty::M_Type
+  local ty::ModelicaType
 
   ecl = begin
     @match c1 begin
@@ -328,7 +328,7 @@ function makeVirtualConnector(
 
   local virtual_cref::ComponentRef
   local normal_cref::ComponentRef
-  local ty::M_Type
+  local ty::ModelicaType
   local nodeV::InstNode
 
   virtual_cref = virtualConnector.name
@@ -422,7 +422,7 @@ function augmentExpandableConnector(
   local comp::Component
   local nodes::List{InstNode} = nil
   local var::Variable
-  local ty::M_Type
+  local ty::ModelicaType
   local complex_ty::ComplexType
 
   exp_name = name(conn)
@@ -489,11 +489,11 @@ function augmentExpandableConnector(
   return vars
 end
 
-function createVirtualVariables(connectorName::ComponentRef, connectorType::Type, info::SourceInfo, vars::List{Variable})
+function createVirtualVariables(connectorName::ComponentRef, connectorType::ModelicaType, info::SourceInfo, vars::List{Variable})
   local var::Variable
   local comps::Vector{InstNode}
   local name::ComponentRef
-  local ty::Type
+  local ty::ModelicaType
   if isComplex(connectorType)
     for comp in complexComponents(connectorType)
       ty = getType(comp)
@@ -530,8 +530,8 @@ function updateExpandableConnection(
 
   local c1::Connector
   local c2::Connector
-  local ty1::M_Type
-  local ty2::M_Type
+  local ty1::ModelicaType
+  local ty2::ModelicaType
   local mk::MatchKindType
   local e1::Expression
   local e2::Expression
@@ -555,8 +555,8 @@ function updateExpandableConnection(
   return conns
 end
 
-function updateExpandableConnector(conn::Connector)::Tuple{Connector, M_Type}
-  local ty::M_Type
+function updateExpandableConnector(conn::Connector)::Tuple{Connector, ModelicaType}
+  local ty::ModelicaType
   local name::ComponentRef
   @match CONNECTOR(name = name, ty = ty) = conn
   name = updateNodeType(name)

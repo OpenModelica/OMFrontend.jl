@@ -72,8 +72,8 @@ function instOperatorFunctions(node::InstNode, info::SourceInfo)::InstNode
   local tree::ClassTree
   local mclss::Vector{InstNode}
   local path::Absyn.Path
-  local allfuncs::Vector{M_FUNCTION} = M_FUNCTION[]
-  local funcs::Vector{M_FUNCTION}
+  local allfuncs::Vector{MODELICA_FUNCTION} = MODELICA_FUNCTION[]
+  local funcs::Vector{MODELICA_FUNCTION}
   checkOperatorRestrictions(node)
   @assign tree = classTree(getClass(node))
    () = begin
@@ -118,8 +118,8 @@ function checkOperatorRestrictions(operatorNode::InstNode)
   end
 end
 
-function lookupOperatorFunctionsInType(operatorName::String, ty::M_Type)::Vector{M_FUNCTION}
-  local functions::Vector{M_Function}
+function lookupOperatorFunctionsInType(operatorName::String, ty::ModelicaType)::Vector{MODELICA_FUNCTION}
+  local functions::Vector{MODELICA_FUNCTION}
   local node::InstNode
   local fn_ref::ComponentRef
   local is_defined::Bool
@@ -136,12 +136,12 @@ function lookupOperatorFunctionsInType(operatorName::String, ty::M_Type)::Vector
           (fn_ref, _, _) = instFunctionRef(fn_ref, InstNode_info(node))
           functions = typeRefCache(fn_ref)
         else
-          functions = M_FUNCTION[]
+          functions = MODELICA_FUNCTION[]
         end
         functions
       end
       _ => begin
-        M_FUNCTION[]
+        MODELICA_FUNCTION[]
       end
     end
   end
@@ -158,7 +158,7 @@ end
   so to avoid that we rewrite any calls to the constructor in the binding as
   record expressions.
 """
-function patchOperatorRecordConstructorBinding(fn::M_Function)::M_Function
+function patchOperatorRecordConstructorBinding(fn::MODELICA_FUNCTION)::MODELICA_FUNCTION
 
   local output_node::InstNode
   local output_comp::Component
@@ -187,7 +187,7 @@ function patchOperatorRecordConstructorBinding(fn::M_Function)::M_Function
 end
 
 function checkOperatorConstructorOutput(
-  fn::M_Function,
+  fn::MODELICA_FUNCTION,
   recordNode::InstNode,
   path::Absyn.Path,
   info::SourceInfo,
@@ -222,13 +222,13 @@ end
 
 function patchOperatorRecordConstructorBinding_traverser(
   exp::Expression,
-  constructorFn::M_Function,
+  constructorFn::MODELICA_FUNCTION,
 )::Expression
   local outExp::Expression
 
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local args::Vector{Expression}
-  local ty::M_Type
+  local ty::ModelicaType
 
   @assign outExp = begin
     @match exp begin

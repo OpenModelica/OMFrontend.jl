@@ -82,7 +82,7 @@ function instDefaultConstructor(
   local locals::List{InstNode}
   local all_params::List{InstNode}
   local attr::DAE.FunctionAttributes
-  local status::Pointer #= TODO: An issue if int is used.=#
+  local status::Base.RefValue{Int}
   local ctor_node::InstNode
   local out_rec::InstNode
   local out_comp::Component
@@ -122,10 +122,10 @@ function instDefaultConstructor(
   ctor_node = classApply(ctor_node, setType, TYPE_COMPLEX(ctor_node, COMPLEX_CLASS()))
   #=  Create the constructor function and add it to the function cache. =#
   attr = DAE.FUNCTION_ATTRIBUTES_DEFAULT
-  status = P_Pointer.create(FunctionStatus.INITIAL)
+  status = P_Pointer.create(FunctionStatus.INITIAL, Int)
   cacheAddFunc(
     node,
-    M_FUNCTION(
+    MODELICA_FUNCTION(
       path,
       ctor_node,
       inputs,
@@ -136,7 +136,7 @@ function instDefaultConstructor(
       attr,
       nil,
       status,
-      P_Pointer.create(0),
+      P_Pointer.create(0, Int),
     ),
     false,
   )

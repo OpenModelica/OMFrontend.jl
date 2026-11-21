@@ -2509,7 +2509,7 @@ Cases that FAIL to flatten today (kept here for visibility, not run):
   - ConnectArrayCond  (./Connectors/ConnectArrayCond.mo)
       MetaModelica.MetaModelicaGeneralException("Runtime defined generic Meta Modelica failure")
   - ConnectArrayCond2  (./Connectors/ConnectArrayCond2.mo)
-      MethodError: no method matching listHead(::Vector{OMFrontend.Frontend.NFExpression})
+      MethodError: no method matching listHead(::Vector{OMFrontend.Frontend.Expression})
   - Test  (./Connectors/ConnectEnumArray.mo)
       UndefVarError: `set_eql` not defined in local scope
   - ConnectForEquations  (./Connectors/ConnectForEquations.mo)

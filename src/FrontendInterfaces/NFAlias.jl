@@ -33,49 +33,17 @@
 *
 */ =#
 
-#=
- Various type aliases in the NewFrontend
-=#
+#= Names for the function arguments of the higher-order functions (map, fold, apply). Each type has one name,
+   defined with the type (FrontendInterfaces/NFInterfaces.jl and NewFrontend/*.jl). =#
 
-const Algorithm = AlgorithmImpl
 const ApplyFn = Function
 const ApplyFunc = Function
-const Call = CallImpl
-const ComplexType = NFComplexType
-const ComponentRef = NFComponentRef
-const Connection = NFConnection
-const Connections = NFConnections
-const Connector = NFConnector
 const ContainsPred = Function
-const Dimension = NFDimensionImpl
-const Equation = NFEquationImpl
-const EquationBranch = Equation_BranchImpl
 const EvalFunc = Function
-const ExpandExp = NFExpandExp
-const Expression = NFExpression
-const ExpressionIterator = NFExpressionIterator
-const FlatModel = NFFlatModel
 const FoldFunc = Function
 const FuncT = Function
 const FuncType = Function
-const FunctionDerivative = NFFunctionDerivative
-const Import = NFImport
-const Binding = NFBindingImpl
 const MapExpFn = Function
 const MapFn = Function
 const MapFunc = Function
-const Modifier = NFModifierImpl
-const OCConnectionGraph = NFOCConnectionGraph
-const Operator = NFOperator
 const PredFn = Function
-const RangeIterator = NFRangeIterator
-const Restriction = NFRestriction
-const Sections = NFSections
-const Statement = NFStatementImpl
-const Subscript = NFSubscript
-const Type = NFType 
-const Variable = NFVariable
-const VerifyModel = NFVerifyModel
-const NFExpressionIterator = ExpressionIterator
-#= Type defined by the compiler =#
-const M_Type = NFType

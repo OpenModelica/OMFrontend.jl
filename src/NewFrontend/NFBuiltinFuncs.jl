@@ -183,7 +183,7 @@ const INTEGER_DUMMY_NODE =
   )::InstNode
 
 const INTEGER_FUNCTION =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("Integer"),
     INTEGER_DUMMY_NODE,
     list(ENUM_PARAM),
@@ -200,9 +200,9 @@ const INTEGER_FUNCTION =
     TYPE_INTEGER(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 const INTEGER_NODE =
   CLASS_NODE(
     "IntegerFunc",
@@ -215,7 +215,7 @@ const INTEGER_NODE =
       RESTRICTION_FUNCTION(),
     )),
     listArrayLiteral(list(
-      C_FUNCTION(M_FUNCTION[INTEGER_FUNCTION], true, false),
+      C_FUNCTION(MODELICA_FUNCTION[INTEGER_FUNCTION], true, false),
       C_NO_CACHE(),
       C_NO_CACHE(),
     )),
@@ -243,7 +243,7 @@ const STRING_DUMMY_NODE =
 #=  String(r, significantDigits=d, minimumLength=0, leftJustified=true)
 =#
 const STRING_REAL =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("String"),
     STRING_DUMMY_NODE,
     list(REAL_PARAM, INT_PARAM, INT_PARAM, BOOL_PARAM),
@@ -286,13 +286,13 @@ const STRING_REAL =
     TYPE_STRING(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 #=  String(r, format=\"-0.6g\")
 =#
 const STRING_REAL_FORMAT =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("String"),
     STRING_DUMMY_NODE,
     list(REAL_PARAM, STRING_PARAM),
@@ -319,13 +319,13 @@ const STRING_REAL_FORMAT =
     TYPE_STRING(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 #=  String(i, minimumLength=0, leftJustified=true)
 =#
 const STRING_INT =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("String"),
     STRING_DUMMY_NODE,
     list(INT_PARAM, INT_PARAM, BOOL_PARAM),
@@ -360,13 +360,13 @@ const STRING_INT =
     TYPE_STRING(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 #=  String(b, minimumLength=0, leftJustified=true)
 =#
 const STRING_BOOL =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("String"),
     STRING_DUMMY_NODE,
     list(BOOL_PARAM, INT_PARAM, BOOL_PARAM),
@@ -401,13 +401,13 @@ const STRING_BOOL =
     TYPE_STRING(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 #=  String(e, minimumLength=0, leftJustified=true)
 =#
 const STRING_ENUM =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("String"),
     STRING_DUMMY_NODE,
     list(ENUM_PARAM, INT_PARAM, BOOL_PARAM),
@@ -442,9 +442,9 @@ const STRING_ENUM =
     TYPE_STRING(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 const STRING_NODE =
   CLASS_NODE(
     "String",
@@ -459,7 +459,7 @@ const STRING_NODE =
     )),
     listArrayLiteral(list(
       C_FUNCTION(
-        M_FUNCTION[STRING_ENUM, STRING_INT, STRING_BOOL, STRING_REAL, STRING_REAL_FORMAT],
+        MODELICA_FUNCTION[STRING_ENUM, STRING_INT, STRING_BOOL, STRING_REAL, STRING_REAL_FORMAT],
         true,
         true,
       ),
@@ -478,7 +478,7 @@ const STRING_CREF =
     COMPONENT_REF_EMPTY(),
   )::ComponentRef
 const ABS_REAL =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("abs"),
     EMPTY_NODE(),
     list(REAL_PARAM, REAL_PARAM),
@@ -488,11 +488,11 @@ const ABS_REAL =
     TYPE_REAL(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 const MAX_INT =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("max"),
     EMPTY_NODE(),
     list(INT_PARAM, INT_PARAM),
@@ -502,11 +502,11 @@ const MAX_INT =
     TYPE_INTEGER(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 const MAX_REAL =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("max"),
     EMPTY_NODE(),
     list(REAL_PARAM, REAL_PARAM),
@@ -516,11 +516,11 @@ const MAX_REAL =
     TYPE_REAL(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 const DIV_INT =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("div"),
     EMPTY_NODE(),
     list(INT_PARAM, INT_PARAM),
@@ -530,11 +530,11 @@ const DIV_INT =
     TYPE_INTEGER(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 const FLOOR =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("floor"),
     EMPTY_NODE(),
     list(REAL_PARAM),
@@ -544,11 +544,11 @@ const FLOOR =
     TYPE_REAL(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 const INTEGER_REAL =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("integer"),
     EMPTY_NODE(),
     list(REAL_PARAM),
@@ -558,11 +558,11 @@ const INTEGER_REAL =
     TYPE_INTEGER(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 const INTEGER_ENUM =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("Integer"),
     EMPTY_NODE(),
     list(ENUM_PARAM),
@@ -572,11 +572,11 @@ const INTEGER_ENUM =
     TYPE_INTEGER(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 const POSITIVE_MAX_REAL =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("OMCPositiveMax"),
     EMPTY_NODE(),
     list(REAL_PARAM, REAL_PARAM),
@@ -586,11 +586,11 @@ const POSITIVE_MAX_REAL =
     TYPE_REAL(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 const IN_STREAM =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("inStream"),
     EMPTY_NODE(),
     list(REAL_PARAM),
@@ -600,11 +600,11 @@ const IN_STREAM =
     TYPE_REAL(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 const PROMOTE =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("promote"),
     EMPTY_NODE(),
     nil,
@@ -614,11 +614,11 @@ const PROMOTE =
     TYPE_UNKNOWN(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 const CAT =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("cat"),
     EMPTY_NODE(),
     nil,
@@ -628,11 +628,11 @@ const CAT =
     TYPE_UNKNOWN(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 const ARRAY_FUNC =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("array"),
     EMPTY_NODE(),
     nil,
@@ -642,12 +642,12 @@ const ARRAY_FUNC =
     TYPE_UNKNOWN(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 
 const FILL_FUNC =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("fill"),
     EMPTY_NODE(),
     nil,
@@ -657,12 +657,12 @@ const FILL_FUNC =
     TYPE_UNKNOWN(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 
 const INITIAL_STRUCTURAL_STATE_FUNC =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("initialStructuralState"),
     EMPTY_NODE(),
     nil,
@@ -672,13 +672,13 @@ const INITIAL_STRUCTURAL_STATE_FUNC =
     TYPE_UNKNOWN(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 
 
 const SMOOTH =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("smooth"),
     EMPTY_NODE(),
     nil,
@@ -688,9 +688,9 @@ const SMOOTH =
     TYPE_UNKNOWN(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 const CLOCK_COMPONENT =
   TYPED_COMPONENT(
     EMPTY_NODE(),
@@ -723,7 +723,7 @@ const CLOCK_DUMMY_NODE =
 #=  Clock() - inferred clock
 =#
 const CLOCK_INFERED =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("Clock"),
     CLOCK_DUMMY_NODE,
     nil,
@@ -733,13 +733,13 @@ const CLOCK_INFERED =
     TYPE_CLOCK(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 #=  Clock(intervalCounter, resolution = 1) - clock with Integer interval
 =#
 const CLOCK_INT =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("Clock"),
     CLOCK_DUMMY_NODE,
     list(INT_PARAM, INT_PARAM),
@@ -766,13 +766,13 @@ const CLOCK_INT =
     TYPE_CLOCK(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 #=  Clock(interval) - clock with Real interval
 =#
 const CLOCK_REAL =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("Clock"),
     CLOCK_DUMMY_NODE,
     list(REAL_PARAM),
@@ -789,13 +789,13 @@ const CLOCK_REAL =
     TYPE_CLOCK(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 #=  Clock(condition, startInterval = 0.0) - Boolean clock, triggered by zero-crossing events
 =#
 const CLOCK_BOOL =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("Clock"),
     CLOCK_DUMMY_NODE,
     list(BOOL_PARAM, REAL_PARAM),
@@ -822,13 +822,13 @@ const CLOCK_BOOL =
     TYPE_CLOCK(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 #=  Clock(c, solverMethod) - Solver clock
 =#
 const CLOCK_SOLVER =
-  M_FUNCTION(
+  MODELICA_FUNCTION(
     Absyn.IDENT("Clock"),
     CLOCK_DUMMY_NODE,
     list(CLOCK_PARAM, STRING_PARAM),
@@ -848,9 +848,9 @@ const CLOCK_SOLVER =
     TYPE_CLOCK(),
     DAE.FUNCTION_ATTRIBUTES_BUILTIN,
     nil,
-    P_Pointer.createImmutable(FunctionStatus.BUILTIN),
-    P_Pointer.createImmutable(0),
-  )::M_Function
+    P_Pointer.create(FunctionStatus.BUILTIN, Int),
+    P_Pointer.create(0, Int),
+  )::MODELICA_FUNCTION
 const CLOCK_NODE =
   CLASS_NODE(
     "Clock",
@@ -865,7 +865,7 @@ const CLOCK_NODE =
     )),
     listArrayLiteral(list(
       C_FUNCTION(
-        M_FUNCTION[CLOCK_INFERED, CLOCK_INT, CLOCK_REAL, CLOCK_BOOL, CLOCK_SOLVER],
+        MODELICA_FUNCTION[CLOCK_INFERED, CLOCK_INT, CLOCK_REAL, CLOCK_BOOL, CLOCK_SOLVER],
         true,
         true,
       ),

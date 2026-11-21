@@ -40,29 +40,19 @@ struct FunctionTypeStruct
 end
 const FunctionType = FunctionTypeStruct(1, 2, 3)
 
-#= NFType as a single concrete tagged struct (hand-written compacted union).
-   The 17 former variants collapse into one immutable `NFType` + a tag enum, so
-   `::NFType`/`::M_Type`-annotated fields and args across the frontend are CONCRETE
-   (the recursive spine `ty`/`elementType`/`subscriptedTy`/`subs`/`types` is
-   `NFType`, not an abstract union) -- the typing-inference win. Nullary types are
-   shared singletons (zero alloc). The old `TYPE_*` constructors and `@match
-   TYPE_*(...)` patterns keep working via the constructor functions + the
-   `MetaModelica.compacted_tag_info` registrations below; `x isa TYPE_*` becomes
-   `isvariant(x, TYPE_*)`. =#
-#= The NFTypeTag enum and the NFType struct are defined at the forward-declaration
-   site (FrontendInterfaces/NFInterfaces.jl) so they are available to files loaded
-   before this one. Constructors, singletons, @match registrations and methods
-   follow here. =#
+#= The ModelicaType struct and its ModelicaTypeTag enum are in FrontendInterfaces/NFInterfaces.jl (see
+   `ModelicaTypeImpl`). Here: its `TYPE_*` constructors (nullary types are shared singletons), the
+   `@match` registrations and the functions on types. A variant is tested with `isvariant(x, TYPE_*)`. =#
 
-#= NFType is one concrete struct, so the generic valueConstructor (hash of the
+#= ModelicaType is one concrete struct, so the generic valueConstructor (hash of the
    runtime type) is identical for every variant. Discriminate by the tag instead,
    so variant-mismatch guards (e.g. array-vs-scalar cast routing in NFTypeCheck)
    keep working. =#
-MetaModelica.valueConstructor(value::NFType) = Int(value.tag)
+MetaModelica.valueConstructor(value::ModelicaType) = Int(value.tag)
 
 #= Base "all-empty" builder for the nullary/scalar tags. =#
-@inline _nftype(tag::NFTypeTag) =
-  NFType(tag, nothing, nothing, nil, nothing, nothing, 0, nothing, nothing,
+@inline _nftype(tag::ModelicaTypeTag) =
+  ModelicaType(tag, nothing, nothing, nil, nothing, nothing, 0, nothing, nothing,
          nil, NONE(), nothing, nil, nothing, nil)
 
 # Nullary types are interned singletons.
@@ -87,50 +77,58 @@ TYPE_ENUMERATION_ANY() = _TYPE_ENUMERATION_ANY
 
 # Data-carrying constructors (positional, matching the old record fields).
 TYPE_SUBSCRIPTED(name, ty, subs, subscriptedTy) =
-  NFType(NFT_SUBSCRIPTED, name, ty, subs, subscriptedTy, nothing, 0, nothing, nothing,
+  ModelicaType(NFT_SUBSCRIPTED, name, ty, subs, subscriptedTy, nothing, 0, nothing, nothing,
          nil, NONE(), nothing, nil, nothing, nil)
 TYPE_POLYMORPHIC(name) =
-  NFType(NFT_POLYMORPHIC, name, nothing, nil, nothing, nothing, 0, nothing, nothing,
+  ModelicaType(NFT_POLYMORPHIC, name, nothing, nil, nothing, nothing, 0, nothing, nothing,
          nil, NONE(), nothing, nil, nothing, nil)
 TYPE_METABOXED(ty) =
-  NFType(NFT_METABOXED, nothing, ty, nil, nothing, nothing, 0, nothing, nothing,
+  ModelicaType(NFT_METABOXED, nothing, ty, nil, nothing, nothing, 0, nothing, nothing,
          nil, NONE(), nothing, nil, nothing, nil)
-TYPE_FUNCTION(fn, fnType) =
-  NFType(NFT_FUNCTION, nothing, nothing, nil, nothing, fn, fnType, nothing, nothing,
+TYPE_FUNCTION(fn::MODELICA_FUNCTION, fnType::Int) =
+  ModelicaType(NFT_FUNCTION, nothing, nothing, nil, nothing, fn, fnType, nothing, nothing,
          nil, NONE(), nothing, nil, nothing, nil)
+
+"""
+    functionOf(ty::ModelicaType)::MODELICA_FUNCTION
+
+The function of a function type (`TYPE_FUNCTION`), for a caller that has checked the variant. The field is
+`Union{Nothing, MODELICA_FUNCTION}` (other variants leave it empty); read it here, not as `ty.fn`.
+"""
+functionOf(ty::ModelicaType)::MODELICA_FUNCTION = ty.fn::MODELICA_FUNCTION
 TYPE_COMPLEX(cls, complexTy) =
-  NFType(NFT_COMPLEX, nothing, nothing, nil, nothing, nothing, 0, cls, complexTy,
+  ModelicaType(NFT_COMPLEX, nothing, nothing, nil, nothing, nothing, 0, cls, complexTy,
          nil, NONE(), nothing, nil, nothing, nil)
 TYPE_TUPLE(types, names) =
-  NFType(NFT_TUPLE, nothing, nothing, nil, nothing, nothing, 0, nothing, nothing,
+  ModelicaType(NFT_TUPLE, nothing, nothing, nil, nothing, nothing, 0, nothing, nothing,
          types, names, nothing, nil, nothing, nil)
 TYPE_ARRAY(elementType, dimensions) =
-  NFType(NFT_ARRAY, nothing, nothing, nil, nothing, nothing, 0, nothing, nothing,
+  ModelicaType(NFT_ARRAY, nothing, nothing, nil, nothing, nothing, 0, nothing, nothing,
          nil, NONE(), elementType, dimensions, nothing, nil)
 TYPE_ENUMERATION(typePath, literals) =
-  NFType(NFT_ENUMERATION, nothing, nothing, nil, nothing, nothing, 0, nothing, nothing,
+  ModelicaType(NFT_ENUMERATION, nothing, nothing, nil, nothing, nothing, 0, nothing, nothing,
          nil, NONE(), nothing, nil, typePath, literals)
 
 # @match / isvariant support: register each constructor's tag + field order.
-MetaModelica.compacted_tag_info(::typeof(TYPE_INTEGER))        = (NFType, :tag, NFT_INTEGER, ())
-MetaModelica.compacted_tag_info(::typeof(TYPE_REAL))           = (NFType, :tag, NFT_REAL, ())
-MetaModelica.compacted_tag_info(::typeof(TYPE_STRING))         = (NFType, :tag, NFT_STRING, ())
-MetaModelica.compacted_tag_info(::typeof(TYPE_BOOLEAN))        = (NFType, :tag, NFT_BOOLEAN, ())
-MetaModelica.compacted_tag_info(::typeof(TYPE_CLOCK))          = (NFType, :tag, NFT_CLOCK, ())
-MetaModelica.compacted_tag_info(::typeof(TYPE_UNKNOWN))        = (NFType, :tag, NFT_UNKNOWN, ())
-MetaModelica.compacted_tag_info(::typeof(TYPE_ANY))            = (NFType, :tag, NFT_ANY, ())
-MetaModelica.compacted_tag_info(::typeof(TYPE_NORETCALL))      = (NFType, :tag, NFT_NORETCALL, ())
-MetaModelica.compacted_tag_info(::typeof(TYPE_ENUMERATION_ANY)) = (NFType, :tag, NFT_ENUMERATION_ANY, ())
-MetaModelica.compacted_tag_info(::typeof(TYPE_SUBSCRIPTED)) = (NFType, :tag, NFT_SUBSCRIPTED, (:name, :ty, :subs, :subscriptedTy))
-MetaModelica.compacted_tag_info(::typeof(TYPE_POLYMORPHIC))  = (NFType, :tag, NFT_POLYMORPHIC, (:name,))
-MetaModelica.compacted_tag_info(::typeof(TYPE_METABOXED))    = (NFType, :tag, NFT_METABOXED, (:ty,))
-MetaModelica.compacted_tag_info(::typeof(TYPE_FUNCTION))     = (NFType, :tag, NFT_FUNCTION, (:fn, :fnType))
-MetaModelica.compacted_tag_info(::typeof(TYPE_COMPLEX))      = (NFType, :tag, NFT_COMPLEX, (:cls, :complexTy))
-MetaModelica.compacted_tag_info(::typeof(TYPE_TUPLE))        = (NFType, :tag, NFT_TUPLE, (:types, :names))
-MetaModelica.compacted_tag_info(::typeof(TYPE_ARRAY))        = (NFType, :tag, NFT_ARRAY, (:elementType, :dimensions))
-MetaModelica.compacted_tag_info(::typeof(TYPE_ENUMERATION))  = (NFType, :tag, NFT_ENUMERATION, (:typePath, :literals))
+MetaModelica.compacted_tag_info(::typeof(TYPE_INTEGER))        = (ModelicaType, :tag, NFT_INTEGER, ())
+MetaModelica.compacted_tag_info(::typeof(TYPE_REAL))           = (ModelicaType, :tag, NFT_REAL, ())
+MetaModelica.compacted_tag_info(::typeof(TYPE_STRING))         = (ModelicaType, :tag, NFT_STRING, ())
+MetaModelica.compacted_tag_info(::typeof(TYPE_BOOLEAN))        = (ModelicaType, :tag, NFT_BOOLEAN, ())
+MetaModelica.compacted_tag_info(::typeof(TYPE_CLOCK))          = (ModelicaType, :tag, NFT_CLOCK, ())
+MetaModelica.compacted_tag_info(::typeof(TYPE_UNKNOWN))        = (ModelicaType, :tag, NFT_UNKNOWN, ())
+MetaModelica.compacted_tag_info(::typeof(TYPE_ANY))            = (ModelicaType, :tag, NFT_ANY, ())
+MetaModelica.compacted_tag_info(::typeof(TYPE_NORETCALL))      = (ModelicaType, :tag, NFT_NORETCALL, ())
+MetaModelica.compacted_tag_info(::typeof(TYPE_ENUMERATION_ANY)) = (ModelicaType, :tag, NFT_ENUMERATION_ANY, ())
+MetaModelica.compacted_tag_info(::typeof(TYPE_SUBSCRIPTED)) = (ModelicaType, :tag, NFT_SUBSCRIPTED, (:name, :ty, :subs, :subscriptedTy))
+MetaModelica.compacted_tag_info(::typeof(TYPE_POLYMORPHIC))  = (ModelicaType, :tag, NFT_POLYMORPHIC, (:name,))
+MetaModelica.compacted_tag_info(::typeof(TYPE_METABOXED))    = (ModelicaType, :tag, NFT_METABOXED, (:ty,))
+MetaModelica.compacted_tag_info(::typeof(TYPE_FUNCTION))     = (ModelicaType, :tag, NFT_FUNCTION, (:fn, :fnType))
+MetaModelica.compacted_tag_info(::typeof(TYPE_COMPLEX))      = (ModelicaType, :tag, NFT_COMPLEX, (:cls, :complexTy))
+MetaModelica.compacted_tag_info(::typeof(TYPE_TUPLE))        = (ModelicaType, :tag, NFT_TUPLE, (:types, :names))
+MetaModelica.compacted_tag_info(::typeof(TYPE_ARRAY))        = (ModelicaType, :tag, NFT_ARRAY, (:elementType, :dimensions))
+MetaModelica.compacted_tag_info(::typeof(TYPE_ENUMERATION))  = (ModelicaType, :tag, NFT_ENUMERATION, (:typePath, :literals))
 
-function subscriptedTypeName(expType::M_Type, subscriptTypes::List{<:M_Type})::String
+function subscriptedTypeName(expType::ModelicaType, subscriptTypes::List{<:ModelicaType})::String
   local str::String
   local strl::List{String}
   @assign strl = list(toString(t) for t in subscriptTypes)
@@ -141,8 +139,8 @@ function subscriptedTypeName(expType::M_Type, subscriptTypes::List{<:M_Type})::S
   return str
 end
 
-function sizeType(arrayTy::M_Type)::M_Type
-  local sizeTy::M_Type
+function sizeType(arrayTy::ModelicaType)::ModelicaType
+  local sizeTy::ModelicaType
 
   if isUnknown(arrayTy)
     @assign sizeTy = TYPE_UNKNOWN()
@@ -159,7 +157,7 @@ function sizeType(arrayTy::M_Type)::M_Type
   return sizeTy
 end
 
-function isBoxed(ty::M_Type)::Bool
+function isBoxed(ty::ModelicaType)::Bool
   local isBoxed::Bool
 
   @assign isBoxed = begin
@@ -176,8 +174,8 @@ function isBoxed(ty::M_Type)::Bool
   return isBoxed
 end
 
-function unbox(ty::M_Type)::M_Type
-  local unboxedType::M_Type
+function unbox(ty::ModelicaType)::ModelicaType
+  local unboxedType::ModelicaType
 
   @assign unboxedType = begin
     @match ty begin
@@ -193,8 +191,8 @@ function unbox(ty::M_Type)::M_Type
   return unboxedType
 end
 
-function box(ty::M_Type)::M_Type
-  local boxedType::M_Type
+function box(ty::ModelicaType)::ModelicaType
+  local boxedType::ModelicaType
 
   @assign boxedType = begin
     @match ty begin
@@ -210,7 +208,7 @@ function box(ty::M_Type)::M_Type
   return boxedType
 end
 
-function enumSize(ty::M_Type)::Int
+function enumSize(ty::ModelicaType)::Int
   local size::Int
   local literals::List{String}
   @match TYPE_ENUMERATION(literals = literals) = ty
@@ -218,13 +216,13 @@ function enumSize(ty::M_Type)::Int
   return size
 end
 
-function enumName(ty::M_Type)::Absyn.Path
+function enumName(ty::ModelicaType)::Absyn.Path
   local name::Absyn.Path
   @match TYPE_ENUMERATION(typePath = name) = ty
   return name
 end
 
-function recordFields(recordType::M_Type)::List{Field}
+function recordFields(recordType::ModelicaType)::List{Field}
   local fields::List{Field}
 
   @assign fields = begin
@@ -241,8 +239,8 @@ function recordFields(recordType::M_Type)::List{Field}
   return fields
 end
 
-@nospecializeinfer function lookupRecordFieldType(name::String, recordType::M_Type)::M_Type
-  local fieldType::M_Type
+@nospecializeinfer function lookupRecordFieldType(name::String, recordType::ModelicaType)::ModelicaType
+  local fieldType::ModelicaType
 
   @assign fieldType = begin
     @match recordType begin
@@ -261,7 +259,7 @@ end
   return fieldType
 end
 
-@nospecializeinfer function isDiscrete(ty::M_Type)::Bool
+@nospecializeinfer function isDiscrete(ty::ModelicaType)::Bool
   local b::Bool
   b = begin
     @match ty begin
@@ -286,7 +284,7 @@ end
       end
 
       TYPE_FUNCTION(__) => begin
-        isDiscrete(returnType(ty.fn))
+        isDiscrete(returnType(functionOf(ty)))
       end
       _ => begin
         false
@@ -296,7 +294,7 @@ end
   return b
 end
 
-@nospecializeinfer function isEqual(ty1::M_Type, ty2::M_Type)::Bool
+@nospecializeinfer function isEqual(ty1::ModelicaType, ty2::ModelicaType)::Bool
   local equal::Bool
 
   if referenceEq(ty1, ty2)
@@ -349,7 +347,7 @@ end
 end
 
 """Reduces a type's dimensions based on the given list of subscripts."""
-function subscript(ty::M_Type, subs::List{<:Subscript})::M_Type
+function subscript(ty::ModelicaType, subs::List{<:Subscript})::ModelicaType
 
   local dim::Dimension
   local dims::List{Dimension}
@@ -384,7 +382,7 @@ function subscript(ty::M_Type, subs::List{<:Subscript})::M_Type
   return ty
 end
 
-@nospecializeinfer function toDAE(ty::NFType; makeTypeVars::Bool = true)::DAE.Type
+@nospecializeinfer function toDAE(ty::ModelicaType; makeTypeVars::Bool = true)::DAE.Type
   local daeTy::DAE.Type
   @assign daeTy = begin
     @match ty begin
@@ -426,18 +424,18 @@ end
         begin
           @match ty.fnType begin
             FunctionType.FUNCTIONAL_PARAMETER => begin
-              makeDAEType(ty.fn)
+              makeDAEType(functionOf(ty))
             end
 
             FunctionType.FUNCTION_REFERENCE => begin
               DAE.T_FUNCTION_REFERENCE_FUNC(
-                isBuiltin(ty.fn),
-                makeDAEType(ty.fn),
+                isBuiltin(functionOf(ty)),
+                makeDAEType(functionOf(ty)),
               )
             end
 
             FunctionType.FUNCTIONAL_VARIABLE => begin
-              DAE.T_FUNCTION_REFERENCE_VAR(makeDAEType(ty.fn, true))
+              DAE.T_FUNCTION_REFERENCE_VAR(makeDAEType(functionOf(ty), true))
             end
           end
         end
@@ -484,7 +482,7 @@ end
   return daeTy
 end
 
-function typenameString(ty::M_Type)::String
+function typenameString(ty::ModelicaType)::String
   local str::String
 
   @assign str = begin
@@ -502,7 +500,7 @@ function typenameString(ty::M_Type)::String
 end
 
 
-@nospecializeinfer function toFlatString(ty::M_Type)::String
+@nospecializeinfer function toFlatString(ty::ModelicaType)::String
   local str::String
 
   @assign str = begin
@@ -562,7 +560,7 @@ end
       end
 
       TYPE_FUNCTION(__) => begin
-        typeString(ty.fn)
+        typeString(functionOf(ty))
       end
 
       TYPE_METABOXED(__) => begin
@@ -590,7 +588,7 @@ end
   return str
 end
 
-function toFlatDeclarationStream(ty::NFType, s::IOStream_M.IOSTREAM)
+function toFlatDeclarationStream(ty::ModelicaType, s::IOStream_M.IOSTREAM)
   #println("Type " * toString(ty))
   local index = 0
   @match ty begin
@@ -656,7 +654,7 @@ function toFlatDeclarationStream(ty::NFType, s::IOStream_M.IOSTREAM)
   end
 end
 
-@nospecializeinfer function toString(ty::M_Type)::String
+@nospecializeinfer function toString(ty::ModelicaType)::String
   local str::String
   str = begin
     @match ty begin
@@ -715,7 +713,7 @@ end
       end
 
       TYPE_FUNCTION(__) => begin
-        typeString(ty.fn)
+        typeString(functionOf(ty))
       end
 
       TYPE_METABOXED(__) => begin
@@ -745,7 +743,7 @@ end
   return str
 end
 
-@nospecializeinfer function foldDims(ty::M_Type, func::FuncT, arg::ArgT) where {ArgT}
+@nospecializeinfer function foldDims(ty::ModelicaType, func::FuncT, arg::ArgT) where {ArgT}
 
   @assign arg = begin
     @match ty begin
@@ -758,7 +756,7 @@ end
       end
 
       TYPE_FUNCTION(__) => begin
-        foldDims(returnType(ty.fn), func, arg)
+        foldDims(returnType(functionOf(ty)), func, arg)
       end
 
       TYPE_METABOXED(__) => begin
@@ -773,8 +771,8 @@ end
   return arg
 end
 
-@nospecializeinfer function mapDims(ty::M_Type, func::FuncT)
-  local fn::M_Function
+@nospecializeinfer function mapDims(ty::ModelicaType, func::FuncT)
+  local fn::MODELICA_FUNCTION
   #= Short-circuit when `func` is the identity on every dimension/sub-type,
      so callers can compare with `referenceEq` and skip downstream
      reallocation. The previous implementation always allocated a fresh
@@ -796,11 +794,11 @@ end
     end
     TYPE_TUPLE(__) => begin
       local changed::Bool = false
-      local newTypes::List{NFType} = nil
-      for t::NFType in ty.types
-        local nt::NFType = mapDims(t, func)
+      local newTypes::List{ModelicaType} = nil
+      for t::ModelicaType in ty.types
+        local nt::ModelicaType = mapDims(t, func)
         changed = changed || !referenceEq(nt, t)
-        newTypes = Cons{NFType}(nt, newTypes)
+        newTypes = Cons{ModelicaType}(nt, newTypes)
       end
       if !changed
         ty
@@ -808,7 +806,8 @@ end
         TYPE_TUPLE(listReverse(newTypes), ty.names)
       end
     end
-    TYPE_FUNCTION(fn = fn) => begin
+    TYPE_FUNCTION(__) => begin
+      local fn::MODELICA_FUNCTION = functionOf(ty)
       local oldRet = returnType(fn)
       local newRet = mapDims(oldRet, func)
       if referenceEq(oldRet, newRet)
@@ -832,7 +831,7 @@ end
   return retTy
 end
 
-function hasZeroDimension(ty::M_Type)::Bool
+function hasZeroDimension(ty::ModelicaType)::Bool
   local hasZero::Bool
   @assign hasZero = begin
     @match ty begin
@@ -847,7 +846,7 @@ function hasZeroDimension(ty::M_Type)::Bool
   return hasZero
 end
 
-@nospecializeinfer function hasKnownSize(ty::M_Type)::Bool
+@nospecializeinfer function hasKnownSize(ty::ModelicaType)::Bool
   local known::Bool
 
   @assign known = begin
@@ -860,7 +859,7 @@ end
         )
       end
       TYPE_FUNCTION(__) => begin
-        hasKnownSize(returnType(ty.fn))
+        hasKnownSize(returnType(functionOf(ty)))
       end
       _ => begin
         true
@@ -870,7 +869,7 @@ end
   return known
 end
 
-@nospecializeinfer function dimensionCount(ty::NFType)::Int
+@nospecializeinfer function dimensionCount(ty::ModelicaType)::Int
   local dimCount::Int
   @assign dimCount = begin
     @match ty begin
@@ -878,7 +877,7 @@ end
         listLength(ty.dimensions)
       end
       TYPE_FUNCTION(__) => begin
-        dimensionCount(returnType(ty.fn))
+        dimensionCount(returnType(functionOf(ty)))
       end
       TYPE_METABOXED(__) => begin
         dimensionCount(ty.ty)
@@ -891,7 +890,7 @@ end
   return dimCount
 end
 
-@nospecializeinfer function nthDimension(ty::M_Type, index::Int)::Dimension
+@nospecializeinfer function nthDimension(ty::ModelicaType, index::Int)::Dimension
   local dim::Dimension
 
   @assign dim = begin
@@ -901,7 +900,7 @@ end
       end
 
       TYPE_FUNCTION(__) => begin
-        nthDimension(returnType(ty.fn), index)
+        nthDimension(returnType(functionOf(ty)), index)
       end
 
       TYPE_METABOXED(__) => begin
@@ -916,8 +915,8 @@ end
  Copies array dimensions from one type to another, discarding the existing
  dimensions of the destination type but keeping its element type.
 """
-function copyDims(srcType::M_Type, dstType::M_Type)::M_Type
-  local ty::M_Type
+function copyDims(srcType::ModelicaType, dstType::ModelicaType)::ModelicaType
+  local ty::ModelicaType
   if listEmpty(arrayDims(srcType))
     ty = arrayElementType(dstType)
   else
@@ -935,13 +934,13 @@ function copyDims(srcType::M_Type, dstType::M_Type)::M_Type
   return ty
 end
 
-@nospecializeinfer function arrayDims(ty::NFType)::List{Dimension}
+@nospecializeinfer function arrayDims(ty::ModelicaType)::List{Dimension}
   @match ty begin
     TYPE_ARRAY(__) => begin
       ty.dimensions
     end
     TYPE_FUNCTION(__) => begin
-      arrayDims(returnType(ty.fn))
+      arrayDims(returnType(functionOf(ty)))
     end
     TYPE_METABOXED(__) => begin
       arrayDims(ty.ty)
@@ -952,15 +951,15 @@ end
   end
 end
 
-@nospecializeinfer function elementType(ty::NFType)::NFType
-  local elementTy::NFType
+@nospecializeinfer function elementType(ty::ModelicaType)::ModelicaType
+  local elementTy::ModelicaType
   @assign elementTy = begin
     @match ty begin
       TYPE_ARRAY(__) => begin
         ty.elementType
       end
       TYPE_FUNCTION(__) => begin
-        elementType(returnType(ty.fn))
+        elementType(returnType(functionOf(ty)))
       end
       _ => begin
         ty
@@ -974,8 +973,8 @@ end
 Sets the common type of the elements in an array, if the type is an array
 type. Otherwise it just returns the given element type.
 """
-function setArrayElementType(arrayTy::M_Type, elementTy::NFType)::NFType
-  local ty::NFType
+function setArrayElementType(arrayTy::ModelicaType, elementTy::ModelicaType)::ModelicaType
+  local ty::ModelicaType
  ty = begin
     @match arrayTy begin
       TYPE_ARRAY(__) => begin
@@ -993,8 +992,8 @@ end
   Returns the common type of the elements in an array, or just the type
   itself if it's not an array type.
 """
-function arrayElementType(ty::M_Type)::M_Type
-  local elementTy::M_Type
+function arrayElementType(ty::ModelicaType)::ModelicaType
+  local elementTy::ModelicaType
 
   @assign elementTy = begin
     @match ty begin
@@ -1010,8 +1009,8 @@ function arrayElementType(ty::M_Type)::M_Type
   return elementTy
 end
 
-@nospecializeinfer function nthTupleType(ty::M_Type, n::Int)::M_Type
-  local outTy::M_Type
+@nospecializeinfer function nthTupleType(ty::ModelicaType, n::Int)::ModelicaType
+  local outTy::ModelicaType
   outTy = begin
     @match ty begin
       TYPE_TUPLE(__) => begin
@@ -1028,8 +1027,8 @@ end
   return outTy
 end
 
-@nospecializeinfer function firstTupleType(ty::M_Type)::M_Type
-  local outTy::M_Type
+@nospecializeinfer function firstTupleType(ty::ModelicaType)::ModelicaType
+  local outTy::ModelicaType
   outTy = begin
     @match ty begin
       TYPE_TUPLE(__) => begin
@@ -1046,7 +1045,7 @@ end
   return outTy
 end
 
-function isPolymorphic(ty::NFType)::Bool
+function isPolymorphic(ty::ModelicaType)::Bool
   local isPolymorphic::Bool
   @assign isPolymorphic = begin
     @match ty begin
@@ -1061,7 +1060,7 @@ function isPolymorphic(ty::NFType)::Bool
   return isPolymorphic
 end
 
-function isKnown(ty::NFType)::Bool
+function isKnown(ty::ModelicaType)::Bool
   local isKnown::Bool
   @assign isKnown = begin
     @match ty begin
@@ -1077,7 +1076,7 @@ function isKnown(ty::NFType)::Bool
   return isKnown
 end
 
-function isUnknown(ty::M_Type)::Bool
+function isUnknown(ty::ModelicaType)::Bool
   local isUnknown::Bool
   @assign isUnknown = begin
     @match ty begin
@@ -1093,7 +1092,7 @@ function isUnknown(ty::M_Type)::Bool
   return isUnknown
 end
 
-function isTuple(ty::M_Type)::Bool
+function isTuple(ty::ModelicaType)::Bool
   local isTuple::Bool
 
   @assign isTuple = begin
@@ -1110,7 +1109,7 @@ function isTuple(ty::M_Type)::Bool
 end
 
 """ #= Returns true for all the builtin scalar types such as Integer, Real, etc. =#"""
-@nospecializeinfer function isScalarBuiltin(ty::M_Type)::Bool
+@nospecializeinfer function isScalarBuiltin(ty::ModelicaType)::Bool
   local res::Bool
 
   @assign res = begin
@@ -1144,7 +1143,7 @@ end
       end
 
       TYPE_FUNCTION(__) => begin
-        isScalarBuiltin(returnType(ty.fn))
+        isScalarBuiltin(returnType(functionOf(ty)))
       end
 
       _ => begin
@@ -1155,7 +1154,7 @@ end
   return res
 end
 
-function isNumeric(ty::M_Type)::Bool
+function isNumeric(ty::ModelicaType)::Bool
   local isNumeric::Bool
 
   @assign isNumeric = begin
@@ -1172,7 +1171,7 @@ function isNumeric(ty::M_Type)::Bool
   return isNumeric
 end
 
-function isBasicNumeric(ty::M_Type)::Bool
+function isBasicNumeric(ty::ModelicaType)::Bool
   local isNumeric::Bool
   @assign isNumeric = begin
     @match ty begin
@@ -1190,7 +1189,7 @@ function isBasicNumeric(ty::M_Type)::Bool
   return isNumeric
 end
 
-@nospecializeinfer function isBasic(ty::M_Type)::Bool
+@nospecializeinfer function isBasic(ty::ModelicaType)::Bool
   local isNumeric::Bool
   @assign isNumeric = begin
     @match ty begin
@@ -1218,7 +1217,7 @@ end
       end
 
       TYPE_FUNCTION(__) => begin
-        isBasic(returnType(ty.fn))
+        isBasic(returnType(functionOf(ty)))
       end
 
       _ => begin
@@ -1229,7 +1228,7 @@ end
   return isNumeric
 end
 
-function isScalarArray(ty::M_Type)::Bool
+function isScalarArray(ty::ModelicaType)::Bool
   local isScalar::Bool
 
   @assign isScalar = begin
@@ -1246,7 +1245,7 @@ function isScalarArray(ty::M_Type)::Bool
   return isScalar
 end
 
-function isRecord(ty::M_Type)::Bool
+function isRecord(ty::ModelicaType)::Bool
   local isRecord::Bool
 
   @assign isRecord = begin
@@ -1263,7 +1262,7 @@ function isRecord(ty::M_Type)::Bool
   return isRecord
 end
 
-function isExternalObject(ty::M_Type)::Bool
+function isExternalObject(ty::ModelicaType)::Bool
   local isEO::Bool
 
   @assign isEO = begin
@@ -1280,7 +1279,7 @@ function isExternalObject(ty::M_Type)::Bool
   return isEO
 end
 
-function isExpandableConnector(ty::M_Type)::Bool
+function isExpandableConnector(ty::ModelicaType)::Bool
   local isExpandable::Bool
 
   @assign isExpandable = begin
@@ -1296,7 +1295,7 @@ function isExpandableConnector(ty::M_Type)::Bool
   return isExpandable
 end
 
-function isConnector(ty::M_Type)::Bool
+function isConnector(ty::ModelicaType)::Bool
   local isaC::Bool
 
   @assign isaC = begin
@@ -1312,7 +1311,7 @@ function isConnector(ty::M_Type)::Bool
   return isaC
 end
 
-function isComplex(ty::M_Type)::Bool
+function isComplex(ty::ModelicaType)::Bool
   local isComplex::Bool
   @assign isComplex = begin
     @match ty begin
@@ -1337,7 +1336,7 @@ function complexComponents(ty)
   getComponents(classTree(getClass(complexNode(ty))))
 end
 
-function isEnumeration(ty::M_Type)::Bool
+function isEnumeration(ty::ModelicaType)::Bool
   local isEnum::Bool
 
   @assign isEnum = begin
@@ -1358,7 +1357,7 @@ function isEnumeration(ty::M_Type)::Bool
   return isEnum
 end
 
-function isSingleElementArray(ty::M_Type)::Bool
+function isSingleElementArray(ty::ModelicaType)::Bool
   local isSingleElement::Bool
   @assign isSingleElement = begin
     local d::Dimension
@@ -1374,7 +1373,7 @@ function isSingleElementArray(ty::M_Type)::Bool
   return isSingleElement
 end
 
-function isEmptyArray(ty::M_Type)::Bool
+function isEmptyArray(ty::ModelicaType)::Bool
   local isEmpty::Bool
   isEmpty = begin
     @match ty begin
@@ -1389,7 +1388,7 @@ function isEmptyArray(ty::M_Type)::Bool
   return isEmpty
 end
 
-function isSquareMatrix(ty::M_Type)::Bool
+function isSquareMatrix(ty::ModelicaType)::Bool
   local isSquareMatrix::Bool
 
   @assign isSquareMatrix = begin
@@ -1408,7 +1407,7 @@ function isSquareMatrix(ty::M_Type)::Bool
   return isSquareMatrix
 end
 
-function isMatrix(ty::M_Type)::Bool
+function isMatrix(ty::ModelicaType)::Bool
   local isMatrix::Bool
 
   @assign isMatrix = begin
@@ -1426,7 +1425,7 @@ function isMatrix(ty::M_Type)::Bool
 end
 
 """Return whether the type is a vector type or not, i.e. a 1-dimensional array."""
-function isVector(ty::M_Type)::Bool
+function isVector(ty::ModelicaType)::Bool
   local isVector::Bool
 
   @assign isVector = begin
@@ -1443,7 +1442,7 @@ function isVector(ty::M_Type)::Bool
   return isVector
 end
 
-function isArray(ty::M_Type)::Bool
+function isArray(ty::ModelicaType)::Bool
   local isArray::Bool
 
   @assign isArray = begin
@@ -1460,7 +1459,7 @@ function isArray(ty::M_Type)::Bool
   return isArray
 end
 
-function isScalar(ty::M_Type)::Bool
+function isScalar(ty::ModelicaType)::Bool
   local isScalar::Bool
 
   @assign isScalar = begin
@@ -1478,14 +1477,14 @@ function isScalar(ty::M_Type)::Bool
 end
 
 "Whether `ty` is a function type: a functional input (`input Base f`), a partial application (`function f(a = 1)`)."
-function isFunction(ty::NFType)::Bool
+function isFunction(ty::ModelicaType)::Bool
   return @match ty begin
     TYPE_FUNCTION(__) => true
     _ => false
   end
 end
 
-function isClock(ty::NFType)::Bool
+function isClock(ty::ModelicaType)::Bool
   local isClock::Bool
   @assign isClock = begin
     @match ty begin
@@ -1500,7 +1499,7 @@ function isClock(ty::NFType)::Bool
   return isClock
 end
 
-function isString(ty::M_Type)::Bool
+function isString(ty::ModelicaType)::Bool
   local isString::Bool
 
   @assign isString = begin
@@ -1517,7 +1516,7 @@ function isString(ty::M_Type)::Bool
   return isString
 end
 
-function isBoolean(ty::NFType)::Bool
+function isBoolean(ty::ModelicaType)::Bool
   local isBool::Bool
   @assign isBool = begin
     @match ty begin
@@ -1532,7 +1531,7 @@ function isBoolean(ty::NFType)::Bool
   return isBool
 end
 
-function isReal(ty::M_Type)::Bool
+function isReal(ty::ModelicaType)::Bool
   local isReal::Bool
 
   @assign isReal = begin
@@ -1549,7 +1548,7 @@ function isReal(ty::M_Type)::Bool
   return isReal
 end
 
-function isInteger(ty::M_Type)::Bool
+function isInteger(ty::ModelicaType)::Bool
   local isInteger::Bool
 
   @assign isInteger = begin
@@ -1566,9 +1565,9 @@ function isInteger(ty::M_Type)::Bool
   return isInteger
 end
 
-function unliftArrayN(N::Int, ty::M_Type)::M_Type
+function unliftArrayN(N::Int, ty::ModelicaType)::ModelicaType
 
-  local el_ty::M_Type
+  local el_ty::ModelicaType
   local dims::List{Dimension}
 
   N == 0 && return ty
@@ -1584,9 +1583,9 @@ function unliftArrayN(N::Int, ty::M_Type)::M_Type
   return ty
 end
 
-function unliftArray(ty::M_Type)::M_Type
+function unliftArray(ty::ModelicaType)::ModelicaType
 
-  local el_ty::M_Type
+  local el_ty::ModelicaType
   local dims::List{Dimension}
 
   @match TYPE_ARRAY(el_ty, Cons{Dimension}(_, dims)) = ty
@@ -1601,7 +1600,7 @@ end
 """  Adds array dimensions to a type on the left side, e.g.
      listArrayLeft(Real[2, 3], [4, 5]) => Real[4, 5, 2, 3].
 """
-function liftArrayLeftList(ty::NFType, dims::List{<:Dimension})::NFType
+function liftArrayLeftList(ty::ModelicaType, dims::List{<:Dimension})::ModelicaType
   if listEmpty(dims)
     return ty
   end
@@ -1622,7 +1621,7 @@ end
   Adds an array dimension to a type on the left side, e.g.
   listArrayLeft(Real[2, 3], [4]) => Real[4, 2, 3].
 """
-function liftArrayLeft(ty::M_Type, dim::Dimension)::NFType
+function liftArrayLeft(ty::ModelicaType, dim::Dimension)::ModelicaType
   @match ty begin
     TYPE_ARRAY(__) => begin
       return TYPE_ARRAY(ty.elementType, Cons{Dimension}(dim, ty.dimensions))

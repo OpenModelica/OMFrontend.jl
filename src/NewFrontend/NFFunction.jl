@@ -35,7 +35,7 @@
 
 @Uniontype MatchedFunction begin
   @Record MATCHED_FUNC begin
-    func::M_FUNCTION
+    func::MODELICA_FUNCTION
     args::Vector{TypedArg}
     mk::FunctionMatchKind
   end
@@ -253,7 +253,7 @@ using MetaModelica
 import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
-function isPartial(fn::M_FUNCTION)::Bool
+function isPartial(fn::MODELICA_FUNCTION)::Bool
   return isPartial(fn.node)
 end
 
@@ -290,7 +290,7 @@ function foldExpParameter(node::InstNode, foldFn::FoldFunc, arg::ArgT) where {Ar
 end
 
 function foldExp(
-  fn::M_FUNCTION,
+  fn::MODELICA_FUNCTION,
   foldFn::FoldFunc,
   arg::ArgT,
   mapParameters::Bool = true,
@@ -318,7 +318,7 @@ function mapExpParameter(node::InstNode, mapFn::MapFunc)
   local binding::Binding
   local binding2::Binding
   local cls::Class
-  local ty::M_Type
+  local ty::ModelicaType
   local dirty::Bool = false
   comp = component(node)
   binding = getBinding(comp)
@@ -356,11 +356,11 @@ function mapExpParameter(node::InstNode, mapFn::MapFunc)
 end
 
 function mapExp(
-  fn::M_FUNCTION,
+  fn::MODELICA_FUNCTION,
   mapFn::MapFunc,
   mapParameters::Bool = true,
   mapBody::Bool = true,
-  )::M_FUNCTION
+  )::MODELICA_FUNCTION
   local cls::Class
   local ctree::ClassTree
   local comps::Vector{InstNode}
@@ -389,7 +389,7 @@ function hasUnboxArgsAnnotation(cmt::SCode.Comment)::Bool
 end
 
 """Returns true if the function has the __OpenModelica_UnboxArguments annotation, otherwise false."""
-function hasUnboxArgs(fn::M_FUNCTION)::Bool
+function hasUnboxArgs(fn::MODELICA_FUNCTION)::Bool
   local res::Bool
 
   @assign res = begin
@@ -408,16 +408,16 @@ function hasUnboxArgs(fn::M_FUNCTION)::Bool
   return res
 end
 
-function getBody(fn::M_FUNCTION)::Vector{Statement}
+function getBody(fn::MODELICA_FUNCTION)::Vector{Statement}
   local body::Vector{Statement} = getBody2(fn.node)
   return body
 end
 
-function makeDAEType(fn::M_FUNCTION, boxTypes::Bool = false)::DAE.Type
+function makeDAEType(fn::MODELICA_FUNCTION, boxTypes::Bool = false)::DAE.Type
   local outType::DAE.Type
   local params::List{DAE.FuncArg} = nil
   local pname::String
-  local ty::M_Type
+  local ty::ModelicaType
   local ptype::DAE.Type
   local pconst::DAE.Const
   local ppar::DAE.VarParallelism
@@ -451,7 +451,7 @@ function makeDAEType(fn::M_FUNCTION, boxTypes::Bool = false)::DAE.Type
   return outType
 end
 
-function toDAE(fn::M_FUNCTION, def::DAE.FunctionDefinition)::DAE.Function
+function toDAE(fn::MODELICA_FUNCTION, def::DAE.FunctionDefinition)::DAE.Function
   local daeFn::DAE.Function
 
   local vis::SCode.Visibility
@@ -494,7 +494,7 @@ function toDAE(fn::M_FUNCTION, def::DAE.FunctionDefinition)::DAE.Function
 end
 
 #= An operator record's constructor: 'constructor' in its path (omc isNonDefaultRecordConstructor). =#
-function isNonDefaultRecordConstructor(fn::M_FUNCTION)::Bool
+function isNonDefaultRecordConstructor(fn::MODELICA_FUNCTION)::Bool
   return isNonDefaultRecordConstructorPath(fn.path)
 end
 
@@ -503,7 +503,7 @@ function isNonDefaultRecordConstructorPath(path::Absyn.Path)::Bool
   return path.name == "'constructor'" || isNonDefaultRecordConstructorPath(path.path)
 end
 
-function isDefaultRecordConstructor(fn::M_FUNCTION)::Bool
+function isDefaultRecordConstructor(fn::MODELICA_FUNCTION)::Bool
   local isConstructor::Bool
   isConstructor = begin
     @match restriction(getClass(fn.node)) begin
@@ -518,7 +518,7 @@ function isDefaultRecordConstructor(fn::M_FUNCTION)::Bool
   return isConstructor
 end
 
-function inlineBuiltin(fn::M_FUNCTION)::DAE.InlineType
+function inlineBuiltin(fn::MODELICA_FUNCTION)::DAE.InlineType
   local inlineType::DAE.InlineType
   @assign inlineType = begin
     @match fn.attributes.isBuiltin begin
@@ -533,39 +533,39 @@ function inlineBuiltin(fn::M_FUNCTION)::DAE.InlineType
   return inlineType
 end
 
-function isExternal(fn::M_FUNCTION)::Bool
+function isExternal(fn::MODELICA_FUNCTION)::Bool
   local isExt::Bool =
     !isEmpty(fn.node) && isExternalFunction(getClass(fn.node))
   return isExt
 end
 
-function setFunctionPointer(isPointer::Bool, fn::M_FUNCTION)::M_FUNCTION
+function setFunctionPointer(isPointer::Bool, fn::MODELICA_FUNCTION)::MODELICA_FUNCTION
   local attr::DAE.FunctionAttributes = fn.attributes
   @assign attr.isFunctionPointer = isPointer
   @assign fn.attributes = attr
   return fn
 end
 
-function isFunctionPointer(fn::M_FUNCTION)::Bool
+function isFunctionPointer(fn::MODELICA_FUNCTION)::Bool
   local isPointer::Bool = fn.attributes.isFunctionPointer
   return isPointer
 end
 
-function isOMImpure(fn::M_FUNCTION)::Bool
+function isOMImpure(fn::MODELICA_FUNCTION)::Bool
   local isImpure::Bool = fn.attributes.purity == DAE.IMPURE
   return isImpure
 end
 
-function isImpure(fn::M_FUNCTION)::Bool
+function isImpure(fn::MODELICA_FUNCTION)::Bool
   local impure::Bool = fn.attributes.purity == DAE.IMPURE
   return impure
 end
 
-function isNotImpure(fn::M_FUNCTION)::Bool
+function isNotImpure(fn::MODELICA_FUNCTION)::Bool
   return !isImpure(fn)
 end
 
-function isSubscriptableBuiltin(fn::M_FUNCTION)::Bool
+function isSubscriptableBuiltin(fn::MODELICA_FUNCTION)::Bool
   local scalarBuiltin::Bool
   if !isBuiltin(fn)
     @assign scalarBuiltin = false
@@ -598,7 +598,7 @@ end
     and needs to be handled in a different way.
     Examples of such functions is der
   """
-function isSpecialBuiltin(fn::M_FUNCTION)::Bool
+function isSpecialBuiltin(fn::MODELICA_FUNCTION)::Bool
   local special::Bool
   local path::Absyn.Path
   if !isBuiltin(fn)
@@ -796,7 +796,7 @@ function isBuiltinAttr(attrs::DAE.FunctionAttributes)::Bool
   return isBuiltin
 end
 
-function isBuiltin(fn::M_FUNCTION)::Bool
+function isBuiltin(fn::MODELICA_FUNCTION)::Bool
   local isBuiltin::Bool = isBuiltinAttr(fn.attributes)
   return isBuiltin
 end
@@ -804,10 +804,10 @@ end
 function applyPartialApplicationArg(
   argName::String,
   argExp::Expression,
-  argType::M_Type,
+  argType::ModelicaType,
   inputs::List{<:InstNode},
   slots::List{<:Slot},
-  fn::M_FUNCTION,
+  fn::MODELICA_FUNCTION,
   info::SourceInfo,
 )::Tuple{Expression, List{InstNode}, List{Slot}}
   local outSlots::List{Slot} = nil
@@ -859,9 +859,9 @@ function typePartialApplication(
   exp::Expression,
   origin::ORIGIN_Type,
   info::SourceInfo,
-)::Tuple{Expression, M_Type, VariabilityType}
+)::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
 
   local fn_ref::ComponentRef
   local args::List{Expression}
@@ -870,9 +870,9 @@ function typePartialApplication(
   local rest_names::List{String}
   local arg_name::String
   local arg_exp::Expression
-  local arg_ty::M_Type
+  local arg_ty::ModelicaType
   local arg_var::VariabilityType
-  local fn::M_FUNCTION
+  local fn::MODELICA_FUNCTION
   local next_origin::ORIGIN_Type = setFlag(origin, ORIGIN_SUBEXPRESSION)
   local inputs::List{InstNode}
   local slots::List{Slot}
@@ -940,7 +940,7 @@ end
   Types the body of a function, along with any bindings of local variables
   and outputs.
 """
-function typeFunctionBody(fn::M_FUNCTION)::M_FUNCTION
+function typeFunctionBody(fn::MODELICA_FUNCTION)::MODELICA_FUNCTION
   #=  Type the bindings of the outputs and local variables. =#
   @assign fn.outputs = mapFunctionNodes(fn.outputs, (c) -> typeComponentBinding(c, ORIGIN_FUNCTION))
   @assign fn.locals = mapFunctionNodes(fn.locals, (c) -> typeComponentBinding(c, ORIGIN_FUNCTION))
@@ -1018,7 +1018,7 @@ function localDependencies(compNode::InstNode, self::Int, nodes::Vector{InstNode
 end
 
 """Types a function's parameters, local components and default arguments."""
-function typeFunctionSignature(fn::M_FUNCTION)
+function typeFunctionSignature(fn::MODELICA_FUNCTION)
   local attr::DAE.FunctionAttributes
   local node::InstNode = fn.node
   if !isTyped(fn)
@@ -1036,7 +1036,7 @@ function typeFunctionSignature(fn::M_FUNCTION)
     checkParamTypes(fn)
     checkPartialDerivativeTypes(fn)
     fnReturnType = makeReturnType(fn)
-    fn = M_FUNCTION(
+    fn = MODELICA_FUNCTION(
       fn.path,
       fn.node,
       fn.inputs,
@@ -1053,14 +1053,14 @@ function typeFunctionSignature(fn::M_FUNCTION)
   return fn
 end
 
-function typeFunction(fn::M_FUNCTION)
+function typeFunction(fn::MODELICA_FUNCTION)
   fn = typeFunctionSignature(fn)
   fn = typeFunctionBody(fn)
   return fn
 end
 
 function getRefCache(fnRef::ComponentRef)
-  local functions::Vector{M_Function}
+  local functions::Vector{MODELICA_FUNCTION}
   local fn_node::InstNode
   fn_node = classScope(node(fnRef))
   @match C_FUNCTION(funcs = functions) = getFuncCache(fn_node)
@@ -1071,7 +1071,7 @@ end
  Returns the function(s) in the cache of the given node, and types them if
  they are not already typed.
 """
-function typeNodeCache(@nospecialize(functionNode::InstNode))::Vector{M_FUNCTION}
+function typeNodeCache(@nospecialize(functionNode::InstNode))::Vector{MODELICA_FUNCTION}
   local fn_node::InstNode = classScope(functionNode)
   if _parallelTypingActive()
     return _withClaim(() -> typeNodeCache2(fn_node), _refId(fn_node))
@@ -1079,8 +1079,8 @@ function typeNodeCache(@nospecialize(functionNode::InstNode))::Vector{M_FUNCTION
   return typeNodeCache2(fn_node)
 end
 
-function typeNodeCache2(fn_node::InstNode)::Vector{M_FUNCTION}
-  local functions::Vector{M_FUNCTION}
+function typeNodeCache2(fn_node::InstNode)::Vector{MODELICA_FUNCTION}
+  local functions::Vector{MODELICA_FUNCTION}
   local typed::Bool
   local special::Bool
   local name::String
@@ -1090,7 +1090,7 @@ function typeNodeCache2(fn_node::InstNode)::Vector{M_FUNCTION}
   functions = cache.funcs
   #=  Type the function(s) if not already done. =#
   if !typed
-    #functions = M_FUNCTION[typeFunctionSignature(f) for f in functions]
+    #functions = MODELICA_FUNCTION[typeFunctionSignature(f) for f in functions]
     for (i, f) in enumerate(functions)
       functions[i] = typeFunctionSignature(f) #TODO Investigate if this approch works
     end
@@ -1109,8 +1109,8 @@ end
  Returns the function(s) referenced by the given cref, and types them if
  they are not already typed.
 """
-function typeRefCache(functionRef::ComponentRef)::Vector{M_FUNCTION}
-  local functions::Vector{M_FUNCTION}
+function typeRefCache(functionRef::ComponentRef)::Vector{MODELICA_FUNCTION}
+  local functions::Vector{MODELICA_FUNCTION}
   functions = begin
     @match functionRef begin
       COMPONENT_REF_CREF(__) => begin
@@ -1129,7 +1129,7 @@ function typeRefCache(functionRef::ComponentRef)::Vector{M_FUNCTION}
   return functions
 end
 
-function isTyped(fn::M_FUNCTION)::Bool
+function isTyped(fn::MODELICA_FUNCTION)::Bool
   local isTyped::Bool
   @assign isTyped = begin
     @match fn.returnType begin
@@ -1145,7 +1145,7 @@ function isTyped(fn::M_FUNCTION)::Bool
 end
 
 function matchFunctionsSilent(
-  funcs::Vector{M_Function},
+  funcs::Vector{MODELICA_FUNCTION},
   args::Vector{TypedArg},
   named_args::Vector{TypedNamedArg},
   info::SourceInfo,
@@ -1159,7 +1159,7 @@ function matchFunctionsSilent(
 end
 
 function matchFunctions(
-  funcs::Vector{M_Function},
+  funcs::Vector{MODELICA_FUNCTION},
   args::Vector{TypedArg},
   named_args::Vector{TypedNamedArg},
   info::SourceInfo,
@@ -1179,7 +1179,7 @@ function matchFunctions(
 end
 
 function matchFunction(
-  func::M_FUNCTION,
+  func::MODELICA_FUNCTION,
   args::Vector{TypedArg},
   named_args::Vector{TypedNamedArg},
   info::SourceInfo,
@@ -1222,18 +1222,18 @@ end
 
 function matchArgVectorized(
   @nospecialize(argExp::Expression),
-  argTy::M_Type,
-  inputTy::M_Type,
+  argTy::ModelicaType,
+  inputTy::ModelicaType,
   @nospecialize(vectArg::Expression),
   vectDims::List{<:Dimension},
   info::SourceInfo,
-)::Tuple{Expression, M_Type, Expression, List{Dimension}, MatchKindType}
+)::Tuple{Expression, ModelicaType, Expression, List{Dimension}, MatchKindType}
   local matchKind::MatchKindType
   local arg_dims::List{Dimension}
   local input_dims::List{Dimension}
   local vect_dims::List{Dimension}
   local rest_dims::List{Dimension}
-  local rest_ty::M_Type
+  local rest_ty::ModelicaType
   local mk::MatchKindType
   local vect_dims_count::Int
   arg_dims = arrayDims(argTy)
@@ -1276,7 +1276,7 @@ function matchArgVectorized(
 end
 
 function matchArgs(
-  func::M_FUNCTION,
+  func::MODELICA_FUNCTION,
   args::Vector{TypedArg},
   info::SourceInfo,
   vectorize::Bool = true,
@@ -1291,9 +1291,9 @@ function matchArgs(
   local arg_idx::Int = 1
   local checked_args = Vector{TypedArg}(undef, length(args))
   local arg_exp::Expression
-  local arg_ty::M_Type
-  local input_ty::M_Type
-  local ty::M_Type
+  local arg_ty::ModelicaType
+  local input_ty::ModelicaType
+  local ty::ModelicaType
   local arg_var::VariabilityType
   local mk::MatchKindType
   local vect_arg::Expression = INTEGER_EXPRESSION(0)
@@ -1585,14 +1585,14 @@ end
 function fillNamedArg(
   inArg::TypedNamedArg,
   slots::Vector{<:Slot},
-  fn::M_FUNCTION,
+  fn::MODELICA_FUNCTION,
   info::SourceInfo,
 )::Tuple{Array{Slot}, Bool} #= For error reporting =#
   local matching::Bool = true
 
   local s::Slot
   local argName::String
-  local ty::M_Type
+  local ty::ModelicaType
   local argExp::Expression
   local var::VariabilityType
 
@@ -1655,7 +1655,7 @@ end
 function fillArgs(
   posArgs::Vector{TypedArg},
   namedArgs::Vector{TypedNamedArg},
-  fn::M_FUNCTION,
+  fn::MODELICA_FUNCTION,
   info::SourceInfo,
 )::Tuple{Vector{TypedArg}, Bool}
   local matching::Bool
@@ -1708,23 +1708,23 @@ function fillArgs(
   return (args, matching)
 end
 
-function setReturnType(ty::M_Type, fn::M_FUNCTION)::M_FUNCTION
+function setReturnType(ty::ModelicaType, fn::MODELICA_FUNCTION)::MODELICA_FUNCTION
 
   @assign fn.returnType = ty
   return fn
 end
 
-function returnType(fn::M_FUNCTION)::M_Type
-  local ty::M_Type = fn.returnType
+function returnType(fn::MODELICA_FUNCTION)::ModelicaType
+  local ty::ModelicaType = fn.returnType
   return ty
 end
 
-function instance(fn::M_FUNCTION)::InstNode
+function instance(fn::MODELICA_FUNCTION)::InstNode
   local node::InstNode = fn.node
   return node
 end
 
-function toFlatString(fn::M_FUNCTION)::String
+function toFlatString(fn::MODELICA_FUNCTION)::String
   local str::String
   local s
   s = IOStream_M.create(getInstanceName(), IOStream_M.LIST())
@@ -1734,12 +1734,12 @@ function toFlatString(fn::M_FUNCTION)::String
   return str
 end
 
-function toFlatStream(fn::M_FUNCTION, s; overrideName::String)
+function toFlatStream(fn::MODELICA_FUNCTION, s; overrideName::String)
   local fn_body::Vector{Statement}
   if isDefaultRecordConstructor(fn)
     s = IOStream_M.append(s, toFlatString(fn.node))
   else
-    s = toFlatStreamHelper(fn::M_FUNCTION, s, overrideName)
+    s = toFlatStreamHelper(fn::MODELICA_FUNCTION, s, overrideName)
   end
   return s
 end
@@ -1747,18 +1747,18 @@ end
 """
 Returns a function as  a flat string.
 """
-function toFlatStream(fn::M_FUNCTION, s::IOStream_M.IOSTREAM)
+function toFlatStream(fn::MODELICA_FUNCTION, s::IOStream_M.IOSTREAM)
   local fn_name::String
   if isDefaultRecordConstructor(fn)
     s = IOStream_M.append(s, toFlatString(fn.node))
   else
     fn_name = AbsynUtil.pathString(fn.path)
-    s = toFlatStreamHelper(fn::M_FUNCTION, s, string("'", fn_name, "'"))
+    s = toFlatStreamHelper(fn::MODELICA_FUNCTION, s, string("'", fn_name, "'"))
   end
   return s
 end
 
-function toFlatStreamHelper(fn::M_FUNCTION, s, fn_name)
+function toFlatStreamHelper(fn::MODELICA_FUNCTION, s, fn_name)
     #= A partial derivative as its declaration, function df = der(f, x) (omc toFlatStream). =#
     if isPartialDerivative(fn)
       local ins = Base.collect(fn.inputs)
@@ -1829,7 +1829,7 @@ end
 """  Constructs a string representing the type of the function, on the form
      function_name<function>(input types) => output type
 """
-function typeString(fn::M_FUNCTION)::String
+function typeString(fn::MODELICA_FUNCTION)::String
   local str::String
 
   @assign str = ListUtil.toString(
@@ -1844,19 +1844,19 @@ function typeString(fn::M_FUNCTION)::String
   return str
 end
 
-function candidateFuncListString(fns::List{<:M_Function})::String
+function candidateFuncListString(fns::List{MODELICA_FUNCTION})::String
   local s::String =
     stringDelimitList(list(signatureString(fn, true) for fn in fns), "\\n  ")
   return s
 end
 
-function candidateFuncListString(fns::Vector{M_Function})
+function candidateFuncListString(fns::Vector{MODELICA_FUNCTION})
   local s::String = stringDelimitList(list(signatureString(fn, true) for fn in fns), "\\n  ")
   return s
 end
 
 """Constructs a signature string for a function, e.g. Real func(Real x, Real y)"""
-function signatureString(fn::M_FUNCTION, printTypes::Bool = true)::String
+function signatureString(fn::MODELICA_FUNCTION, printTypes::Bool = true)::String
   local str::String
 
   local fn_name::Absyn.Path
@@ -1867,7 +1867,7 @@ function signatureString(fn::M_FUNCTION, printTypes::Bool = true)::String
   local inputs::List{InstNode} = fn.inputs
   local c::Component
   local def_exp::Expression
-  local ty::M_Type
+  local ty::ModelicaType
 
   for s in fn.slots
     @assign input_str = ""
@@ -1922,7 +1922,7 @@ function signatureString(fn::M_FUNCTION, printTypes::Bool = true)::String
 end
 
 """Handles the DAE.mo structure where builtin calls are replaced by their simpler name"""
-function nameConsiderBuiltin(fn::M_FUNCTION)::Absyn.Path
+function nameConsiderBuiltin(fn::MODELICA_FUNCTION)::Absyn.Path
   local path::Absyn.Path
 
   @assign path = begin
@@ -1944,13 +1944,13 @@ function nameConsiderBuiltin(fn::M_FUNCTION)::Absyn.Path
   return path
 end
 
-function name(fn::M_FUNCTION)::Absyn.Path
+function name(fn::MODELICA_FUNCTION)::Absyn.Path
   local path::Absyn.Path = fn.path
   return path
 end
 
 """Marks this function as collected for addition to the function tree."""
-function collect(fn::M_FUNCTION)
+function collect(fn::MODELICA_FUNCTION)
   #=  The pointer might be immutable, check before assigning to it.
   =#
   return if P_Pointer.access(fn.status) != FunctionStatus.BUILTIN
@@ -1962,7 +1962,7 @@ end
   Returns true if this function has already been added to the function tree
   (or shouldn't be added, e.g. if it's builtin), otherwise false.
 """
-function isCollected(fn::M_FUNCTION)::Bool
+function isCollected(fn::MODELICA_FUNCTION)::Bool
   local collected::Bool
   @assign collected = begin
     @match P_Pointer.access(fn.status) begin
@@ -1980,13 +1980,13 @@ function isCollected(fn::M_FUNCTION)::Bool
   return collected
 end
 
-function markSimplified(fn::M_FUNCTION)
+function markSimplified(fn::MODELICA_FUNCTION)
   return if P_Pointer.access(fn.status) != FunctionStatus.BUILTIN
     P_Pointer.update(fn.status, FunctionStatus.SIMPLIFIED)
   end
 end
 
-function isSimplified(fn::M_FUNCTION)::Bool
+function isSimplified(fn::MODELICA_FUNCTION)::Bool
   local simplified::Bool
 
   @assign simplified = begin
@@ -2007,13 +2007,13 @@ function isSimplified(fn::M_FUNCTION)::Bool
   return simplified
 end
 
-function markEvaluated(fn::M_FUNCTION)
+function markEvaluated(fn::MODELICA_FUNCTION)
   return if P_Pointer.access(fn.status) != FunctionStatus.BUILTIN
     P_Pointer.update(fn.status, FunctionStatus.EVALUATED)
   end
 end
 
-function isEvaluated(fn::M_FUNCTION)::Bool
+function isEvaluated(fn::MODELICA_FUNCTION)::Bool
   local evaluated::Bool
   local status = P_Pointer.access(fn.status)
   evaluated = begin
@@ -2040,7 +2040,7 @@ function mapCachedFuncs(inNode::InstNode, mapFn::MapFn)
   cache = begin
     @match cache begin
       C_FUNCTION(__) => begin
-        cacheFuncs = M_FUNCTION[mapFn(fn) for fn in cache.funcs]
+        cacheFuncs = MODELICA_FUNCTION[mapFn(fn) for fn in cache.funcs]
         cache = C_FUNCTION(cacheFuncs, cache.typed, cache.specialBuiltin)
         cache
       end
@@ -2054,7 +2054,7 @@ function mapCachedFuncs(inNode::InstNode, mapFn::MapFn)
 end
 
 function getCachedFuncs(inNode::InstNode)
-  local outFuncs::Vector{M_FUNCTION}
+  local outFuncs::Vector{MODELICA_FUNCTION}
   local cache::CachedData
   cache = getFuncCache(classScope(inNode))
   outFuncs = begin
@@ -2094,10 +2094,10 @@ function instFunction2(
 
    (fnNode, specialBuiltin) = begin
     local cdef::SCode.ClassDef
-    local fn::M_FUNCTION
+    local fn::MODELICA_FUNCTION
     local cr::Absyn.ComponentRef
     local sub_fnNode::InstNode
-    local funcs::List{M_Function}
+    local funcs::List{MODELICA_FUNCTION}
     local fn_ders::List{FunctionDerivative}
     @match def begin
       SCode.CLASS(__) where {(SCodeUtil.isOperatorRecord(def))} => begin
@@ -2149,7 +2149,7 @@ function instFunction2(
         specialBuiltin = isSpecialBuiltin(fn)
         fnDerivatives =
           instDerivatives(fnNode, fn)
-        fn = M_FUNCTION(
+        fn = MODELICA_FUNCTION(
           fn.path,
           fn.node,
           fn.inputs,
@@ -2172,7 +2172,7 @@ end
 
 #= The inputs of a partial derivative of a function, `function df = der(f, x, y)`, by index
    (omc instPartialDerivedVars). =#
-function instPartialDerivedVars(classDef::SCode.ClassDef, inputs::List{InstNode}, fn::M_FUNCTION, info::SourceInfo)::List{Int}
+function instPartialDerivedVars(classDef::SCode.ClassDef, inputs::List{InstNode}, fn::MODELICA_FUNCTION, info::SourceInfo)::List{Int}
   classDef isa SCode.PDER || return nil
   local derivedVars = Int[]
   local ins = Base.collect(inputs)
@@ -2190,7 +2190,7 @@ end
 
 #= The inputs a partial derivative is taken with respect to are scalar Reals (omc
    checkPartialDerivativeTypes). =#
-function checkPartialDerivativeTypes(fn::M_FUNCTION)
+function checkPartialDerivativeTypes(fn::MODELICA_FUNCTION)
   local ins = Base.collect(fn.inputs)
   for i in fn.derivedInputs
     local node = ins[i]
@@ -2205,10 +2205,10 @@ function checkPartialDerivativeTypes(fn::M_FUNCTION)
 end
 
 #= Whether a function is a partial derivative of a function, df = der(f, x) (omc). =#
-isPartialDerivative(fn::M_FUNCTION)::Bool = !listEmpty(fn.derivedInputs)
+isPartialDerivative(fn::MODELICA_FUNCTION)::Bool = !listEmpty(fn.derivedInputs)
 
 #= The function a partial derivative is of: df = der(f, x) => f (omc getDerivedFunctionName). =#
-function getDerivedFunctionName(fn::M_FUNCTION)::Absyn.Path
+function getDerivedFunctionName(fn::MODELICA_FUNCTION)::Absyn.Path
   local def = definition(fn.node)
   if def isa SCode.CLASS && def.classDef isa SCode.PDER
     return def.classDef.functionPath
@@ -2393,8 +2393,8 @@ function lookupFunctionSimple(functionName::String, scope::InstNode)::ComponentR
   return functionRef
 end
 
-function new(path::Absyn.Path, node::InstNode)::M_FUNCTION
-  local fn::M_FUNCTION
+function new(path::Absyn.Path, node::InstNode)::MODELICA_FUNCTION
+  local fn::MODELICA_FUNCTION
   local cls::Class
   local inputs::List{InstNode}
   local outputs::List{InstNode}
@@ -2412,7 +2412,7 @@ function new(path::Absyn.Path, node::InstNode)::M_FUNCTION
   else
     FunctionStatus.INITIAL
   end
-  @assign fn = M_FUNCTION(
+  @assign fn = MODELICA_FUNCTION(
     path,
     node,
     inputs,
@@ -2422,8 +2422,8 @@ function new(path::Absyn.Path, node::InstNode)::M_FUNCTION
     TYPE_UNKNOWN(),
     attr,
     nil,
-    P_Pointer.create(status),
-    P_Pointer.create(0),
+    P_Pointer.create(status, Int),
+    P_Pointer.create(0, Int),
   )
   return fn
 end
@@ -2456,7 +2456,7 @@ function isValidParamState(cls::InstNode)::Bool
   return isValid
 end
 
-function isValidParamType(ty::NFType)::Bool
+function isValidParamType(ty::ModelicaType)::Bool
   local isValid::Bool
   @assign isValid = begin
     @match ty begin
@@ -2517,7 +2517,7 @@ function isValidParamType(ty::NFType)::Bool
 end
 
 function checkParamTypes2(params::List{<:InstNode})
-  local ty::M_Type
+  local ty::ModelicaType
   return for p in params
     ty = getType(p)
     if !isValidParamType(ty)
@@ -2535,7 +2535,7 @@ end
   Checks that all the function parameters have types which are allowed in a
   function.
 """
-function checkParamTypes(fn::M_FUNCTION)
+function checkParamTypes(fn::MODELICA_FUNCTION)
   checkParamTypes2(fn.inputs)
   checkParamTypes2(fn.outputs)
   return checkParamTypes2(fn.locals)
@@ -2944,7 +2944,7 @@ function analyseUnusedParametersExp(
   return params
 end
 
-function analyseUnusedParameters(fn::M_FUNCTION)::List{Int}
+function analyseUnusedParameters(fn::MODELICA_FUNCTION)::List{Int}
   local unusedInputs::List{Int} = nil
 
   local inputs::List{InstNode}
@@ -2965,7 +2965,7 @@ end
 function getBody2(node::InstNode)
   local body::Vector{Statement}
   local cls::Class = getClass(node)
-  local fn_body::Algorithm
+  local fn_body::ALGORITHM
   body = begin
     @match cls begin
       INSTANCED_CLASS(
@@ -2999,9 +2999,9 @@ function getBody2(node::InstNode)
   return body
 end
 
-function makeReturnType(fn::M_FUNCTION)::M_Type
-  local returnType::M_Type
-  local ret_tyl::List{M_Type}
+function makeReturnType(fn::MODELICA_FUNCTION)::ModelicaType
+  local returnType::ModelicaType
+  local ret_tyl::List{ModelicaType}
   ret_tyl = list(getType(o) for o in fn.outputs)
   returnType = begin
     @match ret_tyl begin

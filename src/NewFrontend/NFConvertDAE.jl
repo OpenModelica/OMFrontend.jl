@@ -107,7 +107,7 @@ end
 
 function makeDAEVar(
   cref::ComponentRef,
-  ty::NFType,
+  ty::ModelicaType,
   binding::Option{<:DAE.Exp},
   attr::Attributes,
   vis::VisibilityType,
@@ -233,13 +233,13 @@ end
 
 function convertVarAttributes(
     attrs::Vector{Tuple{String, Binding}},
-    ty::NFType,
+    ty::ModelicaType,
     compAttrs::Attributes,
     )::Option{DAE.VariableAttributes}
   local attributes::Option{DAE.VariableAttributes}
   local is_final::Bool
   local is_final_opt::Option{Bool}
-  local elTy::M_Type
+  local elTy::ModelicaType
   local is_array::Bool = false
   is_final =
     compAttrs.isFinal || compAttrs.variability == Variability.STRUCTURAL_PARAMETER
@@ -976,7 +976,7 @@ function convertForEquation(forEquation::Equation)::DAE.Element
   local forDAE::DAE.Element
 
   local iterator::InstNode
-  local ty::M_Type
+  local ty::ModelicaType
   local range::Expression
   local body::Vector{Equation} #= EQUATION_FOR holds a Vector (was List: a convert MethodError) =#
   local dbody::List{DAE.Element}
@@ -1003,7 +1003,7 @@ function convertForEquation(forEquation::Equation)::DAE.Element
 end
 
 function convertIfEquation(
-  ifBranches::Vector{<:Equation_Branch},
+  ifBranches::Vector{<:EquationBranch},
   source::DAE.ElementSource;
   isInitial::Bool,
 )::DAE.Element
@@ -1049,7 +1049,7 @@ function convertIfEquation(
 end
 
 function convertWhenEquation(
-  whenBranches::Vector{<:Equation_Branch},
+  whenBranches::Vector{<:EquationBranch},
   source::DAE.ElementSource,
 )::DAE.Element
   local whenEquation::DAE.Element
@@ -1153,7 +1153,7 @@ function convertInitialEquation(
 end
 
 function convertAlgorithms(
-  algorithms::Vector{Algorithm},
+  algorithms::Vector{ALGORITHM},
   elements::List{<:DAE.Element},
 )::List{DAE.Element}
   for alg in algorithms
@@ -1162,7 +1162,7 @@ function convertAlgorithms(
   return elements
 end
 
-function convertAlgorithm(alg::Algorithm, elements::List{<:DAE.Element})::List{DAE.Element}
+function convertAlgorithm(alg::ALGORITHM, elements::List{<:DAE.Element})::List{DAE.Element}
   local stmts::List{DAE.Statement}
   local dalg::DAE.Algorithm
   local src::DAE.ElementSource
@@ -1260,7 +1260,7 @@ function convertAssignment(stmt::Statement)::DAE.Statement
   local lhs::Expression
   local rhs::Expression
   local src::DAE.ElementSource
-  local ty::M_Type
+  local ty::ModelicaType
   local dty::DAE.Type
   local dlhs::DAE.Exp
   local drhs::DAE.Exp
@@ -1318,7 +1318,7 @@ end
 
 function convertForStatement(forStmt::Statement)::DAE.Statement
   local iterator::InstNode
-  local ty::M_Type
+  local ty::ModelicaType
   local range::Expression
   local body::Vector{Statement}
   local dbody::List{DAE.Statement}
@@ -1436,7 +1436,7 @@ function convertWhenStatement(
 end
 
 function convertInitialAlgorithms(
-  algorithms::Vector{Algorithm},
+  algorithms::Vector{ALGORITHM},
   elements::List{<:DAE.Element},
 )::List{DAE.Element}
   for alg in algorithms
@@ -1446,7 +1446,7 @@ function convertInitialAlgorithms(
 end
 
 function convertInitialAlgorithm(
-  alg::Algorithm,
+  alg::ALGORITHM,
   elements::List{<:DAE.Element},
 )::List{DAE.Element}
 
@@ -1490,7 +1490,7 @@ function convertFunctionTree(funcs::FunctionTree)::DAE.FunctionTree
   return dfuncs
 end
 
-function convertFunction(func::M_Function)::DAE.Function
+function convertFunction(func::MODELICA_FUNCTION)::DAE.Function
   local dfunc::DAE.Function
   local cls::Class
   local elems::List{DAE.Element}
@@ -1560,7 +1560,7 @@ function convertFunctionParam(node::InstNode)::DAE.Element
   local var_attr::Option{DAE.VariableAttributes}
   local cref::ComponentRef
   local attr::Attributes
-  local ty::M_Type
+  local ty::ModelicaType
   local bindingV::Option{DAE.Exp}
   local ty_attr::Vector{Tuple{String, Binding}}
   comp = component(node)
@@ -1732,7 +1732,7 @@ function makeTypeRecordVar(componentArg::InstNode)::DAE.Var
   local vis::VisibilityType
   local binding::Binding
   local bind_from_outside::Bool
-  local ty::M_Type
+  local ty::ModelicaType
   comp = component(componentArg)
   attr = getAttributes(comp)
   if isConst(comp) && hasBinding(comp)

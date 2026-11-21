@@ -33,12 +33,12 @@
 *
 */ =#
 
-@UniontypeDecl NFConnections
+@UniontypeDecl Connections
 
 const BrokenEdges = List
 const BrokenEdge = Tuple
 
-@Uniontype NFConnections begin
+@Uniontype Connections begin
   @Record CONNECTIONS begin
     connections::List{Connection}
     flows::List{Connector}
@@ -46,11 +46,10 @@ const BrokenEdge = Tuple
   end
 end
 
-const Connections = NFConnections
 
 function makeConnectors(
   cref::ComponentRef,
-  ty::NFType,
+  ty::ModelicaType,
   source::DAE.ElementSource,
 )::List{Connector}
   local connectors::List{Connector}
@@ -142,8 +141,8 @@ function collect(flatModel::FlatModel)::Tuple{FlatModel, Connections}
   local cl2::List{Connector}
   local e1::Expression
   local e2::Expression
-  local ty1::M_Type
-  local ty2::M_Type
+  local ty1::ModelicaType
+  local ty2::ModelicaType
   local b1::Bool
   local b2::Bool
   #=  Collect all flow variables. =#

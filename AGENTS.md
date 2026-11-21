@@ -82,6 +82,35 @@ This is the idiom the SciML/MTK stack uses internally (its compiled conditions a
 
 Caveats: this only helps when the captured/stored state can be given a concrete (or at least narrow) type. Genuinely heterogeneous captures (a `Vector` of differently-parameterized values) stay abstract either way, and a `FunctionWrapper` around the result erases the outer type regardless of whether the inner is a closure or a functor. The candidate sites are the abstract `Function`-typed fields and closures captured inside the `traverse`/`map` expression walkers, which run once per `Expression` node.
 
+## Types and Naming
+
+The frontend's types are plain Julia structs, written out and documented where they are defined (no macro generates
+them). The interface types that other files hold are in `src/FrontendInterfaces/NFInterfaces.jl`, in load order.
+
+Naming (maintainer's rule):
+- **A tagged struct** (one struct for all variants, a `tag` field): CamelCase. `ModelicaType`, `ComponentRef`,
+  `Dimension`, `Binding`, `Modifier`, `Equation`, `EquationBranch`, `Statement`, `Call`. Its variants are its
+  constructor functions in SCREAMING_SNAKE_CASE (`COMPONENT_REF_CREF(...)`, `TYPED_CALL(...)`), and its tag enum is
+  `<Type>Tag` with values `<VARIANT>_TAG`, in the variants' order.
+- **A concrete struct that is not tagged** (one variant): SCREAMING_SNAKE_CASE. `ALGORITHM`, `OPERATOR`,
+  `CALL_ATTR`, `MODELICA_FUNCTION`.
+- **An abstract type** with several variant structs: CamelCase (`Expression`, `Subscript`, `Sections`).
+- **One name per type.** No aliases (`const Equation = NFEquation`, `const M_Type = NFType`): use the type's name.
+  Aliases of `Function` for higher-order arguments (`MapFn`, `FoldFunc`) stay.
+
+A tagged struct is registered for `@match`, `isvariant` and `variantof` with MetaModelica's `@registerVariants`
+after its constructors. Fields a variant does not have are `nothing` (or `#undef` when the variant's fields are the
+struct's first fields, as in `ComponentRef`; then the struct needs its own `ConstructionBase.setproperties` for
+`@assign`).
+
+A struct cycle (a type holds a function that holds a type) is broken with a type parameter and a `const` alias of
+the one instance used: `ModelicaTypeImpl{F}` with `const ModelicaType = ModelicaTypeImpl{MODELICA_FUNCTION}`,
+`ModifierImpl{T}` with `const Modifier = ModifierImpl{ModTable.Tree}`. A struct may name itself in its own fields.
+
+Type-stability scans (abstract field types, abstract types with one subtype, `Any` fields) cover every module of the
+package, `Frontend` and all its submodules (`ModTable`, `LookupTree`, the hash and tree modules), and the code in
+`test/` as well as `src/`: a field in a submodule's tree type is as much a field of the model as one in `Frontend`.
+
 ## Helper Pattern Caveats
 
 The helpers `mapPreservingEq` and `reuseIfRefEqual` live in `src/NewFrontend/NFPerfHelpers.jl` and are loaded at the top level of module `Frontend` via `src/main.jl`.

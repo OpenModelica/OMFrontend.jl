@@ -33,38 +33,37 @@
 *
 */ =#
 
-abstract type NFSubscript end
-const Subscript = NFSubscript
+abstract type Subscript end
 
-struct SUBSCRIPT_WHOLE <: NFSubscript end
+struct SUBSCRIPT_WHOLE <: Subscript end
 
-struct SUBSCRIPT_EXPANDED_SLICE <: NFSubscript
+struct SUBSCRIPT_EXPANDED_SLICE <: Subscript
    indices::List{Subscript}
 end
 
-struct SUBSCRIPT_SLICE{T <: Expression} <: NFSubscript
+struct SUBSCRIPT_SLICE{T <: Expression} <: Subscript
   slice::T
 end
 
-struct SUBSCRIPT_INDEX{T <: Expression} <: NFSubscript
+struct SUBSCRIPT_INDEX{T <: Expression} <: Subscript
   index::T
 end
 
-struct SUBSCRIPT_UNTYPED{T <: Expression} <: NFSubscript
+struct SUBSCRIPT_UNTYPED{T <: Expression} <: Subscript
   exp::T
 end
 
-mutable struct SUBSCRIPT_RAW_SUBSCRIPT <: NFSubscript
+mutable struct SUBSCRIPT_RAW_SUBSCRIPT <: Subscript
   subscript::Absyn.Subscript
 end
 
 
-struct SUBSCRIPT_SPLIT_INDEX <: NFSubscript
+struct SUBSCRIPT_SPLIT_INDEX <: Subscript
   node:: InstNode
   dimIndex::Int
 end
 
-struct SUBSCRIPT_SPLIT_PROXY <: NFSubscript
+struct SUBSCRIPT_SPLIT_PROXY <: Subscript
   origin::InstNode
   parent::InstNode
 end
@@ -143,7 +142,7 @@ function fromTypedExp(exp::Expression)
   return res
 end
 
-function isValidIndexType(ty::NFType)::Bool
+function isValidIndexType(ty::ModelicaType)::Bool
   local b::Bool = isInteger(ty) || isBoolean(ty) || isEnumeration(ty)
   return b
 end
@@ -1183,7 +1182,7 @@ end
 function isScalar(sub::Subscript)::Bool
   local isScalar::Bool
    isScalar = begin
-    local ty::M_Type
+    local ty::ModelicaType
     @match sub begin
       SUBSCRIPT_INDEX(__) => begin
          ty = typeOf(sub.index)
@@ -1230,7 +1229,7 @@ end
 
 function makeIndex(exp::Expression)::Subscript
   local subscript::Subscript
-  local ty::M_Type
+  local ty::ModelicaType
    ty = typeOf(exp)
   if isValidIndexType(ty)
      subscript = SUBSCRIPT_INDEX(exp)

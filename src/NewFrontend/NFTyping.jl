@@ -182,7 +182,7 @@ function typeClass(cls::InstNode, name::String)
   TYPE_COMPONENT_MAX_DEPTH[] = 0
   typeClassType(cls, EMPTY_BINDING, ORIGIN_CLASS, cls)
   @EXECSTAT "  ty:components" cls = typeComponents(cls, ORIGIN_CLASS)
-  local tyRef = Ref{NFType}(TYPE_UNKNOWN())
+  local tyRef = Ref{ModelicaType}(TYPE_UNKNOWN())
   local varRef = Ref{VariabilityType}(Variability.CONSTANT)
   @EXECSTAT "  ty:bindings" typeBindingsRefs(cls, cls, ORIGIN_CLASS, tyRef, varRef)
   @EXECSTAT "  ty:sections" cls = typeClassSections(cls, ORIGIN_CLASS)
@@ -320,12 +320,12 @@ end
 
 function typeStructor2(node::InstNode)
   local cache::CachedData
-  local fnl::Vector{M_Function}
+  local fnl::Vector{MODELICA_FUNCTION}
   cache = getFuncCache(node)
   @match cache begin
     C_FUNCTION(funcs = fnl, typed = false) => begin
-      fnl = M_FUNCTION[typeFunction(fn) for fn in fnl]
-      fnl = M_FUNCTION[
+      fnl = MODELICA_FUNCTION[typeFunction(fn) for fn in fnl]
+      fnl = MODELICA_FUNCTION[
         patchOperatorRecordConstructorBinding(fn) for fn in fnl
           ]
       setFuncCache(
@@ -345,7 +345,7 @@ end
   componentBinding::Binding,
   origin::ORIGIN_Type,
   @nospecialize(instanceNode::InstNode),
-  )::NFType
+  )::ModelicaType
   #= Class nodes (derived types, records) are shared across components; their
      typing mutates the class payload and class-level dimension vectors, so it
      must run under the class node's claim. TYPED_DERIVED and INSTANCED_BUILTIN
@@ -367,13 +367,13 @@ end
   componentBinding::Binding,
   origin::ORIGIN_Type,
   @nospecialize(instanceNode::InstNode),
-  )::NFType
-  local ty::NFType
+  )::ModelicaType
+  local ty::ModelicaType
   local cls::Class
   local ty_cls::Class
   local node::InstNode
   local ty_node::InstNode
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local is_expandable::Bool
    cls = getClass(clsNode)
    ty = begin
@@ -512,7 +512,7 @@ end
 function makeRecordType(constructor::InstNode)::ComplexType
   local recordTy::ComplexType
   local cache::CachedData
-  local fn::M_FUNCTION
+  local fn::MODELICA_FUNCTION
   local fields::List{Field}
   cache = getFuncCache(constructor)
   recordTy = begin
@@ -535,12 +535,12 @@ function makeRecordType(constructor::InstNode)::ComplexType
   return recordTy
 end
 
-function typeComponent(inComponent::InstNode, origin::ORIGIN_Type)::NFType
+function typeComponent(inComponent::InstNode, origin::ORIGIN_Type)::ModelicaType
   _, ty = typeComponentNode(inComponent, origin)
   return ty
 end
 
-function typeComponentNode(inComponent::InstNode, origin::ORIGIN_Type)::Tuple{InstNode,NFType}
+function typeComponentNode(inComponent::InstNode, origin::ORIGIN_Type)::Tuple{InstNode,ModelicaType}
   #= A component removed by `break` (omc). =#
   isvariant(inComponent, EMPTY_NODE) && return (inComponent, TYPE_UNKNOWN())
   local depthRef = _typeDepthRef()
@@ -560,7 +560,7 @@ function typeComponentNode(inComponent::InstNode, origin::ORIGIN_Type)::Tuple{In
     fail()
   end
   try
-  local ty::NFType
+  local ty::ModelicaType
   local node::InstNode = resolveOuter(inComponent)
   local c::Component = component(node)
   #= An outer left uninstantiated, its inner encloses it (instComponent): the inner's type. =#
@@ -605,7 +605,7 @@ function typeComponentPayload!(
   node::InstNode,
   c::Component,
   origin::ORIGIN_Type,
-  )::NFType
+  )::ModelicaType
   typeDimensions(c.dimensions, node, c.binding, origin, c.info)
   local ty = typeClassType(c.classInst, c.binding, origin, inComponent)
   ty = liftArrayLeftList(ty, arrayList(c.dimensions))
@@ -617,7 +617,7 @@ end
 
 #= An untyped component's type, its dimensions typed, without typing its children or installing
    the type (omc typeComponent with typeChildren = false). =#
-function _componentTypeOnly(inComponent::InstNode, origin::ORIGIN_Type)::NFType
+function _componentTypeOnly(inComponent::InstNode, origin::ORIGIN_Type)::ModelicaType
   local node = resolveOuter(inComponent)
   local c = component(node)
   #= Typed meanwhile by another task (parallel typing: the caller read it untyped), its
@@ -653,8 +653,8 @@ function typeComponentNode2(
   node::InstNode,
   c::Component,
   origin::ORIGIN_Type,
-  )::Tuple{InstNode,NFType}
-  local ty::NFType
+  )::Tuple{InstNode,ModelicaType}
+  local ty::ModelicaType
    ty = begin
     @match c begin
       #=  An untyped component, type it. =#
@@ -688,10 +688,10 @@ end
 
 function checkComponentStreamAttribute(
   cty::Int8,
-  ty::NFType,
+  ty::ModelicaType,
   component::InstNode,
   )
-  local ety::NFType
+  local ety::ModelicaType
 
   return if isFlowOrStream(cty)
      ety = arrayElementType(ty)
@@ -725,7 +725,7 @@ end
   @nospecialize(range::RANGE_EXPRESSION),
   @nospecialize(origin::ORIGIN_Type),
   structural::Bool = false
-  )::Tuple{Expression, NFType, VariabilityType}
+  )::Tuple{Expression, ModelicaType, VariabilityType}
   #=  If the iteration range is structural, it must be a parameter expression. =#
   typeIterator2(
     Base.inferencebarrier(iterator)::InstNode,
@@ -744,7 +744,7 @@ end
   @nospecialize(range::Expression),
   @nospecialize(origin::ORIGIN_Type),
   structural::Bool = false
-  )::Tuple{Expression, NFType, VariabilityType}
+  )::Tuple{Expression, ModelicaType, VariabilityType}
   local info::SourceInfo = AbsynUtil.dummyInfo
   local (exp, ty, var) = typeExp(range, setFlag(origin, ORIGIN_ITERATION_RANGE), info)
   if structural && var > Variability.PARAMETER
@@ -761,7 +761,7 @@ end
   @nospecialize(origin::ORIGIN_Type),
   @nospecialize(c::Component),
   structural,
-  )::Tuple{Expression, NFType, VariabilityType}
+  )::Tuple{Expression, ModelicaType, VariabilityType}
   @nospecialize
   local info::SourceInfo = AbsynUtil.dummyInfo
   (exp, ty, var) =
@@ -846,7 +846,7 @@ function typeDimension2(
     local var::VariabilityType
     local dim::Dimension
     local b::Binding
-    local ty::NFType
+    local ty::ModelicaType
     local ty_err::TypingError
     local parent_dims::Int
     local dim_index::Int
@@ -1286,7 +1286,7 @@ function typeComponentCondition(condition::Binding, origin::Int)::Binding
   end
 
   local exp::Expression
-  local ty::NFType
+  local ty::ModelicaType
   local var::VariabilityType
   local info::SOURCEINFO
   local mk::MatchKindType
@@ -1333,7 +1333,7 @@ end
 
 function typeTypeAttribute(
   attribute::Modifier,
-  ty::NFType,
+  ty::ModelicaType,
   component::InstNode,
   origin::ORIGIN_Type,
   )::Modifier
@@ -1454,7 +1454,7 @@ function typeExp(
   origin::ORIGIN_Type,
   info::SourceInfo
   )::Tuple
-  local typeRef = Ref{NFType}(TYPE_UNKNOWN())
+  local typeRef = Ref{ModelicaType}(TYPE_UNKNOWN())
   local variabilityTypeRef = Ref{VariabilityType}(Variability.CONSTANT)
   local typedExp = typeExp2(exp, origin, info, typeRef, variabilityTypeRef)
   return (typedExp, typeRef.x, variabilityTypeRef.x)
@@ -1464,11 +1464,11 @@ function typeExp2(
   @nospecialize(exp::Expression),
   origin::ORIGIN_Type,
   info::SourceInfo,
-  typeRef::Ref{NFType},
+  typeRef::Ref{ModelicaType},
   variabilityTypeRef::Ref{VariabilityType}
   )::Expression
   local variability::VariabilityType
-  local ty::NFType
+  local ty::ModelicaType
   exp = begin
     local e1::Expression
     local e2::Expression
@@ -1476,10 +1476,10 @@ function typeExp2(
     local var1::VariabilityType
     local var2::VariabilityType
     local var3::VariabilityType
-    local ty1::NFType
-    local ty2::NFType
-    local ty3::NFType
-    local op::Operator
+    local ty1::ModelicaType
+    local ty2::ModelicaType
+    local ty3::ModelicaType
+    local op::OPERATOR
     local cref::ComponentRef
     local next_origin::ORIGIN_Type
     @match exp begin
@@ -1693,7 +1693,7 @@ end
   @nospecialize(exp::BINARY_EXPRESSION),
   origin::ORIGIN_Type,
   info::SourceInfo,
-  tyRef::Ref{NFType},
+  tyRef::Ref{ModelicaType},
   variabilityRef::Ref{VariabilityType}
   )::Expression
   next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
@@ -1723,7 +1723,7 @@ end
 @nospecializeinfer function typeLBinaryExpression(
   @nospecialize(exp::Expression),
   @nospecialize(origin::ORIGIN_Type),
-  @nospecialize(info::SourceInfo),)::Tuple{Expression, NFType, VariabilityType}
+  @nospecialize(info::SourceInfo),)::Tuple{Expression, ModelicaType, VariabilityType}
 
    next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
    (e1, ty1, var1) = typeExp(exp.exp1, next_origin, info)
@@ -1745,7 +1745,7 @@ end
 @nospecializeinfer function typeUnaryExpression(
   @nospecialize(exp::Expression),
   @nospecialize(origin::ORIGIN_Type),
-  @nospecialize(info::SourceInfo),)::Tuple{Expression, NFType, VariabilityType}
+  @nospecialize(info::SourceInfo),)::Tuple{Expression, ModelicaType, VariabilityType}
    next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
    (e1, ty1, var1) = typeExp(exp.exp, next_origin, info)
    (exp, ty) =
@@ -1757,19 +1757,19 @@ end
   @nospecialize(expl::List{<:Expression}),
   @nospecialize(origin::ORIGIN_Type),
   @nospecialize(info::SourceInfo),
-)::Tuple{List{Expression}, List{NFType}, List{VariabilityType}}
+)::Tuple{List{Expression}, List{ModelicaType}, List{VariabilityType}}
   local varl::List{VariabilityType} = nil
-  local tyl::List{NFType} = nil
+  local tyl::List{ModelicaType} = nil
   local explTyped::List{Expression} = nil
 
   local exp::Expression
   local var::VariabilityType
-  local ty::NFType
+  local ty::ModelicaType
 
   for e in listReverse(expl)
      (exp, ty, var) = typeExp(e, origin, info)
      explTyped = Cons{Expression}(exp, explTyped)
-     tyl = Cons{NFType}(ty, tyl)
+     tyl = Cons{ModelicaType}(ty, tyl)
      varl = Cons{VariabilityType}(var, varl)
   end
   return (explTyped, tyl, varl)
@@ -1791,7 +1791,7 @@ function typeExpDim(
   local typedExp::Option{Expression} = NONE()
   local dim::Dimension
 
-  local ty::NFType
+  local ty::ModelicaType
   local e::Expression
 
    ty = typeOf(exp)
@@ -1919,13 +1919,13 @@ function typeCrefDim2(cref::ComponentRef,
   local dim_total::Int = 0
   local node::InstNode
   local c::Component
-  local ty::NFType
+  local ty::ModelicaType
   #=  TODO: If the cref has subscripts it becomes trickier to correctly calculate
       the dimension. For now we take the easy way out and just type the
       whole cref, but doing so might introduce unnecessary cycles.
   =#
   if hasSubscripts(cref)
-    local typeRef = Ref{NFType}(TYPE_UNKNOWN())
+    local typeRef = Ref{ModelicaType}(TYPE_UNKNOWN())
     typeCref(cref, origin, info, typeRef, Ref{VariabilityType}(Variability.CONSTANT), Ref{VariabilityType}(Variability.CONSTANT))
     ty = typeRef.x
     (dim, error) = nthDimensionBoundsChecked(ty, dimIndex)
@@ -2032,7 +2032,7 @@ end
   indicating whether the index was valid or not.
 """
 function nthDimensionBoundsChecked(
-  ty::NFType,
+  ty::ModelicaType,
   dimIndex::Int,
   offset::Int = 0,
 )::Tuple{Dimension, TypingError} #= The number of dimensions to skip due to subscripts. =#
@@ -2054,11 +2054,11 @@ end
   cref::ComponentRef,
   o::ORIGIN_Type,
   info::SourceInfo,
-  typeRef::Ref{NFType},
+  typeRef::Ref{ModelicaType},
   nodeVariabilityTypeRef::Ref{VariabilityType},
 )::CREF_EXPRESSION
   local variability::VariabilityType
-  local ty::NFType
+  local ty::ModelicaType
   local exp::Expression
   local cr::ComponentRef
   local node_var::VariabilityType
@@ -2083,7 +2083,7 @@ typeCref(
   cref::ComponentRef,
   origin::ORIGIN_Type,
   info::SourceInfo,
-  typeRef::Ref{NFType},
+  typeRef::Ref{ModelicaType},
   nodeVariabilityTypeRef::Ref{VariabilityType},
   subsVariabilityTypeRef::Ref{VariabilityType}
   )
@@ -2091,7 +2091,7 @@ typeCref(
 Types a component reference.
 The three ref variables:
 ```
-  typeRef::Ref{NFType},
+  typeRef::Ref{ModelicaType},
   nodeVariabilityTypeRef::Ref{VariabilityType},
   subsVariabilityTypeRef::Ref{VariabilityType}
 ```
@@ -2102,13 +2102,13 @@ retrieve information about the variability type of the node and the subscripts o
   cref::ComponentRef,
   origin::ORIGIN_Type,
   info::SourceInfo,
-  typeRef::Ref{NFType},
+  typeRef::Ref{ModelicaType},
   nodeVariabilityTypeRef::Ref{VariabilityType},
   subsVariabilityTypeRef::Ref{VariabilityType}
   )::ComponentRef
   local subsVariability::VariabilityType
   local nodeVariabilityType::VariabilityType
-  local ty::NFType
+  local ty::ModelicaType
   local subs_var::VariabilityType
   if flagSet(origin, ORIGIN_FUNCTION) &&
      firstName(cref) == "time"
@@ -2138,12 +2138,12 @@ end
   local subsVariability::VariabilityType
 
   local rest_cr::ComponentRef
-  local node_ty::NFType
+  local node_ty::ModelicaType
   local subs::List{Subscript}
   local subs_var::VariabilityType
   local rest_var::VariabilityType
   local node_origin::ORIGIN_Type
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   @match cref begin
     COMPONENT_REF_CREF(origin = Origin.SCOPE) => begin
       local crefTy = getType(cref.node)
@@ -2223,7 +2223,7 @@ end
 
 function typeSubscripts(
   subscripts::List{<:Subscript},
-  crefType::NFType,
+  crefType::ModelicaType,
   cref::ComponentRef,
   origin::ORIGIN_Type,
   info::SourceInfo,
@@ -2289,8 +2289,8 @@ end
   local variabilityVar::VariabilityType = Variability.CONSTANT
   local outSubscript::Subscript = subscript
   local e::Expression
-  local ty::NFType
-  local ety::NFType
+  local ty::ModelicaType
+  local ety::ModelicaType
   local mk::MatchKindType
 
   (ty, variabilityVar) = begin
@@ -2366,11 +2366,11 @@ function typeArrayRef(
   elements::Vector{T},
   origin::ORIGIN_Type,
   info::SourceInfo,
-  arrayTypeRef::Ref{NFType},
+  arrayTypeRef::Ref{ModelicaType},
   variabilityTypeRef::Ref{VariabilityType}
   )::ARRAY_EXPRESSION where {T <: Expression}
   local variability::VariabilityType = Variability.CONSTANT
-  local arrayType::NFType = TYPE_UNKNOWN()
+  local arrayType::ModelicaType = TYPE_UNKNOWN()
   local arrayExp::Expression
   local numberOfElements = length(elements)::Int
   #= The typed elements go to a new vector: the untyped expression's elements are shared (a
@@ -2378,14 +2378,14 @@ function typeArrayRef(
      Buildings DX VariableSpeedEnergyPlus under parallel typing). =#
   local expV::Vector{Expression} = Vector{Expression}(undef, numberOfElements)
   local var::VariabilityType
-  local ty1::NFType = TYPE_UNKNOWN()
-  local ty2::NFType
-  local ty3::NFType
-  local tys::Vector{NFType} = Vector{NFType}(undef, numberOfElements)
+  local ty1::ModelicaType = TYPE_UNKNOWN()
+  local ty2::ModelicaType
+  local ty3::ModelicaType
+  local tys::Vector{ModelicaType} = Vector{ModelicaType}(undef, numberOfElements)
   local mk::MatchKindType
   local next_origin::ORIGIN_Type
   next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
-  local tyRef = Ref{NFType}(TYPE_UNKNOWN())
+  local tyRef = Ref{ModelicaType}(TYPE_UNKNOWN())
   local varTyRef = Ref{VariabilityType}(Variability.CONSTANT)
   local mkRef = Ref{MatchKindType}(MatchKind.NOT_COMPATIBLE)
 
@@ -2446,22 +2446,22 @@ function typeMatrixRef(
   elements::Vector{Vector{Expression}},
   origin::ORIGIN_Type,
   info::SourceInfo,
-  arrayTypeRef::Ref{NFType},
+  arrayTypeRef::Ref{ModelicaType},
   variabilityTypeRef::Ref{VariabilityType}
   )::Expression
   local variability::VariabilityType = Variability.CONSTANT
-  local arrayType::NFType = TYPE_UNKNOWN()
+  local arrayType::ModelicaType = TYPE_UNKNOWN()
   local arrayExp::Expression
   local exp::Expression
   local expl::Vector{Expression} = Vector{Expression}(undef, length(elements))
   local res::Vector{Expression} = Vector{Expression}(undef, length(elements))
   local var::VariabilityType
-  local ty::NFType = TYPE_UNKNOWN()
-  local tys::Vector{NFType} = Vector{NFType}(undef, length(elements))
-  #local resTys::Vector{NFType} = NFType[]
+  local ty::ModelicaType = TYPE_UNKNOWN()
+  local tys::Vector{ModelicaType} = Vector{ModelicaType}(undef, length(elements))
+  #local resTys::Vector{ModelicaType} = ModelicaType[]
   local n::Int = 2
   local next_origin::ORIGIN_Type = setFlag(origin, ORIGIN_SUBEXPRESSION)
-  local tyRef::Ref{NFType} = Ref{NFType}(TYPE_UNKNOWN())
+  local tyRef::Ref{ModelicaType} = Ref{ModelicaType}(TYPE_UNKNOWN())
 
   if length(elements) > 1
     local i::Int = 1
@@ -2528,15 +2528,15 @@ end
   @nospecialize(info::SourceInfo),)
   @nospecialize
   local variability::VariabilityType
-  local rangeType::NFType
+  local rangeType::ModelicaType
   local start_exp::Expression
   local step_exp::Expression
   local stop_exp::Expression
-  local start_ty::NFType
-  local step_ty::NFType
-  local stop_ty::NFType
+  local start_ty::ModelicaType
+  local step_ty::ModelicaType
+  local stop_ty::ModelicaType
   local ostep_exp::Option{Expression}
-  local ostep_ty::Option{NFType}
+  local ostep_ty::Option{ModelicaType}
   local start_var::VariabilityType
   local step_var::VariabilityType
   local stop_var::VariabilityType
@@ -2596,13 +2596,13 @@ end
   @nospecialize(elements::List{<:Expression}),
   origin::ORIGIN_Type,
   info::SourceInfo,
-)::Tuple{TUPLE_EXPRESSION, NFType, VariabilityType}
+)::Tuple{TUPLE_EXPRESSION, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local tupleType::NFType
+  local tupleType::ModelicaType
   local tupleExp::Expression
 
   local expl::List{Expression}
-  local tyl::List{NFType}
+  local tyl::List{ModelicaType}
   local valr::List{VariabilityType}
   local next_origin::ORIGIN_Type
 
@@ -2641,9 +2641,9 @@ end
 
 function printRangeTypeError(
   @nospecialize(exp1::Expression),
-  ty1::NFType,
+  ty1::ModelicaType,
   @nospecialize(exp2::Expression),
-  ty2::NFType,
+  ty2::ModelicaType,
   info::SourceInfo,
 )
   Error.addSourceMessage(
@@ -2669,13 +2669,13 @@ end
   origin::ORIGIN_Type,
   info::SourceInfo,
   evaluate::Bool = true,
-)#Should return ::Tuple{Expression, NFType, VariabilityType}
+)#Should return ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local szType::NFType
+  local szType::ModelicaType
   local exp::Expression
   local index::Expression
-  local exp_ty::NFType
-  local index_ty::NFType
+  local exp_ty::ModelicaType
+  local index_ty::ModelicaType
   local ty_match::MatchKindType
   local iindex::Int
   local dim_size::Int
@@ -2801,7 +2801,7 @@ function evaluateEnd(
   local outExp::Expression
 
    outExp = begin
-    local ty::NFType
+    local ty::ModelicaType
     local cr::ComponentRef
     @match exp begin
       END_EXPRESSION(__) => begin
@@ -2838,18 +2838,18 @@ end
   @nospecialize(ifExp::Expression),
   origin::ORIGIN_Type,
   info::SourceInfo,
-)::Tuple{Expression, NFType, VariabilityType}
+)::Tuple{Expression, ModelicaType, VariabilityType}
   local var::VariabilityType
-  local ty::NFType
+  local ty::ModelicaType
   local cond::Expression
   local tb::Expression
   local fb::Expression
   local tb2::Expression
   local fb2::Expression
   local next_origin::ORIGIN_Type
-  local cond_ty::NFType
-  local tb_ty::NFType
-  local fb_ty::NFType
+  local cond_ty::ModelicaType
+  local tb_ty::ModelicaType
+  local fb_ty::ModelicaType
   local cond_var::VariabilityType
   local tb_var::VariabilityType
   local fb_var::VariabilityType
@@ -3122,7 +3122,7 @@ function typeFunctionSections(classNode::InstNode, origin::ORIGIN_Type)::InstNod
   local typed_cls::Class
   local sections::Sections
   local info::SourceInfo
-  local alg::Algorithm
+  local alg::ALGORITHM
   cls = getClass(classNode)
   begin
     @match cls begin
@@ -3130,7 +3130,7 @@ function typeFunctionSections(classNode::InstNode, origin::ORIGIN_Type)::InstNod
         sections = begin
           @match sections begin
             SECTIONS([], [], [alg,], []) => begin
-               sections.algorithms = Algorithm[typeAlgorithm(
+               sections.algorithms = ALGORITHM[typeAlgorithm(
                 alg,
                 setFlag(origin, ORIGIN_ALGORITHM),
               )]
@@ -3162,7 +3162,7 @@ function typeFunctionSections(classNode::InstNode, origin::ORIGIN_Type)::InstNod
               res  = typeCref(sections.outputRef,
                               origin,
                               info,
-                              Ref{NFType}(TYPE_UNKNOWN()),
+                              Ref{ModelicaType}(TYPE_UNKNOWN()),
                               Ref{VariabilityType}(Variability.CONSTANT),
                               Ref{VariabilityType}(Variability.CONSTANT))
               sections.outputRef = res
@@ -3211,7 +3211,7 @@ end
 @nospecializeinfer function typeExternalArg(@nospecialize(arg::Expression), info::SourceInfo, node::InstNode)::Expression
   local outArg::Expression
 
-  local ty::NFType
+  local ty::ModelicaType
   local var::VariabilityType
   local index::Expression
 
@@ -3275,11 +3275,11 @@ function makeDefaultExternalCall(extDecl::Sections, fnNode::InstNode)::Sections
    extDecl = begin
     local args::List{Expression}
     local output_ref::ComponentRef
-    local fn::M_Function
+    local fn::MODELICA_FUNCTION
     local single_output::Bool
     local comps::Vector{InstNode}
     local comp::Component
-    local ty::NFType
+    local ty::ModelicaType
     local node::InstNode
     local exp::Expression
     @match extDecl begin
@@ -3409,9 +3409,9 @@ end
     local e1::Expression
     local e2::Expression
     local e3::Expression
-    local ty::NFType
-    local ty1::NFType
-    local ty2::NFType
+    local ty::ModelicaType
+    local ty1::ModelicaType
+    local ty2::ModelicaType
     local eqs1::Vector{Equation}
     local body::Vector{Equation}
     local tybrs::Vector{Equation}
@@ -3559,8 +3559,8 @@ end
 
   local lhs::Expression
   local rhs::Expression
-  local lhs_ty::NFType
-  local rhs_ty::NFType
+  local lhs_ty::ModelicaType
+  local rhs_ty::ModelicaType
   local lhs_var::VariabilityType
   local rhs_var::VariabilityType
   local mk::MatchKindType
@@ -3619,8 +3619,8 @@ end
   @nospecialize(connExp::Expression),
   origin::ORIGIN_Type,
   info::SourceInfo,
-  )::Tuple{Expression, NFType}
-  local ty::NFType
+  )::Tuple{Expression, ModelicaType}
+  local ty::ModelicaType
   (connExp, ty, _) = typeExp(connExp, origin, info)
   checkConnector(connExp, info)
   return (connExp, ty)
@@ -3723,7 +3723,7 @@ end
   return isValid
 end
 
-function typeAlgorithm(alg::Algorithm, origin::ORIGIN_Type)::Algorithm
+function typeAlgorithm(alg::ALGORITHM, origin::ORIGIN_Type)::ALGORITHM
   for (i,s) in enumerate(alg.statements)
     @inbounds alg.statements[i] = typeStatement(s, origin)
   end
@@ -3743,9 +3743,9 @@ end
     local e1::Expression
     local e2::Expression
     local e3::Expression
-    local ty1::NFType
-    local ty2::NFType
-    local ty3::NFType
+    local ty1::ModelicaType
+    local ty2::ModelicaType
+    local ty3::ModelicaType
     local sts1::Vector{Statement}
     local body::Vector{Statement}
     local tybrs::Vector{Tuple{Expression, Vector{Statement}}}
@@ -3920,9 +3920,9 @@ end
   local info::SourceInfo = sourceInfo()
   local e1::Expression
   local e2::Expression
-  local ty1::NFType
-  local ty2::NFType
-  local ty::NFType
+  local ty1::ModelicaType
+  local ty2::ModelicaType
+  local ty::ModelicaType
   local mk::MatchKindType
 
   if flagSet(origin, ORIGIN_WHEN) &&
@@ -3971,12 +3971,12 @@ end
   errorMsg;
   allowVector::Bool = false,
   allowClock::Bool = false,
-)::Tuple{Expression, NFType, VariabilityType}
+)::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::NFType
+  local ty::ModelicaType
   local info::SourceInfo
 
-  local ety::NFType
+  local ety::ModelicaType
 
   info = sourceInfo() #DAE.emptyElementSource #TODO: DAE.ElementSource_getInfo(source)
   (condition, ty, variability) =
@@ -4000,7 +4000,7 @@ end
 end
 
 @nospecializeinfer function typeIfEquation(
-  @nospecialize(branches::Vector{<:Equation_Branch}),
+  @nospecialize(branches::Vector{<:EquationBranch}),
   origin::ORIGIN_Type,
   source::DAE.ElementSource,
 )::Equation
@@ -4116,7 +4116,7 @@ end
 @nospecializeinfer function isNonConstantIfCondition(@nospecialize(exp::Expression))::Bool
   local isConstant::Bool
   isConstant = begin
-    local fn::M_Function
+    local fn::MODELICA_FUNCTION
     @match exp begin
       CREF_EXPRESSION(__) => begin
         isIterator(exp.cref)
@@ -4151,9 +4151,9 @@ omc NFTyping.typeWhenCondition: a when-condition must be a discrete-time express
 (or a clock).
 """
 function typeWhenCondition(@nospecialize(condition::Expression), origin::ORIGIN_Type,
-                           source::DAE.ElementSource, allowClock::Bool)::Tuple{Expression, NFType, VariabilityType}
+                           source::DAE.ElementSource, allowClock::Bool)::Tuple{Expression, ModelicaType, VariabilityType}
   local cond::Expression
-  local ty::NFType
+  local ty::ModelicaType
   local var::VariabilityType
   (cond, ty, var) = typeCondition(condition, origin, source, Error.WHEN_CONDITION_TYPE_ERROR,
                                   allowVector = true, allowClock = allowClock)
@@ -4166,7 +4166,7 @@ function typeWhenCondition(@nospecialize(condition::Expression), origin::ORIGIN_
 end
 
 @nospecializeinfer function typeWhenEquation(
-  @nospecialize(branches::Vector{<:Equation_Branch}),
+  @nospecialize(branches::Vector{<:EquationBranch}),
   origin::ORIGIN_Type,
   source::DAE.ElementSource,
 )::Equation
@@ -4175,7 +4175,7 @@ end
   local accum_branches::Vector{EquationBranch} = EquationBranch[]
   local cond::Expression
   local body::Vector{Equation}
-  local ty::NFType
+  local ty::ModelicaType
   local var::VariabilityType
   for branch in branches
     @match EQUATION_BRANCH(cond, _, body) = branch
@@ -4218,14 +4218,14 @@ end
 
 function typeOperatorArg(
   @nospecialize(arg::Expression),
-  expectedType::NFType,
+  expectedType::ModelicaType,
   @nospecialize(origin::ORIGIN_Type),
   operatorName::String,
   argName::String,
   argIndex::Int,
   info::SourceInfo,
   )
-  local ty::NFType
+  local ty::ModelicaType
   local mk::MatchKindType
   (arg, ty, _) = typeExp(arg, origin, info)
   (arg, _, mk) = matchTypes(ty, expectedType, arg)
@@ -4256,8 +4256,8 @@ function typeReinit(
 
   local var::VariabilityType
   local mk::MatchKindType
-  local ty1::NFType
-  local ty2::NFType
+  local ty1::ModelicaType
+  local ty2::ModelicaType
   local cref::ComponentRef
   local info::SourceInfo
 
