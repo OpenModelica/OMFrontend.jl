@@ -44,13 +44,11 @@
 @UniontypeDecl EvalTarget
 @UniontypeDecl Field
 @UniontypeDecl FunctionMatchKind
-@UniontypeDecl Functionargs
 @UniontypeDecl LookupState
 @UniontypeDecl LookupStateName
 @UniontypeDecl MatchedFunction
 @UniontypeDecl ModifierScope
 @UniontypeDecl ComplexType
-@UniontypeDecl ExpandExp
 @UniontypeDecl Expression
 @UniontypeDecl ExpressionIterator
 @UniontypeDecl Import
@@ -1037,9 +1035,6 @@ struct ALGORITHM
   source::SourceInfo
 end
 
-@UniontypeDecl VerifyModel
 @UniontypeDecl Replaceable
 @UniontypeDecl Token
 @UniontypeDecl TypingError
-@UniontypeDecl Unit
-@UniontypeDecl VariableConversionSettings

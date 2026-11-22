@@ -170,18 +170,6 @@ const OUTPUT_ATTR =
     NOT_REPLACEABLE(),
     false,
   )
-const CONSTANT_ATTR =
-  ATTRIBUTES(
-    ConnectorType.NON_CONNECTOR,
-    Parallelism.NON_PARALLEL,
-    Variability.CONSTANT,
-    Direction.NONE,
-    InnerOuter.NOT_INNER_OUTER,
-    false,
-    false,
-    NOT_REPLACEABLE(),
-    false,
-  )
 const IMPL_DISCRETE_ATTR =
   ATTRIBUTES(
     ConnectorType.NON_CONNECTOR,
@@ -586,10 +574,6 @@ function isRedeclare(component::Component)
   return isRedeclare
 end
 
-function isVar(component::Component)
-  local isVar::Bool = variability(component) == CONTINIUOUS
-  return isVar
-end
 
 function isStructuralParameter(component::Component)
   local b::Bool = variability(component) == Variability.STRUCTURAL_PARAMETER

@@ -2429,51 +2429,8 @@ function collectParams(
   return (inputs, outputs, locals)
 end
 
-function analyseUnusedParametersExp2(
-  exp::Expression,
-  params::List{<:InstNode},
-)::List{InstNode}
 
-   () = begin
-    @match exp begin
-      CREF_EXPRESSION(__) => begin
-        (params, _) = ListUtil.deleteMemberOnTrue(exp.cref, params, containsNode, InstNode)
-        ()
-      end
 
-      _ => begin
-        ()
-      end
-    end
-  end
-  return params
-end
-
-function analyseUnusedParametersExp(
-  exp::Expression,
-  params::List{<:InstNode},
-)::List{InstNode}
-
-  if !listEmpty(params)
-    @assign params = fold(exp, analyseUnusedParametersExp2, params, List{InstNode})
-  end
-  return params
-end
-
-function analyseUnusedParameters(fn::MODELICA_FUNCTION)::List{Int}
-  local unusedInputs::List{Int} = nil
-
-  local inputs::List{InstNode}
-  local index::Int
-
-  @assign inputs = foldExp(fn, analyseUnusedParametersExp, fn.inputs, List{InstNode})
-  for i in inputs
-    @assign index =
-      ListUtil.positionOnTrue(fn.inputs, (inp) -> refEqual(i, inp))
-    @assign unusedInputs = _cons(index, unusedInputs)
-  end
-  return unusedInputs
-end
 
 """
   Helper function for getBody

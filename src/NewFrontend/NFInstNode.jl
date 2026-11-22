@@ -1525,20 +1525,6 @@ function setParent(@nospecialize(parent::InstNode), node::InstNode)::InstNode
   end
 end
 
-function topComponent(node::InstNode)
-  local res::InstNode
-   res = begin
-    @match node begin
-      COMPONENT_NODE(parent = EMPTY_NODE(__))  => begin
-        node
-      end
-      COMPONENT_NODE(__)  => begin
-        topComponent(node.parent)
-      end
-    end
-  end
-  res
-end
 
 function topScope(node::InstNode)
   local ts::InstNode
@@ -1873,22 +1859,6 @@ function isName(node::InstNode)
   isName
 end
 
-function isImplicit(node::InstNode)
-  local isImplicit::Bool
-
-   isImplicit = begin
-    @match node begin
-      IMPLICIT_SCOPE(__)  => begin
-        true
-      end
-
-      _  => begin
-        false
-      end
-    end
-  end
-  isImplicit
-end
 
 function isEmpty(node::InstNode)
   local isEmpty::Bool
@@ -1917,22 +1887,6 @@ function isReplaceable(node::InstNode)
   return repl
 end
 
-function isRef(node::InstNode)
-  local isRef::Bool
-
-   isRef = begin
-    @match node begin
-      REF_NODE(__)  => begin
-        true
-      end
-
-      _  => begin
-        false
-      end
-    end
-  end
-  isRef
-end
 
 function isComponent(node::InstNode)::Bool
   @match node begin

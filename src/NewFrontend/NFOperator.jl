@@ -290,20 +290,12 @@ function makeScalarArray(ty::ModelicaType, op::OpType)::OPERATOR
   return outOp
 end
 
-function makeNotEqual(ty::ModelicaType)::OPERATOR
-  local op::OPERATOR = OPERATOR(ty, Op.NEQUAL)
-  return op
-end
 
 function makeEqual(ty::ModelicaType)::OPERATOR
   local op::OPERATOR = OPERATOR(ty, Op.EQUAL)
   return op
 end
 
-function makeGreaterEq(ty::ModelicaType)::OPERATOR
-  local op::OPERATOR = OPERATOR(ty, Op.GREATEREQ)
-  return op
-end
 
 function makeGreater(ty::ModelicaType)::OPERATOR
   local op::OPERATOR = OPERATOR(ty, Op.GREATER)

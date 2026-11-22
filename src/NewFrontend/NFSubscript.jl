@@ -62,9 +62,6 @@ struct SUBSCRIPT_SPLIT_INDEX <: Subscript
   dimIndex::Int
 end
 
-function isSplitIndex(s::Subscript)::Bool
-  return s isa SUBSCRIPT_SPLIT_INDEX
-end
 
 function toInteger(subscript::Subscript)::Int
   local int::Int

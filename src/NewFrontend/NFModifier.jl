@@ -46,7 +46,6 @@
   end
 end
 
-const EMPTY_MOD = MODIFIER_NOMOD()
 
 function toString(scope::ModifierScope)
   local string::String

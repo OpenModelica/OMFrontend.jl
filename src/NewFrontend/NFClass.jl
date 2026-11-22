@@ -369,10 +369,6 @@ function isExpandableConnectorClass(cls::Class)::Bool
   return isConnector
 end
 
-function isConnectorClass(cls::Class)::Bool
-  local isConnector::Bool = isConnector(restriction(cls))
-  return isConnector
-end
 
 function setRestriction(res::Restriction, cls::Class)::Class
    () = begin

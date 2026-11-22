@@ -312,23 +312,6 @@ function parallelismFromSCode(scodePar::SCode.Parallelism)::ParallelismType
   return par
 end
 
-function parallelismToSCode(par)
-  local spar
-  spar = begin
-    @match par begin
-      Parallelism.GLOBAL => begin
-        SCODE.PARGLOBAL()
-      end
-      Parallelism.LOCAL => begin
-        SCODE.PARLOCAL()
-      end
-      Parallelism.NON_PARALLEL => begin
-        SCode.NON_PARALLEL()
-      end
-    end
-  end
-  return spar
-end
 
 function parallelismString(par)::String
   local str::String
@@ -412,38 +395,6 @@ function variabilityFromSCode(scodeVar::SCode.Variability)
   return var
 end
 
-function variabilityToSCode(var)::SCode.Variability
-  local scodeVar::SCode.Variability
-
-  scodeVar = begin
-    @match var begin
-      Variability.CONSTANT => begin
-        SCode.CONST()
-      end
-
-      Variability.STRUCTURAL_PARAMETER => begin
-        SCode.PARAM()
-      end
-
-      Variability.PARAMETER => begin
-        SCode.PARAM()
-      end
-
-      Variability.NON_STRUCTURAL_PARAMETER => begin
-        SCode.PARAM()
-      end
-
-      Variability.DISCRETE => begin
-        SCode.DISCRETE()
-      end
-
-      _ => begin
-        SCode.VAR()
-      end
-    end
-  end
-  return scodeVar
-end
 
 function variabilityString(var)::String
   local str::String
@@ -580,26 +531,6 @@ function directionFromSCode(scodeDir::Absyn.Direction)
   return dir
 end
 
-function directionToAbsyn(dir)::Absyn.Direction
-  local adir::Absyn.Direction
-
-  @assign adir = begin
-    @match dir begin
-      Direction.INPUT => begin
-        Absyn.INPUT()
-      end
-
-      Direction.OUTPUT => begin
-        Absyn.OUTPUT()
-      end
-
-      _ => begin
-        Absyn.BIDIR()
-      end
-    end
-  end
-  return adir
-end
 
 function directionString(dir)::String
   local str::String
@@ -684,30 +615,6 @@ function innerOuterFromSCode(scodeIO::Absyn.InnerOuter)
   return io
 end
 
-function innerOuterToAbsyn(inIO)::Absyn.InnerOuter
-  local outIO::Absyn.InnerOuter
-
-  @assign outIO = begin
-    @match inIO begin
-      InnerOuter.NOT_INNER_OUTER => begin
-        Absyn.NOT_INNER_OUTER()
-      end
-
-      InnerOuter.INNER => begin
-        Absyn.INNER()
-      end
-
-      InnerOuter.OUTER => begin
-        Absyn.OUTER()
-      end
-
-      InnerOuter.INNER_OUTER => begin
-        Absyn.INNER_OUTER()
-      end
-    end
-  end
-  return outIO
-end
 
 function innerOuterString(io)::String
   local str::String
@@ -773,14 +680,6 @@ function visibilityFromSCode(scodeVis::SCode.Visibility)
   return vis
 end
 
-function visibilityToSCode(vis)::SCode.Visibility
-  local scodeVis::SCode.Visibility = if vis == Visibility.PUBLIC
-    SCode.PUBLIC()
-  else
-    SCode.PROTECTED()
-  end
-  return scodeVis
-end
 
 function unparseReplaceable(repl::Replaceable)::String
   local str::String

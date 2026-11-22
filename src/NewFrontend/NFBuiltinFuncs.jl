@@ -492,20 +492,6 @@ const MAX_INT =
     P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
-const MAX_REAL =
-  MODELICA_FUNCTION(
-    Absyn.IDENT("max"),
-    EMPTY_NODE(),
-    list(REAL_PARAM, REAL_PARAM),
-    list(REAL_PARAM),
-    nil,
-    nil,
-    TYPE_REAL(),
-    FUNCTION_ATTRIBUTES_BUILTIN,
-    nil,
-    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
-    P_Pointer.create(0, Int),
-  )::MODELICA_FUNCTION
 const DIV_INT =
   MODELICA_FUNCTION(
     Absyn.IDENT("div"),

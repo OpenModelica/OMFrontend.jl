@@ -2115,7 +2115,7 @@ function updateComponentVariability(attr::Attributes, cls::Class, clsNode::InstN
     #= omc Attributes.updateVariability: variability prefixes on function parameters have no
        semantic meaning; removed, so that e.g. a `constant input` is not evaluated, and an argument
        of any variability matches it (omc FunctionParamVariability: f(time)). A new value: the
-       attributes can be a shared constant (CONSTANT_ATTR). =#
+       attributes can be a shared constant (IMPL_DISCRETE_ATTR above). =#
     attr = ATTRIBUTES(attr.connectorType, attr.parallelism, Variability.CONTINUOUS, attr.direction,
                       attr.innerOuter, attr.isFinal, attr.isRedeclare, attr.isReplaceable,
                       attr.isStructuralMode)

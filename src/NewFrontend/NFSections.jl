@@ -35,7 +35,6 @@
 
 const EquationFn = Function
 const AlgorithmFn = Function
-const FoldFn = Function
 
 abstract type Sections
 end

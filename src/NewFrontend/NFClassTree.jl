@@ -1639,19 +1639,6 @@ function replaceDuplicates4(
   return DuplicateTree.DUPLICATE_TREE_ENTRY(entry.entry, SOME(node), children, entry.ty)
 end
 
-function replaceDuplicates3(
-  entry::DuplicateTree.DUPLICATE_TREE_ENTRY,
-  kept::InstNode,
-  tree::ClassTree,
-)::DuplicateTree.Entry
-  local node_ptr::Pointer{InstNode}
-  local node::InstNode
-  node_ptr = resolveEntryPtr(entry.entry, tree)
-  node = P_Pointer.access(node_ptr)
-  P_Pointer.update(node_ptr, kept)
-  local children = DuplicateTree.DUPLICATE_TREE_ENTRY[replaceDuplicates3(c, kept, tree) for c in entry.children]
-  return DuplicateTree.DUPLICATE_TREE_ENTRY(entry.entry, SOME(node), children, entry.ty)
-end
 
 function replaceDuplicates2(
   name::String,
@@ -2514,9 +2501,6 @@ function lookupTree(ctree::ClassTree)::LookupTree.Tree
   return ctree.tree::LookupTree.Tree
 end
 
-function getDuplicates(tree::ClassTree)::DuplicateTree.Tree
-  return tree.duplicates
-end
 
 function instExtendsComps(
   extNode::InstNode,

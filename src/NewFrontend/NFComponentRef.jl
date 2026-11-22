@@ -703,33 +703,6 @@ function isEqual(cref1::ComponentRef, cref2::ComponentRef)::Bool
   return isEqualB
 end
 
-#= strips the subscripts before comparing. Used for non-expanded variables. =#
-function isEqualStrip(@nospecialize(cref1::ComponentRef), @nospecialize(cref2::ComponentRef))::Bool
-  local isEqualB::Bool = false
-  if referenceEq(cref1, cref2)
-    return true
-  end
-  isEqualB = begin
-    @match (cref1, cref2) begin
-      (COMPONENT_REF_CREF(__), COMPONENT_REF_CREF(__)) => begin
-        name(cref1.node) == name(cref2.node) &&
-        isEqualStrip(cref1.restCref, cref2.restCref)
-      end
-
-      (COMPONENT_REF_EMPTY(__), COMPONENT_REF_EMPTY(__)) => begin
-        true
-      end
-
-      (COMPONENT_REF_WILD(__), COMPONENT_REF_WILD(__)) => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return isEqualB
-end
 
 function compare(cref1::ComponentRef, cref2::ComponentRef)::Int
   local comp::Int
@@ -849,31 +822,11 @@ function subscriptsAll(
   return subscripts
 end
 
-""" Sets the subscripts of each part of a cref to the corresponding list of subscripts. """
-function setSubscriptsList(
-  subscripts::List{List{Subscript}},#::List{<:List{<:Subscript}},
-  cref::ComponentRef,
-)::ComponentRef
-    local subs::List{Subscript}
-    local rest_subs::List{List{Subscript}}
-    local rest_cref::ComponentRef
-  @match subscripts begin
-    Cons{Subscript}(subs, rest_subs) where {isvariant(cref, COMPONENT_REF_CREF)} => begin
-      rest_cref = setSubscriptsList(rest_subs, cref.restCref)
-      return COMPONENT_REF_CREF(cref.node, subs, cref.ty, cref.origin, rest_cref)
-    end
-    Nil => begin
-      cref
-    end
-  end
-  return cref
-end
 
 """
-Alternate method to
-```setSubscriptsList```
-but uses a vector instead.
-Note can not be made mutable, because then critical crefs will be overwritten(!)
+`cref` with the subscripts of its parts set from `subscripts`: `subscripts[1]` for its last part, `subscripts[2]`
+for the part before, and so on; parts past the end of `subscripts` keep theirs. Builds new crefs: crefs are shared,
+so changing one in place would change the others.
 """
 function setSubscriptsListV(subscripts::Vector{Vector{Subscript}}
                             ,cref::ComponentRef)
@@ -1160,22 +1113,6 @@ function nodeType(cref::ComponentRef)
   return ty
 end
 
-function containsNode(cref::ComponentRef, node::InstNode)::Bool
-  local res::Bool
-
-   res = begin
-    @match cref begin
-      COMPONENT_REF_CREF(__) => begin
-        refEqual(cref.node, node) || containsNode(cref.restCref, node)
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return res
-end
 
 function node(cref::ComponentRef)
   local nodeVar::InstNode
@@ -1311,72 +1248,9 @@ function fromNode(
   return cref
 end
 
-function nodesIncludingSplitSubs(cref::ComponentRef, accum::List = nil)
-  local tmpNode
-  nodes = @match cref begin
-    COMPONENT_REF_CREF(__) => begin
-      for s in cref.subscripts
-        if isSplitIndex(s)
-          @match SUBSCRIPT_SPLIT_INDEX(tmpNode) = s
-          accum = tmpNode <| accum
-        end
-      end
-      nodesIncludingSplitSubs(cref.restCref, cref.node <| accum);
-    end
-    _ => begin
-      accum
-    end
-  end
-end
 
-function mapSubscripts(cref::ComponentRef, func::Function)
-  res = @match cref begin
-    COMPONENT_REF_CREF(__) => begin
-      if !listEmpty(cref.subscripts)
-        @assign cref.subscripts = list(func(s) for s in cref.subscripts)
-      end
-      @assign cref.restCref = mapSubscripts(cref.restCref, func)
-      cref
-    end
-    _ => cref
-  end
-  return res
-end
 
-function hasNonModelSubscripts(cref::ComponentRef) ::Bool
-  local hasSubscripts::Bool
-  hasSubscripts = begin
-    @match cref begin
-      COMPONENT_REF_CREF(__) where ((isModel(cref.node)))  => begin
-        hasNonModelSubscripts(cref.restCref)
-      end
-      COMPONENT_REF_CREF(__)  => begin
-        ! listEmpty(cref.subscripts) || hasNonModelSubscripts(cref.restCref)
-      end
-      _  => begin
-        false
-      end
-    end
-  end
-  hasSubscripts
-end
 
-function expandSplitSubscripts(cref::ComponentRef)
-  () = begin
-    @match cref begin
-      CREF(origin = Origin.CREF)  => begin
-        @assign cref.subscripts = expandSplitIndices(cref.subscripts, nil)
-        @assign cref.restCref = expandSplitSubscripts(cref.restCref)
-        ()
-      end
-
-      _  => begin
-        ()
-      end
-    end
-  end
-  cref
-end
 
 """
 ```

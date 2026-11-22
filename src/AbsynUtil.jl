@@ -40,7 +40,6 @@ import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 #= Forward declarations for uniontypes until Julia adds support for mutual recursion =#
 
-const ModFunc = Function
 
 using OpenModelicaParser.Absyn
 
@@ -51,10 +50,6 @@ import ..Frontend.System
 
 const dummyInfo = SOURCEINFO("", false, 0, 0, 0, 0, 0.0)::Info
 
-const TypeA = Any
-const Type_a = Any
-const Argument = Any
-const Arg = Any
 #= stefan =#
 
 #= stefan =#
@@ -71,12 +66,6 @@ const Arg = Any
 
 #= stefan =#
 
-function makeIdentPathFromString(s::String)::Path
-  local p::Path
-
-  @assign p = IDENT(s)
-  return p
-end
 
 """
   The ElementSpec type contains the name of the element, and this function
@@ -190,70 +179,7 @@ function pathEqual(inPath1::Path, inPath2::Path)::Bool
   return outBoolean
 end
 
-"""
-  Author BZ 2009-01
-  Check whether two type specs are equal or not.
-"""
-function typeSpecEqual(a::TypeSpec, b::TypeSpec)::Bool
-  local ob::Bool
 
-  @assign ob = begin
-    local p1::Path
-    local p2::Path
-    local oad1::Option{ArrayDim}
-    local oad2::Option{ArrayDim}
-    local lst1::List{TypeSpec}
-    local lst2::List{TypeSpec}
-    #= first try full equality =#
-    @matchcontinue (a, b) begin
-      (TPATH(p1, oad1), TPATH(p2, oad2)) => begin
-        @match true = pathEqual(p1, p2)
-        @match true = optArrayDimEqual(oad1, oad2)
-        true
-      end
-
-      (TCOMPLEX(p1, lst1, oad1), TCOMPLEX(p2, lst2, oad2)) => begin
-        @match true = pathEqual(p1, p2)
-        @match true = ListUtil.isEqualOnTrue(lst1, lst2, typeSpecEqual)
-        @match true = optArrayDimEqual(oad1, oad2)
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return ob
-end
-
-"""
-  Author BZ
-  helper function for typeSpecEqual
-"""
-function optArrayDimEqual(oad1::Option{<:ArrayDim}, oad2::Option{<:ArrayDim})::Bool
-  local b::Bool
-
-  @assign b = begin
-    local ad1::List{Subscript}
-    local ad2::List{Subscript}
-    @matchcontinue (oad1, oad2) begin
-      (SOME(ad1), SOME(ad2)) => begin
-        @match true = ListUtil.isEqualOnTrue(ad1, ad2, subscriptEqual)
-        true
-      end
-
-      (NONE(), NONE()) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return b
-end
 
 """This function simply converts a Path to a string."""
 function typeSpecPathString(tp::TypeSpec)::String
@@ -418,15 +344,7 @@ function pathStringWork(
   return s
 end
 
-function pathStringNoQual(path::Path, delimiter::String = ".",
-                          usefq::Bool = false, reverse::Bool = false)
-  return pathString(path, delimiter, usefq, reverse)
-end
 
-function pathStringDefault(path::Path)::String
-  local s::String = pathString(path)
-  return s
-end
 
 function pathCompare(ip1::Path, ip2::Path)::Int
   local o::Int
@@ -624,90 +542,9 @@ function pathFirstIdent(inPath::Path)::Ident
   return outIdent
 end
 
-function pathSecondIdent(inPath::Path)::Ident
-  local outIdent::Ident
 
-  @assign outIdent = begin
-    local n::Ident
-    local p::Path
-    @match inPath begin
-      QUALIFIED(path = QUALIFIED(name = n)) => begin
-        n
-      end
 
-      QUALIFIED(path = IDENT(name = n)) => begin
-        n
-      end
 
-      FULLYQUALIFIED(path = p) => begin
-        pathSecondIdent(p)
-      end
-    end
-  end
-  return outIdent
-end
-
-"""Returns the prefix of a path, i.e. this.is.a.path => this.is.a"""
-function pathPrefix(path::Path)::Path
-  local prefix::Path
-
-  @assign prefix = begin
-    local p::Path
-    local n::Ident
-    @matchcontinue path begin
-      FULLYQUALIFIED(path = p) => begin
-        pathPrefix(p)
-      end
-
-      QUALIFIED(name = n, path = IDENT(__)) => begin
-        IDENT(n)
-      end
-
-      QUALIFIED(name = n, path = p) => begin
-        @assign p = pathPrefix(p)
-        QUALIFIED(n, p)
-      end
-    end
-  end
-  return prefix
-end
-
-"""Prefixes a path with an identifier."""
-function prefixPath(prefix::Ident, path::Path)::Path
-  local outPath::Path
-
-  @assign outPath = QUALIFIED(prefix, path)
-  return outPath
-end
-
-"""
-  Adds a suffix to a path. Ex:
-  suffixPath(a.b.c, 'd') => a.b.c.d
-"""
-function suffixPath(inPath::Path, inSuffix::Ident)::Path
-  local outPath::Path
-
-  @assign outPath = begin
-    local name::Ident
-    local path::Path
-    @match (inPath, inSuffix) begin
-      (IDENT(name), _) => begin
-        QUALIFIED(name, IDENT(inSuffix))
-      end
-
-      (QUALIFIED(name, path), _) => begin
-        @assign path = suffixPath(path, inSuffix)
-        QUALIFIED(name, path)
-      end
-
-      (FULLYQUALIFIED(path), _) => begin
-        @assign path = suffixPath(path, inSuffix)
-        FULLYQUALIFIED(path)
-      end
-    end
-  end
-  return outPath
-end
 
 function pathToStringList(path::Path)::List{String}
   local outPaths::List{String}
@@ -739,404 +576,15 @@ function pathToStringListWork(path::Path, acc::List{<:String})::List{String}
   return outPaths
 end
 
-"""Returns true if prefixPath is a prefix of path, false otherwise."""
-function pathPrefixOf(prefixPath::Path, path::Path)::Bool
-  local isPrefix::Bool
 
-  @assign isPrefix = begin
-    local p::Path
-    local p2::Path
-    local id::String
-    local id2::String
-    @matchcontinue (prefixPath, path) begin
-      (FULLYQUALIFIED(p), p2) => begin
-        pathPrefixOf(p, p2)
-      end
 
-      (p, FULLYQUALIFIED(p2)) => begin
-        pathPrefixOf(p, p2)
-      end
 
-      (IDENT(id), IDENT(id2)) => begin
-        stringEq(id, id2)
-      end
 
-      (IDENT(id), QUALIFIED(name = id2)) => begin
-        stringEq(id, id2)
-      end
 
-      (QUALIFIED(id, p), QUALIFIED(id2, p2)) => begin
-        @match true = stringEq(id, id2)
-        @match true = pathPrefixOf(p, p2)
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return isPrefix
-end
-
-"""
-  Author BZ 2009-08
-  Function for getting ComponentRefs out from Subscripts
-"""
-function getCrefsFromSubs(
-  isubs::List{<:Subscript},
-  includeSubs::Bool,
-  includeFunctions::Bool,
-)::List{ComponentRef} #= note that if you say includeSubs = false then you won't get the functions from array subscripts =#
-  local crefs::List{ComponentRef}
-
-  @assign crefs = begin
-    local crefs1::List{ComponentRef}
-    local exp::Exp
-    local subs::List{Subscript}
-    @match (isubs, includeSubs, includeFunctions) begin
-      (nil(), _, _) => begin
-        nil
-      end
-
-      (NOSUB(__) <| subs, _, _) => begin
-        getCrefsFromSubs(subs, includeSubs, includeFunctions)
-      end
-
-      (SUBSCRIPT(exp) <| subs, _, _) => begin
-        @assign crefs1 = getCrefsFromSubs(subs, includeSubs, includeFunctions)
-        @assign crefs = getCrefFromExp(exp, includeSubs, includeFunctions)
-        listAppend(crefs, crefs1)
-      end
-    end
-  end
-  return crefs
-end
-
-"""
-  Returns a flattened list of the
-  component references in an expression
-"""
-function getCrefFromExp(
-  inExp::Exp,
-  includeSubs::Bool,
-  includeFunctions::Bool,
-)::List{ComponentRef} #= note that if you say includeSubs = false then you won't get the functions from array subscripts =#
-  local outComponentRefLst::List{ComponentRef}
-
-  @assign outComponentRefLst = begin
-    local cr::ComponentRef
-    local l1::List{ComponentRef}
-    local l2::List{ComponentRef}
-    local res::List{ComponentRef}
-    local e1::ComponentCondition
-    local e2::ComponentCondition
-    local e3::ComponentCondition
-    local farg::FunctionArgs
-    local expl::List{ComponentCondition}
-    local expll::List{List{ComponentCondition}}
-    local subs::List{Subscript}
-    local lstres1::List{List{ComponentRef}}
-    local crefll::List{List{ComponentRef}}
-    @match (inExp, includeSubs, includeFunctions) begin
-      (INTEGER(__), _, _) => begin
-        nil
-      end
-
-      (REAL(__), _, _) => begin
-        nil
-      end
-
-      (STRING(__), _, _) => begin
-        nil
-      end
-
-      (BOOL(__), _, _) => begin
-        nil
-      end
-
-      (CREF(componentRef = ALLWILD(__)), _, _) => begin
-        nil
-      end
-
-      (CREF(componentRef = WILD(__)), _, _) => begin
-        nil
-      end
-
-      (CREF(componentRef = cr), false, _) => begin
-        list(cr)
-      end
-
-      (CREF(componentRef = cr), true, _) => begin
-        @assign subs = getSubsFromCref(cr, includeSubs, includeFunctions)
-        @assign l1 = getCrefsFromSubs(subs, includeSubs, includeFunctions)
-        _cons(cr, l1)
-      end
-
-      (BINARY(exp1 = e1, exp2 = e2), _, _) => begin
-        @assign l1 = getCrefFromExp(e1, includeSubs, includeFunctions)
-        @assign l2 = getCrefFromExp(e2, includeSubs, includeFunctions)
-        @assign res = listAppend(l1, l2)
-        res
-      end
-
-      (UNARY(exp = e1), _, _) => begin
-        @assign res = getCrefFromExp(e1, includeSubs, includeFunctions)
-        res
-      end
-
-      (LBINARY(exp1 = e1, exp2 = e2), _, _) => begin
-        @assign l1 = getCrefFromExp(e1, includeSubs, includeFunctions)
-        @assign l2 = getCrefFromExp(e2, includeSubs, includeFunctions)
-        @assign res = listAppend(l1, l2)
-        res
-      end
-
-      (LUNARY(exp = e1), _, _) => begin
-        @assign res = getCrefFromExp(e1, includeSubs, includeFunctions)
-        res
-      end
-
-      (RELATION(exp1 = e1, exp2 = e2), _, _) => begin
-        @assign l1 = getCrefFromExp(e1, includeSubs, includeFunctions)
-        @assign l2 = getCrefFromExp(e2, includeSubs, includeFunctions)
-        @assign res = listAppend(l1, l2)
-        res
-      end
-
-      (IFEXP(ifExp = e1, trueBranch = e2, elseBranch = e3), _, _) => begin
-        ListUtil.flatten(list(
-          getCrefFromExp(e1, includeSubs, includeFunctions),
-          getCrefFromExp(e2, includeSubs, includeFunctions),
-          getCrefFromExp(e3, includeSubs, includeFunctions),
-        ), ComponentRef)
-      end
-
-      (CALL(function_ = cr, functionArgs = farg), _, _) => begin
-        @assign res = getCrefFromFarg(farg, includeSubs, includeFunctions)
-        @assign res = if includeFunctions
-          _cons(cr, res)
-        else
-          res
-        end
-        res
-      end
-
-      (PARTEVALFUNCTION(function_ = cr, functionArgs = farg), _, _) => begin
-        @assign res = getCrefFromFarg(farg, includeSubs, includeFunctions)
-        @assign res = if includeFunctions
-          _cons(cr, res)
-        else
-          res
-        end
-        res
-      end
-
-      (ARRAY(arrayExp = expl), _, _) => begin
-        @assign lstres1 = ListUtil.map2(expl, getCrefFromExp, includeSubs, includeFunctions, List{ComponentRef})
-        @assign res = ListUtil.flatten(lstres1, ComponentRef)
-        res
-      end
-
-      (MATRIX(matrix = expll), _, _) => begin
-        @assign res = ListUtil.flatten(ListUtil.flatten(ListUtil.map2List(expll, getCrefFromExp, includeSubs, includeFunctions, List{ComponentRef}),
-                                                        List{ComponentRef}), ComponentRef)
-        res
-      end
-
-      (RANGE(start = e1, step = SOME(e3), stop = e2), _, _) => begin
-        @assign l1 = getCrefFromExp(e1, includeSubs, includeFunctions)
-        @assign l2 = getCrefFromExp(e2, includeSubs, includeFunctions)
-        @assign l2 = listAppend(l1, l2)
-        @assign l1 = getCrefFromExp(e3, includeSubs, includeFunctions)
-        @assign res = listAppend(l1, l2)
-        res
-      end
-
-      (RANGE(start = e1, step = NONE(), stop = e2), _, _) => begin
-        @assign l1 = getCrefFromExp(e1, includeSubs, includeFunctions)
-        @assign l2 = getCrefFromExp(e2, includeSubs, includeFunctions)
-        @assign res = listAppend(l1, l2)
-        res
-      end
-
-      (END(__), _, _) => begin
-        nil
-      end
-
-      (TUPLE(expressions = expl), _, _) => begin
-        @assign crefll = ListUtil.map2(expl, getCrefFromExp, includeSubs, includeFunctions, List{ComponentRef})
-        @assign res = ListUtil.flatten(crefll, ComponentRef)
-        res
-      end
-
-      (CODE(__), _, _) => begin
-        nil
-      end
-
-      (AS(exp = e1), _, _) => begin
-        getCrefFromExp(e1, includeSubs, includeFunctions)
-      end
-
-      (CONS(e1, e2), _, _) => begin
-        @assign l1 = getCrefFromExp(e1, includeSubs, includeFunctions)
-        @assign l2 = getCrefFromExp(e2, includeSubs, includeFunctions)
-        @assign res = listAppend(l1, l2)
-        res
-      end
-
-      (LIST(expl), _, _) => begin
-        @assign crefll = ListUtil.map2(expl, getCrefFromExp, includeSubs, includeFunctions, List{ComponentRef})
-        @assign res = ListUtil.flatten(crefll, ComponentRef)
-        res
-      end
-
-      (MATCHEXP(__), _, _) => begin
-        fail()
-      end
-
-      (DOT(__), _, _) => begin
-        getCrefFromExp(inExp.exp, includeSubs, includeFunctions)
-      end
-
-      _ => begin
-        Error.addInternalError(
-          getInstanceName() + " failed " + printExp(inExp),
-          sourceInfo(),
-        )
-        fail()
-      end
-    end
-  end
-  #= TODO: Handle else if-branches.
-     inExp.index is only allowed to contain names to index the function call; not crefs that are evaluated in any way =#
-  return outComponentRefLst
-end
-
-"""
-  Returns the flattened list of all component references
-  present in a list of function arguments.
-"""
-function getCrefFromFarg(
-  inFunctionArgs::FunctionArgs,
-  includeSubs::Bool,
-  includeFunctions::Bool,
-)::List{ComponentRef} #= note that if you say includeSubs = false then you won't get the functions from array subscripts =#
-  local outComponentRefLst::List{ComponentRef}
-
-  @assign outComponentRefLst = begin
-    local l1::List{List{ComponentRef}}
-    local l2::List{List{ComponentRef}}
-    local fl1::List{ComponentRef}
-    local fl2::List{ComponentRef}
-    local fl3::List{ComponentRef}
-    local res::List{ComponentRef}
-    local expl::List{ComponentCondition}
-    local nargl::List{NamedArg}
-    local iterators::ForIterators
-    local exp::Exp
-    @match (inFunctionArgs, includeSubs, includeFunctions) begin
-      (FUNCTIONARGS(args = expl, argNames = nargl), _, _) => begin
-        @assign l1 = ListUtil.map2(expl, getCrefFromExp, includeSubs, includeFunctions, List{ComponentRef})
-        @assign fl1 = ListUtil.flatten(l1, ComponentRef)
-        @assign l2 = ListUtil.map2(nargl, getCrefFromNarg, includeSubs, includeFunctions, List{ComponentRef})
-        @assign fl2 = ListUtil.flatten(l2, ComponentRef)
-        @assign res = listAppend(fl1, fl2)
-        res
-      end
-
-      (FOR_ITER_FARG(exp, _, iterators), _, _) => begin
-        @assign l1 = ListUtil.map2Option(
-          ListUtil.map(iterators, iteratorRange, Option{Exp}),
-          getCrefFromExp,
-          includeSubs,
-          includeFunctions,
-          List{ComponentRef},
-        )
-        @assign l2 = ListUtil.map2Option(
-          ListUtil.map(iterators, iteratorGuard, Option{Exp}),
-          getCrefFromExp,
-          includeSubs,
-          includeFunctions,
-          List{ComponentRef},
-        )
-        @assign fl1 = ListUtil.flatten(l1, ComponentRef)
-        @assign fl2 = ListUtil.flatten(l2, ComponentRef)
-        @assign fl3 = getCrefFromExp(exp, includeSubs, includeFunctions)
-        @assign res = listAppend(fl1, listAppend(fl2, fl3))
-        res
-      end
-    end
-  end
-  return outComponentRefLst
-end
-
-function iteratorRange(iterator::ForIterator)::Option{Exp}
-  local range::Option{Exp}
-
-  @match ITERATOR(range = range) = iterator
-  return range
-end
-
-function iteratorGuard(iterator::ForIterator)::Option{Exp}
-  local guardExp::Option{Exp}
-
-  @match ITERATOR(guardExp = guardExp) = iterator
-  return guardExp
-end
 
 #= stefan =#
 
-"""returns the names from a list of NamedArgs as a string list"""
-function getNamedFuncArgNamesAndValues(
-  inNamedArgList::List{<:NamedArg},
-)::Tuple{List{String}, List{Exp}}
-  local outExpList::List{Exp}
-  local outStringList::List{String}
 
-  @assign (outStringList, outExpList) = begin
-    local cdr::List{NamedArg}
-    local s::String
-    local e::Exp
-    local slst::List{String}
-    local elst::List{Exp}
-    @match inNamedArgList begin
-      nil() => begin
-        (nil, nil)
-      end
-
-      NAMEDARG(argName = s, argValue = e) <| cdr => begin
-        @assign (slst, elst) = getNamedFuncArgNamesAndValues(cdr)
-        (_cons(s, slst), _cons(e, elst))
-      end
-    end
-  end
-  return (outStringList, outExpList)
-end
-
-"""
-  Returns the flattened list of all component references
-  present in a list of named function arguments.
-"""
-function getCrefFromNarg(
-  inNamedArg::NamedArg,
-  includeSubs::Bool,
-  includeFunctions::Bool,
-)::List{ComponentRef} #= note that if you say includeSubs = false then you won't get the functions from array subscripts =#
-  local outComponentRefLst::List{ComponentRef}
-
-  @assign outComponentRefLst = begin
-    local res::List{ComponentRef}
-    local exp::ComponentCondition
-    @match (inNamedArg, includeSubs, includeFunctions) begin
-      (NAMEDARG(argValue = exp), _, _) => begin
-        @assign res = getCrefFromExp(exp, includeSubs, includeFunctions)
-        res
-      end
-    end
-  end
-  return outComponentRefLst
-end
 
 """This function joins two paths"""
 function joinPaths(inPath1::Path, inPath2::Path)::Path
@@ -1169,34 +617,6 @@ function joinPaths(inPath1::Path, inPath2::Path)::Path
   return outPath
 end
 
-"""
-  Returns the path given as argument to
-  the function minus the last ident.
-"""
-function stripLast(inPath::Path)::Path
-  local outPath::Path
-
-  @assign outPath = begin
-    local str::Ident
-    local p::Path
-    @match inPath begin
-      QUALIFIED(name = str, path = IDENT(__)) => begin
-        IDENT(str)
-      end
-
-      QUALIFIED(name = str, path = p) => begin
-        @assign p = stripLast(p)
-        QUALIFIED(str, p)
-      end
-
-      FULLYQUALIFIED(p) => begin
-        @assign p = stripLast(p)
-        FULLYQUALIFIED(p)
-      end
-    end
-  end
-  return outPath
-end
 
 """
   This function converts a ComponentRef to a Path, if possible.
@@ -1255,66 +675,7 @@ function pathToCref(inPath::Path)::ComponentRef
   return outComponentRef
 end
 
-function crefSetLastSubs(
-  inCref::ComponentRef,
-  inSubscripts::List{<:Subscript},
-)::ComponentRef
-  local outCref::ComponentRef = inCref
 
-  @assign outCref = begin
-    @match outCref begin
-      CREF_IDENT(__) => begin
-        @assign outCref.subscripts = inSubscripts
-        outCref
-      end
-
-      CREF_QUAL(__) => begin
-        @assign outCref.componentRef = crefSetLastSubs(outCref.componentRef, inSubscripts)
-        outCref
-      end
-
-      CREF_FULLYQUALIFIED(__) => begin
-        @assign outCref.componentRef = crefSetLastSubs(outCref.componentRef, inSubscripts)
-        outCref
-      end
-    end
-  end
-  return outCref
-end
-
-"""
-  Author: BZ, 2009-09
-  Extract subscripts of crefs.
-"""
-function getSubsFromCref(
-  cr::ComponentRef,
-  includeSubs::Bool,
-  includeFunctions::Bool,
-)::List{Subscript} #= note that if you say includeSubs = false then you won't get the functions from array subscripts =#
-  local subscripts::List{Subscript}
-
-  @assign subscripts = begin
-    local subs2::List{Subscript}
-    local child::ComponentRef
-    @match (cr, includeSubs, includeFunctions) begin
-      (CREF_IDENT(_, subs2), _, _) => begin
-        subs2
-      end
-
-      (CREF_QUAL(_, subs2, child), _, _) => begin
-        @assign subscripts = getSubsFromCref(child, includeSubs, includeFunctions)
-        @assign subscripts = ListUtil.unionOnTrue(subscripts, subs2, subscriptEqual, Subscript)
-        subscripts
-      end
-
-      (CREF_FULLYQUALIFIED(child), _, _) => begin
-        @assign subscripts = getSubsFromCref(child, includeSubs, includeFunctions)
-        subscripts
-      end
-    end
-  end
-  return subscripts
-end
 
 #= stefan =#
 
@@ -1340,22 +701,6 @@ function crefFirstIdent(inCref::ComponentRef)::Ident
   return outIdent
 end
 
-function crefSecondIdent(cref::ComponentRef)::Ident
-  local ident::Ident
-
-  @assign ident = begin
-    @match cref begin
-      CREF_QUAL(__) => begin
-        crefFirstIdent(cref.componentRef)
-      end
-
-      CREF_FULLYQUALIFIED(__) => begin
-        crefSecondIdent(cref.componentRef)
-      end
-    end
-  end
-  return ident
-end
 
 """Makes a component reference fully qualified unless it already is."""
 function crefMakeFullyQualified(inComponentRef::ComponentRef)::ComponentRef
@@ -1375,48 +720,6 @@ function crefMakeFullyQualified(inComponentRef::ComponentRef)::ComponentRef
   return outComponentRef
 end
 
-"""
-  Checks if the name of a ComponentRef is
-  equal to the name of another ComponentRef, including subscripts.
-"""
-function crefEqual(iCr1::ComponentRef, iCr2::ComponentRef)::Bool
-  local outBoolean::Bool
-
-  @assign outBoolean = begin
-    local id::Ident
-    local id2::Ident
-    local ss1::List{Subscript}
-    local ss2::List{Subscript}
-    local cr1::ComponentRef
-    local cr2::ComponentRef
-    @matchcontinue (iCr1, iCr2) begin
-      (CREF_IDENT(name = id, subscripts = ss1), CREF_IDENT(name = id2, subscripts = ss2)) => begin
-        @match true = stringEq(id, id2)
-        @match true = subscriptsEqual(ss1, ss2)
-        true
-      end
-
-      (
-        CREF_QUAL(name = id, subscripts = ss1, componentRef = cr1),
-        CREF_QUAL(name = id2, subscripts = ss2, componentRef = cr2),
-      ) => begin
-        @match true = stringEq(id, id2)
-        @match true = subscriptsEqual(ss1, ss2)
-        @match true = crefEqual(cr1, cr2)
-        true
-      end
-
-      (CREF_FULLYQUALIFIED(componentRef = cr1), CREF_FULLYQUALIFIED(componentRef = cr2)) => begin
-        crefEqual(cr1, cr2)
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outBoolean
-end
 
 function subscriptEqual(inSubscript1::Subscript, inSubscript2::Subscript)::Bool
   local outIsEqual::Bool
@@ -1441,13 +744,6 @@ function subscriptEqual(inSubscript1::Subscript, inSubscript2::Subscript)::Bool
   return outIsEqual
 end
 
-"""Checks if two subscript lists are equal."""
-function subscriptsEqual(inSubList1::List{<:Subscript}, inSubList2::List{<:Subscript})::Bool
-  local outIsEqual::Bool
-
-  @assign outIsEqual = ListUtil.isEqualOnTrue(inSubList1, inSubList2, subscriptEqual)
-  return outIsEqual
-end
 
 """Returns true if two expressions are equal"""
 function expEqual(exp1::Exp, exp2::Exp)::Bool
@@ -1552,35 +848,6 @@ function isOnlyOuter(inIO::InnerOuter)::Bool
   return outOnlyOuter
 end
 
-"""Returns true if two InnerOuter's are equal"""
-function innerOuterEqual(io1::InnerOuter, io2::InnerOuter)::Bool
-  local res::Bool
-
-  @assign res = begin
-    @match (io1, io2) begin
-      (INNER(__), INNER(__)) => begin
-        true
-      end
-
-      (OUTER(__), OUTER(__)) => begin
-        true
-      end
-
-      (INNER_OUTER(__), INNER_OUTER(__)) => begin
-        true
-      end
-
-      (NOT_INNER_OUTER(__), NOT_INNER_OUTER(__)) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return res
-end
 
 """Makes a path not fully qualified unless it already is."""
 function makeNotFullyQualified(inPath::Path)::Path
@@ -1635,36 +902,6 @@ function importEqual(im1::Import, im2::Import)::Bool
   return outBoolean
 end
 
-"""Transforms an if-expression to canonical form (without else-if branches)"""
-function canonIfExp(inExp::Exp)::Exp
-  local outExp::Exp
-
-  @assign outExp = begin
-    local cond::Exp
-    local tb::Exp
-    local eb::Exp
-    local ei_cond::Exp
-    local ei_tb::Exp
-    local e::Exp
-    local eib::List{Tuple{Exp, Exp}}
-    @match inExp begin
-      IFEXP(elseIfBranch = nil()) => begin
-        inExp
-      end
-
-      IFEXP(
-        ifExp = cond,
-        trueBranch = tb,
-        elseBranch = eb,
-        elseIfBranch = (ei_cond, ei_tb) <| eib,
-      ) => begin
-        @assign e = canonIfExp(IFEXP(ei_cond, ei_tb, eb, eib))
-        IFEXP(cond, tb, e, nil)
-      end
-    end
-  end
-  return outExp
-end
 
 function pathIsIdent(inPath::Path)::Bool
   local outIsIdent::Bool
@@ -1725,85 +962,9 @@ function isOutput(inDirection::Direction)::Bool
   return outIsOutput
 end
 
-function directionEqual(inDirection1::Direction, inDirection2::Direction)::Bool
-  local outEqual::Bool
 
-  @assign outEqual = begin
-    @match (inDirection1, inDirection2) begin
-      (BIDIR(__), BIDIR(__)) => begin
-        true
-      end
 
-      (INPUT(__), INPUT(__)) => begin
-        true
-      end
 
-      (OUTPUT(__), OUTPUT(__)) => begin
-        true
-      end
-
-      (INPUT_OUTPUT(__), INPUT_OUTPUT(__)) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outEqual
-end
-
-function isFieldEqual(isField1::IsField, isField2::IsField)::Bool
-  local outEqual::Bool
-
-  @assign outEqual = begin
-    @match (isField1, isField2) begin
-      (NONFIELD(__), NONFIELD(__)) => begin
-        true
-      end
-
-      (FIELD(__), FIELD(__)) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outEqual
-end
-
-# Current OMC signature: replace the last identifier by name.
-function pathSetLastIdent(inPath::Path, ident::String)::Path
-  return pathSetLastIdent(inPath, IDENT(ident))
-end
-
-function pathSetLastIdent(inPath::Path, inLastIdent::Path)::Path
-  local outPath::Path
-
-  @assign outPath = begin
-    local p::Path
-    local n::String
-    @match (inPath, inLastIdent) begin
-      (IDENT(__), _) => begin
-        inLastIdent
-      end
-
-      (QUALIFIED(n, p), _) => begin
-        @assign p = pathSetLastIdent(p, inLastIdent)
-        QUALIFIED(n, p)
-      end
-
-      (FULLYQUALIFIED(p), _) => begin
-        @assign p = pathSetLastIdent(p, inLastIdent)
-        FULLYQUALIFIED(p)
-      end
-    end
-  end
-  return outPath
-end
 
 """Returns the import name of a named or qualified import."""
 function importName(inImport::Import)::Ident
@@ -1971,48 +1132,6 @@ function importString(inImp::Import)::String
   end
 end
 
-"""Helper function to getNamedAnnotationInElementitemlist."""
-function getNamedAnnotationStr(
-  inAbsynElementArgLst::List{<:ElementArg},
-  id::Path,
-  f::ModFunc,
-)::Option{TypeA}
-  local outString::Option{TypeA}
-
-  @assign outString = begin
-    local str::TypeA
-    local mod::Option{Modification}
-    local xs::List{ElementArg}
-    local id1::Ident
-    local id2::Ident
-    local rest::Path
-    @matchcontinue (inAbsynElementArgLst, id, f) begin
-      (MODIFICATION(path = IDENT(name = id1), modification = mod) <| _, IDENT(id2), _) =>
-        begin
-          @match true = stringEq(id1, id2)
-          @assign str = f(mod)
-          SOME(str)
-        end
-
-      (
-        MODIFICATION(
-          path = IDENT(name = id1),
-          modification = SOME(CLASSMOD(elementArgLst = xs)),
-        ) <| _,
-        QUALIFIED(name = id2, path = rest),
-        _,
-      ) => begin
-        @match true = stringEq(id1, id2)
-        getNamedAnnotationStr(xs, rest, f)
-      end
-
-      (_ <| xs, _, _) => begin
-        getNamedAnnotationStr(xs, id, f)
-      end
-    end
-  end
-  return outString
-end
 
 function isAlgorithmItem(inAlg::AlgorithmItem)::Bool
   local outIsClass::Bool

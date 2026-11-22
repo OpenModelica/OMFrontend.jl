@@ -270,50 +270,7 @@ function nthEnumLiteral(ty::ModelicaType, n::Int) ::Expression
   exp
 end
 
-"""
-Replaces split indices in a subscripted expression with : subscripts,
-except for indices that reference nodes in the given list.
-"""
-@nospecializeinfer function expandNonListedSplitIndices(@nospecialize(exp::Expression), @nospecialize(indicesToKeep::Union{List{<:InstNode}, Cons{<:InstNode}}))
-  #= Adapted from OpenModelica: the original SUBSCRIPTED_EXP had a split::Bool
-     field not ported to Julia. Instead we detect split subscripts by checking
-     for SUBSCRIPT_SPLIT_INDEX in the subscript list and replace those whose
-     nodes are NOT in indicesToKeep with SUBSCRIPT_WHOLE. =#
-  outExp = @match exp begin
-    SUBSCRIPTED_EXP_EXPRESSION(__) => begin
-      local newSubs = Subscript[]
-      local changed = false
-      for sub in exp.subscripts
-        if sub isa SUBSCRIPT_SPLIT_INDEX
-          if !_nodeInList(sub.node, indicesToKeep)
-            push!(newSubs, SUBSCRIPT_WHOLE())
-            changed = true
-          else
-            push!(newSubs, sub)
-          end
-        else
-          push!(newSubs, sub)
-        end
-      end
-      if changed
-        applySubscripts(newSubs, exp.exp)
-      else
-        exp
-      end
-    end
-    _ => exp
-  end
-  return outExp
-end
 
-function _nodeInList(@nospecialize(node::InstNode), @nospecialize(lst))
-  for n in lst
-    if n === node
-      return true
-    end
-  end
-  return false
-end
 
 function retype(@nospecialize(exp::Expression))
   exp = @match exp begin
@@ -608,22 +565,6 @@ function isEmpty(@nospecialize(exp::Expression)) ::Bool
   empty
 end
 
-function isMutable(@nospecialize(exp::Expression)) ::Bool
-  local isMutable::Bool
-
-   isMutable = begin
-    @match exp begin
-      MUTABLE_EXPRESSION(__)  => begin
-        true
-      end
-
-      _  => begin
-        false
-      end
-    end
-  end
-  isMutable
-end
 
 function makeImmutable(@nospecialize(exp::Expression))
   local outExp::Expression
@@ -1489,42 +1430,6 @@ function makeDefaultValue(ty::ModelicaType, min::Union{Expression, Nothing} = no
   error("makeDefaultValue: no default value of type " * toString(ty))
 end
 
-function isNegative(@nospecialize(exp::Expression)) ::Bool
-  local negative::Bool
-
-   negative = begin
-    @match exp begin
-      INTEGER_EXPRESSION(__)  => begin
-        exp.value < 0
-      end
-
-      REAL_EXPRESSION(__)  => begin
-        exp.value < 0
-      end
-
-      BOOLEAN_EXPRESSION(__)  => begin
-        false
-      end
-
-      ENUM_LITERAL_EXPRESSION(__)  => begin
-        false
-      end
-
-      CAST_EXPRESSION(__)  => begin
-        isNegative(exp.exp)
-      end
-
-      UNARY_EXPRESSION(__)  => begin
-        ! isNegative(exp.exp)
-      end
-
-      _  => begin
-        false
-      end
-    end
-  end
-  negative
-end
 
 function isOne(@nospecialize(exp::Expression)) ::Bool
   local isOneVar::Bool
@@ -4478,42 +4383,10 @@ function makeEnumLiteral(enumType::ModelicaType, index::Int) ::Expression
   literal
 end
 
-function arrayFromList(inExps::List{<:Expression}, elemTy::ModelicaType, inDims::List{<:Dimension}) ::Expression
-  local outExp::Expression
-  outExp = arrayFromList_impl(inExps, elemTy, listReverse(inDims))
-  outExp
-end
 
-function arrayFromList_impl(inExps::List{<:Expression}, elemTy::ModelicaType, inDims::List{<:Dimension}) ::Expression
-  local outExp::Expression
-  local ldim::Dimension
-  local restdims::List{Dimension}
-  local ty::ModelicaType
-  local newlst::List{Expression}
-  local partexps::List{List{Expression}}
-  local dimsize::Int
-
-  Error.assertion(! listEmpty(inDims), "Empty dimension list given in arrayFromList.", sourceInfo())
-  @match _cons(ldim, restdims) = inDims
-  dimsize = size(ldim)
-  ty = liftArrayLeft(elemTy, ldim)
-  if ListUtil.hasOneElement(inDims)
-    Error.assertion(dimsize == listLength(inExps), "Length mismatch in arrayFromList.", sourceInfo())
-    outExp = makeArray(ty, inExps)
-    return outExp
-  end
-  partexps = ListUtil.partition(inExps, dimsize, Expression)
-  newlst = nil
-  for arrexp in partexps
-    newlst = Cons{Expression}(makeArray(ty, arrexp), newlst)
-  end
-  newlst = listReverse(newlst)
-  outExp = arrayFromList_impl(newlst, ty, restdims)
-  outExp
-end
 
 """
-Same as arrayFromList but for ```Vector{Expression}```
+The array expression with the dimensions `inDims` whose elements, in row-major order, are `inExps`.
 """
 function arrayFromVector(inExps::Vector{Expression}, elemTy::ModelicaType, inDims::List{Dimension})::Expression
   local outExp::Expression
@@ -4530,12 +4403,12 @@ function arrayFromVectorImpl(inExps::Vector{Expression},
   local newVec::Vector{Expression}
   local partexps::Vector{Vector{Expression}} #=A Vector of Vectors...=#
   local dimsize::Int
-  Error.assertion(! listEmpty(inDims), "Empty dimension list given in arrayFromList.", sourceInfo())
+  Error.assertion(! listEmpty(inDims), "Empty dimension list given in arrayFromVector.", sourceInfo())
   @match Cons{Dimension}(ldim, restdims) = inDims
   dimsize = size(ldim)
   ty = liftArrayLeft(elemTy, ldim)
   if ListUtil.hasOneElement(inDims)
-    Error.assertion(dimsize == length(inExps), "Length mismatch in arrayFromList.", sourceInfo())
+    Error.assertion(dimsize == length(inExps), "Length mismatch in arrayFromVector.", sourceInfo())
     outExp = makeArray(ty, inExps)
     return outExp
   end
@@ -5058,10 +4931,6 @@ function integerValue(@nospecialize(exp::Expression))
   value
 end
 
-function makeReal(value::AbstractFloat)
-  local exp::Expression = REAL_EXPRESSION(value)
-  exp
-end
 
  """
    Converts an expression to the given type. Dimensions of array types can be
@@ -5747,32 +5616,6 @@ function isFalse(@nospecialize(exp::Expression)) ::Bool
   isTrue
 end
 
-function isAllTrue(@nospecialize(exp::Expression)) ::Bool
-  local isTrue::Bool
-
-   isTrue = begin
-    @match exp begin
-      BOOLEAN_EXPRESSION(true)  => begin
-        true
-      end
-
-      ARRAY_EXPRESSION(__)  => begin
-        for e in exp.elements
-          if ! isAllTrue(e)
-             isTrue = false
-            return
-          end
-        end
-        true
-      end
-
-      _  => begin
-        false
-      end
-    end
-  end
-  isTrue
-end
 
 function isTrue(@nospecialize(exp::Expression))
     @match exp begin
@@ -6482,22 +6325,6 @@ function isCrefExp(binding::Binding)
   return isCrefVar
 end
 
-function isRecordExp(binding::Binding)
-  local isRecordExp::Bool
-
-   isRecordExp = begin
-    @match binding begin
-      TYPED_BINDING(__) => begin
-        isRecord(getBindingExp(binding.bindingExp))
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return isRecordExp
-end
 
 function getExp(binding::Binding)
   local exp::Expression

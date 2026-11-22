@@ -33,13 +33,7 @@
 *
 */ =#
 
-struct MatchTypeStruct{T0 <: Integer}
-  FOUND::T0
-  NOT_FOUND::T0
-  PARTIAL::T0
-end
 
-const MatchType = MatchTypeStruct(1, 2, 3)
 const MatchTypeTy = Int
 
 function lookupClassName(@nospecialize(name::Absyn.Path), scope::InstNode, info::SourceInfo, checkAccessViolations::Bool = true; isRedeclared::Bool = false)
