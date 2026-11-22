@@ -118,34 +118,6 @@ function listKeysReverse(inTree::Tree, lst::List{<:Key} = nil)
   return lst
 end
 
-"""
-  Prints the tree to a string using UTF-8 box-drawing characters to construct a
-  graphical view of the tree.
-"""
-function printTreeStr(inTree::Tree)
-  local outString::String
-  local left::Tree
-  local right::Tree
-  outString = begin
-    @match inTree begin
-      EMPTY(__) => begin
-        "EMPTY()"
-      end
-      LEAF(__) => begin
-        printNodeStr(inTree)
-      end
-      NODE(left = left, right = right) => begin
-        printTreeStr2(left, true, "") +
-        printNodeStr(inTree) +
-        "
-        " +
-        printTreeStr2(right, false, "")
-      end
-    end
-  end
-  return outString
-end
-
 function referenceEqOrEmpty(t1::Tree, t2::Tree)
   if isvariant(t1, EMPTY) && isvariant(t2, EMPTY)
     return true
@@ -280,65 +252,6 @@ function rotateRight(inNode::Tree)::Tree
     end
   end
   return outNode
-end
-
-"""Helper function to printTreeStr."""
-function printTreeStr2(inTree::Tree, isLeft::Bool, inIndent::String)
-  local outString::String
-  local left::Option{Tree}
-  local right::Option{Tree}
-  outString = begin
-    @match inTree begin
-      NODE(__) => begin
-        printTreeStr2(inTree.left, true, inIndent * (
-          if isLeft
-            "     "
-          else
-            " │   "
-          end
-        )) *
-        inIndent *
-        (
-          if isLeft
-            " ┌"
-          else
-            " └"
-          end
-        ) *
-        "────" *
-        printNodeStr(inTree) *
-        "
-        " *
-        printTreeStr2(inTree.right, false, inIndent * (
-          if isLeft
-            " │   "
-          else
-            "     "
-          end
-        ))
-      end
-
-      _ => begin
-        ""
-      end
-    end
-  end
-  return outString
-end
-
-function printNodeStr(inNode::Tree)
-  outString = begin
-    @match inNode begin
-      NODE(__) => begin
-        "(" * keyStr(inNode.key) * ", " * valueStr(inNode.value) * ")"
-      end
-
-      LEAF(__) => begin
-        "(" * keyStr(inNode.key) * ", " * valueStr(inNode.value) * ")"
-      end
-    end
-  end
-  return outString
 end
 
 """Conflict resolving function for add which fails on conflict."""
