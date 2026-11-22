@@ -36,6 +36,7 @@
 module ModTable
 
 import ..ModifierImpl
+import ..ModifierScope
 using MetaModelica
 import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
@@ -499,8 +500,8 @@ function add(
   inTree::Tree,
   inKey::Key,
   inValue::Value,
-  scope,
-  prefix
+  scope::ModifierScope,
+  prefix::List{String}
 )::Tree #= Used to resolve conflicts. =#
   local tree::Tree = inTree
 
@@ -656,8 +657,8 @@ end
 function fromVector(
   inValues::Vector{<:Value},
   inKeys::Vector{Key},
-  scope,
-  prefix
+  scope::ModifierScope,
+  prefix::List{String}
   )::Tree #= Used to resolve conflicts. =#
   local tree::Tree = EMPTY()
   local key::Key
@@ -791,7 +792,10 @@ function join(
   return tree
 end
 
-function join(tree::Tree, treeToJoin::Tree, scope, prefix)
+"""
+`tree` with the entries of `treeToJoin` added; an entry in both is merged (`mergeLocal` in `scope`, under `prefix`).
+"""
+function join(tree::Tree, treeToJoin::Tree, scope::ModifierScope, prefix::List{String})::Tree
    tree = begin
     @match treeToJoin begin
       EMPTY(__) => begin
@@ -799,8 +803,8 @@ function join(tree::Tree, treeToJoin::Tree, scope, prefix)
       end
       NODE(__) => begin
          tree = add(tree, treeToJoin.key, treeToJoin.value, scope, prefix)
-         tree = join(tree, treeToJoin.left)
-         tree = join(tree, treeToJoin.right)
+         tree = join(tree, treeToJoin.left, scope, prefix)
+         tree = join(tree, treeToJoin.right, scope, prefix)
         tree
       end
 
