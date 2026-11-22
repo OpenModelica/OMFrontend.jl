@@ -477,6 +477,28 @@ end
   return binaryExp
 end
 
+"""Whether `simplifyBinaryOp` of two array literals goes element by element (as omc: `+`, `-` and the `.op` operators)."""
+function _simplifiesElementWise(op::OPERATOR)::Bool
+  local o::Int = op.op
+  return o == Op.ADD || o == Op.SUB || isElementWise(op)
+end
+
+"""
+Two array literals combined element by element, each pair simplified (omc's simplifyBinaryEW): `{x, 1} .* {2, y}` is
+`{x * 2.0, y}`. The rows of a matrix keep the element-wise operator and are combined the same way; scalars get the
+scalar operator (omc leaves the rows as `{x, 1.0} .* {2.0, y}`). Arrays of different lengths stay a binary expression.
+"""
+function _simplifyBinaryEW(a::ARRAY_EXPRESSION, op::OPERATOR, b::ARRAY_EXPRESSION)::Expression
+  length(a.elements) == length(b.elements) || return BINARY_EXPRESSION(a, op, b)
+  local eop::OPERATOR = unlift(op)
+  isArray(eop.ty) || (eop = stripEW(eop))
+  local elems::Vector{Expression} = Vector{Expression}(undef, length(a.elements))
+  for i in eachindex(elems)
+    elems[i] = simplifyBinaryOp(a.elements[i], eop, b.elements[i])
+  end
+  return makeArray(typeOf(op), elems)
+end
+
 @nospecializeinfer function simplifyBinaryOp(@nospecialize(exp1::Expression), op::OPERATOR, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local outExp::Expression
 
@@ -488,6 +510,8 @@ end
     )
     #= Literal operands Ceval cannot combine (a division by zero, mismatched arrays): the operation stays. =#
     outExp = isEvalFailure(outExp) ? BINARY_EXPRESSION(exp1, op, exp2) : stripBindingInfo(outExp)
+  elseif exp1 isa ARRAY_EXPRESSION && exp2 isa ARRAY_EXPRESSION && _simplifiesElementWise(op)
+    outExp = _simplifyBinaryEW(exp1, op, exp2)
   else
     outExp = begin
       @match op.op begin

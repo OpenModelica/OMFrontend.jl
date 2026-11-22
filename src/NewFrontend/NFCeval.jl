@@ -1026,6 +1026,12 @@ function evalBinaryOp_dispatch(
   o == Op.MUL && return evalBinaryMul(exp1, exp2)
   o == Op.DIV && return evalBinaryDiv(exp1, exp2, target)
   o == Op.POW && return evalBinaryPow(exp1, exp2)
+  # array op array (omc f3c163ba5b); the functions above go element by element over two arrays.
+  o == Op.ADD_EW && return evalBinaryAdd(exp1, exp2)
+  o == Op.SUB_EW && return evalBinarySub(exp1, exp2)
+  o == Op.MUL_EW && return evalBinaryMul(exp1, exp2)
+  o == Op.DIV_EW && return evalBinaryDiv(exp1, exp2, target)
+  o == Op.POW_EW && return evalBinaryPow(exp1, exp2)
   o == Op.ADD_SCALAR_ARRAY && return evalBinaryScalarArray(exp1, exp2, evalBinaryAdd)
   o == Op.ADD_ARRAY_SCALAR && return evalBinaryArrayScalar(exp1, exp2, evalBinaryAdd)
   o == Op.SUB_SCALAR_ARRAY && return evalBinaryScalarArray(exp1, exp2, evalBinarySub)

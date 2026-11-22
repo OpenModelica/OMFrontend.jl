@@ -493,7 +493,8 @@ function expandBinaryElementWise(@nospecialize(exp::Expression))::Tuple{Expressi
        (exp2, expanded) = expand(exp2)
     end
     if expanded
-      outExp = expandBinaryElementWise2(exp1, op, exp2, simplifyBinaryOp)
+      # The elements get the scalar operator (`.*` of two arrays is `*` of their elements).
+      outExp = expandBinaryElementWise2(exp1, stripEW(op), exp2, simplifyBinaryOp)
     else
       outExp = exp
     end

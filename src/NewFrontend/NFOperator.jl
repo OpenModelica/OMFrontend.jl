@@ -188,7 +188,21 @@ function isElementWise(op::OPERATOR)::Bool
   return ew
 end
 
-function stripEW(op::OPERATOR)
+"""
+The element-wise kind of an arithmetic operator (`Op.MUL` → `Op.MUL_EW`; omc's `Operator.makeEW`). An operation on
+two arrays keeps it (`p .* p`, not the matrix product `p * p`). Other operators are returned as they are.
+"""
+function makeEW(op::OPERATOR)::OPERATOR
+  local o::Int = op.op
+  o == Op.ADD && return OPERATOR(op.ty, Op.ADD_EW)
+  o == Op.SUB && return OPERATOR(op.ty, Op.SUB_EW)
+  o == Op.MUL && return OPERATOR(op.ty, Op.MUL_EW)
+  o == Op.DIV && return OPERATOR(op.ty, Op.DIV_EW)
+  o == Op.POW && return OPERATOR(op.ty, Op.POW_EW)
+  return op
+end
+
+function stripEW(op::OPERATOR)::OPERATOR
   opOP = @match op.op begin
     Op.ADD_EW => begin
       Op.ADD
@@ -465,6 +479,37 @@ function priority(op::OPERATOR, lhs::Bool)::Int
       end
 
       Op.POW_EW => begin
+        1
+      end
+
+      #= The array kinds as their scalar operator (omc's Operator.priority): with 0 the right operand of each got
+         parentheses (`{1.0, 2.0} .* (time)`). =#
+      Op.ADD_SCALAR_ARRAY || Op.ADD_ARRAY_SCALAR => begin
+        if lhs
+          5
+        else
+          6
+        end
+      end
+
+      Op.SUB_SCALAR_ARRAY || Op.SUB_ARRAY_SCALAR => begin
+        5
+      end
+
+      Op.MUL_SCALAR_ARRAY || Op.MUL_ARRAY_SCALAR || Op.MUL_VECTOR_MATRIX || Op.MUL_MATRIX_VECTOR ||
+      Op.SCALAR_PRODUCT || Op.MATRIX_PRODUCT => begin
+        if lhs
+          2
+        else
+          3
+        end
+      end
+
+      Op.DIV_SCALAR_ARRAY || Op.DIV_ARRAY_SCALAR => begin
+        2
+      end
+
+      Op.POW_SCALAR_ARRAY || Op.POW_ARRAY_SCALAR || Op.POW_MATRIX => begin
         1
       end
 

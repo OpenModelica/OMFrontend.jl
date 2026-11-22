@@ -1432,14 +1432,11 @@ function checkBinaryOperationDiv(
       end
 
       (true, _, true) => begin
-        #= scalar / scalar or scalar ./ scalar
-           array / scalar or array ./ scalar
-           scalar ./ array
-           array ./ array
-           If both operands are arrays, check that their dimensions are compatible. =#
+        #= array ./ array: both dimensions must be compatible. Op.DIV_EW, not Op.DIV with an array type (omc): a
+           second typing of a DIV takes it as `/`, which does not accept two arrays. =#
          (_, _, mk) = matchArrayTypes(ty1, ty2, e1, true)
         @assign valid = valid && isCompatibleMatch(mk)
-        (ty1, makeDiv(ty1))
+        (ty1, OPERATOR(ty1, Op.DIV_EW))
       end
 
       _ => begin
@@ -1536,14 +1533,11 @@ function checkBinaryOperationPowEW(
       end
 
       _ => begin
-        #= scalar .^ scalar
-           array .^ scalar
-           scalar .^ array
-           array .^ array
-           If both operands are arrays, check that their dimensions are compatible. =#
+        #= array .^ array: both dimensions must be compatible. Op.POW_EW, not Op.POW with an array type (omc): a
+           second typing of a POW takes it as the matrix power `^` (omc's new backend fails on `x .^ y` so). =#
          (_, _, mk) = matchArrayTypes(ty1, ty2, e1, true)
         @assign valid = valid && isCompatibleMatch(mk)
-        (ty1, makePow(ty1))
+        (ty1, OPERATOR(ty1, Op.POW_EW))
       end
     end
   end
@@ -1621,12 +1615,17 @@ function checkBinaryOperationEW(
         (resultType, op)
       end
 
+      (true, true) => begin
+        #= array * array => Op.{elemOp}_EW (omc f3c163ba5b: the flat model keeps `.*`, not the matrix product `*`). =#
+        (resultType, makeEW(OPERATOR(resultType, elemOp)))
+      end
+
       _ => begin
+        #= scalar * scalar => Op.{elemOp}. =#
         (resultType, OPERATOR(resultType, elemOp))
       end
     end
   end
-  #= scalar * scalar and array * array => elemOp. =#
   @assign binaryExp = BINARY_EXPRESSION(e1, op, e2)
   if !valid
     printUnresolvableTypeError(binaryExp, list(type1, type2), info)
