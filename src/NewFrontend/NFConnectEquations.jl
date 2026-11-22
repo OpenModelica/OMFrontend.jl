@@ -151,7 +151,7 @@ function evaluateOperators(
             _ => begin
               mapShallow(
                 exp,
-                (expArg) -> evaluateOperators(
+                (@nospecialize(expArg::Expression),) -> evaluateOperators(
                   expArg,
                   sets,
                   setsArray,
@@ -197,7 +197,7 @@ function evaluateOperators(
       _ => begin
         mapShallow(
           exp,
-          (expArg) ->
+          (@nospecialize(expArg::Expression),) ->
             evaluateOperators(expArg, sets, setsArray, ctable),
         )
       end

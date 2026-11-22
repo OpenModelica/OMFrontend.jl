@@ -463,8 +463,8 @@ function evalConnectionsOperators(graph::OCC_GRAPH, tables::OCC_TABLES, equation
   local out::Vector{Equation} = Vector{Equation}(undef, length(equations))
   for (k, eq) in enumerate(equations)
     local info::SourceInfo = Equation_info(eq)
-    out[k] = mapExp(eq, x -> contains(x, isConnectionsOperatorCall) ?
-                             map(x, y -> evalConnectionsOperator(y, graph, tables, info)) : x)
+    out[k] = mapExp(eq, (@nospecialize(x::Expression),) -> contains(x, isConnectionsOperatorCall) ?
+                             map(x, (@nospecialize(y::Expression),) -> evalConnectionsOperator(y, graph, tables, info)) : x)
   end
   return out
 end

@@ -200,7 +200,7 @@ end
       TYPED_CALL(arguments = args) where {(!isExternal(call))} => begin
         local origArgs = args
         if Flags.isSet(Flags.NF_EXPAND_FUNC_ARGS)
-          args = mapPreservingEq(args, arg -> hasArrayCall(arg) ? arg : Base.first(expand(arg)))
+          args = mapPreservingEq(args, (@nospecialize(arg::Expression),) -> hasArrayCall(arg) ? arg : Base.first(expand(arg)))
         end
         #=  HACK, TODO, FIXME! handle DynamicSelect properly in OMEdit, then disable this stuff! =#
         if Flags.isSet(Flags.NF_API) && !Flags.isSet(Flags.NF_API_DYNAMIC_SELECT)
@@ -699,6 +699,19 @@ end
   return LBINARY_EXPRESSION(e1, op, e2)
 end
 
+"""
+The elementwise `f(a[i], unlift(op), b[i])` of two arrays (`f` is `simplifyLogicBinaryAnd` or `simplifyLogicBinaryOr`),
+an array of the type of `op`. A typed loop: a generator over the abstract elements compiled per element type.
+"""
+function _logicArrayBinary(f::FT, a::ARRAY_EXPRESSION, op::OPERATOR, b::ARRAY_EXPRESSION)::Expression where {FT<:Function}
+  local o::OPERATOR = unlift(op)
+  local elems::Vector{Expression} = Vector{Expression}(undef, min(length(a.elements), length(b.elements)))
+  for i in eachindex(elems)
+    elems[i] = f(a.elements[i], o, b.elements[i])
+  end
+  return makeArray(typeOf(op), elems)
+end
+
 @nospecializeinfer function simplifyLogicBinaryAnd(
   @nospecialize(exp1::Expression),
   op::OPERATOR,
@@ -708,8 +721,6 @@ end
   local exp::Expression
 
    exp = begin
-    local expl::List{Expression}
-    local o::OPERATOR
     #= false and e => false =#
     @match (exp1, exp2) begin
       (BOOLEAN_EXPRESSION(false), _) => begin
@@ -729,16 +740,7 @@ end
       end
 
       (ARRAY_EXPRESSION(__), ARRAY_EXPRESSION(__)) => begin
-        #= e and false => false
-           true and e => e
-           e and true => e =#
-         o = unlift(op)
-         expl =
-          list(@do_threaded_for simplifyLogicBinaryAnd(e1, o, e2) (e1, e2) (
-            exp1.elements,
-            exp2.elements,
-          ))
-        makeArray(typeOf(op), listArray(expl))
+        _logicArrayBinary(simplifyLogicBinaryAnd, exp1::ARRAY_EXPRESSION, op, exp2::ARRAY_EXPRESSION)
       end
 
       _ => begin
@@ -753,8 +755,6 @@ end
   local exp::Expression
 
    exp = begin
-    local expl::List{Expression}
-    local o::OPERATOR
     #= true or e => true =#
     @match (exp1, exp2) begin
       (BOOLEAN_EXPRESSION(true), _) => begin
@@ -774,16 +774,7 @@ end
       end
 
       (ARRAY_EXPRESSION(__), ARRAY_EXPRESSION(__)) => begin
-        #= e or true => true
-           false or e => e
-           e or false => e =#
-         o = unlift(op)
-         expl =
-          list(@do_threaded_for simplifyLogicBinaryAnd(e1, o, e2) (e1, e2) (
-            exp1.elements,
-            exp2.elements,
-          ))
-        makeArray(typeOf(op), listArray(expl))
+        _logicArrayBinary(simplifyLogicBinaryOr, exp1::ARRAY_EXPRESSION, op, exp2::ARRAY_EXPRESSION)
       end
 
       _ => begin

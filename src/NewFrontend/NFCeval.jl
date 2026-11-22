@@ -277,7 +277,7 @@ are not evaluated prematurely.
 """
 function _evalPartial(@nospecialize(exp::Expression), @nospecialize(target::EvalTarget), state::PartialEvalState)::Expression
   local before::Int = state.unevaluated
-  local e::Expression = mapShallow(exp, (child::Expression) -> _evalPartial(child, target, state))
+  local e::Expression = mapShallow(exp, (@nospecialize(child::Expression),) -> _evalPartial(child, target, state))
   state.failed && return EVAL_FAILED
   if e isa CREF_EXPRESSION
     if isIterator(e.cref)
@@ -497,11 +497,15 @@ end
 
 #= The value every element of `extra` enclosing arrays has, or nothing when they differ. =#
 function _sharedElementValue(@nospecialize(value::Expression), extra::Int)::Union{Expression, Nothing}
-  local x = value
+  local x::Expression = value
   for _ in 1:extra
     (x isa ARRAY_EXPRESSION && !isempty(x.elements)) || return nothing
-    local first_el = x.elements[1]
-    all(e -> isEqual(e, first_el), x.elements) || return nothing
+    local elems::Vector{Expression} = x.elements
+    local first_el::Expression = elems[1]
+    # A loop: `all` with a closure over `first_el` compiled per element type.
+    for i in 2:length(elems)
+      isEqual(elems[i], first_el) || return nothing
+    end
     x = first_el
   end
   return x
@@ -835,7 +839,7 @@ elements after it are not evaluated; the failed one keeps its input so the map's
 """
 function _bindingExpMapEval(@nospecialize(exp::Expression), f::F)::Expression where {F}
   local failed::Base.RefValue{Bool} = Ref(false)
-  local g = (x::Expression) -> begin
+  local g = (@nospecialize(x::Expression),) -> begin
     failed[] && return x
     local r::Expression = f(x)
     r isa EVAL_FAILURE || return r
@@ -1141,7 +1145,7 @@ end
 """`opFunc(scalar, element)` over every element of a (nested) array."""
 function evalBinaryScalarArray(@nospecialize(scalarExp::Expression), @nospecialize(arrayExp::Expression), opFunc::FuncT)::Expression
   arrayExp isa ARRAY_EXPRESSION || return opFunc(scalarExp, arrayExp)
-  return _mapElements(e -> evalBinaryScalarArray(scalarExp, e, opFunc), arrayExp.elements, arrayExp.ty, true)
+  return _mapElements((@nospecialize(e::Expression),) -> evalBinaryScalarArray(scalarExp, e, opFunc), arrayExp.elements, arrayExp.ty, true)
 end
 
 """`opFunc(element, scalar)` over every element of a (nested) array."""
@@ -1664,12 +1668,15 @@ function evalBuiltinCat(@nospecialize(argN::Expression), args::Vector{Expression
   local n::Int = argN.value
   local nd::Int = dimensionCount(typeOf(Base.first(args)))
   (1 <= n <= nd) || return _outOfRange("cat", string(n), "1 <= x <= " + string(nd), target)
-  local es::Vector{Expression} = Expression[e for e in args if !isEmptyArray(e)]
+  local es::Vector{Expression} = Expression[]
+  for e in args
+    isEmptyArray(e) || push!(es, e)
+  end
   isempty(es) && return Base.first(args)
   length(es) == 1 && return Base.first(es)
   #= A ragged argument, or one that is no array along the first dimension: not evaluated (no message). =#
-  n > 1 && !all(e::Expression -> _catPartRegular(e, n), es) && return EVAL_FAILED
-  n == 1 && !all(e::Expression -> e isa ARRAY_EXPRESSION, es) && return EVAL_FAILED
+  n > 1 && !_allCatPartsRegular(es, n) && return EVAL_FAILED
+  n == 1 && !_allArrays(es) && return EVAL_FAILED
   local dims::List{Int}
   (es, dims) = evalCat(n, es)
   local dim_list::List{Dimension} = nil
@@ -2298,7 +2305,7 @@ end
 function _recordElementOf(@nospecialize(x::Expression), index::Int, @nospecialize(ty::ModelicaType), fieldName::String)::Expression
   if x isa ARRAY_EXPRESSION
     local ety::ModelicaType = isArray(ty) ? unliftArray(ty) : ty
-    return _mapElements(el::Expression -> _recordElementOf(el, index, ety, fieldName), x.elements, ty, x.literal)
+    return _mapElements((@nospecialize(el::Expression),) -> _recordElementOf(el, index, ety, fieldName), x.elements, ty, x.literal)
   end
   #= A record (array) variable is not evaluated (evalCref): its field is the field's cref,
      sliced over the array (r3.r2.r.x, omc SlicedCref2). =#
@@ -2357,57 +2364,98 @@ same length): the check before `_catPart`.
 function _catPartRegular(@nospecialize(e::Expression), dim::Int)::Bool
   local level::Vector{Expression} = Expression[e]
   for _ in 1:dim
-    all(x::Expression -> x isa ARRAY_EXPRESSION, level) || break
+    _allArrays(level) || break
     local n::Int = length((level[1]::ARRAY_EXPRESSION).elements)
-    all(x::Expression -> length((x::ARRAY_EXPRESSION).elements) == n, level) || return false
-    level = Expression[y for x in level for y in (x::ARRAY_EXPRESSION).elements]
+    _allLength(level, n) || return false
+    level = _nextLevel(level)
   end
   return true
 end
 
-#= An argument of cat along dim (regular: _catPartRegular): its subexpressions at depth dim as an
-   array of dim dimensions; one of fewer dimensions gets trailing ones (Modelica's promote, a
-   vector a column). =#
-function _catPart(@nospecialize(e::Expression), dim::Int)::Array{Expression}
-  local sizes = Int[]
-  local level = Expression[e]
+"""Whether every argument of cat along `dim` is regular (`_catPartRegular`)."""
+function _allCatPartsRegular(exps::Vector{Expression}, dim::Int)::Bool
+  for e in exps
+    _catPartRegular(e, dim) || return false
+  end
+  return true
+end
+
+"""Whether every expression of `level` is an array expression."""
+function _allArrays(level::Vector{Expression})::Bool
+  for x in level
+    x isa ARRAY_EXPRESSION || return false
+  end
+  return true
+end
+
+"""Whether every array expression of `level` has `n` elements."""
+function _allLength(level::Vector{Expression}, n::Int)::Bool
+  for x in level
+    length((x::ARRAY_EXPRESSION).elements) == n || return false
+  end
+  return true
+end
+
+"""The elements of the array expressions of `level`, in order: the next level, row-major."""
+function _nextLevel(level::Vector{Expression})::Vector{Expression}
+  local out::Vector{Expression} = Expression[]
+  for x in level
+    append!(out, (x::ARRAY_EXPRESSION).elements)
+  end
+  return out
+end
+
+"""
+    _catPart(e, dim) -> (elements, sizes)
+
+An argument of cat along `dim` (regular: `_catPartRegular`): its subexpressions at depth `dim` in row-major order and
+the sizes of those `dim` levels; one of fewer dimensions gets trailing ones (Modelica's promote, a vector a column).
+"""
+function _catPart(@nospecialize(e::Expression), dim::Int)::Tuple{Vector{Expression}, Vector{Int}}
+  local sizes::Vector{Int} = Int[]
+  local level::Vector{Expression} = Expression[e]
   for _ in 1:dim
-    all(x -> x isa ARRAY_EXPRESSION, level) || break
-    local n::Int = length((level[1]::ARRAY_EXPRESSION).elements)
-    push!(sizes, n)
-    level = Expression[y for x in level for y in (x::ARRAY_EXPRESSION).elements]
+    _allArrays(level) || break
+    push!(sizes, length((level[1]::ARRAY_EXPRESSION).elements))
+    level = _nextLevel(level)
   end
   while length(sizes) < dim
     push!(sizes, 1)
   end
-  #= level is in row-major order of sizes =#
-  return _catPartArray(level, sizes, Val(dim))::Array{Expression}
-end
-
-"""
-    _catPartArray(level, sizes, Val(N)) -> Array{Expression, N}
-
-`level` (row-major in `sizes`) as an array of rank N in column-major order (`_catPart`). The rank as a type parameter:
-`reshape` and `permutedims` with a tuple of unknown length were dynamic calls (invalidated by packages' methods).
-"""
-function _catPartArray(level::Vector{Expression}, sizes::Vector{Int}, ::Val{N})::Array{Expression, N} where {N}
-  local dims::NTuple{N, Int} = ntuple(k::Int -> sizes[N + 1 - k], Val(N))
-  return Base.permutedims(Base.reshape(level, dims), ntuple(k::Int -> N + 1 - k, Val(N)))
+  return (level, sizes)
 end
 
 """
     evalCat(dim, exps) -> (elements, sizes)
 
 `cat(dim, exps...)` of regular arrays (`_catPartRegular`): the result's scalar elements in row-major
-order and its sizes. As omc's ExpressionBasics.evalCat: each argument as an array of its
-subexpressions at depth dim, concatenated along dim (an argument of fewer dimensions promoted:
-[identity(n - 1), zeros(n - 1)], Polynomials.roots).
+order and its sizes. As omc's ExpressionBasics.evalCat: each argument as its subexpressions at depth dim
+(row-major), concatenated along dim (an argument of fewer dimensions promoted: [identity(n - 1), zeros(n - 1)],
+Polynomials.roots). In row-major order, for each index of the dimensions before dim, each argument contributes one
+contiguous block (its extent along dim times the sizes after dim).
 """
 function evalCat(dim::Int, exps::Vector{Expression})::Tuple{Vector{Expression}, List{Int}}
   if dim > 1
-    local parts::Vector{Array{Expression}} = Array{Expression}[_catPart(e, dim) for e in exps]
-    local c::Array{Expression} = Base.cat(parts...; dims = dim)
-    return (Vector{Expression}(Base.vec(Base.permutedims(c, Tuple(dim:-1:1)))), list(Base.size(c)...))
+    local n::Int = length(exps)
+    local partElems::Vector{Vector{Expression}} = Vector{Vector{Expression}}(undef, n)
+    local sizes::Vector{Int} = Int[]
+    for i in 1:n
+      local (elems::Vector{Expression}, partSizes::Vector{Int}) = _catPart(exps[i], dim)
+      partElems[i] = elems
+      if i == 1
+        sizes = partSizes
+      else
+        sizes[dim] += partSizes[dim]
+      end
+    end
+    local outer::Int = prod(@view sizes[1:dim - 1])
+    local out::Vector{Expression} = Expression[]
+    sizehint!(out, outer * prod(@view sizes[dim:end]))
+    for o in 0:outer - 1, i in 1:n
+      local block::Int = length(partElems[i]) ÷ outer
+      append!(out, @view partElems[i][o * block + 1:(o + 1) * block])
+    end
+    return (out, arrayList(sizes))
   end
   local flat::Vector{Expression} = Expression[]
   for e in exps

@@ -543,11 +543,12 @@ end
 
 """Converts a string into a qualified path."""
 function stringPath(str::String)::Path
-  local qualifiedPath::Path
-  local paths::List{String}
-  paths = arrayList(split(str, ".")) #Util.stringSplitAtChar(str, ".")
-  qualifiedPath = stringListPath(paths)
-  return qualifiedPath
+  local parts::Vector{SubString{String}} = split(str, ".")
+  local path::Path = IDENT(String(parts[end]))
+  for i in length(parts) - 1:-1:1
+    path = QUALIFIED(String(parts[i]), path)
+  end
+  return path
 end
 
 """Converts a list of strings into a qualified path."""

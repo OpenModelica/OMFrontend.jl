@@ -100,19 +100,19 @@ end
 
 #= Cheap node counter for a Statement. =#
 @nospecialized function _countStmtNodes(stmt::Statement)::Int
-  local n = 0
-  mapExp(stmt, e -> begin
-    map(e, x -> begin n += 1; x end)
+  local n::Base.RefValue{Int} = Ref(0)
+  mapExp(stmt, (@nospecialize(e::Expression),) -> begin
+    map(e, (@nospecialize(x::Expression),) -> (n[] += 1; x))
     e
   end)
-  return n
+  return n[]
 end
 
 #= Cheap node counter for an Expression subtree. =#
 @nospecialized function _countExpNodes(e::Expression)::Int
-  local n = 0
-  map(e, x -> begin n += 1; x end)
-  return n
+  local n::Base.RefValue{Int} = Ref(0)
+  map(e, (@nospecialize(x::Expression),) -> (n[] += 1; x))
+  return n[]
 end
 
 #= Returns true when the statement body contains any CALL_EXPRESSION. We use
@@ -171,12 +171,7 @@ function inlineSimpleCall(callExp::Expression, top = nothing)::Expression
       shouldInline = true && !(attributes.builtin || isExternal(c)) && isSimpleType(ty)
 #      println("Inline = $(shouldInline) for: " * toString(c))
       #= We might want to inline more things, so check arguments anyway =#
-      if !shouldInline
-        local newArgs = Expression[map(arg, a -> inlineSimpleCall(a, top)) for arg in arguments]
-        callArguments = newArgs
-        TYPED_CALL(c.fn, c.ty, c.var, callArguments, c.attributes)
-        return CALL_EXPRESSION(call)
-      end
+      shouldInline || return callExp
       shouldInline
     end
     _ => false
@@ -247,8 +242,9 @@ function inlineCall(call::Call, top = nothing)::Expression
            statement once. =#
         for i in inputs
           @match [arg, args...] = args
+          local argI::Base.RefValue{Expression} = captureRef(arg)
           stmt = mapExp(stmt,
-                        (exp) -> map(exp, (exp) -> replaceCrefNode(exp, i, arg)))
+                        (@nospecialize(e::Expression),) -> map(e, (@nospecialize(x::Expression),) -> replaceCrefNode(x, i, argI[])))
         end
         local outExp = getOutputExp(stmt, listHead(outputs), call)
         _hasVaryingSlice(outExp) && return CALL_EXPRESSION(call)
@@ -298,7 +294,7 @@ function _isNoEventCall(exp::Expression)::Bool
 end
 
 function _noEventRelations(exp::Expression, top::InstNode)::Expression
-  local wrap = function (e::Expression)
+  local wrap = function (@nospecialize(e::Expression),)
     if e isa RELATION_EXPRESSION
       local fn = _noEventFunction(top)
       return CALL_EXPRESSION(makeTypedCall(fn, Expression[e], variability(e), typeOf(e)))

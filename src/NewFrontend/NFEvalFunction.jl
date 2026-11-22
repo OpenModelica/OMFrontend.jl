@@ -420,7 +420,7 @@ The content of `cell` (a function output's or local's replacement, `addMutableRe
 function _replaceCellContent(@nospecialize(cell::Expression), repl::ReplTree.Tree)::Nothing
   local c::MUTABLE_EXPRESSION = cell::MUTABLE_EXPRESSION
   local content::Expression = P_Pointer.access(c.exp)::Expression
-  P_Pointer.update(c.exp, map(content, (expArg) -> applyReplacements2(repl, expArg, false)))
+  P_Pointer.update(c.exp, map(content, (@nospecialize(expArg::Expression),) -> applyReplacements2(repl, expArg, false)))
   return nothing
 end
 
@@ -483,7 +483,7 @@ function applyReplacementsDim(repl::ReplTree.Tree, dim::Dimension)::Dimension
       DIMENSION_EXP(__) => begin
         exp = map(
           dim.exp,
-          (expArg) -> applyReplacements2(repl, expArg, true),
+          (@nospecialize(expArg::Expression),) -> applyReplacements2(repl, expArg, true),
         )
         exp = evalExp(exp)
         fromExp(exp, Variability.CONSTANT)
@@ -569,7 +569,7 @@ function applyBindingReplacement(
 )::Expression
   local outExp::Expression
   outExp =
-    map(exp, (expArg) -> applyReplacements2(repl, expArg, true))
+    map(exp, (@nospecialize(expArg::Expression),) -> applyReplacements2(repl, expArg, true))
   return outExp
 end
 
@@ -580,7 +580,7 @@ locals. A replacement is not rescanned (`applyReplacementCref`).
 function applyReplacements(repl::ReplTree.Tree, fnBody::Vector{Statement})::Vector{Statement}
   fnBody = mapExpList(
     fnBody,
-    (x) -> map(x, (expArg) -> applyReplacements2(repl, expArg, false)),
+    (@nospecialize(x::Expression),) -> map(x, (@nospecialize(expArg::Expression),) -> applyReplacements2(repl, expArg, false)),
   )
   return fnBody
 end
@@ -730,7 +730,7 @@ function applyReplacementCref(
       end
     end
     if rescan
-      outExp = map(outExp, (expArg) -> applyReplacements2(repl, expArg, true))
+      outExp = map(outExp, (@nospecialize(expArg::Expression),) -> applyReplacements2(repl, expArg, true))
     end
   end
   #= Look up the replacement for the first part in the replacement tree.
@@ -895,16 +895,16 @@ function detachCells(@nospecialize(exp::Expression))::Expression
     return v isa EVAL_FAILURE ? v : detachCells(v)
   elseif exp isa RECORD_EXPRESSION
     local relems::Vector{Expression} = detachElements(exp.elements)
-    any(e -> e isa EVAL_FAILURE, relems) && return EVAL_FAILED
+    anyFailed(relems) && return EVAL_FAILED
     return relems === exp.elements ? exp : RECORD_EXPRESSION(exp.path, exp.ty, relems)
   elseif exp isa ARRAY_EXPRESSION && (!exp.literal || isComplex(arrayElementType(exp.ty)))
     #= An evaluated array is marked literal even when its records hold cells. =#
     local aelems::Vector{Expression} = detachElements(exp.elements)
-    any(e -> e isa EVAL_FAILURE, aelems) && return EVAL_FAILED
+    anyFailed(aelems) && return EVAL_FAILED
     return aelems === exp.elements ? exp : ARRAY_EXPRESSION(exp.ty, aelems, exp.literal)
   elseif exp isa TUPLE_EXPRESSION
-    local telems::List{Expression} = list(detachCells(e) for e in exp.elements)
-    any(e -> e isa EVAL_FAILURE, telems) && return EVAL_FAILED
+    local telems::List{Expression} = ListUtil.map(exp.elements, detachCells, Expression)
+    anyFailed(telems) && return EVAL_FAILED
     return all(referenceEq(d, e) for (d, e) in zip(telems, exp.elements)) ? exp : TUPLE_EXPRESSION(exp.ty, telems)
   end
   return exp
@@ -912,6 +912,21 @@ end
 
 #= The elements with their cells detached; the same vector when none held a cell (an element can be
    EVAL_FAILED: the caller checks). =#
+"""Whether one of the expressions failed to evaluate (`EVAL_FAILURE`)."""
+function anyFailed(elems::Vector{Expression})::Bool
+  for e in elems
+    e isa EVAL_FAILURE && return true
+  end
+  return false
+end
+
+function anyFailed(elems::List{Expression})::Bool
+  for e in elems
+    e isa EVAL_FAILURE && return true
+  end
+  return false
+end
+
 function detachElements(elems::Vector{Expression})::Vector{Expression}
   local out::Vector{Expression} = elems
   for (i, e) in enumerate(elems)
@@ -1015,8 +1030,11 @@ function assignArrayElement(
       if listEmpty(rest_subs)
         elems = valElems
       else
-        elems = Expression[assignArrayElement(e, rest_subs, valElems[i]) for (i, e) in enumerate(arrayExp.elements)]
-        any(e -> e isa EVAL_FAILURE, elems) && return EVAL_FAILED
+        elems = Vector{Expression}(undef, length(arrayExp.elements))
+        for i in eachindex(arrayExp.elements)
+          elems[i] = assignArrayElement(arrayExp.elements[i], rest_subs, valElems[i])
+        end
+        anyFailed(elems) && return EVAL_FAILED
       end
       return ARRAY_EXPRESSION(arrayExp.ty, elems, arrayExp.literal)
     end
@@ -1520,7 +1538,7 @@ function evaluateExternal2(
 
   @assign repl = createReplacements(fn, args)
   @assign ext_args = list(
-    map(e, (subexp) -> applyReplacements2(repl, subexp, false))
+    map(e, (@nospecialize(subexp::Expression),) -> applyReplacements2(repl, subexp, false))
     for e in extArgs
   )
   evaluateExternal3(name, ext_args) || return EVAL_FAILED

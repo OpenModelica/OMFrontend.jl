@@ -42,7 +42,7 @@ end
 const MatchType = MatchTypeStruct(1, 2, 3)
 const MatchTypeTy = Int
 
-function lookupClassName(name::Absyn.Path, scope::InstNode, info::SourceInfo, checkAccessViolations::Bool = true; isRedeclared::Bool = false)
+function lookupClassName(@nospecialize(name::Absyn.Path), scope::InstNode, info::SourceInfo, checkAccessViolations::Bool = true; isRedeclared::Bool = false)
   local node::InstNode
   local state::LookupState
   local LS_REF::Ref{LookupState}
@@ -461,7 +461,7 @@ function lookupLocalSimpleName(n::String, scope::InstNode)
 end
 
 
-function lookupNameWithError(name::Absyn.Path, scope::InstNode, info::SourceInfo, errorType, lookupStateRef::Ref{LookupState}, checkAccessViolations::Bool = true; isRedeclared::Bool = false)
+function lookupNameWithError(@nospecialize(name::Absyn.Path), scope::InstNode, info::SourceInfo, errorType, lookupStateRef::Ref{LookupState}, checkAccessViolations::Bool = true; isRedeclared::Bool = false)
   local state::LookupState
   local node::InstNode
   node = lookupName(name, scope, lookupStateRef, checkAccessViolations; isRedeclared = isRedeclared)
@@ -474,7 +474,7 @@ function lookupNameWithError(name::Absyn.Path, scope::InstNode, info::SourceInfo
   node
 end
 
-function lookupName(name::Absyn.Path, scope::InstNode, lookupStateRef::Ref{LookupState}, checkAccessViolations::Bool; isRedeclared::Bool = false)
+function lookupName(@nospecialize(name::Absyn.Path), scope::InstNode, lookupStateRef::Ref{LookupState}, checkAccessViolations::Bool; isRedeclared::Bool = false)
   local state::LookupState
   local node::InstNode
   node = begin

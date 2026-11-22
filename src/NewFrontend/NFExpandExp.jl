@@ -36,7 +36,6 @@
 using MetaModelica
 import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
-const MakeFn = Function
 
 function expandGeneric2(
   subs::List{<:List{<:Subscript}},
@@ -117,10 +116,10 @@ end
 #= Not expanded (an operand of unknown size, in a function): the whole
    expression, operator included (as omc's expandLogicalUnary). =#
 function expandLogicalUnary(exp::LUNARY_EXPRESSION)::Tuple{Expression, Bool}
-  local (operand, expanded) = expand(exp.exp)
+  local (operand::Expression, expanded::Bool) = expand(exp.exp)
   if expanded
-    local scalar_op = scalarize(exp.operator)
-    return (mapArrayElements(operand, (e) -> makeLogicalUnaryOp(e, scalar_op)), true)
+    local scalar_op::OPERATOR = scalarize(exp.operator)
+    return (mapArrayElements(operand, (@nospecialize(e::Expression),) -> makeLogicalUnaryOp(e, scalar_op)), true)
   end
   return (exp, false)
 end
@@ -168,10 +167,10 @@ end
    alone, so -x of such an array lost its sign: Buildings' finiteLineSource
    integrand, exp(-dis.*dis*u^2), grew instead of decaying. =#
 function expandUnary(exp::UNARY_EXPRESSION)::Tuple{Expression, Bool}
-  local (operand, expanded) = expand(exp.exp)
+  local (operand::Expression, expanded::Bool) = expand(exp.exp)
   if expanded
-    local scalar_op = scalarize(exp.operator)
-    return (mapArrayElements(operand, (expArg) -> simplifyUnaryOp(expArg, scalar_op)), true)
+    local scalar_op::OPERATOR = scalarize(exp.operator)
+    return (mapArrayElements(operand, (@nospecialize(expArg::Expression),) -> simplifyUnaryOp(expArg, scalar_op)), true)
   end
   return (exp, false)
 end
@@ -308,32 +307,20 @@ function expandBinaryMatrixProduct(@nospecialize(exp::Expression))::Tuple{Expres
 end
 
 function makeScalarProduct(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression))::Expression
-  local exp::Expression
-
+  local ty::ModelicaType
   local expV1::Vector{Expression}
   local expV2::Vector{Expression}
-  local expL1::List{Expression}
-  local expL2::List{Expression}
-
-  local ty::ModelicaType
-  local elem_ty::ModelicaType
-  local mul_op::OPERATOR
-  local add_op::OPERATOR
-
   @match ARRAY_EXPRESSION(ty, expV1) = exp1
   @match ARRAY_EXPRESSION(_, expV2) = exp2
-  elem_ty = unliftArray(ty)
-  #= Scalar product of two empty arrays. The result is defined in the spec
-     by sum, so we return 0 since that's the default value of sum. =#
-  expL1 = arrayList(expV1)
-  expL2 = arrayList(expV2)
-  if isempty(expL1)
-    exp = makeZero(elem_ty)
-  else
-    mul_op = makeMul(elem_ty)
-    add_op = makeAdd(elem_ty)
-    expL1 = list(@do_threaded_for(simplifyBinaryOp(e1, mul_op, e2), (e1, e2), (expL1, expL2)))
-    exp = ListUtil.reduce(expL1, (x, y) -> simplifyBinaryOp(x, add_op, y), Expression)
+  local elem_ty::ModelicaType = unliftArray(ty)
+  # The scalar product of two empty arrays is defined by sum, whose default is 0.
+  isempty(expV1) && return makeZero(elem_ty)
+  local mul_op::OPERATOR = makeMul(elem_ty)
+  local add_op::OPERATOR = makeAdd(elem_ty)
+  # A typed loop: a generator over the abstract elements compiled per element type (the sum folds from the left).
+  local exp::Expression = simplifyBinaryOp(expV1[1], mul_op, expV2[1])
+  for i in 2:length(expV1)
+    exp = simplifyBinaryOp(exp, add_op, simplifyBinaryOp(expV1[i], mul_op, expV2[i]))
   end
   return exp
 end
@@ -433,26 +420,20 @@ function expandBinaryVectorMatrix(@nospecialize(exp::Expression))::Tuple{Express
 end
 
 function expandBinaryArrayScalar(
-  exp::Expression,
+  @nospecialize(exp::Expression),
   scalarOp::OpType,
 )::Tuple{Expression, Bool}
   local expanded::Bool
   local outExp::Expression
   local exp1::Expression
   local exp2::Expression
-  local expl::List{Expression}
   local op::OPERATOR
   @match BINARY_EXPRESSION(exp1 = exp1, operator = op, exp2 = exp2) = exp
   (exp1, expanded) = expand(exp1)
   if expanded
-    op = OPERATOR(
-      arrayElementType(typeOf(op)),
-      scalarOp,
-    )
-    outExp = mapArrayElements(
-      exp1,
-      (expArg) -> simplifyBinaryOp(expArg, op, exp2),
-    )
+    local eop::OPERATOR = OPERATOR(arrayElementType(typeOf(op)), scalarOp)
+    local rhs::Base.RefValue{Expression} = captureRef(exp2)
+    outExp = mapArrayElements(exp1, (@nospecialize(expArg::Expression),) -> simplifyBinaryOp(expArg, eop, rhs[]))
   else
     outExp = exp
   end
@@ -460,26 +441,20 @@ function expandBinaryArrayScalar(
 end
 
 function expandBinaryScalarArray(
-  exp::Expression,
+  @nospecialize(exp::Expression),
   scalarOp::OpType,
 )::Tuple{Expression, Bool}
   local expanded::Bool
   local outExp::Expression
   local exp1::Expression
   local exp2::Expression
-  local expl::List{Expression}
   local op::OPERATOR
   @match BINARY_EXPRESSION(exp1 = exp1, operator = op, exp2 = exp2) = exp
   (exp2, expanded) = expand(exp2)
   if expanded
-    op = OPERATOR(
-      arrayElementType(typeOf(op)),
-      scalarOp,
-    )
-    outExp = mapArrayElements(
-      exp2,
-      (arg) -> simplifyBinaryOp(exp1, op, arg),
-    )
+    local eop::OPERATOR = OPERATOR(arrayElementType(typeOf(op)), scalarOp)
+    local lhs::Base.RefValue{Expression} = captureRef(exp1)
+    outExp = mapArrayElements(exp2, (@nospecialize(arg::Expression),) -> simplifyBinaryOp(lhs[], eop, arg))
   else
     outExp = exp
   end
@@ -487,32 +462,22 @@ function expandBinaryScalarArray(
 end
 
 function expandBinaryElementWise2(
-  exp1::Expression,
+  @nospecialize(exp1::Expression),
   op::OPERATOR,
-  exp2::Expression,
-  func::MakeFn,
-)::Expression
-  local exp::Expression
-  local expl1::List{Expression}
-  local expl2::List{Expression}
-  local expl::List{Expression}
-  local ty::ModelicaType
-  local eop::OPERATOR
-  expl1 = arrayList(arrayElements(exp1))
-  expl2 = arrayList(arrayElements(exp2))
-  ty = typeOf(op)
-  eop = setType(unliftArray(ty), op)
-  if dimensionCount(ty) > 1
-    expl =
-      list(@do_threaded_for expandBinaryElementWise2(e1, eop, e2, func) (e1, e2) (
-        expl1,
-        expl2,
-      ))
-  else
-    expl = list(@do_threaded_for func(e1, eop, e2) (e1, e2) (expl1, expl2))
+  @nospecialize(exp2::Expression),
+  func::FT,
+)::Expression where {FT<:Function}
+  local elems1::Vector{Expression} = (exp1::ARRAY_EXPRESSION).elements
+  local elems2::Vector{Expression} = (exp2::ARRAY_EXPRESSION).elements
+  local ty::ModelicaType = typeOf(op)
+  local eop::OPERATOR = setType(unliftArray(ty), op)
+  local nested::Bool = dimensionCount(ty) > 1
+  # A typed loop: a generator over the abstract elements compiled per element type.
+  local elems::Vector{Expression} = Vector{Expression}(undef, min(length(elems1), length(elems2)))
+  for i in eachindex(elems)
+    elems[i] = nested ? expandBinaryElementWise2(elems1[i], eop, elems2[i], func) : func(elems1[i], eop, elems2[i])
   end
-  exp = makeArray(ty, listArray(expl))
-  return exp
+  return makeArray(ty, elems)
 end
 
 function expandBinaryElementWise(@nospecialize(exp::Expression))::Tuple{Expression, Bool}
@@ -654,6 +619,8 @@ function expandArrayConstructor2(
   ranges::List{<:Expression},
   iterators::List{<:Pointer{<:Expression}},
 )::Expression
+  # One instance: the recursion passes Cons or Nil{Any}, and each element type of `exp` compiled 2-10 ms.
+  @nospecialize exp ty ranges iterators
   local result::Expression
   local range::Expression
   local ranges_rest::List{Expression}
@@ -694,6 +661,7 @@ function expandArrayConstructor(
   ty::ModelicaType,
   iterators::List{<:Tuple{<:InstNode, Expression}},
 )::Tuple{Expression, Bool}
+  @nospecialize exp ty
   local e::Expression = exp
   local ranges::List{Expression} = nil
   local iters::List{Pointer{Expression}} = nil

@@ -1008,7 +1008,7 @@ function evaluateCallTypeDim(
         ptree = buildParameterTree(fnArgs, ptree)
         exp = map(
           dim.exp,
-          (expArg) -> evaluateCallTypeDimExp(expArg, ptree),
+          (@nospecialize(expArg::Expression),) -> evaluateCallTypeDimExp(expArg, ptree),
         )
         ErrorExt.setCheckpoint(getInstanceName())
         (_, exp) = evalExpChecked(exp, EVALTARGET_IGNORE_ERRORS())
@@ -1158,11 +1158,9 @@ function vectorizeCall(
           call_args = ArrayUtil.mapIndices(
             call_args,
             listArray(mk.vectorizedArgs),
-            (x) -> applySubscript(
-              sub,
-              x,
-              list(),
-            ),
+            let s::Subscript = sub
+              (@nospecialize(x::Expression),) -> applySubscript(s, x, list())
+            end,
           )
           i = i + 1
         end

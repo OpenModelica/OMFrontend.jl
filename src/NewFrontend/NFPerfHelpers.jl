@@ -57,6 +57,34 @@ mapped elements into the copy.
 end
 
 """
+  mapMatrix(rows, f) -> Vector{Vector{Expression}}
+
+The rows of a matrix expression with `f` applied to each element, in new rows.
+"""
+function mapMatrix(rows::Vector{Vector{Expression}}, f::F)::Vector{Vector{Expression}} where {F<:Function}
+  local out::Vector{Vector{Expression}} = Vector{Vector{Expression}}(undef, length(rows))
+  for i in eachindex(rows)
+    local row::Vector{Expression} = rows[i]
+    local newRow::Vector{Expression} = Vector{Expression}(undef, length(row))
+    for j in eachindex(row)
+      newRow[j] = f(row[j])::Expression
+    end
+    out[i] = newRow
+  end
+  return out
+end
+
+"""
+  captureRef(e) -> Base.RefValue{Expression}
+
+An expression for a closure to capture (read as `r[]` in its body). A closure's field has the runtime type of the
+value it captures, whatever the local's declared type: a closure capturing an `Expression` is one type per expression
+type, and the traversal it is passed to (`map`, `mapExp`, `mapArrayElements`) compiles once per type. A
+`RefValue{Expression}` is one type.
+"""
+captureRef(@nospecialize(e::Expression))::Base.RefValue{Expression} = Base.RefValue{Expression}(e)
+
+"""
   reuseIfRefEqual(unchanged, orig, new, makeNew)
 
 If `orig` and `new` are the same reference, return `unchanged` (typically the

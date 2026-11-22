@@ -71,6 +71,8 @@ end
   end
 
   include("listVectorTests.jl")
+  include("evalCatTests.jl")
+  include("logicArrayTests.jl")
   include("flatModelicaFunctionTests.jl")
 
   # GUI_API tests are gated behind the OMFRONTEND_TEST_GUI_API env var while

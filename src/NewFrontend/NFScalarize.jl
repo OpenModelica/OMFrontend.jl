@@ -316,7 +316,8 @@ end
    parts: vectorizing a component array puts its iterators there (c[$i1].C), and the
    expression map (mapCref) only visits the parts of CREF origin. =#
 function _replaceIteratorAllParts(eql::Vector{Equation}, iterator::InstNode, @nospecialize(value::Expression))::Vector{Equation}
-  local f = (e) -> map(e, (x) -> _replaceIteratorInExp(x, iterator, value))
+  local v::Base.RefValue{Expression} = captureRef(value)
+  local f = (@nospecialize(e::Expression),) -> map(e, (@nospecialize(x::Expression),) -> _replaceIteratorInExp(x, iterator, v[]))
   return mapExpList(eql, f)
 end
 
@@ -329,10 +330,12 @@ end
 
 function _replaceIteratorInCrefParts(cr::ComponentRef, iterator::InstNode, @nospecialize(value::Expression))::ComponentRef
   isvariant(cr, COMPONENT_REF_CREF) || return cr
-  local rest = _replaceIteratorInCrefParts(cr.restCref, iterator, value)
+  local rest::ComponentRef = _replaceIteratorInCrefParts(cr.restCref, iterator, value)
   #= simplified: the model's simplification does not visit the subscripts of prefix parts (`r[$i1 + 1].p.i` of a
      rerolled connection equation is `r[2].p.i`, not `r[1 + 1].p.i`) =#
-  local subs = list(mapExp(sub, (e) -> simplify(replaceIterator(e, iterator, value))) for sub in cr.subscripts)
+  local v::Base.RefValue{Expression} = captureRef(value)
+  local g = (@nospecialize(e::Expression),) -> simplify(replaceIterator(e, iterator, v[]))
+  local subs::List{Subscript} = ListUtil.map(cr.subscripts, (@nospecialize(sub::Subscript),) -> mapExp(sub, g), Subscript)
   return COMPONENT_REF_CREF(cr.node, subs, cr.ty, cr.origin, rest)
 end
 

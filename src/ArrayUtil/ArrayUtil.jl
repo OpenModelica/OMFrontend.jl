@@ -257,7 +257,7 @@ end
 
 """ Applies a function to only the elements given by the sorted list of indices. """
 function mapIndices(inList::Vector{T}, indices::Vector{Int}, func::F) where {T, F<:Function}
-  local outList::Vector{T} = T[i for i in inList]
+  local outList::Vector{T} = Base.copy(inList)
   if isempty(indices)
     return outList
   end

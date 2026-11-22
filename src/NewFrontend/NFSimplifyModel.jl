@@ -329,9 +329,12 @@ function simplifyStatement(stmt::Statement, statements::Vector{Statement})
         )
       end
       ALG_WHEN(__) => begin
-        @assign stmt.branches = [
-          (simplify(Util.tuple21(b)), simplifyStatements(Util.tuple22(b))) for b in stmt.branches
-            ]
+        local branches::Vector{Tuple{Expression, Vector{Statement}}} = stmt.branches
+        local newBranches::Vector{Tuple{Expression, Vector{Statement}}} = Vector{Tuple{Expression, Vector{Statement}}}(undef, length(branches))
+        for i in eachindex(branches)
+          newBranches[i] = (simplify(branches[i][1]), simplifyStatements(branches[i][2]))
+        end
+        @assign stmt.branches = newBranches
         push!(statements, stmt)
       end
       ALG_NORETCALL(__) => begin
@@ -416,18 +419,23 @@ function simplifyTupleElement(
   return statements
 end
 
-"""Replaces tuple elements that has one or more zero dimension with _."""
-function removeEmptyTupleElements(exp::Expression)
+"""Replaces tuple elements that have one or more zero dimensions with _."""
+function removeEmptyTupleElements(@nospecialize(exp::Expression))::Expression
   local tyl::List{ModelicaType}
-  local rExp
+  local rExp::Expression
   rExp = @match exp begin
     TUPLE_EXPRESSION(ty = TYPE_TUPLE(types = tyl)) => begin
-      local expElements = list(@do_threaded_for if isEmptyArray(t)
-                                 CREF_EXPRESSION(t, COMPONENT_REF_WILD())
-                               else
-                                 e
-                               end (e, t) (exp.elements, tyl))
-      TUPLE_EXPRESSION(exp.ty, expElements)
+      local tup::TUPLE_EXPRESSION = exp
+      # A typed loop: a generator over the abstract elements compiled per element type.
+      local elems::Vector{Expression} = Expression[]
+      local rest::List{ModelicaType} = tyl
+      for e in tup.elements
+        listEmpty(rest) && break
+        local t::ModelicaType = listHead(rest)
+        rest = listRest(rest)
+        push!(elems, isEmptyArray(t) ? CREF_EXPRESSION(t, COMPONENT_REF_WILD()) : e)
+      end
+      TUPLE_EXPRESSION(tup.ty, arrayList(elems))
     end
     _ => begin
       exp
@@ -450,7 +458,7 @@ function removeEmptyFunctionArguments(@nospecialize(exp::Expression), isArg = fa
     end
   end
   is_arg = isArg || isCall(exp)
-  outExp = mapShallow(exp, (x) -> removeEmptyFunctionArguments(x, is_arg))
+  outExp = mapShallow(exp, (@nospecialize(x::Expression),) -> removeEmptyFunctionArguments(x, is_arg))
   return outExp
 end
 

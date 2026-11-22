@@ -63,7 +63,7 @@ hasKey(tree::Tree, key::Key)::Bool = haskey(tree, key)
 function add(
   inTree::Tree,
   inKey::Key,
-  inValue::Value,
+  @nospecialize(inValue::Value),
   conflictFunc::Function = addConflictDefault,
 )::Tree
   if haskey(inTree, inKey)

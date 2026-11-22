@@ -667,7 +667,6 @@ diagnostic; 3.7: the fallback value cannot. With
 type's default value (makeDefaultValue). Returns the variable's binding.
 """
 function verifyBinding(v::VARIABLE, var::VariabilityType)::Binding
-  local name::String = toString(v.name)
   if var > Variability.CONSTANT && isBound(v.binding)
     return v.binding
   end
@@ -681,20 +680,20 @@ function verifyBinding(v::VARIABLE, var::VariabilityType)::Binding
   end
   if var == Variability.CONSTANT
     if !fixed
-      Error.addSourceMessage(Error.NON_FIXED_CONSTANT, list(name), v.info)
+      Error.addSourceMessage(Error.NON_FIXED_CONSTANT, list(toString(v.name)), v.info)
       fail()
     end
     if isUnbound(v.binding)
-      Error.addSourceMessage(Error.NO_CONSTANT_BINDING, list(name), v.info)
+      Error.addSourceMessage(Error.NO_CONSTANT_BINDING, list(toString(v.name)), v.info)
       fail()
     end
   elseif fixed && isUnbound(v.binding)
     local start_binding::Binding = lookupTypeAttribute("start", v)
     if isBound(start_binding)
       Error.addSourceMessage(Error.UNBOUND_PARAMETER_WITH_START_VALUE_WARNING,
-                             list(name, toString(start_binding)), v.info)
+                             list(toString(v.name), toString(start_binding)), v.info)
     else
-      Error.addSourceMessage(Error.UNBOUND_PARAMETER_ERROR, list(name), v.info)
+      Error.addSourceMessage(Error.UNBOUND_PARAMETER_ERROR, list(toString(v.name)), v.info)
       Flags.isConfigFlagSet(Flags.ALLOW_NON_STANDARD_MODELICA, "implicitParameterStartAttribute") || fail()
       local start_exp::Expression = makeDefaultValue(v.ty, evaluatedTypeAttribute("min", v),
                                                      evaluatedTypeAttribute("max", v))
@@ -897,6 +896,9 @@ function flattenArray(
   subscripts::List{<:Subscript} = nil;
   elementwise::Bool = false,
   )::Tuple{Vector{VARIABLE}, Sections}
+  # One instance for the argument types: the recursion passes Nil{Any} or Cons{Dimension}, Some or nothing,
+  # and each combination compiled 78 ms.
+  @nospecialize cls dimensions binding sections subscripts
   local dim::Dimension
   local rest_dims::List{Dimension}
   local sub_pre::ComponentRef
@@ -1097,7 +1099,7 @@ function vectorizeEquation(
         local (iters, ranges, subs) = makeIterators(prefix, dimensions, nextIteratorIndex(eqn))
         local subsInOrder::List{Subscript} = listReverse(subs)
         local element::Equation = elementBindingEquation(eqn, dimensions, subsInOrder)
-        local mappedEq = mapExp(element, (x) -> addIterator(x, prefix, subsInOrder))
+        local mappedEq = mapExp(element, (@nospecialize(x::Expression),) -> addIterator(x, prefix, subsInOrder))
         for (iter, range) in zip(iters, ranges)
           mappedEq = EQUATION_FOR(iter, SOME(range), Equation[mappedEq], source(eqn))
         end
@@ -1244,7 +1246,7 @@ function addIterator(
 )::Expression
   exp = map(
     exp,
-    (exp) -> addIterator_traverse(exp, prefix, subscripts),
+    (@nospecialize(exp::Expression),) -> addIterator_traverse(exp, prefix, subscripts),
   )
   return exp
 end
@@ -1465,7 +1467,7 @@ function flattenBindingExp2(
 end
 
 @nospecialized function flattenExp(exp::Expression, prefix::ComponentRef)
-  exp = map(exp, (x) -> flattenExp_traverse(x, prefix))
+  exp = map(exp, (@nospecialize(x::Expression),) -> flattenExp_traverse(x, prefix))
   return exp
 end
 
@@ -1893,13 +1895,13 @@ function flattenAlgorithmStatement(
       ALG_FOR(__) => begin
         local unrolled = tryUnrollAlgorithmForLoop(stmt, prefix)
         if unrolled === nothing
-          push!(outStatements, mapExp(stmt, (x) -> flattenExp(x, prefix)))
+          push!(outStatements, mapExp(stmt, (@nospecialize(x::Expression),) -> flattenExp(x, prefix)))
         else
           append!(outStatements, unrolled)
         end
       end
       _ => begin
-        push!(outStatements, mapExp(stmt, (x) -> flattenExp(x, prefix)))
+        push!(outStatements, mapExp(stmt, (@nospecialize(x::Expression),) -> flattenExp(x, prefix)))
       end
     end
   end
@@ -2163,7 +2165,7 @@ function evaluateEquationsConnOp(
   equations = [
     mapExp(
       eq,
-      (expArg) -> evaluateOperators(
+      (@nospecialize(expArg::Expression),) -> evaluateOperators(
         expArg,
         sets,
         setsArray,

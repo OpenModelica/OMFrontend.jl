@@ -269,7 +269,7 @@ end
     Throws an error if a function is not complex enough.
 """
 function inlineSimpleCalls(fm::FLAT_MODEL, top = nothing)
-  local inlinedEqs = mapExpList(fm.equations, e -> inlineSimpleCall(e, top))
+  local inlinedEqs = mapExpList(fm.equations, (@nospecialize(e::Expression),) -> inlineSimpleCall(e, top))
   @assign fm.equations = inlinedEqs
   return fm
 end
@@ -3322,9 +3322,12 @@ function instEquation(scodeEq::SCode.EQUATION, scope::InstNode, origin::ORIGIN_T
   instEq
 end
 
-function instEEquations(scodeEql::List{SCode.EEquation}, scope::InstNode, origin::ORIGIN_Type)
-  local breaks = _connectBreaks()
-  instEql = Equation[instEEquation(eq, scope, origin) for eq in scodeEql if !_isBrokenConnect(eq, scope, breaks)]
+function instEEquations(scodeEql::List{SCode.EEquation}, scope::InstNode, origin::ORIGIN_Type)::Vector{Equation}
+  local breaks::ConnectBreaks = _connectBreaks()
+  local instEql::Vector{Equation} = Equation[]
+  for eq in scodeEql
+    _isBrokenConnect(eq, scope, breaks) || push!(instEql, instEEquation(eq, scope, origin))
+  end
   return instEql
 end
 
@@ -3800,7 +3803,7 @@ function isExpressionNotFixed(@nospecialize(exp::Expression); requireFinal::Bool
         else
           @assign isNotFixed = true
         end
-        isNotFixed || containsShallow(exp, (x) -> isExpressionNotFixed(x; requireFinal = requireFinal, maxDepth = maxDepth))
+        isNotFixed || containsShallow(exp, (@nospecialize(x::Expression),) -> isExpressionNotFixed(x; requireFinal = requireFinal, maxDepth = maxDepth))
       end
 
       SIZE_EXPRESSION(__)  => begin
@@ -3816,13 +3819,13 @@ function isExpressionNotFixed(@nospecialize(exp::Expression); requireFinal::Bool
         if isImpure(exp.call) || isExternal(exp.call)
           @assign isNotFixed = true
         else
-          @assign isNotFixed = containsShallow(exp, (x) -> isExpressionNotFixed(x; requireFinal = requireFinal, maxDepth = maxDepth))
+          @assign isNotFixed = containsShallow(exp, (@nospecialize(x::Expression),) -> isExpressionNotFixed(x; requireFinal = requireFinal, maxDepth = maxDepth))
         end
         isNotFixed
       end
 
       _  => begin
-        containsShallow(exp, (exp) -> isExpressionNotFixed(exp))
+        containsShallow(exp, (@nospecialize(exp::Expression),) -> isExpressionNotFixed(exp))
       end
     end
   end

@@ -391,7 +391,7 @@ end
 end
 
 function replaceIteratorList(eql::Vector{Equation}, iterator::InstNode, @nospecialize(value::Expression))::Vector{Equation}
-  mapExpList(eql, @closure (expArg) -> replaceIterator(expArg, iterator, value))
+  mapExpList(eql, (@nospecialize(expArg::Expression),) -> replaceIterator(expArg, iterator, value))
 end
 
 function isConnect(@nospecialize(eq::Equation))::Bool
@@ -592,7 +592,7 @@ function mapExpBranch(branch::EquationBranch, func::MapExpFn)::EquationBranch
     @match branch begin
       EQUATION_BRANCH(__) => begin
         cond = func(branch.condition)
-        eql = Equation[mapExp(e, func) for e in branch.body]
+        eql = mapExpList(branch.body, func)
         EQUATION_BRANCH(cond, branch.conditionVar, eql)
       end
       _ => begin
@@ -642,7 +642,7 @@ end
 
       EQUATION_FOR(__) => begin
         #= NOTE needs to create a new element =#
-         eqBody = Equation[mapExp(e, func) for e in eq.body]
+         eqBody = mapExpList(eq.body, func)
          eqRange = Util.applyOption(eq.range, func)
          EQUATION_FOR(eq.iterator, eqRange, eqBody, eq.source)
       end
@@ -718,8 +718,11 @@ function mapExpList!(eql::Vector{Equation}, func::MapExpFn)
   return eql
 end
 
-function mapExpList(eql::Vector{Equation}, func::MapExpFn)
-  local eqV = Equation[mapExp(eq, func) for eq in eql]
+function mapExpList(eql::Vector{Equation}, func::MapExpFn)::Vector{Equation}
+  local eqV::Vector{Equation} = Vector{Equation}(undef, length(eql))
+  for i in eachindex(eql)
+    eqV[i] = mapExp(eql[i], func)
+  end
   return eqV
 end
 

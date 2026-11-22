@@ -2720,14 +2720,7 @@ function evaluateEnd(
       _ => begin
         mapShallow(
           exp,
-          (xx, x = dim, y = cref, z = index, zz = origin, zzz = info) -> evaluateEnd(
-            xx,
-            x,
-            y,
-            z,
-            zz,
-            zzz,
-          ),
+          (@nospecialize(xx::Expression),) -> evaluateEnd(xx, dim, cref, index, origin, info),
         )
       end
     end

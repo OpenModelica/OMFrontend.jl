@@ -506,7 +506,7 @@ end
       end
 
       ALG_NORETCALL(__) => begin
-        reuseIfRefEqual(stmt, stmt.exp, func(stmt.exp), e -> ALG_NORETCALL(e, stmt.source))
+        reuseIfRefEqual(stmt, stmt.exp, func(stmt.exp), (@nospecialize(e::Expression),) -> ALG_NORETCALL(e, stmt.source))
       end
 
       ALG_WHILE(__) => begin
@@ -695,7 +695,7 @@ end
 function replaceIteratorList(@nospecialize(stmtl::Vector{Statement}),
                              @nospecialize(iterator::InstNode),
                              @nospecialize(value::Expression))
-  return mapExpList(stmtl, (x)->replaceIterator(x, iterator, value))
+  return mapExpList(stmtl, (@nospecialize(x::Expression),) -> replaceIterator(x, iterator, value))
 end
 
 function markStructuralParamsSubs(exp::Expression, dummy::Int) ::Int

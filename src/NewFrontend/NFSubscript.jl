@@ -859,8 +859,8 @@ end
 
 function listContainsExpShallow(
   subscripts::List{<:Subscript},
-  @nospecialize(func::ContainsPred),
-)::Bool
+  func::FT,
+)::Bool where {FT<:Function}
   local res::Bool
 
   for s in subscripts
@@ -874,9 +874,9 @@ function listContainsExpShallow(
 end
 
 function containsExpShallow(
-  subscript::Subscript,
-  @nospecialize(func::ContainsPred),
-)::Bool
+  @nospecialize(subscript::Subscript),
+  func::FT,
+)::Bool where {FT<:Function}
   local res::Bool
 
    res = begin
@@ -914,7 +914,7 @@ function listContainsExp(subscripts::List{<:Subscript}, func::FT)::Bool where {F
   return res
 end
 
-function containsExp(subscript::Subscript, func::FT)::Bool where {FT<:Function}
+function containsExp(@nospecialize(subscript::Subscript), func::FT)::Bool where {FT<:Function}
   local res::Bool
 
    res = begin

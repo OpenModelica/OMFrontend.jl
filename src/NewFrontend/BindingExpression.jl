@@ -111,7 +111,7 @@ function bindingExpMap3(@nospecialize(exp::Expression), evalFunc::EvalFunc, subs
   local e1::Expression
   local e2::Expression
   local op::OPERATOR
-   result = map(exp, @closure (x) -> bindingExpMap4(x, subs)) #TODO?
+   result = map(exp, (@nospecialize(x::Expression),) -> bindingExpMap4(x, subs)) #TODO?
    result = evalFunc(result)
   result
 end
@@ -1683,7 +1683,7 @@ end
   exp
 end
 
-@nospecializeinfer function callContainsShallow(call::Call, @nospecialize(func::ContainsPred)) ::Bool
+@nospecializeinfer function callContainsShallow(call::Call, func::FT) ::Bool where {FT<:Function}
   local res::Bool
   res = begin
     local e::Expression
@@ -1744,7 +1744,7 @@ end
   res
 end
 
-function listContainsShallow(expl::Union{List{<:Expression}, Vector{Expression}}, @nospecialize(func::ContainsPred))::Bool
+function listContainsShallow(expl::Union{List{<:Expression}, Vector{Expression}}, func::FT)::Bool where {FT<:Function}
   local res::Bool
   for e in expl
     if func(e)
@@ -1756,7 +1756,7 @@ function listContainsShallow(expl::Union{List{<:Expression}, Vector{Expression}}
   return res
 end
 
-function crefContainsShallow(cref::ComponentRef, @nospecialize(func::ContainsPred)) ::Bool
+function crefContainsShallow(cref::ComponentRef, func::FT) ::Bool where {FT<:Function}
   local res::Bool
 
    res = begin
@@ -1773,7 +1773,7 @@ function crefContainsShallow(cref::ComponentRef, @nospecialize(func::ContainsPre
   res
 end
 
-function containsShallow(@nospecialize(exp::Expression), @nospecialize(func::ContainsPred)) ::Bool
+function containsShallow(@nospecialize(exp::Expression), func::FT) ::Bool where {FT<:Function}
   local res::Bool
 
    res = begin
@@ -2376,7 +2376,7 @@ when no child changed. Specialized on `func` (3 callers, all with a Bool argumen
 
       UNARY_EXPRESSION(__)  => begin
          (e1, arg) = func(exp.exp, arg)
-        reuseIfRefEqual(exp, exp.exp, e1, e -> UNARY_EXPRESSION(exp.operator, e))
+        reuseIfRefEqual(exp, exp.exp, e1, (@nospecialize(e::Expression),) -> UNARY_EXPRESSION(exp.operator, e))
       end
 
       LBINARY_EXPRESSION(__)  => begin
@@ -2391,7 +2391,7 @@ when no child changed. Specialized on `func` (3 callers, all with a Bool argumen
 
       LUNARY_EXPRESSION(__)  => begin
          (e1, arg) = func(exp.exp, arg)
-        reuseIfRefEqual(exp, exp.exp, e1, e -> LUNARY_EXPRESSION(exp.operator, e))
+        reuseIfRefEqual(exp, exp.exp, e1, (@nospecialize(e::Expression),) -> LUNARY_EXPRESSION(exp.operator, e))
       end
 
       RELATION_EXPRESSION(__)  => begin
@@ -2964,18 +2964,18 @@ function foldList(expl::Union{List{T}, Vector{T}}, func::FT, arg::ArgT, ::Type{A
   return result
 end
 
-function mapArrayElements(exp::ARRAY_EXPRESSION, @nospecialize(func::Function))
+function mapArrayElements(exp::ARRAY_EXPRESSION, func::FT) where {FT<:Function}
   local expElements = Expression[mapArrayElements(e, func) for e in exp.elements]
   ARRAY_EXPRESSION(exp.ty, expElements, exp.literal)
 end
 
 """  Applies the given function to each scalar elements of an array. """
-function mapArrayElements(@nospecialize(exp::Expression), @nospecialize(func::Function))
+function mapArrayElements(@nospecialize(exp::Expression), func::FT) where {FT<:Function}
   local outExp = func(exp)
   return outExp
 end
 
-@nospecializeinfer function mapCallShallowIterators(iters::List{<:Tuple{<:InstNode, Expression}}, @nospecialize(func::Function)) ::List{Tuple{InstNode, Expression}}
+@nospecializeinfer function mapCallShallowIterators(iters::List{<:Tuple{<:InstNode, Expression}}, func::FT) ::List{Tuple{InstNode, Expression}} where {FT<:Function}
   if listEmpty(iters)
     return iters
   end
@@ -3008,7 +3008,7 @@ end
   outIters
 end
 
-@nospecializeinfer function mapCallShallow(call::Call, @nospecialize(func::Function))
+@nospecializeinfer function mapCallShallow(call::Call, func::FT) where {FT<:Function}
   local outCall::Call
   outCall = begin
     local args::Vector{Expression}
@@ -3083,7 +3083,7 @@ end
   outCall
 end
 
-function mapCrefShallow(cref::ComponentRef, @nospecialize(func::Function)) ::ComponentRef
+function mapCrefShallow(cref::ComponentRef, func::FT) ::ComponentRef where {FT<:Function}
   local outCref::ComponentRef
 
    outCref = begin
@@ -3113,7 +3113,7 @@ function mapCrefShallow(cref::ComponentRef, @nospecialize(func::Function)) ::Com
   outCref
 end
 
-function mapShallowOpt(exp::Option{<:Expression}, @nospecialize(func::Function)) ::Option{Expression}
+function mapShallowOpt(exp::Option{<:Expression}, func::FT) ::Option{Expression} where {FT<:Function}
   local outExp::Option{Expression}
 
   local e::Expression
@@ -3132,7 +3132,7 @@ function mapShallowOpt(exp::Option{<:Expression}, @nospecialize(func::Function))
   outExp
 end
 
-@nospecializeinfer function mapShallow(@nospecialize(exp::Expression), func::Function)
+@nospecializeinfer function mapShallow(@nospecialize(exp::Expression), func::FT) where {FT<:Function}
   local outExp::Expression
   outExp = begin
     local e1::Expression
@@ -3195,7 +3195,7 @@ end
       end
 
       MATRIX_EXPRESSION(__)  => begin
-        MATRIX_EXPRESSION(Vector{Expression}[Expression[func(e) for e in row] for row in exp.elements])
+        MATRIX_EXPRESSION(mapMatrix(exp.elements, func))
       end
 
       RANGE_EXPRESSION(step = SOME(e2))  => begin
@@ -3220,7 +3220,7 @@ end
       end
 
       TUPLE_EXPRESSION(__)  => begin
-        TUPLE_EXPRESSION(exp.ty, list(func(e) for e in exp.elements))
+        TUPLE_EXPRESSION(exp.ty, ListUtil.map(exp.elements, func, Expression))
       end
 
       RECORD_EXPRESSION(__)  => begin
@@ -3369,7 +3369,7 @@ end
       end
 
       PARTIAL_FUNCTION_APPLICATION_EXPRESSION(__)  => begin
-        newArgs = list(func(e) for e in exp.args)
+        newArgs = ListUtil.map(exp.args, func, Expression)
         PARTIAL_FUNCTION_APPLICATION_EXPRESSION(exp.fn, newArgs, exp.argNames, exp.ty)
       end
 
@@ -3389,7 +3389,7 @@ end
   outExp
 end
 
-function mapCref(cref::ComponentRef, @nospecialize(func::Function)) ::ComponentRef
+function mapCref(cref::ComponentRef, func::FT) ::ComponentRef where {FT<:Function}
   local outCref::ComponentRef
   outCref = begin
     local subs::List{Subscript}
@@ -3431,7 +3431,7 @@ function mapCref(cref::ComponentRef, @nospecialize(func::Function)) ::ComponentR
   outCref
 end
 
-function mapCallIterators(iters::List{<:Tuple{<:InstNode, Expression}}, @nospecialize(func::Function)) ::List{Tuple{InstNode, Expression}}
+function mapCallIterators(iters::List{<:Tuple{<:InstNode, Expression}}, func::FT) ::List{Tuple{InstNode, Expression}} where {FT<:Function}
   if listEmpty(iters)
     return iters
   end
@@ -3464,7 +3464,7 @@ function mapCallIterators(iters::List{<:Tuple{<:InstNode, Expression}}, @nospeci
   outIters
 end
 
-@nospecializeinfer function mapCall(call::Call, @nospecialize(func::Function)) ::Call
+@nospecializeinfer function mapCall(call::Call, func::FT) ::Call where {FT<:Function}
   local outCall::Call
   outCall = begin
     local args::Vector{Expression}
@@ -3528,7 +3528,7 @@ end
       end
 
       TYPED_CALL(__)  => begin
-        local newArgs = mapPreservingEq(call.arguments, e -> map(e, func))
+        local newArgs = mapPreservingEq(call.arguments, (@nospecialize(e::Expression),) -> map(e, func))
         if newArgs === call.arguments
           call
         else
@@ -3578,7 +3578,7 @@ end
   outCall
 end
 
-function mapOpt(exp::Option{<:Expression}, @nospecialize(func::Function)) ::Option{Expression}
+function mapOpt(exp::Option{<:Expression}, func::FT) ::Option{Expression} where {FT<:Function}
   local outExp::Option{Expression}
 
   local e::Expression
@@ -3599,7 +3599,7 @@ end
 
 """
 ```
-map(@nospecialize(exp::Expression), @nospecialize(func::Function))
+map(exp::Expression, func::FT) where {FT<:Function}
 ```
 Applies the function `func`, to the expression `exp`.
 This function traverse the expression and creates new nodes when needed.
@@ -3607,7 +3607,7 @@ This function traverse the expression and creates new nodes when needed.
 The function passed to this function is expected to take an expression as the argument and return
 one expression.
 """
-@nospecializeinfer function map(@nospecialize(exp::Expression), @nospecialize(func::MapFunc))
+@nospecializeinfer function map(@nospecialize(exp::Expression), func::FT) where {FT<:Function}
   local outExp::Expression
    outExp = begin
     local e1::Expression
@@ -3656,7 +3656,7 @@ one expression.
       end
 
       ARRAY_EXPRESSION(__)  => begin
-        local newElements = mapPreservingEq(exp.elements, e -> map(e, func))
+        local newElements = mapPreservingEq(exp.elements, (@nospecialize(e::Expression),) -> map(e, func))
         if newElements === exp.elements
           exp
         else
@@ -3665,7 +3665,7 @@ one expression.
       end
 
       MATRIX_EXPRESSION(__)  => begin
-        MATRIX_EXPRESSION(Vector{Expression}[Expression[map(e, func) for e in row] for row in exp.elements])
+        MATRIX_EXPRESSION(mapMatrix(exp.elements, (@nospecialize(e::Expression),) -> map(e, func)))
       end
 
       RANGE_EXPRESSION(step = SOME(e2))  => begin
@@ -3690,11 +3690,11 @@ one expression.
       end
 
       TUPLE_EXPRESSION(__)  => begin
-        TUPLE_EXPRESSION(exp.ty, list(map(e, func) for e in exp.elements))
+        TUPLE_EXPRESSION(exp.ty, ListUtil.map(exp.elements, (@nospecialize(e::Expression),) -> map(e, func), Expression))
       end
 
       RECORD_EXPRESSION(__)  => begin
-        local newElements = mapPreservingEq(exp.elements, e -> map(e, func))
+        local newElements = mapPreservingEq(exp.elements, (@nospecialize(e::Expression),) -> map(e, func))
         if newElements === exp.elements
           exp
         else
@@ -3839,7 +3839,7 @@ one expression.
       end
 
       PARTIAL_FUNCTION_APPLICATION_EXPRESSION(__)  => begin
-        expArgs = list(map(e, func) for e in exp.args)
+        expArgs = ListUtil.map(exp.args, (@nospecialize(e::Expression),) -> map(e, func), Expression)
         PARTIAL_FUNCTION_APPLICATION_EXPRESSION(exp.fn, expArgs, exp.argNames, exp.ty)
       end
 
@@ -4133,8 +4133,7 @@ end
 
       ARRAY_EXPRESSION(__)  => begin
         if !isempty(exp.elements)
-          "{" +  stringDelimitList(list(toFlatString(e; inFunction = inFunction)
-                                        for e in exp.elements), ", ") + "}"
+          ArrayUtil.toString(exp.elements, (@nospecialize(e::Expression),) -> toFlatString(e; inFunction = inFunction), "", "{", ", ", "}", true)
         else
           "{/* Empty array expression*/}"
         end
@@ -4142,11 +4141,7 @@ end
 
       MATRIX_EXPRESSION(__)  => begin
         if !isempty(exp.elements)
-          local inner = stringDelimitList(list(toFlatString(e; inFunction = inFunction) for e in el), ", ")
-          local delimList =  stringDelimitList(list(inner for el in exp.elements), "; ")
-          string("[",
-                 delimList
-                 ,  "]")
+          string("[", _matrixString(exp.elements, (@nospecialize(e::Expression),) -> toFlatString(e; inFunction = inFunction)), "]")
          else
            "/*[Empty matrix expression*/]"
          end
@@ -4163,7 +4158,7 @@ end
       end
 
       TUPLE_EXPRESSION(__)  => begin
-        "(" + stringDelimitList(list(toFlatString(e; inFunction = inFunction) for e in exp.elements), ", ") + ")"
+        "(" + stringDelimitList(ListUtil.map(exp.elements, (@nospecialize(e::Expression),) -> toFlatString(e; inFunction = inFunction), String), ", ") + ")"
       end
 
       RECORD_EXPRESSION(__)  => begin
@@ -4274,6 +4269,20 @@ end
   str
 end
 
+"""The rows of a matrix expression as a string: `str` of each element, elements joined by ", ", rows by "; "."""
+function _matrixString(rows::Vector{Vector{Expression}}, str::F)::String where {F<:Function}
+  local io::IOBuffer = IOBuffer()
+  for i in eachindex(rows)
+    i > 1 && print(io, "; ")
+    local row::Vector{Expression} = rows[i]
+    for j in eachindex(row)
+      j > 1 && print(io, ", ")
+      print(io, str(row[j])::String)
+    end
+  end
+  return String(take!(io))
+end
+
 @nospecializeinfer function toString(@nospecialize(exp::Expression))
   local str::String
   local t::ModelicaType
@@ -4314,7 +4323,7 @@ end
 
       ARRAY_EXPRESSION(__)  => begin
         if !isempty(exp.elements)
-          "{" +  stringDelimitList(list(toString(e) for e in exp.elements), ", ") + "}"
+          ArrayUtil.toString(exp.elements, toString, "", "{", ", ", "}", true)
         else
           "{/*Empty Array Expression*/}"
         end
@@ -4322,7 +4331,7 @@ end
 
       MATRIX_EXPRESSION(__)  => begin
         if !isempty(exp.elements)
-          "[" + stringDelimitList(list(stringDelimitList(list(toString(e) for e in el), ", ") for el in exp.elements), "; ") + "]"
+          "[" + _matrixString(exp.elements, toString) + "]"
         else
           "*/ Empty Matrix Expression */"
         end
@@ -4337,7 +4346,7 @@ end
       end
 
       TUPLE_EXPRESSION(__)  => begin
-        "(" + stringDelimitList(list(toString(e) for e in exp.elements), ", ") + ")"
+        "(" + stringDelimitList(ListUtil.map(exp.elements, toString, String), ", ") + ")"
       end
 
       RECORD_EXPRESSION(__)  => begin
@@ -4478,13 +4487,16 @@ function toInteger(@nospecialize(exp::Expression)) ::Int
 end
 
 function makeEnumLiterals(enumType::ModelicaType) ::List{Expression}
-  local literals::List{Expression}
-
   local lits::List{String}
-
   @match TYPE_ENUMERATION(literals = lits) = enumType
-   literals = list(@do_threaded_for ENUM_LITERAL_EXPRESSION(enumType, l, i) (l, i) (lits, 1:listLength(lits)))
-  literals
+  # A List{Expression}: a list of ENUM_LITERAL_EXPRESSION was converted (rebuilt) to it.
+  local literals::Vector{Expression} = Expression[]
+  local i::Int = 0
+  for l in lits
+    i += 1
+    push!(literals, ENUM_LITERAL_EXPRESSION(enumType, l, i))
+  end
+  return arrayList(literals)
 end
 
 function makeEnumLiteral(enumType::ModelicaType, index::Int) ::Expression
@@ -4591,9 +4603,9 @@ end
 
 function replaceIterator(@nospecialize(exp::Expression),
                          iterator::InstNode,
-                         iteratorValue::Expression)
-  res = map(exp, @closure (x) -> replaceIterator2(x,  iterator, iteratorValue))
-  return res
+                         @nospecialize(iteratorValue::Expression))::Expression
+  local value::Base.RefValue{Expression} = captureRef(iteratorValue)
+  return map(exp, (@nospecialize(x::Expression),) -> replaceIterator2(x, iterator, value[]))
 end
 
 function makeSubscriptedExp(subscripts::List{<:Subscript}, @nospecialize(exp::Expression)) ::Expression

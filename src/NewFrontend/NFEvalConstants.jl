@@ -194,7 +194,7 @@ function evaluateExpTraverser(
         outExp
       end
       _ => begin
-        func = (x, y) -> evaluateExpTraverser(x, constVariability, false)
+        func = (@nospecialize(x::Expression), y::Bool) -> evaluateExpTraverser(x, constVariability, false)
         (outExp, outChanged) = mapFoldShallow(exp, func, false)
         if outChanged
           retype(outExp)
@@ -443,7 +443,8 @@ function evaluateFunction(func::MODELICA_FUNCTION)::MODELICA_FUNCTION
   local sections::Sections
   if !isEvaluated(func)
     markEvaluated(func)
-    func = mapExp(func, (x) -> evaluateFuncExp(x, func.node))
+    local node::InstNode = func.node
+    func = mapExp(func, (@nospecialize(x::Expression),) -> evaluateFuncExp(x, node))
     for fn_der in func.derivatives
       for der_fn in getCachedFuncs(fn_der.derivativeFn)
         evaluateFunction(der_fn)
@@ -469,7 +470,7 @@ function evaluateFuncExpTraverser(
   local e::Expression
   (e, outChanged) = mapFoldShallow(
     exp,
-    (x, y) -> evaluateFuncExpTraverser(x, fnNode, y),
+    (@nospecialize(x::Expression), y::Bool) -> evaluateFuncExpTraverser(x, fnNode, y),
     false,
   )
   outExp = begin
