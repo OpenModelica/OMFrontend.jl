@@ -81,116 +81,107 @@ end
 
 function retype(call::Call)::Call
 
-   () = begin
-    local ty::ModelicaType
-    local dims::List{Dimension}
-    @match call begin
-      TYPED_ARRAY_CONSTRUCTOR(__) => begin
-         dims = nil
-        for i in listReverse(call.iters)
-           dims = listAppend(
-            arrayDims(typeOf(Util.tuple22(i))),
-            dims,
-          )
-        end
-        callTy = liftArrayLeftList(arrayElementType(call.ty), dims)
-        call = TYPED_ARRAY_CONSTRUCTOR(callTy, call.var, call.exp, call.iters)
-        ()
-      end
+   local ty::ModelicaType
+   local dims::List{Dimension}
+   @match call begin
+     TYPED_ARRAY_CONSTRUCTOR(__) => begin
+        dims = nil
+       for i in listReverse(call.iters)
+          dims = listAppend(
+           arrayDims(typeOf(Util.tuple22(i))),
+           dims,
+         )
+       end
+       callTy = liftArrayLeftList(arrayElementType(call.ty), dims)
+       call = TYPED_ARRAY_CONSTRUCTOR(callTy, call.var, call.exp, call.iters)
+       ()
+     end
 
-      _ => begin
-        ()
-      end
-    end
-  end
+     _ => begin
+       ()
+     end
+   end
   return call
 end
 
 function isVectorizeable(call::Call)::Bool
-  isVect = begin
-    local name::String
-    @match call begin
-      TYPED_CALL(fn = MODELICA_FUNCTION(path = Absyn.IDENT(name = name))) => begin
-        begin
-          @match name begin #TODO add other special functions here.
-            "der" => begin
-              false
-            end
-            "pre" => begin
-              false
-            end
-            "previous" => begin
-              false
-            end
-            _ => begin
-              true
-            end
+  local name::String
+  @match call begin
+    TYPED_CALL(fn = MODELICA_FUNCTION(path = Absyn.IDENT(name = name))) => begin
+      begin
+        @match name begin #TODO add other special functions here.
+          "der" => begin
+            false
+          end
+          "pre" => begin
+            false
+          end
+          "previous" => begin
+            false
+          end
+          _ => begin
+            true
           end
         end
       end
-      _ => begin
-        true
-      end
+    end
+    _ => begin
+      true
     end
   end
-  return isVect
 end
 
 """Like toString, but prefixes each argument with its type as a comment."""
 function typedString(call::Call)::String
-  local str::String
 
   local name::String
   local arg_str::String
   local c::String
 
-   str = begin
-    @match call begin
-      ARG_TYPED_CALL(__) => begin
-         name = toString(call.ref)
-         arg_str = stringDelimitList(
-          list(
-            "/*" +
-            toString(Util.tuple32(arg))::String +
-            "*/ " +
-            toString(Util.tuple31(arg))::String
-            for arg in call.arguments
-          ),
-          ", ",
-        )
-        for arg in call.named_args
-           c = if arg_str == ""
-            ""
-          else
-            ", "
-          end
-           arg_str =
-            arg_str +
-            c +
-            Util.tuple41(arg) +
-            " = /*" +
-            toString(Util.tuple43(arg)) +
-            "*/ " +
-            toString(Util.tuple42(arg))
-        end
-        name + "(" + arg_str + ")"
-      end
+   @match call begin
+     ARG_TYPED_CALL(__) => begin
+        name = toString(call.ref)
+        arg_str = stringDelimitList(
+         list(
+           "/*" +
+           toString(Util.tuple32(arg))::String +
+           "*/ " +
+           toString(Util.tuple31(arg))::String
+           for arg in call.arguments
+         ),
+         ", ",
+       )
+       for arg in call.named_args
+          c = if arg_str == ""
+           ""
+         else
+           ", "
+         end
+          arg_str =
+           arg_str +
+           c +
+           Util.tuple41(arg) +
+           " = /*" +
+           toString(Util.tuple43(arg)) +
+           "*/ " +
+           toString(Util.tuple42(arg))
+       end
+       name + "(" + arg_str + ")"
+     end
 
-      TYPED_CALL(__) => begin
-         name = AbsynUtil.pathString(name(call.fn))
-         arg_str = stringDelimitList(
-          list(toStringTyped(arg) for arg in call.arguments),
-          ", ",
-        )
-        name + "(" + arg_str + ")"
-      end
+     TYPED_CALL(__) => begin
+        name = AbsynUtil.pathString(name(call.fn))
+        arg_str = stringDelimitList(
+         list(toStringTyped(arg) for arg in call.arguments),
+         ", ",
+       )
+       name + "(" + arg_str + ")"
+     end
 
-      _ => begin
-        toString(call)
-      end
-    end
-  end
-  return str
+     _ => begin
+       toString(call)
+     end
+   end
 end
 
 function toFlatString(call::Call; inFunction = false)
@@ -261,199 +252,179 @@ function toFlatString(call::Call; inFunction = false)
 end
 
 function toString(call::Call)::String
-  local str::String
   local nameStr::String
   local arg_str::String
   local c::String
   local iters::List{InstNode}
 
-   str = begin
-    @match call begin
-      UNTYPED_CALL(__) => begin
-        nameStr = toString(call.ref)
-         arg_str = stringDelimitList(
-          list(toString(arg) for arg in call.arguments),
-          ", ",
-        )
-        nameStr * "(" * arg_str * ")"
-      end
-
-      ARG_TYPED_CALL(__) => begin
-        nameStr = toString(call.ref)
-         arg_str = stringDelimitList(
-          list(
-            toString(Util.tuple31(arg)) for arg in call.arguments
-          ),
-          ", ",
-        )
-        for arg in call.named_args
-           c = if arg_str == ""
-            ""
-          else
-            ", "
-          end
-           arg_str =
-            arg_str *
-            c *
-            Util.tuple41(arg) +
-            " = " *
-            toString(Util.tuple42(arg))
-        end
-        nameStr * "(" * arg_str * ")"
-      end
-
-      UNTYPED_ARRAY_CONSTRUCTOR(__) => begin
-        nameStr = AbsynUtil.pathString(name(NFBuiltinFuncs.ARRAY_FUNC))
-        arg_str = toString(call.exp)
-        c = stringDelimitList(
-          list(
-            name(Util.tuple21(iter)) *
-            " in " *
-            toString(Util.tuple22(iter))
-            for iter in call.iters
-          ),
-          ", ",
-        )
-        "{" * arg_str * " for " * c * "}"
-      end
-
-      UNTYPED_REDUCTION(__) => begin
-        nameStr = toString(call.ref)
-         arg_str = toString(call.exp)
-         c = stringDelimitList(
-          list(
-            name(Util.tuple21(iter)) *
-            " in " *
-            toString(Util.tuple22(iter))
-            for iter in call.iters
-          ),
-          ", ",
-        )
-        nameStr * "(" * arg_str * " for " * c * ")"
-      end
-
-      TYPED_CALL(__) => begin
-        nameStr = AbsynUtil.pathString(name(call.fn))
+   @match call begin
+     UNTYPED_CALL(__) => begin
+       nameStr = toString(call.ref)
         arg_str = stringDelimitList(
-          list(toString(arg) for arg in call.arguments),
-          ", ",
-        )
-        nameStr + "(" + arg_str + ")"
-      end
+         list(toString(arg) for arg in call.arguments),
+         ", ",
+       )
+       nameStr * "(" * arg_str * ")"
+     end
 
-      TYPED_ARRAY_CONSTRUCTOR(__) => begin
-        nameStr = AbsynUtil.pathString(name(NFBuiltinFuncs.ARRAY_FUNC))
+     ARG_TYPED_CALL(__) => begin
+       nameStr = toString(call.ref)
+        arg_str = stringDelimitList(
+         list(
+           toString(Util.tuple31(arg)) for arg in call.arguments
+         ),
+         ", ",
+       )
+       for arg in call.named_args
+          c = if arg_str == ""
+           ""
+         else
+           ", "
+         end
+          arg_str =
+           arg_str *
+           c *
+           Util.tuple41(arg) +
+           " = " *
+           toString(Util.tuple42(arg))
+       end
+       nameStr * "(" * arg_str * ")"
+     end
+
+     UNTYPED_ARRAY_CONSTRUCTOR(__) => begin
+       nameStr = AbsynUtil.pathString(name(NFBuiltinFuncs.ARRAY_FUNC))
+       arg_str = toString(call.exp)
+       c = stringDelimitList(
+         list(
+           name(Util.tuple21(iter)) *
+           " in " *
+           toString(Util.tuple22(iter))
+           for iter in call.iters
+         ),
+         ", ",
+       )
+       "{" * arg_str * " for " * c * "}"
+     end
+
+     UNTYPED_REDUCTION(__) => begin
+       nameStr = toString(call.ref)
         arg_str = toString(call.exp)
         c = stringDelimitList(
-          list(
-            name(Util.tuple21(iter)) *
-            " in " *
-            toString(Util.tuple22(iter))
-            for iter in call.iters
-          ),
-          ", ",
-        )
-        "{" * arg_str * " for " * c * "}"
-      end
+         list(
+           name(Util.tuple21(iter)) *
+           " in " *
+           toString(Util.tuple22(iter))
+           for iter in call.iters
+         ),
+         ", ",
+       )
+       nameStr * "(" * arg_str * " for " * c * ")"
+     end
 
-      TYPED_REDUCTION(__) => begin
-        #= Strings concatenate with *, and the function name is nameStr (name is the function). =#
-        local nameStr = AbsynUtil.pathString(name(call.fn))
-        arg_str = toString(call.exp)
-        c = Base.join(String[name(Util.tuple21(iter)) * " in " * toString(Util.tuple22(iter)) for iter in call.iters], ", ")
-        nameStr * "(" * arg_str * " for " * c * ")"
-      end
-    end
-  end
-  return str
+     TYPED_CALL(__) => begin
+       nameStr = AbsynUtil.pathString(name(call.fn))
+       arg_str = stringDelimitList(
+         list(toString(arg) for arg in call.arguments),
+         ", ",
+       )
+       nameStr + "(" + arg_str + ")"
+     end
+
+     TYPED_ARRAY_CONSTRUCTOR(__) => begin
+       nameStr = AbsynUtil.pathString(name(NFBuiltinFuncs.ARRAY_FUNC))
+       arg_str = toString(call.exp)
+       c = stringDelimitList(
+         list(
+           name(Util.tuple21(iter)) *
+           " in " *
+           toString(Util.tuple22(iter))
+           for iter in call.iters
+         ),
+         ", ",
+       )
+       "{" * arg_str * " for " * c * "}"
+     end
+
+     TYPED_REDUCTION(__) => begin
+       #= Strings concatenate with *, and the function name is nameStr (name is the function). =#
+       local nameStr = AbsynUtil.pathString(name(call.fn))
+       arg_str = toString(call.exp)
+       c = Base.join(String[name(Util.tuple21(iter)) * " in " * toString(Util.tuple22(iter)) for iter in call.iters], ", ")
+       nameStr * "(" * arg_str * " for " * c * ")"
+     end
+   end
 end
 
 function toRecordExpression(call::Call, ty::ModelicaType)::Expression
-  local exp::Expression
-   exp = begin
-    @match call begin
-      TYPED_CALL(__) => begin
-        evaluateRecordConstructor(call.fn, ty, call.arguments; evaluate = false)
-      end
-      _ => begin
-        Error.assertion(false, getInstanceName() + " got unknown call", sourceInfo())
-        fail()
-      end
-    end
-  end
-  return exp
+   @match call begin
+     TYPED_CALL(__) => begin
+       evaluateRecordConstructor(call.fn, ty, call.arguments; evaluate = false)
+     end
+     _ => begin
+       Error.assertion(false, getInstanceName() + " got unknown call", sourceInfo())
+       fail()
+     end
+   end
 end
 
 function arguments(call::Call)::Vector{Expression}
-  local arguments::Vector{Expression}
-   arguments = begin
-    @match call begin
-      UNTYPED_CALL(__) => begin
-        call.arguments
-      end
-      TYPED_CALL(__) => begin
-        call.arguments
-      end
-      #= The constructor's or reduction's expression (omc Call.arguments). =#
-      UNTYPED_ARRAY_CONSTRUCTOR(__) || TYPED_ARRAY_CONSTRUCTOR(__) || UNTYPED_REDUCTION(__) || TYPED_REDUCTION(__) => begin
-        Expression[call.exp]
-      end
-    end
-  end
-  return arguments
+   @match call begin
+     UNTYPED_CALL(__) => begin
+       call.arguments
+     end
+     TYPED_CALL(__) => begin
+       call.arguments
+     end
+     #= The constructor's or reduction's expression (omc Call.arguments). =#
+     UNTYPED_ARRAY_CONSTRUCTOR(__) || TYPED_ARRAY_CONSTRUCTOR(__) || UNTYPED_REDUCTION(__) || TYPED_REDUCTION(__) => begin
+       Expression[call.exp]
+     end
+   end
 end
 
 const ARRAY_IDENTIFIER = Absyn.IDENT("array")
 function functionName(call::Call)::Absyn.Path
-  local nameV::Absyn.Path
-  nameV = begin
-    @match call begin
-      UNTYPED_CALL(__) => begin
-        toPath(call.ref)
-      end
-      ARG_TYPED_CALL(__) => begin
-        toPath(call.ref)
-      end
-      TYPED_CALL(__) => begin
-        name(call.fn)
-      end
-      UNTYPED_ARRAY_CONSTRUCTOR(__) => begin
-        ARRAY_IDENTIFIER
-      end
-      TYPED_ARRAY_CONSTRUCTOR(__) => begin
-        ARRAY_IDENTIFIER
-      end
-      UNTYPED_REDUCTION(__) => begin
-        toPath(call.ref)
-      end
-      TYPED_REDUCTION(__) => begin
-        name(call.fn)
-      end
+  @match call begin
+    UNTYPED_CALL(__) => begin
+      toPath(call.ref)
+    end
+    ARG_TYPED_CALL(__) => begin
+      toPath(call.ref)
+    end
+    TYPED_CALL(__) => begin
+      name(call.fn)
+    end
+    UNTYPED_ARRAY_CONSTRUCTOR(__) => begin
+      ARRAY_IDENTIFIER
+    end
+    TYPED_ARRAY_CONSTRUCTOR(__) => begin
+      ARRAY_IDENTIFIER
+    end
+    UNTYPED_REDUCTION(__) => begin
+      toPath(call.ref)
+    end
+    TYPED_REDUCTION(__) => begin
+      name(call.fn)
     end
   end
-  return nameV
 end
 
 function typedFunction(call::Call)::MODELICA_FUNCTION
-  local fn::MODELICA_FUNCTION
-   fn = begin
-    @match call begin
-      TYPED_CALL(__) => begin
-        call.fn
-      end
-      TYPED_ARRAY_CONSTRUCTOR(__) => begin
-        NFBuiltinFuncs.ARRAY_FUNC
-      end
-      TYPED_REDUCTION(__) => begin
-        call.fn
-      end
-      _ => begin
-        Error.assertion(false, getInstanceName() + " got untyped function", sourceInfo())
-        fail()
-      end
-    end
-  end
-  return fn
+   @match call begin
+     TYPED_CALL(__) => begin
+       call.fn
+     end
+     TYPED_ARRAY_CONSTRUCTOR(__) => begin
+       NFBuiltinFuncs.ARRAY_FUNC
+     end
+     TYPED_REDUCTION(__) => begin
+       call.fn
+     end
+     _ => begin
+       Error.assertion(false, getInstanceName() + " got untyped function", sourceInfo())
+       fail()
+     end
+   end
 end
 
 """How a call is inlined: its attributes' `InlineType` for a typed call, `NO_INLINE` otherwise."""
@@ -465,40 +436,32 @@ function inlineType(call::Call)::InlineType
 end
 
 function isRecordConstructor(call::Call)::Bool
-  local isConstructor::Bool
 
-   isConstructor = begin
-    @match call begin
-      UNTYPED_CALL(__) => begin
-        SCodeUtil.isRecord(definition(node(call.ref)))
-      end
-      TYPED_CALL(__) => begin
-        SCodeUtil.isRecord(definition(call.fn.node))
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return isConstructor
+   @match call begin
+     UNTYPED_CALL(__) => begin
+       SCodeUtil.isRecord(definition(node(call.ref)))
+     end
+     TYPED_CALL(__) => begin
+       SCodeUtil.isRecord(definition(call.fn.node))
+     end
+     _ => begin
+       false
+     end
+   end
 end
 
 function isImpure(call::Call)::Bool
-  local impure::Bool
-  impure = begin
-    @match call begin
-      UNTYPED_CALL(__) => begin
-        isImpure(Base.first(getRefCache(call.ref)))
-      end
-      TYPED_CALL(__) => begin
-        isImpure(call.fn) || isOMImpure(call.fn)
-      end
-      _ => begin
-        false
-      end
+  @match call begin
+    UNTYPED_CALL(__) => begin
+      isImpure(Base.first(getRefCache(call.ref)))
+    end
+    TYPED_CALL(__) => begin
+      isImpure(call.fn) || isOMImpure(call.fn)
+    end
+    _ => begin
+      false
     end
   end
-  return impure
 end
 
 function isNotImpure(call::Call)::Bool
@@ -506,24 +469,20 @@ function isNotImpure(call::Call)::Bool
 end
 
 function isExternal(call::Call)::Bool
-  local isExt::Bool
-  isExt = begin
-    @match call begin
-      UNTYPED_CALL(__) => begin
-        isExternalFunction(getClass(node(call.ref)))
-      end
-      ARG_TYPED_CALL(__) => begin
-        isExternalFunction(getClass(node(call.ref)))
-      end
-      TYPED_CALL(__) => begin
-        isExternal(call.fn) #Changed from just returning true johti17 2023-03-26
-      end
-      _ => begin
-        false
-      end
+  @match call begin
+    UNTYPED_CALL(__) => begin
+      isExternalFunction(getClass(node(call.ref)))
+    end
+    ARG_TYPED_CALL(__) => begin
+      isExternalFunction(getClass(node(call.ref)))
+    end
+    TYPED_CALL(__) => begin
+      isExternal(call.fn) #Changed from just returning true johti17 2023-03-26
+    end
+    _ => begin
+      false
     end
   end
-  return isExt
 end
 
 #= By function name, arguments and iterators, for every kind of call (omc Call.compare). =#
@@ -618,18 +577,14 @@ function setType(call::Call, ty::ModelicaType)
 end
 
 function typeOf(call::Call)::ModelicaType
-  local ty::ModelicaType
-   ty = begin
-    @match call begin
-      TYPED_CALL(__) || TYPED_ARRAY_CONSTRUCTOR(__) ||  TYPED_REDUCTION(__) =>  begin
-        call.ty
-      end
-      _ => begin
-        TYPE_UNKNOWN()
-      end
-    end
-  end
-  return ty
+   @match call begin
+     TYPED_CALL(__) || TYPED_ARRAY_CONSTRUCTOR(__) ||  TYPED_REDUCTION(__) =>  begin
+       call.ty
+     end
+     _ => begin
+       TYPE_UNKNOWN()
+     end
+   end
 end
 
 function matchTypedNormalCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Call
@@ -832,87 +787,79 @@ function instantiate(
   scope::InstNode,
   info::SourceInfo
 )::Expression
-  local callExp::Expression
-   callExp = begin
-    @match functionArgs begin
-      Absyn.FUNCTIONARGS(__) => begin
-        instNormalCall(functionName, functionArgs, scope, info)
-      end
-      Absyn.FOR_ITER_FARG(__) => begin
-        instIteratorCall(functionName, functionArgs, scope, info)
-      end
-      _ => begin
-        Error.assertion(false, getInstanceName() + " got unknown call type", sourceInfo())
-        fail()
-      end
-    end
-  end
-  return callExp
+   @match functionArgs begin
+     Absyn.FUNCTIONARGS(__) => begin
+       instNormalCall(functionName, functionArgs, scope, info)
+     end
+     Absyn.FOR_ITER_FARG(__) => begin
+       instIteratorCall(functionName, functionArgs, scope, info)
+     end
+     _ => begin
+       Error.assertion(false, getInstanceName() + " got unknown call type", sourceInfo())
+       fail()
+     end
+   end
 end
 
 function getSpecialReturnType(fn::MODELICA_FUNCTION, args::Vector{Expression})::ModelicaType
-  local ty::ModelicaType
 
-   ty = begin
-    @match fn.path begin
-      Absyn.IDENT("min") => begin
-        arrayElementType(typeOf(unbox(Base.first(
-          args,
-        ))))
-      end
+   @match fn.path begin
+     Absyn.IDENT("min") => begin
+       arrayElementType(typeOf(unbox(Base.first(
+         args,
+       ))))
+     end
 
-      Absyn.IDENT("max") => begin
-        arrayElementType(typeOf(unbox(Base.first(
-          args,
-        ))))
-      end
+     Absyn.IDENT("max") => begin
+       arrayElementType(typeOf(unbox(Base.first(
+         args,
+       ))))
+     end
 
-      Absyn.IDENT("sum") => begin
-        arrayElementType(typeOf(unbox(Base.first(
-          args,
-        ))))
-      end
+     Absyn.IDENT("sum") => begin
+       arrayElementType(typeOf(unbox(Base.first(
+         args,
+       ))))
+     end
 
-      Absyn.IDENT("product") => begin
-        arrayElementType(typeOf(unbox(Base.first(
-          args,
-        ))))
-      end
+     Absyn.IDENT("product") => begin
+       arrayElementType(typeOf(unbox(Base.first(
+         args,
+       ))))
+     end
 
-      Absyn.IDENT("previous") => begin
-        typeOf(unbox(Base.first(args)))
-      end
+     Absyn.IDENT("previous") => begin
+       typeOf(unbox(Base.first(args)))
+     end
 
-      Absyn.IDENT("shiftSample") => begin
-        typeOf(unbox(Base.first(args)))
-      end
+     Absyn.IDENT("shiftSample") => begin
+       typeOf(unbox(Base.first(args)))
+     end
 
-      Absyn.IDENT("backSample") => begin
-        typeOf(unbox(Base.first(args)))
-      end
+     Absyn.IDENT("backSample") => begin
+       typeOf(unbox(Base.first(args)))
+     end
 
-      Absyn.IDENT("hold") => begin
-        typeOf(unbox(Base.first(args)))
-      end
+     Absyn.IDENT("hold") => begin
+       typeOf(unbox(Base.first(args)))
+     end
 
-      Absyn.IDENT("superSample") => begin
-        typeOf(unbox(Base.first(args)))
-      end
+     Absyn.IDENT("superSample") => begin
+       typeOf(unbox(Base.first(args)))
+     end
 
-      Absyn.IDENT("subSample") => begin
-        typeOf(unbox(Base.first(args)))
-      end
+     Absyn.IDENT("subSample") => begin
+       typeOf(unbox(Base.first(args)))
+     end
 
-      Absyn.IDENT("DynamicSelect") => begin
-        typeOf(unbox(Base.first(args)))
-      end
+     Absyn.IDENT("DynamicSelect") => begin
+       typeOf(unbox(Base.first(args)))
+     end
 
-      _ => begin
-        resolvePolymorphicReturnType(fn, args, fn.returnType)
-      end
-    end
-  end
-  return ty
+     _ => begin
+       resolvePolymorphicReturnType(fn, args, fn.returnType)
+     end
+   end
 end
 
 #= A polymorphic output's type from the input of the same polymorphic type, less that input's
@@ -941,32 +888,28 @@ function resolvePolymorphicReturnType(fn::MODELICA_FUNCTION, args::Vector{Expres
 end
 
 function evaluateCallTypeDimExp(@nospecialize(exp::Expression), ptree::ParameterTree)::Expression
-  local outExp::Expression
-  outExp = begin
-    local e::Expression
-    @match exp begin
-      #= An input, or a field of a record input (`size(r.names, 1)`): the argument, subscripted
-         and its fields selected as the reference (omc evaluateCallTypeDimExp). =#
-      CREF_EXPRESSION(cref = COMPONENT_REF_CREF(__)) => begin
-        local parts = toListReverse(exp.cref)
-        local v = ParameterTreeImpl.tryGet(ptree, name(node(listHead(parts))))
-        if v === nothing
-          exp
-        else
-          e = applySubscripts(getSubscripts(listHead(parts)), v)
-          for cr in listRest(parts)
-            e = recordElement(name(node(cr)), e)
-            e = applySubscripts(getSubscripts(cr), e)
-          end
-          e
-        end
-      end
-      _ => begin
+  local e::Expression
+  @match exp begin
+    #= An input, or a field of a record input (`size(r.names, 1)`): the argument, subscripted
+       and its fields selected as the reference (omc evaluateCallTypeDimExp). =#
+    CREF_EXPRESSION(cref = COMPONENT_REF_CREF(__)) => begin
+      local parts = toListReverse(exp.cref)
+      local v = ParameterTreeImpl.tryGet(ptree, name(node(listHead(parts))))
+      if v === nothing
         exp
+      else
+        e = applySubscripts(getSubscripts(listHead(parts)), v)
+        for cr in listRest(parts)
+          e = recordElement(name(node(cr)), e)
+          e = applySubscripts(getSubscripts(cr), e)
+        end
+        e
       end
     end
+    _ => begin
+      exp
+    end
   end
-  return outExp
 end
 
 function buildParameterTree(
@@ -1107,7 +1050,6 @@ function vectorizeCall(
   scope::InstNode,
   info::SourceInfo,
   )::Call
-  local vectorized_call::Call
   local ty::ModelicaType
   local vect_ty::ModelicaType
   local exp::Expression
@@ -1116,65 +1058,62 @@ function vectorizeCall(
   local i::Int
   local call_args::Vector{Expression}
   local sub::Subscript
-  vectorized_call = begin
-    @match (base_call, mk) begin
-      (TYPED_CALL(arguments = call_args), VECTORIZED_MATCH_KIND(__)) => begin
-         iters = nil
-         i = 1
-        for dim in mk.vectDims
-          Error.assertion(
-            isKnown(dim, true),
-            getInstanceName() + " got unknown dimension for vectorized call",
-            info,
-          )
-          ty = TYPE_ARRAY(TYPE_INTEGER(), list(dim))
-          exp = RANGE_EXPRESSION(
-            ty,
-            INTEGER_EXPRESSION(1),
-            NONE(),
-            sizeExp(dim),
-          )
-          iter = fromComponent(
-            "i" + intString(i),
-            ITERATOR_COMPONENT(TYPE_INTEGER(), Variability.CONSTANT, info),
-            scope,
-          )
-          iters = Cons{Tuple{InstNode, Expression}}((iter, exp), iters)
-          exp = CREF_EXPRESSION(
-            TYPE_INTEGER(),
-            makeIterator(iter, TYPE_INTEGER()),
-          )
-          sub = SUBSCRIPT_INDEX(exp)
-          call_args = ArrayUtil.mapIndices(
-            call_args,
-            listArray(mk.vectorizedArgs),
-            let s::Subscript = sub
-              (@nospecialize(x::Expression),) -> applySubscript(s, x, list())
-            end,
-          )
-          i = i + 1
-        end
-        #= Create the range on which we will iterate to vectorize.
-           Create the iterator.
-           Now that iterator is ready apply it, as a subscript, to each argument that is supposed to be vectorized
-           Make a cref expression from the iterator =#
-        vect_ty = liftArrayLeftList(base_call.ty, mk.vectDims)
-        base_call = TYPED_CALL(base_call.fn, base_call.ty, base_call.var, call_args, base_call.attributes)
-        TYPED_ARRAY_CONSTRUCTOR(
-          vect_ty,
-          base_call.var,
-          CALL_EXPRESSION(base_call),
-          iters,
+  @match (base_call, mk) begin
+    (TYPED_CALL(arguments = call_args), VECTORIZED_MATCH_KIND(__)) => begin
+       iters = nil
+       i = 1
+      for dim in mk.vectDims
+        Error.assertion(
+          isKnown(dim, true),
+          getInstanceName() + " got unknown dimension for vectorized call",
+          info,
         )
+        ty = TYPE_ARRAY(TYPE_INTEGER(), list(dim))
+        exp = RANGE_EXPRESSION(
+          ty,
+          INTEGER_EXPRESSION(1),
+          NONE(),
+          sizeExp(dim),
+        )
+        iter = fromComponent(
+          "i" + intString(i),
+          ITERATOR_COMPONENT(TYPE_INTEGER(), Variability.CONSTANT, info),
+          scope,
+        )
+        iters = Cons{Tuple{InstNode, Expression}}((iter, exp), iters)
+        exp = CREF_EXPRESSION(
+          TYPE_INTEGER(),
+          makeIterator(iter, TYPE_INTEGER()),
+        )
+        sub = SUBSCRIPT_INDEX(exp)
+        call_args = ArrayUtil.mapIndices(
+          call_args,
+          listArray(mk.vectorizedArgs),
+          let s::Subscript = sub
+            (@nospecialize(x::Expression),) -> applySubscript(s, x, list())
+          end,
+        )
+        i = i + 1
       end
+      #= Create the range on which we will iterate to vectorize.
+         Create the iterator.
+         Now that iterator is ready apply it, as a subscript, to each argument that is supposed to be vectorized
+         Make a cref expression from the iterator =#
+      vect_ty = liftArrayLeftList(base_call.ty, mk.vectDims)
+      base_call = TYPED_CALL(base_call.fn, base_call.ty, base_call.var, call_args, base_call.attributes)
+      TYPED_ARRAY_CONSTRUCTOR(
+        vect_ty,
+        base_call.var,
+        CALL_EXPRESSION(base_call),
+        iters,
+      )
+    end
 
-      _ => begin
-        Error.addInternalError(getInstanceName() + " got unknown call", info)
-        fail()
-      end
+    _ => begin
+      Error.addInternalError(getInstanceName() + " got unknown call", info)
+      fail()
     end
   end
-  return vectorized_call
 end
 
 function checkMatchingFunctions(call::Call, info::SourceInfo)

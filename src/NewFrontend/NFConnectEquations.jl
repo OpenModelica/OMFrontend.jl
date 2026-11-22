@@ -462,68 +462,64 @@ function generateStreamEquations(
   elements::List{<:CONNECTOR},
   flowThreshold::Expression,
 )::List{Equation}
-  local equations::List{Equation}
 
-  @assign equations = begin
-    local cr1::ComponentRef
-    local cr2::ComponentRef
-    local src::SourceInfo
-    local src1::SourceInfo
-    local src2::SourceInfo
-    local cref1::Expression
-    local cref2::Expression
-    local e1::Expression
-    local e2::Expression
-    local inside::List{CONNECTOR}
-    local outside::List{CONNECTOR}
-    local f1::Face
-    local f2::Face
-    #= Unconnected stream connector, do nothing. =#
-    @match elements begin
-      CONNECTOR(face = f1) <| nil() where {(f1 == FACE_INSIDE)} => begin
-        nil
-      end
+  local cr1::ComponentRef
+  local cr2::ComponentRef
+  local src::SourceInfo
+  local src1::SourceInfo
+  local src2::SourceInfo
+  local cref1::Expression
+  local cref2::Expression
+  local e1::Expression
+  local e2::Expression
+  local inside::List{CONNECTOR}
+  local outside::List{CONNECTOR}
+  local f1::Face
+  local f2::Face
+  #= Unconnected stream connector, do nothing. =#
+  @match elements begin
+    CONNECTOR(face = f1) <| nil() where {(f1 == FACE_INSIDE)} => begin
+      nil
+    end
 
-      CONNECTOR(face = f1) <|
-      CONNECTOR(face = f2) <| nil() where {(f1 == FACE_INSIDE && f2 == FACE_INSIDE)} => begin
-        nil
-      end
+    CONNECTOR(face = f1) <|
+    CONNECTOR(face = f2) <| nil() where {(f1 == FACE_INSIDE && f2 == FACE_INSIDE)} => begin
+      nil
+    end
 
-      CONNECTOR(name = cr1, face = f1, source = src1) <|
-      CONNECTOR(name = cr2, face = f2, source = src2) <|
-      nil() where {(f1 == FACE_OUTSIDE && f2 == FACE_OUTSIDE)} => begin
-        #= Both inside, do nothing.
-           Both outside:
-           cr1 = inStream(cr2);
-           cr2 = inStream(cr1); =#
-        @assign cref1 = fromCref(cr1)
-        @assign cref2 = fromCref(cr2)
-        @assign e1 = makeInStreamCall(cref2)
-        @assign e2 = makeInStreamCall(cref1)
-        @assign src = src1
-        list(
-          EQUATION_EQUALITY(cref1, e1, TYPE_REAL(), src),
-          EQUATION_EQUALITY(cref2, e2, TYPE_REAL(), src),
-        )
-      end
+    CONNECTOR(name = cr1, face = f1, source = src1) <|
+    CONNECTOR(name = cr2, face = f2, source = src2) <|
+    nil() where {(f1 == FACE_OUTSIDE && f2 == FACE_OUTSIDE)} => begin
+      #= Both inside, do nothing.
+         Both outside:
+         cr1 = inStream(cr2);
+         cr2 = inStream(cr1); =#
+      @assign cref1 = fromCref(cr1)
+      @assign cref2 = fromCref(cr2)
+      @assign e1 = makeInStreamCall(cref2)
+      @assign e2 = makeInStreamCall(cref1)
+      @assign src = src1
+      list(
+        EQUATION_EQUALITY(cref1, e1, TYPE_REAL(), src),
+        EQUATION_EQUALITY(cref2, e2, TYPE_REAL(), src),
+      )
+    end
 
-      CONNECTOR(name = cr1, source = src1) <|
-      CONNECTOR(name = cr2, source = src2) <| nil() => begin
-        #= One inside, one outside:
-           cr1 = cr2; =#
-        @assign src = src1
-        list(EQUATION_CREF_EQUALITY(cr1, cr2, src))
-      end
+    CONNECTOR(name = cr1, source = src1) <|
+    CONNECTOR(name = cr2, source = src2) <| nil() => begin
+      #= One inside, one outside:
+         cr1 = cr2; =#
+      @assign src = src1
+      list(EQUATION_CREF_EQUALITY(cr1, cr2, src))
+    end
 
-      _ => begin
-        #= The general case with N inside connectors and M outside: =#
-         (outside, inside) =
-          ListUtil.splitOnTrue(elements, isOutside, CONNECTOR)
-        streamEquationGeneral(outside, inside, flowThreshold)
-      end
+    _ => begin
+      #= The general case with N inside connectors and M outside: =#
+       (outside, inside) =
+        ListUtil.splitOnTrue(elements, isOutside, CONNECTOR)
+      streamEquationGeneral(outside, inside, flowThreshold)
     end
   end
-  return equations
 end
 
 """Generates an equation for an outside stream connector element."""
@@ -786,30 +782,26 @@ function makePositiveMaxCall(
 end
 
 function isStreamCall(@nospecialize(exp::Expression))::Bool
-  local streamCall::Bool
-  streamCall = begin
-    @match exp begin
-      CALL_EXPRESSION(__) => begin
-        begin
-          @match name(typedFunction(exp.call)) begin
-            Absyn.IDENT("inStream") => begin
-              true
-            end
-            Absyn.IDENT("actualStream") => begin
-              true
-            end
-            _ => begin
-              false
-            end
+  @match exp begin
+    CALL_EXPRESSION(__) => begin
+      begin
+        @match name(typedFunction(exp.call)) begin
+          Absyn.IDENT("inStream") => begin
+            true
+          end
+          Absyn.IDENT("actualStream") => begin
+            true
+          end
+          _ => begin
+            false
           end
         end
       end
-      _ => begin
-        false
-      end
+    end
+    _ => begin
+      false
     end
   end
-  return streamCall
 end
 
 function evaluateOperatorReductionExp(

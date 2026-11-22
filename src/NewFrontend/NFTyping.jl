@@ -34,20 +34,7 @@
 */ =#
 
 @UniontypeDecl TypingError
-function isError(error::TypingError)::Bool
-  local isError::Bool
-   isError = begin
-    @match error begin
-      NO_ERROR(__) => begin
-        false
-      end
-      _ => begin
-        true
-      end
-    end
-  end
-  return isError
-end
+isError(error::TypingError)::Bool = !isvariant(error, NO_ERROR)
 
 @Uniontype TypingError begin
   @Record OUT_OF_BOUNDS begin
@@ -938,18 +925,16 @@ function typeDimension2(
             end
           end
         end
-        () = begin
-          @match ty_err begin
-            OUT_OF_BOUNDS(__) => begin
-              Error.addSourceMessage(
-                Error.DIMENSION_DEDUCTION_FROM_BINDING_FAILURE,
-                list(string(index), name(component), toString(b)),
-                info,
-              )
-            end
-            _ => begin
-              ()
-            end
+        @match ty_err begin
+          OUT_OF_BOUNDS(__) => begin
+            Error.addSourceMessage(
+              Error.DIMENSION_DEDUCTION_FROM_BINDING_FAILURE,
+              list(string(index), name(component), toString(b)),
+              info,
+            )
+          end
+          _ => begin
+            ()
           end
         end
         #= Make sure the dimension is constant evaluted, and also mark it as structural. =#
@@ -3182,37 +3167,35 @@ function typeComponentSections(c::InstNode, origin::ORIGIN_Type)::InstNode
   comp = component(node)
   #= An outer left uninstantiated, its inner encloses it (instComponent): no sections of its own. =#
   isDefinition(comp) && isvariant(c, INNER_OUTER_NODE) && return c
-  () = begin
-    @match comp begin
-      TYPED_COMPONENT(__) => begin
-        local classInst = typeClassSections(comp.classInst, origin)
-        if classInst !== comp.classInst
-          if _parallelTypingActive()
-            #= On the component as it is under the claim (see typeComponentChildren!): typing
-               the sections evaluates parameters, and writing back the copy read before them
-               dropped a binding evaluated meanwhile. =#
-            local n0 = node
-            _withClaim(_refId(n0)) do
-              local c2 = component(n0)
-              @assign c2.classInst = classInst
-              updateComponent!(c2, n0)
-            end
-          else
-            @assign comp.classInst = classInst
-            node = updateComponent!(comp, node)
+  @match comp begin
+    TYPED_COMPONENT(__) => begin
+      local classInst = typeClassSections(comp.classInst, origin)
+      if classInst !== comp.classInst
+        if _parallelTypingActive()
+          #= On the component as it is under the claim (see typeComponentChildren!): typing
+             the sections evaluates parameters, and writing back the copy read before them
+             dropped a binding evaluated meanwhile. =#
+          local n0 = node
+          _withClaim(_refId(n0)) do
+            local c2 = component(n0)
+            @assign c2.classInst = classInst
+            updateComponent!(c2, n0)
           end
+        else
+          @assign comp.classInst = classInst
+          node = updateComponent!(comp, node)
         end
-        ()
       end
+      ()
+    end
 
-      _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() + " got uninstantiated component " + name(node)::String,
-          sourceInfo(),
-        )
-        fail()
-      end
+    _ => begin
+      Error.assertion(
+        false,
+        getInstanceName() + " got uninstantiated component " + name(node)::String,
+        sourceInfo(),
+      )
+      fail()
     end
   end
   return is_self ? node : INNER_OUTER_NODE(c.innerNode, node)
@@ -3499,27 +3482,23 @@ function checkConnectorForm(cref::ComponentRef, isConnectorBool::Bool = true)::B
 end
 
 @nospecializeinfer function checkLhsInWhen(@nospecialize(exp::Expression))::Bool
-  local isValid::Bool
 
-   isValid = begin
-    @match exp begin
-      CREF_EXPRESSION(__) => begin
-        true
-      end
+   @match exp begin
+     CREF_EXPRESSION(__) => begin
+       true
+     end
 
-      TUPLE_EXPRESSION(__) => begin
-        for e in exp.elements
-          checkLhsInWhen(e)
-        end
-        true
-      end
+     TUPLE_EXPRESSION(__) => begin
+       for e in exp.elements
+         checkLhsInWhen(e)
+       end
+       true
+     end
 
-      _ => begin
-        false
-      end
-    end
-  end
-  return isValid
+     _ => begin
+       false
+     end
+   end
 end
 
 function typeAlgorithm(alg::ALGORITHM, origin::ORIGIN_Type)::ALGORITHM
@@ -3907,36 +3886,32 @@ end
 end
 
 @nospecializeinfer function isNonConstantIfCondition(@nospecialize(exp::Expression))::Bool
-  local isConstant::Bool
-  isConstant = begin
-    local fn::MODELICA_FUNCTION
-    @match exp begin
-      CREF_EXPRESSION(__) => begin
-        isIterator(exp.cref)
-      end
-      CALL_EXPRESSION(call = TYPED_CALL(fn = fn)) => begin
-        begin
-          @match AbsynUtil.pathFirstIdent(fn.path) begin
-            "Connections" => begin
-              true
-            end
+  local fn::MODELICA_FUNCTION
+  @match exp begin
+    CREF_EXPRESSION(__) => begin
+      isIterator(exp.cref)
+    end
+    CALL_EXPRESSION(call = TYPED_CALL(fn = fn)) => begin
+      begin
+        @match AbsynUtil.pathFirstIdent(fn.path) begin
+          "Connections" => begin
+            true
+          end
 
-            "cardinality" => begin
-              true
-            end
+          "cardinality" => begin
+            true
+          end
 
-            _ => begin
-              isImpure(exp.call)
-            end
+          _ => begin
+            isImpure(exp.call)
           end
         end
       end
-      _ => begin
-        false
-      end
+    end
+    _ => begin
+      false
     end
   end
-  return isConstant
 end
 
 """

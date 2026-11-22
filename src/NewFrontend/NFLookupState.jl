@@ -79,19 +79,15 @@ end
 end
 
 function toString(name::LookupStateName)::String
-  local str::String
-  str = begin
-    @match name begin
-      LOOKUP_STATE_NAME_PATH(__) => begin
-        AbsynUtil.pathString(name.path)
-      end
+  @match name begin
+    LOOKUP_STATE_NAME_PATH(__) => begin
+      AbsynUtil.pathString(name.path)
+    end
 
-      LOOKUP_STATE_NAME_CREF(__) => begin
-        AbsynUtil.printComponentRefStr(name.cref)
-      end
+    LOOKUP_STATE_NAME_CREF(__) => begin
+      AbsynUtil.printComponentRefStr(name.cref)
     end
   end
-  return str
 end
 
 """ #= This function implements the state machine that checks which transitions are
@@ -198,26 +194,22 @@ end
 
 """Returns the lookup state of a given element."""
 function elementState(element::SCode.Element)::LookupState
-  local state::LookupState
-  @assign state = begin
-    @match element begin
-      SCode.CLASS(restriction = SCode.R_PACKAGE(__)) => begin
-        LOOKUP_STATE_PACKAGE()
-      end
+  @match element begin
+    SCode.CLASS(restriction = SCode.R_PACKAGE(__)) => begin
+      LOOKUP_STATE_PACKAGE()
+    end
 
-      SCode.CLASS(restriction = SCode.R_FUNCTION(__)) => begin
-        LOOKUP_STATE_FUNC()
-      end
-      SCode.CLASS(__) => begin
-        LOOKUP_STATE_CLASS()
-      end
-      _ => begin
-        Error.assertion(false, getInstanceName() + " got unknown element.", sourceInfo())
-        fail()
-      end
+    SCode.CLASS(restriction = SCode.R_FUNCTION(__)) => begin
+      LOOKUP_STATE_FUNC()
+    end
+    SCode.CLASS(__) => begin
+      LOOKUP_STATE_CLASS()
+    end
+    _ => begin
+      Error.assertion(false, getInstanceName() + " got unknown element.", sourceInfo())
+      fail()
     end
   end
-  return state
 end
 
 function nodeState(node::InstNode)::LookupState
@@ -308,70 +300,52 @@ end
 
 """Returns the string representation of a LookupState, with translation."""
 function lookupStateString(state::LookupState)::String
-  local str::String
-  str = begin
-    @match state begin
-      LOOKUP_STATE_BEGIN(__) => begin
-        "<begin>"
-      end
-      LOOKUP_STATE_COMP(__) => begin
-        System.gettext("component")
-      end
+  @match state begin
+    LOOKUP_STATE_BEGIN(__) => begin
+      "<begin>"
+    end
+    LOOKUP_STATE_COMP(__) => begin
+      System.gettext("component")
+    end
 
-      LOOKUP_STATE_COMP_COMP(__) => begin
-        System.gettext("component")
-      end
+    LOOKUP_STATE_COMP_COMP(__) => begin
+      System.gettext("component")
+    end
 
-      LOOKUP_STATE_COMP_CLASS(__) => begin
-        System.gettext("class")
-      end
+    LOOKUP_STATE_COMP_CLASS(__) => begin
+      System.gettext("class")
+    end
 
-      LOOKUP_STATE_COMP_FUNC(__) => begin
-        System.gettext("function")
-      end
+    LOOKUP_STATE_COMP_FUNC(__) => begin
+      System.gettext("function")
+    end
 
-      LOOKUP_STATE_PACKAGE(__) => begin
-        System.gettext("package")
-      end
+    LOOKUP_STATE_PACKAGE(__) => begin
+      System.gettext("package")
+    end
 
-      LOOKUP_STATE_CLASS(__) => begin
-        System.gettext("class")
-      end
+    LOOKUP_STATE_CLASS(__) => begin
+      System.gettext("class")
+    end
 
-      LOOKUP_STATE_FUNC(__) => begin
-        System.gettext("function")
-      end
+    LOOKUP_STATE_FUNC(__) => begin
+      System.gettext("function")
+    end
 
-      LOOKUP_STATE_PREDEF_COMP(__) => begin
-        System.gettext("component")
-      end
+    LOOKUP_STATE_PREDEF_COMP(__) => begin
+      System.gettext("component")
+    end
 
-      LOOKUP_STATE_PREDEF_CLASS(__) => begin
-        System.gettext("class")
-      end
-      _ => begin
-        System.gettext("error")
-      end
+    LOOKUP_STATE_PREDEF_CLASS(__) => begin
+      System.gettext("class")
+    end
+    _ => begin
+      System.gettext("error")
     end
   end
-  return str
 end
 
-function isError(state::LookupState)::Bool
-  local isError::Bool
-  @assign isError = begin
-    @match state begin
-      LOOKUP_STATE_ERROR(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return isError
-end
+isError(state::LookupState)::Bool = isvariant(state, LOOKUP_STATE_ERROR)
 
 @nospecializeinfer function assertState(
   @nospecialize(endState::LookupState),
@@ -553,62 +527,35 @@ end
   end
 end
 
-function isClass(state::LookupState)::Bool
-  local isClass::Bool
-
-  @assign isClass = begin
-    @match state begin
-      LOOKUP_STATE_COMP_CLASS(__) => begin
-        true
-      end
-
-      LOOKUP_STATE_CLASS(__) => begin
-        true
-      end
-
-      LOOKUP_STATE_PREDEF_CLASS(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return isClass
-end
+isClass(state::LookupState)::Bool = isvariant(state, LOOKUP_STATE_COMP_CLASS) || isvariant(state, LOOKUP_STATE_CLASS) || isvariant(state, LOOKUP_STATE_PREDEF_CLASS)
 
 function isFunction(state::LookupState, node::InstNode)::Bool
-  local isFunction::Bool
 
-  @assign isFunction = begin
-    @match state begin
-      LOOKUP_STATE_FUNC(__) => begin
-        true
-      end
+  @match state begin
+    LOOKUP_STATE_FUNC(__) => begin
+      true
+    end
 
-      LOOKUP_STATE_COMP_FUNC(__) => begin
-        true
-      end
+    LOOKUP_STATE_COMP_FUNC(__) => begin
+      true
+    end
 
-      LOOKUP_STATE_CLASS(__) => begin
-        isCallableType(node)
-      end
+    LOOKUP_STATE_CLASS(__) => begin
+      isCallableType(node)
+    end
 
-      LOOKUP_STATE_COMP(__) => begin
-        isCallableComponent(node)
-      end
+    LOOKUP_STATE_COMP(__) => begin
+      isCallableComponent(node)
+    end
 
-      LOOKUP_STATE_COMP_COMP(__) => begin
-        isCallableComponent(node)
-      end
+    LOOKUP_STATE_COMP_COMP(__) => begin
+      isCallableComponent(node)
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return isFunction
 end
 
 function isCallableComponent(node::InstNode)::Bool

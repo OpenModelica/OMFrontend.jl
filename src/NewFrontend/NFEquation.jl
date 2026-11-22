@@ -34,24 +34,20 @@
 */ =#
 
 @nospecializeinfer function isMultiLine(@nospecialize(eq::Equation))::Bool
-  local singleLine::Bool
-   singleLine = begin
-    @match eq begin
-      EQUATION_FOR(__) => begin
-        true
-      end
-      EQUATION_IF(__) => begin
-        true
-      end
-      EQUATION_WHEN(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return singleLine
+   @match eq begin
+     EQUATION_FOR(__) => begin
+       true
+     end
+     EQUATION_IF(__) => begin
+       true
+     end
+     EQUATION_WHEN(__) => begin
+       true
+     end
+     _ => begin
+       false
+     end
+   end
 end
 
 function toFlatString(eq::Equation; ident = "")
@@ -394,20 +390,7 @@ function replaceIteratorList(eql::Vector{Equation}, iterator::InstNode, @nospeci
   mapExpList(eql, (@nospecialize(expArg::Expression),) -> replaceIterator(expArg, iterator, value))
 end
 
-function isConnect(@nospecialize(eq::Equation))::Bool
-  local isConnect::Bool
-  isConnect = begin
-    @match eq begin
-      CONNECT(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return isConnect
-end
+isConnect(@nospecialize(eq::Equation))::Bool = isvariant(eq, CONNECT)
 
 function containsList(eql::Vector{Equation}, func::PredFn)::Bool
   local res::Bool = false
@@ -433,19 +416,17 @@ end
       end
       EQUATION_IF(__) => begin
         for b in eq.branches
-          () = begin
-            @match b begin
-              EQUATION_BRANCH(__) => begin
-                if containsList(b.body, func)
-                  res = true
-                  return res
-                end
-                ()
+          @match b begin
+            EQUATION_BRANCH(__) => begin
+              if containsList(b.body, func)
+                res = true
+                return res
               end
+              ()
+            end
 
-              _ => begin
-                ()
-              end
+            _ => begin
+              ()
             end
           end
         end
@@ -453,19 +434,17 @@ end
       end
       EQUATION_WHEN(__) => begin
         for b in eq.branches
-          () = begin
-            @match b begin
-              EQUATION_BRANCH(__) => begin
-                if containsList(b.body, func)
-                  res = true
-                  return res
-                end
-                ()
+          @match b begin
+            EQUATION_BRANCH(__) => begin
+              if containsList(b.body, func)
+                res = true
+                return res
               end
+              ()
+            end
 
-              _ => begin
-                ()
-              end
+            _ => begin
+              ()
             end
           end
         end
@@ -481,100 +460,94 @@ end
 end
 
 @nospecializeinfer function foldExp(@nospecialize(eq::Equation), func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
-   () = begin
-    @match eq begin
-      EQUATION_EQUALITY(__) => begin
-         arg = func(eq.lhs, arg)::ArgT
-         arg = func(eq.rhs, arg)::ArgT
-        ()
-      end
+   @match eq begin
+     EQUATION_EQUALITY(__) => begin
+        arg = func(eq.lhs, arg)::ArgT
+        arg = func(eq.rhs, arg)::ArgT
+       ()
+     end
 
-      EQUATION_ARRAY_EQUALITY(__) => begin
-         arg = func(eq.lhs, arg)::ArgT
-         arg = func(eq.rhs, arg)::ArgT
-        ()
-      end
+     EQUATION_ARRAY_EQUALITY(__) => begin
+        arg = func(eq.lhs, arg)::ArgT
+        arg = func(eq.rhs, arg)::ArgT
+       ()
+     end
 
-      EQUATION_CONNECT(__) => begin
-         arg = func(eq.lhs, arg)::ArgT
-         arg = func(eq.rhs, arg)::ArgT
-        ()
-      end
+     EQUATION_CONNECT(__) => begin
+        arg = func(eq.lhs, arg)::ArgT
+        arg = func(eq.rhs, arg)::ArgT
+       ()
+     end
 
-      EQUATION_FOR(__) => begin
-         arg = foldExpList(eq.body, func, arg, ArgT)
-        if isSome(eq.range)
-           arg = func(Util.getOption(eq.range), arg)::ArgT
-        end
-        ()
-      end
+     EQUATION_FOR(__) => begin
+        arg = foldExpList(eq.body, func, arg, ArgT)
+       if isSome(eq.range)
+          arg = func(Util.getOption(eq.range), arg)::ArgT
+       end
+       ()
+     end
 
-      EQUATION_IF(__) => begin
-        for b in eq.branches
-           () = begin
-            @match b begin
-              EQUATION_BRANCH(__) => begin
-                 arg = func(b.condition, arg)::ArgT
-                 arg = foldExpList(b.body, func, arg, ArgT)
-                ()
-              end
+     EQUATION_IF(__) => begin
+       for b in eq.branches
+          @match b begin
+            EQUATION_BRANCH(__) => begin
+               arg = func(b.condition, arg)::ArgT
+               arg = foldExpList(b.body, func, arg, ArgT)
+              ()
+            end
 
-              _ => begin
-                ()
-              end
+            _ => begin
+              ()
             end
           end
-        end
-        ()
-      end
+       end
+       ()
+     end
 
-      EQUATION_WHEN(__) => begin
-        for b in eq.branches
-          () = begin
-            @match b begin
-              EQUATION_BRANCH(__) => begin
-                arg = func(b.condition, arg)::ArgT
-                arg = foldExpList(b.body, func, arg, ArgT)
-                ()
-              end
+     EQUATION_WHEN(__) => begin
+       for b in eq.branches
+         @match b begin
+           EQUATION_BRANCH(__) => begin
+             arg = func(b.condition, arg)::ArgT
+             arg = foldExpList(b.body, func, arg, ArgT)
+             ()
+           end
 
-              _ => begin
-                ()
-              end
-            end
-          end
-        end
-        ()
-      end
+           _ => begin
+             ()
+           end
+         end
+       end
+       ()
+     end
 
-      EQUATION_ASSERT(__) => begin
-        arg = func(eq.condition, arg)::ArgT
-        arg = func(eq.message, arg)::ArgT
-        arg = func(eq.level, arg)::ArgT
-        ()
-      end
+     EQUATION_ASSERT(__) => begin
+       arg = func(eq.condition, arg)::ArgT
+       arg = func(eq.message, arg)::ArgT
+       arg = func(eq.level, arg)::ArgT
+       ()
+     end
 
-      EQUATION_TERMINATE(__) => begin
-        arg = func(eq.message, arg)::ArgT
-        ()
-      end
+     EQUATION_TERMINATE(__) => begin
+       arg = func(eq.message, arg)::ArgT
+       ()
+     end
 
-      EQUATION_REINIT(__) => begin
-        arg = func(eq.cref, arg)::ArgT
-        arg = func(eq.reinitExp, arg)::ArgT
-        ()
-      end
+     EQUATION_REINIT(__) => begin
+       arg = func(eq.cref, arg)::ArgT
+       arg = func(eq.reinitExp, arg)::ArgT
+       ()
+     end
 
-      EQUATION_NORETCALL(__) => begin
-        arg = func(eq.exp, arg)::ArgT
-        ()
-      end
+     EQUATION_NORETCALL(__) => begin
+       arg = func(eq.exp, arg)::ArgT
+       ()
+     end
 
-      _ => begin
-        ()
-      end
-    end
-  end
+     _ => begin
+       ()
+     end
+   end
   return arg
 end
 
@@ -781,60 +754,54 @@ Applies the function `func` to `eq`
 end
 
 @nospecializeinfer function apply(@nospecialize(eq::Equation), func::ApplyFn)
-   () = begin
-    @match eq begin
-      FOR(__) => begin
-        for e in eq.body
-          apply(e, func)
-        end
-        ()
-      end
+   @match eq begin
+     FOR(__) => begin
+       for e in eq.body
+         apply(e, func)
+       end
+       ()
+     end
 
-      IF(__) => begin
-        for b in eq.branches
-           () = begin
-            @match b begin
-              BRANCH(__) => begin
-                for e in b.body
-                  apply(e, func)
-                end
-                ()
+     IF(__) => begin
+       for b in eq.branches
+          @match b begin
+            BRANCH(__) => begin
+              for e in b.body
+                apply(e, func)
               end
+              ()
+            end
 
-              _ => begin
-                ()
-              end
+            _ => begin
+              ()
             end
           end
-        end
-        ()
-      end
+       end
+       ()
+     end
 
-      WHEN(__) => begin
-        for b in eq.branches
-           () = begin
-            @match b begin
-              BRANCH(__) => begin
-                for e in b.body
-                  apply(e, func)
-                end
-                ()
+     WHEN(__) => begin
+       for b in eq.branches
+          @match b begin
+            BRANCH(__) => begin
+              for e in b.body
+                apply(e, func)
               end
+              ()
+            end
 
-              _ => begin
-                ()
-              end
+            _ => begin
+              ()
             end
           end
-        end
-        ()
-      end
+       end
+       ()
+     end
 
-      _ => begin
-        ()
-      end
-    end
-  end
+     _ => begin
+       ()
+     end
+   end
   return func(eq)
 end
 
@@ -850,49 +817,45 @@ end
 end
 
 @nospecializeinfer function source(@nospecialize(eq::Equation))::SourceInfo
-  local sourceVar::SourceInfo
-   sourceVar = begin
-    @match eq begin
-      EQUATION_EQUALITY(__) => begin
-        eq.source
-      end
-      EQUATION_CREF_EQUALITY(__) => begin
-        eq.source
-      end
-      EQUATION_ARRAY_EQUALITY(__) => begin
-        eq.source
-      end
-      EQUATION_CONNECT(__) => begin
-        eq.source
-      end
-      EQUATION_FOR(__) => begin
-        eq.source
-      end
-      EQUATION_IF(__) => begin
-        eq.source
-      end
-      EQUATION_WHEN(__) => begin
-        eq.source
-      end
-      EQUATION_ASSERT(__) => begin
-        eq.source
-      end
-      EQUATION_TERMINATE(__) => begin
-        eq.source
-      end
-      EQUATION_REINIT(__) => begin
-        eq.source
-      end
-      EQUATION_NORETCALL(__) => begin
-        eq.source
-      end
-      #= checkDeletedVarRefs reads every equation's source (an agentic model's MatchFailure) =#
-      EQUATION_RECONFIGURE(__) => begin
-        eq.source
-      end
-    end
-  end
-  return sourceVar
+   @match eq begin
+     EQUATION_EQUALITY(__) => begin
+       eq.source
+     end
+     EQUATION_CREF_EQUALITY(__) => begin
+       eq.source
+     end
+     EQUATION_ARRAY_EQUALITY(__) => begin
+       eq.source
+     end
+     EQUATION_CONNECT(__) => begin
+       eq.source
+     end
+     EQUATION_FOR(__) => begin
+       eq.source
+     end
+     EQUATION_IF(__) => begin
+       eq.source
+     end
+     EQUATION_WHEN(__) => begin
+       eq.source
+     end
+     EQUATION_ASSERT(__) => begin
+       eq.source
+     end
+     EQUATION_TERMINATE(__) => begin
+       eq.source
+     end
+     EQUATION_REINIT(__) => begin
+       eq.source
+     end
+     EQUATION_NORETCALL(__) => begin
+       eq.source
+     end
+     #= checkDeletedVarRefs reads every equation's source (an agentic model's MatchFailure) =#
+     EQUATION_RECONFIGURE(__) => begin
+       eq.source
+     end
+   end
 end
 
 function makeIf(branches::Vector{<:EquationBranch}, src::SourceInfo)

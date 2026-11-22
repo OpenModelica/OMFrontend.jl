@@ -113,22 +113,7 @@ function getElementNamed(id::SCode.Ident, cls::SCode.Element)::SCode.Element
 end
 
 """Returns true if Variability is constant, otherwise false"""
-function isConstant(inVariability::SCode.Variability)::Bool
-  local outBoolean::Bool
-
-  @assign outBoolean = begin
-    @match inVariability begin
-      SCode.CONST(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outBoolean
-end
+isConstant(inVariability::SCode.Variability)::Bool = isvariant(inVariability, SCode.CONST)
 
 """retrieves the element info"""
 function elementInfo(e::SCode.Element)::SourceInfo
@@ -188,112 +173,92 @@ end
 
 """Gets all elements that have an element name from the list"""
 function elementNamesWork(e::SCode.Element, acc::List{<:String})::List{String}
-  local out::List{String}
 
-  @assign out = begin
-    local s::String
-    @match (e, acc) begin
-      (SCode.COMPONENT(name = s), _) => begin
-        _cons(s, acc)
-      end
+  local s::String
+  @match (e, acc) begin
+    (SCode.COMPONENT(name = s), _) => begin
+      _cons(s, acc)
+    end
 
-      (SCode.CLASS(name = s), _) => begin
-        _cons(s, acc)
-      end
+    (SCode.CLASS(name = s), _) => begin
+      _cons(s, acc)
+    end
 
-      _ => begin
-        acc
-      end
+    _ => begin
+      acc
     end
   end
-  return out
 end
 
 function elementNameEqual(inElement1::SCode.Element, inElement2::SCode.Element)::Bool
-  local outEqual::Bool
 
-  @assign outEqual = begin
-    @match (inElement1, inElement2) begin
-      (SCode.CLASS(__), SCode.CLASS(__)) => begin
-        inElement1.name == inElement2.name
-      end
+  @match (inElement1, inElement2) begin
+    (SCode.CLASS(__), SCode.CLASS(__)) => begin
+      inElement1.name == inElement2.name
+    end
 
-      (SCode.COMPONENT(__), SCode.COMPONENT(__)) => begin
-        inElement1.name == inElement2.name
-      end
+    (SCode.COMPONENT(__), SCode.COMPONENT(__)) => begin
+      inElement1.name == inElement2.name
+    end
 
-      (SCode.DEFINEUNIT(__), SCode.DEFINEUNIT(__)) => begin
-        inElement1.name == inElement2.name
-      end
+    (SCode.DEFINEUNIT(__), SCode.DEFINEUNIT(__)) => begin
+      inElement1.name == inElement2.name
+    end
 
-      (SCode.EXTENDS(__), SCode.EXTENDS(__)) => begin
-        AbsynUtil.pathEqual(inElement1.baseClassPath, inElement2.baseClassPath)
-      end
+    (SCode.EXTENDS(__), SCode.EXTENDS(__)) => begin
+      AbsynUtil.pathEqual(inElement1.baseClassPath, inElement2.baseClassPath)
+    end
 
-      (SCode.IMPORT(__), SCode.IMPORT(__)) => begin
-        AbsynUtil.importEqual(inElement1.imp, inElement2.imp)
-      end
+    (SCode.IMPORT(__), SCode.IMPORT(__)) => begin
+      AbsynUtil.importEqual(inElement1.imp, inElement2.imp)
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return outEqual
 end
 
 """Return true if Class is a record."""
 function isRecord(inClass::SCode.Element)::Bool
-  local outBoolean::Bool
 
-  @assign outBoolean = begin
-    @match inClass begin
-      SCode.CLASS(restriction = SCode.R_RECORD(__)) => begin
-        true
-      end
+  @match inClass begin
+    SCode.CLASS(restriction = SCode.R_RECORD(__)) => begin
+      true
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return outBoolean
 end
 
 """Return true if Class is a operator record."""
 function isOperatorRecord(inClass::SCode.Element)::Bool
-  local outBoolean::Bool
 
-  @assign outBoolean = begin
-    @match inClass begin
-      SCode.CLASS(restriction = SCode.R_RECORD(true)) => begin
-        true
-      end
+  @match inClass begin
+    SCode.CLASS(restriction = SCode.R_RECORD(true)) => begin
+      true
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return outBoolean
 end
 
 """Return true if Class is a function."""
 function isFunction(inClass::SCode.Element)::Bool
-  local outBoolean::Bool
 
-  @assign outBoolean = begin
-    @match inClass begin
-      SCode.CLASS(restriction = SCode.R_FUNCTION(__)) => begin
-        true
-      end
+  @match inClass begin
+    SCode.CLASS(restriction = SCode.R_FUNCTION(__)) => begin
+      true
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return outBoolean
 end
 
 """
@@ -301,43 +266,23 @@ end
   Otherwise false is returned.
 """
 function isOperator(el::SCode.Element)::Bool
-  local res::Bool
 
-  @assign res = begin
-    @match el begin
-      SCode.CLASS(restriction = SCode.R_OPERATOR(__)) => begin
-        true
-      end
+  @match el begin
+    SCode.CLASS(restriction = SCode.R_OPERATOR(__)) => begin
+      true
+    end
 
-      SCode.CLASS(restriction = SCode.R_FUNCTION(SCode.FR_OPERATOR_FUNCTION(__))) => begin
-        true
-      end
+    SCode.CLASS(restriction = SCode.R_FUNCTION(SCode.FR_OPERATOR_FUNCTION(__))) => begin
+      true
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return res
 end
 
-
 #= stefan =#
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 """This function returns the components from a class"""
 function getClassElements(cl::SCode.Element)::List{SCode.Element}
@@ -363,40 +308,9 @@ function getClassElements(cl::SCode.Element)::List{SCode.Element}
   return elts
 end
 
+isComponent(elt::SCode.Element)::Bool = isvariant(elt, SCode.COMPONENT)
 
-function isComponent(elt::SCode.Element)::Bool
-  local b::Bool
-
-  @assign b = begin
-    @match elt begin
-      SCode.COMPONENT(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return b
-end
-
-function isClass(inElement::SCode.Element)::Bool
-  local outIsClass::Bool
-
-  @assign outIsClass = begin
-    @match inElement begin
-      SCode.CLASS(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outIsClass
-end
+isClass(inElement::SCode.Element)::Bool = isvariant(inElement, SCode.CLASS)
 
 const knownExternalCFunctions =
   list(
@@ -448,77 +362,73 @@ end
 
 """Extracts the SourceInfo from a Statement."""
 function getStatementInfo(inStatement::SCode.Statement)::SourceInfo
-  local outInfo::SourceInfo
 
-  @assign outInfo = begin
-    @match inStatement begin
-      SCode.ALG_ASSIGN(__) => begin
-        inStatement.info
-      end
+  @match inStatement begin
+    SCode.ALG_ASSIGN(__) => begin
+      inStatement.info
+    end
 
-      SCode.ALG_IF(__) => begin
-        inStatement.info
-      end
+    SCode.ALG_IF(__) => begin
+      inStatement.info
+    end
 
-      SCode.ALG_FOR(__) => begin
-        inStatement.info
-      end
+    SCode.ALG_FOR(__) => begin
+      inStatement.info
+    end
 
-      SCode.ALG_PARFOR(__) => begin
-        inStatement.info
-      end
+    SCode.ALG_PARFOR(__) => begin
+      inStatement.info
+    end
 
-      SCode.ALG_WHILE(__) => begin
-        inStatement.info
-      end
+    SCode.ALG_WHILE(__) => begin
+      inStatement.info
+    end
 
-      SCode.ALG_WHEN_A(__) => begin
-        inStatement.info
-      end
+    SCode.ALG_WHEN_A(__) => begin
+      inStatement.info
+    end
 
-      SCode.ALG_ASSERT(__) => begin
-        inStatement.info
-      end
+    SCode.ALG_ASSERT(__) => begin
+      inStatement.info
+    end
 
-      SCode.ALG_TERMINATE(__) => begin
-        inStatement.info
-      end
+    SCode.ALG_TERMINATE(__) => begin
+      inStatement.info
+    end
 
-      SCode.ALG_REINIT(__) => begin
-        inStatement.info
-      end
+    SCode.ALG_REINIT(__) => begin
+      inStatement.info
+    end
 
-      SCode.ALG_NORETCALL(__) => begin
-        inStatement.info
-      end
+    SCode.ALG_NORETCALL(__) => begin
+      inStatement.info
+    end
 
-      SCode.ALG_RETURN(__) => begin
-        inStatement.info
-      end
+    SCode.ALG_RETURN(__) => begin
+      inStatement.info
+    end
 
-      SCode.ALG_BREAK(__) => begin
-        inStatement.info
-      end
+    SCode.ALG_BREAK(__) => begin
+      inStatement.info
+    end
 
-      SCode.ALG_FAILURE(__) => begin
-        inStatement.info
-      end
+    SCode.ALG_FAILURE(__) => begin
+      inStatement.info
+    end
 
-      SCode.ALG_TRY(__) => begin
-        inStatement.info
-      end
+    SCode.ALG_TRY(__) => begin
+      inStatement.info
+    end
 
-      SCode.ALG_CONTINUE(__) => begin
-        inStatement.info
-      end
+    SCode.ALG_CONTINUE(__) => begin
+      inStatement.info
+    end
 
-      _ => begin
-        Error.addInternalError("SCodeUtil.getStatementInfo failed", sourceInfo())
-        AbsynUtil.dummyInfo
-      end
+    _ => begin
+      Error.addInternalError("SCodeUtil.getStatementInfo failed", sourceInfo())
+      AbsynUtil.dummyInfo
     end
   end
-  return outInfo
 end
 
 function prependSubModToMod(subMod::SCode.NAMEMOD, mod::SCode.Mod)
@@ -542,20 +452,16 @@ end
 
 """returns true for PUBLIC and false for PROTECTED"""
 function visibilityBool(inVisibility::SCode.Visibility)::Bool
-  local bVisibility::Bool
 
-  @assign bVisibility = begin
-    @match inVisibility begin
-      SCode.PUBLIC(__) => begin
-        true
-      end
+  @match inVisibility begin
+    SCode.PUBLIC(__) => begin
+      true
+    end
 
-      SCode.PROTECTED(__) => begin
-        false
-      end
+    SCode.PROTECTED(__) => begin
+      false
     end
   end
-  return bVisibility
 end
 
 eachBool(inEach::SCode.EACH) = true
@@ -569,105 +475,81 @@ function prefixesRedeclare(inPrefixes::SCode.PREFIXES)::SCode.Redeclare
 end
 
 function redeclareBool(inRedeclare::SCode.Redeclare)::Bool
-  local bRedeclare::Bool
 
-  @assign bRedeclare = begin
-    @match inRedeclare begin
-      SCode.REDECLARE(__) => begin
-        true
-      end
+  @match inRedeclare begin
+    SCode.REDECLARE(__) => begin
+      true
+    end
 
-      SCode.NOT_REDECLARE(__) => begin
-        false
-      end
+    SCode.NOT_REDECLARE(__) => begin
+      false
     end
   end
-  return bRedeclare
 end
 
 function boolRedeclare(inBoolRedeclare::Bool)::SCode.Redeclare
-  local outRedeclare::SCode.Redeclare
 
-  @assign outRedeclare = begin
-    @match inBoolRedeclare begin
-      true => begin
-        SCode.REDECLARE()
-      end
+  @match inBoolRedeclare begin
+    true => begin
+      SCode.REDECLARE()
+    end
 
-      false => begin
-        SCode.NOT_REDECLARE()
-      end
+    false => begin
+      SCode.NOT_REDECLARE()
     end
   end
-  return outRedeclare
 end
 
 function replaceableBool(inReplaceable::SCode.Replaceable)::Bool
-  local bReplaceable::Bool
 
-  @assign bReplaceable = begin
-    @match inReplaceable begin
-      SCode.REPLACEABLE(__) => begin
-        true
-      end
+  @match inReplaceable begin
+    SCode.REPLACEABLE(__) => begin
+      true
+    end
 
-      SCode.NOT_REPLACEABLE(__) => begin
-        false
-      end
+    SCode.NOT_REPLACEABLE(__) => begin
+      false
     end
   end
-  return bReplaceable
 end
 
 function encapsulatedBool(inEncapsulated::SCode.Encapsulated)::Bool
-  local bEncapsulated::Bool
 
-  @assign bEncapsulated = begin
-    @match inEncapsulated begin
-      SCode.ENCAPSULATED(__) => begin
-        true
-      end
+  @match inEncapsulated begin
+    SCode.ENCAPSULATED(__) => begin
+      true
+    end
 
-      SCode.NOT_ENCAPSULATED(__) => begin
-        false
-      end
+    SCode.NOT_ENCAPSULATED(__) => begin
+      false
     end
   end
-  return bEncapsulated
 end
 
 function boolEncapsulated(inBoolEncapsulated::Bool)::SCode.Encapsulated
-  local outEncapsulated::SCode.Encapsulated
 
-  @assign outEncapsulated = begin
-    @match inBoolEncapsulated begin
-      true => begin
-        SCode.ENCAPSULATED()
-      end
+  @match inBoolEncapsulated begin
+    true => begin
+      SCode.ENCAPSULATED()
+    end
 
-      false => begin
-        SCode.NOT_ENCAPSULATED()
-      end
+    false => begin
+      SCode.NOT_ENCAPSULATED()
     end
   end
-  return outEncapsulated
 end
 
 function boolPartial(inBoolPartial::Bool)::SCode.Partial
-  local outPartial::SCode.Partial
 
-  @assign outPartial = begin
-    @match inBoolPartial begin
-      true => begin
-        SCode.PARTIAL()
-      end
+  @match inBoolPartial begin
+    true => begin
+      SCode.PARTIAL()
+    end
 
-      false => begin
-        SCode.NOT_PARTIAL()
-      end
+    false => begin
+      SCode.NOT_PARTIAL()
     end
   end
-  return outPartial
 end
 
 function prefixesFinal(inPrefixes::SCode.PREFIXES)::SCode.Final
@@ -678,20 +560,16 @@ function prefixesFinal(inPrefixes::SCode.PREFIXES)::SCode.Final
 end
 
 function finalBool(inFinal::SCode.Final)::Bool
-  local bFinal::Bool
 
-  @assign bFinal = begin
-    @match inFinal begin
-      SCode.FINAL(__) => begin
-        true
-      end
+  @match inFinal begin
+    SCode.FINAL(__) => begin
+      true
+    end
 
-      SCode.NOT_FINAL(__) => begin
-        false
-      end
+    SCode.NOT_FINAL(__) => begin
+      false
     end
   end
-  return bFinal
 end
 
 function boolFinal(inBoolFinal::Bool)::SCode.Final
@@ -712,9 +590,6 @@ function prefixesVisibility(inPrefixes::SCode.PREFIXES)::SCode.Visibility
   return outVisibility
 end
 
-
-
-
 """Returns the replaceable part"""
 function prefixesReplaceable(prefixes::SCode.PREFIXES)::SCode.Replaceable
   local repl::SCode.Replaceable
@@ -724,21 +599,17 @@ function prefixesReplaceable(prefixes::SCode.PREFIXES)::SCode.Replaceable
 end
 
 function elementPrefixes(inElement::SCode.Element)::SCode.PREFIXES
-  local outPrefixes::SCode.PREFIXES
 
-  @assign outPrefixes = begin
-    local pf::SCode.PREFIXES
-    @match inElement begin
-      SCode.CLASS(prefixes = pf) => begin
-        pf
-      end
+  local pf::SCode.PREFIXES
+  @match inElement begin
+    SCode.CLASS(prefixes = pf) => begin
+      pf
+    end
 
-      SCode.COMPONENT(prefixes = pf) => begin
-        pf
-      end
+    SCode.COMPONENT(prefixes = pf) => begin
+      pf
     end
   end
-  return outPrefixes
 end
 
 function isElementReplaceable(inElement::SCode.Element)::Bool
@@ -770,17 +641,13 @@ end
 
 """Return the variability attribute from Attributes"""
 function attrVariability(attr::SCode.ATTR)::SCode.Variability
-  local var::SCode.Variability
 
-  @assign var = begin
-    local v::SCode.Variability
-    @match attr begin
-      SCode.ATTR(variability = v) => begin
-        v
-      end
+  local v::SCode.Variability
+  @match attr begin
+    SCode.ATTR(variability = v) => begin
+      v
     end
   end
-  return var
 end
 
 """The annotation of an extends, class or component element, or `NONE()`."""
@@ -853,21 +720,17 @@ end
   in that case is true.
 """
 function hasNamedAnnotation(inSubMod::SCode.NAMEMOD, inName::String)::Bool
-  local outIsMatch::Bool
 
-  @assign outIsMatch = begin
-    local id::String
-    @match (inSubMod, inName) begin
-      (SCode.NAMEMOD(ident = id, mod = SCode.MOD(binding = SOME(_))), _) => begin
-        stringEq(id, inName)
-      end
+  local id::String
+  @match (inSubMod, inName) begin
+    (SCode.NAMEMOD(ident = id, mod = SCode.MOD(binding = SOME(_))), _) => begin
+      stringEq(id, inName)
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return outIsMatch
 end
 
 """
@@ -932,40 +795,32 @@ function hasBooleanNamedAnnotationInClass(
   inClass::SCode.Element,
   namedAnnotation::String,
 )::Bool
-  local hasAnn::Bool
 
-  @assign hasAnn = begin
-    local ann::SCode.ANNOTATION
-    @match (inClass, namedAnnotation) begin
-      (SCode.CLASS(cmt = SCode.COMMENT(annotation_ = SOME(ann))), _) => begin
-        hasBooleanNamedAnnotation(ann, namedAnnotation)
-      end
+  local ann::SCode.ANNOTATION
+  @match (inClass, namedAnnotation) begin
+    (SCode.CLASS(cmt = SCode.COMMENT(annotation_ = SOME(ann))), _) => begin
+      hasBooleanNamedAnnotation(ann, namedAnnotation)
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return hasAnn
 end
 
 """check if the named annotation is present and has value true"""
 function commentHasBooleanNamedAnnotation(comm::SCode.COMMENT, annotationName::String)::Bool
-  local outB::Bool
 
-  @assign outB = begin
-    local ann::SCode.ANNOTATION
-    @match (comm, annotationName) begin
-      (SCode.COMMENT(annotation_ = SOME(ann)), _) => begin
-        hasBooleanNamedAnnotation(ann, annotationName)
-      end
+  local ann::SCode.ANNOTATION
+  @match (comm, annotationName) begin
+    (SCode.COMMENT(annotation_ = SOME(ann)), _) => begin
+      hasBooleanNamedAnnotation(ann, annotationName)
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return outB
 end
 
 """
@@ -987,21 +842,17 @@ end
   in that case is true.
 """
 function hasBooleanNamedAnnotation2(inSubMod::SCode.NAMEMOD, inName::String)::Bool
-  local outIsMatch::Bool
 
-  @assign outIsMatch = begin
-    local id::String
-    @match inSubMod begin
-      SCode.NAMEMOD(ident = id, mod = SCode.MOD(binding = SOME(Absyn.BOOL(value = true)))) => begin
-        stringEq(id, inName)
-      end
+  local id::String
+  @match inSubMod begin
+    SCode.NAMEMOD(ident = id, mod = SCode.MOD(binding = SOME(Absyn.BOOL(value = true)))) => begin
+      stringEq(id, inName)
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return outIsMatch
 end
 
 """
@@ -1027,39 +878,31 @@ function getEvaluateAnnotation(cmt::SCode.COMMENT)::Option{Bool}
 end
 
 function getEvaluateAnnotation(inCommentOpt::Option{<:SCode.COMMENT})::Bool
-  local evalIsTrue::Bool
 
-  @assign evalIsTrue = begin
-    local ann::SCode.ANNOTATION
-    @match inCommentOpt begin
-      SOME(SCode.COMMENT(annotation_ = SOME(ann))) => begin
-        hasBooleanNamedAnnotation(ann, "Evaluate")
-      end
+  local ann::SCode.ANNOTATION
+  @match inCommentOpt begin
+    SOME(SCode.COMMENT(annotation_ = SOME(ann))) => begin
+      hasBooleanNamedAnnotation(ann, "Evaluate")
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return evalIsTrue
 end
 
 function getModifierBinding(inMod::SCode.Mod)::Option{Absyn.Exp}
-  local outBinding::Option{Absyn.Exp}
 
-  @assign outBinding = begin
-    local binding::Absyn.Exp
-    @match inMod begin
-      SCode.MOD(binding = SOME(binding)) => begin
-        SOME(binding)
-      end
+  local binding::Absyn.Exp
+  @match inMod begin
+    SCode.MOD(binding = SOME(binding)) => begin
+      SOME(binding)
+    end
 
-      _ => begin
-        NONE()
-      end
+    _ => begin
+      NONE()
     end
   end
-  return outBinding
 end
 
 function isElementProtected(inElement::SCode.Element)::Bool
@@ -1080,20 +923,16 @@ function elementVisibility(element::SCode.Element)::SCode.Visibility
 end
 
 function isElementEncapsulated(inElement::SCode.Element)::Bool
-  local outIsEncapsulated::Bool
 
-  @assign outIsEncapsulated = begin
-    @match inElement begin
-      SCode.CLASS(encapsulatedPrefix = SCode.ENCAPSULATED(__)) => begin
-        true
-      end
+  @match inElement begin
+    SCode.CLASS(encapsulatedPrefix = SCode.ENCAPSULATED(__)) => begin
+      true
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return outIsEncapsulated
 end
 
 """
@@ -1107,34 +946,30 @@ function replaceOrAddElementInProgram(
   inElement::SCode.Element,
   inClassPath::Absyn.Path,
 )::SCode.Program
-  local outProgram::SCode.Program
-  outProgram = begin
-    local sp::SCode.Program
-    local e::SCode.Element
-    local p::Absyn.Path
-    local i::Absyn.Ident
-    @match (inProgram, inElement, inClassPath) begin
-      (_, _, Absyn.QUALIFIED(i, p)) => begin
-        e = getElementWithId(inProgram, i)
-        sp = getElementsFromElement(inProgram, e)
-        sp = replaceOrAddElementInProgram(sp, inElement, p)
-        e = replaceElementsInElement(inProgram, e, sp)
-        sp = replaceOrAddElementWithId(inProgram, e, i)
-        sp
-      end
+  local sp::SCode.Program
+  local e::SCode.Element
+  local p::Absyn.Path
+  local i::Absyn.Ident
+  @match (inProgram, inElement, inClassPath) begin
+    (_, _, Absyn.QUALIFIED(i, p)) => begin
+      e = getElementWithId(inProgram, i)
+      sp = getElementsFromElement(inProgram, e)
+      sp = replaceOrAddElementInProgram(sp, inElement, p)
+      e = replaceElementsInElement(inProgram, e, sp)
+      sp = replaceOrAddElementWithId(inProgram, e, i)
+      sp
+    end
 
-      (_, _, Absyn.IDENT(i)) => begin
-        sp = replaceOrAddElementWithId(inProgram, inElement, i)
-        sp
-      end
+    (_, _, Absyn.IDENT(i)) => begin
+      sp = replaceOrAddElementWithId(inProgram, inElement, i)
+      sp
+    end
 
-      (_, _, Absyn.FULLYQUALIFIED(p)) => begin
-        sp = replaceOrAddElementInProgram(inProgram, inElement, p)
-        sp
-      end
+    (_, _, Absyn.FULLYQUALIFIED(p)) => begin
+      sp = replaceOrAddElementInProgram(inProgram, inElement, p)
+      sp
     end
   end
-  return outProgram
 end
 
 """
@@ -1332,36 +1167,32 @@ end
   if the element does not exist it fails
 """
 function getElementWithId(inProgram::SCode.Program, inId::String)::SCode.Element
-  local outElement::SCode.Element
 
-  @assign outElement = begin
-    local rest::SCode.Program
-    local e::SCode.Element
-    local p::Absyn.Path
-    local i::Absyn.Ident
-    local n::Absyn.Ident
-    @match (inProgram, inId) begin
-      (e <| _ && SCode.CLASS(name = n) <| _, i) where {(stringEq(n, i))} => begin
-        e
-      end
+  local rest::SCode.Program
+  local e::SCode.Element
+  local p::Absyn.Path
+  local i::Absyn.Ident
+  local n::Absyn.Ident
+  @match (inProgram, inId) begin
+    (e <| _ && SCode.CLASS(name = n) <| _, i) where {(stringEq(n, i))} => begin
+      e
+    end
 
-      (e <| _ && SCode.COMPONENT(name = n) <| _, i) where {(stringEq(n, i))} => begin
-        e
-      end
+    (e <| _ && SCode.COMPONENT(name = n) <| _, i) where {(stringEq(n, i))} => begin
+      e
+    end
 
-      (
-        e <| _ && SCode.EXTENDS(baseClassPath = p) <| _,
-        i,
-      ) where {(stringEq(AbsynUtil.pathString(p), i))} => begin
-        e
-      end
+    (
+      e <| _ && SCode.EXTENDS(baseClassPath = p) <| _,
+      i,
+    ) where {(stringEq(AbsynUtil.pathString(p), i))} => begin
+      e
+    end
 
-      (_ <| rest, i) => begin
-        getElementWithId(rest, i)
-      end
+    (_ <| rest, i) => begin
+      getElementWithId(rest, i)
     end
   end
-  return outElement
 end
 
 """
@@ -1369,32 +1200,28 @@ end
   if the element does not exist it fails
 """
 function getElementWithPath(inProgram::SCode.Program, inPath::Absyn.Path)::SCode.Element
-  local outElement::SCode.Element
 
-  @assign outElement = begin
-    local sp::SCode.Program
-    local e::SCode.Element
-    local p::Absyn.Path
-    local i::Absyn.Ident
-    @match (inProgram, inPath) begin
-      (_, Absyn.FULLYQUALIFIED(p)) => begin
-        getElementWithPath(inProgram, p)
-      end
+  local sp::SCode.Program
+  local e::SCode.Element
+  local p::Absyn.Path
+  local i::Absyn.Ident
+  @match (inProgram, inPath) begin
+    (_, Absyn.FULLYQUALIFIED(p)) => begin
+      getElementWithPath(inProgram, p)
+    end
 
-      (_, Absyn.IDENT(i)) => begin
-        @assign e = getElementWithId(inProgram, i)
-        e
-      end
+    (_, Absyn.IDENT(i)) => begin
+      @assign e = getElementWithId(inProgram, i)
+      e
+    end
 
-      (_, Absyn.QUALIFIED(i, p)) => begin
-        @assign e = getElementWithId(inProgram, i)
-        @assign sp = getElementsFromElement(inProgram, e)
-        @assign e = getElementWithPath(sp, p)
-        e
-      end
+    (_, Absyn.QUALIFIED(i, p)) => begin
+      @assign e = getElementWithId(inProgram, i)
+      @assign sp = getElementsFromElement(inProgram, e)
+      @assign e = getElementWithPath(sp, p)
+      e
     end
   end
-  return outElement
 end
 
 """
@@ -1409,20 +1236,16 @@ function getComponentMod(inE::SCode.Element)::SCode.Mod
 end
 
 function isClassExtends(cls::SCode.Element)::Bool
-  local isCE::Bool
 
-  @assign isCE = begin
-    @match cls begin
-      SCode.CLASS(classDef = SCode.CLASS_EXTENDS(__)) => begin
-        true
-      end
+  @match cls begin
+    SCode.CLASS(classDef = SCode.CLASS_EXTENDS(__)) => begin
+      true
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return isCE
 end
 
 function getClassDef(inClass::SCode.Element)::SCode.ClassDef
@@ -1451,261 +1274,210 @@ function getClassRestriction(inElement::SCode.Element)::SCode.Restriction
 end
 
 function isBuiltinElement(inElement::SCode.Element)::Bool
-  local outIsBuiltin::Bool
 
-  @assign outIsBuiltin = begin
-    local ann::SCode.ANNOTATION
-    @match inElement begin
-      SCode.CLASS(
-        classDef = SCode.PARTS(
-          externalDecl = SOME(SCode.EXTERNALDECL(lang = SOME("builtin"))),
-        ),
-      ) => begin
-        true
-      end
+  local ann::SCode.ANNOTATION
+  @match inElement begin
+    SCode.CLASS(
+      classDef = SCode.PARTS(
+        externalDecl = SOME(SCode.EXTERNALDECL(lang = SOME("builtin"))),
+      ),
+    ) => begin
+      true
+    end
 
-      SCode.CLASS(cmt = SCode.COMMENT(annotation_ = SOME(ann))) => begin
-        hasBooleanNamedAnnotation(ann, "__OpenModelica_builtin")
-      end
+    SCode.CLASS(cmt = SCode.COMMENT(annotation_ = SOME(ann))) => begin
+      hasBooleanNamedAnnotation(ann, "__OpenModelica_builtin")
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return outIsBuiltin
 end
 
 function isRestrictionImpure(inRestr::SCode.Restriction, hasZeroOutputPreMSL3_2::Bool)::Bool
-  local isExternal::Bool
 
-  @assign isExternal = begin
-    @match (inRestr, hasZeroOutputPreMSL3_2) begin
-      (SCode.R_FUNCTION(SCode.FR_EXTERNAL_FUNCTION(true)), _) => begin
-        true
-      end
+  @match (inRestr, hasZeroOutputPreMSL3_2) begin
+    (SCode.R_FUNCTION(SCode.FR_EXTERNAL_FUNCTION(true)), _) => begin
+      true
+    end
 
-      (SCode.R_FUNCTION(SCode.FR_NORMAL_FUNCTION(true)), _) => begin
-        true
-      end
+    (SCode.R_FUNCTION(SCode.FR_NORMAL_FUNCTION(true)), _) => begin
+      true
+    end
 
-      (SCode.R_FUNCTION(SCode.FR_EXTERNAL_FUNCTION(false)), false) => begin
-        true
-      end
+    (SCode.R_FUNCTION(SCode.FR_EXTERNAL_FUNCTION(false)), false) => begin
+      true
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return isExternal
 end
 
 """Returns the comment of an element."""
 function getElementComment(inElement::SCode.Element)::Option{SCode.COMMENT}
-  local outComment::Option{SCode.COMMENT}
 
-  @assign outComment = begin
-    local cmt::SCode.COMMENT
-    @match inElement begin
-      SCode.COMPONENT(comment = cmt) => begin
-        SOME(cmt)
-      end
+  local cmt::SCode.COMMENT
+  @match inElement begin
+    SCode.COMPONENT(comment = cmt) => begin
+      SOME(cmt)
+    end
 
-      SCode.CLASS(cmt = cmt) => begin
-        SOME(cmt)
-      end
+    SCode.CLASS(cmt = cmt) => begin
+      SOME(cmt)
+    end
 
-      _ => begin
-        NONE()
-      end
+    _ => begin
+      NONE()
     end
   end
-  return outComment
 end
 
 function mergeModifiers(inNewMod::SCode.Mod, inOldMod::SCode.Mod)::SCode.Mod
-  local outMod::SCode.Mod
 
-  @assign outMod = begin
-    local f1::SCode.Final
-    local f2::SCode.Final
-    local e1::SCode.Each
-    local e2::SCode.Each
-    local sl1::List{SCode.NAMEMOD}
-    local sl2::List{SCode.NAMEMOD}
-    local sl::List{SCode.NAMEMOD}
-    local b1::Option{Absyn.Exp}
-    local b2::Option{Absyn.Exp}
-    local b::Option{Absyn.Exp}
-    local i1::SourceInfo
-    local m::SCode.Mod
-    @matchcontinue (inNewMod, inOldMod) begin
-      (_, SCode.NOMOD(__)) => begin
-        inNewMod
-      end
+  local f1::SCode.Final
+  local f2::SCode.Final
+  local e1::SCode.Each
+  local e2::SCode.Each
+  local sl1::List{SCode.NAMEMOD}
+  local sl2::List{SCode.NAMEMOD}
+  local sl::List{SCode.NAMEMOD}
+  local b1::Option{Absyn.Exp}
+  local b2::Option{Absyn.Exp}
+  local b::Option{Absyn.Exp}
+  local i1::SourceInfo
+  local m::SCode.Mod
+  @matchcontinue (inNewMod, inOldMod) begin
+    (_, SCode.NOMOD(__)) => begin
+      inNewMod
+    end
 
-      (SCode.NOMOD(__), _) => begin
-        inOldMod
-      end
+    (SCode.NOMOD(__), _) => begin
+      inOldMod
+    end
 
-      (SCode.REDECL(__), _) => begin
-        inNewMod
-      end
+    (SCode.REDECL(__), _) => begin
+      inNewMod
+    end
 
-      (SCode.MOD(f1, e1, sl1, b1, i1), SCode.MOD(f2, e2, sl2, b2, _)) => begin
-        @assign b = mergeBindings(b1, b2)
-        @assign sl = mergeSubMods(sl1, sl2)
-        if referenceEq(b, b1) && referenceEq(sl, sl1)
-          @assign m = inNewMod
-        elseif referenceEq(b, b2) &&
-               referenceEq(sl, sl2) &&
-               valueEq(f1, f2) &&
-               valueEq(e1, e2)
-          @assign m = inOldMod
-        else
-          @assign m = SCode.MOD(f1, e1, sl, b, i1)
-        end
-        m
+    (SCode.MOD(f1, e1, sl1, b1, i1), SCode.MOD(f2, e2, sl2, b2, _)) => begin
+      @assign b = mergeBindings(b1, b2)
+      @assign sl = mergeSubMods(sl1, sl2)
+      if referenceEq(b, b1) && referenceEq(sl, sl1)
+        @assign m = inNewMod
+      elseif referenceEq(b, b2) &&
+             referenceEq(sl, sl2) &&
+             valueEq(f1, f2) &&
+             valueEq(e1, e2)
+        @assign m = inOldMod
+      else
+        @assign m = SCode.MOD(f1, e1, sl, b, i1)
       end
+      m
+    end
 
-      _ => begin
-        inNewMod
-      end
+    _ => begin
+      inNewMod
     end
   end
-  return outMod
 end
 
 function mergeBindings(
   inNew::Option{<:Absyn.Exp},
   inOld::Option{<:Absyn.Exp},
 )::Option{Absyn.Exp}
-  local outBnd::Option{Absyn.Exp}
 
-  @assign outBnd = begin
-    @match (inNew, inOld) begin
-      (SOME(_), _) => begin
-        inNew
-      end
+  @match (inNew, inOld) begin
+    (SOME(_), _) => begin
+      inNew
+    end
 
-      (NONE(), _) => begin
-        inOld
-      end
+    (NONE(), _) => begin
+      inOld
     end
   end
-  return outBnd
 end
 
 function mergeSubMods(
   inNew::List{<:SCode.NAMEMOD},
   inOld::List{<:SCode.NAMEMOD},
 )::List{SCode.NAMEMOD}
-  local outSubs::List{SCode.NAMEMOD}
 
-  @assign outSubs = begin
-    local sl::List{SCode.NAMEMOD}
-    local rest::List{SCode.NAMEMOD}
-    local old::List{SCode.NAMEMOD}
-    local s::SCode.NAMEMOD
-    @matchcontinue (inNew, inOld) begin
-      (nil(), _) => begin
-        inOld
-      end
+  local sl::List{SCode.NAMEMOD}
+  local rest::List{SCode.NAMEMOD}
+  local old::List{SCode.NAMEMOD}
+  local s::SCode.NAMEMOD
+  @matchcontinue (inNew, inOld) begin
+    (nil(), _) => begin
+      inOld
+    end
 
-      (s <| rest, _) => begin
-        @assign old = removeSub(s, inOld)
-        @assign sl = mergeSubMods(rest, old)
-        _cons(s, sl)
-      end
+    (s <| rest, _) => begin
+      @assign old = removeSub(s, inOld)
+      @assign sl = mergeSubMods(rest, old)
+      _cons(s, sl)
+    end
 
-      _ => begin
-        inNew
-      end
+    _ => begin
+      inNew
     end
   end
-  return outSubs
 end
 
 function removeSub(inSub::SCode.NAMEMOD, inOld::List{<:SCode.NAMEMOD})::List{SCode.NAMEMOD}
-  local outSubs::List{SCode.NAMEMOD}
 
-  @assign outSubs = begin
-    local rest::List{SCode.NAMEMOD}
-    local id1::SCode.Ident
-    local id2::SCode.Ident
-    local s::SCode.NAMEMOD
-    @matchcontinue (inSub, inOld) begin
-      (_, nil()) => begin
-        inOld
-      end
+  local rest::List{SCode.NAMEMOD}
+  local id1::SCode.Ident
+  local id2::SCode.Ident
+  local s::SCode.NAMEMOD
+  @matchcontinue (inSub, inOld) begin
+    (_, nil()) => begin
+      inOld
+    end
 
-      (SCode.NAMEMOD(ident = id1), SCode.NAMEMOD(ident = id2) <| rest) => begin
-        @match true = stringEqual(id1, id2)
-        rest
-      end
+    (SCode.NAMEMOD(ident = id1), SCode.NAMEMOD(ident = id2) <| rest) => begin
+      @match true = stringEqual(id1, id2)
+      rest
+    end
 
-      (_, s <| rest) => begin
-        @assign rest = removeSub(inSub, rest)
-        _cons(s, rest)
-      end
+    (_, s <| rest) => begin
+      @assign rest = removeSub(inSub, rest)
+      _cons(s, rest)
     end
   end
-  return outSubs
 end
 
 """Return true if Class is a partial."""
 function isPackage(inClass::SCode.Element)::Bool
-  local outBoolean::Bool
 
-  @assign outBoolean = begin
-    @match inClass begin
-      SCode.CLASS(restriction = SCode.R_PACKAGE(__)) => begin
-        true
-      end
+  @match inClass begin
+    SCode.CLASS(restriction = SCode.R_PACKAGE(__)) => begin
+      true
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return outBoolean
 end
 
 """Return true if Class is a partial."""
 function isPartial(inClass::SCode.Element)::Bool
-  local outBoolean::Bool
 
-  @assign outBoolean = begin
-    @match inClass begin
-      SCode.CLASS(partialPrefix = SCode.PARTIAL(__)) => begin
-        true
-      end
+  @match inClass begin
+    SCode.CLASS(partialPrefix = SCode.PARTIAL(__)) => begin
+      true
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return outBoolean
 end
 
-function isEmptyMod(mod::SCode.Mod)::Bool
-  local isEmpty::Bool
-
-  @assign isEmpty = begin
-    @match mod begin
-      SCode.NOMOD(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return isEmpty
-end
+isEmptyMod(mod::SCode.Mod)::Bool = isvariant(mod, SCode.NOMOD)
 
 function getConstrainingMod(element::SCode.Element)::SCode.Mod
   local mod::SCode.Mod
@@ -1749,95 +1521,83 @@ function getConstrainingMod(element::SCode.Element)::SCode.Mod
 end
 
 function isEmptyClassDef(cdef::SCode.ClassDef)::Bool
-  local isEmpty::Bool
 
-  @assign isEmpty = begin
-    @match cdef begin
-      SCode.PARTS(__) => begin
-        listEmpty(cdef.elementLst) &&
-          listEmpty(cdef.normalEquationLst) &&
-          listEmpty(cdef.initialEquationLst) &&
-          listEmpty(cdef.normalAlgorithmLst) &&
-          listEmpty(cdef.initialAlgorithmLst) &&
-          isNone(cdef.externalDecl)
-      end
+  @match cdef begin
+    SCode.PARTS(__) => begin
+      listEmpty(cdef.elementLst) &&
+        listEmpty(cdef.normalEquationLst) &&
+        listEmpty(cdef.initialEquationLst) &&
+        listEmpty(cdef.normalAlgorithmLst) &&
+        listEmpty(cdef.initialAlgorithmLst) &&
+        isNone(cdef.externalDecl)
+    end
 
-      SCode.CLASS_EXTENDS(__) => begin
-        isEmptyClassDef(cdef.composition)
-      end
+    SCode.CLASS_EXTENDS(__) => begin
+      isEmptyClassDef(cdef.composition)
+    end
 
-      SCode.ENUMERATION(__) => begin
-        listEmpty(cdef.enumLst)
-      end
+    SCode.ENUMERATION(__) => begin
+      listEmpty(cdef.enumLst)
+    end
 
-      _ => begin
-        true
-      end
+    _ => begin
+      true
     end
   end
-  return isEmpty
 end
 
 function mergeSCodeOptAnn(
   inModOuter::Option{<:SCode.ANNOTATION},
   inModInner::Option{<:SCode.ANNOTATION},
 )::Option{SCode.ANNOTATION}
-  local outMod::Option{SCode.ANNOTATION}
 
-  @assign outMod = begin
-    local mod1::SCode.Mod
-    local mod2::SCode.Mod
-    local mod::SCode.Mod
-    @match (inModOuter, inModInner) begin
-      (NONE(), _) => begin
-        inModInner
-      end
+  local mod1::SCode.Mod
+  local mod2::SCode.Mod
+  local mod::SCode.Mod
+  @match (inModOuter, inModInner) begin
+    (NONE(), _) => begin
+      inModInner
+    end
 
-      (_, NONE()) => begin
-        inModOuter
-      end
+    (_, NONE()) => begin
+      inModOuter
+    end
 
-      (SOME(SCode.ANNOTATION(mod1)), SOME(SCode.ANNOTATION(mod2))) => begin
-        @assign mod = SCodeUtil.mergeSCodeMods(mod1, mod2)
-        SOME(SCode.ANNOTATION(mod))
-      end
+    (SOME(SCode.ANNOTATION(mod1)), SOME(SCode.ANNOTATION(mod2))) => begin
+      @assign mod = SCodeUtil.mergeSCodeMods(mod1, mod2)
+      SOME(SCode.ANNOTATION(mod))
     end
   end
-  return outMod
 end
 
 function mergeSCodeMods(inModOuter::SCode.Mod, inModInner::SCode.Mod)::SCode.Mod
-  local outMod::SCode.Mod
 
-  @assign outMod = begin
-    local f1::SCode.Final
-    local e1::SCode.Each
-    local subMods1::List{SCode.NAMEMOD}
-    local subMods2::List{SCode.NAMEMOD}
-    local b1::Option{Absyn.Exp}
-    local b2::Option{Absyn.Exp}
-    local info::SourceInfo
-    @match (inModOuter, inModInner) begin
-      (SCode.NOMOD(__), _) => begin
-        inModInner
-      end
+  local f1::SCode.Final
+  local e1::SCode.Each
+  local subMods1::List{SCode.NAMEMOD}
+  local subMods2::List{SCode.NAMEMOD}
+  local b1::Option{Absyn.Exp}
+  local b2::Option{Absyn.Exp}
+  local info::SourceInfo
+  @match (inModOuter, inModInner) begin
+    (SCode.NOMOD(__), _) => begin
+      inModInner
+    end
 
-      (_, SCode.NOMOD(__)) => begin
-        inModOuter
-      end
+    (_, SCode.NOMOD(__)) => begin
+      inModOuter
+    end
 
-      (SCode.MOD(f1, e1, subMods1, b1, info), SCode.MOD(_, _, subMods2, b2, _)) => begin
-        @assign subMods2 = listAppend(subMods1, subMods2)
-        @assign b1 = if isSome(b1)
-          b1
-        else
-          b2
-        end
-        SCode.MOD(f1, e1, subMods2, b1, info)
+    (SCode.MOD(f1, e1, subMods1, b1, info), SCode.MOD(_, _, subMods2, b2, _)) => begin
+      @assign subMods2 = listAppend(subMods1, subMods2)
+      @assign b1 = if isSome(b1)
+        b1
+      else
+        b2
       end
+      SCode.MOD(f1, e1, subMods2, b1, info)
     end
   end
-  return outMod
 end
 
 #= Functions needed by translated NFFrontEnd =#
@@ -1869,16 +1629,12 @@ end
 
 """Look up an annotation on an SCode element (CLASS or COMPONENT)."""
 function lookupElementAnnotation(elem::SCode.Element, name::String)::SCode.Mod
-  local mod::SCode.Mod
-  mod = begin
-    local ann::SCode.ANNOTATION
-    @match elem begin
-      SCode.CLASS(cmt = SCode.COMMENT(annotation_ = SOME(ann))) => lookupAnnotation(ann, name)
-      SCode.COMPONENT(comment = SCode.COMMENT(annotation_ = SOME(ann))) => lookupAnnotation(ann, name)
-      _ => SCode.NOMOD()
-    end
+  local ann::SCode.ANNOTATION
+  @match elem begin
+    SCode.CLASS(cmt = SCode.COMMENT(annotation_ = SOME(ann))) => lookupAnnotation(ann, name)
+    SCode.COMPONENT(comment = SCode.COMMENT(annotation_ = SOME(ann))) => lookupAnnotation(ann, name)
+    _ => SCode.NOMOD()
   end
-  return mod
 end
 
 """Look up the binding of an annotation on an SCode element."""

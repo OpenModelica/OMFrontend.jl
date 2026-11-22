@@ -447,24 +447,22 @@ function isFlow(component::Component)
 end
 
 function setConnectorType(cty::ConnectorType.TYPE, component::Component)
-   () = begin
-    local attr::Attributes
-    @match component begin
-      UNTYPED_COMPONENT(attributes = attr) => begin
-         @assign attr.connectorType = cty
-         @assign component.attributes = attr
-        ()
-      end
-      TYPED_COMPONENT(attributes = attr) => begin
-         @assign attr.connectorType = cty
-         @assign component.attributes = attr
-        ()
-      end
-      _ => begin
-        ()
-      end
-    end
-  end
+   local attr::Attributes
+   @match component begin
+     UNTYPED_COMPONENT(attributes = attr) => begin
+        @assign attr.connectorType = cty
+        @assign component.attributes = attr
+       ()
+     end
+     TYPED_COMPONENT(attributes = attr) => begin
+        @assign attr.connectorType = cty
+        @assign component.attributes = attr
+       ()
+     end
+     _ => begin
+       ()
+     end
+   end
   return component
 end
 
@@ -573,7 +571,6 @@ function isRedeclare(component::Component)
   end
   return isRedeclare
 end
-
 
 function isStructuralParameter(component::Component)
   local b::Bool = variability(component) == Variability.STRUCTURAL_PARAMETER
@@ -840,19 +837,17 @@ end
 
 function setAttributes(attr, component::Component)
 
-   () = begin
-    @match component begin
-      UNTYPED_COMPONENT(__) => begin
-         @assign component.attributes = attr
-        ()
-      end
+   @match component begin
+     UNTYPED_COMPONENT(__) => begin
+        @assign component.attributes = attr
+       ()
+     end
 
-      TYPED_COMPONENT(__) => begin
-         @assign component.attributes = attr
-        ()
-      end
-    end
-  end
+     TYPED_COMPONENT(__) => begin
+        @assign component.attributes = attr
+       ()
+     end
+   end
   return component
 end
 

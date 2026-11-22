@@ -153,87 +153,85 @@ function flattenClass(
   local comps::Vector{InstNode}
   local bindings::List{Binding}
   local b::Binding
-  () = begin
-    @match cls begin
-      #= A type (`type T extends Integer`) has no variables of its own (omc flattenClass). =#
-      INSTANCED_CLASS(restriction = RESTRICTION_TYPE(__)) => ()
+  @match cls begin
+    #= A type (`type T extends Integer`) has no variables of its own (omc flattenClass). =#
+    INSTANCED_CLASS(restriction = RESTRICTION_TYPE(__)) => ()
 
-      INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps)) =>
-        begin
-          if isSome(binding)
-            @match SOME(b) = binding
-            if isBound(b)
-              b = flattenBinding(b, rest(prefix))
-              bindings = getRecordBindings(b, comps)
-              Error.assertion(
-                listLength(bindings) == arrayLength(comps),
-                getInstanceName() +
-                " got record binding with wrong number of elements for " +
-                toString(prefix),
-                sourceInfo(),
+    INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps)) =>
+      begin
+        if isSome(binding)
+          @match SOME(b) = binding
+          if isBound(b)
+            b = flattenBinding(b, rest(prefix))
+            bindings = getRecordBindings(b, comps)
+            Error.assertion(
+              listLength(bindings) == arrayLength(comps),
+              getInstanceName() +
+              " got record binding with wrong number of elements for " +
+              toString(prefix),
+              sourceInfo(),
+            )
+            for c in comps
+              (vars, sections) = flattenComponent(
+                c,
+                prefix,
+                visibility,
+                SOME(listHead(bindings)),
+                vars,
+                sections,
+                structuralSubModels,
+                isTopLevel = isTopLevel,
               )
-              for c in comps
-                (vars, sections) = flattenComponent(
-                  c,
-                  prefix,
-                  visibility,
-                  SOME(listHead(bindings)),
-                  vars,
-                  sections,
-                  structuralSubModels,
-                  isTopLevel = isTopLevel,
-                )
-                bindings = listRest(bindings)
-              end
-            else
-              for c in comps
-                (vars, sections, structuralSubModels) =
-                  flattenComponent(c, prefix, visibility, binding,
-                                   vars, sections, structuralSubModels,
-                                   isTopLevel = isTopLevel)
-              end
+              bindings = listRest(bindings)
             end
           else
             for c in comps
               (vars, sections, structuralSubModels) =
-                flattenComponent(c, prefix, visibility, NONE(),
+                flattenComponent(c, prefix, visibility, binding,
                                  vars, sections, structuralSubModels,
                                  isTopLevel = isTopLevel)
             end
           end
-          sections = flattenSections(cls.sections, prefix, sections)
-          ()
+        else
+          for c in comps
+            (vars, sections, structuralSubModels) =
+              flattenComponent(c, prefix, visibility, NONE(),
+                               vars, sections, structuralSubModels,
+                               isTopLevel = isTopLevel)
+          end
         end
-
-      TYPED_DERIVED(__) => begin
-         (vars, sections) = flattenClass(
-          getClass(cls.baseClass),
-          prefix,
-          visibility,
-          binding,
-          vars,
-          sections,
-          structuralSubModels,
-          isTopLevel = isTopLevel,
-        )
+        sections = flattenSections(cls.sections, prefix, sections)
         ()
       end
 
-      INSTANCED_BUILTIN(__) => begin
-        ()
-      end
+    TYPED_DERIVED(__) => begin
+       (vars, sections) = flattenClass(
+        getClass(cls.baseClass),
+        prefix,
+        visibility,
+        binding,
+        vars,
+        sections,
+        structuralSubModels,
+        isTopLevel = isTopLevel,
+      )
+      ()
+    end
 
-      _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() +
-          " got non-instantiated component " +
-          toString(prefix) +
-          "\\n",
-          sourceInfo(),
-        )
-        ()
-      end
+    INSTANCED_BUILTIN(__) => begin
+      ()
+    end
+
+    _ => begin
+      Error.assertion(
+        false,
+        getInstanceName() +
+        " got non-instantiated component " +
+        toString(prefix) +
+        "\\n",
+        sourceInfo(),
+      )
+      ()
     end
   end
   return (vars, sections, structuralSubModels)
@@ -532,25 +530,21 @@ function deleteClassComponents(clsNode::InstNode)
 end
 
 function isComplexComponent(ty::ModelicaType)::Bool
-  local isComplex::Bool
-  @assign isComplex = begin
-    @match ty begin
-      TYPE_COMPLEX(complexTy = COMPLEX_EXTERNAL_OBJECT(__)) => begin
-        false
-      end
-      TYPE_COMPLEX(__) => begin
-        true
-      end
-      TYPE_ARRAY(__) => begin
-        isComplexComponent(ty.elementType)
-      end
+  @match ty begin
+    TYPE_COMPLEX(complexTy = COMPLEX_EXTERNAL_OBJECT(__)) => begin
+      false
+    end
+    TYPE_COMPLEX(__) => begin
+      true
+    end
+    TYPE_ARRAY(__) => begin
+      isComplexComponent(ty.elementType)
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return isComplex
 end
 
 function flattenSimpleComponent(
@@ -922,38 +916,36 @@ function flattenArray(
       @assign v.ty = liftArrayLeftList(v.ty, dimensions)
       vars = push!(vars, v)
     end
-     () = begin
-      @match sects begin
-        SECTIONS(__) => begin
-          #= add dimensions to the types
-             vectorize equations =#
-          for eqn in sects.equations #listReverse(sects.equations)
-            for veq in _vectorizeEquationSplit(eqn, dimensions, prefix)
-              sections = prependEquation(veq, sections)
-            end
-          end
-          for eqn in sects.initialEquations #listReverse(sects.initialEquations)
-            for veq in _vectorizeEquationSplit(eqn, dimensions, prefix)
-              sections = prependEquation(veq, sections, true)
-            end
-          end
-          for alg in sects.algorithms #listReverse(sects.algorithms)
-            sections = prependAlgorithm(
-              vectorizeAlgorithm(alg, dimensions, prefix),
-              sections,
-            )
-          end
-          for alg in sects.initialAlgorithms #listReverse(sects.initialAlgorithms)
-            sections = prependAlgorithm(
-              vectorizeAlgorithm(alg, dimensions, prefix),
-              sections,
-              true,
-            )
-          end
-          ()
-        end
-      end
-    end
+     @match sects begin
+       SECTIONS(__) => begin
+         #= add dimensions to the types
+            vectorize equations =#
+         for eqn in sects.equations #listReverse(sects.equations)
+           for veq in _vectorizeEquationSplit(eqn, dimensions, prefix)
+             sections = prependEquation(veq, sections)
+           end
+         end
+         for eqn in sects.initialEquations #listReverse(sects.initialEquations)
+           for veq in _vectorizeEquationSplit(eqn, dimensions, prefix)
+             sections = prependEquation(veq, sections, true)
+           end
+         end
+         for alg in sects.algorithms #listReverse(sects.algorithms)
+           sections = prependAlgorithm(
+             vectorizeAlgorithm(alg, dimensions, prefix),
+             sections,
+           )
+         end
+         for alg in sects.initialAlgorithms #listReverse(sects.initialAlgorithms)
+           sections = prependAlgorithm(
+             vectorizeAlgorithm(alg, dimensions, prefix),
+             sections,
+             true,
+           )
+         end
+         ()
+       end
+     end
     return (vars, sections)
   end
   if listEmpty(dimensions)
@@ -1063,38 +1055,34 @@ function vectorizeEquation(
   dimensions::List,
   prefix::ComponentRef,
 )::Equation
-  local veqn::Equation
-  veqn = begin
-    @match eqn begin
-      #=  convert simple equality of crefs to array equality; not one of a subscripted cref: the subscript is the
-          instance's own (`pin_p.v = plug_p.pin[k].v` with `k` per instance), which the array equality of the
-          whole component array would read as a slice (`plugToPin_p.plug_p.pin[{1, 2, 3}].v`); and not one with a
-          cref outside the component array (`t0 = time`), which stays a scalar =#
-      EQUATION_EQUALITY(
-        lhs = CREF_EXPRESSION(__),
-        rhs = CREF_EXPRESSION(__),
-      ) where (isVectorizedWhole(eqn.lhs.cref, prefix) && isVectorizedWhole(eqn.rhs.cref, prefix)) => begin
-        EQUATION_ARRAY_EQUALITY(
-          eqn.lhs,
-          eqn.rhs,
-          liftArrayLeftList(eqn.ty, dimensions),
-          eqn.source,
-        )
+  @match eqn begin
+    #=  convert simple equality of crefs to array equality; not one of a subscripted cref: the subscript is the
+        instance's own (`pin_p.v = plug_p.pin[k].v` with `k` per instance), which the array equality of the
+        whole component array would read as a slice (`plugToPin_p.plug_p.pin[{1, 2, 3}].v`); and not one with a
+        cref outside the component array (`t0 = time`), which stays a scalar =#
+    EQUATION_EQUALITY(
+      lhs = CREF_EXPRESSION(__),
+      rhs = CREF_EXPRESSION(__),
+    ) where (isVectorizedWhole(eqn.lhs.cref, prefix) && isVectorizedWhole(eqn.rhs.cref, prefix)) => begin
+      EQUATION_ARRAY_EQUALITY(
+        eqn.lhs,
+        eqn.rhs,
+        liftArrayLeftList(eqn.ty, dimensions),
+        eqn.source,
+      )
+    end
+    #=  wrap general equation into one for loop per dimension (omc's vectorizeEquationGeneric) =#
+    _ => begin
+      local (iters, ranges, subs) = makeIterators(prefix, dimensions, nextIteratorIndex(eqn))
+      local subsInOrder::List{Subscript} = listReverse(subs)
+      local element::Equation = elementBindingEquation(eqn, dimensions, subsInOrder)
+      local mappedEq = mapExp(element, (@nospecialize(x::Expression),) -> addIterator(x, prefix, subsInOrder))
+      for (iter, range) in zip(iters, ranges)
+        mappedEq = EQUATION_FOR(iter, SOME(range), Equation[mappedEq], source(eqn))
       end
-      #=  wrap general equation into one for loop per dimension (omc's vectorizeEquationGeneric) =#
-      _ => begin
-        local (iters, ranges, subs) = makeIterators(prefix, dimensions, nextIteratorIndex(eqn))
-        local subsInOrder::List{Subscript} = listReverse(subs)
-        local element::Equation = elementBindingEquation(eqn, dimensions, subsInOrder)
-        local mappedEq = mapExp(element, (@nospecialize(x::Expression),) -> addIterator(x, prefix, subsInOrder))
-        for (iter, range) in zip(iters, ranges)
-          mappedEq = EQUATION_FOR(iter, SOME(range), Equation[mappedEq], source(eqn))
-        end
-        mappedEq
-      end
+      mappedEq
     end
   end
-  return veqn
 end
 
 """
@@ -1475,23 +1463,21 @@ function flattenSections(
   prefix::ComponentRef,
   accumSections::Sections,
 )::Sections
-  () = begin
-    local eq::Vector{Equation}
-    local ieq::Vector{Equation}
-    local alg::Vector{ALGORITHM}
-    local ialg::Vector{ALGORITHM}
-    @match sections begin
-      SECTIONS(__) => begin
-        eq = flattenEquations(sections.equations, prefix)
-        ieq = flattenEquations(sections.initialEquations, prefix)
-        alg = flattenAlgorithms(sections.algorithms, prefix)
-        ialg = flattenAlgorithms(sections.initialAlgorithms, prefix)
-        accumSections = appendSections!(eq, ieq, alg, ialg, accumSections)
-        ()
-      end
-      _ => begin
-        ()
-      end
+  local eq::Vector{Equation}
+  local ieq::Vector{Equation}
+  local alg::Vector{ALGORITHM}
+  local ialg::Vector{ALGORITHM}
+  @match sections begin
+    SECTIONS(__) => begin
+      eq = flattenEquations(sections.equations, prefix)
+      ieq = flattenEquations(sections.initialEquations, prefix)
+      alg = flattenAlgorithms(sections.algorithms, prefix)
+      ialg = flattenAlgorithms(sections.initialAlgorithms, prefix)
+      accumSections = appendSections!(eq, ieq, alg, ialg, accumSections)
+      ()
+    end
+    _ => begin
+      ()
     end
   end
   return accumSections
@@ -1673,27 +1659,23 @@ function flattenIfEquation(
 end
 
 function isConnectEq(eq::Equation)::Bool
-  local isConnect::Bool
 
-  @assign isConnect = begin
-    local fn::MODELICA_FUNCTION
-    @match eq begin
-      EQUATION_CONNECT(__) => begin
-        true
-      end
+  local fn::MODELICA_FUNCTION
+  @match eq begin
+    EQUATION_CONNECT(__) => begin
+      true
+    end
 
-      EQUATION_NORETCALL(
-        exp = CALL_EXPRESSION(call = TYPED_CALL(fn = fn)),
-      ) => begin
-        AbsynUtil.pathFirstIdent(name(fn)) == "Connections"
-      end
+    EQUATION_NORETCALL(
+      exp = CALL_EXPRESSION(call = TYPED_CALL(fn = fn)),
+    ) => begin
+      AbsynUtil.pathFirstIdent(name(fn)) == "Connections"
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return isConnect
 end
 
 function flattenEqBranch(
@@ -1771,37 +1753,35 @@ function splitForLoop2(forBody::Vector{Equation})::Tuple{Vector{Equation}, Vecto
   local conns::Vector{Equation}
   local nconns::Vector{Equation}
   for eq in forBody
-    () = begin
-      @match eq begin
-        EQUATION_CONNECT(__) => begin
+    @match eq begin
+      EQUATION_CONNECT(__) => begin
+        connects = push!(connects, eq)
+        ()
+      end
+      EQUATION_FOR(__) => begin
+        (conns, nconns) = splitForLoop2(eq.body)
+        if !isempty(conns)
+          connects = push!(connects,
+                           EQUATION_FOR(eq.iterator, eq.range, conns, eq.source),
+                           )
+        end
+        if !isempty(nconns)
+          nonConnects = push!(nonConnects,
+                              EQUATION_FOR(eq.iterator, eq.range, nconns, eq.source),
+                              )
+        end
+        ()
+      end
+      _ => begin
+        #= Equations that contain a connect or a connection call (Connections.*, inStream,
+           actualStream, cardinality) are resolved per scalar: unroll them (omc's splitForLoop2). =#
+        if contains(eq, isConnectEq) ||
+           foldExp(eq, (e::Expression, acc::Bool) -> acc || contains(e, _isConnectionCall), false, Bool)
           connects = push!(connects, eq)
-          ()
+        else
+          nonConnects = push!(nonConnects, eq)
         end
-        EQUATION_FOR(__) => begin
-          (conns, nconns) = splitForLoop2(eq.body)
-          if !isempty(conns)
-            connects = push!(connects,
-                             EQUATION_FOR(eq.iterator, eq.range, conns, eq.source),
-                             )
-          end
-          if !isempty(nconns)
-            nonConnects = push!(nonConnects,
-                                EQUATION_FOR(eq.iterator, eq.range, nconns, eq.source),
-                                )
-          end
-          ()
-        end
-        _ => begin
-          #= Equations that contain a connect or a connection call (Connections.*, inStream,
-             actualStream, cardinality) are resolved per scalar: unroll them (omc's splitForLoop2). =#
-          if contains(eq, isConnectEq) ||
-             foldExp(eq, (e::Expression, acc::Bool) -> acc || contains(e, _isConnectionCall), false, Bool)
-            connects = push!(connects, eq)
-          else
-            nonConnects = push!(nonConnects, eq)
-          end
-          ()
-        end
+        ()
       end
     end
   end
@@ -2098,22 +2078,20 @@ function evaluateBindingConnOp(
   local binding::Binding
   local exp::Expression
   local eval_exp::Expression
-  () = begin
-    @match var begin
-      VARIABLE(
-        binding = binding && TYPED_BINDING(bindingExp = exp),
-      ) => begin
-        eval_exp = evaluateOperators(exp, sets, setsArray, ctable)
-        if !referenceEq(exp, eval_exp)
-          @assign binding.bindingExp = eval_exp
-          @assign var.binding = binding
-        end
-        ()
+  @match var begin
+    VARIABLE(
+      binding = binding && TYPED_BINDING(bindingExp = exp),
+    ) => begin
+      eval_exp = evaluateOperators(exp, sets, setsArray, ctable)
+      if !referenceEq(exp, eval_exp)
+        @assign binding.bindingExp = eval_exp
+        @assign var.binding = binding
       end
+      ()
+    end
 
-      _ => begin
-        ()
-      end
+    _ => begin
+      ()
     end
   end
   return var
@@ -2140,16 +2118,14 @@ function evaluateEquationsConnOp(
 end
 
 function collectComponentFuncs(var::VARIABLE, funcs::FunctionTree)::FunctionTree
-  () = begin
-    @match var begin
-      VARIABLE(__) => begin
-        funcs = collectTypeFuncs(var.ty, funcs)
-        funcs = collectBindingFuncs(var.binding, funcs)
-        for attr in var.typeAttributes
-          funcs = collectBindingFuncs(Util.tuple22(attr), funcs)
-        end
-        ()
+  @match var begin
+    VARIABLE(__) => begin
+      funcs = collectTypeFuncs(var.ty, funcs)
+      funcs = collectBindingFuncs(var.binding, funcs)
+      for attr in var.typeAttributes
+        funcs = collectBindingFuncs(Util.tuple22(attr), funcs)
       end
+      ()
     end
   end
   return funcs
@@ -2163,40 +2139,38 @@ function collectBindingFuncs(binding::Binding, funcs::FunctionTree)::FunctionTre
 end
 
 function collectTypeFuncs(ty::ModelicaType, funcs::FunctionTree)::FunctionTree
-   () = begin
-    local con::InstNode
-    local de::InstNode
-    @match ty begin
-      TYPE_ARRAY(__) => begin
-        funcs = foldExpList(ty.dimensions, collectExpFuncs_traverse, funcs, FunctionTree)
-        funcs = collectTypeFuncs(ty.elementType, funcs)
-        ()
-      end
+   local con::InstNode
+   local de::InstNode
+   @match ty begin
+     TYPE_ARRAY(__) => begin
+       funcs = foldExpList(ty.dimensions, collectExpFuncs_traverse, funcs, FunctionTree)
+       funcs = collectTypeFuncs(ty.elementType, funcs)
+       ()
+     end
 
-      TYPE_FUNCTION(__) => begin
-        funcs = flattenFunction(functionOf(ty), funcs)
-        ()
-      end
+     TYPE_FUNCTION(__) => begin
+       funcs = flattenFunction(functionOf(ty), funcs)
+       ()
+     end
 
-      TYPE_COMPLEX(
-        complexTy = COMPLEX_EXTERNAL_OBJECT(constructor = con, destructor = de),
-      ) => begin
-        #= Collect external object structors. =#
-        @assign funcs = collectStructor(con, funcs)
-        @assign funcs = collectStructor(de, funcs)
-        ()
-      end
+     TYPE_COMPLEX(
+       complexTy = COMPLEX_EXTERNAL_OBJECT(constructor = con, destructor = de),
+     ) => begin
+       #= Collect external object structors. =#
+       @assign funcs = collectStructor(con, funcs)
+       @assign funcs = collectStructor(de, funcs)
+       ()
+     end
 
-      TYPE_COMPLEX(complexTy = COMPLEX_RECORD(constructor = con)) => begin
-        #= Collect record constructors. =#
-        @assign funcs = collectStructor(con, funcs)
-        ()
-      end
-      _ => begin
-        ()
-      end
-    end
-  end
+     TYPE_COMPLEX(complexTy = COMPLEX_RECORD(constructor = con)) => begin
+       #= Collect record constructors. =#
+       @assign funcs = collectStructor(con, funcs)
+       ()
+     end
+     _ => begin
+       ()
+     end
+   end
   return funcs
 end
 
@@ -2204,74 +2178,70 @@ function collectStructor(node::InstNode, funcs::FunctionTree)::FunctionTree
   local cache::CachedData
   local fn::List{MODELICA_FUNCTION}
   cache = getFuncCache(node)
-   () = begin
-    @match cache begin
-      C_FUNCTION(__) => begin
-        for fn in cache.funcs
-          funcs = flattenFunction(fn, funcs)
-        end
-        ()
-      end
+   @match cache begin
+     C_FUNCTION(__) => begin
+       for fn in cache.funcs
+         funcs = flattenFunction(fn, funcs)
+       end
+       ()
+     end
 
-      _ => begin
-        ()
-      end
-    end
-  end
+     _ => begin
+       ()
+     end
+   end
   return funcs
 end
 
 function collectEquationFuncs(@nospecialize(eq::Equation),
                               @nospecialize(funcs::FunctionTree))
-  () = begin
-    @match eq begin
-      EQUATION_EQUALITY(__) => begin
-        funcs = collectExpFuncs(eq.lhs, funcs)
-        funcs = collectExpFuncs(eq.rhs, funcs)
-        funcs = collectTypeFuncs(eq.ty, funcs)
-        ()
-      end
-      EQUATION_ARRAY_EQUALITY(__) => begin
-        #=  Lhs is always a cref, no need to check it. =#
-        funcs = collectExpFuncs(eq.rhs, funcs)
-        funcs = collectTypeFuncs(eq.ty, funcs)
-        ()
-      end
-      EQUATION_FOR(__) => begin
-        #= For equations are always unrolled, so functions in the range doesn't
-           matter since they are always evaluated. =#
-        funcs = ArrayUtil.fold(eq.body, collectEquationFuncs, funcs, FunctionTree)
-        ()
-      end
-      EQUATION_IF(__) => begin
-        funcs = ArrayUtil.fold(eq.branches, collectEqBranchFuncs, funcs, FunctionTree)
-        ()
-      end
-      EQUATION_WHEN(__) => begin
-        funcs = ArrayUtil.fold(eq.branches, collectEqBranchFuncs, funcs, FunctionTree)
-        ()
-      end
-      EQUATION_ASSERT(__) => begin
-        funcs = collectExpFuncs(eq.condition, funcs)
-        funcs = collectExpFuncs(eq.message, funcs)
-        funcs = collectExpFuncs(eq.level, funcs)
-        ()
-      end
-      EQUATION_TERMINATE(__) => begin
-        funcs = collectExpFuncs(eq.message, funcs)
-        ()
-      end
-      EQUATION_REINIT(__) => begin
-        funcs = collectExpFuncs(eq.reinitExp, funcs)
-        ()
-      end
-      EQUATION_NORETCALL(__) => begin
-        funcs = collectExpFuncs(eq.exp, funcs)
-        ()
-      end
-      _ => begin
-        ()
-      end
+  @match eq begin
+    EQUATION_EQUALITY(__) => begin
+      funcs = collectExpFuncs(eq.lhs, funcs)
+      funcs = collectExpFuncs(eq.rhs, funcs)
+      funcs = collectTypeFuncs(eq.ty, funcs)
+      ()
+    end
+    EQUATION_ARRAY_EQUALITY(__) => begin
+      #=  Lhs is always a cref, no need to check it. =#
+      funcs = collectExpFuncs(eq.rhs, funcs)
+      funcs = collectTypeFuncs(eq.ty, funcs)
+      ()
+    end
+    EQUATION_FOR(__) => begin
+      #= For equations are always unrolled, so functions in the range doesn't
+         matter since they are always evaluated. =#
+      funcs = ArrayUtil.fold(eq.body, collectEquationFuncs, funcs, FunctionTree)
+      ()
+    end
+    EQUATION_IF(__) => begin
+      funcs = ArrayUtil.fold(eq.branches, collectEqBranchFuncs, funcs, FunctionTree)
+      ()
+    end
+    EQUATION_WHEN(__) => begin
+      funcs = ArrayUtil.fold(eq.branches, collectEqBranchFuncs, funcs, FunctionTree)
+      ()
+    end
+    EQUATION_ASSERT(__) => begin
+      funcs = collectExpFuncs(eq.condition, funcs)
+      funcs = collectExpFuncs(eq.message, funcs)
+      funcs = collectExpFuncs(eq.level, funcs)
+      ()
+    end
+    EQUATION_TERMINATE(__) => begin
+      funcs = collectExpFuncs(eq.message, funcs)
+      ()
+    end
+    EQUATION_REINIT(__) => begin
+      funcs = collectExpFuncs(eq.reinitExp, funcs)
+      ()
+    end
+    EQUATION_NORETCALL(__) => begin
+      funcs = collectExpFuncs(eq.exp, funcs)
+      ()
+    end
+    _ => begin
+      ()
     end
   end
   return funcs
@@ -2281,16 +2251,14 @@ function collectEqBranchFuncs(
   @nospecialize(branch::EquationBranch),
   @nospecialize(funcs::FunctionTree),
   )::FunctionTree
-  () = begin
-    @match branch begin
-      EQUATION_BRANCH(__) => begin
-        funcs = collectExpFuncs(branch.condition, funcs)
-        funcs = ArrayUtil.fold(branch.body, collectEquationFuncs, funcs, FunctionTree)
-        ()
-      end
-      _ => begin
-        ()
-      end
+  @match branch begin
+    EQUATION_BRANCH(__) => begin
+      funcs = collectExpFuncs(branch.condition, funcs)
+      funcs = ArrayUtil.fold(branch.body, collectEquationFuncs, funcs, FunctionTree)
+      ()
+    end
+    _ => begin
+      ()
     end
   end
   return funcs
@@ -2302,62 +2270,60 @@ function collectAlgorithmFuncs(alg::ALGORITHM, funcs::FunctionTree)::FunctionTre
 end
 
 function collectStatementFuncs(@nospecialize(stmt::Statement), funcs::FunctionTree)::FunctionTree
-  () = begin
-    @match stmt begin
-      ALG_ASSIGNMENT(__) => begin
-        funcs = collectExpFuncs(stmt.lhs, funcs)
-        funcs = collectExpFuncs(stmt.rhs, funcs)
-        funcs = collectTypeFuncs(stmt.ty, funcs)
-        ()
-      end
+  @match stmt begin
+    ALG_ASSIGNMENT(__) => begin
+      funcs = collectExpFuncs(stmt.lhs, funcs)
+      funcs = collectExpFuncs(stmt.rhs, funcs)
+      funcs = collectTypeFuncs(stmt.ty, funcs)
+      ()
+    end
 
-      ALG_FOR(__) => begin
-        funcs = ArrayUtil.fold(stmt.body, collectStatementFuncs, funcs, FunctionTree)
-        funcs = collectExpFuncs(Util.getOption(stmt.range), funcs)
-        ()
-      end
+    ALG_FOR(__) => begin
+      funcs = ArrayUtil.fold(stmt.body, collectStatementFuncs, funcs, FunctionTree)
+      funcs = collectExpFuncs(Util.getOption(stmt.range), funcs)
+      ()
+    end
 
-      ALG_IF(__) => begin
-        funcs = ArrayUtil.fold(stmt.branches, collectStmtBranchFuncs, funcs, FunctionTree)
-        ()
-      end
+    ALG_IF(__) => begin
+      funcs = ArrayUtil.fold(stmt.branches, collectStmtBranchFuncs, funcs, FunctionTree)
+      ()
+    end
 
-      ALG_WHEN(__) => begin
-        funcs = ArrayUtil.fold(stmt.branches, collectStmtBranchFuncs, funcs, FunctionTree)
-        ()
-      end
+    ALG_WHEN(__) => begin
+      funcs = ArrayUtil.fold(stmt.branches, collectStmtBranchFuncs, funcs, FunctionTree)
+      ()
+    end
 
-      ALG_ASSERT(__) => begin
-        funcs = collectExpFuncs(stmt.condition, funcs)
-        funcs = collectExpFuncs(stmt.message, funcs)
-        funcs = collectExpFuncs(stmt.level, funcs)
-        ()
-      end
+    ALG_ASSERT(__) => begin
+      funcs = collectExpFuncs(stmt.condition, funcs)
+      funcs = collectExpFuncs(stmt.message, funcs)
+      funcs = collectExpFuncs(stmt.level, funcs)
+      ()
+    end
 
-      ALG_TERMINATE(__) => begin
-        funcs = collectExpFuncs(stmt.message, funcs)
-        ()
-      end
+    ALG_TERMINATE(__) => begin
+      funcs = collectExpFuncs(stmt.message, funcs)
+      ()
+    end
 
-      ALG_REINIT(__) => begin
-        funcs = collectExpFuncs(stmt.reinitExp, funcs)
-        ()
-      end
+    ALG_REINIT(__) => begin
+      funcs = collectExpFuncs(stmt.reinitExp, funcs)
+      ()
+    end
 
-      ALG_NORETCALL(__) => begin
-        funcs = collectExpFuncs(stmt.exp, funcs)
-        ()
-      end
+    ALG_NORETCALL(__) => begin
+      funcs = collectExpFuncs(stmt.exp, funcs)
+      ()
+    end
 
-      ALG_WHILE(__) => begin
-        funcs = collectExpFuncs(stmt.condition, funcs)
-        funcs = ArrayUtil.fold(stmt.body, collectStatementFuncs, funcs, FunctionTree)
-        ()
-      end
+    ALG_WHILE(__) => begin
+      funcs = collectExpFuncs(stmt.condition, funcs)
+      funcs = ArrayUtil.fold(stmt.body, collectStatementFuncs, funcs, FunctionTree)
+      ()
+    end
 
-      _ => begin
-        ()
-      end
+    _ => begin
+      ()
     end
   end
   return funcs
@@ -2378,32 +2344,30 @@ function collectExpFuncs(exp::Expression, funcs::FunctionTree)::FunctionTree
 end
 
 function collectExpFuncs_traverse(exp::Expression, funcs::FunctionTree)::FunctionTree
-   () = begin
-    local fn::MODELICA_FUNCTION
-    @match exp begin
-      CALL_EXPRESSION(__) => begin
-        funcs = flattenFunction(typedFunction(exp.call), funcs)
-        ()
-      end
-      CREF_EXPRESSION(__) => begin
-        funcs = collectTypeFuncs(exp.ty, funcs)
-        ()
-      end
-      RECORD_EXPRESSION(__) => begin
-        funcs = collectTypeFuncs(exp.ty, funcs)
-        ()
-      end
-      PARTIAL_FUNCTION_APPLICATION_EXPRESSION(__) => begin
-        for f in getRefCache(exp.fn)
-          funcs = flattenFunction(f, funcs)
-        end
-        ()
-      end
-      _ => begin
-        ()
-      end
-    end
-  end
+   local fn::MODELICA_FUNCTION
+   @match exp begin
+     CALL_EXPRESSION(__) => begin
+       funcs = flattenFunction(typedFunction(exp.call), funcs)
+       ()
+     end
+     CREF_EXPRESSION(__) => begin
+       funcs = collectTypeFuncs(exp.ty, funcs)
+       ()
+     end
+     RECORD_EXPRESSION(__) => begin
+       funcs = collectTypeFuncs(exp.ty, funcs)
+       ()
+     end
+     PARTIAL_FUNCTION_APPLICATION_EXPRESSION(__) => begin
+       for f in getRefCache(exp.fn)
+         funcs = flattenFunction(f, funcs)
+       end
+       ()
+     end
+     _ => begin
+       ()
+     end
+   end
   return funcs
 end
 
@@ -2433,43 +2397,39 @@ function collectClassFunctions(clsNode::InstNode, funcs::FunctionTree)::Function
   local comp::Component
   local binding::Binding
   cls = getClass(clsNode)
-  () = begin
-    @match cls begin
-      INSTANCED_CLASS(
-        elements = cls_tree && CLASS_TREE_FLAT_TREE(__),
-        sections = sections,
-      ) => begin
-        for c in cls_tree.components
-          comp = component(c)
-          funcs = collectTypeFuncs(getType(comp), funcs)
-          binding = getBinding(comp)
-          if isExplicitlyBound(binding)
-            funcs = collectExpFuncs(getTypedExp(binding), funcs)
-          end
+  @match cls begin
+    INSTANCED_CLASS(
+      elements = cls_tree && CLASS_TREE_FLAT_TREE(__),
+      sections = sections,
+    ) => begin
+      for c in cls_tree.components
+        comp = component(c)
+        funcs = collectTypeFuncs(getType(comp), funcs)
+        binding = getBinding(comp)
+        if isExplicitlyBound(binding)
+          funcs = collectExpFuncs(getTypedExp(binding), funcs)
         end
-        () = begin
-          @match sections begin
-            SECTIONS(__) => begin
-              funcs = ArrayUtil.fold(sections.algorithms, collectAlgorithmFuncs, funcs, FunctionTree)
-              ()
-            end
-
-            _ => begin
-              ()
-            end
-          end
+      end
+      @match sections begin
+        SECTIONS(__) => begin
+          funcs = ArrayUtil.fold(sections.algorithms, collectAlgorithmFuncs, funcs, FunctionTree)
+          ()
         end
-        ()
-      end
 
-      TYPED_DERIVED(__) => begin
-        funcs = collectClassFunctions(cls.baseClass, funcs)
-        ()
+        _ => begin
+          ()
+        end
       end
+      ()
+    end
 
-      _ => begin
-        ()
-      end
+    TYPED_DERIVED(__) => begin
+      funcs = collectClassFunctions(cls.baseClass, funcs)
+      ()
+    end
+
+    _ => begin
+      ()
     end
   end
   return funcs

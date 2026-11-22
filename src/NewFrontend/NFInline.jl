@@ -70,32 +70,28 @@ end
 
 """Mostly written manualy (John) to adjust certain things in N."""
 function inlineCallExp(callExp::Expression)::Expression
-  local result::Expression
-  @assign result = begin
-    local call::Call
-    local shouldInline::Bool
-    @match callExp begin
-      CALL_EXPRESSION(call = call && TYPED_CALL(__)) => begin
-        local inlineTy::InlineType = inlineType(call)
-        shouldInline = if inlineTy == BUILTIN_EARLY_INLINE
-          true
-        elseif inlineTy == EARLY_INLINE && Flags.isSet(Flags.INLINE_FUNCTIONS)
-          !Flags.INLINE_FUNCTIONS_COMPLEXITY_GATE[] || _passesInlineComplexityGate(call)
-        else
-          false
-        end
-        if shouldInline
-          inlineCall(call)
-        else
-          callExp
-        end
+  local call::Call
+  local shouldInline::Bool
+  @match callExp begin
+    CALL_EXPRESSION(call = call && TYPED_CALL(__)) => begin
+      local inlineTy::InlineType = inlineType(call)
+      shouldInline = if inlineTy == BUILTIN_EARLY_INLINE
+        true
+      elseif inlineTy == EARLY_INLINE && Flags.isSet(Flags.INLINE_FUNCTIONS)
+        !Flags.INLINE_FUNCTIONS_COMPLEXITY_GATE[] || _passesInlineComplexityGate(call)
+      else
+        false
       end
-      _ => begin
+      if shouldInline
+        inlineCall(call)
+      else
         callExp
       end
     end
+    _ => begin
+      callExp
+    end
   end
-  return result
 end
 
 #= Cheap node counter for a Statement. =#
@@ -383,31 +379,27 @@ function replaceDimExp(dim::Dimension, node::InstNode, value::Expression)::Dimen
 end
 
 function getOutputExp(stmt::Statement, outputNode::InstNode, call::Call)::Expression
-  local exp::Expression
-  exp = begin
-    local cr_node::InstNode
-    local rest_cr::ComponentRef
-    @match stmt begin
-      ALG_ASSIGNMENT(
-        lhs = CREF_EXPRESSION(
-          cref = COMPONENT_REF_CREF(
-            node = cr_node,
-            subscripts = nil(),
-            restCref = rest_cr,
-          ),
+  local cr_node::InstNode
+  local rest_cr::ComponentRef
+  @match stmt begin
+    ALG_ASSIGNMENT(
+      lhs = CREF_EXPRESSION(
+        cref = COMPONENT_REF_CREF(
+          node = cr_node,
+          subscripts = nil(),
+          restCref = rest_cr,
         ),
-      ) where {(
-        refEqual(outputNode, cr_node) &&
-        !isFromCref(rest_cr)
-      )} => begin
-        stmt.rhs
-      end
-      _ => begin
-        CALL_EXPRESSION(call)
-      end
+      ),
+    ) where {(
+      refEqual(outputNode, cr_node) &&
+      !isFromCref(rest_cr)
+    )} => begin
+      stmt.rhs
+    end
+    _ => begin
+      CALL_EXPRESSION(call)
     end
   end
-  return exp
 end
 
 function isSimpleType(ty)

@@ -35,16 +35,14 @@
 
 function needSpecialHandling(call::Call) ::Bool
   local special::Bool
-  () = begin
-    @match call begin
-      UNTYPED_CALL(__)  => begin
-        @match C_FUNCTION(specialBuiltin = special) = getFuncCache(classScope(node(call.ref)))
-        ()
-      end
-      _  => begin
-        Error.assertion(false, getInstanceName() + " got unknown call: " + toString(call), sourceInfo())
-        fail()
-      end
+  @match call begin
+    UNTYPED_CALL(__)  => begin
+      @match C_FUNCTION(specialBuiltin = special) = getFuncCache(classScope(node(call.ref)))
+      ()
+    end
+    _  => begin
+      Error.assertion(false, getInstanceName() + " got unknown call: " + toString(call), sourceInfo())
+      fail()
     end
   end
   #@debug "Is it special: " special
@@ -1691,76 +1689,74 @@ end
   This function checks the arguments to connectors
 """
 function checkConnectionsArgument(@nospecialize(arg::Expression), ty::ModelicaType, fnRef::ComponentRef, argIndex::Int, info::SourceInfo)
-   () = begin
-    local ty2::ModelicaType
-    local node::InstNode
-    local valid_cref::Bool
-    local isConnectorBool::Bool
-    @match arg begin
-      CREF_EXPRESSION(__)  => begin
-         (valid_cref, isConnectorBool) = begin
-          @match arg.cref begin
-            COMPONENT_REF_CREF(node = node, origin = Origin.CREF, restCref = COMPONENT_REF_CREF(ty = ty2, origin = Origin.CREF))  => begin
-              #= check form A.R =#
-              @assign ty2 = begin
-                @match ty2 begin
-                  TYPE_ARRAY(__) where (listLength(subscriptsAllFlat(arg.cref)) == listLength(ty2.dimensions))  => begin
-                    ty2.elementType
-                  end
+   local ty2::ModelicaType
+   local node::InstNode
+   local valid_cref::Bool
+   local isConnectorBool::Bool
+   @match arg begin
+     CREF_EXPRESSION(__)  => begin
+        (valid_cref, isConnectorBool) = begin
+         @match arg.cref begin
+           COMPONENT_REF_CREF(node = node, origin = Origin.CREF, restCref = COMPONENT_REF_CREF(ty = ty2, origin = Origin.CREF))  => begin
+             #= check form A.R =#
+             @assign ty2 = begin
+               @match ty2 begin
+                 TYPE_ARRAY(__) where (listLength(subscriptsAllFlat(arg.cref)) == listLength(ty2.dimensions))  => begin
+                   ty2.elementType
+                 end
 
-                  _  => begin
-                    ty2
-                  end
-                end
-              end
-              (isOverdetermined(getClass(node)), isConnector(ty2))
-            end
+                 _  => begin
+                   ty2
+                 end
+               end
+             end
+             (isOverdetermined(getClass(node)), isConnector(ty2))
+           end
 
-            COMPONENT_REF_CREF(node = node, ty = ty2)  => begin
-              #= adrpo #5821, allow for R only instead of A.R and issue a warning =#
-              @assign ty2 = begin
-                @match ty2 begin
-                  TYPE_ARRAY(__) where (listLength(subscriptsAllFlat(arg.cref)) == listLength(ty2.dimensions))  => begin
-                    ty2.elementType
-                  end
+           COMPONENT_REF_CREF(node = node, ty = ty2)  => begin
+             #= adrpo #5821, allow for R only instead of A.R and issue a warning =#
+             @assign ty2 = begin
+               @match ty2 begin
+                 TYPE_ARRAY(__) where (listLength(subscriptsAllFlat(arg.cref)) == listLength(ty2.dimensions))  => begin
+                   ty2.elementType
+                 end
 
-                  _  => begin
-                    ty2
-                  end
-                end
-              end
-              (isOverdetermined(getClass(node)), isConnector(ty2))
-            end
+                 _  => begin
+                   ty2
+                 end
+               end
+             end
+             (isOverdetermined(getClass(node)), isConnector(ty2))
+           end
 
-            _  => begin
-              (false, false)
-            end
-          end
-        end
-        if ! (valid_cref && isConnectorBool)
-          if valid_cref
-            Error.addSourceMessage(if argIndex == 1
-                                   Error.W_INVALID_ARGUMENT_TYPE_BRANCH_FIRST
-                                   else
-                                   Error.W_INVALID_ARGUMENT_TYPE_BRANCH_SECOND
-                                   end, list(toString(arg.cref), toString(fnRef)), info)
-          else
-            Error.addSourceMessageAndFail(if argIndex == 1
-                                          Error.INVALID_ARGUMENT_TYPE_BRANCH_FIRST
-                                          else
-                                          Error.INVALID_ARGUMENT_TYPE_BRANCH_SECOND
-                                          end, list(toString(arg.cref), toString(fnRef)), info)
-          end
-        end
-        ()
-      end
+           _  => begin
+             (false, false)
+           end
+         end
+       end
+       if ! (valid_cref && isConnectorBool)
+         if valid_cref
+           Error.addSourceMessage(if argIndex == 1
+                                  Error.W_INVALID_ARGUMENT_TYPE_BRANCH_FIRST
+                                  else
+                                  Error.W_INVALID_ARGUMENT_TYPE_BRANCH_SECOND
+                                  end, list(toString(arg.cref), toString(fnRef)), info)
+         else
+           Error.addSourceMessageAndFail(if argIndex == 1
+                                         Error.INVALID_ARGUMENT_TYPE_BRANCH_FIRST
+                                         else
+                                         Error.INVALID_ARGUMENT_TYPE_BRANCH_SECOND
+                                         end, list(toString(arg.cref), toString(fnRef)), info)
+         end
+       end
+       ()
+     end
 
-      _  => begin
-        Error.addSourceMessage(Error.ARG_TYPE_MISMATCH, list(string(argIndex), toString(fnRef), "", toString(arg), toString(ty), "overconstrained type/record"), info)
-        fail()
-      end
-    end
-  end
+     _  => begin
+       Error.addSourceMessage(Error.ARG_TYPE_MISMATCH, list(string(argIndex), toString(fnRef), "", toString(arg), toString(ty), "overconstrained type/record"), info)
+       fail()
+     end
+   end
 end
 
 function typeNoEventCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
@@ -1945,39 +1941,35 @@ function typeActualInStreamCall(name::String, call::Call, origin::ORIGIN_Type, i
 end
 
 function typeActualInStreamCall2(name::String, fn::MODELICA_FUNCTION, @nospecialize(arg::Expression), var::VariabilityType, info::SourceInfo) ::Expression
-  local callExp::Expression
 
-  @assign callExp = begin
-    local arg_node::InstNode
-    @match arg begin
-      CREF_EXPRESSION(__)  => begin
-        @assign arg_node = node(arg.cref)
-        #= The argument of actualStream/inStream must be a stream variable. =#
-        if ! isComponent(arg_node) || ! isStream(connectorType(component(arg_node)))
-          Error.addSourceMessageAndFail(Error.NON_STREAM_OPERAND_IN_STREAM_OPERATOR, list(toString(arg.cref), name), info)
+  local arg_node::InstNode
+  @match arg begin
+    CREF_EXPRESSION(__)  => begin
+      @assign arg_node = node(arg.cref)
+      #= The argument of actualStream/inStream must be a stream variable. =#
+      if ! isComponent(arg_node) || ! isStream(connectorType(component(arg_node)))
+        Error.addSourceMessageAndFail(Error.NON_STREAM_OPERAND_IN_STREAM_OPERATOR, list(toString(arg.cref), name), info)
+      end
+      #= The argument of actualStream/inStream must have subscripts that can be evaluated. =#
+      for sub in subscriptsAllFlat(arg.cref)
+        if variability(sub) > Variability.PARAMETER
+          Error.addSourceMessageAndFail(Error.CONNECTOR_NON_PARAMETER_SUBSCRIPT, list(toString(arg.cref), toString(sub)), info)
         end
-        #= The argument of actualStream/inStream must have subscripts that can be evaluated. =#
-        for sub in subscriptsAllFlat(arg.cref)
-          if variability(sub) > Variability.PARAMETER
-            Error.addSourceMessageAndFail(Error.CONNECTOR_NON_PARAMETER_SUBSCRIPT, list(toString(arg.cref), toString(sub)), info)
-          end
-        end
-        CALL_EXPRESSION(makeTypedCall(fn, Expression[arg], var, arg.ty))
       end
+      CALL_EXPRESSION(makeTypedCall(fn, Expression[arg], var, arg.ty))
+    end
 
-      ARRAY_EXPRESSION(__)  => begin
-        #= The operator on each element. The array of the elements was returned without the
-           calls: `a.Xi_outflow = inStream(b.Xi_outflow)` became `a.Xi_outflow = b.Xi_outflow`. =#
-        ARRAY_EXPRESSION(arg.ty, Expression[typeActualInStreamCall2(name, fn, e, var, info) for e in arg.elements], false)
-      end
+    ARRAY_EXPRESSION(__)  => begin
+      #= The operator on each element. The array of the elements was returned without the
+         calls: `a.Xi_outflow = inStream(b.Xi_outflow)` became `a.Xi_outflow = b.Xi_outflow`. =#
+      ARRAY_EXPRESSION(arg.ty, Expression[typeActualInStreamCall2(name, fn, e, var, info) for e in arg.elements], false)
+    end
 
-      _  => begin
-        Error.addSourceMessage(Error.NON_STREAM_OPERAND_IN_STREAM_OPERATOR, list(toString(arg), name), info)
-        fail()
-      end
+    _  => begin
+      Error.addSourceMessage(Error.NON_STREAM_OPERAND_IN_STREAM_OPERATOR, list(toString(arg), name), info)
+      fail()
     end
   end
-  callExp
 end
 
 function typeDynamicSelectCall(name::String, call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}

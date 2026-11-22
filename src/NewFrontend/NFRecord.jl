@@ -35,34 +35,17 @@
 
 @UniontypeDecl Field
 function name(field::Field)::String
-  local name::String
-  @assign name = begin
-    @match field begin
-      FIELD_INPUT(__) => begin
-        field.name
-      end
-      FIELD_LOCAL(__) => begin
-        field.name
-      end
+  @match field begin
+    FIELD_INPUT(__) => begin
+      field.name
+    end
+    FIELD_LOCAL(__) => begin
+      field.name
     end
   end
-  return name
 end
 
-function isInput(field::Field)::Bool
-  local isInput::Bool
-  @assign isInput = begin
-    @match field begin
-      FIELD_INPUT(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return isInput
-end
+isInput(field::Field)::Bool = isvariant(field, FIELD_INPUT)
 
 @Uniontype Field begin
   @Record FIELD_LOCAL begin
@@ -153,35 +136,33 @@ function collectRecordParams(
   local pcomps::Vector{Pointer{InstNode}}
   local tree::ClassTree
   @assign tree = classTree(getClass(recNode))
-   () = begin
-    @match tree begin
-      CLASS_TREE_FLAT_TREE(components = comps) => begin
-        for i = arrayLength(comps):(-1):1
-          comp = comps[i]
-          (inputs, locals) = collectRecordParam(comp, inputs, locals)
-          allParams = Cons{InstNode}(comp, allParams)
-        end
-        ()
-      end
-      CLASS_TREE_INSTANTIATED_TREE(components = pcomps) => begin
-        for i = arrayLength(pcomps):(-1):1
-          comp = P_Pointer.access(pcomps[i])
-          (inputs, locals) = collectRecordParam(comp, inputs, locals)
-          allParams = Cons{InstNode}(comp, allParams)
-        end
-        ()
-      end
+   @match tree begin
+     CLASS_TREE_FLAT_TREE(components = comps) => begin
+       for i = arrayLength(comps):(-1):1
+         comp = comps[i]
+         (inputs, locals) = collectRecordParam(comp, inputs, locals)
+         allParams = Cons{InstNode}(comp, allParams)
+       end
+       ()
+     end
+     CLASS_TREE_INSTANTIATED_TREE(components = pcomps) => begin
+       for i = arrayLength(pcomps):(-1):1
+         comp = P_Pointer.access(pcomps[i])
+         (inputs, locals) = collectRecordParam(comp, inputs, locals)
+         allParams = Cons{InstNode}(comp, allParams)
+       end
+       ()
+     end
 
-      _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() + " got non-instantiated function",
-          sourceInfo(),
-        )
-        fail()
-      end
-    end
-  end
+     _ => begin
+       Error.assertion(
+         false,
+         getInstanceName() + " got non-instantiated function",
+         sourceInfo(),
+       )
+       fail()
+     end
+   end
   return (inputs, locals, allParams)
 end
 

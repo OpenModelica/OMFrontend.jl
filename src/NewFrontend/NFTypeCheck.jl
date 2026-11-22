@@ -2539,103 +2539,101 @@ function matchComplexTypes(
     end
     return (expression, compatibleType, matchKind)
   end
-  () = begin
-    @match (cls1, cls2, expression) begin
-      (
-        INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps1)),
-        INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps2)),
-        RECORD_EXPRESSION(elements = elementsV),
-      ) => begin
+  @match (cls1, cls2, expression) begin
+    (
+      INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps1)),
+      INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps2)),
+      RECORD_EXPRESSION(elements = elementsV),
+    ) => begin
+      matchKind = MatchKind.PLUG_COMPATIBLE
+      if arrayLength(comps1) != arrayLength(comps2) ||
+         arrayLength(comps1) != length(elementsV)
+        matchKind = MatchKind.NOT_COMPATIBLE
+      else
+        local matched_elements = Expression[]
+        for i = 1:arrayLength(comps1)
+          e = elementsV[i]
+           (e, _, mk) = matchTypes(
+            getType(comps1[i]),
+            getType(comps2[i]),
+            e,
+            allowUnknown,
+          )
+          push!(matched_elements, e)
+          if mk == MatchKind.CAST
+            matchKind = mk
+          elseif !isValidPlugCompatibleMatch(mk)
+            matchKind = MatchKind.NOT_COMPATIBLE
+            break
+          end
+        end
+        if matchKind == MatchKind.CAST
+          expression.elements = matched_elements
+        end
+      end
+      if matchKind != MatchKind.NOT_COMPATIBLE
         matchKind = MatchKind.PLUG_COMPATIBLE
-        if arrayLength(comps1) != arrayLength(comps2) ||
-           arrayLength(comps1) != length(elementsV)
-          matchKind = MatchKind.NOT_COMPATIBLE
-        else
-          local matched_elements = Expression[]
-          for i = 1:arrayLength(comps1)
-            e = elementsV[i]
-             (e, _, mk) = matchTypes(
-              getType(comps1[i]),
-              getType(comps2[i]),
-              e,
+      end
+      ()
+    end
+
+    (
+      INSTANCED_CLASS(
+        ty = TYPE_COMPLEX(complexTy = cty1 && COMPLEX_CONNECTOR(__)),
+      ),
+      INSTANCED_CLASS(
+        ty = TYPE_COMPLEX(complexTy = cty2 && COMPLEX_CONNECTOR(__)),
+      ),
+      _,
+    ) => begin
+      @assign matchKind =
+        matchComponentList(cty1.potentials, cty2.potentials, allowUnknown)
+      if matchKind != MatchKind.NOT_COMPATIBLE
+        @assign matchKind = matchComponentList(cty1.flows, cty2.flows, allowUnknown)
+        if matchKind != MatchKind.NOT_COMPATIBLE
+          @assign matchKind = matchComponentList(cty1.streams, cty2.streams, allowUnknown)
+        end
+      end
+      if matchKind != MatchKind.NOT_COMPATIBLE
+        @assign matchKind = MatchKind.PLUG_COMPATIBLE
+      end
+      ()
+    end
+
+    (
+      INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps1)),
+      INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps2)),
+      _,
+    ) => begin
+      @assign matchKind = MatchKind.PLUG_COMPATIBLE
+      if arrayLength(comps1) != arrayLength(comps2)
+        @assign matchKind = MatchKind.NOT_COMPATIBLE
+      else
+        for i = 1:arrayLength(comps1)
+          @assign comp1 = component(comps1[i])
+          @assign comp2 = component(comps2[i])
+          #= Both typed: an untyped field's type is its element type (under parallel typing
+             another task's record: sta of Stage[1] read as Stage, a binding type mismatch). =#
+          if isTyped(comp1) && isTyped(comp2)
+             (_, _, mk) = matchTypes(
+              getType(comp1),
+              getType(comp2),
+              expression,
               allowUnknown,
             )
-            push!(matched_elements, e)
-            if mk == MatchKind.CAST
-              matchKind = mk
-            elseif !isValidPlugCompatibleMatch(mk)
-              matchKind = MatchKind.NOT_COMPATIBLE
+            if !isValidPlugCompatibleMatch(mk)
+              @assign matchKind = MatchKind.NOT_COMPATIBLE
               break
             end
           end
-          if matchKind == MatchKind.CAST
-            expression.elements = matched_elements
-          end
         end
-        if matchKind != MatchKind.NOT_COMPATIBLE
-          matchKind = MatchKind.PLUG_COMPATIBLE
-        end
-        ()
       end
+      ()
+    end
 
-      (
-        INSTANCED_CLASS(
-          ty = TYPE_COMPLEX(complexTy = cty1 && COMPLEX_CONNECTOR(__)),
-        ),
-        INSTANCED_CLASS(
-          ty = TYPE_COMPLEX(complexTy = cty2 && COMPLEX_CONNECTOR(__)),
-        ),
-        _,
-      ) => begin
-        @assign matchKind =
-          matchComponentList(cty1.potentials, cty2.potentials, allowUnknown)
-        if matchKind != MatchKind.NOT_COMPATIBLE
-          @assign matchKind = matchComponentList(cty1.flows, cty2.flows, allowUnknown)
-          if matchKind != MatchKind.NOT_COMPATIBLE
-            @assign matchKind = matchComponentList(cty1.streams, cty2.streams, allowUnknown)
-          end
-        end
-        if matchKind != MatchKind.NOT_COMPATIBLE
-          @assign matchKind = MatchKind.PLUG_COMPATIBLE
-        end
-        ()
-      end
-
-      (
-        INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps1)),
-        INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps2)),
-        _,
-      ) => begin
-        @assign matchKind = MatchKind.PLUG_COMPATIBLE
-        if arrayLength(comps1) != arrayLength(comps2)
-          @assign matchKind = MatchKind.NOT_COMPATIBLE
-        else
-          for i = 1:arrayLength(comps1)
-            @assign comp1 = component(comps1[i])
-            @assign comp2 = component(comps2[i])
-            #= Both typed: an untyped field's type is its element type (under parallel typing
-               another task's record: sta of Stage[1] read as Stage, a binding type mismatch). =#
-            if isTyped(comp1) && isTyped(comp2)
-               (_, _, mk) = matchTypes(
-                getType(comp1),
-                getType(comp2),
-                expression,
-                allowUnknown,
-              )
-              if !isValidPlugCompatibleMatch(mk)
-                @assign matchKind = MatchKind.NOT_COMPATIBLE
-                break
-              end
-            end
-          end
-        end
-        ()
-      end
-
-      _ => begin
-        @assign matchKind = MatchKind.NOT_COMPATIBLE
-        ()
-      end
+    _ => begin
+      @assign matchKind = MatchKind.NOT_COMPATIBLE
+      ()
     end
   end
   return (expression, compatibleType, matchKind)
@@ -3236,84 +3234,80 @@ function getRangeTypeInt(
   @nospecialize(stopExp::Expression),
   info::SourceInfo,
 )::Dimension
-  local dim::Dimension
 
-  @assign dim = begin
-    local step::Int
-    local step_exp::Expression
-    local dim_exp::Expression
-    local var::VariabilityType
-    @match (startExp, stepExp, stopExp) begin
-      (INTEGER_EXPRESSION(__), NONE(), INTEGER_EXPRESSION(__)) => begin
-        fromInteger(max(stopExp.value - startExp.value + 1, 0))
+  local step::Int
+  local step_exp::Expression
+  local dim_exp::Expression
+  local var::VariabilityType
+  @match (startExp, stepExp, stopExp) begin
+    (INTEGER_EXPRESSION(__), NONE(), INTEGER_EXPRESSION(__)) => begin
+      fromInteger(max(stopExp.value - startExp.value + 1, 0))
+    end
+
+    (
+      INTEGER_EXPRESSION(__),
+      SOME(INTEGER_EXPRESSION(value = step)),
+      INTEGER_EXPRESSION(__),
+    ) => begin
+      #= Don't allow infinite ranges. =#
+      if step == 0
+        Error.addSourceMessageAndFail(Error.RANGE_TOO_SMALL_STEP, list(string(step)), info)
       end
+      fromInteger(max(
+        intDiv(stopExp.value - startExp.value, step) + 1,
+        0,
+      ))
+    end
 
-      (
-        INTEGER_EXPRESSION(__),
-        SOME(INTEGER_EXPRESSION(value = step)),
-        INTEGER_EXPRESSION(__),
-      ) => begin
-        #= Don't allow infinite ranges. =#
-        if step == 0
-          Error.addSourceMessageAndFail(Error.RANGE_TOO_SMALL_STEP, list(string(step)), info)
-        end
-        fromInteger(max(
-          intDiv(stopExp.value - startExp.value, step) + 1,
-          0,
-        ))
-      end
+    (INTEGER_EXPRESSION(1), NONE(), _) => begin
+      #= Ranges like 1:n have size n. =#
+      @assign dim_exp = simplify(stopExp)
+      fromExp(dim_exp, variability(dim_exp))
+    end
 
-      (INTEGER_EXPRESSION(1), NONE(), _) => begin
-        #= Ranges like 1:n have size n. =#
-        @assign dim_exp = simplify(stopExp)
-        fromExp(dim_exp, variability(dim_exp))
-      end
+    (_, NONE(), _) where {(isEqual(startExp, stopExp))} => begin
+      fromInteger(1)
+    end
 
-      (_, NONE(), _) where {(isEqual(startExp, stopExp))} => begin
-        fromInteger(1)
-      end
-
-      _ => begin
-        #= Ranges like n:n have size 1.
-           For other ranges, create the appropriate expression as dimension.
-           max(stop - start + 1, 0) or max(((stop - start) / step) + 1, 0) =#
-        @assign dim_exp = BINARY_EXPRESSION(
-          stopExp,
-          makeSub(TYPE_INTEGER()),
-          startExp,
-        )
+    _ => begin
+      #= Ranges like n:n have size 1.
+         For other ranges, create the appropriate expression as dimension.
+         max(stop - start + 1, 0) or max(((stop - start) / step) + 1, 0) =#
+      @assign dim_exp = BINARY_EXPRESSION(
+        stopExp,
+        makeSub(TYPE_INTEGER()),
+        startExp,
+      )
+      @assign var = variabilityMax(
+        variability(stopExp),
+        variability(startExp),
+      )
+      if isSome(stepExp)
+        @match SOME(step_exp) = stepExp
         @assign var = variabilityMax(
-          variability(stopExp),
-          variability(startExp),
+          var,
+          variability(step_exp),
         )
-        if isSome(stepExp)
-          @match SOME(step_exp) = stepExp
-          @assign var = variabilityMax(
-            var,
-            variability(step_exp),
-          )
-          @assign dim_exp = CALL_EXPRESSION(makeTypedCall(
-            NFBuiltinFuncs.DIV_INT,
-            Expression[dim_exp, step_exp],
-            var,
-          ))
-        end
-        dim_exp = BINARY_EXPRESSION(
-          dim_exp,
-          makeAdd(TYPE_INTEGER()),
-          INTEGER_EXPRESSION(1),
-        )
-        dim_exp = CALL_EXPRESSION(makeTypedCall(
-          NFBuiltinFuncs.MAX_INT,
-          Expression[dim_exp, INTEGER_EXPRESSION(0)],
+        @assign dim_exp = CALL_EXPRESSION(makeTypedCall(
+          NFBuiltinFuncs.DIV_INT,
+          Expression[dim_exp, step_exp],
           var,
         ))
-        dim_exp = simplify(dim_exp)
-        fromExp(dim_exp, var)
       end
+      dim_exp = BINARY_EXPRESSION(
+        dim_exp,
+        makeAdd(TYPE_INTEGER()),
+        INTEGER_EXPRESSION(1),
+      )
+      dim_exp = CALL_EXPRESSION(makeTypedCall(
+        NFBuiltinFuncs.MAX_INT,
+        Expression[dim_exp, INTEGER_EXPRESSION(0)],
+        var,
+      ))
+      dim_exp = simplify(dim_exp)
+      fromExp(dim_exp, var)
     end
   end
-  return dim
 end
 
 function getRangeTypeReal(
@@ -3322,93 +3316,89 @@ function getRangeTypeReal(
   @nospecialize(stopExp::Expression),
   info::SourceInfo,
 )::Dimension
-  local dim::Dimension
 
-  @assign dim = begin
-    local start::AbstractFloat
-    local step::AbstractFloat
-    local dim_exp::Expression
-    local step_exp::Expression
-    local var::VariabilityType
-    @match (startExp, stepExp, stopExp) begin
-      (REAL_EXPRESSION(__), NONE(), REAL_EXPRESSION(__)) =>
-        begin
-          fromInteger(Util.realRangeSize(
-            startExp.value,
-            1.0,
-            stopExp.value,
-          ))
-        end
-
-      (
-        REAL_EXPRESSION(value = start),
-        SOME(REAL_EXPRESSION(value = step)),
-        REAL_EXPRESSION(__),
-      ) => begin
-        #= Check that adding step to start actually produces a different value,
-           otherwise the step size is too small. =#
-        if start == start + step
-          Error.addSourceMessageAndFail(Error.RANGE_TOO_SMALL_STEP, list(string(step)), info)
-        end
+  local start::AbstractFloat
+  local step::AbstractFloat
+  local dim_exp::Expression
+  local step_exp::Expression
+  local var::VariabilityType
+  @match (startExp, stepExp, stopExp) begin
+    (REAL_EXPRESSION(__), NONE(), REAL_EXPRESSION(__)) =>
+      begin
         fromInteger(Util.realRangeSize(
           startExp.value,
-          step,
+          1.0,
           stopExp.value,
         ))
       end
 
-      (_, NONE(), _) where {(isEqual(startExp, stopExp))} => begin
-        fromInteger(1)
+    (
+      REAL_EXPRESSION(value = start),
+      SOME(REAL_EXPRESSION(value = step)),
+      REAL_EXPRESSION(__),
+    ) => begin
+      #= Check that adding step to start actually produces a different value,
+         otherwise the step size is too small. =#
+      if start == start + step
+        Error.addSourceMessageAndFail(Error.RANGE_TOO_SMALL_STEP, list(string(step)), info)
       end
+      fromInteger(Util.realRangeSize(
+        startExp.value,
+        step,
+        stopExp.value,
+      ))
+    end
 
-      _ => begin
-        dim_exp = BINARY_EXPRESSION(
-          stopExp,
-          makeSub(TYPE_REAL()),
-          startExp,
-        )
+    (_, NONE(), _) where {(isEqual(startExp, stopExp))} => begin
+      fromInteger(1)
+    end
+
+    _ => begin
+      dim_exp = BINARY_EXPRESSION(
+        stopExp,
+        makeSub(TYPE_REAL()),
+        startExp,
+      )
+      var = variabilityMax(
+        variability(stopExp),
+        variability(startExp),
+      )
+      if isSome(stepExp)
+        @match SOME(step_exp) = stepExp
         var = variabilityMax(
-          variability(stopExp),
-          variability(startExp),
+          var,
+          variability(step_exp),
         )
-        if isSome(stepExp)
-          @match SOME(step_exp) = stepExp
-          var = variabilityMax(
-            var,
-            variability(step_exp),
-          )
-          dim_exp = BINARY_EXPRESSION(
-            dim_exp,
-            makeDiv(TYPE_REAL()),
-            step_exp,
-          )
-          dim_exp = BINARY_EXPRESSION(
-            dim_exp,
-            makeAdd(TYPE_REAL()),
-            REAL_EXPRESSION(5e-15),
-          )
-        end
-        dim_exp = CALL_EXPRESSION(makeTypedCall(
-          NFBuiltinFuncs.FLOOR,
-          Expression[dim_exp],
-          var,
-        ))
-        dim_exp = CALL_EXPRESSION(makeTypedCall(
-          NFBuiltinFuncs.INTEGER_REAL,
-          Expression[dim_exp],
-          var,
-        ))
         dim_exp = BINARY_EXPRESSION(
           dim_exp,
-          makeAdd(TYPE_INTEGER()),
-          INTEGER_EXPRESSION(1),
+          makeDiv(TYPE_REAL()),
+          step_exp,
         )
-        dim_exp = simplify(dim_exp)
-        fromExp(dim_exp, var)
+        dim_exp = BINARY_EXPRESSION(
+          dim_exp,
+          makeAdd(TYPE_REAL()),
+          REAL_EXPRESSION(5e-15),
+        )
       end
+      dim_exp = CALL_EXPRESSION(makeTypedCall(
+        NFBuiltinFuncs.FLOOR,
+        Expression[dim_exp],
+        var,
+      ))
+      dim_exp = CALL_EXPRESSION(makeTypedCall(
+        NFBuiltinFuncs.INTEGER_REAL,
+        Expression[dim_exp],
+        var,
+      ))
+      dim_exp = BINARY_EXPRESSION(
+        dim_exp,
+        makeAdd(TYPE_INTEGER()),
+        INTEGER_EXPRESSION(1),
+      )
+      dim_exp = simplify(dim_exp)
+      fromExp(dim_exp, var)
     end
   end
-  return dim
 end
 
 @nospecializeinfer function getRangeTypeBool(@nospecialize(startExp::Expression), @nospecialize(stopExp::Expression))::Dimension
@@ -3632,28 +3622,26 @@ end
    dimension, otherwise prints an error and fails. =#"""
 @nospecializeinfer function checkDimensionType(@nospecialize(exp::Expression), ty::ModelicaType, info::SourceInfo)
   return if !isInteger(ty)
-     () = begin
-      @match exp begin
-        TYPENAME_EXPRESSION(ty = TYPE_ARRAY(elementType = TYPE_BOOLEAN(__))) => begin
-          ()
-        end
+     @match exp begin
+       TYPENAME_EXPRESSION(ty = TYPE_ARRAY(elementType = TYPE_BOOLEAN(__))) => begin
+         ()
+       end
 
-        TYPENAME_EXPRESSION(
-          ty = TYPE_ARRAY(elementType = TYPE_ENUMERATION(__)),
-        ) => begin
-          ()
-        end
+       TYPENAME_EXPRESSION(
+         ty = TYPE_ARRAY(elementType = TYPE_ENUMERATION(__)),
+       ) => begin
+         ()
+       end
 
-        _ => begin
-          Error.addSourceMessage(
-            Error.INVALID_DIMENSION_TYPE,
-            list(toString(exp), toString(ty)),
-            info,
-          )
-          fail()
-        end
-      end
-    end
+       _ => begin
+         Error.addSourceMessage(
+           Error.INVALID_DIMENSION_TYPE,
+           list(toString(exp), toString(ty)),
+           info,
+         )
+         fail()
+       end
+     end
   end
 end
 

@@ -114,25 +114,21 @@ function simplifyTypeAttribute(attribute::Tuple{<:String, Binding})::Tuple{Strin
 end
 
 function simplifyDimension(dim::Dimension)::Dimension
-  local outDim::Dimension
 
-  @assign outDim = begin
-    local e::Expression
-    @match dim begin
-      DIMENSION_EXP(__) => begin
-        @assign e = simplify(dim.exp)
-        if referenceEq(e, dim.exp)
-          dim
-        else
-          fromExp(e, dim.var)
-        end
-      end
-      _ => begin
+  local e::Expression
+  @match dim begin
+    DIMENSION_EXP(__) => begin
+      @assign e = simplify(dim.exp)
+      if referenceEq(e, dim.exp)
         dim
+      else
+        fromExp(e, dim.var)
       end
     end
+    _ => begin
+      dim
+    end
   end
-  return outDim
 end
 
 function simplifyEquations(eql::Vector{Equation})
@@ -568,29 +564,25 @@ function simplifyFunction(func::MODELICA_FUNCTION)
     markSimplified(func)
     func = mapExp(func, simplify, false)
     cls = getClass(func.node)
-    () = begin
-      @match cls begin
-        INSTANCED_CLASS(sections = sections) => begin
-          () = begin
-            @match sections begin
-              SECTIONS(algorithms = [fn_body]) => begin
-                @assign fn_body.statements = simplifyStatements(fn_body.statements)
-                @assign sections.algorithms = [fn_body]
-                @assign cls.sections = sections
-                @assign func.node = updateClass(cls, func.node)
-                ()
-              end
-
-              _ => begin
-                ()
-              end
-            end
+    @match cls begin
+      INSTANCED_CLASS(sections = sections) => begin
+        @match sections begin
+          SECTIONS(algorithms = [fn_body]) => begin
+            @assign fn_body.statements = simplifyStatements(fn_body.statements)
+            @assign sections.algorithms = [fn_body]
+            @assign cls.sections = sections
+            @assign func.node = updateClass(cls, func.node)
+            ()
           end
-          ()
+
+          _ => begin
+            ()
+          end
         end
-        _ => begin
-          ()
-        end
+        ()
+      end
+      _ => begin
+        ()
       end
     end
     for fn_der in func.derivatives

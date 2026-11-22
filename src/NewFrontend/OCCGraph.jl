@@ -848,21 +848,17 @@ end
 
 """The prefix of `cref` that ends with its last overconstrained part: `frame_a.R` for `frame_a.R.T`."""
 function getOverconstrainedCref(cref::ComponentRef)::ComponentRef
-  local c::ComponentRef
   local node::InstNode
   local rest::ComponentRef
-  c = begin
-    @match cref begin
-      COMPONENT_REF_CREF(node = node, origin = Origin.CREF, restCref = rest)  => begin
-        if isOverdetermined(getClass(node))
-          cref
-        else
-          getOverconstrainedCref(rest)
-        end
+  @match cref begin
+    COMPONENT_REF_CREF(node = node, origin = Origin.CREF, restCref = rest)  => begin
+      if isOverdetermined(getClass(node))
+        cref
+      else
+        getOverconstrainedCref(rest)
       end
     end
   end
-  c
 end
 
 """True if `eq` calls a Connections operator that is evaluated (rooted, isRoot, uniqueRootIndices)."""
@@ -925,56 +921,52 @@ end
 
 """The `Connections` operator `functionName` names, `CONNECTIONS_OPERATOR_NONE` for any other function."""
 function identifyConnectionsOperator(functionName::Absyn.Path)::ConnectionsOperator
-  local call::ConnectionsOperator
-  call = begin
-    local name::String
-    @match functionName begin
-      Absyn.QUALIFIED(name = "Connections", path = Absyn.IDENT(name = name))  => begin
-        begin
-          @match name begin
-            "branch"  => begin
-              CONNECTIONS_OPERATOR_BRANCH
-            end
+  local name::String
+  @match functionName begin
+    Absyn.QUALIFIED(name = "Connections", path = Absyn.IDENT(name = name))  => begin
+      begin
+        @match name begin
+          "branch"  => begin
+            CONNECTIONS_OPERATOR_BRANCH
+          end
 
-            "root"  => begin
-              CONNECTIONS_OPERATOR_ROOT
-            end
+          "root"  => begin
+            CONNECTIONS_OPERATOR_ROOT
+          end
 
-            "potentialRoot"  => begin
-              CONNECTIONS_OPERATOR_POTENTIAL_ROOT
-            end
+          "potentialRoot"  => begin
+            CONNECTIONS_OPERATOR_POTENTIAL_ROOT
+          end
 
-            "isRoot"  => begin
-              CONNECTIONS_OPERATOR_IS_ROOT
-            end
+          "isRoot"  => begin
+            CONNECTIONS_OPERATOR_IS_ROOT
+          end
 
-            "rooted"  => begin
-              CONNECTIONS_OPERATOR_ROOTED
-            end
+          "rooted"  => begin
+            CONNECTIONS_OPERATOR_ROOTED
+          end
 
-            "uniqueRoot"  => begin
-              CONNECTIONS_OPERATOR_UNIQUE_ROOT
-            end
+          "uniqueRoot"  => begin
+            CONNECTIONS_OPERATOR_UNIQUE_ROOT
+          end
 
-            "uniqueRootIndices"  => begin
-              CONNECTIONS_OPERATOR_UNIQUE_ROOT_INDICES
-            end
+          "uniqueRootIndices"  => begin
+            CONNECTIONS_OPERATOR_UNIQUE_ROOT_INDICES
+          end
 
-            _  => begin
-              CONNECTIONS_OPERATOR_NONE
-            end
+          _  => begin
+            CONNECTIONS_OPERATOR_NONE
           end
         end
       end
+    end
 
-      Absyn.IDENT(name = "rooted")  => begin
-        CONNECTIONS_OPERATOR_ROOTED
-      end
+    Absyn.IDENT(name = "rooted")  => begin
+      CONNECTIONS_OPERATOR_ROOTED
+    end
 
-      _  => begin
-        CONNECTIONS_OPERATOR_NONE
-      end
+    _  => begin
+      CONNECTIONS_OPERATOR_NONE
     end
   end
-  call
 end

@@ -243,63 +243,61 @@ function collectStmtBranchFlatTypes(branch::Tuple{<:Expression, Vector{<:Stateme
 end
 
 function collectStatementFlatTypes(stmt::Statement, types::TypeTree)::TypeTree
-   () = begin
-    @match stmt begin
-      ALG_ASSIGNMENT(__) => begin
-         types = collectExpFlatTypes(stmt.lhs, types)
-         types = collectExpFlatTypes(stmt.rhs, types)
-         types = collectFlatType(stmt.ty, types)
-        ()
-      end
-      ALG_FOR(__) => begin
-         types = ArrayUtil.fold(stmt.body, collectStatementFlatTypes, types, TypeTree)
-         types = collectExpFlatTypes(Util.getOption(stmt.range), types)
-        ()
-      end
+   @match stmt begin
+     ALG_ASSIGNMENT(__) => begin
+        types = collectExpFlatTypes(stmt.lhs, types)
+        types = collectExpFlatTypes(stmt.rhs, types)
+        types = collectFlatType(stmt.ty, types)
+       ()
+     end
+     ALG_FOR(__) => begin
+        types = ArrayUtil.fold(stmt.body, collectStatementFlatTypes, types, TypeTree)
+        types = collectExpFlatTypes(Util.getOption(stmt.range), types)
+       ()
+     end
 
-      ALG_IF(__) => begin
-         types = ArrayUtil.fold(stmt.branches, collectStmtBranchFlatTypes, types, TypeTree)
-        ()
-      end
+     ALG_IF(__) => begin
+        types = ArrayUtil.fold(stmt.branches, collectStmtBranchFlatTypes, types, TypeTree)
+       ()
+     end
 
-      ALG_WHEN(__) => begin
-         types = ArrayUtil.fold(stmt.branches, collectStmtBranchFlatTypes, types, TypeTree)
-        ()
-      end
+     ALG_WHEN(__) => begin
+        types = ArrayUtil.fold(stmt.branches, collectStmtBranchFlatTypes, types, TypeTree)
+       ()
+     end
 
-      ALG_ASSERT(__) => begin
-         types = collectExpFlatTypes(stmt.condition, types)
-         types = collectExpFlatTypes(stmt.message, types)
-         types = collectExpFlatTypes(stmt.level, types)
-        ()
-      end
+     ALG_ASSERT(__) => begin
+        types = collectExpFlatTypes(stmt.condition, types)
+        types = collectExpFlatTypes(stmt.message, types)
+        types = collectExpFlatTypes(stmt.level, types)
+       ()
+     end
 
-      ALG_TERMINATE(__) => begin
-         types = collectExpFlatTypes(stmt.message, types)
-        ()
-      end
+     ALG_TERMINATE(__) => begin
+        types = collectExpFlatTypes(stmt.message, types)
+       ()
+     end
 
-      ALG_REINIT(__) => begin
-        types = collectExpFlatTypes(stmt.reinitExp, types)
-        ()
-      end
+     ALG_REINIT(__) => begin
+       types = collectExpFlatTypes(stmt.reinitExp, types)
+       ()
+     end
 
-      ALG_NORETCALL(__) => begin
-         types = collectExpFlatTypes(stmt.exp, types)
-        ()
-      end
+     ALG_NORETCALL(__) => begin
+        types = collectExpFlatTypes(stmt.exp, types)
+       ()
+     end
 
-      ALG_WHILE(__) => begin
-         types = collectExpFlatTypes(stmt.condition, types)
-         types = ArrayUtil.fold(stmt.body, collectStatementFlatTypes, types, TypeTree)
-        ()
-      end
+     ALG_WHILE(__) => begin
+        types = collectExpFlatTypes(stmt.condition, types)
+        types = ArrayUtil.fold(stmt.body, collectStatementFlatTypes, types, TypeTree)
+       ()
+     end
 
-      _ => begin
-        ()
-      end
-    end
-  end
+     _ => begin
+       ()
+     end
+   end
   return types
 end
 
@@ -313,16 +311,14 @@ function collectEqBranchFlatTypes(
   branch::EquationBranch,
   types::TypeTree,
 )::TypeTree
-  () = begin
-    @match branch begin
-      EQUATION_BRANCH(__) => begin
-        types = collectExpFlatTypes(branch.condition, types)
-        types = ArrayUtil.fold(branch.body, collectEquationFlatTypes, types, TypeTree)
-        ()
-      end
-      _ => begin
-        ()
-      end
+  @match branch begin
+    EQUATION_BRANCH(__) => begin
+      types = collectExpFlatTypes(branch.condition, types)
+      types = ArrayUtil.fold(branch.body, collectEquationFlatTypes, types, TypeTree)
+      ()
+    end
+    _ => begin
+      ()
     end
   end
   return types
@@ -330,62 +326,60 @@ end
 
 function collectEquationFlatTypes(eq::Equation, types::TypeTree)::TypeTree
 
-  () = begin
-    @match eq begin
-      EQUATION_EQUALITY(__) => begin
-        types = collectExpFlatTypes(eq.lhs, types)
-        types = collectExpFlatTypes(eq.rhs, types)
-        types = collectFlatType(eq.ty, types)
-        ()
-      end
+  @match eq begin
+    EQUATION_EQUALITY(__) => begin
+      types = collectExpFlatTypes(eq.lhs, types)
+      types = collectExpFlatTypes(eq.rhs, types)
+      types = collectFlatType(eq.ty, types)
+      ()
+    end
 
-      EQUATION_ARRAY_EQUALITY(__) => begin
-        types = collectExpFlatTypes(eq.lhs, types)
-        types = collectExpFlatTypes(eq.rhs, types)
-        types = collectFlatType(eq.ty, types)
-        ()
-      end
+    EQUATION_ARRAY_EQUALITY(__) => begin
+      types = collectExpFlatTypes(eq.lhs, types)
+      types = collectExpFlatTypes(eq.rhs, types)
+      types = collectFlatType(eq.ty, types)
+      ()
+    end
 
-      EQUATION_FOR(__) => begin
-        types = ArrayUtil.fold(eq.body, collectEquationFlatTypes, types, TypeTree)
-        ()
-      end
+    EQUATION_FOR(__) => begin
+      types = ArrayUtil.fold(eq.body, collectEquationFlatTypes, types, TypeTree)
+      ()
+    end
 
-      EQUATION_IF(__) => begin
-        types = ArrayUtil.fold(eq.branches, collectEqBranchFlatTypes, types, TypeTree)
-        ()
-      end
+    EQUATION_IF(__) => begin
+      types = ArrayUtil.fold(eq.branches, collectEqBranchFlatTypes, types, TypeTree)
+      ()
+    end
 
-      EQUATION_WHEN(__) => begin
-        types = ArrayUtil.fold(eq.branches, collectEqBranchFlatTypes, types, TypeTree)
-        ()
-      end
+    EQUATION_WHEN(__) => begin
+      types = ArrayUtil.fold(eq.branches, collectEqBranchFlatTypes, types, TypeTree)
+      ()
+    end
 
-      EQUATION_ASSERT(__) => begin
-        types = collectExpFlatTypes(eq.condition, types)
-        types = collectExpFlatTypes(eq.message, types)
-        types = collectExpFlatTypes(eq.level, types)
-        ()
-      end
+    EQUATION_ASSERT(__) => begin
+      types = collectExpFlatTypes(eq.condition, types)
+      types = collectExpFlatTypes(eq.message, types)
+      types = collectExpFlatTypes(eq.level, types)
+      ()
+    end
 
-      EQUATION_TERMINATE(__) => begin
-        types = collectExpFlatTypes(eq.message, types)
-        ()
-      end
+    EQUATION_TERMINATE(__) => begin
+      types = collectExpFlatTypes(eq.message, types)
+      ()
+    end
 
-      EQUATION_REINIT(__) => begin
-        types = collectExpFlatTypes(eq.reinitExp, types)
-        ()
-      end
+    EQUATION_REINIT(__) => begin
+      types = collectExpFlatTypes(eq.reinitExp, types)
+      ()
+    end
 
-      EQUATION_NORETCALL(__) => begin
-        types = collectExpFlatTypes(eq.exp, types)
-        ()
-      end
+    EQUATION_NORETCALL(__) => begin
+      types = collectExpFlatTypes(eq.exp, types)
+      ()
+    end
 
-      _ => begin
-        ()
-      end
+    _ => begin
+      ()
     end
   end
   return types
@@ -399,27 +393,25 @@ function collectBindingFlatTypes(binding::Binding, types::TypeTree)::TypeTree
 end
 
 function collectFlatType(ty::ModelicaType, types::TypeTree)::TypeTree
-  () = begin
-    @match ty begin
-      TYPE_ENUMERATION(__) => begin
-        types = TypeTreeImpl.add(types, ty.typePath, ty)
-        ()
-      end
-      TYPE_ARRAY(__) => begin
-        types = foldExpList(ty.dimensions, collectExpFlatTypes_traverse, types, TypeTree)
-        types = collectFlatType(ty.elementType, types)
-        ()
-      end
-      TYPE_COMPLEX(complexTy = COMPLEX_RECORD(__)) => begin
-        types = TypeTreeImpl.add(types, scopePath(ty.cls), ty)
-        ()
-      end
-      TYPE_COMPLEX(complexTy = COMPLEX_EXTERNAL_OBJECT(__)) =>  begin
-        types = TypeTreeImpl.add(types, scopePath(ty.cls), ty)
-      end
-      _ => begin
-        ()
-      end
+  @match ty begin
+    TYPE_ENUMERATION(__) => begin
+      types = TypeTreeImpl.add(types, ty.typePath, ty)
+      ()
+    end
+    TYPE_ARRAY(__) => begin
+      types = foldExpList(ty.dimensions, collectExpFlatTypes_traverse, types, TypeTree)
+      types = collectFlatType(ty.elementType, types)
+      ()
+    end
+    TYPE_COMPLEX(complexTy = COMPLEX_RECORD(__)) => begin
+      types = TypeTreeImpl.add(types, scopePath(ty.cls), ty)
+      ()
+    end
+    TYPE_COMPLEX(complexTy = COMPLEX_EXTERNAL_OBJECT(__)) =>  begin
+      types = TypeTreeImpl.add(types, scopePath(ty.cls), ty)
+    end
+    _ => begin
+      ()
     end
   end
   return types

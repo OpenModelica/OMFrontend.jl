@@ -68,20 +68,7 @@ function hasKey(inTree::Tree, inKey::Key)
   end
 end
 
-function isEmpty(tree::Tree)::Bool
-  local isEmpty::Bool
-   isEmpty = begin
-    @match tree begin
-      EMPTY(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return isEmpty
-end
+isEmpty(tree::Tree)::Bool = isvariant(tree, EMPTY)
 
 """  Converts the tree to a flat list of keys (in order). """
 function listKeys(inTree::Tree, lst::List{<:Key} = nil)
@@ -215,42 +202,34 @@ function balance(inTree::Tree)
 end
 
 function height(inNode::Tree)::Int
-  local outHeight::Int
-   outHeight = begin
-    @match inNode begin
-      NODE(__) => begin
-        inNode.height
-      end
-      LEAF(__) => begin
-        1
-      end
-      _ => begin
-        0
-      end
-    end
-  end
-  return outHeight
+   @match inNode begin
+     NODE(__) => begin
+       inNode.height
+     end
+     LEAF(__) => begin
+       1
+     end
+     _ => begin
+       0
+     end
+   end
 end
 
 function calculateBalance(inNode::Tree)::Int
-  local outBalance::Int
 
-  outBalance = begin
-    @match inNode begin
-      NODE(__) => begin
-        height(inNode.left) - height(inNode.right)
-      end
+  @match inNode begin
+    NODE(__) => begin
+      height(inNode.left) - height(inNode.right)
+    end
 
-      LEAF(__) => begin
-        0
-      end
+    LEAF(__) => begin
+      0
+    end
 
-      _ => begin
-        0
-      end
+    _ => begin
+      0
     end
   end
-  return outBalance
 end
 
 """Performs an AVL left rotation on the given tree."""
@@ -682,25 +661,23 @@ function fold_2(
   foldArg2::FT2,
 ) where {FT1, FT2}
 
-   () = begin
-    @match tree begin
-      NODE(__) => begin
-         (foldArg1, foldArg2) = fold_2(tree.left, foldFunc, foldArg1, foldArg2)
-         (foldArg1, foldArg2) = foldFunc(tree.key, tree.value, foldArg1, foldArg2)
-         (foldArg1, foldArg2) = fold_2(tree.right, foldFunc, foldArg1, foldArg2)
-        ()
-      end
+   @match tree begin
+     NODE(__) => begin
+        (foldArg1, foldArg2) = fold_2(tree.left, foldFunc, foldArg1, foldArg2)
+        (foldArg1, foldArg2) = foldFunc(tree.key, tree.value, foldArg1, foldArg2)
+        (foldArg1, foldArg2) = fold_2(tree.right, foldFunc, foldArg1, foldArg2)
+       ()
+     end
 
-      LEAF(__) => begin
-         (foldArg1, foldArg2) = foldFunc(tree.key, tree.value, foldArg1, foldArg2)
-        ()
-      end
+     LEAF(__) => begin
+        (foldArg1, foldArg2) = foldFunc(tree.key, tree.value, foldArg1, foldArg2)
+       ()
+     end
 
-      _ => begin
-        ()
-      end
-    end
-  end
+     _ => begin
+       ()
+     end
+   end
   return (foldArg1, foldArg2)
 end
 

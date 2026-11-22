@@ -157,35 +157,31 @@ function negate(op::OPERATOR)::OPERATOR
 end
 
 function isElementWise(op::OPERATOR)::Bool
-  local ew::Bool
-  ew = begin
-    @match op.op begin
-      Op.ADD_EW => begin
-        true
-      end
+  @match op.op begin
+    Op.ADD_EW => begin
+      true
+    end
 
-      Op.SUB_EW => begin
-        true
-      end
+    Op.SUB_EW => begin
+      true
+    end
 
-      Op.MUL_EW => begin
-        true
-      end
+    Op.MUL_EW => begin
+      true
+    end
 
-      Op.DIV_EW => begin
-        true
-      end
+    Op.DIV_EW => begin
+      true
+    end
 
-      Op.POW_EW => begin
-        true
-      end
+    Op.POW_EW => begin
+      true
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return ew
 end
 
 """
@@ -290,12 +286,10 @@ function makeScalarArray(ty::ModelicaType, op::OpType)::OPERATOR
   return outOp
 end
 
-
 function makeEqual(ty::ModelicaType)::OPERATOR
   local op::OPERATOR = OPERATOR(ty, Op.EQUAL)
   return op
 end
-
 
 function makeGreater(ty::ModelicaType)::OPERATOR
   local op::OPERATOR = OPERATOR(ty, Op.GREATER)
@@ -358,36 +352,32 @@ function makeAdd(ty::ModelicaType)::OPERATOR
 end
 
 function isNonAssociative(op::OPERATOR)::Bool
-  local isNonAssociative::Bool
 
-  @assign isNonAssociative = begin
-    @match op.op begin
-      Op.POW => begin
-        true
-      end
+  @match op.op begin
+    Op.POW => begin
+      true
+    end
 
-      Op.POW_EW => begin
-        true
-      end
+    Op.POW_EW => begin
+      true
+    end
 
-      Op.POW_SCALAR_ARRAY => begin
-        true
-      end
+    Op.POW_SCALAR_ARRAY => begin
+      true
+    end
 
-      Op.POW_ARRAY_SCALAR => begin
-        true
-      end
+    Op.POW_ARRAY_SCALAR => begin
+      true
+    end
 
-      Op.POW_MATRIX => begin
-        true
-      end
+    Op.POW_MATRIX => begin
+      true
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return isNonAssociative
 end
 
 function isAssociative(op::OPERATOR)::Bool
@@ -418,107 +408,103 @@ function isAssociative(op::OPERATOR)::Bool
 end
 
 function priority(op::OPERATOR, lhs::Bool)::Int
-  local priority::Int
 
-  @assign priority = begin
-    @match op.op begin
-      Op.ADD => begin
-        if lhs
-          5
-        else
-          6
-        end
-      end
-
-      Op.SUB => begin
+  @match op.op begin
+    Op.ADD => begin
+      if lhs
         5
-      end
-
-      Op.MUL => begin
-        2
-      end
-
-      Op.DIV => begin
-        2
-      end
-
-      Op.POW => begin
-        1
-      end
-
-      Op.ADD_EW => begin
-        if lhs
-          5
-        else
-          6
-        end
-      end
-
-      Op.SUB_EW => begin
-        5
-      end
-
-      Op.MUL_EW => begin
-        if lhs
-          2
-        else
-          3
-        end
-      end
-
-      Op.DIV_EW => begin
-        2
-      end
-
-      Op.POW_EW => begin
-        1
-      end
-
-      #= The array kinds as their scalar operator (omc's Operator.priority): with 0 the right operand of each got
-         parentheses (`{1.0, 2.0} .* (time)`). =#
-      Op.ADD_SCALAR_ARRAY || Op.ADD_ARRAY_SCALAR => begin
-        if lhs
-          5
-        else
-          6
-        end
-      end
-
-      Op.SUB_SCALAR_ARRAY || Op.SUB_ARRAY_SCALAR => begin
-        5
-      end
-
-      Op.MUL_SCALAR_ARRAY || Op.MUL_ARRAY_SCALAR || Op.MUL_VECTOR_MATRIX || Op.MUL_MATRIX_VECTOR ||
-      Op.SCALAR_PRODUCT || Op.MATRIX_PRODUCT => begin
-        if lhs
-          2
-        else
-          3
-        end
-      end
-
-      Op.DIV_SCALAR_ARRAY || Op.DIV_ARRAY_SCALAR => begin
-        2
-      end
-
-      Op.POW_SCALAR_ARRAY || Op.POW_ARRAY_SCALAR || Op.POW_MATRIX => begin
-        1
-      end
-
-      Op.AND => begin
-        8
-      end
-
-      Op.OR => begin
-        9
-      end
-
-      _ => begin
-        0
+      else
+        6
       end
     end
+
+    Op.SUB => begin
+      5
+    end
+
+    Op.MUL => begin
+      2
+    end
+
+    Op.DIV => begin
+      2
+    end
+
+    Op.POW => begin
+      1
+    end
+
+    Op.ADD_EW => begin
+      if lhs
+        5
+      else
+        6
+      end
+    end
+
+    Op.SUB_EW => begin
+      5
+    end
+
+    Op.MUL_EW => begin
+      if lhs
+        2
+      else
+        3
+      end
+    end
+
+    Op.DIV_EW => begin
+      2
+    end
+
+    Op.POW_EW => begin
+      1
+    end
+
+    #= The array kinds as their scalar operator (omc's Operator.priority): with 0 the right operand of each got
+       parentheses (`{1.0, 2.0} .* (time)`). =#
+    Op.ADD_SCALAR_ARRAY || Op.ADD_ARRAY_SCALAR => begin
+      if lhs
+        5
+      else
+        6
+      end
+    end
+
+    Op.SUB_SCALAR_ARRAY || Op.SUB_ARRAY_SCALAR => begin
+      5
+    end
+
+    Op.MUL_SCALAR_ARRAY || Op.MUL_ARRAY_SCALAR || Op.MUL_VECTOR_MATRIX || Op.MUL_MATRIX_VECTOR ||
+    Op.SCALAR_PRODUCT || Op.MATRIX_PRODUCT => begin
+      if lhs
+        2
+      else
+        3
+      end
+    end
+
+    Op.DIV_SCALAR_ARRAY || Op.DIV_ARRAY_SCALAR => begin
+      2
+    end
+
+    Op.POW_SCALAR_ARRAY || Op.POW_ARRAY_SCALAR || Op.POW_MATRIX => begin
+      1
+    end
+
+    Op.AND => begin
+      8
+    end
+
+    Op.OR => begin
+      9
+    end
+
+    _ => begin
+      0
+    end
   end
-  return priority
 end
 
 function symbol(op::OPERATOR, spacing::String = " ")::String

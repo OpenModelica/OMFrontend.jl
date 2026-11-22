@@ -698,20 +698,16 @@ function evaluateExtIntArg(@nospecialize(arg::Expression))::Int
 end
 
 function getExtIntValue(@nospecialize(exp::Expression))::Int
-  local value::Int
 
-  @assign value = begin
-    @match exp begin
-      INTEGER_EXPRESSION(__) => begin
-        exp.value
-      end
+  @match exp begin
+    INTEGER_EXPRESSION(__) => begin
+      exp.value
+    end
 
-      EMPTY_EXPRESSION(__) => begin
-        0
-      end
+    EMPTY_EXPRESSION(__) => begin
+      0
     end
   end
-  return value
 end
 
 function evaluateExtRealArg(@nospecialize(arg::Expression))::AbstractFloat
@@ -720,20 +716,16 @@ function evaluateExtRealArg(@nospecialize(arg::Expression))::AbstractFloat
 end
 
 function getExtRealValue(@nospecialize(exp::Expression))::AbstractFloat
-  local value::AbstractFloat
 
-  @assign value = begin
-    @match exp begin
-      REAL_EXPRESSION(__) => begin
-        exp.value
-      end
+  @match exp begin
+    REAL_EXPRESSION(__) => begin
+      exp.value
+    end
 
-      EMPTY_EXPRESSION(__) => begin
-        0.0
-      end
+    EMPTY_EXPRESSION(__) => begin
+      0.0
     end
   end
-  return value
 end
 
 function evaluateExtStringArg(@nospecialize(arg::Expression))::String
@@ -742,20 +734,16 @@ function evaluateExtStringArg(@nospecialize(arg::Expression))::String
 end
 
 function getExtStringValue(@nospecialize(exp::Expression))::String
-  local value::String
 
-  @assign value = begin
-    @match exp begin
-      STRING_EXPRESSION(__) => begin
-        exp.value
-      end
+  @match exp begin
+    STRING_EXPRESSION(__) => begin
+      exp.value
+    end
 
-      EMPTY_EXPRESSION(__) => begin
-        ""
-      end
+    EMPTY_EXPRESSION(__) => begin
+      ""
     end
   end
-  return value
 end
 
 function evaluateExtIntArrayArg(@nospecialize(arg::Expression))::List{Int}

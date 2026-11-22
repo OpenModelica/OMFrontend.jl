@@ -40,7 +40,6 @@ import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 #= Forward declarations for uniontypes until Julia adds support for mutual recursion =#
 
-
 using OpenModelicaParser.Absyn
 
 import ..ListUtil
@@ -66,28 +65,23 @@ const dummyInfo = SOURCEINFO("", false, 0, 0, 0, 0, 0.0)::Info
 
 #= stefan =#
 
-
 """
   The ElementSpec type contains the name of the element, and this function
   extracts this name.
 """
 function elementSpecName(inElementSpec::ElementSpec)::Ident
-  local outIdent::Ident
 
-  @assign outIdent = begin
-    local n::Ident
-    @match inElementSpec begin
-      CLASSDEF(class_ = CLASS(name = n)) => begin
+  local n::Ident
+  @match inElementSpec begin
+    CLASSDEF(class_ = CLASS(name = n)) => begin
+      n
+    end
+
+    COMPONENTS(components = COMPONENTITEM(component = COMPONENT(name = n)) <| nil()) =>
+      begin
         n
       end
-
-      COMPONENTS(components = COMPONENTITEM(component = COMPONENT(name = n)) <| nil()) =>
-        begin
-          n
-        end
-    end
   end
-  return outIdent
 end
 
 """returns the componentRef of an expression if matches."""
@@ -99,39 +93,35 @@ function expCref(exp::Exp)::ComponentRef
 end
 
 function printComponentRefStr(cr::ComponentRef)::String
-  local ostring::String
 
-  @assign ostring = begin
-    local s1::String
-    local s2::String
-    local child::ComponentRef
-    @match cr begin
-      CREF_IDENT(s1, _) => begin
-        s1
-      end
+  local s1::String
+  local s2::String
+  local child::ComponentRef
+  @match cr begin
+    CREF_IDENT(s1, _) => begin
+      s1
+    end
 
-      CREF_QUAL(s1, _, child) => begin
-        @assign s2 = printComponentRefStr(child)
-        @assign s1 = s1 + "." + s2
-        s1
-      end
+    CREF_QUAL(s1, _, child) => begin
+      @assign s2 = printComponentRefStr(child)
+      @assign s1 = s1 + "." + s2
+      s1
+    end
 
-      CREF_FULLYQUALIFIED(child) => begin
-        @assign s2 = printComponentRefStr(child)
-        @assign s1 = "." + s2
-        s1
-      end
+    CREF_FULLYQUALIFIED(child) => begin
+      @assign s2 = printComponentRefStr(child)
+      @assign s1 = "." + s2
+      s1
+    end
 
-      ALLWILD(__) => begin
-        "__"
-      end
+    ALLWILD(__) => begin
+      "__"
+    end
 
-      WILD(__) => begin
-        "_"
-      end
+    WILD(__) => begin
+      "_"
     end
   end
-  return ostring
 end
 
 """Returns true if two paths are equal."""
@@ -179,67 +169,53 @@ function pathEqual(inPath1::Path, inPath2::Path)::Bool
   return outBoolean
 end
 
-
-
 """This function simply converts a Path to a string."""
 function typeSpecPathString(tp::TypeSpec)::String
-  local s::String
 
-  @assign s = begin
-    local p::Path
-    @match tp begin
-      TCOMPLEX(path = p) => begin
-        pathString(p)
-      end
+  local p::Path
+  @match tp begin
+    TCOMPLEX(path = p) => begin
+      pathString(p)
+    end
 
-      TPATH(path = p) => begin
-        pathString(p)
-      end
+    TPATH(path = p) => begin
+      pathString(p)
     end
   end
-  return s
 end
 
 """Converts a TypeSpec to Path"""
 function typeSpecPath(tp::TypeSpec)::Path
-  local op::Path
 
-  @assign op = begin
-    local p::Path
-    @match tp begin
-      TCOMPLEX(path = p) => begin
-        p
-      end
+  local p::Path
+  @match tp begin
+    TCOMPLEX(path = p) => begin
+      p
+    end
 
-      TPATH(path = p) => begin
-        p
-      end
+    TPATH(path = p) => begin
+      p
     end
   end
-  return op
 end
 
 """Returns the dimensions of a TypeSpec."""
 function typeSpecDimensions(inTypeSpec::TypeSpec)::ArrayDim
-  local outDimensions::ArrayDim
 
-  @assign outDimensions = begin
-    local dim::ArrayDim
-    @match inTypeSpec begin
-      TPATH(arrayDim = SOME(dim)) => begin
-        dim
-      end
+  local dim::ArrayDim
+  @match inTypeSpec begin
+    TPATH(arrayDim = SOME(dim)) => begin
+      dim
+    end
 
-      TCOMPLEX(arrayDim = SOME(dim)) => begin
-        dim
-      end
+    TCOMPLEX(arrayDim = SOME(dim)) => begin
+      dim
+    end
 
-      _ => begin
-        nil
-      end
+    _ => begin
+      nil
     end
   end
-  return outDimensions
 end
 
 """This function simply converts a Path to a string."""
@@ -344,8 +320,6 @@ function pathStringWork(
   return s
 end
 
-
-
 function pathCompare(ip1::Path, ip2::Path)::Int
   local o::Int
 
@@ -448,52 +422,44 @@ end
 
 """Converts a list of strings into a qualified path."""
 function stringListPath(paths::List{<:String})::Path
-  local qualifiedPath::Path
 
-  @assign qualifiedPath = begin
-    local str::String
-    local rest_str::List{String}
-    local p::Path
-    @matchcontinue paths begin
-      nil() => begin
-        fail()
-      end
+  local str::String
+  local rest_str::List{String}
+  local p::Path
+  @matchcontinue paths begin
+    nil() => begin
+      fail()
+    end
 
-      str <| nil() => begin
-        IDENT(str)
-      end
+    str <| nil() => begin
+      IDENT(str)
+    end
 
-      str <| rest_str => begin
-        @assign p = stringListPath(rest_str)
-        QUALIFIED(str, p)
-      end
+    str <| rest_str => begin
+      @assign p = stringListPath(rest_str)
+      QUALIFIED(str, p)
     end
   end
-  return qualifiedPath
 end
 
 """Returns the last ident (after last dot) in a path"""
 function pathLastIdent(inPath::Path)::String
-  local outIdent::String
 
-  @assign outIdent = begin
-    local id::Ident
-    local p::Path
-    @match inPath begin
-      QUALIFIED(path = p) => begin
-        pathLastIdent(p)
-      end
+  local id::Ident
+  local p::Path
+  @match inPath begin
+    QUALIFIED(path = p) => begin
+      pathLastIdent(p)
+    end
 
-      IDENT(name = id) => begin
-        id
-      end
+    IDENT(name = id) => begin
+      id
+    end
 
-      FULLYQUALIFIED(path = p) => begin
-        pathLastIdent(p)
-      end
+    FULLYQUALIFIED(path = p) => begin
+      pathLastIdent(p)
     end
   end
-  return outIdent
 end
 
 """Returns the last ident (after last dot) in a path"""
@@ -520,31 +486,23 @@ end
 
 """Returns the first ident (before first dot) in a path"""
 function pathFirstIdent(inPath::Path)::Ident
-  local outIdent::Ident
 
-  @assign outIdent = begin
-    local n::Ident
-    local p::Path
-    @match inPath begin
-      FULLYQUALIFIED(path = p) => begin
-        pathFirstIdent(p)
-      end
+  local n::Ident
+  local p::Path
+  @match inPath begin
+    FULLYQUALIFIED(path = p) => begin
+      pathFirstIdent(p)
+    end
 
-      QUALIFIED(name = n) => begin
-        n
-      end
+    QUALIFIED(name = n) => begin
+      n
+    end
 
-      IDENT(name = n) => begin
-        n
-      end
+    IDENT(name = n) => begin
+      n
     end
   end
-  return outIdent
 end
-
-
-
-
 
 function pathToStringList(path::Path)::List{String}
   local outPaths::List{String}
@@ -554,196 +512,154 @@ function pathToStringList(path::Path)::List{String}
 end
 
 function pathToStringListWork(path::Path, acc::List{<:String})::List{String}
-  local outPaths::List{String}
 
-  @assign outPaths = begin
-    local n::String
-    local p::Path
-    @match (path, acc) begin
-      (IDENT(name = n), _) => begin
-        _cons(n, acc)
-      end
+  local n::String
+  local p::Path
+  @match (path, acc) begin
+    (IDENT(name = n), _) => begin
+      _cons(n, acc)
+    end
 
-      (FULLYQUALIFIED(path = p), _) => begin
-        pathToStringListWork(p, acc)
-      end
+    (FULLYQUALIFIED(path = p), _) => begin
+      pathToStringListWork(p, acc)
+    end
 
-      (QUALIFIED(name = n, path = p), _) => begin
-        pathToStringListWork(p, _cons(n, acc))
-      end
+    (QUALIFIED(name = n, path = p), _) => begin
+      pathToStringListWork(p, _cons(n, acc))
     end
   end
-  return outPaths
 end
-
-
-
-
-
-
 
 #= stefan =#
 
-
-
 """This function joins two paths"""
 function joinPaths(inPath1::Path, inPath2::Path)::Path
-  local outPath::Path
 
-  @assign outPath = begin
-    local str::Ident
-    local p2::Path
-    local p_1::Path
-    local p::Path
-    @match (inPath1, inPath2) begin
-      (IDENT(name = str), p2) => begin
-        QUALIFIED(str, p2)
-      end
+  local str::Ident
+  local p2::Path
+  local p_1::Path
+  local p::Path
+  @match (inPath1, inPath2) begin
+    (IDENT(name = str), p2) => begin
+      QUALIFIED(str, p2)
+    end
 
-      (QUALIFIED(name = str, path = p), p2) => begin
-        @assign p_1 = joinPaths(p, p2)
-        QUALIFIED(str, p_1)
-      end
+    (QUALIFIED(name = str, path = p), p2) => begin
+      @assign p_1 = joinPaths(p, p2)
+      QUALIFIED(str, p_1)
+    end
 
-      (FULLYQUALIFIED(p), p2) => begin
-        joinPaths(p, p2)
-      end
+    (FULLYQUALIFIED(p), p2) => begin
+      joinPaths(p, p2)
+    end
 
-      (p, FULLYQUALIFIED(p2)) => begin
-        joinPaths(p, p2)
-      end
+    (p, FULLYQUALIFIED(p2)) => begin
+      joinPaths(p, p2)
     end
   end
-  return outPath
 end
-
 
 """
   This function converts a ComponentRef to a Path, if possible.
   If the component reference contains subscripts, it will silently fail.
 """
 function crefToPath(inComponentRef::ComponentRef)::Path
-  local outPath::Path
 
-  @assign outPath = begin
-    local i::Ident
-    local p::Path
-    local c::ComponentRef
-    @match inComponentRef begin
-      CREF_IDENT(name = i, subscripts = nil()) => begin
-        IDENT(i)
-      end
+  local i::Ident
+  local p::Path
+  local c::ComponentRef
+  @match inComponentRef begin
+    CREF_IDENT(name = i, subscripts = nil()) => begin
+      IDENT(i)
+    end
 
-      CREF_QUAL(name = i, subscripts = nil(), componentRef = c) => begin
-        @assign p = crefToPath(c)
-        QUALIFIED(i, p)
-      end
+    CREF_QUAL(name = i, subscripts = nil(), componentRef = c) => begin
+      @assign p = crefToPath(c)
+      QUALIFIED(i, p)
+    end
 
-      CREF_FULLYQUALIFIED(componentRef = c) => begin
-        @assign p = crefToPath(c)
-        FULLYQUALIFIED(p)
-      end
+    CREF_FULLYQUALIFIED(componentRef = c) => begin
+      @assign p = crefToPath(c)
+      FULLYQUALIFIED(p)
     end
   end
-  return outPath
 end
 
 """This function converts a Path to a ComponentRef."""
 function pathToCref(inPath::Path)::ComponentRef
-  local outComponentRef::ComponentRef
 
-  @assign outComponentRef = begin
-    local i::Ident
-    local c::ComponentRef
-    local p::Path
-    @match inPath begin
-      IDENT(name = i) => begin
-        CREF_IDENT(i, nil)
-      end
+  local i::Ident
+  local c::ComponentRef
+  local p::Path
+  @match inPath begin
+    IDENT(name = i) => begin
+      CREF_IDENT(i, nil)
+    end
 
-      QUALIFIED(name = i, path = p) => begin
-        @assign c = pathToCref(p)
-        CREF_QUAL(i, nil, c)
-      end
+    QUALIFIED(name = i, path = p) => begin
+      @assign c = pathToCref(p)
+      CREF_QUAL(i, nil, c)
+    end
 
-      FULLYQUALIFIED(p) => begin
-        @assign c = pathToCref(p)
-        crefMakeFullyQualified(c)
-      end
+    FULLYQUALIFIED(p) => begin
+      @assign c = pathToCref(p)
+      crefMakeFullyQualified(c)
     end
   end
-  return outComponentRef
 end
-
-
 
 #= stefan =#
 
 """Returns first ident from a ComponentRef"""
 function crefFirstIdent(inCref::ComponentRef)::Ident
-  local outIdent::Ident
 
-  @assign outIdent = begin
-    @match inCref begin
-      CREF_IDENT(__) => begin
-        inCref.name
-      end
+  @match inCref begin
+    CREF_IDENT(__) => begin
+      inCref.name
+    end
 
-      CREF_QUAL(__) => begin
-        inCref.name
-      end
+    CREF_QUAL(__) => begin
+      inCref.name
+    end
 
-      CREF_FULLYQUALIFIED(__) => begin
-        crefFirstIdent(inCref.componentRef)
-      end
+    CREF_FULLYQUALIFIED(__) => begin
+      crefFirstIdent(inCref.componentRef)
     end
   end
-  return outIdent
 end
-
 
 """Makes a component reference fully qualified unless it already is."""
 function crefMakeFullyQualified(inComponentRef::ComponentRef)::ComponentRef
-  local outComponentRef::ComponentRef
 
-  @assign outComponentRef = begin
-    @match inComponentRef begin
-      CREF_FULLYQUALIFIED(__) => begin
-        inComponentRef
-      end
+  @match inComponentRef begin
+    CREF_FULLYQUALIFIED(__) => begin
+      inComponentRef
+    end
 
-      _ => begin
-        CREF_FULLYQUALIFIED(inComponentRef)
-      end
+    _ => begin
+      CREF_FULLYQUALIFIED(inComponentRef)
     end
   end
-  return outComponentRef
 end
-
 
 function subscriptEqual(inSubscript1::Subscript, inSubscript2::Subscript)::Bool
-  local outIsEqual::Bool
 
-  @assign outIsEqual = begin
-    local e1::Exp
-    local e2::Exp
-    @match (inSubscript1, inSubscript2) begin
-      (NOSUB(__), NOSUB(__)) => begin
-        true
-      end
+  local e1::Exp
+  local e2::Exp
+  @match (inSubscript1, inSubscript2) begin
+    (NOSUB(__), NOSUB(__)) => begin
+      true
+    end
 
-      (SUBSCRIPT(e1), SUBSCRIPT(e2)) => begin
-        expEqual(e1, e2)
-      end
+    (SUBSCRIPT(e1), SUBSCRIPT(e2)) => begin
+      expEqual(e1, e2)
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return outIsEqual
 end
-
 
 """Returns true if two expressions are equal"""
 function expEqual(exp1::Exp, exp2::Exp)::Bool
@@ -783,188 +699,68 @@ IteratorIndexedCref = Tuple
   this function returns true if the given InnerOuter
   is one of INNER_OUTER() or OUTER()
 """
-function isOuter(io::InnerOuter)::Bool
-  local isItAnOuter::Bool
-
-  @assign isItAnOuter = begin
-    @match io begin
-      INNER_OUTER(__) => begin
-        true
-      end
-
-      OUTER(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return isItAnOuter
-end
+isOuter(io::InnerOuter)::Bool = isvariant(io, INNER_OUTER) || isvariant(io, OUTER)
 
 """
   @author: adrpo
   this function returns true if the given InnerOuter
   is one of INNER_OUTER() or INNER()
 """
-function isInner(io::InnerOuter)::Bool
-  local isItAnInner::Bool
-
-  @assign isItAnInner = begin
-    @match io begin
-      INNER_OUTER(__) => begin
-        true
-      end
-
-      INNER(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return isItAnInner
-end
+isInner(io::InnerOuter)::Bool = isvariant(io, INNER_OUTER) || isvariant(io, INNER)
 
 """Returns true if the InnerOuter is OUTER, false otherwise."""
-function isOnlyOuter(inIO::InnerOuter)::Bool
-  local outOnlyOuter::Bool
-
-  @assign outOnlyOuter = begin
-    @match inIO begin
-      OUTER(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outOnlyOuter
-end
-
+isOnlyOuter(inIO::InnerOuter)::Bool = isvariant(inIO, OUTER)
 
 """Makes a path not fully qualified unless it already is."""
 function makeNotFullyQualified(inPath::Path)::Path
-  local outPath::Path
 
-  @assign outPath = begin
-    local path::Path
-    @match inPath begin
-      FULLYQUALIFIED(path) => begin
-        path
-      end
+  local path::Path
+  @match inPath begin
+    FULLYQUALIFIED(path) => begin
+      path
+    end
 
-      _ => begin
-        inPath
-      end
+    _ => begin
+      inPath
     end
   end
-  return outPath
 end
 
 """Compares two import elements."""
 function importEqual(im1::Import, im2::Import)::Bool
-  local outBoolean::Bool
 
-  @assign outBoolean = begin
-    local id::Ident
-    local id2::Ident
-    local p1::Path
-    local p2::Path
-    @matchcontinue (im1, im2) begin
-      (NAMED_IMPORT(name = id, path = p1), NAMED_IMPORT(name = id2, path = p2)) => begin
-        @match true = stringEq(id, id2)
-        @match true = pathEqual(p1, p2)
-        true
-      end
+  local id::Ident
+  local id2::Ident
+  local p1::Path
+  local p2::Path
+  @matchcontinue (im1, im2) begin
+    (NAMED_IMPORT(name = id, path = p1), NAMED_IMPORT(name = id2, path = p2)) => begin
+      @match true = stringEq(id, id2)
+      @match true = pathEqual(p1, p2)
+      true
+    end
 
-      (QUAL_IMPORT(path = p1), QUAL_IMPORT(path = p2)) => begin
-        @match true = pathEqual(p1, p2)
-        true
-      end
+    (QUAL_IMPORT(path = p1), QUAL_IMPORT(path = p2)) => begin
+      @match true = pathEqual(p1, p2)
+      true
+    end
 
-      (UNQUAL_IMPORT(path = p1), UNQUAL_IMPORT(path = p2)) => begin
-        @match true = pathEqual(p1, p2)
-        true
-      end
+    (UNQUAL_IMPORT(path = p1), UNQUAL_IMPORT(path = p2)) => begin
+      @match true = pathEqual(p1, p2)
+      true
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return outBoolean
 end
 
+pathIsIdent(inPath::Path)::Bool = isvariant(inPath, IDENT)
 
-function pathIsIdent(inPath::Path)::Bool
-  local outIsIdent::Bool
+isInput(inDirection::Direction)::Bool = isvariant(inDirection, INPUT) || isvariant(inDirection, INPUT_OUTPUT)
 
-  @assign outIsIdent = begin
-    @match inPath begin
-      IDENT(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outIsIdent
-end
-
-function isInput(inDirection::Direction)::Bool
-  local outIsInput::Bool
-
-  @assign outIsInput = begin
-    @match inDirection begin
-      INPUT(__) => begin
-        true
-      end
-
-      INPUT_OUTPUT(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outIsInput
-end
-
-function isOutput(inDirection::Direction)::Bool
-  local outIsOutput::Bool
-
-  @assign outIsOutput = begin
-    @match inDirection begin
-      OUTPUT(__) => begin
-        true
-      end
-
-      INPUT_OUTPUT(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outIsOutput
-end
-
-
-
-
+isOutput(inDirection::Direction)::Bool = isvariant(inDirection, OUTPUT) || isvariant(inDirection, INPUT_OUTPUT)
 
 """Returns the import name of a named or qualified import."""
 function importName(inImport::Import)::Ident
@@ -997,23 +793,19 @@ end
   => annotation(x=3,y=2)
 """
 function mergeAnnotations(inAnnotation1::Annotation, inAnnotation2::Annotation)::Annotation
-  local outAnnotation::Annotation
 
-  @assign outAnnotation = begin
-    local oldmods::List{ElementArg}
-    local newmods::List{ElementArg}
-    local a::Annotation
-    @match (inAnnotation1, inAnnotation2) begin
-      (ANNOTATION(elementArgs = nil()), a) => begin
-        a
-      end
+  local oldmods::List{ElementArg}
+  local newmods::List{ElementArg}
+  local a::Annotation
+  @match (inAnnotation1, inAnnotation2) begin
+    (ANNOTATION(elementArgs = nil()), a) => begin
+      a
+    end
 
-      (ANNOTATION(elementArgs = oldmods), ANNOTATION(elementArgs = newmods)) => begin
-        ANNOTATION(mergeAnnotations2(oldmods, newmods))
-      end
+    (ANNOTATION(elementArgs = oldmods), ANNOTATION(elementArgs = newmods)) => begin
+      ANNOTATION(mergeAnnotations2(oldmods, newmods))
     end
   end
-  return outAnnotation
 end
 
 function mergeAnnotations2(
@@ -1043,66 +835,58 @@ end
 
 """returns true or false if the given path is in the list of modifications"""
 function isModificationOfPath(mod::ElementArg, path::Path)::Bool
-  local yes::Bool
 
-  @assign yes = begin
-    local id1::String
-    local id2::String
-    @match (mod, path) begin
-      (MODIFICATION(path = IDENT(name = id1)), IDENT(name = id2)) => begin
-        id1 == id2
-      end
+  local id1::String
+  local id2::String
+  @match (mod, path) begin
+    (MODIFICATION(path = IDENT(name = id1)), IDENT(name = id2)) => begin
+      id1 == id2
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return yes
 end
 
 function subModsInSameOrder(oldmod::ElementArg, newmod::ElementArg)::ElementArg
-  local mod::ElementArg
 
-  @assign mod = begin
-    local args1::List{ElementArg}
-    local args2::List{ElementArg}
-    local res::List{ElementArg}
-    local arg2::ElementArg
-    local eq2::EqMod
-    local p::Path
-    #= mod1 or mod2 has no submods =#
-    @match (oldmod, newmod) begin
-      (_, MODIFICATION(modification = NONE())) => begin
-        newmod
-      end
+  local args1::List{ElementArg}
+  local args2::List{ElementArg}
+  local res::List{ElementArg}
+  local arg2::ElementArg
+  local eq2::EqMod
+  local p::Path
+  #= mod1 or mod2 has no submods =#
+  @match (oldmod, newmod) begin
+    (_, MODIFICATION(modification = NONE())) => begin
+      newmod
+    end
 
-      (MODIFICATION(modification = NONE()), _) => begin
-        newmod
-      end
+    (MODIFICATION(modification = NONE()), _) => begin
+      newmod
+    end
 
-      (
-        MODIFICATION(modification = SOME(CLASSMOD(args1, _))),
-        arg2 && MODIFICATION(modification = SOME(CLASSMOD(args2, eq2))),
-      ) => begin
-        #= mod1
-           Delete all items from args2 that are not in args1 =#
-        @assign res = nil
-        for arg1 in args1
-          @match MODIFICATION(path = p) = arg1
-          if ListUtil.exist(args2, (p) -> isModificationOfPath(path = p))
-            @assign res = _cons(arg1, res)
-          end
+    (
+      MODIFICATION(modification = SOME(CLASSMOD(args1, _))),
+      arg2 && MODIFICATION(modification = SOME(CLASSMOD(args2, eq2))),
+    ) => begin
+      #= mod1
+         Delete all items from args2 that are not in args1 =#
+      @assign res = nil
+      for arg1 in args1
+        @match MODIFICATION(path = p) = arg1
+        if ListUtil.exist(args2, (p) -> isModificationOfPath(path = p))
+          @assign res = _cons(arg1, res)
         end
-        @assign res = listReverse(res)
-        #= Merge the annotations =#
-        @assign res = mergeAnnotations2(res, args2)
-        @assign arg2.modification = SOME(CLASSMOD(res, eq2))
-        arg2
       end
+      @assign res = listReverse(res)
+      #= Merge the annotations =#
+      @assign res = mergeAnnotations2(res, args2)
+      @assign arg2.modification = SOME(CLASSMOD(res, eq2))
+      arg2
     end
   end
-  return mod
 end
 
 function typeSpecString(inTs::TypeSpec)::String
@@ -1132,39 +916,19 @@ function importString(inImp::Import)::String
   end
 end
 
-
-function isAlgorithmItem(inAlg::AlgorithmItem)::Bool
-  local outIsClass::Bool
-
-  @assign outIsClass = begin
-    @match inAlg begin
-      ALGORITHMITEM(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outIsClass
-end
+isAlgorithmItem(inAlg::AlgorithmItem)::Bool = isvariant(inAlg, ALGORITHMITEM)
 
 function isNamedPathIdent(path::Absyn.Path, name::String)::Bool
-  local res::Bool
 
-  @assign res = begin
-    @match path begin
-      IDENT(__) => begin
-        path.name == name
-      end
+  @match path begin
+    IDENT(__) => begin
+      path.name == name
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return res
 end
 
 """An expression as Modelica (Absyn.jl's printer)."""

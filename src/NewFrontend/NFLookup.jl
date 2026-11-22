@@ -33,7 +33,6 @@
 *
 */ =#
 
-
 const MatchTypeTy = Int
 
 function lookupClassName(@nospecialize(name::Absyn.Path), scope::InstNode, info::SourceInfo, checkAccessViolations::Bool = true; isRedeclared::Bool = false)
@@ -187,16 +186,14 @@ function fixExternalObjectCall(node::InstNode, cref::ComponentRef, state::Lookup
   end
   expand(node)
   cls = getClass(node)
-  () = begin
-    @match cls begin
-      PARTIAL_BUILTIN(ty = TYPE_COMPLEX(complexTy = COMPLEX_EXTERNAL_OBJECT(constructor = constructor)))  => begin
-        cref = prefixCref(constructor, TYPE_UNKNOWN(), nil, cref)
-        state = LOOKUP_STATE_FUNC()
-        ()
-      end
-      _  => begin
-        ()
-      end
+  @match cls begin
+    PARTIAL_BUILTIN(ty = TYPE_COMPLEX(complexTy = COMPLEX_EXTERNAL_OBJECT(constructor = constructor)))  => begin
+      cref = prefixCref(constructor, TYPE_UNKNOWN(), nil, cref)
+      state = LOOKUP_STATE_FUNC()
+      ()
+    end
+    _  => begin
+      ()
     end
   end
   (cref, state)
@@ -1011,36 +1008,34 @@ function generateInner2(outerNode::InstNode, topScope::InstNode)
   local cache::CachedData
   local nameStr::String
   cache = getInnerOuterCache(topScope)
-   () = begin
-    @match cache begin
-      C_TOP_SCOPE(__)  => begin
-        nameStr = name(outerNode)
-        local v = NodeTree.tryGet(cache.addedInner, nameStr)
-        if v !== nothing
-          innerNode = v
-        else
-          innerNode = makeInnerNode(outerNode)
-          #= Fully qualify the typespec path before reparenting.
-             The outer node's type path (e.g. Interfaces.CompositeStepState) is
-             relative to the outer's original scope (e.g. Modelica.StateGraph).
-             After setParent moves the node to the top-level model, this relative
-             path would be looked up in the wrong scope. =#
-          local qualified = _qualifyGeneratedInnerType(innerNode, parent(outerNode))
-          qualified === nothing || (innerNode = qualified)
-          innerNode = setParent(cache.rootClass, innerNode)
-          local addedInner = NodeTree.add(cache.addedInner, nameStr, innerNode)
-          cache = C_TOP_SCOPE(addedInner, cache.rootClass)
-          setInnerOuterCache(topScope, cache)
-        end
-        ()
-      end
-      _  => begin
-        # Error.assertion(false, getInstanceName() + " got top node with missing cache", sourceInfo())
-        @error " got top node with missing cache. Cache was:" * string(typeof(cache))
-        fail()
-      end
-    end
-  end
+   @match cache begin
+     C_TOP_SCOPE(__)  => begin
+       nameStr = name(outerNode)
+       local v = NodeTree.tryGet(cache.addedInner, nameStr)
+       if v !== nothing
+         innerNode = v
+       else
+         innerNode = makeInnerNode(outerNode)
+         #= Fully qualify the typespec path before reparenting.
+            The outer node's type path (e.g. Interfaces.CompositeStepState) is
+            relative to the outer's original scope (e.g. Modelica.StateGraph).
+            After setParent moves the node to the top-level model, this relative
+            path would be looked up in the wrong scope. =#
+         local qualified = _qualifyGeneratedInnerType(innerNode, parent(outerNode))
+         qualified === nothing || (innerNode = qualified)
+         innerNode = setParent(cache.rootClass, innerNode)
+         local addedInner = NodeTree.add(cache.addedInner, nameStr, innerNode)
+         cache = C_TOP_SCOPE(addedInner, cache.rootClass)
+         setInnerOuterCache(topScope, cache)
+       end
+       ()
+     end
+     _  => begin
+       # Error.assertion(false, getInstanceName() + " got top node with missing cache", sourceInfo())
+       @error " got top node with missing cache. Cache was:" * string(typeof(cache))
+       fail()
+     end
+   end
   innerNode
 end
 

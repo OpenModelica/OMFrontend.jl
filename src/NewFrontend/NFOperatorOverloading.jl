@@ -71,32 +71,30 @@ function instOperatorFunctions(node::InstNode, info::SourceInfo)::InstNode
   local funcs::Vector{MODELICA_FUNCTION}
   checkOperatorRestrictions(node)
   @assign tree = classTree(getClass(node))
-   () = begin
-    @match tree begin
-      CLASS_TREE_FLAT_TREE(classes = mclss) => begin
-        for op in mclss
-          instFunctionNode(op)
-          funcs = getCachedFuncs(op)
-          allfuncs = Base.append!(allfuncs, funcs)
-        end
-        #= path := InstNode.scopePath(op, includeRoot = true);
-           Function.instFunction2(path, op, info); =#
-        for f in allfuncs
-          node = cacheAddFunc(node, f, false)
-        end
-        ()
-      end
+   @match tree begin
+     CLASS_TREE_FLAT_TREE(classes = mclss) => begin
+       for op in mclss
+         instFunctionNode(op)
+         funcs = getCachedFuncs(op)
+         allfuncs = Base.append!(allfuncs, funcs)
+       end
+       #= path := InstNode.scopePath(op, includeRoot = true);
+          Function.instFunction2(path, op, info); =#
+       for f in allfuncs
+         node = cacheAddFunc(node, f, false)
+       end
+       ()
+     end
 
-      _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() + " got non-instantiated function",
-          sourceInfo(),
-        )
-        fail()
-      end
-    end
-  end
+     _ => begin
+       Error.assertion(
+         false,
+         getInstanceName() + " got non-instantiated function",
+         sourceInfo(),
+       )
+       fail()
+     end
+   end
   return node
 end
 
@@ -215,24 +213,20 @@ function patchOperatorRecordConstructorBinding_traverser(
   exp::Expression,
   constructorFn::MODELICA_FUNCTION,
 )::Expression
-  local outExp::Expression
 
   local fn::MODELICA_FUNCTION
   local args::Vector{Expression}
   local ty::ModelicaType
 
-  @assign outExp = begin
-    @match exp begin
-      CALL_EXPRESSION(
-        call = TYPED_CALL(fn = fn, ty = ty, arguments = args),
-      ) where {(referenceEq(constructorFn.node, fn.node))} => begin
-        makeRecord(name(constructorFn), ty, args)
-      end
+  @match exp begin
+    CALL_EXPRESSION(
+      call = TYPED_CALL(fn = fn, ty = ty, arguments = args),
+    ) where {(referenceEq(constructorFn.node, fn.node))} => begin
+      makeRecord(name(constructorFn), ty, args)
+    end
 
-      _ => begin
-        exp
-      end
+    _ => begin
+      exp
     end
   end
-  return outExp
 end

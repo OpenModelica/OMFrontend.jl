@@ -88,22 +88,18 @@ function mostPropagatedSubExp(@nospecialize(exp::Expression))
 end
 
 function bindingExpMap4(@nospecialize(exp::Expression), subs::List{<:Subscript}) ::Expression
-  local outExp::Expression
-  outExp = begin
-    local prop_count::Int
-    local prop_subs::List{Subscript}
-    @match exp begin
-      BINDING_EXP(__)  => begin
-        prop_count = propagatedDimCount(exp)
-        prop_subs = ListUtil.lastN(subs, prop_count)
-        applySubscripts(prop_subs, exp.exp)
-      end
-      _  => begin
-        exp
-      end
+  local prop_count::Int
+  local prop_subs::List{Subscript}
+  @match exp begin
+    BINDING_EXP(__)  => begin
+      prop_count = propagatedDimCount(exp)
+      prop_subs = ListUtil.lastN(subs, prop_count)
+      applySubscripts(prop_subs, exp.exp)
+    end
+    _  => begin
+      exp
     end
   end
-  outExp
 end
 
 function bindingExpMap3(@nospecialize(exp::Expression), evalFunc::EvalFunc, subs::List{<:Subscript})
@@ -247,30 +243,13 @@ function getBindingExp2(@nospecialize(bindingExp::Expression))
   outExp
 end
 
-function isBindingExp(@nospecialize(exp::Expression)) ::Bool
-  local isBindingExp::Bool
-
-   isBindingExp = begin
-    @match exp begin
-      BINDING_EXP(__)  => begin
-        true
-      end
-
-      _  => begin
-        false
-      end
-    end
-  end
-  isBindingExp
-end
+isBindingExp(@nospecialize(exp::Expression)) ::Bool = isvariant(exp, BINDING_EXP)
 
 function nthEnumLiteral(ty::ModelicaType, n::Int) ::Expression
   local exp::Expression
   exp = ENUM_LITERAL_EXPRESSION(ty, nthEnumLiteral(ty, n), n)
   exp
 end
-
-
 
 function retype(@nospecialize(exp::Expression))
   exp = @match exp begin
@@ -329,44 +308,40 @@ end
   it will return an array with the nth field in each array element.
 """
 function nthRecordElement(index::Int, @nospecialize(recordExp::Expression)) ::Expression
-  local outExp::Expression
 
-   outExp = begin
-    local node::InstNode
-    @match recordExp begin
-      RECORD_EXPRESSION(__)  => begin
-        recordExp.elements[index]
-      end
+   local node::InstNode
+   @match recordExp begin
+     RECORD_EXPRESSION(__)  => begin
+       recordExp.elements[index]
+     end
 
-      ARRAY_EXPRESSION(ty = TYPE_ARRAY(elementType = TYPE_COMPLEX(cls = node))) where (isempty(recordExp.elements))  => begin
-        makeEmptyArray(getType(nthComponent(index, getClass(node))))
-      end
+     ARRAY_EXPRESSION(ty = TYPE_ARRAY(elementType = TYPE_COMPLEX(cls = node))) where (isempty(recordExp.elements))  => begin
+       makeEmptyArray(getType(nthComponent(index, getClass(node))))
+     end
 
-      ARRAY_EXPRESSION(__)  => begin
-        expV = Expression[nthRecordElement(index, e) for e in recordExp.elements]
-        makeArray(liftArrayLeft(typeOf(expV[1]), fromInteger(length(expV))), expV)
-      end
+     ARRAY_EXPRESSION(__)  => begin
+       expV = Expression[nthRecordElement(index, e) for e in recordExp.elements]
+       makeArray(liftArrayLeft(typeOf(expV[1]), fromInteger(length(expV))), expV)
+     end
 
-      RECORD_ELEMENT_EXPRESSION(ty = TYPE_ARRAY(elementType = TYPE_COMPLEX(cls = node)))  => begin
-         node = nthComponent(index, getClass(node))
-        _typeRecordExpField!(node, recordExp)
-        RECORD_ELEMENT_EXPRESSION(recordExp, index, name(node), liftArrayLeftList(getType(node), arrayDims(recordExp.ty)))
-      end
+     RECORD_ELEMENT_EXPRESSION(ty = TYPE_ARRAY(elementType = TYPE_COMPLEX(cls = node)))  => begin
+        node = nthComponent(index, getClass(node))
+       _typeRecordExpField!(node, recordExp)
+       RECORD_ELEMENT_EXPRESSION(recordExp, index, name(node), liftArrayLeftList(getType(node), arrayDims(recordExp.ty)))
+     end
 
-      BINDING_EXP(__)  => begin
-        local f = @closure (e) -> nthRecordElement(index, e)
-        bindingExpMap(recordExp, f)
-      end
+     BINDING_EXP(__)  => begin
+       local f = @closure (e) -> nthRecordElement(index, e)
+       bindingExpMap(recordExp, f)
+     end
 
-      _  => begin
-        @match TYPE_COMPLEX(cls = node) = typeOf(recordExp)
-         node = nthComponent(index, getClass(node))
-        _typeRecordExpField!(node, recordExp)
-        RECORD_ELEMENT_EXPRESSION(recordExp, index, name(node), getType(node))
-      end
-    end
-  end
-  outExp
+     _  => begin
+       @match TYPE_COMPLEX(cls = node) = typeOf(recordExp)
+        node = nthComponent(index, getClass(node))
+       _typeRecordExpField!(node, recordExp)
+       RECORD_ELEMENT_EXPRESSION(recordExp, index, name(node), getType(node))
+     end
+   end
 end
 
 #= A field of a record component not typed yet is typed here, as a reference to it would be: its
@@ -490,81 +465,54 @@ function recordElement(elementName::String, @nospecialize(recordExp::Expression)
 end
 
 function tupleElement(@nospecialize(exp::Expression), ty::ModelicaType, index::Int) ::Expression
-  local tupleElem::Expression
-  tupleElem = begin
-    local ety::ModelicaType
-    @match exp begin
-      TUPLE_EXPRESSION(__)  => begin
-        listGet(exp.elements, index)
-      end
+  local ety::ModelicaType
+  @match exp begin
+    TUPLE_EXPRESSION(__)  => begin
+      listGet(exp.elements, index)
+    end
 
-      ARRAY_EXPRESSION(__)  => begin
-        ety = unliftArray(ty)
-        ARRAY_EXPRESSION(exp.ty, Expression[tupleElement(e, ety, index) for e in exp.elements], exp.literal)
-      end
+    ARRAY_EXPRESSION(__)  => begin
+      ety = unliftArray(ty)
+      ARRAY_EXPRESSION(exp.ty, Expression[tupleElement(e, ety, index) for e in exp.elements], exp.literal)
+    end
 
-      BINDING_EXP(__)  => begin
-        bindingExpMap(exp, e -> tupleElement(e, ty, index))
-      end
+    BINDING_EXP(__)  => begin
+      bindingExpMap(exp, e -> tupleElement(e, ty, index))
+    end
 
-      _  => begin
-        TUPLE_ELEMENT_EXPRESSION(exp, index, ty)
-      end
+    _  => begin
+      TUPLE_ELEMENT_EXPRESSION(exp, index, ty)
     end
   end
-  tupleElem
 end
 
 function toScalar(@nospecialize(exp::Expression)) ::Expression
-  local outExp::Expression
 
-   outExp = begin
-    @match exp begin
-      ARRAY_EXPRESSION(__) where {length(exp.elements) == 1}  => begin
-        toScalar(exp.elements[1])
-      end
+   @match exp begin
+     ARRAY_EXPRESSION(__) where {length(exp.elements) == 1}  => begin
+       toScalar(exp.elements[1])
+     end
 
-      _  => begin
-        exp
-      end
-    end
-  end
-  outExp
+     _  => begin
+       exp
+     end
+   end
 end
 
 function enumIndexExp(@nospecialize(enumExp::Expression)) ::Expression
-  local indexExp::Expression
 
-   indexExp = begin
-    @match enumExp begin
-      ENUM_LITERAL_EXPRESSION(__)  => begin
-        INTEGER_EXPRESSION(enumExp.index)
-      end
+   @match enumExp begin
+     ENUM_LITERAL_EXPRESSION(__)  => begin
+       INTEGER_EXPRESSION(enumExp.index)
+     end
 
-      _  => begin
-        CALL_EXPRESSION(makeTypedCall(NFBuiltinFuncs.INTEGER_ENUM, Expression[enumExp], variability(enumExp)))
-      end
-    end
-  end
-  indexExp
+     _  => begin
+       CALL_EXPRESSION(makeTypedCall(NFBuiltinFuncs.INTEGER_ENUM, Expression[enumExp], variability(enumExp)))
+     end
+   end
 end
 
-function isEmpty(@nospecialize(exp::Expression)) ::Bool
-  local empty::Bool
-
-   empty = begin
-    @match exp begin
-      EMPTY_EXPRESSION(__)  => begin
-        true
-      end
-      _  => begin
-        false
-      end
-    end
-  end
-  empty
-end
-
+isEmpty(@nospecialize(exp::Expression)) ::Bool = isvariant(exp, EMPTY_EXPRESSION)
 
 function makeImmutable(@nospecialize(exp::Expression))
   local outExp::Expression
@@ -892,27 +840,23 @@ function transposeArray(@nospecialize(arrayExp::Expression)) ::Expression
 end
 
 function hasArrayCall2(@nospecialize(exp::Expression)) ::Bool
-  local hasArrayCall::Bool
   local call::Call
   local ty::ModelicaType
-  hasArrayCall = begin
-    @match exp begin
-      CALL_EXPRESSION(call = call)  => begin
-         ty = typeOf(call)
-        isArray(ty) && isVectorizeable(call)
-      end
+  @match exp begin
+    CALL_EXPRESSION(call = call)  => begin
+       ty = typeOf(call)
+      isArray(ty) && isVectorizeable(call)
+    end
 
-      TUPLE_ELEMENT_EXPRESSION(tupleExp = CALL_EXPRESSION(call = call))  => begin
-        ty = nthTupleType(typeOf(call), exp.index)
-        isArray(ty) && isVectorizeable(call)
-      end
+    TUPLE_ELEMENT_EXPRESSION(tupleExp = CALL_EXPRESSION(call = call))  => begin
+      ty = nthTupleType(typeOf(call), exp.index)
+      isArray(ty) && isVectorizeable(call)
+    end
 
-      _  => begin
-        false
-      end
+    _  => begin
+      false
     end
   end
-  hasArrayCall
 end
 
 """
@@ -989,151 +933,127 @@ function negate(@nospecialize(exp::Expression)) ::Expression
 end
 
 function isNegated(@nospecialize(exp::Expression)) ::Bool
-  local negated::Bool
 
-   negated = begin
-    @match exp begin
-      INTEGER_EXPRESSION(__)  => begin
-        exp.value < 0
-      end
+   @match exp begin
+     INTEGER_EXPRESSION(__)  => begin
+       exp.value < 0
+     end
 
-      REAL_EXPRESSION(__)  => begin
-        exp.value < 0
-      end
+     REAL_EXPRESSION(__)  => begin
+       exp.value < 0
+     end
 
-      CAST_EXPRESSION(__)  => begin
-        isNegated(exp.exp)
-      end
+     CAST_EXPRESSION(__)  => begin
+       isNegated(exp.exp)
+     end
 
-      UNARY_EXPRESSION(__)  => begin
-        true
-      end
+     UNARY_EXPRESSION(__)  => begin
+       true
+     end
 
-      _  => begin
-        false
-      end
-    end
-  end
-  negated
+     _  => begin
+       false
+     end
+   end
 end
 
 function unbox(@nospecialize(boxedExp::Expression)) ::Expression
-  local exp::Expression
 
-   exp = begin
-    local ty::ModelicaType
-    @match boxedExp begin
-      BOX_EXPRESSION(__)  => begin
-        boxedExp.exp
-      end
+   local ty::ModelicaType
+   @match boxedExp begin
+     BOX_EXPRESSION(__)  => begin
+       boxedExp.exp
+     end
 
-      _  => begin
-         ty = typeOf(boxedExp)
-        if isBoxed(ty)
-          UNBOX_EXPRESSION(boxedExp, unbox(ty))
-        else
-          boxedExp
-        end
-      end
-    end
-  end
-  exp
+     _  => begin
+        ty = typeOf(boxedExp)
+       if isBoxed(ty)
+         UNBOX_EXPRESSION(boxedExp, unbox(ty))
+       else
+         boxedExp
+       end
+     end
+   end
 end
 
 function box(@nospecialize(exp::Expression)) ::Expression
-  local boxedExp::Expression
 
-   boxedExp = begin
-    @match exp begin
-      BOX_EXPRESSION(__)  => begin
-        exp
-      end
+   @match exp begin
+     BOX_EXPRESSION(__)  => begin
+       exp
+     end
 
-      _  => begin
-        BOX_EXPRESSION(exp)
-      end
-    end
-  end
-  boxedExp
+     _  => begin
+       BOX_EXPRESSION(exp)
+     end
+   end
 end
 
 function makeMinValue(ty::ModelicaType) ::Expression
-  local exp::Expression
 
-   exp = begin
-    @match ty begin
-      TYPE_REAL(__)  => begin
-        REAL_EXPRESSION(-System.realMaxLit())
-      end
+   @match ty begin
+     TYPE_REAL(__)  => begin
+       REAL_EXPRESSION(-System.realMaxLit())
+     end
 
-      TYPE_INTEGER(__)  => begin
-        INTEGER_EXPRESSION(-System.intMaxLit())
-      end
+     TYPE_INTEGER(__)  => begin
+       INTEGER_EXPRESSION(-System.intMaxLit())
+     end
 
-      TYPE_BOOLEAN(__)  => begin
-        BOOLEAN_EXPRESSION(false)
-      end
+     TYPE_BOOLEAN(__)  => begin
+       BOOLEAN_EXPRESSION(false)
+     end
 
-      TYPE_ENUMERATION(__)  => begin
-        ENUM_LITERAL_EXPRESSION(ty, listHead(ty.literals), 1)
-      end
+     TYPE_ENUMERATION(__)  => begin
+       ENUM_LITERAL_EXPRESSION(ty, listHead(ty.literals), 1)
+     end
 
-      TYPE_ARRAY(__)  => begin
-        fillType(ty, makeMinValue(arrayElementType(ty)))
-      end
-    end
-  end
-  exp
+     TYPE_ARRAY(__)  => begin
+       fillType(ty, makeMinValue(arrayElementType(ty)))
+     end
+   end
 end
 
 function makeMaxValue(ty::ModelicaType) ::Expression
-  local exp::Expression
 
-   exp = begin
-    @match ty begin
-      TYPE_REAL(__)  => begin
-        REAL_EXPRESSION(System.realMaxLit())
-      end
+   @match ty begin
+     TYPE_REAL(__)  => begin
+       REAL_EXPRESSION(System.realMaxLit())
+     end
 
-      TYPE_INTEGER(__)  => begin
-        INTEGER_EXPRESSION(System.intMaxLit())
-      end
+     TYPE_INTEGER(__)  => begin
+       INTEGER_EXPRESSION(System.intMaxLit())
+     end
 
-      TYPE_BOOLEAN(__)  => begin
-        BOOLEAN_EXPRESSION(true)
-      end
+     TYPE_BOOLEAN(__)  => begin
+       BOOLEAN_EXPRESSION(true)
+     end
 
-      TYPE_ENUMERATION(__)  => begin
-        ENUM_LITERAL_EXPRESSION(ty, ListUtil.last(ty.literals), listLength(ty.literals))
-      end
+     TYPE_ENUMERATION(__)  => begin
+       ENUM_LITERAL_EXPRESSION(ty, ListUtil.last(ty.literals), listLength(ty.literals))
+     end
 
-      TYPE_ARRAY(__)  => begin
-        fillType(ty, makeMaxValue(arrayElementType(ty)))
-      end
-    end
-  end
-  exp
+     TYPE_ARRAY(__)  => begin
+       fillType(ty, makeMaxValue(arrayElementType(ty)))
+     end
+   end
 end
 
 function makeOne(ty::ModelicaType) ::Expression
-  local zeroExp::Expression
 
-   zeroExp = begin
-    @match ty begin
-      TYPE_REAL(__)  => begin
-        REAL_EXPRESSION(1.0)
-      end
+   @match ty begin
+     TYPE_REAL(__)  => begin
+       REAL_EXPRESSION(1.0)
+     end
 
-      TYPE_INTEGER(__)  => begin
-        INTEGER_EXPRESSION(1)
-      end
+     TYPE_INTEGER(__)  => begin
+       INTEGER_EXPRESSION(1)
+     end
 
-      TYPE_ARRAY(__)  => begin
-        fillType(ty, makeOne(arrayElementType(ty)))
-      end
-    end
-  end
-  zeroExp
+     TYPE_ARRAY(__)  => begin
+       fillType(ty, makeOne(arrayElementType(ty)))
+     end
+   end
 end
 
 function makeOperatorRecordZero(recordNode::InstNode) ::Expression
@@ -1150,28 +1070,24 @@ function makeOperatorRecordZero(recordNode::InstNode) ::Expression
 end
 
 function makeZero(ty::ModelicaType) ::Expression
-  local zeroExp::Expression
 
-   zeroExp = begin
-    @match ty begin
-      TYPE_REAL(__)  => begin
-        REAL_EXPRESSION(0.0)
-      end
+   @match ty begin
+     TYPE_REAL(__)  => begin
+       REAL_EXPRESSION(0.0)
+     end
 
-      TYPE_INTEGER(__)  => begin
-        INTEGER_EXPRESSION(0)
-      end
+     TYPE_INTEGER(__)  => begin
+       INTEGER_EXPRESSION(0)
+     end
 
-      TYPE_ARRAY(__)  => begin
-        fillType(ty, makeZero(arrayElementType(ty)))
-      end
+     TYPE_ARRAY(__)  => begin
+       fillType(ty, makeZero(arrayElementType(ty)))
+     end
 
-      TYPE_COMPLEX(__)  => begin
-        makeOperatorRecordZero(ty.cls)
-      end
-    end
-  end
-  zeroExp
+     TYPE_COMPLEX(__)  => begin
+       makeOperatorRecordZero(ty.cls)
+     end
+   end
 end
 
 """
@@ -1226,136 +1142,67 @@ function fillArgsDimVec(@nospecialize(fillExp::Expression), dims::Vector{Express
 end
 
 function isRecordOrRecordArray(@nospecialize(exp::Expression)) ::Bool
-  local isRecord::Bool
-  isRecord = begin
-    @match exp begin
-      RECORD_EXPRESSION(__)  => begin
-        true
-      end
-      ARRAY_EXPRESSION(__)  => begin
-        ArrayUtil.all(exp.elements, isRecordOrRecordArray)
-      end
-      _  => begin
-        false
-      end
+  @match exp begin
+    RECORD_EXPRESSION(__)  => begin
+      true
+    end
+    ARRAY_EXPRESSION(__)  => begin
+      ArrayUtil.all(exp.elements, isRecordOrRecordArray)
+    end
+    _  => begin
+      false
     end
   end
-  isRecord
 end
 
 isRecord(exp::Expression) = false
 isRecord(exp::RECORD_EXPRESSION) = isRecordOrRecordArray(exp::Expression)
 
-function isBoolean(@nospecialize(exp::Expression)) ::Bool
-  local isBool::Bool
+isBoolean(@nospecialize(exp::Expression)) ::Bool = isvariant(exp, BOOLEAN_EXPRESSION)
 
-   isBool = begin
-    @match exp begin
-      BOOLEAN_EXPRESSION(__)  => begin
-        true
-      end
-
-      _  => begin
-        false
-      end
-    end
-  end
-  isBool
-end
-
-function isInteger(@nospecialize(exp::Expression)) ::Bool
-  local isInteger::Bool
-
-   isInteger = begin
-    @match exp begin
-      INTEGER_EXPRESSION(__)  => begin
-        true
-      end
-
-      _  => begin
-        false
-      end
-    end
-  end
-  isInteger
-end
+isInteger(@nospecialize(exp::Expression)) ::Bool = isvariant(exp, INTEGER_EXPRESSION)
 
 function isLiteral(@nospecialize(exp::Expression)) ::Bool
-  local literal::Bool
 
-   literal = begin
-    @match exp begin
-      INTEGER_EXPRESSION(__)  => begin
-        true
-      end
+   @match exp begin
+     INTEGER_EXPRESSION(__)  => begin
+       true
+     end
 
-      REAL_EXPRESSION(__)  => begin
-        true
-      end
+     REAL_EXPRESSION(__)  => begin
+       true
+     end
 
-      STRING_EXPRESSION(__)  => begin
-        true
-      end
+     STRING_EXPRESSION(__)  => begin
+       true
+     end
 
-      BOOLEAN_EXPRESSION(__)  => begin
-        true
-      end
+     BOOLEAN_EXPRESSION(__)  => begin
+       true
+     end
 
-      ENUM_LITERAL_EXPRESSION(__)  => begin
-        true
-      end
+     ENUM_LITERAL_EXPRESSION(__)  => begin
+       true
+     end
 
-      ARRAY_EXPRESSION(__)  => begin
-        ArrayUtil.all(exp.elements, isLiteral)
-      end
+     ARRAY_EXPRESSION(__)  => begin
+       ArrayUtil.all(exp.elements, isLiteral)
+     end
 
-      RECORD_EXPRESSION(__)  => begin
-        ArrayUtil.all(exp.elements, isLiteral)
-      end
+     RECORD_EXPRESSION(__)  => begin
+       ArrayUtil.all(exp.elements, isLiteral)
+     end
 
-      RANGE_EXPRESSION(__)  => begin
-        isLiteral(exp.start) && isLiteral(exp.stop) && Util.applyOptionOrDefault(exp.step, isLiteral, true)
-      end
-      _  => begin
-        false
-      end
-    end
-  end
-  literal
+     RANGE_EXPRESSION(__)  => begin
+       isLiteral(exp.start) && isLiteral(exp.stop) && Util.applyOptionOrDefault(exp.step, isLiteral, true)
+     end
+     _  => begin
+       false
+     end
+   end
 end
 
-function isScalarLiteral(@nospecialize(exp::Expression)) ::Bool
-  local literal::Bool
-
-   literal = begin
-    @match exp begin
-      INTEGER_EXPRESSION(__)  => begin
-        true
-      end
-
-      REAL_EXPRESSION(__)  => begin
-        true
-      end
-
-      STRING_EXPRESSION(__)  => begin
-        true
-      end
-
-      BOOLEAN_EXPRESSION(__)  => begin
-        true
-      end
-
-      ENUM_LITERAL_EXPRESSION(__)  => begin
-        true
-      end
-
-      _  => begin
-        false
-      end
-    end
-  end
-  literal
-end
+isScalarLiteral(@nospecialize(exp::Expression)) ::Bool = isvariant(exp, INTEGER_EXPRESSION) || isvariant(exp, REAL_EXPRESSION) || isvariant(exp, STRING_EXPRESSION) || isvariant(exp, BOOLEAN_EXPRESSION) || isvariant(exp, ENUM_LITERAL_EXPRESSION)
 
 """
 omc Expression.isNonNegative: true if exp is known to be >= 0 (a cref's min attribute is not
@@ -1430,55 +1277,46 @@ function makeDefaultValue(ty::ModelicaType, min::Union{Expression, Nothing} = no
   error("makeDefaultValue: no default value of type " * toString(ty))
 end
 
-
 function isOne(@nospecialize(exp::Expression)) ::Bool
-  local isOneVar::Bool
-  isOneVar = begin
-    @match exp begin
-      INTEGER_EXPRESSION(__)  => begin
-        exp.value == 1
-      end
-      REAL_EXPRESSION(__)  => begin
-        exp.value == 1.0
-      end
-      CAST_EXPRESSION(__)  => begin
-        isOne(exp.exp)
-      end
-      _  => begin
-        false
-      end
+  @match exp begin
+    INTEGER_EXPRESSION(__)  => begin
+      exp.value == 1
+    end
+    REAL_EXPRESSION(__)  => begin
+      exp.value == 1.0
+    end
+    CAST_EXPRESSION(__)  => begin
+      isOne(exp.exp)
+    end
+    _  => begin
+      false
     end
   end
-  isOneVar
 end
 
 function isZero(@nospecialize(exp::Expression)) ::Bool
-  local isZ::Bool
 
-   isZ = begin
-    @match exp begin
-      INTEGER_EXPRESSION(__)  => begin
-        exp.value == 0
-      end
+   @match exp begin
+     INTEGER_EXPRESSION(__)  => begin
+       exp.value == 0
+     end
 
-      REAL_EXPRESSION(__)  => begin
-        exp.value == 0.0
-      end
+     REAL_EXPRESSION(__)  => begin
+       exp.value == 0.0
+     end
 
-      CAST_EXPRESSION(__)  => begin
-        isZero(exp.exp)
-      end
+     CAST_EXPRESSION(__)  => begin
+       isZero(exp.exp)
+     end
 
-      UNARY_EXPRESSION(__)  => begin
-        isZero(exp.exp)
-      end
+     UNARY_EXPRESSION(__)  => begin
+       isZero(exp.exp)
+     end
 
-      _  => begin
-        false
-      end
-    end
-  end
-  isZ
+     _  => begin
+       false
+     end
+   end
 end
 
 function containsIterator(@nospecialize(exp::Expression), origin::ORIGIN_Type) ::Bool
@@ -1492,19 +1330,15 @@ function containsIterator(@nospecialize(exp::Expression), origin::ORIGIN_Type) :
 end
 
 function isIterator(@nospecialize(exp::Expression)) ::Bool
-  local _result::Bool
-   _result = begin
-    @match exp begin
-      CREF_EXPRESSION(__)  => begin
-        isIterator(exp.cref)
-      end
+   @match exp begin
+     CREF_EXPRESSION(__)  => begin
+       isIterator(exp.cref)
+     end
 
-      _  => begin
-        false
-      end
-    end
-  end
-  _result
+     _  => begin
+       false
+     end
+   end
 end
 
 function toCref(@nospecialize(exp::Expression)) ::ComponentRef
@@ -1522,60 +1356,48 @@ function fromCref(cref::ComponentRef) ::Expression
 end
 
 function arrayAllEqual2(@nospecialize(arrayExp::Expression), @nospecialize(element::Expression)) ::Bool
-  local allEqual::Bool
 
-   allEqual = begin
-    @match arrayExp begin
-      ARRAY_EXPRESSION(__) where (!isempty(arrayExp.elements) && arrayExp.elements[1] isa ARRAY_EXPRESSION)  => begin
-        all(e -> arrayAllEqual2(e, element), arrayExp.elements)
-      end
+   @match arrayExp begin
+     ARRAY_EXPRESSION(__) where (!isempty(arrayExp.elements) && arrayExp.elements[1] isa ARRAY_EXPRESSION)  => begin
+       all(e -> arrayAllEqual2(e, element), arrayExp.elements)
+     end
 
-      ARRAY_EXPRESSION(__)  => begin
-        all(e -> isEqual(e, element), arrayExp.elements)
-      end
+     ARRAY_EXPRESSION(__)  => begin
+       all(e -> isEqual(e, element), arrayExp.elements)
+     end
 
-      _  => begin
-        true
-      end
-    end
-  end
-  allEqual
+     _  => begin
+       true
+     end
+   end
 end
 
 """Checks if all scalar elements in an array are equal to each other."""
 function arrayAllEqual(@nospecialize(arrayExp::Expression)) ::Bool
-  local allEqual::Bool
 
-   allEqual = begin
-    @matchcontinue arrayExp begin
-      ARRAY_EXPRESSION(__)  => begin
-        arrayAllEqual2(arrayExp, arrayFirstScalar(arrayExp))
-      end
+   @matchcontinue arrayExp begin
+     ARRAY_EXPRESSION(__)  => begin
+       arrayAllEqual2(arrayExp, arrayFirstScalar(arrayExp))
+     end
 
-      _  => begin
-        true
-      end
-    end
-  end
-  allEqual
+     _  => begin
+       true
+     end
+   end
 end
 
 """ #= Returns the first scalar element of an array. Fails if the array is empty. =#"""
 @nospecializeinfer function arrayFirstScalar(@nospecialize(arrayExp::Expression)) ::Expression
-  local exp::Expression
 
-   exp = begin
-    @match arrayExp begin
-      ARRAY_EXPRESSION(__)  => begin
-        arrayFirstScalar(arrayExp.elements[1])
-      end
+   @match arrayExp begin
+     ARRAY_EXPRESSION(__)  => begin
+       arrayFirstScalar(arrayExp.elements[1])
+     end
 
-      _  => begin
-        arrayExp
-      end
-    end
-  end
-  exp
+     _  => begin
+       arrayExp
+     end
+   end
 end
 
 @nospecializeinfer function callContainsShallow(call::Call, func::FT) ::Bool where {FT<:Function}
@@ -1652,20 +1474,16 @@ function listContainsShallow(expl::Union{List{<:Expression}, Vector{Expression}}
 end
 
 function crefContainsShallow(cref::ComponentRef, func::FT) ::Bool where {FT<:Function}
-  local res::Bool
 
-   res = begin
-    @match cref begin
-      COMPONENT_REF_CREF(__)  => begin
-        listContainsExpShallow(cref.subscripts, func) || crefContainsShallow(cref.restCref, func)
-      end
+   @match cref begin
+     COMPONENT_REF_CREF(__)  => begin
+       listContainsExpShallow(cref.subscripts, func) || crefContainsShallow(cref.restCref, func)
+     end
 
-      _  => begin
-        false
-      end
-    end
-  end
-  res
+     _  => begin
+       false
+     end
+   end
 end
 
 function containsShallow(@nospecialize(exp::Expression), func::FT) ::Bool where {FT<:Function}
@@ -1857,20 +1675,16 @@ function vectorContains(expl::Vector{Expression}, func::FT)::Bool where {FT<:Fun
 end
 
 function crefContains(cref::ComponentRef, func::FT)::Bool where {FT<:Function}
-  local res::Bool
 
-   res = begin
-    @match cref begin
-      COMPONENT_REF_CREF(__)  => begin
-        listContainsExp(cref.subscripts, func) || crefContains(cref.restCref, func)
-      end
+   @match cref begin
+     COMPONENT_REF_CREF(__)  => begin
+       listContainsExp(cref.subscripts, func) || crefContains(cref.restCref, func)
+     end
 
-      _  => begin
-        false
-      end
-    end
-  end
-  res
+     _  => begin
+       false
+     end
+   end
 end
 
 """Whether `func` holds for `exp` or one of its subexpressions (specialized on `func`)."""
@@ -1961,19 +1775,15 @@ end
 end
 
 function containsOpt(exp::Option{<:Expression}, func::FT)::Bool where {FT<:Function}
-  local res::Bool
   local e::Expression
-  res = begin
-    @match exp begin
-      SOME(e)  => begin
-        contains(e, func)
-      end
-      _  => begin
-        false
-      end
+  @match exp begin
+    SOME(e)  => begin
+      contains(e, func)
+    end
+    _  => begin
+      false
     end
   end
-  res
 end
 
 function mapFoldCrefShallow(cref::ComponentRef, func::FT, arg::ArgT)::Tuple{ComponentRef, ArgT} where {FT<:Function, ArgT}
@@ -2623,68 +2433,66 @@ function foldCref(cref::ComponentRef, func::FT, arg::ArgT, ::Type{ArgT})::ArgT w
 end
 
 function foldCall(call::Call, func::FT, foldArg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
-  () = begin
-    local e::Expression
-    @match call begin
-      UNTYPED_CALL(__)  => begin
-        foldArg = foldList(call.arguments, func, foldArg, ArgT)
-        for arg in call.named_args
-          (_, e) = arg
-          foldArg = fold(e, func, foldArg, ArgT)
-        end
-        ()
+  local e::Expression
+  @match call begin
+    UNTYPED_CALL(__)  => begin
+      foldArg = foldList(call.arguments, func, foldArg, ArgT)
+      for arg in call.named_args
+        (_, e) = arg
+        foldArg = fold(e, func, foldArg, ArgT)
       end
+      ()
+    end
 
-      ARG_TYPED_CALL(__)  => begin
-        for arg in call.arguments
-           (e, _, _) = arg
-           foldArg = fold(e, func, foldArg, ArgT)
-        end
-        for arg in call.named_args
-           (_, e, _, _) = arg
-           foldArg = fold(e, func, foldArg, ArgT)
-        end
-        ()
+    ARG_TYPED_CALL(__)  => begin
+      for arg in call.arguments
+         (e, _, _) = arg
+         foldArg = fold(e, func, foldArg, ArgT)
       end
+      for arg in call.named_args
+         (_, e, _, _) = arg
+         foldArg = fold(e, func, foldArg, ArgT)
+      end
+      ()
+    end
 
-      TYPED_CALL(__)  => begin
-         foldArg = foldList(call.arguments, func, foldArg, ArgT)
-        ()
-      end
+    TYPED_CALL(__)  => begin
+       foldArg = foldList(call.arguments, func, foldArg, ArgT)
+      ()
+    end
 
-      UNTYPED_ARRAY_CONSTRUCTOR(__)  => begin
-         foldArg = fold(call.exp, func, foldArg, ArgT)
-        for i in call.iters
-           foldArg = fold(last(i), func, foldArg, ArgT)
-        end
-        ()
+    UNTYPED_ARRAY_CONSTRUCTOR(__)  => begin
+       foldArg = fold(call.exp, func, foldArg, ArgT)
+      for i in call.iters
+         foldArg = fold(last(i), func, foldArg, ArgT)
       end
+      ()
+    end
 
-      TYPED_ARRAY_CONSTRUCTOR(__)  => begin
-         foldArg = fold(call.exp, func, foldArg, ArgT)
-        for i in call.iters
-           foldArg = fold(last(i), func, foldArg, ArgT)
-        end
-        ()
+    TYPED_ARRAY_CONSTRUCTOR(__)  => begin
+       foldArg = fold(call.exp, func, foldArg, ArgT)
+      for i in call.iters
+         foldArg = fold(last(i), func, foldArg, ArgT)
       end
+      ()
+    end
 
-      UNTYPED_REDUCTION(__)  => begin
-         foldArg = fold(call.exp, func, foldArg, ArgT)
-        for i in call.iters
-           foldArg = fold(last(i), func, foldArg, ArgT)
-        end
-        ()
+    UNTYPED_REDUCTION(__)  => begin
+       foldArg = fold(call.exp, func, foldArg, ArgT)
+      for i in call.iters
+         foldArg = fold(last(i), func, foldArg, ArgT)
       end
+      ()
+    end
 
-      TYPED_REDUCTION(__)  => begin
-         foldArg = fold(call.exp, func, foldArg, ArgT)
-        for i in call.iters
-           foldArg = fold(last(i), func, foldArg, ArgT)
-        end
-         foldArg = foldOpt(call.defaultExp, func, foldArg, ArgT)
-         foldArg = foldOpt(Util.tuple31(call.foldExp), func, foldArg, ArgT)
-        ()
+    TYPED_REDUCTION(__)  => begin
+       foldArg = fold(call.exp, func, foldArg, ArgT)
+      for i in call.iters
+         foldArg = fold(last(i), func, foldArg, ArgT)
       end
+       foldArg = foldOpt(call.defaultExp, func, foldArg, ArgT)
+       foldArg = foldOpt(Util.tuple31(call.foldExp), func, foldArg, ArgT)
+      ()
     end
   end
   foldArg
@@ -2974,51 +2782,43 @@ end
 end
 
 function mapCrefShallow(cref::ComponentRef, func::FT) ::ComponentRef where {FT<:Function}
-  local outCref::ComponentRef
 
-   outCref = begin
-    local subs::List{Subscript}
-    local rest::ComponentRef
-    @match cref begin
-      COMPONENT_REF_CREF(origin = Origin.CREF)  => begin
-        #= New body... =#
-        subs = cref.subscripts #list(mapExp(s, func) for s in cref.subscripts)
-        tmp = listReverse(subs)
-        nSubs::List{Subscript} = nil
-        while tmp !== nil
-          @match Cons{Subscript}(s, tmp) = tmp
-          nSubs = Cons{Subscript}(mapShallowExp(s, func), nSubs)
-        end
+   local subs::List{Subscript}
+   local rest::ComponentRef
+   @match cref begin
+     COMPONENT_REF_CREF(origin = Origin.CREF)  => begin
+       #= New body... =#
+       subs = cref.subscripts #list(mapExp(s, func) for s in cref.subscripts)
+       tmp = listReverse(subs)
+       nSubs::List{Subscript} = nil
+       while tmp !== nil
+         @match Cons{Subscript}(s, tmp) = tmp
+         nSubs = Cons{Subscript}(mapShallowExp(s, func), nSubs)
+       end
 
-        rest = mapCref(cref.restCref, func)
-        COMPONENT_REF_CREF(cref.node, subs, cref.ty, cref.origin, rest)
-      end
+       rest = mapCref(cref.restCref, func)
+       COMPONENT_REF_CREF(cref.node, subs, cref.ty, cref.origin, rest)
+     end
 
-      _  => begin
-        cref
-      end
-    end
-  end
-  outCref
+     _  => begin
+       cref
+     end
+   end
 end
 
 function mapShallowOpt(exp::Option{<:Expression}, func::FT) ::Option{Expression} where {FT<:Function}
-  local outExp::Option{Expression}
 
   local e::Expression
 
-   outExp = begin
-    @match exp begin
-      SOME(e)  => begin
-        SOME(func(e))
-      end
+   @match exp begin
+     SOME(e)  => begin
+       SOME(func(e))
+     end
 
-      _  => begin
-        exp
-      end
-    end
-  end
-  outExp
+     _  => begin
+       exp
+     end
+   end
 end
 
 @nospecializeinfer function mapShallow(@nospecialize(exp::Expression), func::FT) where {FT<:Function}
@@ -3277,45 +3077,41 @@ end
 end
 
 function mapCref(cref::ComponentRef, func::FT) ::ComponentRef where {FT<:Function}
-  local outCref::ComponentRef
-  outCref = begin
-    local subs::List{Subscript}
-    local rest::ComponentRef
-    @match cref begin
-      COMPONENT_REF_CREF(origin = Origin.CREF)  => begin
-        rest = mapCref(cref.restCref, func)
-        subs = cref.subscripts
-        if listEmpty(subs)
-          if referenceEq(rest, cref.restCref)
-            cref
-          else
-            COMPONENT_REF_CREF(cref.node, subs, cref.ty, cref.origin, rest)
-          end
+  local subs::List{Subscript}
+  local rest::ComponentRef
+  @match cref begin
+    COMPONENT_REF_CREF(origin = Origin.CREF)  => begin
+      rest = mapCref(cref.restCref, func)
+      subs = cref.subscripts
+      if listEmpty(subs)
+        if referenceEq(rest, cref.restCref)
+          cref
         else
-          tmp = listReverse(subs)
-          nSubs::List{Subscript} = nil
-          anySubChanged = false
-          while tmp !== nil
-            @match Cons{Subscript}(s, tmp) = tmp
-            ms = mapExp(s, func)
-            if !referenceEq(s, ms)
-              anySubChanged = true
-            end
-            nSubs = Cons{Subscript}(ms, nSubs)
+          COMPONENT_REF_CREF(cref.node, subs, cref.ty, cref.origin, rest)
+        end
+      else
+        tmp = listReverse(subs)
+        nSubs::List{Subscript} = nil
+        anySubChanged = false
+        while tmp !== nil
+          @match Cons{Subscript}(s, tmp) = tmp
+          ms = mapExp(s, func)
+          if !referenceEq(s, ms)
+            anySubChanged = true
           end
-          if !anySubChanged && referenceEq(rest, cref.restCref)
-            cref
-          else
-            COMPONENT_REF_CREF(cref.node, anySubChanged ? nSubs : subs, cref.ty, cref.origin, rest)
-          end
+          nSubs = Cons{Subscript}(ms, nSubs)
+        end
+        if !anySubChanged && referenceEq(rest, cref.restCref)
+          cref
+        else
+          COMPONENT_REF_CREF(cref.node, anySubChanged ? nSubs : subs, cref.ty, cref.origin, rest)
         end
       end
-      _  => begin
-        cref
-      end
+    end
+    _  => begin
+      cref
     end
   end
-  outCref
 end
 
 function mapCallIterators(iters::List{<:Tuple{<:InstNode, Expression}}, func::FT) ::List{Tuple{InstNode, Expression}} where {FT<:Function}
@@ -3352,134 +3148,126 @@ function mapCallIterators(iters::List{<:Tuple{<:InstNode, Expression}}, func::FT
 end
 
 @nospecializeinfer function mapCall(call::Call, func::FT) ::Call where {FT<:Function}
-  local outCall::Call
-  outCall = begin
-    local targs::Vector{TypedArg}
-    local tnargs::Vector{TypedNamedArg}
-    local s::String
-    local e::Expression
-    local t::ModelicaType
-    local v::VariabilityType
-    local iters::List{Tuple{InstNode, Expression}}
-    local default_exp::Option{Expression}
-    local fold_exp::Tuple{Option{Expression}, String, String}
-    @match call begin
-      UNTYPED_CALL(__)  => begin
-        local origArgs = call.arguments
-        local newArgs = origArgs
-        for i in eachindex(origArgs)
-          local orig = origArgs[i]
-          local mapped = map(orig, func)
-          if !referenceEq(orig, mapped)
-            if newArgs === origArgs
-              newArgs = copy(origArgs)
-            end
-            newArgs[i] = mapped
+  local targs::Vector{TypedArg}
+  local tnargs::Vector{TypedNamedArg}
+  local s::String
+  local e::Expression
+  local t::ModelicaType
+  local v::VariabilityType
+  local iters::List{Tuple{InstNode, Expression}}
+  local default_exp::Option{Expression}
+  local fold_exp::Tuple{Option{Expression}, String, String}
+  @match call begin
+    UNTYPED_CALL(__)  => begin
+      local origArgs = call.arguments
+      local newArgs = origArgs
+      for i in eachindex(origArgs)
+        local orig = origArgs[i]
+        local mapped = map(orig, func)
+        if !referenceEq(orig, mapped)
+          if newArgs === origArgs
+            newArgs = copy(origArgs)
           end
+          newArgs[i] = mapped
         end
-        local origNargs = call.named_args
-        local newNargs = origNargs
-        for i in eachindex(origNargs)
-          local (s, e) = origNargs[i]
-          local new_e = map(e, func)
-          if !referenceEq(e, new_e)
-            if newNargs === origNargs
-              newNargs = copy(origNargs)
-            end
-            newNargs[i] = (s, new_e)
+      end
+      local origNargs = call.named_args
+      local newNargs = origNargs
+      for i in eachindex(origNargs)
+        local (s, e) = origNargs[i]
+        local new_e = map(e, func)
+        if !referenceEq(e, new_e)
+          if newNargs === origNargs
+            newNargs = copy(origNargs)
           end
-        end
-        if newArgs === origArgs && newNargs === origNargs
-          call
-        else
-          UNTYPED_CALL(call.ref, newArgs, newNargs, call.call_scope)
+          newNargs[i] = (s, new_e)
         end
       end
-
-      ARG_TYPED_CALL(__)  => begin
-        targs = TypedArg[]
-        tnargs = TypedNamedArg[]
-        for arg in call.arguments
-           (e, t, v) = arg
-          e = map(e, func)
-          push!(targs, (e, t, v))
-        end
-        for arg in call.named_args
-           (s, e, t, v) = arg
-          e = map(e, func)
-          push!(tnargs, (s, e, t, v))
-        end
-        ARG_TYPED_CALL(call.ref, targs, tnargs, call.call_scope)
-      end
-
-      TYPED_CALL(__)  => begin
-        local newArgs = mapPreservingEq(call.arguments, (@nospecialize(e::Expression),) -> map(e, func))
-        if newArgs === call.arguments
-          call
-        else
-          TYPED_CALL(call.fn, call.ty, call.var, newArgs, call.attributes)
-        end
-      end
-
-      UNTYPED_ARRAY_CONSTRUCTOR(__)  => begin
-        e = map(call.exp, func)
-        iters = mapCallIterators(call.iters, func)
-        if referenceEq(e, call.exp) && referenceEq(iters, call.iters)
-          call
-        else
-          UNTYPED_ARRAY_CONSTRUCTOR(e, iters)
-        end
-      end
-
-      TYPED_ARRAY_CONSTRUCTOR(__)  => begin
-        e = map(call.exp, func)
-        iters = mapCallIterators(call.iters, func)
-        if referenceEq(e, call.exp) && referenceEq(iters, call.iters)
-          call
-        else
-          TYPED_ARRAY_CONSTRUCTOR(call.ty, call.var, e, iters)
-        end
-      end
-
-      UNTYPED_REDUCTION(__)  => begin
-        e = map(call.exp, func)
-        iters = mapCallIterators(call.iters, func)
-        if referenceEq(e, call.exp) && referenceEq(iters, call.iters)
-          call
-        else
-          UNTYPED_REDUCTION(call.ref, e, iters)
-        end
-      end
-
-      TYPED_REDUCTION(__)  => begin
-        e = map(call.exp, func)
-        iters = mapCallIterators(call.iters, func)
-        default_exp = mapOpt(call.defaultExp, func)
-        fold_exp = Util.applyTuple31(call.foldExp, (oe) -> mapOpt(oe, func))
-        TYPED_REDUCTION(call.fn, call.ty, call.var, e, iters, default_exp, fold_exp)
+      if newArgs === origArgs && newNargs === origNargs
+        call
+      else
+        UNTYPED_CALL(call.ref, newArgs, newNargs, call.call_scope)
       end
     end
+
+    ARG_TYPED_CALL(__)  => begin
+      targs = TypedArg[]
+      tnargs = TypedNamedArg[]
+      for arg in call.arguments
+         (e, t, v) = arg
+        e = map(e, func)
+        push!(targs, (e, t, v))
+      end
+      for arg in call.named_args
+         (s, e, t, v) = arg
+        e = map(e, func)
+        push!(tnargs, (s, e, t, v))
+      end
+      ARG_TYPED_CALL(call.ref, targs, tnargs, call.call_scope)
+    end
+
+    TYPED_CALL(__)  => begin
+      local newArgs = mapPreservingEq(call.arguments, (@nospecialize(e::Expression),) -> map(e, func))
+      if newArgs === call.arguments
+        call
+      else
+        TYPED_CALL(call.fn, call.ty, call.var, newArgs, call.attributes)
+      end
+    end
+
+    UNTYPED_ARRAY_CONSTRUCTOR(__)  => begin
+      e = map(call.exp, func)
+      iters = mapCallIterators(call.iters, func)
+      if referenceEq(e, call.exp) && referenceEq(iters, call.iters)
+        call
+      else
+        UNTYPED_ARRAY_CONSTRUCTOR(e, iters)
+      end
+    end
+
+    TYPED_ARRAY_CONSTRUCTOR(__)  => begin
+      e = map(call.exp, func)
+      iters = mapCallIterators(call.iters, func)
+      if referenceEq(e, call.exp) && referenceEq(iters, call.iters)
+        call
+      else
+        TYPED_ARRAY_CONSTRUCTOR(call.ty, call.var, e, iters)
+      end
+    end
+
+    UNTYPED_REDUCTION(__)  => begin
+      e = map(call.exp, func)
+      iters = mapCallIterators(call.iters, func)
+      if referenceEq(e, call.exp) && referenceEq(iters, call.iters)
+        call
+      else
+        UNTYPED_REDUCTION(call.ref, e, iters)
+      end
+    end
+
+    TYPED_REDUCTION(__)  => begin
+      e = map(call.exp, func)
+      iters = mapCallIterators(call.iters, func)
+      default_exp = mapOpt(call.defaultExp, func)
+      fold_exp = Util.applyTuple31(call.foldExp, (oe) -> mapOpt(oe, func))
+      TYPED_REDUCTION(call.fn, call.ty, call.var, e, iters, default_exp, fold_exp)
+    end
   end
-  outCall
 end
 
 function mapOpt(exp::Option{<:Expression}, func::FT) ::Option{Expression} where {FT<:Function}
-  local outExp::Option{Expression}
 
   local e::Expression
 
-   outExp = begin
-    @match exp begin
-      SOME(e)  => begin
-        SOME(map(e, func))
-      end
+   @match exp begin
+     SOME(e)  => begin
+       SOME(map(e, func))
+     end
 
-      _  => begin
-        exp
-      end
-    end
-  end
-  outExp
+     _  => begin
+       exp
+     end
+   end
 end
 
 """
@@ -3787,99 +3575,87 @@ end
 end
 
 function isNonAssociativeExp(@nospecialize(exp::Expression)) ::Bool
-  local isAssociative::Bool
 
-   isAssociative = begin
-    @match exp begin
-      BINARY_EXPRESSION(__)  => begin
-        isNonAssociative(exp.operator)
-      end
+   @match exp begin
+     BINARY_EXPRESSION(__)  => begin
+       isNonAssociative(exp.operator)
+     end
 
-      LBINARY_EXPRESSION(__)  => begin
-        true
-      end
+     LBINARY_EXPRESSION(__)  => begin
+       true
+     end
 
-      _  => begin
-        false
-      end
-    end
-  end
-  isAssociative
+     _  => begin
+       false
+     end
+   end
 end
 
 function isAssociativeExp(@nospecialize(exp::Expression)) ::Bool
-  local isAssoc::Bool
-  isAssoc = begin
-    @match exp begin
-      BINARY_EXPRESSION(__)  => begin
-        isAssociative(exp.operator)
-      end
-      LBINARY_EXPRESSION(__)  => begin
-        true
-      end
-      _  => begin
-        false
-      end
+  @match exp begin
+    BINARY_EXPRESSION(__)  => begin
+      isAssociative(exp.operator)
+    end
+    LBINARY_EXPRESSION(__)  => begin
+      true
+    end
+    _  => begin
+      false
     end
   end
-  isAssoc
 end
 
 function priority(@nospecialize(exp::Expression), lhs::Bool) ::Int
-  local priorityVar::Int
 
-  priorityVar = begin
-    @match exp begin
-      INTEGER_EXPRESSION(__)  => begin
-        if exp.value < 0
-          4
-        else
-          0
-        end
-      end
-
-      REAL_EXPRESSION(__)  => begin
-        if exp.value < 0.0
-          4
-        else
-          0
-        end
-      end
-
-      BINARY_EXPRESSION(__)  => begin
-        priority(exp.operator, lhs)
-      end
-
-      UNARY_EXPRESSION(__)  => begin
+  @match exp begin
+    INTEGER_EXPRESSION(__)  => begin
+      if exp.value < 0
         4
-      end
-
-      LBINARY_EXPRESSION(__)  => begin
-        priority(exp.operator, lhs)
-      end
-
-      LUNARY_EXPRESSION(__)  => begin
-        7
-      end
-
-      RELATION_EXPRESSION(__)  => begin
-        6
-      end
-
-      RANGE_EXPRESSION(__)  => begin
-        10
-      end
-
-      IF_EXPRESSION(__)  => begin
-        11
-      end
-
-      _  => begin
+      else
         0
       end
     end
+
+    REAL_EXPRESSION(__)  => begin
+      if exp.value < 0.0
+        4
+      else
+        0
+      end
+    end
+
+    BINARY_EXPRESSION(__)  => begin
+      priority(exp.operator, lhs)
+    end
+
+    UNARY_EXPRESSION(__)  => begin
+      4
+    end
+
+    LBINARY_EXPRESSION(__)  => begin
+      priority(exp.operator, lhs)
+    end
+
+    LUNARY_EXPRESSION(__)  => begin
+      7
+    end
+
+    RELATION_EXPRESSION(__)  => begin
+      6
+    end
+
+    RANGE_EXPRESSION(__)  => begin
+      10
+    end
+
+    IF_EXPRESSION(__)  => begin
+      11
+    end
+
+    _  => begin
+      0
+    end
   end
-  priorityVar
 end
 
 """  Helper function to toString, prints an operator and adds parentheses as needed. """
@@ -4335,29 +4111,25 @@ function toStringTyped(@nospecialize(exp::Expression)) ::String
 end
 
 function toInteger(@nospecialize(exp::Expression)) ::Int
-  local i::Int
 
-   i = begin
-    @match exp begin
-      INTEGER_EXPRESSION(__)  => begin
-        exp.value
-      end
+   @match exp begin
+     INTEGER_EXPRESSION(__)  => begin
+       exp.value
+     end
 
-      #= An index, as omc: false is 1 and true is 2 (Boolean dimensions). =#
-      BOOLEAN_EXPRESSION(__)  => begin
-        if exp.value
-          2
-        else
-          1
-        end
-      end
+     #= An index, as omc: false is 1 and true is 2 (Boolean dimensions). =#
+     BOOLEAN_EXPRESSION(__)  => begin
+       if exp.value
+         2
+       else
+         1
+       end
+     end
 
-      ENUM_LITERAL_EXPRESSION(__)  => begin
-        exp.index
-      end
-    end
-  end
-  i
+     ENUM_LITERAL_EXPRESSION(__)  => begin
+       exp.index
+     end
+   end
 end
 
 function makeEnumLiterals(enumType::ModelicaType) ::List{Expression}
@@ -4382,8 +4154,6 @@ function makeEnumLiteral(enumType::ModelicaType, index::Int) ::Expression
    literal = ENUM_LITERAL_EXPRESSION(enumType, listGet(literals, index), index)
   literal
 end
-
-
 
 """
 The array expression with the dimensions `inDims` whose elements, in row-major order, are `inExps`.
@@ -4422,25 +4192,22 @@ function arrayFromVectorImpl(inExps::Vector{Expression},
 end
 
 @nospecializeinfer function replaceIterator2(@nospecialize(exp::Expression), iterator::InstNode, @nospecialize(iteratorValue::Expression)) ::Expression
-  newExp = begin
-    local node::InstNode
-    @match exp begin
-      CREF_EXPRESSION(cref = COMPONENT_REF_CREF(node = node))  where {isvariant(exp.cref, COMPONENT_REF_CREF) && isSimple(exp.cref)} => begin
-        if nameEqual(iterator, node)
-          iteratorValue
-        else
-          exp
-        end
-      end
-      CREF_EXPRESSION(__) => begin
-        exp
-      end
-      _  => begin
+  local node::InstNode
+  @match exp begin
+    CREF_EXPRESSION(cref = COMPONENT_REF_CREF(node = node))  where {isvariant(exp.cref, COMPONENT_REF_CREF) && isSimple(exp.cref)} => begin
+      if nameEqual(iterator, node)
+        iteratorValue
+      else
         exp
       end
     end
+    CREF_EXPRESSION(__) => begin
+      exp
+    end
+    _  => begin
+      exp
+    end
   end
-  newExp
 end
 
 function replaceIterator(@nospecialize(exp::Expression),
@@ -4554,44 +4321,40 @@ function applySubscriptCall(subscript::Subscript, @nospecialize(exp::Expression)
 end
 
 function applyIndexSubscriptRange2(@nospecialize(startExp::Expression), stepExp::Option{<:Expression}, @nospecialize(stopExp::Expression), index::Int) ::Expression
-  local subscriptedExp::Expression
 
   local iidx::Int
   local ridx::AbstractFloat
 
-   subscriptedExp = begin
-    @match (startExp, stepExp) begin
-      (INTEGER_EXPRESSION(__), SOME(INTEGER_EXPRESSION(iidx)))  => begin
-        INTEGER_EXPRESSION(startExp.value + (index - 1) * iidx)
-      end
+   @match (startExp, stepExp) begin
+     (INTEGER_EXPRESSION(__), SOME(INTEGER_EXPRESSION(iidx)))  => begin
+       INTEGER_EXPRESSION(startExp.value + (index - 1) * iidx)
+     end
 
-      (INTEGER_EXPRESSION(__), _)  => begin
-        INTEGER_EXPRESSION(startExp.value + index - 1)
-      end
+     (INTEGER_EXPRESSION(__), _)  => begin
+       INTEGER_EXPRESSION(startExp.value + index - 1)
+     end
 
-      (REAL_EXPRESSION(__), SOME(REAL_EXPRESSION(ridx)))  => begin
-        REAL_EXPRESSION(startExp.value + (index - 1) * ridx)
-      end
+     (REAL_EXPRESSION(__), SOME(REAL_EXPRESSION(ridx)))  => begin
+       REAL_EXPRESSION(startExp.value + (index - 1) * ridx)
+     end
 
-      (REAL_EXPRESSION(__), _)  => begin
-        REAL_EXPRESSION(startExp.value + index - 1.0)
-      end
+     (REAL_EXPRESSION(__), _)  => begin
+       REAL_EXPRESSION(startExp.value + index - 1.0)
+     end
 
-      (BOOLEAN_EXPRESSION(__), _)  => begin
-        if index == 1
-          startExp
-        else
-          stopExp
-        end
-      end
+     (BOOLEAN_EXPRESSION(__), _)  => begin
+       if index == 1
+         startExp
+       else
+         stopExp
+       end
+     end
 
-      (ENUM_LITERAL_EXPRESSION(index = iidx), _)  => begin
-         iidx = iidx + index - 1
-        nthEnumLiteral(startExp.ty, iidx)
-      end
-    end
-  end
-  subscriptedExp
+     (ENUM_LITERAL_EXPRESSION(index = iidx), _)  => begin
+        iidx = iidx + index - 1
+       nthEnumLiteral(startExp.ty, iidx)
+     end
+   end
 end
 
 function applyIndexSubscriptRange(@nospecialize(rangeExp::Expression), index::Subscript) ::Expression
@@ -4807,39 +4570,35 @@ end
  optional list of subscripts to each element of the subscripted expression.
 """
 function applySubscript(@nospecialize(subscript::Subscript), @nospecialize(exp::Expression), @nospecialize(restSubscripts::List{<:Subscript} = nil)) ::Expression
-  local outExp::Expression
-  outExp = begin
-    @match exp begin
-      CREF_EXPRESSION(__)  => begin
-        applySubscriptCref(subscript, exp.cref, restSubscripts)
-      end
-      TYPENAME_EXPRESSION(__) where (listEmpty(restSubscripts))  => begin
-        applySubscriptTypename(subscript, exp.ty)
-      end
-      ARRAY_EXPRESSION(__)  => begin
-        applySubscriptArray(subscript, exp, restSubscripts)
-      end
-      RANGE_EXPRESSION(__) where (listEmpty(restSubscripts))  => begin
-        applySubscriptRange(subscript, exp)
-      end
-      CALL_EXPRESSION(call = TYPED_ARRAY_CONSTRUCTOR(__))  => begin
-        applySubscriptArrayConstructor(subscript, exp.call, restSubscripts)
-      end
-      CALL_EXPRESSION(__)  => begin
-        applySubscriptCall(subscript, exp, restSubscripts)
-      end
-      IF_EXPRESSION(__)  => begin
-        applySubscriptIf(subscript, exp, restSubscripts)
-      end
-      BINDING_EXP(__)  => begin
-        bindingExpMap(exp, (expArg) -> applySubscript(subscript, expArg, restSubscripts))
-      end
-      _  => begin
-        makeSubscriptedExp(Cons{Subscript}(subscript, restSubscripts), exp)
-      end
+  @match exp begin
+    CREF_EXPRESSION(__)  => begin
+      applySubscriptCref(subscript, exp.cref, restSubscripts)
+    end
+    TYPENAME_EXPRESSION(__) where (listEmpty(restSubscripts))  => begin
+      applySubscriptTypename(subscript, exp.ty)
+    end
+    ARRAY_EXPRESSION(__)  => begin
+      applySubscriptArray(subscript, exp, restSubscripts)
+    end
+    RANGE_EXPRESSION(__) where (listEmpty(restSubscripts))  => begin
+      applySubscriptRange(subscript, exp)
+    end
+    CALL_EXPRESSION(call = TYPED_ARRAY_CONSTRUCTOR(__))  => begin
+      applySubscriptArrayConstructor(subscript, exp.call, restSubscripts)
+    end
+    CALL_EXPRESSION(__)  => begin
+      applySubscriptCall(subscript, exp, restSubscripts)
+    end
+    IF_EXPRESSION(__)  => begin
+      applySubscriptIf(subscript, exp, restSubscripts)
+    end
+    BINDING_EXP(__)  => begin
+      bindingExpMap(exp, (expArg) -> applySubscript(subscript, expArg, restSubscripts))
+    end
+    _  => begin
+      makeSubscriptedExp(Cons{Subscript}(subscript, restSubscripts), exp)
     end
   end
-  outExp
 end
 
 """ Subscripts an expression with the given list of subscripts. """
@@ -4930,7 +4689,6 @@ function integerValue(@nospecialize(exp::Expression))
   @match INTEGER_EXPRESSION(value = value) = exp
   value
 end
-
 
  """
    Converts an expression to the given type. Dimensions of array types can be
@@ -5277,31 +5035,27 @@ function compareVector(expl1::Vector{Expression}, expl2::Vector{Expression})::In
 end
 
 function compareOpt(expl1::Option{<:Expression}, expl2::Option{<:Expression}) ::Int
-  local comp::Int
 
   local e1::Expression
   local e2::Expression
 
-   comp = begin
-    @match (expl1, expl2) begin
-      (NONE(), NONE())  => begin
-        0
-      end
+   @match (expl1, expl2) begin
+     (NONE(), NONE())  => begin
+       0
+     end
 
-      (NONE(), _)  => begin
-        -1
-      end
+     (NONE(), _)  => begin
+       -1
+     end
 
-      (_, NONE())  => begin
-        1
-      end
+     (_, NONE())  => begin
+       1
+     end
 
-      (SOME(e1), SOME(e2))  => begin
-        compare(e1, e2)
-      end
-    end
-  end
-  comp
+     (SOME(e1), SOME(e2))  => begin
+       compare(e1, e2)
+     end
+   end
 end
 
 """ #= Checks whether two expressions are equal, and returns 0 if they are.
@@ -5600,22 +5354,17 @@ function isEqual(@nospecialize(exp1::Expression), @nospecialize(exp2::Expression
 end
 
 function isFalse(@nospecialize(exp::Expression)) ::Bool
-  local isTrue::Bool
 
-   isTrue = begin
-    @match exp begin
-      BOOLEAN_EXPRESSION(false)  => begin
-        true
-      end
+   @match exp begin
+     BOOLEAN_EXPRESSION(false)  => begin
+       true
+     end
 
-      _  => begin
-        false
-      end
-    end
-  end
-  isTrue
+     _  => begin
+       false
+     end
+   end
 end
-
 
 function isTrue(@nospecialize(exp::Expression))
     @match exp begin
@@ -5656,54 +5405,20 @@ function isWildCref(@nospecialize(exp::Expression))
   wild
 end
 
-function isCref(@nospecialize(exp::Expression)) ::Bool
-  local isCref::Bool
-
-   isCref = begin
-    @match exp begin
-      CREF_EXPRESSION(__)  => begin
-        true
-      end
-
-      _  => begin
-        false
-      end
-    end
-  end
-  isCref
-end
+isCref(@nospecialize(exp::Expression)) ::Bool = isvariant(exp, CREF_EXPRESSION)
 
 function isEmptyArray(@nospecialize(exp::Expression)) ::Bool
-  local emptyArray::Bool
-   emptyArray = begin
-    @match exp begin
-      ARRAY_EXPRESSION(__)  => begin
-        isempty(exp.elements)
-      end
-      _  => begin
-        false
-      end
-    end
-  end
-  emptyArray
+   @match exp begin
+     ARRAY_EXPRESSION(__)  => begin
+       isempty(exp.elements)
+     end
+     _  => begin
+       false
+     end
+   end
 end
 
-function isArray(@nospecialize(exp::Expression)) ::Bool
-  local isArray::Bool
-
-   isArray = begin
-    @match exp begin
-      ARRAY_EXPRESSION(__)  => begin
-        true
-      end
-
-      _  => begin
-        false
-      end
-    end
-  end
-  isArray
-end
+isArray(@nospecialize(exp::Expression)) ::Bool = isvariant(exp, ARRAY_EXPRESSION)
 
 @UniontypeDecl ClockKind
 
@@ -5757,37 +5472,33 @@ function toFlatString(ck::ClockKind)::String
 end
 
 function toDebugString(ick::ClockKind) ::String
-  local ock::String
 
-   ock = begin
-    local i::Expression
-    local r::Expression
-    local c::Expression
-    local si::Expression
-    local sm::Expression
-    @match ick begin
-      INFERRED_CLOCK(__)  => begin
-        "INFERRED_CLOCK()"
-      end
+   local i::Expression
+   local r::Expression
+   local c::Expression
+   local si::Expression
+   local sm::Expression
+   @match ick begin
+     INFERRED_CLOCK(__)  => begin
+       "INFERRED_CLOCK()"
+     end
 
-      INTEGER_CLOCK(i, r)  => begin
-        "INTEGER_CLOCK(" + toString(i) + ", " + toString(r) + ")"
-      end
+     INTEGER_CLOCK(i, r)  => begin
+       "INTEGER_CLOCK(" + toString(i) + ", " + toString(r) + ")"
+     end
 
-      REAL_CLOCK(i)  => begin
-        "REAL_CLOCK(" + toString(i) + ")"
-      end
+     REAL_CLOCK(i)  => begin
+       "REAL_CLOCK(" + toString(i) + ")"
+     end
 
-      BOOLEAN_CLOCK(c, si)  => begin
-        "BOOLEAN_CLOCK(" + toString(c) + ", " + toString(si) + ")"
-      end
+     BOOLEAN_CLOCK(c, si)  => begin
+       "BOOLEAN_CLOCK(" + toString(c) + ", " + toString(si) + ")"
+     end
 
-      SOLVER_CLOCK(c, sm)  => begin
-        "SOLVER_CLOCK(" + toString(c) + ", " + toString(sm) + ")"
-      end
-    end
-  end
-  ock
+     SOLVER_CLOCK(c, sm)  => begin
+       "SOLVER_CLOCK(" + toString(c) + ", " + toString(sm) + ")"
+     end
+   end
 end
 
 function compare(ck1::ClockKind, ck2::ClockKind) ::Int
@@ -6325,7 +6036,6 @@ function isCrefExp(binding::Binding)
   return isCrefVar
 end
 
-
 function getExp(binding::Binding)
   local exp::Expression
 
@@ -6361,16 +6071,14 @@ end
 end
 
 function setTypedExp(@nospecialize(exp::Expression), binding::Binding)
-  () = begin
-    @match binding begin
-      TYPED_BINDING(__) => begin
-        @assign binding.bindingExp = exp
-        ()
-      end
-      FLAT_BINDING(__) => begin
-        @assign binding.bindingExp = exp
-        ()
-      end
+  @match binding begin
+    TYPED_BINDING(__) => begin
+      @assign binding.bindingExp = exp
+      ()
+    end
+    FLAT_BINDING(__) => begin
+      @assign binding.bindingExp = exp
+      ()
     end
   end
   return binding

@@ -255,76 +255,64 @@ end
 
 """Print Variability to a string."""
 function variabilityString(inVariability::SCode.Variability)::String
-  local outString::String
 
-  @assign outString = begin
-    @match inVariability begin
-      SCode.VAR(__) => begin
-        "VAR"
-      end
+  @match inVariability begin
+    SCode.VAR(__) => begin
+      "VAR"
+    end
 
-      SCode.DISCRETE(__) => begin
-        "DISCRETE"
-      end
+    SCode.DISCRETE(__) => begin
+      "DISCRETE"
+    end
 
-      SCode.PARAM(__) => begin
-        "PARAM"
-      end
+    SCode.PARAM(__) => begin
+      "PARAM"
+    end
 
-      SCode.CONST(__) => begin
-        "CONST"
-      end
+    SCode.CONST(__) => begin
+      "CONST"
     end
   end
-  return outString
 end
 
 """Print parallelism to a string."""
 function parallelismString(inParallelism::SCode.Parallelism)::String
-  local outString::String
 
-  @assign outString = begin
-    @match inParallelism begin
-      SCode.PARGLOBAL(__) => begin
-        "PARGLOBAL"
-      end
+  @match inParallelism begin
+    SCode.PARGLOBAL(__) => begin
+      "PARGLOBAL"
+    end
 
-      SCode.PARLOCAL(__) => begin
-        "PARLOCAL"
-      end
+    SCode.PARLOCAL(__) => begin
+      "PARLOCAL"
+    end
 
-      SCode.NON_PARALLEL(__) => begin
-        "NON_PARALLEL"
-      end
+    SCode.NON_PARALLEL(__) => begin
+      "NON_PARALLEL"
     end
   end
-  return outString
 end
 
 """Print Variability to a string."""
 function unparseVariability(inVariability::SCode.Variability)::String
-  local outString::String
 
-  @assign outString = begin
-    @match inVariability begin
-      SCode.VAR(__) => begin
-        ""
-      end
+  @match inVariability begin
+    SCode.VAR(__) => begin
+      ""
+    end
 
-      SCode.DISCRETE(__) => begin
-        "discrete"
-      end
+    SCode.DISCRETE(__) => begin
+      "discrete"
+    end
 
-      SCode.PARAM(__) => begin
-        "parameter"
-      end
+    SCode.PARAM(__) => begin
+      "parameter"
+    end
 
-      SCode.CONST(__) => begin
-        "constant"
-      end
+    SCode.CONST(__) => begin
+      "constant"
     end
   end
-  return outString
 end
 
 @exportAll()

@@ -163,19 +163,17 @@ function map1(
   local ieq::Vector{Equation}
   local alg::Vector{ALGORITHM}
   local ialg::Vector{ALGORITHM}
-  () = begin
-    @match sections begin
-      SECTIONS(__) => begin
-        eq = Equation[eqFn(e, arg) for e in sections.equations]
-        ieq = Equation[ieqFn(e, arg) for e in sections.initialEquations]
-        alg = [algFn(a, arg) for a in sections.algorithms]
-        ialg = [ialgFn(a, arg) for a in sections.initialAlgorithms]
-        sections = SECTIONS(eq, ieq, alg, ialg)
-        ()
-      end
-      _ => begin
-        ()
-      end
+  @match sections begin
+    SECTIONS(__) => begin
+      eq = Equation[eqFn(e, arg) for e in sections.equations]
+      ieq = Equation[ieqFn(e, arg) for e in sections.initialEquations]
+      alg = [algFn(a, arg) for a in sections.algorithms]
+      ialg = [ialgFn(a, arg) for a in sections.initialAlgorithms]
+      sections = SECTIONS(eq, ieq, alg, ialg)
+      ()
+    end
+    _ => begin
+      ()
     end
   end
   return sections
@@ -192,47 +190,41 @@ function map(
   local ieq::Vector{Equation}
   local alg::Vector{ALGORITHM}
   local ialg::Vector{ALGORITHM}
-  () = begin
-    @match sections begin
-      SECTIONS(__) => begin
-        eq = Equation[eqFn(e) for e in sections.equations]
-        ieq = Equation[ieqFn(e) for e in sections.initialEquations]
-        alg = ALGORITHM[algFn(a) for a in sections.algorithms]
-        ialg = ALGORITHM[ialgFn(a) for a in sections.initialAlgorithms]
-        sections = SECTIONS(eq, ieq, alg, ialg)
-        ()
-      end
-      _ => begin
-        ()
-      end
+  @match sections begin
+    SECTIONS(__) => begin
+      eq = Equation[eqFn(e) for e in sections.equations]
+      ieq = Equation[ieqFn(e) for e in sections.initialEquations]
+      alg = ALGORITHM[algFn(a) for a in sections.algorithms]
+      ialg = ALGORITHM[ialgFn(a) for a in sections.initialAlgorithms]
+      sections = SECTIONS(eq, ieq, alg, ialg)
+      ()
+    end
+    _ => begin
+      ()
     end
   end
   return sections
 end
 
 function join(sections1::Sections, sections2::Sections)::Sections
-  local sections::Sections
-  sections = begin
-    @match (sections1, sections2) begin
-      (SECTIONS_EMPTY(__), _) => begin
-        sections2
-      end
+  @match (sections1, sections2) begin
+    (SECTIONS_EMPTY(__), _) => begin
+      sections2
+    end
 
-      (_, SECTIONS_EMPTY(__)) => begin
-        sections1
-      end
+    (_, SECTIONS_EMPTY(__)) => begin
+      sections1
+    end
 
-      (SECTIONS(__), SECTIONS(__)) => begin
-        SECTIONS(
-          vcat(sections1.equations, sections2.equations),
-          vcat(sections1.initialEquations, sections2.initialEquations),
-          vcat(sections1.algorithms, sections2.algorithms),
-          vcat(sections1.initialAlgorithms, sections2.initialAlgorithms),
-        )
-      end
+    (SECTIONS(__), SECTIONS(__)) => begin
+      SECTIONS(
+        vcat(sections1.equations, sections2.equations),
+        vcat(sections1.initialEquations, sections2.initialEquations),
+        vcat(sections1.algorithms, sections2.algorithms),
+        vcat(sections1.initialAlgorithms, sections2.initialAlgorithms),
+      )
     end
   end
-  return sections
 end
 
 function append(

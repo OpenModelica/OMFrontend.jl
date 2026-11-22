@@ -858,34 +858,30 @@ end
 end
 
 function expandTypename(ty::ModelicaType)::Expression
-  local outExp::Expression
 
-  @assign outExp = begin
-    local lits::List{Expression}
-    @match ty begin
-      TYPE_ARRAY(elementType = TYPE_BOOLEAN(__)) => begin
-        makeArray(
-          ty,
-          Expression[
-            BOOLEAN_EXPRESSION(false),
-            BOOLEAN_EXPRESSION(true),
-          ],
-          true,
-        )
-      end
+  local lits::List{Expression}
+  @match ty begin
+    TYPE_ARRAY(elementType = TYPE_BOOLEAN(__)) => begin
+      makeArray(
+        ty,
+        Expression[
+          BOOLEAN_EXPRESSION(false),
+          BOOLEAN_EXPRESSION(true),
+        ],
+        true,
+      )
+    end
 
-      TYPE_ARRAY(elementType = TYPE_ENUMERATION(__)) => begin
-        @assign lits = makeEnumLiterals(ty.elementType)
-        makeArray(ty, lits; literal=true)
-      end
+    TYPE_ARRAY(elementType = TYPE_ENUMERATION(__)) => begin
+      @assign lits = makeEnumLiterals(ty.elementType)
+      makeArray(ty, lits; literal=true)
+    end
 
-      _ => begin
-        Error.addInternalError(getInstanceName() + " got invalid typename", sourceInfo())
-        fail()
-      end
+    _ => begin
+      Error.addInternalError(getInstanceName() + " got invalid typename", sourceInfo())
+      fail()
     end
   end
-  return outExp
 end
 
 function expandCref4(
@@ -945,33 +941,29 @@ function expandCref3(
   crefType::ModelicaType,
   accum = nil,
 )::Expression
-  local arrayExp::Expression
-  arrayExp = begin
-    @match subs begin
-      nil() => begin
-        if isempty(accum)
-          CREF_EXPRESSION(crefType, cref)
-        else
-          local arrSubs = Vector{Subscript}[listArray(e) for e in accum]
-          local crefR = setSubscriptsListV(arrSubs, cref)
-          #@info "Done..."
-          CREF_EXPRESSION(
-            crefType,
-            crefR,
-          )
-        end
-      end
-      _ => begin
-        expandCref4(listHead(subs),
-                    nil,
-                    accum,
-                    listRest(subs),
-                    cref,
-                    crefType)
+  @match subs begin
+    nil() => begin
+      if isempty(accum)
+        CREF_EXPRESSION(crefType, cref)
+      else
+        local arrSubs = Vector{Subscript}[listArray(e) for e in accum]
+        local crefR = setSubscriptsListV(arrSubs, cref)
+        #@info "Done..."
+        CREF_EXPRESSION(
+          crefType,
+          crefR,
+        )
       end
     end
+    _ => begin
+      expandCref4(listHead(subs),
+                  nil,
+                  accum,
+                  listRest(subs),
+                  cref,
+                  crefType)
+    end
   end
-  return arrayExp
 end
 
 function expandCref2(

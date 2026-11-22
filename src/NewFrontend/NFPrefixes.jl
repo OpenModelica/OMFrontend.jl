@@ -65,21 +65,17 @@ const UNDECLARED_MASK::Int8 = intBitOr(VIRTUAL, POTENTIALLY_PRESENT)
 end
 
 function fromSCode(scodeCty::SCode.ConnectorType)::Int
-  local cty::Int
-  cty = begin
-    @match scodeCty begin
-      SCode.POTENTIAL(__) => begin
-        0
-      end
-      SCode.FLOW(__) => begin
-        ConnectorType.FLOW
-      end
-      SCode.STREAM(__) => begin
-        ConnectorType.STREAM
-      end
+  @match scodeCty begin
+    SCode.POTENTIAL(__) => begin
+      0
+    end
+    SCode.FLOW(__) => begin
+      ConnectorType.FLOW
+    end
+    SCode.STREAM(__) => begin
+      ConnectorType.STREAM
     end
   end
-  return cty
 end
 
 function merge(
@@ -295,64 +291,51 @@ const Visibility = VisibilityStruct{Int8}(1, 2)
 end
 
 function parallelismFromSCode(scodePar::SCode.Parallelism)::ParallelismType
-  local par::ParallelismType
-  @assign par = begin
-    @match scodePar begin
-      SCode.PARGLOBAL(__) => begin
-        Parallelism.GLOBAL
-      end
-      SCode.PARLOCAL(__) => begin
-        Parallelism.LOCAL
-      end
-      SCode.NON_PARALLEL(__) => begin
-        Parallelism.NON_PARALLEL
-      end
+  @match scodePar begin
+    SCode.PARGLOBAL(__) => begin
+      Parallelism.GLOBAL
+    end
+    SCode.PARLOCAL(__) => begin
+      Parallelism.LOCAL
+    end
+    SCode.NON_PARALLEL(__) => begin
+      Parallelism.NON_PARALLEL
     end
   end
-  return par
 end
 
-
 function parallelismString(par)::String
-  local str::String
 
-  @assign str = begin
-    @match par begin
-      Parallelism.GLOBAL => begin
-        "parglobal"
-      end
+  @match par begin
+    Parallelism.GLOBAL => begin
+      "parglobal"
+    end
 
-      Parallelism.LOCAL => begin
-        "parlocal"
-      end
+    Parallelism.LOCAL => begin
+      "parlocal"
+    end
 
-      _ => begin
-        ""
-      end
+    _ => begin
+      ""
     end
   end
-  return str
 end
 
 function unparseParallelism(par)::String
-  local str::String
 
-  @assign str = begin
-    @match par begin
-      Parallelism.GLOBAL => begin
-        "parglobal "
-      end
+  @match par begin
+    Parallelism.GLOBAL => begin
+      "parglobal "
+    end
 
-      Parallelism.LOCAL => begin
-        "parlocal "
-      end
+    Parallelism.LOCAL => begin
+      "parlocal "
+    end
 
-      _ => begin
-        ""
-      end
+    _ => begin
+      ""
     end
   end
-  return str
 end
 
 function mergeParallelism(
@@ -395,78 +378,69 @@ function variabilityFromSCode(scodeVar::SCode.Variability)
   return var
 end
 
-
 function variabilityString(var)::String
-  local str::String
 
-  @assign str = begin
-    @match var begin
-      Variability.CONSTANT => begin
-        "constant"
-      end
+  @match var begin
+    Variability.CONSTANT => begin
+      "constant"
+    end
 
-      Variability.STRUCTURAL_PARAMETER => begin
-        "parameter"
-      end
+    Variability.STRUCTURAL_PARAMETER => begin
+      "parameter"
+    end
 
-      Variability.PARAMETER => begin
-        "parameter"
-      end
+    Variability.PARAMETER => begin
+      "parameter"
+    end
 
-      Variability.NON_STRUCTURAL_PARAMETER => begin
-        "parameter"
-      end
+    Variability.NON_STRUCTURAL_PARAMETER => begin
+      "parameter"
+    end
 
-      Variability.DISCRETE => begin
-        "discrete"
-      end
+    Variability.DISCRETE => begin
+      "discrete"
+    end
 
-      Variability.IMPLICITLY_DISCRETE => begin
-        "discrete"
-      end
+    Variability.IMPLICITLY_DISCRETE => begin
+      "discrete"
+    end
 
-      Variability.CONTINUOUS => begin
-        "continuous"
-      end
+    Variability.CONTINUOUS => begin
+      "continuous"
     end
   end
-  return str
 end
 
 function unparseVariability(var::VariabilityType, ty::ModelicaType)::String
-  local str::String
-  @assign str = begin
-    @match var begin
-      Variability.CONSTANT => begin
-        "constant "
-      end
+  @match var begin
+    Variability.CONSTANT => begin
+      "constant "
+    end
 
-      Variability.STRUCTURAL_PARAMETER => begin
-        "parameter "
-      end
+    Variability.STRUCTURAL_PARAMETER => begin
+      "parameter "
+    end
 
-      Variability.PARAMETER => begin
-        "parameter "
-      end
+    Variability.PARAMETER => begin
+      "parameter "
+    end
 
-      Variability.NON_STRUCTURAL_PARAMETER => begin
-        "parameter "
-      end
+    Variability.NON_STRUCTURAL_PARAMETER => begin
+      "parameter "
+    end
 
-      Variability.DISCRETE => begin
-        if isDiscrete(ty)
-          ""
-        else
-          "discrete "
-        end
-      end
-
-      _ => begin
+    Variability.DISCRETE => begin
+      if isDiscrete(ty)
         ""
+      else
+        "discrete "
       end
     end
+
+    _ => begin
+      ""
+    end
   end
-  return str
 end
 
 function variabilityMax(var1::Int8, var2::Int8)::Int8
@@ -531,47 +505,38 @@ function directionFromSCode(scodeDir::Absyn.Direction)
   return dir
 end
 
-
 function directionString(dir)::String
-  local str::String
 
-  @assign str = begin
-    @match dir begin
-      Direction.INPUT => begin
-        "input"
-      end
+  @match dir begin
+    Direction.INPUT => begin
+      "input"
+    end
 
-      Direction.OUTPUT => begin
-        "output"
-      end
+    Direction.OUTPUT => begin
+      "output"
+    end
 
-      _ => begin
-        ""
-      end
+    _ => begin
+      ""
     end
   end
-  return str
 end
 
 function unparseDirection(dir)::String
-  local str::String
 
-  @assign str = begin
-    @match dir begin
-      Direction.INPUT => begin
-        "input "
-      end
+  @match dir begin
+    Direction.INPUT => begin
+      "input "
+    end
 
-      Direction.OUTPUT => begin
-        "output "
-      end
+    Direction.OUTPUT => begin
+      "output "
+    end
 
-      _ => begin
-        ""
-      end
+    _ => begin
+      ""
     end
   end
-  return str
 end
 
 function mergeDirection(
@@ -615,55 +580,46 @@ function innerOuterFromSCode(scodeIO::Absyn.InnerOuter)
   return io
 end
 
-
 function innerOuterString(io)::String
-  local str::String
 
-  @assign str = begin
-    @match io begin
-      InnerOuter.INNER => begin
-        "inner"
-      end
+  @match io begin
+    InnerOuter.INNER => begin
+      "inner"
+    end
 
-      InnerOuter.OUTER => begin
-        "outer"
-      end
+    InnerOuter.OUTER => begin
+      "outer"
+    end
 
-      InnerOuter.INNER_OUTER => begin
-        "inner outer"
-      end
+    InnerOuter.INNER_OUTER => begin
+      "inner outer"
+    end
 
-      _ => begin
-        ""
-      end
+    _ => begin
+      ""
     end
   end
-  return str
 end
 
 function unparseInnerOuter(io)::String
-  local str::String
 
-  @assign str = begin
-    @match io begin
-      InnerOuter.INNER => begin
-        "inner "
-      end
+  @match io begin
+    InnerOuter.INNER => begin
+      "inner "
+    end
 
-      InnerOuter.OUTER => begin
-        "outer "
-      end
+    InnerOuter.OUTER => begin
+      "outer "
+    end
 
-      InnerOuter.INNER_OUTER => begin
-        "inner outer "
-      end
+    InnerOuter.INNER_OUTER => begin
+      "inner outer "
+    end
 
-      _ => begin
-        ""
-      end
+    _ => begin
+      ""
     end
   end
-  return str
 end
 
 function visibilityFromSCode(scodeVis::SCode.Visibility)
@@ -680,20 +636,15 @@ function visibilityFromSCode(scodeVis::SCode.Visibility)
   return vis
 end
 
-
 function unparseReplaceable(repl::Replaceable)::String
-  local str::String
-  str = begin
-    @match repl begin
-      REPLACEABLE(__) => begin
-        "replaceable "
-      end
-      _ => begin
-        ""
-      end
+  @match repl begin
+    REPLACEABLE(__) => begin
+      "replaceable "
+    end
+    _ => begin
+      ""
     end
   end
-  return str
 end
 
 function printPrefixError(outerPrefix::String, innerPrefix::String, node::InstNode)

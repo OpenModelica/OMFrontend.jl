@@ -159,58 +159,56 @@ function getDerivativeAttributes(
 
   for attr in attrs
     @match SCode.NAMEMOD(id, mod) = attr
-     () = begin
-      @match (id, mod) begin
-        ("order", SCode.MOD(binding = SOME(aexp))) => begin
-          if !isEmpty(order)
-            Error.addSourceMessage(
-              Error.DUPLICATE_MODIFICATIONS,
-              list(id, "derivative"),
-              info,
-            )
-          end
-          order = instExp(aexp, scope, info)
-          ()
-        end
+     @match (id, mod) begin
+       ("order", SCode.MOD(binding = SOME(aexp))) => begin
+         if !isEmpty(order)
+           Error.addSourceMessage(
+             Error.DUPLICATE_MODIFICATIONS,
+             list(id, "derivative"),
+             info,
+           )
+         end
+         order = instExp(aexp, scope, info)
+         ()
+       end
 
-        (
-          "noDerivative",
-          SCode.MOD(
-            binding = SOME(Absyn.CREF(componentRef = Absyn.CREF_IDENT(name = id))),
-          ),
-        ) => begin
-          @assign index = getInputIndex(id, fn, info)
-          @assign conditions = _cons((index, id, DERIVATIVE_CONDITION_NO_DERIVATIVE), conditions)
-          ()
-        end
+       (
+         "noDerivative",
+         SCode.MOD(
+           binding = SOME(Absyn.CREF(componentRef = Absyn.CREF_IDENT(name = id))),
+         ),
+       ) => begin
+         @assign index = getInputIndex(id, fn, info)
+         @assign conditions = _cons((index, id, DERIVATIVE_CONDITION_NO_DERIVATIVE), conditions)
+         ()
+       end
 
-        (
-          "zeroDerivative",
-          SCode.MOD(
-            binding = SOME(Absyn.CREF(componentRef = Absyn.CREF_IDENT(name = id))),
-          ),
-        ) => begin
-          @assign index = getInputIndex(id, fn, info)
-          @assign conditions = _cons((index, id, DERIVATIVE_CONDITION_ZERO_DERIVATIVE), conditions)
-          ()
-        end
+       (
+         "zeroDerivative",
+         SCode.MOD(
+           binding = SOME(Absyn.CREF(componentRef = Absyn.CREF_IDENT(name = id))),
+         ),
+       ) => begin
+         @assign index = getInputIndex(id, fn, info)
+         @assign conditions = _cons((index, id, DERIVATIVE_CONDITION_ZERO_DERIVATIVE), conditions)
+         ()
+       end
 
-        _ => begin
-          Error.addStrictMessage(
-            Error.INVALID_FUNCTION_DERIVATIVE_ATTR,
-            list(id + (
-              if SCodeUtil.isEmptyMod(mod)
-                ""
-              else
-                " = " + SCodeDump.printModStr(mod)
-              end
-            )),
-            info,
-          )
-          ()
-        end
-      end
-    end
+       _ => begin
+         Error.addStrictMessage(
+           Error.INVALID_FUNCTION_DERIVATIVE_ATTR,
+           list(id + (
+             if SCodeUtil.isEmptyMod(mod)
+               ""
+             else
+               " = " + SCodeDump.printModStr(mod)
+             end
+           )),
+           info,
+         )
+         ()
+       end
+     end
   end
   if isEmpty(order)
     @assign order = INTEGER_EXPRESSION(1)
@@ -262,28 +260,24 @@ function instDerivativeMod(
 end
 
 function getDerivativeAnnotations(definition::SCode.Element)::List{SCode.Mod}
-  local derMods::List{SCode.Mod}
-  @assign derMods = begin
-    local ann::SCode.ANNOTATION
-    @match definition begin
-      SCode.CLASS(
-        classDef = SCode.PARTS(
-          externalDecl = SOME(SCode.EXTERNALDECL(annotation_ = SOME(ann))),
-        ),
-      ) => begin
-        SCodeUtil.lookupNamedAnnotations(ann, "derivative")
-      end
+  local ann::SCode.ANNOTATION
+  @match definition begin
+    SCode.CLASS(
+      classDef = SCode.PARTS(
+        externalDecl = SOME(SCode.EXTERNALDECL(annotation_ = SOME(ann))),
+      ),
+    ) => begin
+      SCodeUtil.lookupNamedAnnotations(ann, "derivative")
+    end
 
-      SCode.CLASS(cmt = SCode.COMMENT(annotation_ = SOME(ann))) => begin
-        SCodeUtil.lookupNamedAnnotations(ann, "derivative")
-      end
+    SCode.CLASS(cmt = SCode.COMMENT(annotation_ = SOME(ann))) => begin
+      SCodeUtil.lookupNamedAnnotations(ann, "derivative")
+    end
 
-      _ => begin
-        nil
-      end
+    _ => begin
+      nil
     end
   end
-  return derMods
 end
 
 function toSubMod(fnDer::FUNCTION_DER) ::SCode.NAMEMOD

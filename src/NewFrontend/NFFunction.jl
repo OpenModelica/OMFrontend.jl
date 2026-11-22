@@ -72,65 +72,22 @@ positional(slot::SLOT)::Bool = slot.ty == SLOT_TYPE_POSITIONAL || slot.ty == SLO
 @UniontypeDecl FunctionMatchKind
 
 function isExactVectorized(mk::FunctionMatchKind)::Bool
-  local b::Bool
 
-  @assign b = begin
-    @match mk begin
-      VECTORIZED_MATCH_KIND(baseMatch = EXACT_MATCH_KIND(__)) => begin
-        true
-      end
-      _ => begin
-        false
-      end
+  @match mk begin
+    VECTORIZED_MATCH_KIND(baseMatch = EXACT_MATCH_KIND(__)) => begin
+      true
+    end
+    _ => begin
+      false
     end
   end
-  return b
 end
 
-function isVectorized(mk::FunctionMatchKind)::Bool
-  local b::Bool
-  @assign b = begin
-    @match mk begin
-      VECTORIZED_MATCH_KIND(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return b
-end
+isVectorized(mk::FunctionMatchKind)::Bool = isvariant(mk, VECTORIZED_MATCH_KIND)
 
-function isExact(mk::FunctionMatchKind)::Bool
-  local b::Bool
-  @assign b = begin
-    @match mk begin
-      EXACT_MATCH_KIND(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return b
-end
+isExact(mk::FunctionMatchKind)::Bool = isvariant(mk, EXACT_MATCH_KIND)
 
-function isValid(mk::FunctionMatchKind)::Bool
-  local b::Bool
-  @assign b = begin
-    @match mk begin
-      NOT_COMPATIBLE_MATCH_KIND(__) => begin
-        false
-      end
-      _ => begin
-        true
-      end
-    end
-  end
-  return b
-end
+isValid(mk::FunctionMatchKind)::Bool = !isvariant(mk, NOT_COMPATIBLE_MATCH_KIND)
 
 @Uniontype FunctionMatchKind begin
   @Record NOT_COMPATIBLE_MATCH_KIND begin
@@ -188,19 +145,17 @@ function foldExpParameter(node::InstNode, foldFn::FT, arg::ArgT, ::Type{ArgT})::
 
   @assign comp = component(node)
   @assign arg = foldExp(getBinding(comp), foldFn, arg, ArgT)
-   () = begin
-    @match comp begin
-      TYPED_COMPONENT(__) => begin
-        @assign arg = foldDims(comp.ty, (dim::Dimension, acc::ArgT) -> foldExp(dim, foldFn, acc, ArgT), arg, ArgT)
-        @assign cls = getClass(comp.classInst)
-        @assign arg = foldComponents(classTree(cls), (node::InstNode, acc::ArgT) -> foldExpParameter(node, foldFn, acc, ArgT), arg, ArgT)
-        ()
-      end
+   @match comp begin
+     TYPED_COMPONENT(__) => begin
+       @assign arg = foldDims(comp.ty, (dim::Dimension, acc::ArgT) -> foldExp(dim, foldFn, acc, ArgT), arg, ArgT)
+       @assign cls = getClass(comp.classInst)
+       @assign arg = foldComponents(classTree(cls), (node::InstNode, acc::ArgT) -> foldExpParameter(node, foldFn, acc, ArgT), arg, ArgT)
+       ()
+     end
 
-      _ => begin
-        ()
-      end
-    end
+     _ => begin
+       ()
+     end
    end
   return arg
 end
@@ -240,26 +195,24 @@ function mapExpParameter(node::InstNode, mapFn::MapFunc)
     comp = setBinding(binding2, comp)
     dirty = true
   end
-  () = begin
-    @match comp begin
-      TYPED_COMPONENT(__) => begin
-        ty =
-          mapDims(comp.ty, (x) -> mapExp(x, mapFn))
-        if !referenceEq(ty, comp.ty)
-          @assign comp.ty = ty
-          dirty = true
-        end
-        cls = getClass(comp.classInst)
-        applyComponents(
-          classTree(cls),
-          (nodeArg) -> mapExpParameter(nodeArg, mapFn),
-        )
-        ()
+  @match comp begin
+    TYPED_COMPONENT(__) => begin
+      ty =
+        mapDims(comp.ty, (x) -> mapExp(x, mapFn))
+      if !referenceEq(ty, comp.ty)
+        @assign comp.ty = ty
+        dirty = true
       end
+      cls = getClass(comp.classInst)
+      applyComponents(
+        classTree(cls),
+        (nodeArg) -> mapExpParameter(nodeArg, mapFn),
+      )
+      ()
+    end
 
-      _ => begin
-        ()
-      end
+    _ => begin
+      ()
     end
   end
   if dirty
@@ -318,18 +271,14 @@ function isNonDefaultRecordConstructorPath(path::Absyn.Path)::Bool
 end
 
 function isDefaultRecordConstructor(fn::MODELICA_FUNCTION)::Bool
-  local isConstructor::Bool
-  isConstructor = begin
-    @match restriction(getClass(fn.node)) begin
-      RESTRICTION_RECORD_CONSTRUCTOR(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
+  @match restriction(getClass(fn.node)) begin
+    RESTRICTION_RECORD_CONSTRUCTOR(__) => begin
+      true
+    end
+    _ => begin
+      false
     end
   end
-  return isConstructor
 end
 
 function inlineBuiltin(fn::MODELICA_FUNCTION)::InlineType
@@ -890,38 +839,30 @@ end
  they are not already typed.
 """
 function typeRefCache(functionRef::ComponentRef)::Vector{MODELICA_FUNCTION}
-  local functions::Vector{MODELICA_FUNCTION}
-  functions = begin
-    @match functionRef begin
-      COMPONENT_REF_CREF(__) => begin
-        typeNodeCache(functionRef.node)
-      end
-      _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() + " got invalid function call reference",
-          sourceInfo(),
-        )
-        fail()
-      end
+  @match functionRef begin
+    COMPONENT_REF_CREF(__) => begin
+      typeNodeCache(functionRef.node)
+    end
+    _ => begin
+      Error.assertion(
+        false,
+        getInstanceName() + " got invalid function call reference",
+        sourceInfo(),
+      )
+      fail()
     end
   end
-  return functions
 end
 
 function isTyped(fn::MODELICA_FUNCTION)::Bool
-  local isTyped::Bool
-  @assign isTyped = begin
-    @match fn.returnType begin
-      TYPE_UNKNOWN(__) => begin
-        false
-      end
-      _ => begin
-        true
-      end
+  @match fn.returnType begin
+    TYPE_UNKNOWN(__) => begin
+      false
+    end
+    _ => begin
+      true
     end
   end
-  return isTyped
 end
 
 function matchFunctionsSilent(
@@ -1172,33 +1113,29 @@ function evaluateSlotExp_traverser(
   slots::Vector{<:SLOT},
   info::SourceInfo,
 )::Expression
-  local outExp::Expression
-  outExp = begin
-    local cref::ComponentRef
-    local slot::Option{SLOT}
-    @match exp begin
-      CREF_EXPRESSION(
-        cref = cref && COMPONENT_REF_CREF(
-          restCref = COMPONENT_REF_EMPTY(__),
-        ),
-      ) => begin
-        #= Only a function's own component is an input (omc lookupSlotInArray by node): a default
-           from a modifier outside it (`redeclare function func = f(x = x)`, x the model's
-           parameter) reads the model's x, not the input it is the default of (omc
-           FuncDefaultArg7). =#
-        slot = _isFunctionComponent(node(cref)) ? lookupSlotInArray(firstName(cref), slots) : NONE()
-        if isSome(slot)
-          Util.tuple31(fillDefaultSlot(Util.getOption(slot), slots, info))
-        else
-          exp
-        end
-      end
-      _ => begin
+  local cref::ComponentRef
+  local slot::Option{SLOT}
+  @match exp begin
+    CREF_EXPRESSION(
+      cref = cref && COMPONENT_REF_CREF(
+        restCref = COMPONENT_REF_EMPTY(__),
+      ),
+    ) => begin
+      #= Only a function's own component is an input (omc lookupSlotInArray by node): a default
+         from a modifier outside it (`redeclare function func = f(x = x)`, x the model's
+         parameter) reads the model's x, not the input it is the default of (omc
+         FuncDefaultArg7). =#
+      slot = _isFunctionComponent(node(cref)) ? lookupSlotInArray(firstName(cref), slots) : NONE()
+      if isSome(slot)
+        Util.tuple31(fillDefaultSlot(Util.getOption(slot), slots, info))
+      else
         exp
       end
     end
+    _ => begin
+      exp
+    end
   end
-  return outExp
 end
 
 function evaluateSlotExp(
@@ -1919,18 +1856,16 @@ end
 function instFunctionNode2(node::InstNode)::InstNode
   local cache::CachedData
   @assign cache = getFuncCache(node)
-   () = begin
-    @match cache begin
-      C_FUNCTION(__) => begin
-        ()
-      end
-      _ => begin
-        (node, _) =
-          instFunction2(scopePath(node), node, InstNode_info(node))#info(node))
-        ()
-      end
-    end
-  end
+   @match cache begin
+     C_FUNCTION(__) => begin
+       ()
+     end
+     _ => begin
+       (node, _) =
+         instFunction2(scopePath(node), node, InstNode_info(node))#info(node))
+       ()
+     end
+   end
   return node
 end
 
@@ -2062,91 +1997,83 @@ function new(path::Absyn.Path, node::InstNode)::MODELICA_FUNCTION
 end
 
 function isValidParamState(cls::InstNode)::Bool
-  local isValid::Bool
-  @assign isValid = begin
-    @match restriction(getClass(cls)) begin
-      RESTRICTION_RECORD(__) => begin
-        true
-      end
-      RESTRICTION_TYPE(__) => begin
-        true
-      end
-      RESTRICTION_OPERATOR(__) => begin
-        true
-      end
-      RESTRICTION_FUNCTION(__) => begin
-        true
-      end
+  @match restriction(getClass(cls)) begin
+    RESTRICTION_RECORD(__) => begin
+      true
+    end
+    RESTRICTION_TYPE(__) => begin
+      true
+    end
+    RESTRICTION_OPERATOR(__) => begin
+      true
+    end
+    RESTRICTION_FUNCTION(__) => begin
+      true
+    end
 
-      RESTRICTION_EXTERNAL_OBJECT(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
+    RESTRICTION_EXTERNAL_OBJECT(__) => begin
+      true
+    end
+    _ => begin
+      false
     end
   end
-  return isValid
 end
 
 function isValidParamType(ty::ModelicaType)::Bool
-  local isValid::Bool
-  @assign isValid = begin
-    @match ty begin
-      TYPE_INTEGER(__) => begin
-        true
-      end
+  @match ty begin
+    TYPE_INTEGER(__) => begin
+      true
+    end
 
-      TYPE_REAL(__) => begin
-        true
-      end
+    TYPE_REAL(__) => begin
+      true
+    end
 
-      TYPE_STRING(__) => begin
-        true
-      end
+    TYPE_STRING(__) => begin
+      true
+    end
 
-      TYPE_BOOLEAN(__) => begin
-        true
-      end
+    TYPE_BOOLEAN(__) => begin
+      true
+    end
 
-      TYPE_CLOCK(__) => begin
-        true
-      end
+    TYPE_CLOCK(__) => begin
+      true
+    end
 
-      TYPE_ENUMERATION(__) => begin
-        true
-      end
+    TYPE_ENUMERATION(__) => begin
+      true
+    end
 
-      TYPE_ENUMERATION_ANY(__) => begin
-        true
-      end
+    TYPE_ENUMERATION_ANY(__) => begin
+      true
+    end
 
-      TYPE_POLYMORPHIC(__) => begin
-        true
-      end
+    TYPE_POLYMORPHIC(__) => begin
+      true
+    end
 
-      TYPE_ARRAY(__) => begin
-        isValidParamType(ty.elementType)
-      end
+    TYPE_ARRAY(__) => begin
+      isValidParamType(ty.elementType)
+    end
 
-      TYPE_COMPLEX(__) => begin
-        isValidParamState(ty.cls)
-      end
+    TYPE_COMPLEX(__) => begin
+      isValidParamState(ty.cls)
+    end
 
-      TYPE_FUNCTION(__) => begin
-        true
-      end
+    TYPE_FUNCTION(__) => begin
+      true
+    end
 
-      TYPE_METABOXED(__) => begin
-        isValidParamType(ty.ty)
-      end
+    TYPE_METABOXED(__) => begin
+      isValidParamType(ty.ty)
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return isValid
 end
 
 function checkParamTypes2(params::List{<:InstNode})
@@ -2382,55 +2309,48 @@ function collectParams(
   #   sourceInfo(),
   # ) TODO
   @assign cls = getClass(node)
-   () = begin
-    @match cls begin
-      INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps)) =>
-        begin
-          for i = arrayLength(comps):(-1):1
-            @assign n = comps[i]
-             () = begin
-              @match paramDirection(n) begin
-                Direction.INPUT => begin
-                  #= Sort the components based on their direction. =#
-                  @assign inputs = _cons(n, inputs)
-                  ()
-                end
+   @match cls begin
+     INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps)) =>
+       begin
+         for i = arrayLength(comps):(-1):1
+           @assign n = comps[i]
+            @match paramDirection(n) begin
+              Direction.INPUT => begin
+                #= Sort the components based on their direction. =#
+                @assign inputs = _cons(n, inputs)
+                ()
+              end
 
-                Direction.OUTPUT => begin
-                  @assign outputs = _cons(n, outputs)
-                  ()
-                end
+              Direction.OUTPUT => begin
+                @assign outputs = _cons(n, outputs)
+                ()
+              end
 
-                Direction.NONE => begin
-                  @assign locals = _cons(n, locals)
-                  ()
-                end
+              Direction.NONE => begin
+                @assign locals = _cons(n, locals)
+                ()
               end
             end
-          end
-          ()
-        end
+         end
+         ()
+       end
 
-      EXPANDED_DERIVED(__) => begin
-         (inputs, outputs, locals) = collectParams(cls.baseClass)
-        ()
-      end
+     EXPANDED_DERIVED(__) => begin
+        (inputs, outputs, locals) = collectParams(cls.baseClass)
+       ()
+     end
 
-      _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() + " got non-instantiated function",
-          sourceInfo(),
-        )
-        fail()
-      end
-    end
-  end
+     _ => begin
+       Error.assertion(
+         false,
+         getInstanceName() + " got non-instantiated function",
+         sourceInfo(),
+       )
+       fail()
+     end
+   end
   return (inputs, outputs, locals)
 end
-
-
-
 
 """
   Helper function for getBody

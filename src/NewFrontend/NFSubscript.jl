@@ -62,18 +62,13 @@ struct SUBSCRIPT_SPLIT_INDEX <: Subscript
   dimIndex::Int
 end
 
-
 function toInteger(subscript::Subscript)::Int
-  local int::Int
 
-   int = begin
-    @match subscript begin
-      SUBSCRIPT_INDEX(__) => begin
-        toInteger(subscript.index)
-      end
-    end
-  end
-  return int
+   @match subscript begin
+     SUBSCRIPT_INDEX(__) => begin
+       toInteger(subscript.index)
+     end
+   end
 end
 
 function toExp(subscript::Subscript)
@@ -97,28 +92,24 @@ function toExp(subscript::Subscript)
 end
 
 function fromExp(exp::Expression)::Subscript
-  local subscript::Subscript
 
-   subscript = begin
-    @match exp begin
-      INTEGER_EXPRESSION(__) => begin
-        SUBSCRIPT_INDEX(exp)
-      end
+   @match exp begin
+     INTEGER_EXPRESSION(__) => begin
+       SUBSCRIPT_INDEX(exp)
+     end
 
-      BOOLEAN_EXPRESSION(__) => begin
-        SUBSCRIPT_INDEX(exp)
-      end
+     BOOLEAN_EXPRESSION(__) => begin
+       SUBSCRIPT_INDEX(exp)
+     end
 
-      ENUM_LITERAL_EXPRESSION(__) => begin
-        SUBSCRIPT_INDEX(exp)
-      end
+     ENUM_LITERAL_EXPRESSION(__) => begin
+       SUBSCRIPT_INDEX(exp)
+     end
 
-      _ => begin
-        SUBSCRIPT_UNTYPED(exp)
-      end
-    end
-  end
-  return subscript
+     _ => begin
+       SUBSCRIPT_UNTYPED(exp)
+     end
+   end
 end
 
 """
@@ -139,21 +130,17 @@ function isValidIndexType(ty::ModelicaType)::Bool
 end
 
 function first(dim::Dimension)::Subscript
-  local sub::Subscript
-   sub = begin
-    @match dim begin
-      DIMENSION_INTEGER(__) => begin
-        SUBSCRIPT_INDEX(INTEGER_EXPRESSION(1))
-      end
-      DIMENSION_BOOLEAN(__) => begin
-        SUBSCRIPT_INDEX(BOOLEAN_EXPRESSION(false))
-      end
-      DIMENSION_ENUM(__) => begin
-        SUBSCRIPT_INDEX(nthEnumLiteral(dim.enumType, 1))
-      end
-    end
-  end
-  return sub
+   @match dim begin
+     DIMENSION_INTEGER(__) => begin
+       SUBSCRIPT_INDEX(INTEGER_EXPRESSION(1))
+     end
+     DIMENSION_BOOLEAN(__) => begin
+       SUBSCRIPT_INDEX(BOOLEAN_EXPRESSION(false))
+     end
+     DIMENSION_ENUM(__) => begin
+       SUBSCRIPT_INDEX(nthEnumLiteral(dim.enumType, 1))
+     end
+   end
 end
 
 """
@@ -264,28 +251,24 @@ function variabilityList(subscripts::List{<:Subscript})::VariabilityType
 end
 
 function variability(subscript::Subscript)::VariabilityType
-  local var::VariabilityType
 
-   var = begin
-    @match subscript begin
-      SUBSCRIPT_UNTYPED(__) => begin
-        variability(subscript.exp)
-      end
+   @match subscript begin
+     SUBSCRIPT_UNTYPED(__) => begin
+       variability(subscript.exp)
+     end
 
-      SUBSCRIPT_INDEX(__) => begin
-        variability(subscript.index)
-      end
+     SUBSCRIPT_INDEX(__) => begin
+       variability(subscript.index)
+     end
 
-      SUBSCRIPT_SLICE(__) => begin
-        variability(subscript.slice)
-      end
+     SUBSCRIPT_SLICE(__) => begin
+       variability(subscript.slice)
+     end
 
-      SUBSCRIPT_WHOLE(__) => begin
-        Variability.CONSTANT
-      end
-    end
-  end
-  return var
+     SUBSCRIPT_WHOLE(__) => begin
+       Variability.CONSTANT
+     end
+   end
 end
 
 function expandList(
@@ -402,45 +385,37 @@ function scalarizeList(
 end
 
 function scalarize(subscript::Subscript, dimension::Dimension)::List{Subscript}
-  local subscripts::List{Subscript}
 
-   subscripts = begin
-    @match subscript begin
-      SUBSCRIPT_INDEX(__) => begin
-        Cons{Subscript}(subscript, nil)
-      end
+   @match subscript begin
+     SUBSCRIPT_INDEX(__) => begin
+       Cons{Subscript}(subscript, nil)
+     end
 
-      SUBSCRIPT_SLICE(__) => begin
-        local sliceExp::Expression
-        (sliceExp, _) = expand(subscript.slice)
-        List{Subscript}(SUBSCRIPT_INDEX(e) for e in arrayElements(sliceExp))
-      end
+     SUBSCRIPT_SLICE(__) => begin
+       local sliceExp::Expression
+       (sliceExp, _) = expand(subscript.slice)
+       List{Subscript}(SUBSCRIPT_INDEX(e) for e in arrayElements(sliceExp))
+     end
 
-      SUBSCRIPT_WHOLE(__) => begin
-        map(fromDim(dimension), makeIndex)
-      end
-    end
-  end
-  return subscripts
+     SUBSCRIPT_WHOLE(__) => begin
+       map(fromDim(dimension), makeIndex)
+     end
+   end
 end
 
 """  Returns a dimension representing the size of the given subscript. """
 function toDimension(subscript::Subscript)::Dimension
-  local dimension::Dimension
-  dimension = begin
-    @match subscript begin
-      SUBSCRIPT_INDEX(__) => begin
-        fromInteger(1)
-      end
-      SUBSCRIPT_SLICE(__) => begin
-        listHead(arrayDims(typeOf(subscript.slice)))
-      end
-      SUBSCRIPT_WHOLE(__) => begin
-        DIMENSION_UNKNOWN()
-      end
+  @match subscript begin
+    SUBSCRIPT_INDEX(__) => begin
+      fromInteger(1)
+    end
+    SUBSCRIPT_SLICE(__) => begin
+      listHead(arrayDims(typeOf(subscript.slice)))
+    end
+    SUBSCRIPT_WHOLE(__) => begin
+      DIMENSION_UNKNOWN()
     end
   end
-  return dimension
 end
 
 """
@@ -532,21 +507,17 @@ function evalSubscript(
   subscript::Subscript,
   target::EvalTarget = EVALTARGET_IGNORE_ERRORS(),
 )::Subscript
-  local outSubscript::Subscript
-  outSubscript = begin
-    @match subscript begin
-      SUBSCRIPT_INDEX(__) => begin
-        SUBSCRIPT_INDEX(evalExp(subscript.index, target))
-      end
-      SUBSCRIPT_SLICE(__) => begin
-        SUBSCRIPT_SLICE(evalExp(subscript.slice, target))
-      end
-      _ => begin
-        subscript
-      end
+  @match subscript begin
+    SUBSCRIPT_INDEX(__) => begin
+      SUBSCRIPT_INDEX(evalExp(subscript.index, target))
+    end
+    SUBSCRIPT_SLICE(__) => begin
+      SUBSCRIPT_SLICE(evalExp(subscript.slice, target))
+    end
+    _ => begin
+      subscript
     end
   end
-  return outSubscript
 end
 
 function toFlatStringList(subscripts::List{<:Subscript}; inFunction = false)::String
@@ -600,36 +571,32 @@ function toStringList(subscripts::List{Subscript})::String
 end
 
 function toString(subscript::Subscript)::String
-  local string::String
 
-   string = begin
-    @match subscript begin
-      SUBSCRIPT_RAW_SUBSCRIPT(__) => begin
-        Dump.printSubscriptStr(subscript.subscript)
-      end
+   @match subscript begin
+     SUBSCRIPT_RAW_SUBSCRIPT(__) => begin
+       Dump.printSubscriptStr(subscript.subscript)
+     end
 
-      SUBSCRIPT_UNTYPED(__) => begin
-        toString(subscript.exp)
-      end
+     SUBSCRIPT_UNTYPED(__) => begin
+       toString(subscript.exp)
+     end
 
-      SUBSCRIPT_INDEX(__) => begin
-        toString(subscript.index)
-      end
+     SUBSCRIPT_INDEX(__) => begin
+       toString(subscript.index)
+     end
 
-      SUBSCRIPT_SLICE(__) => begin
-        toString(subscript.slice)
-      end
+     SUBSCRIPT_SLICE(__) => begin
+       toString(subscript.slice)
+     end
 
-      SUBSCRIPT_EXPANDED_SLICE(__) => begin
-        ListUtil.toString(subscript.indices, toString, "", "{", ", ", "}", false)
-      end
+     SUBSCRIPT_EXPANDED_SLICE(__) => begin
+       ListUtil.toString(subscript.indices, toString, "", "{", ", ", "}", false)
+     end
 
-      SUBSCRIPT_WHOLE(__) => begin
-        ":"
-      end
-    end
-  end
-  return string
+     SUBSCRIPT_WHOLE(__) => begin
+       ":"
+     end
+   end
 end
 
 function mapFoldExpShallow(subscript::Subscript, func::FT, arg::ArgT)::Tuple{Subscript, ArgT} where {FT<:Function, ArgT}
@@ -693,87 +660,79 @@ function foldExp(subscript::Subscript, func::FT, arg::ArgT, ::Type{ArgT})::ArgT 
 end
 
 function mapShallowExp(subscript::Subscript, func::MapFunc)::Subscript
-  local outSubscript::Subscript
 
-   outSubscript = begin
-    local e1::Expression
-    local e2::Expression
-    @match subscript begin
-      SUBSCRIPT_UNTYPED(exp = e1) => begin
-         e2 = func(e1)
-        if referenceEq(e1, e2)
-          subscript
-        else
-          SUBSCRIPT_UNTYPED(e2)
-        end
-      end
+   local e1::Expression
+   local e2::Expression
+   @match subscript begin
+     SUBSCRIPT_UNTYPED(exp = e1) => begin
+        e2 = func(e1)
+       if referenceEq(e1, e2)
+         subscript
+       else
+         SUBSCRIPT_UNTYPED(e2)
+       end
+     end
 
-      SUBSCRIPT_INDEX(index = e1) => begin
-         e2 = func(e1)
-        if referenceEq(e1, e2)
-          subscript
-        else
-          fromTypedExp(e2)
-        end
-      end
+     SUBSCRIPT_INDEX(index = e1) => begin
+        e2 = func(e1)
+       if referenceEq(e1, e2)
+         subscript
+       else
+         fromTypedExp(e2)
+       end
+     end
 
-      SUBSCRIPT_SLICE(slice = e1) => begin
-         e2 = func(e1)
-        if referenceEq(e1, e2)
-          subscript
-        else
-          fromTypedExp(e2)
-        end
-      end
+     SUBSCRIPT_SLICE(slice = e1) => begin
+        e2 = func(e1)
+       if referenceEq(e1, e2)
+         subscript
+       else
+         fromTypedExp(e2)
+       end
+     end
 
-      _ => begin
-        subscript
-      end
-    end
-  end
-  return outSubscript
+     _ => begin
+       subscript
+     end
+   end
 end
 
 @nospecialized function mapExp(subscript::Subscript, func::MapFunc)::Subscript
-  local outSubscript::Subscript
 
-   outSubscript = begin
-    local e1::Expression
-    local e2::Expression
-    @match subscript begin
-      SUBSCRIPT_UNTYPED(exp = e1) => begin
+   local e1::Expression
+   local e2::Expression
+   @match subscript begin
+     SUBSCRIPT_UNTYPED(exp = e1) => begin
+       e2 = map(e1, func)
+       if referenceEq(e1, e2)
+         subscript
+       else
+         SUBSCRIPT_UNTYPED(e2)
+       end
+     end
+
+     SUBSCRIPT_INDEX(index = e1) => begin
+       e2 = map(e1, func)
+       if referenceEq(e1, e2)
+         subscript
+       else
+         fromTypedExp(e2)
+       end
+     end
+
+     SUBSCRIPT_SLICE(slice = e1) => begin
         e2 = map(e1, func)
-        if referenceEq(e1, e2)
-          subscript
-        else
-          SUBSCRIPT_UNTYPED(e2)
-        end
-      end
+       if referenceEq(e1, e2)
+         subscript
+       else
+         fromTypedExp(e2)
+       end
+     end
 
-      SUBSCRIPT_INDEX(index = e1) => begin
-        e2 = map(e1, func)
-        if referenceEq(e1, e2)
-          subscript
-        else
-          fromTypedExp(e2)
-        end
-      end
-
-      SUBSCRIPT_SLICE(slice = e1) => begin
-         e2 = map(e1, func)
-        if referenceEq(e1, e2)
-          subscript
-        else
-          fromTypedExp(e2)
-        end
-      end
-
-      _ => begin
-        subscript
-      end
-    end
-  end
-  return outSubscript
+     _ => begin
+       subscript
+     end
+   end
 end
 
 function applyExp(subscript::Subscript, func::ApplyFunc)
@@ -821,28 +780,24 @@ function containsExpShallow(
   @nospecialize(subscript::Subscript),
   func::FT,
 )::Bool where {FT<:Function}
-  local res::Bool
 
-   res = begin
-    @match subscript begin
-      SUBSCRIPT_UNTYPED(__) => begin
-        func(subscript.exp)
-      end
+   @match subscript begin
+     SUBSCRIPT_UNTYPED(__) => begin
+       func(subscript.exp)
+     end
 
-      SUBSCRIPT_INDEX(__) => begin
-        func(subscript.index)
-      end
+     SUBSCRIPT_INDEX(__) => begin
+       func(subscript.index)
+     end
 
-      SUBSCRIPT_SLICE(__) => begin
-        func(subscript.slice)
-      end
+     SUBSCRIPT_SLICE(__) => begin
+       func(subscript.slice)
+     end
 
-      _ => begin
-        false
-      end
-    end
-  end
-  return res
+     _ => begin
+       false
+     end
+   end
 end
 
 function listContainsExp(subscripts::List{<:Subscript}, func::FT)::Bool where {FT<:Function}
@@ -859,28 +814,24 @@ function listContainsExp(subscripts::List{<:Subscript}, func::FT)::Bool where {F
 end
 
 function containsExp(@nospecialize(subscript::Subscript), func::FT)::Bool where {FT<:Function}
-  local res::Bool
 
-   res = begin
-    @match subscript begin
-      SUBSCRIPT_UNTYPED(__) => begin
-        contains(subscript.exp, func)
-      end
+   @match subscript begin
+     SUBSCRIPT_UNTYPED(__) => begin
+       contains(subscript.exp, func)
+     end
 
-      SUBSCRIPT_INDEX(__) => begin
-        contains(subscript.index, func)
-      end
+     SUBSCRIPT_INDEX(__) => begin
+       contains(subscript.index, func)
+     end
 
-      SUBSCRIPT_SLICE(__) => begin
-        contains(subscript.slice, func)
-      end
+     SUBSCRIPT_SLICE(__) => begin
+       contains(subscript.slice, func)
+     end
 
-      _ => begin
-        false
-      end
-    end
-  end
-  return res
+     _ => begin
+       false
+     end
+   end
 end
 
 function compareList(
@@ -985,100 +936,62 @@ function isEqualList(subscripts1::List{<:Subscript}, subscripts2::List{<:Subscri
 end
 
 function isEqual(subscript1::Subscript, subscript2::Subscript)::Bool
-  local eq::Bool
 
-   eq = begin
-    @match (subscript1, subscript2) begin
-      (SUBSCRIPT_RAW_SUBSCRIPT(__), SUBSCRIPT_RAW_SUBSCRIPT(__)) => begin
-        AbsynUtil.subscriptEqual(subscript1.subscript, subscript2.subscript)
-      end
+   @match (subscript1, subscript2) begin
+     (SUBSCRIPT_RAW_SUBSCRIPT(__), SUBSCRIPT_RAW_SUBSCRIPT(__)) => begin
+       AbsynUtil.subscriptEqual(subscript1.subscript, subscript2.subscript)
+     end
 
-      (SUBSCRIPT_UNTYPED(__), SUBSCRIPT_UNTYPED(__)) => begin
-        isEqual(subscript1.exp, subscript2.exp)
-      end
+     (SUBSCRIPT_UNTYPED(__), SUBSCRIPT_UNTYPED(__)) => begin
+       isEqual(subscript1.exp, subscript2.exp)
+     end
 
-      (SUBSCRIPT_INDEX(__), SUBSCRIPT_INDEX(__)) => begin
-        isEqual(subscript1.index, subscript2.index)
-      end
+     (SUBSCRIPT_INDEX(__), SUBSCRIPT_INDEX(__)) => begin
+       isEqual(subscript1.index, subscript2.index)
+     end
 
-      (SUBSCRIPT_SLICE(__), SUBSCRIPT_SLICE(__)) => begin
-        isEqual(subscript1.slice, subscript2.slice)
-      end
+     (SUBSCRIPT_SLICE(__), SUBSCRIPT_SLICE(__)) => begin
+       isEqual(subscript1.slice, subscript2.slice)
+     end
 
-      (SUBSCRIPT_WHOLE(__), SUBSCRIPT_WHOLE(__)) => begin
-        true
-      end
+     (SUBSCRIPT_WHOLE(__), SUBSCRIPT_WHOLE(__)) => begin
+       true
+     end
 
-      _ => begin
-        false
-      end
-    end
-  end
-  return eq
+     _ => begin
+       false
+     end
+   end
 end
 
 function isScalarLiteral(sub::Subscript)::Bool
-  local res::Bool
-   res = begin
-    @match sub begin
-      SUBSCRIPT_INDEX(__) => begin
-        isScalarLiteral(sub.index)
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return res
+   @match sub begin
+     SUBSCRIPT_INDEX(__) => begin
+       isScalarLiteral(sub.index)
+     end
+     _ => begin
+       false
+     end
+   end
 end
 
 function isScalar(sub::Subscript)::Bool
-  local isScalar::Bool
-   isScalar = begin
-    local ty::ModelicaType
-    @match sub begin
-      SUBSCRIPT_INDEX(__) => begin
-         ty = typeOf(sub.index)
-        isValidIndexType(ty)
-      end
+   local ty::ModelicaType
+   @match sub begin
+     SUBSCRIPT_INDEX(__) => begin
+        ty = typeOf(sub.index)
+       isValidIndexType(ty)
+     end
 
-      _ => begin
-        false
-      end
-    end
-  end
-  return isScalar
+     _ => begin
+       false
+     end
+   end
 end
 
-function isWhole(sub::Subscript)::Bool
-  local isWhole::Bool
-   isWhole = begin
-    @match sub begin
-      SUBSCRIPT_WHOLE(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return isWhole
-end
+isWhole(sub::Subscript)::Bool = isvariant(sub, SUBSCRIPT_WHOLE)
 
-function isIndex(sub::Subscript)::Bool
-  local isIndex::Bool
-   isIndex = begin
-    @match sub begin
-      SUBSCRIPT_INDEX(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return isIndex
-end
+isIndex(sub::Subscript)::Bool = isvariant(sub, SUBSCRIPT_INDEX)
 
 function makeIndex(exp::Expression)::Subscript
   local subscript::Subscript

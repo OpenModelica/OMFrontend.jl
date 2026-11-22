@@ -114,33 +114,31 @@ end
 
 function collectExpConstants_traverser(@nospecialize(exp::Expression), @nospecialize(constants::Constants))::Constants
   local cref::ComponentRef
-   () = begin
-    @match exp begin
-      CREF_EXPRESSION(cref = cref && COMPONENT_REF_CREF(__)) =>
-        begin
-          if isPackageConstant(cref) && !isFunctionPointerExp(exp)
-            local typedNode = typeComponentBinding(cref.node, ORIGIN_CLASS)
-            if typedNode !== cref.node
-              @assign cref.node = typedNode
-            end
-            @assign constants = ConstantsSetImpl.add(
-              constants,
-              stripSubscriptsAll(cref),
-              0,
-              ConstantsSetImpl.addConflictKeep,
-            )
-            @assign constants = collectBindingConstants(
-              getBinding(component(typedNode)),
-              constants,
-            )
-          end
-          ()
-        end
-      _ => begin
-        ()
-      end
-    end
-  end
+   @match exp begin
+     CREF_EXPRESSION(cref = cref && COMPONENT_REF_CREF(__)) =>
+       begin
+         if isPackageConstant(cref) && !isFunctionPointerExp(exp)
+           local typedNode = typeComponentBinding(cref.node, ORIGIN_CLASS)
+           if typedNode !== cref.node
+             @assign cref.node = typedNode
+           end
+           @assign constants = ConstantsSetImpl.add(
+             constants,
+             stripSubscriptsAll(cref),
+             0,
+             ConstantsSetImpl.addConflictKeep,
+           )
+           @assign constants = collectBindingConstants(
+             getBinding(component(typedNode)),
+             constants,
+           )
+         end
+         ()
+       end
+     _ => begin
+       ()
+     end
+   end
   return constants
 end
 
@@ -155,45 +153,41 @@ function collectFuncConstants(
   local sections::Sections
 
   @assign cls = getClass(func.node)
-   () = begin
-    @match cls begin
-      INSTANCED_CLASS(
-        elements = CLASS_TREE_FLAT_TREE(components = comps),
-        sections = sections,
-      ) => begin
-        for c in comps
-          @assign constants = collectBindingConstants(
-            getBinding(component(c)),
-            constants,
-          )
-        end
-         () = begin
-          @match sections begin
-            SECTIONS(__) => begin
-              @assign constants = foldExpList(sections.algorithms, collectExpConstants, constants, Constants)
-              ()
-            end
+   @match cls begin
+     INSTANCED_CLASS(
+       elements = CLASS_TREE_FLAT_TREE(components = comps),
+       sections = sections,
+     ) => begin
+       for c in comps
+         @assign constants = collectBindingConstants(
+           getBinding(component(c)),
+           constants,
+         )
+       end
+        @match sections begin
+          SECTIONS(__) => begin
+            @assign constants = foldExpList(sections.algorithms, collectExpConstants, constants, Constants)
+            ()
+          end
 
-            SECTIONS_EXTERNAL(__) => begin
-              for arg in sections.args
-                @assign constants = collectExpConstants(arg, constants)
-              end
-              ()
+          SECTIONS_EXTERNAL(__) => begin
+            for arg in sections.args
+              @assign constants = collectExpConstants(arg, constants)
             end
+            ()
+          end
 
-            _ => begin
-              ()
-            end
+          _ => begin
+            ()
           end
         end
-        ()
-      end
+       ()
+     end
 
-      _ => begin
-        ()
-      end
-    end
-  end
+     _ => begin
+       ()
+     end
+   end
   return constants
 end
 

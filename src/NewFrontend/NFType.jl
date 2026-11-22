@@ -155,55 +155,32 @@ function sizeType(arrayTy::ModelicaType)::ModelicaType
   return sizeTy
 end
 
-function isBoxed(ty::ModelicaType)::Bool
-  local isBoxed::Bool
-
-  @assign isBoxed = begin
-    @match ty begin
-      TYPE_METABOXED(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return isBoxed
-end
+isBoxed(ty::ModelicaType)::Bool = isvariant(ty, TYPE_METABOXED)
 
 function unbox(ty::ModelicaType)::ModelicaType
-  local unboxedType::ModelicaType
 
-  @assign unboxedType = begin
-    @match ty begin
-      TYPE_METABOXED(__) => begin
-        ty.ty
-      end
+  @match ty begin
+    TYPE_METABOXED(__) => begin
+      ty.ty
+    end
 
-      _ => begin
-        ty
-      end
+    _ => begin
+      ty
     end
   end
-  return unboxedType
 end
 
 function box(ty::ModelicaType)::ModelicaType
-  local boxedType::ModelicaType
 
-  @assign boxedType = begin
-    @match ty begin
-      TYPE_METABOXED(__) => begin
-        ty
-      end
+  @match ty begin
+    TYPE_METABOXED(__) => begin
+      ty
+    end
 
-      _ => begin
-        TYPE_METABOXED(ty)
-      end
+    _ => begin
+      TYPE_METABOXED(ty)
     end
   end
-  return boxedType
 end
 
 function enumSize(ty::ModelicaType)::Int
@@ -238,58 +215,50 @@ function recordFields(recordType::ModelicaType)::List{Field}
 end
 
 @nospecializeinfer function lookupRecordFieldType(name::String, recordType::ModelicaType)::ModelicaType
-  local fieldType::ModelicaType
 
-  @assign fieldType = begin
-    @match recordType begin
-      TYPE_COMPLEX(__) => begin
-        getType(lookupElementNode(name, getClass(recordType.cls)))
-      end
+  @match recordType begin
+    TYPE_COMPLEX(__) => begin
+      getType(lookupElementNode(name, getClass(recordType.cls)))
+    end
 
-      TYPE_ARRAY(__) => begin
-        liftArrayLeftList(
-          lookupRecordFieldType(name, recordType.elementType),
-          recordType.dimensions,
-        )
-      end
+    TYPE_ARRAY(__) => begin
+      liftArrayLeftList(
+        lookupRecordFieldType(name, recordType.elementType),
+        recordType.dimensions,
+      )
     end
   end
-  return fieldType
 end
 
 @nospecializeinfer function isDiscrete(ty::ModelicaType)::Bool
-  local b::Bool
-  b = begin
-    @match ty begin
-      TYPE_INTEGER(__) => begin
-        true
-      end
+  @match ty begin
+    TYPE_INTEGER(__) => begin
+      true
+    end
 
-      TYPE_STRING(__) => begin
-        true
-      end
+    TYPE_STRING(__) => begin
+      true
+    end
 
-      TYPE_BOOLEAN(__) => begin
-        true
-      end
+    TYPE_BOOLEAN(__) => begin
+      true
+    end
 
-      TYPE_ENUMERATION(__) => begin
-        true
-      end
+    TYPE_ENUMERATION(__) => begin
+      true
+    end
 
-      TYPE_ARRAY(__) => begin
-        isDiscrete(ty.elementType)
-      end
+    TYPE_ARRAY(__) => begin
+      isDiscrete(ty.elementType)
+    end
 
-      TYPE_FUNCTION(__) => begin
-        isDiscrete(returnType(functionOf(ty)))
-      end
-      _ => begin
-        false
-      end
+    TYPE_FUNCTION(__) => begin
+      isDiscrete(returnType(functionOf(ty)))
+    end
+    _ => begin
+      false
     end
   end
-  return b
 end
 
 @nospecializeinfer function isEqual(ty1::ModelicaType, ty2::ModelicaType)::Bool
@@ -381,108 +350,100 @@ function subscript(ty::ModelicaType, subs::List{<:Subscript})::ModelicaType
 end
 
 function typenameString(ty::ModelicaType)::String
-  local str::String
 
-  @assign str = begin
-    @match ty begin
-      TYPE_ENUMERATION(__) => begin
-        AbsynUtil.pathString(ty.typePath)
-      end
+  @match ty begin
+    TYPE_ENUMERATION(__) => begin
+      AbsynUtil.pathString(ty.typePath)
+    end
 
-      _ => begin
-        toString(ty)
-      end
+    _ => begin
+      toString(ty)
     end
   end
-  return str
 end
 
 @nospecializeinfer function toFlatString(ty::ModelicaType)::String
-  local str::String
 
-  @assign str = begin
-    @match ty begin
-      TYPE_INTEGER(__) => begin
-        "Integer"
-      end
+  @match ty begin
+    TYPE_INTEGER(__) => begin
+      "Integer"
+    end
 
-      TYPE_REAL(__) => begin
-        "Real"
-      end
+    TYPE_REAL(__) => begin
+      "Real"
+    end
 
-      TYPE_STRING(__) => begin
-        "String"
-      end
+    TYPE_STRING(__) => begin
+      "String"
+    end
 
-      TYPE_BOOLEAN(__) => begin
-        "Boolean"
-      end
+    TYPE_BOOLEAN(__) => begin
+      "Boolean"
+    end
 
-      TYPE_CLOCK(__) => begin
-        "Clock"
-      end
+    TYPE_CLOCK(__) => begin
+      "Clock"
+    end
 
-      TYPE_ENUMERATION(__) => begin
-        "'" * AbsynUtil.pathString(ty.typePath) * "'"
-      end
+    TYPE_ENUMERATION(__) => begin
+      "'" * AbsynUtil.pathString(ty.typePath) * "'"
+    end
 
-      TYPE_ENUMERATION_ANY(__) => begin
-        "enumeration(:)"
-      end
+    TYPE_ENUMERATION_ANY(__) => begin
+      "enumeration(:)"
+    end
 
-      TYPE_ARRAY(__) => begin
-        toString(ty.elementType) +
-        "[" +
-        stringDelimitList(
-          ListUtil.map(ty.dimensions, toFlatString, String),
-          ", ",
-        ) +
-        "]"
-      end
+    TYPE_ARRAY(__) => begin
+      toString(ty.elementType) +
+      "[" +
+      stringDelimitList(
+        ListUtil.map(ty.dimensions, toFlatString, String),
+        ", ",
+      ) +
+      "]"
+    end
 
-      TYPE_TUPLE(__) => begin
-        "(" + stringDelimitList(ListUtil.map(ty.types, toString, String), ", ") + ")"
-      end
+    TYPE_TUPLE(__) => begin
+      "(" + stringDelimitList(ListUtil.map(ty.types, toString, String), ", ") + ")"
+    end
 
-      TYPE_NORETCALL(__) => begin
-        "()"
-      end
+    TYPE_NORETCALL(__) => begin
+      "()"
+    end
 
-      TYPE_UNKNOWN(__) => begin
-        "unknown()"
-      end
+    TYPE_UNKNOWN(__) => begin
+      "unknown()"
+    end
 
-      TYPE_COMPLEX(__) => begin
-        "'" * AbsynUtil.pathString(scopePath(ty.cls)) * "'"
-      end
+    TYPE_COMPLEX(__) => begin
+      "'" * AbsynUtil.pathString(scopePath(ty.cls)) * "'"
+    end
 
-      TYPE_FUNCTION(__) => begin
-        typeString(functionOf(ty))
-      end
+    TYPE_FUNCTION(__) => begin
+      typeString(functionOf(ty))
+    end
 
-      TYPE_METABOXED(__) => begin
-        "#" + toFlatString(ty.ty)
-      end
+    TYPE_METABOXED(__) => begin
+      "#" + toFlatString(ty.ty)
+    end
 
-      TYPE_POLYMORPHIC(__) => begin
-        "<" + ty.name + ">"
-      end
+    TYPE_POLYMORPHIC(__) => begin
+      "<" + ty.name + ">"
+    end
 
-      TYPE_ANY(__) => begin
-        "ANY"
-      end
+    TYPE_ANY(__) => begin
+      "ANY"
+    end
 
-      _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() + " got unknown type: " + anyString(ty),
-          sourceInfo(),
-        )
-        fail()
-      end
+    _ => begin
+      Error.assertion(
+        false,
+        getInstanceName() + " got unknown type: " + anyString(ty),
+        sourceInfo(),
+      )
+      fail()
     end
   end
-  return str
 end
 
 function toFlatDeclarationStream(ty::ModelicaType, s::IOStream_M.IOSTREAM)
@@ -551,90 +512,86 @@ function toFlatDeclarationStream(ty::ModelicaType, s::IOStream_M.IOSTREAM)
 end
 
 @nospecializeinfer function toString(ty::ModelicaType)::String
-  local str::String
-  str = begin
-    @match ty begin
-      TYPE_INTEGER(__) => begin
-        "Integer"
-      end
+  @match ty begin
+    TYPE_INTEGER(__) => begin
+      "Integer"
+    end
 
-      TYPE_REAL(__) => begin
-        "Real"
-      end
+    TYPE_REAL(__) => begin
+      "Real"
+    end
 
-      TYPE_STRING(__) => begin
-        "String"
-      end
+    TYPE_STRING(__) => begin
+      "String"
+    end
 
-      TYPE_BOOLEAN(__) => begin
-        "Boolean"
-      end
+    TYPE_BOOLEAN(__) => begin
+      "Boolean"
+    end
 
-      TYPE_CLOCK(__) => begin
-        "Clock"
-      end
+    TYPE_CLOCK(__) => begin
+      "Clock"
+    end
 
-      TYPE_ENUMERATION(__) => begin
-        "enumeration " + AbsynUtil.pathString(ty.typePath) + "(" + stringDelimitList(ty.literals, ", ") + ")"
-      end
+    TYPE_ENUMERATION(__) => begin
+      "enumeration " + AbsynUtil.pathString(ty.typePath) + "(" + stringDelimitList(ty.literals, ", ") + ")"
+    end
 
-      TYPE_ENUMERATION_ANY(__) => begin
-        "enumeration(:)"
-      end
+    TYPE_ENUMERATION_ANY(__) => begin
+      "enumeration(:)"
+    end
 
-      TYPE_ARRAY(__) => begin
-        toString(ty.elementType) +
-        "[" +
-        stringDelimitList(
-          ListUtil.map(ty.dimensions, toString, String),
-          ", ",
-        ) +
-        "]"
-      end
+    TYPE_ARRAY(__) => begin
+      toString(ty.elementType) +
+      "[" +
+      stringDelimitList(
+        ListUtil.map(ty.dimensions, toString, String),
+        ", ",
+      ) +
+      "]"
+    end
 
-      TYPE_TUPLE(__) => begin
-        "(" + stringDelimitList(ListUtil.map(ty.types, toString, String), ", ") + ")"
-      end
+    TYPE_TUPLE(__) => begin
+      "(" + stringDelimitList(ListUtil.map(ty.types, toString, String), ", ") + ")"
+    end
 
-      TYPE_NORETCALL(__) => begin
-        "()"
-      end
+    TYPE_NORETCALL(__) => begin
+      "()"
+    end
 
-      TYPE_UNKNOWN(__) => begin
-        "unknown()"
-      end
+    TYPE_UNKNOWN(__) => begin
+      "unknown()"
+    end
 
-      TYPE_COMPLEX(__) => begin
-        "'" * AbsynUtil.pathString(scopePath(ty.cls)) * "'"
-      end
+    TYPE_COMPLEX(__) => begin
+      "'" * AbsynUtil.pathString(scopePath(ty.cls)) * "'"
+    end
 
-      TYPE_FUNCTION(__) => begin
-        typeString(functionOf(ty))
-      end
+    TYPE_FUNCTION(__) => begin
+      typeString(functionOf(ty))
+    end
 
-      TYPE_METABOXED(__) => begin
-        "#" + toString(ty.ty)
-      end
+    TYPE_METABOXED(__) => begin
+      "#" + toString(ty.ty)
+    end
 
-      TYPE_POLYMORPHIC(__) => begin
-        "<" + ty.name + ">"
-      end
+    TYPE_POLYMORPHIC(__) => begin
+      "<" + ty.name + ">"
+    end
 
-      TYPE_ANY(__) => begin
-        "ANY"
-      end
+    TYPE_ANY(__) => begin
+      "ANY"
+    end
 
-      _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() + " got unknown type: " + anyString(ty),
-          sourceInfo(),
-        )
-        fail()
-      end
+    _ => begin
+      Error.assertion(
+        false,
+        getInstanceName() + " got unknown type: " + anyString(ty),
+        sourceInfo(),
+      )
+      fail()
     end
   end
-  return str
 end
 
 function foldDims(ty::ModelicaType, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
@@ -732,83 +689,67 @@ end
 end
 
 function hasZeroDimension(ty::ModelicaType)::Bool
-  local hasZero::Bool
-  @assign hasZero = begin
-    @match ty begin
-      TYPE_ARRAY(__) => begin
-        ListUtil.exist(ty.dimensions, isZero)
-      end
-      _ => begin
-        false
-      end
+  @match ty begin
+    TYPE_ARRAY(__) => begin
+      ListUtil.exist(ty.dimensions, isZero)
+    end
+    _ => begin
+      false
     end
   end
-  return hasZero
 end
 
 @nospecializeinfer function hasKnownSize(ty::ModelicaType)::Bool
-  local known::Bool
 
-  @assign known = begin
-    @match ty begin
-      TYPE_ARRAY(__) => begin
-        allowExp = false
-        ListUtil.all(
-          ty.dimensions,
-          (x) -> isKnown(x, allowExp),
-        )
-      end
-      TYPE_FUNCTION(__) => begin
-        hasKnownSize(returnType(functionOf(ty)))
-      end
-      _ => begin
-        true
-      end
+  @match ty begin
+    TYPE_ARRAY(__) => begin
+      allowExp = false
+      ListUtil.all(
+        ty.dimensions,
+        (x) -> isKnown(x, allowExp),
+      )
+    end
+    TYPE_FUNCTION(__) => begin
+      hasKnownSize(returnType(functionOf(ty)))
+    end
+    _ => begin
+      true
     end
   end
-  return known
 end
 
 @nospecializeinfer function dimensionCount(ty::ModelicaType)::Int
-  local dimCount::Int
-  @assign dimCount = begin
-    @match ty begin
-      TYPE_ARRAY(__) => begin
-        listLength(ty.dimensions)
-      end
-      TYPE_FUNCTION(__) => begin
-        dimensionCount(returnType(functionOf(ty)))
-      end
-      TYPE_METABOXED(__) => begin
-        dimensionCount(ty.ty)
-      end
-      _ => begin
-        0
-      end
+  @match ty begin
+    TYPE_ARRAY(__) => begin
+      listLength(ty.dimensions)
+    end
+    TYPE_FUNCTION(__) => begin
+      dimensionCount(returnType(functionOf(ty)))
+    end
+    TYPE_METABOXED(__) => begin
+      dimensionCount(ty.ty)
+    end
+    _ => begin
+      0
     end
   end
-  return dimCount
 end
 
 @nospecializeinfer function nthDimension(ty::ModelicaType, index::Int)::Dimension
-  local dim::Dimension
 
-  @assign dim = begin
-    @match ty begin
-      TYPE_ARRAY(__) => begin
-        listGet(ty.dimensions, index)
-      end
+  @match ty begin
+    TYPE_ARRAY(__) => begin
+      listGet(ty.dimensions, index)
+    end
 
-      TYPE_FUNCTION(__) => begin
-        nthDimension(returnType(functionOf(ty)), index)
-      end
+    TYPE_FUNCTION(__) => begin
+      nthDimension(returnType(functionOf(ty)), index)
+    end
 
-      TYPE_METABOXED(__) => begin
-        nthDimension(ty.ty, index)
-      end
+    TYPE_METABOXED(__) => begin
+      nthDimension(ty.ty, index)
     end
   end
-  return dim
 end
 
 """
@@ -852,21 +793,17 @@ end
 end
 
 @nospecializeinfer function elementType(ty::ModelicaType)::ModelicaType
-  local elementTy::ModelicaType
-  @assign elementTy = begin
-    @match ty begin
-      TYPE_ARRAY(__) => begin
-        ty.elementType
-      end
-      TYPE_FUNCTION(__) => begin
-        elementType(returnType(functionOf(ty)))
-      end
-      _ => begin
-        ty
-      end
+  @match ty begin
+    TYPE_ARRAY(__) => begin
+      ty.elementType
+    end
+    TYPE_FUNCTION(__) => begin
+      elementType(returnType(functionOf(ty)))
+    end
+    _ => begin
+      ty
     end
   end
-  return elementTy
 end
 
 """
@@ -874,18 +811,14 @@ Sets the common type of the elements in an array, if the type is an array
 type. Otherwise it just returns the given element type.
 """
 function setArrayElementType(arrayTy::ModelicaType, elementTy::ModelicaType)::ModelicaType
-  local ty::ModelicaType
- ty = begin
-    @match arrayTy begin
-      TYPE_ARRAY(__) => begin
-        liftArrayLeftList(elementTy, arrayTy.dimensions)
-      end
-      _ => begin
-        elementTy
-      end
-    end
-  end
-  return ty
+ @match arrayTy begin
+   TYPE_ARRAY(__) => begin
+     liftArrayLeftList(elementTy, arrayTy.dimensions)
+   end
+   _ => begin
+     elementTy
+   end
+ end
 end
 
 """
@@ -893,321 +826,197 @@ end
   itself if it's not an array type.
 """
 function arrayElementType(ty::ModelicaType)::ModelicaType
-  local elementTy::ModelicaType
 
-  @assign elementTy = begin
-    @match ty begin
-      TYPE_ARRAY(__) => begin
-        ty.elementType
-      end
+  @match ty begin
+    TYPE_ARRAY(__) => begin
+      ty.elementType
+    end
 
-      _ => begin
-        ty
-      end
+    _ => begin
+      ty
     end
   end
-  return elementTy
 end
 
 @nospecializeinfer function nthTupleType(ty::ModelicaType, n::Int)::ModelicaType
-  local outTy::ModelicaType
-  outTy = begin
-    @match ty begin
-      TYPE_TUPLE(__) => begin
-        listGet(ty.types, n)
-      end
-      TYPE_ARRAY(__) => begin
-        TYPE_ARRAY(nthTupleType(ty.elementType, n), ty.dimensions)
-      end
-      _ => begin
-        ty
-      end
+  @match ty begin
+    TYPE_TUPLE(__) => begin
+      listGet(ty.types, n)
+    end
+    TYPE_ARRAY(__) => begin
+      TYPE_ARRAY(nthTupleType(ty.elementType, n), ty.dimensions)
+    end
+    _ => begin
+      ty
     end
   end
-  return outTy
 end
 
 @nospecializeinfer function firstTupleType(ty::ModelicaType)::ModelicaType
-  local outTy::ModelicaType
-  outTy = begin
-    @match ty begin
-      TYPE_TUPLE(__) => begin
-        listHead(ty.types)
-      end
-      TYPE_ARRAY(__) => begin
-        TYPE_ARRAY(firstTupleType(ty.elementType), ty.dimensions)
-      end
-      _ => begin
-        ty
-      end
+  @match ty begin
+    TYPE_TUPLE(__) => begin
+      listHead(ty.types)
+    end
+    TYPE_ARRAY(__) => begin
+      TYPE_ARRAY(firstTupleType(ty.elementType), ty.dimensions)
+    end
+    _ => begin
+      ty
     end
   end
-  return outTy
 end
 
-function isPolymorphic(ty::ModelicaType)::Bool
-  local isPolymorphic::Bool
-  @assign isPolymorphic = begin
-    @match ty begin
-      TYPE_POLYMORPHIC(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return isPolymorphic
-end
+isPolymorphic(ty::ModelicaType)::Bool = isvariant(ty, TYPE_POLYMORPHIC)
 
-function isKnown(ty::ModelicaType)::Bool
-  local isKnown::Bool
-  @assign isKnown = begin
-    @match ty begin
-      TYPE_UNKNOWN(__) => begin
-        false
-      end
+isKnown(ty::ModelicaType)::Bool = !isvariant(ty, TYPE_UNKNOWN)
 
-      _ => begin
-        true
-      end
-    end
-  end
-  return isKnown
-end
+isUnknown(ty::ModelicaType)::Bool = isvariant(ty, TYPE_UNKNOWN)
 
-function isUnknown(ty::ModelicaType)::Bool
-  local isUnknown::Bool
-  @assign isUnknown = begin
-    @match ty begin
-      TYPE_UNKNOWN(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return isUnknown
-end
-
-function isTuple(ty::ModelicaType)::Bool
-  local isTuple::Bool
-
-  @assign isTuple = begin
-    @match ty begin
-      TYPE_TUPLE(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return isTuple
-end
+isTuple(ty::ModelicaType)::Bool = isvariant(ty, TYPE_TUPLE)
 
 """ #= Returns true for all the builtin scalar types such as Integer, Real, etc. =#"""
 @nospecializeinfer function isScalarBuiltin(ty::ModelicaType)::Bool
-  local res::Bool
 
-  @assign res = begin
-    @match ty begin
-      TYPE_INTEGER(__) => begin
-        true
-      end
+  @match ty begin
+    TYPE_INTEGER(__) => begin
+      true
+    end
 
-      TYPE_REAL(__) => begin
-        true
-      end
+    TYPE_REAL(__) => begin
+      true
+    end
 
-      TYPE_STRING(__) => begin
-        true
-      end
+    TYPE_STRING(__) => begin
+      true
+    end
 
-      TYPE_BOOLEAN(__) => begin
-        true
-      end
+    TYPE_BOOLEAN(__) => begin
+      true
+    end
 
-      TYPE_CLOCK(__) => begin
-        true
-      end
+    TYPE_CLOCK(__) => begin
+      true
+    end
 
-      TYPE_ENUMERATION(__) => begin
-        true
-      end
+    TYPE_ENUMERATION(__) => begin
+      true
+    end
 
-      TYPE_ENUMERATION_ANY(__) => begin
-        true
-      end
+    TYPE_ENUMERATION_ANY(__) => begin
+      true
+    end
 
-      TYPE_FUNCTION(__) => begin
-        isScalarBuiltin(returnType(functionOf(ty)))
-      end
+    TYPE_FUNCTION(__) => begin
+      isScalarBuiltin(returnType(functionOf(ty)))
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return res
 end
 
 function isNumeric(ty::ModelicaType)::Bool
-  local isNumeric::Bool
 
-  @assign isNumeric = begin
-    @match ty begin
-      TYPE_ARRAY(__) => begin
-        isBasicNumeric(ty.elementType)
-      end
+  @match ty begin
+    TYPE_ARRAY(__) => begin
+      isBasicNumeric(ty.elementType)
+    end
 
-      _ => begin
-        isBasicNumeric(ty)
-      end
+    _ => begin
+      isBasicNumeric(ty)
     end
   end
-  return isNumeric
 end
 
-function isBasicNumeric(ty::ModelicaType)::Bool
-  local isNumeric::Bool
-  @assign isNumeric = begin
-    @match ty begin
-      TYPE_REAL(__) => begin
-        true
-      end
-      TYPE_INTEGER(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return isNumeric
-end
+isBasicNumeric(ty::ModelicaType)::Bool = isvariant(ty, TYPE_REAL) || isvariant(ty, TYPE_INTEGER)
 
 @nospecializeinfer function isBasic(ty::ModelicaType)::Bool
-  local isNumeric::Bool
-  @assign isNumeric = begin
-    @match ty begin
-      TYPE_REAL(__) => begin
-        true
-      end
-      TYPE_INTEGER(__) => begin
-        true
-      end
+  @match ty begin
+    TYPE_REAL(__) => begin
+      true
+    end
+    TYPE_INTEGER(__) => begin
+      true
+    end
 
-      TYPE_BOOLEAN(__) => begin
-        true
-      end
+    TYPE_BOOLEAN(__) => begin
+      true
+    end
 
-      TYPE_STRING(__) => begin
-        true
-      end
+    TYPE_STRING(__) => begin
+      true
+    end
 
-      TYPE_ENUMERATION(__) => begin
-        true
-      end
+    TYPE_ENUMERATION(__) => begin
+      true
+    end
 
-      TYPE_CLOCK(__) => begin
-        true
-      end
+    TYPE_CLOCK(__) => begin
+      true
+    end
 
-      TYPE_FUNCTION(__) => begin
-        isBasic(returnType(functionOf(ty)))
-      end
+    TYPE_FUNCTION(__) => begin
+      isBasic(returnType(functionOf(ty)))
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return isNumeric
 end
 
 function isRecord(ty::ModelicaType)::Bool
-  local isRecord::Bool
 
-  @assign isRecord = begin
-    @match ty begin
-      TYPE_COMPLEX(complexTy = COMPLEX_RECORD(__)) => begin
-        true
-      end
+  @match ty begin
+    TYPE_COMPLEX(complexTy = COMPLEX_RECORD(__)) => begin
+      true
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return isRecord
 end
 
 function isExternalObject(ty::ModelicaType)::Bool
-  local isEO::Bool
 
-  @assign isEO = begin
-    @match ty begin
-      TYPE_COMPLEX(complexTy = COMPLEX_EXTERNAL_OBJECT(__)) => begin
-        true
-      end
+  @match ty begin
+    TYPE_COMPLEX(complexTy = COMPLEX_EXTERNAL_OBJECT(__)) => begin
+      true
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return isEO
 end
 
 function isExpandableConnector(ty::ModelicaType)::Bool
-  local isExpandable::Bool
 
-  @assign isExpandable = begin
-    @match ty begin
-      TYPE_COMPLEX(complexTy = COMPLEX_EXPANDABLE_CONNECTOR(__)) => begin
-        true
-      end
-      _ => begin
-        false
-      end
+  @match ty begin
+    TYPE_COMPLEX(complexTy = COMPLEX_EXPANDABLE_CONNECTOR(__)) => begin
+      true
+    end
+    _ => begin
+      false
     end
   end
-  return isExpandable
 end
 
 function isConnector(ty::ModelicaType)::Bool
-  local isaC::Bool
 
-  @assign isaC = begin
-    @match ty begin
-      TYPE_COMPLEX(complexTy = COMPLEX_CONNECTOR(__)) => begin
-        true
-      end
-      _ => begin
-        false
-      end
+  @match ty begin
+    TYPE_COMPLEX(complexTy = COMPLEX_CONNECTOR(__)) => begin
+      true
+    end
+    _ => begin
+      false
     end
   end
-  return isaC
 end
 
-function isComplex(ty::ModelicaType)::Bool
-  local isComplex::Bool
-  @assign isComplex = begin
-    @match ty begin
-      TYPE_COMPLEX(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return isComplex
-end
+isComplex(ty::ModelicaType)::Bool = isvariant(ty, TYPE_COMPLEX)
 
 function complexNode(ty)
   local node::InstNode
@@ -1219,145 +1028,76 @@ function complexComponents(ty)
   getComponents(classTree(getClass(complexNode(ty))))
 end
 
-function isEnumeration(ty::ModelicaType)::Bool
-  local isEnum::Bool
-
-  @assign isEnum = begin
-    @match ty begin
-      TYPE_ENUMERATION(__) => begin
-        true
-      end
-
-      TYPE_ENUMERATION_ANY(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return isEnum
-end
+isEnumeration(ty::ModelicaType)::Bool = isvariant(ty, TYPE_ENUMERATION) || isvariant(ty, TYPE_ENUMERATION_ANY)
 
 function isSingleElementArray(ty::ModelicaType)::Bool
-  local isSingleElement::Bool
-  @assign isSingleElement = begin
-    local d::Dimension
-    @match ty begin
-      TYPE_ARRAY(dimensions = d <| nil()) => begin
-        isKnown(d) && size(d) == 1
-      end
-      _ => begin
-        false
-      end
+  local d::Dimension
+  @match ty begin
+    TYPE_ARRAY(dimensions = d <| nil()) => begin
+      isKnown(d) && size(d) == 1
+    end
+    _ => begin
+      false
     end
   end
-  return isSingleElement
 end
 
 function isEmptyArray(ty::ModelicaType)::Bool
-  local isEmpty::Bool
-  isEmpty = begin
-    @match ty begin
-      TYPE_ARRAY(__) => begin
-        ListUtil.exist(ty.dimensions, isZero)
-      end
-      _ => begin
-        false
-      end
+  @match ty begin
+    TYPE_ARRAY(__) => begin
+      ListUtil.exist(ty.dimensions, isZero)
+    end
+    _ => begin
+      false
     end
   end
-  return isEmpty
 end
 
 function isSquareMatrix(ty::ModelicaType)::Bool
-  local isSquareMatrix::Bool
 
-  @assign isSquareMatrix = begin
-    local d1::Dimension
-    local d2::Dimension
-    @match ty begin
-      TYPE_ARRAY(dimensions = d1 <| d2 <| nil()) => begin
-        isEqualKnown(d1, d2)
-      end
+  local d1::Dimension
+  local d2::Dimension
+  @match ty begin
+    TYPE_ARRAY(dimensions = d1 <| d2 <| nil()) => begin
+      isEqualKnown(d1, d2)
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return isSquareMatrix
 end
 
 function isMatrix(ty::ModelicaType)::Bool
-  local isMatrix::Bool
 
-  @assign isMatrix = begin
-    @match ty begin
-      TYPE_ARRAY(dimensions = _ <| _ <| nil()) => begin
-        true
-      end
+  @match ty begin
+    TYPE_ARRAY(dimensions = _ <| _ <| nil()) => begin
+      true
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return isMatrix
 end
 
 """Return whether the type is a vector type or not, i.e. a 1-dimensional array."""
 function isVector(ty::ModelicaType)::Bool
-  local isVector::Bool
 
-  @assign isVector = begin
-    @match ty begin
-      TYPE_ARRAY(dimensions = _ <| nil()) => begin
-        true
-      end
+  @match ty begin
+    TYPE_ARRAY(dimensions = _ <| nil()) => begin
+      true
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return isVector
 end
 
-function isArray(ty::ModelicaType)::Bool
-  local isArray::Bool
+isArray(ty::ModelicaType)::Bool = isvariant(ty, TYPE_ARRAY)
 
-  @assign isArray = begin
-    @match ty begin
-      TYPE_ARRAY(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return isArray
-end
-
-function isScalar(ty::ModelicaType)::Bool
-  local isScalar::Bool
-
-  @assign isScalar = begin
-    @match ty begin
-      TYPE_ARRAY(__) => begin
-        false
-      end
-
-      _ => begin
-        true
-      end
-    end
-  end
-  return isScalar
-end
+isScalar(ty::ModelicaType)::Bool = !isvariant(ty, TYPE_ARRAY)
 
 "Whether `ty` is a function type: a functional input (`input Base f`), a partial application (`function f(a = 1)`)."
 function isFunction(ty::ModelicaType)::Bool
@@ -1367,86 +1107,15 @@ function isFunction(ty::ModelicaType)::Bool
   end
 end
 
-function isClock(ty::ModelicaType)::Bool
-  local isClock::Bool
-  @assign isClock = begin
-    @match ty begin
-      TYPE_CLOCK(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return isClock
-end
+isClock(ty::ModelicaType)::Bool = isvariant(ty, TYPE_CLOCK)
 
-function isString(ty::ModelicaType)::Bool
-  local isString::Bool
+isString(ty::ModelicaType)::Bool = isvariant(ty, TYPE_STRING)
 
-  @assign isString = begin
-    @match ty begin
-      TYPE_STRING(__) => begin
-        true
-      end
+isBoolean(ty::ModelicaType)::Bool = isvariant(ty, TYPE_BOOLEAN)
 
-      _ => begin
-        false
-      end
-    end
-  end
-  return isString
-end
+isReal(ty::ModelicaType)::Bool = isvariant(ty, TYPE_REAL)
 
-function isBoolean(ty::ModelicaType)::Bool
-  local isBool::Bool
-  @assign isBool = begin
-    @match ty begin
-      TYPE_BOOLEAN(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return isBool
-end
-
-function isReal(ty::ModelicaType)::Bool
-  local isReal::Bool
-
-  @assign isReal = begin
-    @match ty begin
-      TYPE_REAL(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return isReal
-end
-
-function isInteger(ty::ModelicaType)::Bool
-  local isInteger::Bool
-
-  @assign isInteger = begin
-    @match ty begin
-      TYPE_INTEGER(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return isInteger
-end
+isInteger(ty::ModelicaType)::Bool = isvariant(ty, TYPE_INTEGER)
 
 function unliftArrayN(N::Int, ty::ModelicaType)::ModelicaType
 

@@ -154,19 +154,15 @@ function resolve(imp::Import, isChangedImportRef::Ref{Bool}, importTyRef::Ref{Im
 end
 
 function Import_info(imp::Import)::SourceInfo
-  local info::SourceInfo
-  info = begin
-    @match imp begin
-      UNRESOLVED_IMPORT(__) => begin
-        imp.info
-      end
+  @match imp begin
+    UNRESOLVED_IMPORT(__) => begin
+      imp.info
+    end
 
-      RESOLVED_IMPORT(__) => begin
-        imp.info
-      end
+    RESOLVED_IMPORT(__) => begin
+      imp.info
     end
   end
-  return info
 end
 
 function name(imp::Import)::String

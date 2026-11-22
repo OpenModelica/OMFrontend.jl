@@ -344,20 +344,18 @@ end
 
 function partialInstClass(node::InstNode) ::InstNode
   local c::Class
-  () = begin
-    @match getClass(node) begin
-      NOT_INSTANTIATED(__)  => begin
-        c = partialInstClass2(definition(node), node)
+  @match getClass(node) begin
+    NOT_INSTANTIATED(__)  => begin
+      c = partialInstClass2(definition(node), node)
+      node = updateClass(c, node)
+      if c isa PARTIAL_CLASS && isvariant(c.elements, CLASS_TREE_PARTIAL_TREE) && !isempty(c.elements.imports)
+        c = PARTIAL_CLASS(initImports(c.elements, node), c.modifier, c.prefixes)
         node = updateClass(c, node)
-        if c isa PARTIAL_CLASS && isvariant(c.elements, CLASS_TREE_PARTIAL_TREE) && !isempty(c.elements.imports)
-          c = PARTIAL_CLASS(initImports(c.elements, node), c.modifier, c.prefixes)
-          node = updateClass(c, node)
-        end
-        ()
       end
-      _  => begin
-        ()
-      end
+      ()
+    end
+    _  => begin
+      ()
     end
   end
   node
@@ -521,30 +519,28 @@ function expandExtends(ext::InstNode, builtinExt::InstNode = EMPTY_NODE()) ::Tup
     return (ext, builtinExt)
   end
   def = definition(ext)
-  () = begin
-    @match def begin
-      SCode.EXTENDS(base_path, vis, smod, ann, info)  => begin
-        #= Look up the base class and expand it. =#
-        scope = parent(ext)
-        base_nodes = lookupBaseClassName(base_path, scope, info) #Modification by me:) Corresponds to the above
-        base_node = listHead(base_nodes)
-        checkExtendsLoop(base_node, base_path, info)
-        checkReplaceableBaseClass(base_nodes, base_path, info)
-        base_node = expand(base_node)
-        ext = setNodeType(BASE_CLASS(scope, def), base_node)
-        #= If the extended class is a builtin class, like Real or any type derived
-           from Real, then return it so we can handle it properly in expandClass.
-           We don't care if builtinExt is already SOME, since that's not legal and
-           will be caught by expandBuiltinExtends. =#
-        if isBuiltin(base_node) || isBuiltin(getClass(base_node))
-           builtinExt = ext
-        end
-        ()
+  @match def begin
+    SCode.EXTENDS(base_path, vis, smod, ann, info)  => begin
+      #= Look up the base class and expand it. =#
+      scope = parent(ext)
+      base_nodes = lookupBaseClassName(base_path, scope, info) #Modification by me:) Corresponds to the above
+      base_node = listHead(base_nodes)
+      checkExtendsLoop(base_node, base_path, info)
+      checkReplaceableBaseClass(base_nodes, base_path, info)
+      base_node = expand(base_node)
+      ext = setNodeType(BASE_CLASS(scope, def), base_node)
+      #= If the extended class is a builtin class, like Real or any type derived
+         from Real, then return it so we can handle it properly in expandClass.
+         We don't care if builtinExt is already SOME, since that's not legal and
+         will be caught by expandBuiltinExtends. =#
+      if isBuiltin(base_node) || isBuiltin(getClass(base_node))
+         builtinExt = ext
       end
+      ()
+    end
 
-      _  => begin
-        ()
-      end
+    _  => begin
+      ()
     end
   end
   (ext, builtinExt)
@@ -555,21 +551,19 @@ end
   since that means we have an extends loop in the model.
 """
 function checkExtendsLoop(node::InstNode, path::Absyn.Path, info::SourceInfo)
-   () = begin
-    @match getClass(node) begin
-      EXPANDED_CLASS(elements = CLASS_TREE_PARTIAL_TREE(__))  => begin
-        #= expand begins by changing the class to an EXPANDED_CLASS, but keeps the
-           class tree. So finding a PARTIAL_TREE here means the class is in the
-           process of being expanded. =#
-        Error.addSourceMessage(Error.EXTENDS_LOOP, list(AbsynUtil.pathString(path)), info)
-        fail()
-      end
+   @match getClass(node) begin
+     EXPANDED_CLASS(elements = CLASS_TREE_PARTIAL_TREE(__))  => begin
+       #= expand begins by changing the class to an EXPANDED_CLASS, but keeps the
+          class tree. So finding a PARTIAL_TREE here means the class is in the
+          process of being expanded. =#
+       Error.addSourceMessage(Error.EXTENDS_LOOP, list(AbsynUtil.pathString(path)), info)
+       fail()
+     end
 
-      _  => begin
-        ()
-      end
-    end
-  end
+     _  => begin
+       ()
+     end
+   end
 end
 
 """
@@ -675,23 +669,21 @@ function makeExternalObjectType(tree::ClassTree, node::InstNode) ::ComplexType
         #= An external object must have exactly two functions called constructor and
            destructor. =#
         for cls in tree.classes
-          () = begin
-            @match name(cls) begin
-              "constructor" where (SCodeUtil.isFunction(definition(cls)))  => begin
-                constructor = cls
-                ()
-              end
+          @match name(cls) begin
+            "constructor" where (SCodeUtil.isFunction(definition(cls)))  => begin
+              constructor = cls
+              ()
+            end
 
-              "destructor" where (SCodeUtil.isFunction(definition(cls)))  => begin
-                destructor = cls
-                ()
-              end
+            "destructor" where (SCodeUtil.isFunction(definition(cls)))  => begin
+              destructor = cls
+              ()
+            end
 
-              _  => begin
-                #= Found some other element => error. =#
-                Error.addSourceMessage(Error.EXTERNAL_OBJECT_INVALID_ELEMENT, list(name(node), name(cls)), InstNode_info(cls))
-                fail()
-              end
+            _  => begin
+              #= Found some other element => error. =#
+              Error.addSourceMessage(Error.EXTERNAL_OBJECT_INVALID_ELEMENT, list(name(node), name(cls)), InstNode_info(cls))
+              fail()
             end
           end
         end
@@ -747,24 +739,20 @@ function expandClassDerived(element::SCode.Element, definition::SCode.ClassDef, 
 end
 
 function instDerivedAttributes(scodeAttr::SCode.ATTR) ::Attributes
-  local attributes::Attributes
   local cty::ConnectorType.TYPE
   local var::VariabilityType
   local dir::DirectionType
-  attributes = begin
-    @match scodeAttr begin
-      SCode.ATTR(connectorType = SCode.POTENTIAL(__), variability = SCode.VAR(__), direction = Absyn.BIDIR(__))  => begin
-        DEFAULT_ATTR
-      end
-      _  => begin
-        cty = fromSCode(scodeAttr.connectorType)
-        var = variabilityFromSCode(scodeAttr.variability)
-        dir = directionFromSCode(scodeAttr.direction)
-        ATTRIBUTES(cty, Parallelism.NON_PARALLEL, var, dir, InnerOuter.NOT_INNER_OUTER, false, false, NOT_REPLACEABLE(), false #= Should not in a derived class. =#)
-      end
+  @match scodeAttr begin
+    SCode.ATTR(connectorType = SCode.POTENTIAL(__), variability = SCode.VAR(__), direction = Absyn.BIDIR(__))  => begin
+      DEFAULT_ATTR
+    end
+    _  => begin
+      cty = fromSCode(scodeAttr.connectorType)
+      var = variabilityFromSCode(scodeAttr.variability)
+      dir = directionFromSCode(scodeAttr.direction)
+      ATTRIBUTES(cty, Parallelism.NON_PARALLEL, var, dir, InnerOuter.NOT_INNER_OUTER, false, false, NOT_REPLACEABLE(), false #= Should not in a derived class. =#)
     end
   end
-  attributes
 end
 
 function instClass(node::InstNode, modifier::Modifier, attributes::Attributes, attributeRef::Ref{Attributes}, useBinding::Bool = false, instLevel::Int = 0, parent = EMPTY_NODE())::InstNode
@@ -1126,23 +1114,21 @@ function modifyExtends(extendsNode::InstNode, scope::InstNode)
   ext_mod = merge(getModifier(extendsNode), ext_mod)
   if ! isBuiltin(cls)
     mapExtendsWithExtendsNode(cls_tree, extendsNode)
-    () = begin
-      @match elem begin
-        SCode.EXTENDS(__)  => begin
-          #=  TODO: Lookup the base class and merge its modifier. =#
-          ext_node = listHead(lookupBaseClassName(elem.baseClassPath, scope, elem.info))
-          #= Finding a different element than before expanding extends
-             (probably an inherited element) is an error. =#
-          if ! referenceEq(definition(extendsNode), definition(ext_node))
-            # Error.addMultiSourceMessage(Error.FOUND_OTHER_BASECLASS, list(AbsynUtil.pathString(elem.baseClassPath)), list(InstNode_info(extendsNode), InstNode_info(ext_node)))
-            fail("Found another base class")
-          end
-          ()
+    @match elem begin
+      SCode.EXTENDS(__)  => begin
+        #=  TODO: Lookup the base class and merge its modifier. =#
+        ext_node = listHead(lookupBaseClassName(elem.baseClassPath, scope, elem.info))
+        #= Finding a different element than before expanding extends
+           (probably an inherited element) is an error. =#
+        if ! referenceEq(definition(extendsNode), definition(ext_node))
+          # Error.addMultiSourceMessage(Error.FOUND_OTHER_BASECLASS, list(AbsynUtil.pathString(elem.baseClassPath)), list(InstNode_info(extendsNode), InstNode_info(ext_node)))
+          fail("Found another base class")
         end
+        ()
+      end
 
-        SCode.CLASS(__)  => begin
-          ()
-        end
+      SCode.CLASS(__)  => begin
+        ()
       end
     end
   end
@@ -1254,69 +1240,67 @@ function applyModifier(modifier::Modifier, cls::ClassTree, parent::InstNode) ::C
   if listEmpty(mods)
     return cls
   end
-  () = begin
-    @match cls begin
-      CLASS_TREE_FLAT_TREE(__)  => begin
-        for mod in mods
-          try
-            node = lookupElementNode(name(mod), cls)
-          catch e
-            #Error.addSourceMessage(Error.MISSING_MODIFIED_ELEMENT, list(name(mod), clsName), Mofifier_info(mod))
-            @error "Missing modified element!. Error was $(e)"
-            fail()
-          end
-          local new_node = componentApply(node, mergeModifier, mod)
-          if new_node !== node
-            cls = replaceElementNode(name(mod), new_node, cls)
-          end
+  @match cls begin
+    CLASS_TREE_FLAT_TREE(__)  => begin
+      for mod in mods
+        try
+          node = lookupElementNode(name(mod), cls)
+        catch e
+          #Error.addSourceMessage(Error.MISSING_MODIFIED_ELEMENT, list(name(mod), clsName), Mofifier_info(mod))
+          @error "Missing modified element!. Error was $(e)"
+          fail()
         end
-        ()
+        local new_node = componentApply(node, mergeModifier, mod)
+        if new_node !== node
+          cls = replaceElementNode(name(mod), new_node, cls)
+        end
       end
+      ()
+    end
 
-      _  => begin
-        for mod in mods
-          try
-            node_ptrs = lookupElementsPtr(name(mod), cls)
-          catch e
-            @error "Missing modified element! "
-            Error.addSourceMessage(Error.MISSING_MODIFIED_ELEMENT, list(name(mod), clsName), Modifier_info(mod))
+    _  => begin
+      for mod in mods
+        try
+          node_ptrs = lookupElementsPtr(name(mod), cls)
+        catch e
+          @error "Missing modified element! "
+          Error.addSourceMessage(Error.MISSING_MODIFIED_ELEMENT, list(name(mod), clsName), Modifier_info(mod))
+          fail()
+        end
+        local found = false
+        for node_ptr in node_ptrs
+          #= A component removed by `break` (omc applyModifier). =#
+          isvariant(P_Pointer.access(node_ptr), EMPTY_NODE) && continue
+          found = true
+          node = resolveOuter(P_Pointer.access(node_ptr))
+          #= omc: a protected element may only be modified from an extends clause. =#
+          if isProtected(node) && !(isExtends(parent) || isBaseClass(parent))
+            Error.addMultiSourceMessage(Error.NF_MODIFY_PROTECTED, list(name(node), toString(mod)),
+                                        list(Modifier_info(mod), InstNode_info(node)))
             fail()
           end
-          local found = false
-          for node_ptr in node_ptrs
-            #= A component removed by `break` (omc applyModifier). =#
-            isvariant(P_Pointer.access(node_ptr), EMPTY_NODE) && continue
-            found = true
-            node = resolveOuter(P_Pointer.access(node_ptr))
-            #= omc: a protected element may only be modified from an extends clause. =#
-            if isProtected(node) && !(isExtends(parent) || isBaseClass(parent))
-              Error.addMultiSourceMessage(Error.NF_MODIFY_PROTECTED, list(name(node), toString(mod)),
-                                          list(Modifier_info(mod), InstNode_info(node)))
+          if isComponent(node)
+            local n2 = componentApply(node, mergeModifier, mod)
+            if n2 !== node
+              P_Pointer.update(node_ptr, n2)
+            end
+          else
+            if isOnlyOuter(node)
+              Error.addSourceMessage(Error.OUTER_ELEMENT_MOD, list(toString(mod, false), name(mod)), Modifier_info(mod))
               fail()
             end
-            if isComponent(node)
-              local n2 = componentApply(node, mergeModifier, mod)
-              if n2 !== node
-                P_Pointer.update(node_ptr, n2)
-              end
-            else
-              if isOnlyOuter(node)
-                Error.addSourceMessage(Error.OUTER_ELEMENT_MOD, list(toString(mod, false), name(mod)), Modifier_info(mod))
-                fail()
-              end
-              partialInstClass(node)
-              node = replaceClass(mergeModifier(mod, getClass(node)), node)
-              node = clearPackageCache(node)
-              P_Pointer.update(node_ptr, node)
-            end
-          end
-          if !found
-            Error.addSourceMessage(Error.MISSING_MODIFIED_ELEMENT, list(name(mod), clsName), Modifier_info(mod))
-            fail()
+            partialInstClass(node)
+            node = replaceClass(mergeModifier(mod, getClass(node)), node)
+            node = clearPackageCache(node)
+            P_Pointer.update(node_ptr, node)
           end
         end
-        ()
+        if !found
+          Error.addSourceMessage(Error.MISSING_MODIFIED_ELEMENT, list(name(mod), clsName), Modifier_info(mod))
+          fail()
+        end
       end
+      ()
     end
   end
   cls
@@ -1328,26 +1312,24 @@ function redeclareClasses(tree::ClassTree, parent::InstNode) ::ClassTree
   local cls::Class
   local mod::Modifier
   local cc_mod::Modifier
-   () = begin
-    @match tree begin
-      CLASS_TREE_INSTANTIATED_TREE(__)  => begin
-        for cls_ptr in tree.classes
-           cls_node = P_Pointer.access(cls_ptr)
-           cls = getClass(resolveOuter(cls_node))
-           mod = getModifier(cls)
-          if isRedeclare(mod)
-            @match MODIFIER_REDECLARE(element = redecl_node, outerMod = mod, constrainingMod = cc_mod) = mod
-            cls_node = redeclareClass(redecl_node, cls_node, mod, elementConstrainingMod(definition(cls_node), parent, cc_mod))
-            P_Pointer.update(cls_ptr, cls_node)
-          end
-        end
-        ()
-      end
-      _  => begin
-        ()
-      end
-    end
-  end
+   @match tree begin
+     CLASS_TREE_INSTANTIATED_TREE(__)  => begin
+       for cls_ptr in tree.classes
+          cls_node = P_Pointer.access(cls_ptr)
+          cls = getClass(resolveOuter(cls_node))
+          mod = getModifier(cls)
+         if isRedeclare(mod)
+           @match MODIFIER_REDECLARE(element = redecl_node, outerMod = mod, constrainingMod = cc_mod) = mod
+           cls_node = redeclareClass(redecl_node, cls_node, mod, elementConstrainingMod(definition(cls_node), parent, cc_mod))
+           P_Pointer.update(cls_ptr, cls_node)
+         end
+       end
+       ()
+     end
+     _  => begin
+       ()
+     end
+   end
   tree
 end
 
@@ -1700,22 +1682,18 @@ function instComponentDef(component::SCode.COMPONENT,
 end
 
 function instConstrainingMod(element::SCode.Element, parent::InstNode) ::Modifier
-  local ccMod::Modifier
-  ccMod = begin
-    local smod::SCode.Mod
-    @match element begin
-      SCode.CLASS(prefixes = SCode.PREFIXES(replaceablePrefix = SCode.REPLACEABLE(cc = SOME(SCode.CONSTRAINCLASS(modifier = smod)))))  => begin
-        create(smod, element.name, SCOPE_CLASS(element.name), nil, parent)
-      end
-      SCode.COMPONENT(prefixes = SCode.PREFIXES(replaceablePrefix = SCode.REPLACEABLE(cc = SOME(SCode.CONSTRAINCLASS(modifier = smod)))))  => begin
-        create(smod, element.name, SCOPE_COMPONENT(element.name), nil, parent)
-      end
-      _  => begin
-        MODIFIER_NOMOD()
-      end
+  local smod::SCode.Mod
+  @match element begin
+    SCode.CLASS(prefixes = SCode.PREFIXES(replaceablePrefix = SCode.REPLACEABLE(cc = SOME(SCode.CONSTRAINCLASS(modifier = smod)))))  => begin
+      create(smod, element.name, SCOPE_CLASS(element.name), nil, parent)
+    end
+    SCode.COMPONENT(prefixes = SCode.PREFIXES(replaceablePrefix = SCode.REPLACEABLE(cc = SOME(SCode.CONSTRAINCLASS(modifier = smod)))))  => begin
+      create(smod, element.name, SCOPE_COMPONENT(element.name), nil, parent)
+    end
+    _  => begin
+      MODIFIER_NOMOD()
     end
   end
-  ccMod
 end
 
 function updateComponentConnectorType(attributes::Attributes, restriction::Restriction, isRedeclared::Bool, component::InstNode) ::Attributes
@@ -1912,33 +1890,31 @@ function mergeComponentAttributes(outerAttr::Attributes, innerAttr::Attributes, 
 end
 
 function checkDeclaredComponentAttributes(attr::Attributes, parentRestriction::Restriction, component::InstNode) ::Attributes
-   () = begin
-    @match parentRestriction begin
-     RESTRICTION_CONNECTOR(__)  => begin
-        #= Components of a connector may not have prefixes 'inner' or 'outer'. =#
-        assertNotInnerOuter(attr.innerOuter, component, parentRestriction)
-        if parentRestriction.isExpandable
-          assertNotFlowStream(attr.connectorType, component, parentRestriction)
-          attr.connectorType = intBitOr(attr.connectorType, ConnectorType.POTENTIALLY_PRESENT)
-        end
-        #= Components of an expandable connector may not have the prefix 'flow'.
-           Mark components in expandable connectors as potentially present. =#
-        ()
-      end
+   @match parentRestriction begin
+    RESTRICTION_CONNECTOR(__)  => begin
+       #= Components of a connector may not have prefixes 'inner' or 'outer'. =#
+       assertNotInnerOuter(attr.innerOuter, component, parentRestriction)
+       if parentRestriction.isExpandable
+         assertNotFlowStream(attr.connectorType, component, parentRestriction)
+         attr.connectorType = intBitOr(attr.connectorType, ConnectorType.POTENTIALLY_PRESENT)
+       end
+       #= Components of an expandable connector may not have the prefix 'flow'.
+          Mark components in expandable connectors as potentially present. =#
+       ()
+     end
 
-      RESTRICTION_RECORD(__)  => begin
-        #= Elements of a record may not have prefixes 'input', 'output', 'inner', 'outer', 'stream', or 'flow'. =#
-        assertNotInputOutput(attr.direction, component, parentRestriction)
-        assertNotInnerOuter(attr.innerOuter, component, parentRestriction)
-        assertNotFlowStream(attr.connectorType, component, parentRestriction)
-        ()
-      end
+     RESTRICTION_RECORD(__)  => begin
+       #= Elements of a record may not have prefixes 'input', 'output', 'inner', 'outer', 'stream', or 'flow'. =#
+       assertNotInputOutput(attr.direction, component, parentRestriction)
+       assertNotInnerOuter(attr.innerOuter, component, parentRestriction)
+       assertNotFlowStream(attr.connectorType, component, parentRestriction)
+       ()
+     end
 
-      _  => begin
-        ()
-      end
-    end
-  end
+     _  => begin
+       ()
+     end
+   end
   attr
 end
 
@@ -2649,40 +2625,36 @@ function makeRecordComplexType(node::InstNode, cls::Class) ::ComplexType
 end
 
 function instComplexType(ty::ModelicaType)
-   () = begin
-    local node::InstNode
-    @match ty begin
-      TYPE_COMPLEX(complexTy = COMPLEX_RECORD(node)) where (! isModel(node))  => begin
-        #= Make sure it's really a record, and not e.g. a record inherited by a model.
-           TODO: This check should really be InstNode.isRecord(node), but that
-           causes issues with e.g. ComplexInput/ComplexOutput. =#
-        instRecordConstructor(node)
-        ()
-      end
-      _  => begin
-        ()
-      end
-    end
-  end
+   local node::InstNode
+   @match ty begin
+     TYPE_COMPLEX(complexTy = COMPLEX_RECORD(node)) where (! isModel(node))  => begin
+       #= Make sure it's really a record, and not e.g. a record inherited by a model.
+          TODO: This check should really be InstNode.isRecord(node), but that
+          causes issues with e.g. ComplexInput/ComplexOutput. =#
+       instRecordConstructor(node)
+       ()
+     end
+     _  => begin
+       ()
+     end
+   end
 end
 
 function instRecordConstructor(node::InstNode)
   local cache::CachedData
   cache = getFuncCache(node)
-  () = begin
-    @match cache begin
-      C_FUNCTION(__)  => begin
-        ()
+  @match cache begin
+    C_FUNCTION(__)  => begin
+      ()
+    end
+    _  => begin
+      cacheInitFunc(node)
+      if SCodeUtil.isOperatorRecord(definition(node))
+        instConstructor(scopePath(node, includeRoot = true), node, InstNode_info(node))
+      else
+        node = instDefaultConstructor(scopePath(node, includeRoot = true), node, InstNode_info(node))
       end
-      _  => begin
-        cacheInitFunc(node)
-        if SCodeUtil.isOperatorRecord(definition(node))
-          instConstructor(scopePath(node, includeRoot = true), node, InstNode_info(node))
-        else
-          node = instDefaultConstructor(scopePath(node, includeRoot = true), node, InstNode_info(node))
-        end
-        ()
-      end
+      ()
     end
   end
   return node
@@ -2798,149 +2770,141 @@ function instBinding(bindingVar::Binding)
 end
 
 function instExpOpt(absynExp::Option{<:Absyn.Exp}, scope::InstNode, info::SourceInfo) ::Option{Expression}
-  local exp::Option{Expression}
-  @assign exp = begin
-    local aexp::Absyn.Exp
-    @match absynExp begin
-      NONE()  => begin
-        NONE()
-      end
-      SOME(aexp)  => begin
-        SOME(instExp(aexp, scope, info))
-      end
+  local aexp::Absyn.Exp
+  @match absynExp begin
+    NONE()  => begin
+      NONE()
+    end
+    SOME(aexp)  => begin
+      SOME(instExp(aexp, scope, info))
     end
   end
-  exp
 end
 
 @nospecializeinfer function instExp(@nospecialize(absynExp::Absyn.Exp), scope::InstNode, info::SourceInfo)::Expression
-  local exp::Expression
-  exp = begin
-    local e1::Expression
-    local e2::Expression
-    local e3::Expression
-    local oe::Option{Expression}
-    local op::OPERATOR
-    local expl::List{Expression}
-    local expll::Vector{Vector{Expression}}
-    @match absynExp begin
-      Absyn.INTEGER(__)  => begin
-        INTEGER_EXPRESSION(absynExp.value)
-      end
+  local e1::Expression
+  local e2::Expression
+  local e3::Expression
+  local oe::Option{Expression}
+  local op::OPERATOR
+  local expl::List{Expression}
+  local expll::Vector{Vector{Expression}}
+  @match absynExp begin
+    Absyn.INTEGER(__)  => begin
+      INTEGER_EXPRESSION(absynExp.value)
+    end
 
-      Absyn.REAL(__)  => begin
-        REAL_EXPRESSION(stringReal(absynExp.value))
-      end
+    Absyn.REAL(__)  => begin
+      REAL_EXPRESSION(stringReal(absynExp.value))
+    end
 
-      Absyn.STRING(__)  => begin
-        STRING_EXPRESSION(System.unescapedString(absynExp.value))
-      end
+    Absyn.STRING(__)  => begin
+      STRING_EXPRESSION(System.unescapedString(absynExp.value))
+    end
 
-      Absyn.BOOL(__)  => begin
-        BOOLEAN_EXPRESSION(absynExp.value)
-      end
+    Absyn.BOOL(__)  => begin
+      BOOLEAN_EXPRESSION(absynExp.value)
+    end
 
-      Absyn.CREF(__)  => begin
-        instCref(absynExp.componentRef, scope, info)
-      end
+    Absyn.CREF(__)  => begin
+      instCref(absynExp.componentRef, scope, info)
+    end
 
-      Absyn.ARRAY(__)  => begin
-        local expV = Expression[instExp(e, scope, info) for e in absynExp.arrayExp]
-        makeArray(TYPE_UNKNOWN(), expV)
-      end
+    Absyn.ARRAY(__)  => begin
+      local expV = Expression[instExp(e, scope, info) for e in absynExp.arrayExp]
+      makeArray(TYPE_UNKNOWN(), expV)
+    end
 
-      Absyn.MATRIX(__)  => begin
-        #= the rows read from the matched MATRIX: through the abstract Absyn.Exp the comprehension was not inferred, and
-           its convert to the typed `expll` a dynamic one that packages adding `convert` methods (Symbolics,
-           StaticArrays) invalidated with its callers at each load (2026-11-16) =#
-        expll = Vector{Expression}[
-          Expression[instExp(e, scope, info) for e in el] for el in (absynExp::Absyn.MATRIX).matrix]
-        MATRIX_EXPRESSION(expll)
-      end
+    Absyn.MATRIX(__)  => begin
+      #= the rows read from the matched MATRIX: through the abstract Absyn.Exp the comprehension was not inferred, and
+         its convert to the typed `expll` a dynamic one that packages adding `convert` methods (Symbolics,
+         StaticArrays) invalidated with its callers at each load (2026-11-16) =#
+      expll = Vector{Expression}[
+        Expression[instExp(e, scope, info) for e in el] for el in (absynExp::Absyn.MATRIX).matrix]
+      MATRIX_EXPRESSION(expll)
+    end
 
-      Absyn.RANGE(__)  => begin
-         e1 = instExp(absynExp.start, scope, info)
-         oe = instExpOpt(absynExp.step, scope, info)
-         e3 = instExp(absynExp.stop, scope, info)
-        RANGE_EXPRESSION(TYPE_UNKNOWN(), e1, oe, e3)
-      end
+    Absyn.RANGE(__)  => begin
+       e1 = instExp(absynExp.start, scope, info)
+       oe = instExpOpt(absynExp.step, scope, info)
+       e3 = instExp(absynExp.stop, scope, info)
+      RANGE_EXPRESSION(TYPE_UNKNOWN(), e1, oe, e3)
+    end
 
-      Absyn.TUPLE(__)  => begin
-         expl = list(instExp(e, scope, info) for e in absynExp.expressions)
-        TUPLE_EXPRESSION(TYPE_UNKNOWN(), expl)
-      end
+    Absyn.TUPLE(__)  => begin
+       expl = list(instExp(e, scope, info) for e in absynExp.expressions)
+      TUPLE_EXPRESSION(TYPE_UNKNOWN(), expl)
+    end
 
-      Absyn.BINARY(__)  => begin
-        e1 = instExp(absynExp.exp1, scope, info)
-        e2 = instExp(absynExp.exp2, scope, info)
-        op = fromAbsyn(absynExp.op)
-        BINARY_EXPRESSION(e1, op, e2)
-      end
+    Absyn.BINARY(__)  => begin
+      e1 = instExp(absynExp.exp1, scope, info)
+      e2 = instExp(absynExp.exp2, scope, info)
+      op = fromAbsyn(absynExp.op)
+      BINARY_EXPRESSION(e1, op, e2)
+    end
 
-      Absyn.UNARY(__)  => begin
-         e1 = instExp(absynExp.exp, scope, info)
-         op = fromAbsyn(absynExp.op)
-        UNARY_EXPRESSION(op, e1)
-      end
+    Absyn.UNARY(__)  => begin
+       e1 = instExp(absynExp.exp, scope, info)
+       op = fromAbsyn(absynExp.op)
+      UNARY_EXPRESSION(op, e1)
+    end
 
-      Absyn.LBINARY(__)  => begin
-         e1 = instExp(absynExp.exp1, scope, info)
-         e2 = instExp(absynExp.exp2, scope, info)
-         op = fromAbsyn(absynExp.op)
-        LBINARY_EXPRESSION(e1, op, e2)
-      end
+    Absyn.LBINARY(__)  => begin
+       e1 = instExp(absynExp.exp1, scope, info)
+       e2 = instExp(absynExp.exp2, scope, info)
+       op = fromAbsyn(absynExp.op)
+      LBINARY_EXPRESSION(e1, op, e2)
+    end
 
-      Absyn.LUNARY(__)  => begin
-         e1 = instExp(absynExp.exp, scope, info)
-         op = fromAbsyn(absynExp.op)
-        LUNARY_EXPRESSION(op, e1)
-      end
+    Absyn.LUNARY(__)  => begin
+       e1 = instExp(absynExp.exp, scope, info)
+       op = fromAbsyn(absynExp.op)
+      LUNARY_EXPRESSION(op, e1)
+    end
 
-      Absyn.RELATION(__)  => begin
-         e1 = instExp(absynExp.exp1, scope, info)
-         e2 = instExp(absynExp.exp2, scope, info)
-         op = fromAbsyn(absynExp.op)
-        RELATION_EXPRESSION(e1, op, e2)
-      end
+    Absyn.RELATION(__)  => begin
+       e1 = instExp(absynExp.exp1, scope, info)
+       e2 = instExp(absynExp.exp2, scope, info)
+       op = fromAbsyn(absynExp.op)
+      RELATION_EXPRESSION(e1, op, e2)
+    end
 
-      Absyn.IFEXP(__)  => begin
-         e3 = instExp(absynExp.elseBranch, scope, info)
-        for branch in listReverse(absynExp.elseIfBranch)
-           e1 = instExp(Util.tuple21(branch), scope, info)
-           e2 = instExp(Util.tuple22(branch), scope, info)
-           e3 = IF_EXPRESSION(e1, e2, e3)
-        end
-         e1 = instExp(absynExp.ifExp, scope, info)
-         e2 = instExp(absynExp.trueBranch, scope, info)
-        IF_EXPRESSION(e1, e2, e3)
+    Absyn.IFEXP(__)  => begin
+       e3 = instExp(absynExp.elseBranch, scope, info)
+      for branch in listReverse(absynExp.elseIfBranch)
+         e1 = instExp(Util.tuple21(branch), scope, info)
+         e2 = instExp(Util.tuple22(branch), scope, info)
+         e3 = IF_EXPRESSION(e1, e2, e3)
       end
+       e1 = instExp(absynExp.ifExp, scope, info)
+       e2 = instExp(absynExp.trueBranch, scope, info)
+      IF_EXPRESSION(e1, e2, e3)
+    end
 
-      Absyn.CALL(__)  => begin
-        instantiate(absynExp.function_, absynExp.functionArgs, scope, info)
-      end
+    Absyn.CALL(__)  => begin
+      instantiate(absynExp.function_, absynExp.functionArgs, scope, info)
+    end
 
-      Absyn.PARTEVALFUNCTION(__)  => begin
-        instPartEvalFunction(absynExp.function_, absynExp.functionArgs, scope, info)
-      end
+    Absyn.PARTEVALFUNCTION(__)  => begin
+      instPartEvalFunction(absynExp.function_, absynExp.functionArgs, scope, info)
+    end
 
-      Absyn.END(__)  => begin
-        END_EXPRESSION()
-      end
+    Absyn.END(__)  => begin
+      END_EXPRESSION()
+    end
 
-      #= A subscripted parenthesized expression, `({1, 2, 3})[2]` (omc instExp). =#
-      Absyn.SUBSCRIPTED_EXP(__)  => begin
-        SUBSCRIPTED_EXP_EXPRESSION(
-          instExp(absynExp.exp, scope, info),
-          list((instSubscript(SUBSCRIPT_RAW_SUBSCRIPT(s), scope, info) for s in absynExp.subscripts)...),
-          TYPE_UNKNOWN())
-      end
-      _  => begin
-        @error "UNKNOWN EXPRESSION!"
-        fail()
-      end
+    #= A subscripted parenthesized expression, `({1, 2, 3})[2]` (omc instExp). =#
+    Absyn.SUBSCRIPTED_EXP(__)  => begin
+      SUBSCRIPTED_EXP_EXPRESSION(
+        instExp(absynExp.exp, scope, info),
+        list((instSubscript(SUBSCRIPT_RAW_SUBSCRIPT(s), scope, info) for s in absynExp.subscripts)...),
+        TYPE_UNKNOWN())
+    end
+    _  => begin
+      @error "UNKNOWN EXPRESSION!"
+      fail()
     end
   end
-  exp
 end
 
 function instCref(absynCref::Absyn.ComponentRef, scope::InstNode, info::SourceInfo)::Expression
@@ -3192,61 +3156,55 @@ function instSections2(parts::SCode.ClassDef, scope::InstNode, sections::Section
 end
 
 function instExternalDecl(extDecl::SCode.EXTERNALDECL, scope::InstNode) ::Sections
-  local sections::Sections
-  @assign sections = begin
-    local nameVar::String
-    local lang::String
-    local args::List{Expression}
-    local ret_cref::ComponentRef
-    local info::SourceInfo
-    @match extDecl begin
-      SCode.EXTERNALDECL(__)  => begin
-        @assign info = InstNode_info(scope)
-        @assign nameVar = Util.getOptionOrDefault(extDecl.funcName, name(scope))
-        @assign lang = Util.getOptionOrDefault(extDecl.lang, "C")
-        checkExternalDeclLanguage(lang, info)
-        @assign args = list(instExp(arg, scope, info) for arg in extDecl.args)
-        if isSome(extDecl.output_)
-          (ret_cref, _) = lookupLocalComponent(Util.getOption(extDecl.output_), scope, info)
-        else
-          @assign ret_cref = COMPONENT_REF_EMPTY()
-        end
-        SECTIONS_EXTERNAL(nameVar, args, ret_cref, lang, extDecl.annotation_, isSome(extDecl.funcName))
+  local nameVar::String
+  local lang::String
+  local args::List{Expression}
+  local ret_cref::ComponentRef
+  local info::SourceInfo
+  @match extDecl begin
+    SCode.EXTERNALDECL(__)  => begin
+      @assign info = InstNode_info(scope)
+      @assign nameVar = Util.getOptionOrDefault(extDecl.funcName, name(scope))
+      @assign lang = Util.getOptionOrDefault(extDecl.lang, "C")
+      checkExternalDeclLanguage(lang, info)
+      @assign args = list(instExp(arg, scope, info) for arg in extDecl.args)
+      if isSome(extDecl.output_)
+        (ret_cref, _) = lookupLocalComponent(Util.getOption(extDecl.output_), scope, info)
+      else
+        @assign ret_cref = COMPONENT_REF_EMPTY()
       end
+      SECTIONS_EXTERNAL(nameVar, args, ret_cref, lang, extDecl.annotation_, isSome(extDecl.funcName))
     end
   end
-  sections
 end
 
 """  Checks that the language declared for an external function is valid. """
 function checkExternalDeclLanguage(language::String, info::SourceInfo)
-   () = begin
-    @match language begin
-      "C"  => begin
-        ()
-      end
+   @match language begin
+     "C"  => begin
+       ()
+     end
 
-      "FORTRAN 77"  => begin
-        ()
-      end
+     "FORTRAN 77"  => begin
+       ()
+     end
 
-      "Fortran 77"  => begin
-        ()
-      end
+     "Fortran 77"  => begin
+       ()
+     end
 
-      "builtin"  => begin
-        ()
-      end
+     "builtin"  => begin
+       ()
+     end
 
-      _  => begin
-        #= The specification also allows for C89, C99, and C11, but our code
-           generation only seems to support C.
-           Not in the specification, but used by libraries and allowed by other tools. =#
-        Error.addSourceMessage(Error.INVALID_EXTERNAL_LANGUAGE, list(language), info)
-        fail()
-      end
-    end
-  end
+     _  => begin
+       #= The specification also allows for C89, C99, and C11, but our code
+          generation only seems to support C.
+          Not in the specification, but used by libraries and allowed by other tools. =#
+       Error.addSourceMessage(Error.INVALID_EXTERNAL_LANGUAGE, list(language), info)
+       fail()
+     end
+   end
 end
 
 function instEquations(scodeEql::List{<:SCode.EQUATION}, scope::InstNode, origin::ORIGIN_Type)
@@ -3441,20 +3399,18 @@ end
   implicit scope.
 """
 function checkIteratorShadowing(nameArg::String, scope::InstNode, infoArg::SourceInfo)
-  () = begin
-    @match scope begin
-      IMPLICIT_SCOPE(__)  => begin
-        for iter in scope.locals
-          if name(iter) == nameArg
-            Error.addMultiSourceMessage(Error.SHADOWED_ITERATOR, list(nameArg), list(InstNode_info(iter), infoArg))
-            return
-          end
+  @match scope begin
+    IMPLICIT_SCOPE(__)  => begin
+      for iter in scope.locals
+        if name(iter) == nameArg
+          Error.addMultiSourceMessage(Error.SHADOWED_ITERATOR, list(nameArg), list(InstNode_info(iter), infoArg))
+          return
         end
-        ()
       end
-      _  => begin
-        ()
-      end
+      ()
+    end
+    _  => begin
+      ()
     end
   end
 end
@@ -3903,25 +3859,23 @@ function updateImplicitVariabilityEq(eq::Equation, inWhen::Bool = false)::Nothin
 end
 
 function markStructuralParamsSub(sub::Subscript, dummy::Int = 0) ::Int
-   () = begin
-    @match sub begin
-      SUBSCRIPT_UNTYPED(__)  => begin
-        markStructuralParamsExp(sub.exp)
-        ()
-      end
-      SUBSCRIPT_INDEX(__)  => begin
-        markStructuralParamsExp(sub.index)
-        ()
-      end
-      SUBSCRIPT_SLICE(__)  => begin
-        markStructuralParamsExp(sub.slice)
-        ()
-      end
-      _  => begin
-        ()
-      end
-    end
-  end
+   @match sub begin
+     SUBSCRIPT_UNTYPED(__)  => begin
+       markStructuralParamsExp(sub.exp)
+       ()
+     end
+     SUBSCRIPT_INDEX(__)  => begin
+       markStructuralParamsExp(sub.index)
+       ()
+     end
+     SUBSCRIPT_SLICE(__)  => begin
+       markStructuralParamsExp(sub.slice)
+       ()
+     end
+     _  => begin
+       ()
+     end
+   end
   dummy
 end
 
@@ -3930,23 +3884,21 @@ function markImplicitWhenExp(@nospecialize(exp::Expression))
 end
 
 function markImplicitWhenExp_traverser(@nospecialize(exp::Expression))
-   () = begin
-    local node::InstNode
-    local comp::Component
-    @match exp begin
-      CREF_EXPRESSION(cref = COMPONENT_REF_CREF(node = node))  => begin
-        if isComponent(node)
-          comp = component(node)
-          if variability(comp) == Variability.CONTINUOUS
-            comp = setVariability(Variability.IMPLICITLY_DISCRETE, comp)
-            node = updateComponent!(comp, node)
-          end
-        end
-        ()
-      end
-      _  => ()
-    end
-  end
+   local node::InstNode
+   local comp::Component
+   @match exp begin
+     CREF_EXPRESSION(cref = COMPONENT_REF_CREF(node = node))  => begin
+       if isComponent(node)
+         comp = component(node)
+         if variability(comp) == Variability.CONTINUOUS
+           comp = setVariability(Variability.IMPLICITLY_DISCRETE, comp)
+           node = updateComponent!(comp, node)
+         end
+       end
+       ()
+     end
+     _  => ()
+   end
 end
 
 #= Per-session session id and log root for OMFrontend dumps. Mirrors the helper

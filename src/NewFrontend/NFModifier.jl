@@ -46,7 +46,6 @@
   end
 end
 
-
 function toString(scope::ModifierScope)
   local string::String
   @assign string = begin

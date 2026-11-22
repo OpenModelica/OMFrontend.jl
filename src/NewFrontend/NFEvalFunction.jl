@@ -741,24 +741,22 @@ function optimizeBody(body::Vector{Statement})
 end
 
 function optimizeStatement(stmt::Statement)::Statement
-  () = begin
-    local iter_exp::Expression
-    #= Replace iterators in for loops with mutable expressions, so we don't need
-       to do it each time we enter a for loop during evaluation. =#
-    @match stmt begin
-      ALG_FOR(__) => begin
-        #=  Make a mutable expression with a placeholder value. =#
-        iter_exp = makeMutable(EMPTY_EXPRESSION(TYPE_UNKNOWN()))
-        #=  Replace the iterator with the expression in the body of the for loop. =#
-        @assign stmt.body = replaceIteratorList(stmt.body, stmt.iterator, iter_exp)
-        #=  Replace the iterator node with the mutable expression too. =#
-        @assign stmt.iterator = EXP_NODE(iter_exp)
-        ()
-      end
+  local iter_exp::Expression
+  #= Replace iterators in for loops with mutable expressions, so we don't need
+     to do it each time we enter a for loop during evaluation. =#
+  @match stmt begin
+    ALG_FOR(__) => begin
+      #=  Make a mutable expression with a placeholder value. =#
+      iter_exp = makeMutable(EMPTY_EXPRESSION(TYPE_UNKNOWN()))
+      #=  Replace the iterator with the expression in the body of the for loop. =#
+      @assign stmt.body = replaceIteratorList(stmt.body, stmt.iterator, iter_exp)
+      #=  Replace the iterator node with the mutable expression too. =#
+      @assign stmt.iterator = EXP_NODE(iter_exp)
+      ()
+    end
 
-      _ => begin
-        ()
-      end
+    _ => begin
+      ()
     end
   end
   return stmt
@@ -818,50 +816,46 @@ function evaluateStatements(stmts::Vector{Statement})
 end
 
 function evaluateStatement(stmt::Statement)::FlowControlType
-  local ctrl::FlowControlType
   #= adrpo: we really need some error handling here to detect which statement cannot be evaluated
      try =#
-  @assign ctrl = begin
-    @match stmt begin
-      ALG_ASSIGNMENT(__) => begin
-        evaluateAssignment(stmt.lhs, stmt.rhs, stmt.source)
-      end
+  @match stmt begin
+    ALG_ASSIGNMENT(__) => begin
+      evaluateAssignment(stmt.lhs, stmt.rhs, stmt.source)
+    end
 
-      ALG_FOR(__) => begin
-        evaluateFor(stmt.iterator, stmt.range, stmt.body, stmt.source)
-      end
+    ALG_FOR(__) => begin
+      evaluateFor(stmt.iterator, stmt.range, stmt.body, stmt.source)
+    end
 
-      ALG_IF(__) => begin
-        evaluateIf(stmt.branches, stmt.source)
-      end
+    ALG_IF(__) => begin
+      evaluateIf(stmt.branches, stmt.source)
+    end
 
-      ALG_ASSERT(__) => begin
-        evaluateAssert(stmt.condition, stmt)
-      end
+    ALG_ASSERT(__) => begin
+      evaluateAssert(stmt.condition, stmt)
+    end
 
-      ALG_NORETCALL(__) => begin
-        evaluateNoRetCall(stmt.exp, stmt.source)
-      end
+    ALG_NORETCALL(__) => begin
+      evaluateNoRetCall(stmt.exp, stmt.source)
+    end
 
-      ALG_WHILE(__) => begin
-        evaluateWhile(stmt.condition, stmt.body, stmt.source)
-      end
+    ALG_WHILE(__) => begin
+      evaluateWhile(stmt.condition, stmt.body, stmt.source)
+    end
 
-      ALG_RETURN(__) => begin
-        FlowControl.RETURN
-      end
+    ALG_RETURN(__) => begin
+      FlowControl.RETURN
+    end
 
-      ALG_BREAK(__) => begin
-        FlowControl.BREAK
-      end
+    ALG_BREAK(__) => begin
+      FlowControl.BREAK
+    end
 
-      _ => begin
-        _internalError("evaluateStatement failed on " * anyString(stmt))
-        FlowControl.FAILURE
-      end
+    _ => begin
+      _internalError("evaluateStatement failed on " * anyString(stmt))
+      FlowControl.FAILURE
     end
   end
-  return ctrl
 end
 
 """`lhs := rhs`; FAILURE when rhs does not evaluate or lhs cannot be assigned."""
@@ -1225,28 +1219,24 @@ function isKnownLibrary(extAnnotation::Option{<:SCode.ANNOTATION})::Bool
 end
 
 function isKnownLibraryExp(exp::Absyn.Exp)::Bool
-  local isKnown::Bool
 
-  @assign isKnown = begin
-    @match exp begin
-      Absyn.STRING("ModelicaExternalC") => begin
-        true
-      end
+  @match exp begin
+    Absyn.STRING("ModelicaExternalC") => begin
+      true
+    end
 
-      Absyn.STRING("ModelicaIO") => begin
-        true
-      end
+    Absyn.STRING("ModelicaIO") => begin
+      true
+    end
 
-      Absyn.ARRAY(__) => begin
-        ListUtil.exist(exp.arrayExp, isKnownLibraryExp)
-      end
+    Absyn.ARRAY(__) => begin
+      ListUtil.exist(exp.arrayExp, isKnownLibraryExp)
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return isKnown
 end
 
 const FILE_TYPE_NAMES = list("NoFile", "RegularFile", "Directory", "SpecialFile")::List
@@ -1284,173 +1274,168 @@ const COMPARE_LITERALS =
   )::List
 
 function evaluateKnownExternal(name::String, args::List{<:Expression})::Expression
-  local result::Expression
-  @assign result = begin
-    local s1::String
-    local s2::String
-    local i::Int
-    local i2::Int
-    local b::Bool
-    local r::AbstractFloat
-    local dims::Vector{Int}
-    @match (name, args) begin
-      ("ModelicaInternal_countLines", STRING_EXPRESSION(s1) <| nil()) =>
-        begin
-          INTEGER_EXPRESSION(ModelicaExternalC.Streams_countLines(s1))
-        end
-
-      ("ModelicaInternal_fullPathName", STRING_EXPRESSION(s1) <| nil()) =>
-        begin
-          STRING_EXPRESSION(ModelicaExternalC.File_fullPathName(s1))
-        end
-
-      (
-        "ModelicaInternal_print",
-        STRING_EXPRESSION(s1) <| STRING_EXPRESSION(s2) <| nil(),
-      ) => begin
-        ModelicaExternalC.Streams_print(s1, s2)
-        INTEGER_EXPRESSION(0)
+  local s1::String
+  local s2::String
+  local i::Int
+  local i2::Int
+  local b::Bool
+  local r::AbstractFloat
+  local dims::Vector{Int}
+  @match (name, args) begin
+    ("ModelicaInternal_countLines", STRING_EXPRESSION(s1) <| nil()) =>
+      begin
+        INTEGER_EXPRESSION(ModelicaExternalC.Streams_countLines(s1))
       end
 
-      (
-        "ModelicaInternal_readLine",
-        STRING_EXPRESSION(s1) <| INTEGER_EXPRESSION(i) <| nil(),
-      ) => begin
-         (s1, b) = ModelicaExternalC.Streams_readLine(s1, i)
-        TUPLE_EXPRESSION(
-          TYPE_TUPLE(list(TYPE_STRING(), TYPE_BOOLEAN()), NONE()),
-          list(STRING_EXPRESSION(s1), BOOLEAN_EXPRESSION(b)),
-        )
+    ("ModelicaInternal_fullPathName", STRING_EXPRESSION(s1) <| nil()) =>
+      begin
+        STRING_EXPRESSION(ModelicaExternalC.File_fullPathName(s1))
       end
 
-      ("ModelicaInternal_stat", STRING_EXPRESSION(s1) <| nil()) => begin
-        @assign i = ModelicaExternalC.File_stat(s1)
-        listGet(FILE_TYPE_LITERALS, i)
-      end
+    (
+      "ModelicaInternal_print",
+      STRING_EXPRESSION(s1) <| STRING_EXPRESSION(s2) <| nil(),
+    ) => begin
+      ModelicaExternalC.Streams_print(s1, s2)
+      INTEGER_EXPRESSION(0)
+    end
 
-      ("ModelicaStreams_closeFile", STRING_EXPRESSION(s1) <| nil()) => begin
-        ModelicaExternalC.Streams_close(s1)
-        INTEGER_EXPRESSION(0)
-      end
+    (
+      "ModelicaInternal_readLine",
+      STRING_EXPRESSION(s1) <| INTEGER_EXPRESSION(i) <| nil(),
+    ) => begin
+       (s1, b) = ModelicaExternalC.Streams_readLine(s1, i)
+      TUPLE_EXPRESSION(
+        TYPE_TUPLE(list(TYPE_STRING(), TYPE_BOOLEAN()), NONE()),
+        list(STRING_EXPRESSION(s1), BOOLEAN_EXPRESSION(b)),
+      )
+    end
 
-      (
-        "ModelicaStrings_compare",
-        STRING_EXPRESSION(s1) <|
-        STRING_EXPRESSION(s2) <| BOOLEAN_EXPRESSION(b) <| nil(),
-      ) => begin
-        @assign i = ModelicaExternalC.Strings_compare(s1, s2, b)
-        listGet(COMPARE_LITERALS, i)
-      end
+    ("ModelicaInternal_stat", STRING_EXPRESSION(s1) <| nil()) => begin
+      @assign i = ModelicaExternalC.File_stat(s1)
+      listGet(FILE_TYPE_LITERALS, i)
+    end
 
-      ("ModelicaStrings_length", STRING_EXPRESSION(s1) <| nil()) => begin
-        INTEGER_EXPRESSION(stringLength(s1))
-      end
+    ("ModelicaStreams_closeFile", STRING_EXPRESSION(s1) <| nil()) => begin
+      ModelicaExternalC.Streams_close(s1)
+      INTEGER_EXPRESSION(0)
+    end
 
-      (
-        "ModelicaStrings_scanReal",
-        STRING_EXPRESSION(s1) <|
-        INTEGER_EXPRESSION(i) <| BOOLEAN_EXPRESSION(b) <| nil(),
-      ) => begin
-         (i, r) = ModelicaExternalC.Strings_scanReal(s1, i, b)
-        TUPLE_EXPRESSION(
-          TYPE_TUPLE(list(TYPE_INTEGER(), TYPE_REAL()), NONE()),
-          list(INTEGER_EXPRESSION(i), REAL_EXPRESSION(r)),
-        )
-      end
+    (
+      "ModelicaStrings_compare",
+      STRING_EXPRESSION(s1) <|
+      STRING_EXPRESSION(s2) <| BOOLEAN_EXPRESSION(b) <| nil(),
+    ) => begin
+      @assign i = ModelicaExternalC.Strings_compare(s1, s2, b)
+      listGet(COMPARE_LITERALS, i)
+    end
 
-      (
-        "ModelicaStrings_scanInteger",
-        STRING_EXPRESSION(s1) <|
-        INTEGER_EXPRESSION(i) <| BOOLEAN_EXPRESSION(b) <| nil(),
-      ) => begin
-         (i, i2) = ModelicaExternalC.Strings_scanInteger(s1, i, b)
-        TUPLE_EXPRESSION(
-          TYPE_TUPLE(list(TYPE_INTEGER(), TYPE_INTEGER()), NONE()),
-          list(INTEGER_EXPRESSION(i), INTEGER_EXPRESSION(i2)),
-        )
-      end
+    ("ModelicaStrings_length", STRING_EXPRESSION(s1) <| nil()) => begin
+      INTEGER_EXPRESSION(stringLength(s1))
+    end
 
-      (
-        "ModelicaStrings_scanString",
-        STRING_EXPRESSION(s1) <| INTEGER_EXPRESSION(i) <| nil(),
-      ) => begin
-         (i, s2) = ModelicaExternalC.Strings_scanString(s1, i)
-        TUPLE_EXPRESSION(
-          TYPE_TUPLE(list(TYPE_INTEGER(), TYPE_STRING()), NONE()),
-          list(INTEGER_EXPRESSION(i), STRING_EXPRESSION(s2)),
-        )
-      end
+    (
+      "ModelicaStrings_scanReal",
+      STRING_EXPRESSION(s1) <|
+      INTEGER_EXPRESSION(i) <| BOOLEAN_EXPRESSION(b) <| nil(),
+    ) => begin
+       (i, r) = ModelicaExternalC.Strings_scanReal(s1, i, b)
+      TUPLE_EXPRESSION(
+        TYPE_TUPLE(list(TYPE_INTEGER(), TYPE_REAL()), NONE()),
+        list(INTEGER_EXPRESSION(i), REAL_EXPRESSION(r)),
+      )
+    end
 
-      (
-        "ModelicaStrings_scanIdentifier",
-        STRING_EXPRESSION(s1) <| INTEGER_EXPRESSION(i) <| nil(),
-      ) => begin
-         (i, s2) = ModelicaExternalC.Strings_scanIdentifier(s1, i)
-        TUPLE_EXPRESSION(
-          TYPE_TUPLE(list(TYPE_INTEGER(), TYPE_STRING()), NONE()),
-          list(INTEGER_EXPRESSION(i), STRING_EXPRESSION(s2)),
-        )
-      end
+    (
+      "ModelicaStrings_scanInteger",
+      STRING_EXPRESSION(s1) <|
+      INTEGER_EXPRESSION(i) <| BOOLEAN_EXPRESSION(b) <| nil(),
+    ) => begin
+       (i, i2) = ModelicaExternalC.Strings_scanInteger(s1, i, b)
+      TUPLE_EXPRESSION(
+        TYPE_TUPLE(list(TYPE_INTEGER(), TYPE_INTEGER()), NONE()),
+        list(INTEGER_EXPRESSION(i), INTEGER_EXPRESSION(i2)),
+      )
+    end
 
-      (
-        "ModelicaStrings_skipWhiteSpace",
-        STRING_EXPRESSION(s1) <| INTEGER_EXPRESSION(i) <| nil(),
-      ) => begin
-        INTEGER_EXPRESSION(ModelicaExternalC.Strings_skipWhiteSpace(s1, i))
-      end
+    (
+      "ModelicaStrings_scanString",
+      STRING_EXPRESSION(s1) <| INTEGER_EXPRESSION(i) <| nil(),
+    ) => begin
+       (i, s2) = ModelicaExternalC.Strings_scanString(s1, i)
+      TUPLE_EXPRESSION(
+        TYPE_TUPLE(list(TYPE_INTEGER(), TYPE_STRING()), NONE()),
+        list(INTEGER_EXPRESSION(i), STRING_EXPRESSION(s2)),
+      )
+    end
 
-      (
-        "ModelicaStrings_substring",
-        STRING_EXPRESSION(s1) <|
-        INTEGER_EXPRESSION(i) <| INTEGER_EXPRESSION(i2) <| nil(),
-      ) => begin
-        STRING_EXPRESSION(System.substring(s1, i, i2))
-      end
+    (
+      "ModelicaStrings_scanIdentifier",
+      STRING_EXPRESSION(s1) <| INTEGER_EXPRESSION(i) <| nil(),
+    ) => begin
+       (i, s2) = ModelicaExternalC.Strings_scanIdentifier(s1, i)
+      TUPLE_EXPRESSION(
+        TYPE_TUPLE(list(TYPE_INTEGER(), TYPE_STRING()), NONE()),
+        list(INTEGER_EXPRESSION(i), STRING_EXPRESSION(s2)),
+      )
+    end
 
-      ("ModelicaStrings_hashString", STRING_EXPRESSION(s1) <| nil()) => begin
-        INTEGER_EXPRESSION(ModelicaExternalC.Strings_hashString(s1))
-      end
+    (
+      "ModelicaStrings_skipWhiteSpace",
+      STRING_EXPRESSION(s1) <| INTEGER_EXPRESSION(i) <| nil(),
+    ) => begin
+      INTEGER_EXPRESSION(ModelicaExternalC.Strings_skipWhiteSpace(s1, i))
+    end
 
-      ("OpenModelica_regex", _) => begin
-        evaluateOpenModelicaRegex(args)
-      end
+    (
+      "ModelicaStrings_substring",
+      STRING_EXPRESSION(s1) <|
+      INTEGER_EXPRESSION(i) <| INTEGER_EXPRESSION(i2) <| nil(),
+    ) => begin
+      STRING_EXPRESSION(System.substring(s1, i, i2))
+    end
 
-      (
-        "ModelicaIO_readMatrixSizes",
-        STRING_EXPRESSION(s1) <| STRING_EXPRESSION(s2) <| nil(),
-      ) => begin
-        dims = ModelicaExternalC.ModelicaIO_readMatrixSizes(s1, s2)
-        ARRAY_EXPRESSION(
-          TYPE_ARRAY(TYPE_INTEGER(), list(fromInteger(2))),
-          Expression[
-            INTEGER_EXPRESSION(dims[1]),
-            INTEGER_EXPRESSION(dims[2]),
-          ],
-          true,
-        )
-      end
+    ("ModelicaStrings_hashString", STRING_EXPRESSION(s1) <| nil()) => begin
+      INTEGER_EXPRESSION(ModelicaExternalC.Strings_hashString(s1))
+    end
 
-      (
-        "ModelicaIO_readRealMatrix",
-        STRING_EXPRESSION(s1) <|
-        STRING_EXPRESSION(s2) <|
-        INTEGER_EXPRESSION(i) <|
-        INTEGER_EXPRESSION(i2) <| BOOLEAN_EXPRESSION(b) <| nil(),
-      ) => begin
-        evaluateModelicaIO_readRealMatrix(s1, s2, i, i2, b)
-      end
+    ("OpenModelica_regex", _) => begin
+      evaluateOpenModelicaRegex(args)
+    end
 
-      _ => begin
-        _internalError("evaluateKnownExternal: failed to evaluate " * name)
-        EVAL_FAILED
-      end
+    (
+      "ModelicaIO_readMatrixSizes",
+      STRING_EXPRESSION(s1) <| STRING_EXPRESSION(s2) <| nil(),
+    ) => begin
+      dims = ModelicaExternalC.ModelicaIO_readMatrixSizes(s1, s2)
+      ARRAY_EXPRESSION(
+        TYPE_ARRAY(TYPE_INTEGER(), list(fromInteger(2))),
+        Expression[
+          INTEGER_EXPRESSION(dims[1]),
+          INTEGER_EXPRESSION(dims[2]),
+        ],
+        true,
+      )
+    end
+
+    (
+      "ModelicaIO_readRealMatrix",
+      STRING_EXPRESSION(s1) <|
+      STRING_EXPRESSION(s2) <|
+      INTEGER_EXPRESSION(i) <|
+      INTEGER_EXPRESSION(i2) <| BOOLEAN_EXPRESSION(b) <| nil(),
+    ) => begin
+      evaluateModelicaIO_readRealMatrix(s1, s2, i, i2, b)
+    end
+
+    _ => begin
+      _internalError("evaluateKnownExternal: failed to evaluate " * name)
+      EVAL_FAILED
     end
   end
-  return result
 end
 
 function evaluateOpenModelicaRegex(args::List{<:Expression})::Expression
-  local result::Expression
 
   local n::Int
   local i::Int
@@ -1463,32 +1448,29 @@ function evaluateOpenModelicaRegex(args::List{<:Expression})::Expression
   local strs_ty::ModelicaType
   local strs_exp::Expression
 
-  @assign result = begin
-    @match args begin
-      STRING_EXPRESSION(str) <|
-      STRING_EXPRESSION(re) <|
-      INTEGER_EXPRESSION(i) <|
-      BOOLEAN_EXPRESSION(extended) <|
-      BOOLEAN_EXPRESSION(insensitive) <| nil() => begin
-         (n, strs) = System.regex(str, re, i, extended, insensitive)
-        @assign expl = list(STRING_EXPRESSION(s) for s in strs)
-        @assign strs_ty =
-          TYPE_ARRAY(TYPE_STRING(), list(fromInteger(i)))
-        @assign strs_exp = makeArray(strs_ty, expl; literal=true)
-        TUPLE_EXPRESSION(
-          TYPE_TUPLE(list(TYPE_INTEGER(), strs_ty), NONE()),
-          list(INTEGER_EXPRESSION(n), strs_exp),
-        )
-      end
+  @match args begin
+    STRING_EXPRESSION(str) <|
+    STRING_EXPRESSION(re) <|
+    INTEGER_EXPRESSION(i) <|
+    BOOLEAN_EXPRESSION(extended) <|
+    BOOLEAN_EXPRESSION(insensitive) <| nil() => begin
+       (n, strs) = System.regex(str, re, i, extended, insensitive)
+      @assign expl = list(STRING_EXPRESSION(s) for s in strs)
+      @assign strs_ty =
+        TYPE_ARRAY(TYPE_STRING(), list(fromInteger(i)))
+      @assign strs_exp = makeArray(strs_ty, expl; literal=true)
+      TUPLE_EXPRESSION(
+        TYPE_TUPLE(list(TYPE_INTEGER(), strs_ty), NONE()),
+        list(INTEGER_EXPRESSION(n), strs_exp),
+      )
+    end
 
-      _ => begin
-        _internalError("evaluateOpenModelicaRegex: failed on OpenModelica_regex" *
-                       ListUtil.toString(args, toString, "", "(", ", ", ")", true))
-        EVAL_FAILED
-      end
+    _ => begin
+      _internalError("evaluateOpenModelicaRegex: failed on OpenModelica_regex" *
+                     ListUtil.toString(args, toString, "", "(", ", ", ")", true))
+      EVAL_FAILED
     end
   end
-  return result
 end
 
 function evaluateModelicaIO_readRealMatrix(

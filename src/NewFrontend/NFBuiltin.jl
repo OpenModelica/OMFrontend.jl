@@ -676,7 +676,6 @@ function GET_ENUM_LOOKUP_TREE()
   )::LookupTree.Tree
 end
 
-
 const ASSERTIONLEVEL_TYPE =
   TYPE_ENUMERATION(Absyn.IDENT("AssertionLevel"),
                    list("warning", "error"))

@@ -696,19 +696,17 @@ function openImplicitScope(scope::InstNode)
 end
 
 function setInnerOuterCache(node::InstNode, in_out_cache::CachedData)
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        setInnerOuterCache(node.caches, in_out_cache)
-        ()
-      end
+   @match node begin
+     CLASS_NODE(__)  => begin
+       setInnerOuterCache(node.caches, in_out_cache)
+       ()
+     end
 
-      _  => begin
-        Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
-        fail()
-      end
-    end
-  end
+     _  => begin
+       Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+       fail()
+     end
+   end
   node
 end
 
@@ -729,36 +727,32 @@ function getInnerOuterCache(inNode::InstNode)
 end
 
 function clearPackageCache(node::InstNode)
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        clearPackageCache(node.caches)
-        ()
-      end
+   @match node begin
+     CLASS_NODE(__)  => begin
+       clearPackageCache(node.caches)
+       ()
+     end
 
-      _  => begin
-        Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
-        fail()
-      end
-    end
-  end
+     _  => begin
+       Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+       fail()
+     end
+   end
   node
 end
 
 function setPackageCache(node::InstNode, in_pack_cache::CachedData)
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        setPackageCache(node.caches, in_pack_cache)
-        ()
-      end
+   @match node begin
+     CLASS_NODE(__)  => begin
+       setPackageCache(node.caches, in_pack_cache)
+       ()
+     end
 
-      _  => begin
-        Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
-        fail()
-      end
-    end
-  end
+     _  => begin
+       Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+       fail()
+     end
+   end
   node
 end
 
@@ -781,19 +775,17 @@ function getPackageCache(inNode::InstNode)
 end
 
 function setFuncCache(node::InstNode, in_func_cache::CachedData)
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        setFuncCache(node.caches, in_func_cache)
-        ()
-      end
-      _  => begin
-        #Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
-        @error "Error in set func cache"
-        fail()
-      end
-    end
-  end
+   @match node begin
+     CLASS_NODE(__)  => begin
+       setFuncCache(node.caches, in_func_cache)
+       ()
+     end
+     _  => begin
+       #Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+       @error "Error in set func cache"
+       fail()
+     end
+   end
   node
 end
 
@@ -814,35 +806,31 @@ function getFuncCache(inNode::InstNode)
 end
 
 function cacheAddFunc(node::InstNode, fn::MODELICA_FUNCTION, specialBuiltin::Bool)
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        addFunc(fn, specialBuiltin, node.caches)
-        ()
-      end
-      _  => begin
-        Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
-        fail()
-      end
-    end
-  end
+   @match node begin
+     CLASS_NODE(__)  => begin
+       addFunc(fn, specialBuiltin, node.caches)
+       ()
+     end
+     _  => begin
+       Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+       fail()
+     end
+   end
   node
 end
 
 function cacheInitFunc(node::InstNode)
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        initFunc(node.caches)
-        ()
-      end
+   @match node begin
+     CLASS_NODE(__)  => begin
+       initFunc(node.caches)
+       ()
+     end
 
-      _  => begin
-        Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
-        fail()
-      end
-    end
-  end
+     _  => begin
+       Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+       fail()
+     end
+   end
   node
 end
 
@@ -1457,15 +1445,11 @@ The component of a component node: a `ComponentImpl` (`Component`'s only subtype
 fields' reads are inferred and calls on them are not dynamic, 2026-11-18).
 """
 function component(node::InstNode)::ComponentImpl
-  local component::ComponentImpl
-   component = begin
-    @match node begin
-      COMPONENT_NODE(__)  => begin
-        _compVal(node)::ComponentImpl
-      end
-    end
-  end
-  component
+   @match node begin
+     COMPONENT_NODE(__)  => begin
+       _compVal(node)::ComponentImpl
+     end
+   end
 end
 
 function updateClass(cls::Class, node::InstNode)
@@ -1524,7 +1508,6 @@ function setParent(@nospecialize(parent::InstNode), node::InstNode)::InstNode
     return IMPLICIT_SCOPE(parent, node.locals)
   end
 end
-
 
 function topScope(node::InstNode)
   local ts::InstNode
@@ -1859,7 +1842,6 @@ function isName(node::InstNode)
   isName
 end
 
-
 function isEmpty(node::InstNode)
   local isEmpty::Bool
    isEmpty = begin
@@ -1886,7 +1868,6 @@ function isReplaceable(node::InstNode)
   end
   return repl
 end
-
 
 function isComponent(node::InstNode)::Bool
   @match node begin
