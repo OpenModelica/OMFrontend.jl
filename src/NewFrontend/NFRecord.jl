@@ -35,34 +35,17 @@
 
 @UniontypeDecl Field
 function name(field::Field)::String
-  local name::String
-  @assign name = begin
-    @match field begin
-      FIELD_INPUT(__) => begin
-        field.name
-      end
-      FIELD_LOCAL(__) => begin
-        field.name
-      end
+  @match field begin
+    FIELD_INPUT(__) => begin
+      field.name
+    end
+    FIELD_LOCAL(__) => begin
+      field.name
     end
   end
-  return name
 end
 
-function isInput(field::Field)::Bool
-  local isInput::Bool
-  @assign isInput = begin
-    @match field begin
-      FIELD_INPUT(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return isInput
-end
+isInput(field::Field)::Bool = isvariant(field, FIELD_INPUT)
 
 @Uniontype Field begin
   @Record FIELD_LOCAL begin
@@ -81,13 +64,12 @@ function instDefaultConstructor(
   local inputs::List{InstNode}
   local locals::List{InstNode}
   local all_params::List{InstNode}
-  local attr::DAE.FunctionAttributes
-  local status::Pointer #= TODO: An issue if int is used.=#
+  local attr::FUNCTION_ATTRIBUTES
+  local status::Base.RefValue{FunctionStatus}
   local ctor_node::InstNode
   local out_rec::InstNode
   local out_comp::Component
   local ctor_cls::Class
-  local ty_node::InstNode
   try
     @match ENTRY_INFO(ctor_node, _) = lookupLocalSimpleName(
       name(node),
@@ -113,7 +95,7 @@ function instDefaultConstructor(
     OUTPUT_ATTR,
     NONE(),
     true, #= Not sure if this change should be made.... Maybe set to true =#
-    AbsynUtil.dummyInfo,
+    InstNode_info(ctor_node),
   )
   out_rec = fromComponent("out" + name(ctor_node), out_comp, ctor_node)
   #=  Make a record constructor class and create a node for the constructor. =#
@@ -121,11 +103,11 @@ function instDefaultConstructor(
   ctor_node = replaceClass(ctor_cls, ctor_node)
   ctor_node = classApply(ctor_node, setType, TYPE_COMPLEX(ctor_node, COMPLEX_CLASS()))
   #=  Create the constructor function and add it to the function cache. =#
-  attr = DAE.FUNCTION_ATTRIBUTES_DEFAULT
-  status = P_Pointer.create(FunctionStatus.INITIAL)
+  attr = FUNCTION_ATTRIBUTES_DEFAULT
+  status = P_Pointer.create(FUNCTION_STATUS_INITIAL, FunctionStatus)
   cacheAddFunc(
     node,
-    M_FUNCTION(
+    MODELICA_FUNCTION(
       path,
       ctor_node,
       inputs,
@@ -136,7 +118,7 @@ function instDefaultConstructor(
       attr,
       nil,
       status,
-      P_Pointer.create(0),
+      P_Pointer.create(0, Int),
     ),
     false,
   )
@@ -154,35 +136,33 @@ function collectRecordParams(
   local pcomps::Vector{Pointer{InstNode}}
   local tree::ClassTree
   @assign tree = classTree(getClass(recNode))
-   () = begin
-    @match tree begin
-      CLASS_TREE_FLAT_TREE(components = comps) => begin
-        for i = arrayLength(comps):(-1):1
-          comp = comps[i]
-          (inputs, locals) = collectRecordParam(comp, inputs, locals)
-          allParams = Cons{InstNode}(comp, allParams)
-        end
-        ()
-      end
-      CLASS_TREE_INSTANTIATED_TREE(components = pcomps) => begin
-        for i = arrayLength(pcomps):(-1):1
-          comp = P_Pointer.access(pcomps[i])
-          (inputs, locals) = collectRecordParam(comp, inputs, locals)
-          allParams = Cons{InstNode}(comp, allParams)
-        end
-        ()
-      end
+   @match tree begin
+     CLASS_TREE_FLAT_TREE(components = comps) => begin
+       for i = arrayLength(comps):(-1):1
+         comp = comps[i]
+         (inputs, locals) = collectRecordParam(comp, inputs, locals)
+         allParams = Cons{InstNode}(comp, allParams)
+       end
+       ()
+     end
+     CLASS_TREE_INSTANTIATED_TREE(components = pcomps) => begin
+       for i = arrayLength(pcomps):(-1):1
+         comp = P_Pointer.access(pcomps[i])
+         (inputs, locals) = collectRecordParam(comp, inputs, locals)
+         allParams = Cons{InstNode}(comp, allParams)
+       end
+       ()
+     end
 
-      _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() + " got non-instantiated function",
-          sourceInfo(),
-        )
-        fail()
-      end
-    end
-  end
+     _ => begin
+       Error.assertion(
+         false,
+         getInstanceName() + " got non-instantiated function",
+         sourceInfo(),
+       )
+       fail()
+     end
+   end
   return (inputs, locals, allParams)
 end
 
@@ -210,7 +190,7 @@ function collectRecordFields(recNode::InstNode)::List{Field}
   local fields::List{Field}
   local tree::ClassTree
   @assign tree = classTree(getClass(recNode))
-  @assign fields = foldComponents(tree, collectRecordField, nil)
+  @assign fields = foldComponents(tree, collectRecordField, nil, List{Field})
   @assign fields = listReverseInPlace(fields)
   return fields
 end

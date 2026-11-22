@@ -1,7 +1,7 @@
-#= Quick sanity test for DAE. Does the Frontend compile?=#
+"""Sanity test: the frontend flattens these models without an exception."""
 function testPassIfNoException(str1::String, str2::String)
   @test try
-    flatten(str1, str2)
+    flattenFM(str1, str2)
     true
   catch e
     @error "Failed to flatten model: $(str1) in file $(str2):" e

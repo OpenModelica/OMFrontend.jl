@@ -18,13 +18,14 @@ function listVectorFlat(model::String)::String
 end
 
 """
-    listVectorRhs(model::String)::OMFrontend.Frontend.Expression
+    listVectorRhs(model::String, lhs::String)::OMFrontend.Frontend.Expression
 
-The right-hand side of the last equation of `ListVectorSites.<model>` flattened with arrays kept.
+The right-hand side of the equation `lhs = ...` of `ListVectorSites.<model>` flattened with arrays kept.
 """
-function listVectorRhs(model::String)::OMFrontend.Frontend.Expression
+function listVectorRhs(model::String, lhs::String)::OMFrontend.Frontend.Expression
   local (fm, _) = OMFrontend.flattenModel("ListVectorSites." * model, LIST_VECTOR_SITES; scalarize = false)
-  return fm.equations[end].rhs
+  local i::Int = findfirst(eq -> startswith(OMFrontend.Frontend.toString(eq), lhs * " = "), fm.equations)
+  return fm.equations[i].rhs
 end
 
 @testset "Lists and Vectors in expressions and subscripts" begin
@@ -60,14 +61,14 @@ end
   end
 
   @testset "der(x)[i] is der(x[i]), as in OpenModelica (applySubscriptCall)" begin
-    local derx::F.Expression = listVectorRhs("DerSubscript")
+    local derx::F.Expression = listVectorRhs("DerSubscript", "y")
     local r::F.Expression = F.applySubscript(F.SUBSCRIPT_INDEX(I(1)), derx, ImmutableList.nil)
     @test r isa F.CALL_EXPRESSION && F.toString(r) == "der(x[1])"
   end
 
   @testset "operator record constructor bindings: other calls kept (patchOperatorRecordConstructorBinding)" begin
-    local derx::F.Expression = listVectorRhs("DerSubscript")
-    local preb::F.Expression = listVectorRhs("PreSubscript")
+    local derx::F.Expression = listVectorRhs("DerSubscript", "y")
+    local preb::F.Expression = listVectorRhs("PreSubscript", "c")
     @test F.patchOperatorRecordConstructorBinding_traverser(derx, preb.call.fn) === derx
   end
 

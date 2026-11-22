@@ -34,55 +34,49 @@
 */ =#
 
 module ConstantsSetImpl
-import ..NFComponentRef
+import ..ComponentRef
 import ..compare as crefCompare
+import ..toString
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
-ComponentRef = NFComponentRef
 #= Modelica extend clause =#
 const Key = ComponentRef
 const Value = Int
 include("../Util/baseAvlTreeCode.jl")
-#= The base tree's placeholder keyCompare returns a Bool; the AVL needs the
-   three-way cref ordering or distinct keys collapse into one entry. =#
-keyCompare = (inKey1::Key, inKey2::Key) -> crefCompare(inKey1, inKey2)
+keyCompare(inKey1::Key, inKey2::Key)::Int = crefCompare(inKey1, inKey2)
+keyStr(inKey::Key)::String = toString(inKey)
+valueStr(inValue::Value)::String = string(inValue)
+const addConflictDefault = addConflictFail
 @exportAll()
 end
 
-Constants = ConstantsSetImpl.Tree
+"""The package constants a model reads, as a set of crefs."""
+const Constants = ConstantsSetImpl.Tree
 
 """
-    collectConstants(flatModel, functions) -> (FlatModel, FunctionTree)
+    collectConstants(flatModel, functions) -> (FLAT_MODEL, FunctionTree)
 
 The package constants the model and its functions read that were not substituted with their values added to the
 model as variables, and the functions their bindings call added to `functions` (`collectFunctions` ran before they
 were variables of the model: with the arrays kept, `Modelica.Constants.pi = 2 * Modelica.Math.asin(1.0)` stays
 unevaluated and its backend found no `Modelica.Math.asin`).
 """
-function collectConstants(flatModel::FlatModel, functions::FunctionTree)::Tuple{FlatModel, FunctionTree}
-  local vars::Vector{Variable} = Variable[]
-  local binding::Binding
+function collectConstants(flatModel::FLAT_MODEL, functions::FunctionTree)::Tuple{FLAT_MODEL, FunctionTree}
+  local vars::Vector{VARIABLE} = VARIABLE[]
   local constants::Constants
   constants = ConstantsSetImpl.new()
   constants =
-    ArrayUtil.fold(flatModel.variables, collectVariableConstants, constants)
+    ArrayUtil.fold(flatModel.variables, collectVariableConstants, constants, Constants)
   constants =
-    foldExpList(flatModel.equations, collectExpConstants, constants)
-  constants = foldExpList(
-    flatModel.initialEquations,
-    collectExpConstants,
-    constants,
-  )
+    foldExpList(flatModel.equations, collectExpConstants, constants, Constants)
+  constants = foldExpList(flatModel.initialEquations, collectExpConstants, constants, Constants)
   constants =
-    foldExpList(flatModel.algorithms, collectExpConstants, constants)
-  constants = foldExpList(
-    flatModel.initialAlgorithms,
-    collectExpConstants,
-    constants,
-  )
-  constants = FunctionTreeImpl.fold(functions, collectFuncConstants, constants)
-  vars = Variable[_withValueBinding(Variable_fromCref(c)) for c in ConstantsSetImpl.listKeys(constants)]
-  functions = ArrayUtil.fold(vars, collectComponentFuncs, functions)
+    foldExpList(flatModel.algorithms, collectExpConstants, constants, Constants)
+  constants = foldExpList(flatModel.initialAlgorithms, collectExpConstants, constants, Constants)
+  constants = FunctionTreeImpl.fold(functions, collectFuncConstants, constants, Constants)
+  vars = VARIABLE[_withValueBinding(Variable_fromCref(c)) for c in ConstantsSetImpl.listKeys(constants)]
+  functions = ArrayUtil.fold(vars, collectComponentFuncs, functions, FunctionTree)
   @assign flatModel.variables = vcat(vars, flatModel.variables)
 #  execStat(getInstanceName()) TODO
   return (flatModel, functions)
@@ -92,18 +86,16 @@ end
    (`constant DataRecord CH4(name = "CH4", ...)`) has the one the constant evaluation built from
    its fields (CEVAL_BINDING), which the conversion for the backend drops as temporary: the
    backend got MSL SingleGasesData.CH4 without a value, while Medium.data[1] read it. =#
-function _withValueBinding(var::Variable)::Variable
+function _withValueBinding(var::VARIABLE)::VARIABLE
   isvariant(var.binding, CEVAL_BINDING) || return var
   @assign var.binding = FLAT_BINDING(getBindingExp(var.binding.bindingExp), Variability.CONSTANT)
   return var
 end
 
-function collectVariableConstants(var::Variable, constants::Constants)::Constants
+function collectVariableConstants(var::VARIABLE, constants::Constants)::Constants
   @assign constants = collectBindingConstants(var.binding, constants)
-  #=  TODO: The component's attributes (i.e. start, etc) might also contain
-  =#
-  #=        package constants.
-  =#
+  #= TODO: The component's attributes (i.e. start, etc) might also contain
+     package constants. =#
   return constants
 end
 
@@ -116,45 +108,43 @@ end
 
 function collectExpConstants(exp::Expression, constants::Constants)::Constants
   @assign constants =
-    fold(exp, collectExpConstants_traverser, constants)
+    fold(exp, collectExpConstants_traverser, constants, Constants)
   return constants
 end
 
 function collectExpConstants_traverser(@nospecialize(exp::Expression), @nospecialize(constants::Constants))::Constants
   local cref::ComponentRef
-   () = begin
-    @match exp begin
-      CREF_EXPRESSION(cref = cref && COMPONENT_REF_CREF(__)) =>
-        begin
-          if isPackageConstant(cref) && !isFunctionPointerExp(exp)
-            local typedNode = typeComponentBinding(cref.node, ORIGIN_CLASS)
-            if typedNode !== cref.node
-              @assign cref.node = typedNode
-            end
-            @assign constants = ConstantsSetImpl.add(
-              constants,
-              stripSubscriptsAll(cref),
-              0,
-              ConstantsSetImpl.addConflictKeep,
-            )
-            @assign constants = collectBindingConstants(
-              getBinding(component(typedNode)),
-              constants,
-            )
-          end
-          ()
-        end
-      _ => begin
-        ()
-      end
-    end
-  end
+   @match exp begin
+     CREF_EXPRESSION(cref = cref && COMPONENT_REF_CREF(__)) =>
+       begin
+         if isPackageConstant(cref) && !isFunctionPointerExp(exp)
+           local typedNode = typeComponentBinding(cref.node, ORIGIN_CLASS)
+           if typedNode !== cref.node
+             @assign cref.node = typedNode
+           end
+           @assign constants = ConstantsSetImpl.add(
+             constants,
+             stripSubscriptsAll(cref),
+             0,
+             ConstantsSetImpl.addConflictKeep,
+           )
+           @assign constants = collectBindingConstants(
+             getBinding(component(typedNode)),
+             constants,
+           )
+         end
+         ()
+       end
+     _ => begin
+       ()
+     end
+   end
   return constants
 end
 
 function collectFuncConstants(
   name::Absyn.Path,
-  func::M_Function,
+  func::MODELICA_FUNCTION,
   constants::Constants,
 )::Constants
 
@@ -163,49 +153,41 @@ function collectFuncConstants(
   local sections::Sections
 
   @assign cls = getClass(func.node)
-   () = begin
-    @match cls begin
-      INSTANCED_CLASS(
-        elements = CLASS_TREE_FLAT_TREE(components = comps),
-        sections = sections,
-      ) => begin
-        for c in comps
-          @assign constants = collectBindingConstants(
-            getBinding(component(c)),
-            constants,
-          )
-        end
-         () = begin
-          @match sections begin
-            SECTIONS(__) => begin
-              @assign constants = foldExpList(
-                sections.algorithms,
-                collectExpConstants,
-                constants,
-              )
-              ()
-            end
+   @match cls begin
+     INSTANCED_CLASS(
+       elements = CLASS_TREE_FLAT_TREE(components = comps),
+       sections = sections,
+     ) => begin
+       for c in comps
+         @assign constants = collectBindingConstants(
+           getBinding(component(c)),
+           constants,
+         )
+       end
+        @match sections begin
+          SECTIONS(__) => begin
+            @assign constants = foldExpList(sections.algorithms, collectExpConstants, constants, Constants)
+            ()
+          end
 
-            SECTIONS_EXTERNAL(__) => begin
-              for arg in sections.args
-                @assign constants = collectExpConstants(arg, constants)
-              end
-              ()
+          SECTIONS_EXTERNAL(__) => begin
+            for arg in sections.args
+              @assign constants = collectExpConstants(arg, constants)
             end
+            ()
+          end
 
-            _ => begin
-              ()
-            end
+          _ => begin
+            ()
           end
         end
-        ()
-      end
+       ()
+     end
 
-      _ => begin
-        ()
-      end
-    end
-  end
+     _ => begin
+       ()
+     end
+   end
   return constants
 end
 

@@ -4,24 +4,23 @@ Entry point for AI agents working in this repository. Read this fully before edi
 
 ## What This Package Is
 
-OMFrontend.jl is an experimental Julia port of the OpenModelica New Frontend (NF). It parses Modelica source, lowers it to SCode, then instantiates the SCode into either FlatModelica or DAE form. It is the parsing/typing/flattening stage of the OM.jl compiler stack and is consumed by OMBackend.jl downstream.
+OMFrontend.jl is an experimental Julia port of the OpenModelica New Frontend (NF). It parses Modelica source, lowers it to SCode, then instantiates the SCode into a flat model (`FLAT_MODEL`, printable as FlatModelica). It is the parsing/typing/flattening stage of the OM.jl compiler stack and is consumed by OMBackend.jl downstream.
 
 The package is intentionally low-level. End users typically invoke it through OM.jl. Within OM.jl, OMFrontend output is the input to BDAE and SimCode lowering, so changes here have direct effects on backend behaviour even though backend code is not part of this repository.
 
 ## Source Layout
 
-- `src/OMFrontend.jl` — outer module `OMFrontend`. Public API: `parseFile`, `translateToSCode`, `instantiateSCodeToFM`, `instantiateSCodeToDAE`, `flattenModel`, `flattenModelWithMSL`, `flattenModelWithLibraries`, `loadLibrary`, `loadPackageDirectory`, `useLibrary!`, `unloadLibrary`, `loadedLibraries` (the libraries loaded into the session, which `flattenModelWithLibraries` adds), `enableDumpDebug`, `disableDumpDebug`, `toString`, `toFlatModelica`, `exportDAERepresentationToFile`.
+- `src/OMFrontend.jl` — outer module `OMFrontend`. Public API: `parseFile`, `translateToSCode`, `instantiateSCodeToFM`, `flattenModel`, `flattenModelWithMSL`, `flattenModelWithLibraries`, `loadLibrary`, `loadPackageDirectory`, `useLibrary!`, `unloadLibrary`, `loadedLibraries` (the libraries loaded into the session, which `flattenModelWithLibraries` adds), `enableDumpDebug`, `disableDumpDebug`, `toString`, `toFlatModelica`.
 - `src/main.jl` — inner module `Frontend`. The pipeline lives here. It includes everything under `src/Util/`, `src/FrontendUtil/`, `src/FrontendInterfaces/`, and `src/NewFrontend/`.
-- `src/Util/` — generic utilities ported from MetaModelica (Pointer, BaseHashTable, BaseAvlTree, ErrorExt, etc.). Submodules of `Frontend`.
+- `src/Util/` — generic utilities ported from MetaModelica (Pointer, the AVL tree code `baseAvlTreeCode.jl`, ErrorExt, etc.). Submodules of `Frontend`.
 - `src/FrontendUtil/` — `Prefix`.
 - `src/FrontendInterfaces/` — `NFAlias`, `NFInterfaces` thin wrappers and re-exports.
 - `src/NewFrontend/` — the actual NF port (~77 files, prefix `NF`). The hot path lives here. Notable files:
   - `NFFlatten.jl`, `NFInst.jl`, `NFTyping.jl`, `NFEvalConstants.jl` — pipeline phases.
   - `NFClassTree.jl`, `NFClass.jl`, `NFComponent.jl`, `NFInstNode.jl` — class and component representation.
   - `NFExpression.jl`, `NFSubscript.jl`, `NFCall.jl`, `NFBinding.jl` — expression, call, and binding ASTs.
-  - `NFConvertDAE.jl` — final lowering to the `DAE` data structures (`src/DAE`).
   - `NFPerfHelpers.jl` — `mapPreservingEq` and `reuseIfRefEqual` performance helpers.
-- `src/SCode/`, `src/DAE/` — the modules `OMFrontend.SCode` and `OMFrontend.DAE` (with `DAE.ClassInf`, `DAE.Values`), formerly the packages SCode.jl and DAE.jl; inside the package they are imported relatively (`import ..SCode`).
+- `src/SCode/` — the module `OMFrontend.SCode`, formerly the package SCode.jl; inside the package they are imported relatively (`import ..SCode`).
 - `src/AbsynToSCode.jl`, `src/SCodeUtil.jl`, `src/AbsynUtil.jl` — Absyn and SCode helpers used during translation.
 - `src/GUI_API.jl`, `src/Util/Corba.jl` — IPC and GUI integration points (not part of the core flatten path).
 - `src/componentGraphics.jl` — a component class's icon and connector placements as Modelica text (`componentGraphics`).
@@ -31,10 +30,9 @@ The package is intentionally low-level. End users typically invoke it through OM
 
 ```
 .mo source
-  └─► OMParser              -> Absyn program        (parseFile)
+  └─► OpenModelicaParser    -> Absyn program        (parseFile)
         └─► AbsynToSCode    -> SCode program        (translateToSCode)
               └─► NF instantiate / type / flatten -> FlatModel       (instantiateSCodeToFM)
-                                                  └─► DAE form       (instantiateSCodeToDAE)
 ```
 
 The entry helpers `flattenModel`, `flattenModelWithMSL`, and `flattenModelWithLibraries` are convenience wrappers that compose those steps.
@@ -82,6 +80,35 @@ This is the idiom the SciML/MTK stack uses internally (its compiled conditions a
 
 Caveats: this only helps when the captured/stored state can be given a concrete (or at least narrow) type. Genuinely heterogeneous captures (a `Vector` of differently-parameterized values) stay abstract either way, and a `FunctionWrapper` around the result erases the outer type regardless of whether the inner is a closure or a functor. The candidate sites are the abstract `Function`-typed fields and closures captured inside the `traverse`/`map` expression walkers, which run once per `Expression` node.
 
+## Types and Naming
+
+The frontend's types are plain Julia structs, written out and documented where they are defined (no macro generates
+them). The interface types that other files hold are in `src/FrontendInterfaces/NFInterfaces.jl`, in load order.
+
+Naming (maintainer's rule):
+- **A tagged struct** (one struct for all variants, a `tag` field): CamelCase. `ModelicaType`, `ComponentRef`,
+  `Dimension`, `Binding`, `Modifier`, `Equation`, `EquationBranch`, `Statement`, `Call`. Its variants are its
+  constructor functions in SCREAMING_SNAKE_CASE (`COMPONENT_REF_CREF(...)`, `TYPED_CALL(...)`), and its tag enum is
+  `<Type>Tag` with values `<VARIANT>_TAG`, in the variants' order.
+- **A concrete struct that is not tagged** (one variant): SCREAMING_SNAKE_CASE. `ALGORITHM`, `OPERATOR`,
+  `CALL_ATTR`, `MODELICA_FUNCTION`.
+- **An abstract type** with several variant structs: CamelCase (`Expression`, `Subscript`, `Sections`).
+- **One name per type.** No aliases (`const Equation = NFEquation`, `const M_Type = NFType`): use the type's name.
+  Aliases of `Function` for higher-order arguments (`MapFn`, `FoldFunc`) stay.
+
+A tagged struct is registered for `@match`, `isvariant` and `variantof` with MetaModelica's `@registerVariants`
+after its constructors. Fields a variant does not have are `nothing` (or `#undef` when the variant's fields are the
+struct's first fields, as in `ComponentRef`; then the struct needs its own `ConstructionBase.setproperties` for
+`@assign`).
+
+A struct cycle (a type holds a function that holds a type) is broken with a type parameter and a `const` alias of
+the one instance used: `ModelicaTypeImpl{F}` with `const ModelicaType = ModelicaTypeImpl{MODELICA_FUNCTION}`,
+`ModifierImpl{T}` with `const Modifier = ModifierImpl{ModTable.Tree}`. A struct may name itself in its own fields.
+
+Type-stability scans (abstract field types, abstract types with one subtype, `Any` fields) cover every module of the
+package, `Frontend` and all its submodules (`ModTable`, `LookupTree`, the hash and tree modules), and the code in
+`test/` as well as `src/`: a field in a submodule's tree type is as much a field of the model as one in `Frontend`.
+
 ## Helper Pattern Caveats
 
 The helpers `mapPreservingEq` and `reuseIfRefEqual` live in `src/NewFrontend/NFPerfHelpers.jl` and are loaded at the top level of module `Frontend` via `src/main.jl`.
@@ -103,18 +130,6 @@ To use them in a submodule, either keep the inline `if referenceEq(...) ... end`
 
 ## Recently Fixed Bugs Worth Knowing
 
-### `TYPES_VAR` stale 6-arg call
-
-- Symptom: `MethodError: no method matching TYPES_VAR(::String, ::ATTR, ::T_REAL, ::UNBOUND, ::Bool, ::Nothing)`.
-- Root cause: `DAE.TYPES_VAR` has 5 fields. The OpenModelica source had a 6-field variant with an extra `bind_from_outside::Bool`. The sibling function `makeTypeRecordVar` at `src/NewFrontend/NFConvertDAE.jl:1679` correctly omitted the extra arg. `makeTypeVar` at `src/NewFrontend/NFConvertDAE.jl:1648` still passed `false,` as a stale 5th arg.
-- Fix: removed the stale `false,` line at `src/NewFrontend/NFConvertDAE.jl:1653`.
-
-### Uniontype dotted-accessor pattern
-
-- Symptom: `FieldError: type DataType has no field 'X'` where X is a record variant name.
-- Cause: OpenModelica source uses `Module.Uniontype.Variant(...)` (for example `DAE.Element.TERMINATE(...)`). The Julia port via `@Uniontype X begin @Record Y ... end` flattens records into the enclosing module, so `Y` is `Module.Y`, NOT `Module.X.Y`.
-- Fix pattern: drop the uniontype prefix (use `DAE.TERMINATE`, not `DAE.Element.TERMINATE`). Valid exception: `DAE.ClassInf.RECORD(...)` is a real nested submodule.
-
 ### `BINDING_EXP` subscript index in function body evaluation
 
 - Symptom: Package constants like `Medium.h_default` are left unresolved in the flat model even though simpler constants (e.g. `Medium.T_default`) evaluate correctly. More specifically, any function that uses a package-level constant as an array subscript index (e.g. `X[Water]` where `Water` is a `constant Integer` in the package) silently fails to evaluate at compile time.
@@ -128,7 +143,7 @@ Test entry: `test/runtests.jl`. The file `cd`s into `test/` so relative paths to
 
 Test groups (top-level `@testset`s in `runtests.jl`):
 - `scodeSanityTest.jl` — Absyn to SCode.
-- `daeTests.jl` — SCode to DAE / FlatModel.
+- `flattenSanityTests.jl` — SCode to FlatModel.
 - `gui_api_tests.jl` — gated behind `OMFRONTEND_TEST_GUI_API=1` because of an outstanding `compileModel`/`isfile` mismatch.
 - `frontendResultTest.jl` — flat model string match against expected output.
 - `mslTests.jl` — exercise components from the Modelica Standard Library.
@@ -170,10 +185,10 @@ The repository maintainer may override this on a per-task basis with an explicit
 - For OMFrontend perf claims, report allocation count and bytes, not wall time. See "Performance Metric" above.
 - Do not speculate about why something happened. If a log file or test output exists, read it. Say "I do not know yet, let me check" instead of guessing.
 - Do not restart a live Julia REPL unless asked. Use `Revise.retry()` first. Restarting throws away minutes of warm precompile.
-- Reference files by repo-relative path with line number where applicable, for example `src/NewFrontend/NFConvertDAE.jl:1653`.
+- Reference files by repo-relative path with line number where applicable, for example `src/NewFrontend/NFFlatten.jl:2089`.
 
 ## Pointers Outside This Repository
 
-- Parser: `OMParser` package.
-- Absyn / SCode / DAE data structures: `OMParser.Absyn` (the `OMParser` package), `OMFrontend.SCode`, `OMFrontend.DAE` (`src/SCode`, `src/DAE`).
-- Downstream consumer: `OMBackend.jl`, which lowers OMFrontend output to BDAE and then to MTK / DifferentialEquations.jl. Bug reports that surface as "OMBackend fails on model X" frequently trace back to malformed `DAE.Exp` or `DAE.Element` produced here. When a backend bug points at OMFrontend output, dump the `(FM, funcs)` from `flattenModel` and inspect it before editing backend code.
+- Parser: `OpenModelicaParser` package (formerly OMParser.jl).
+- Absyn / SCode data structures: `OpenModelicaParser.Absyn` (the `OpenModelicaParser` package), `OMFrontend.SCode` (`src/SCode`).
+- Downstream consumer: `OMBackend.jl`, which lowers OMFrontend output to BDAE and then to MTK / DifferentialEquations.jl. Bug reports that surface as "OMBackend fails on model X" frequently trace back to a malformed flat model (`FLAT_MODEL`) produced here. When a backend bug points at OMFrontend output, dump the `(FM, funcs)` from `flattenModel` and inspect it before editing backend code.

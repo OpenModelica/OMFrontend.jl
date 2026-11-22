@@ -33,10 +33,9 @@
 *
 */ =#
 
-@UniontypeDecl NFImport
-const Import = NFImport
+@UniontypeDecl Import
 
-@Uniontype NFImport begin
+@Uniontype Import begin
   @Record CONFLICTING_IMPORT begin
     imp1::Import
     imp2::Import
@@ -83,7 +82,6 @@ function instUnqualified(
   local path::Absyn.Path
   local node::InstNode
   local tree::ClassTree
-  local elements::List{InstNode}
 
   @match Absyn.UNQUAL_IMPORT(path = path) = imp
   node = lookupImport(path, scope, info)
@@ -130,7 +128,6 @@ end
 
 function resolve(imp::Import, isChangedImportRef::Ref{Bool}, importTyRef::Ref{Import})::InstNode
   local outImport::Import
-  local changed::Bool
   local node::InstNode
 
   outImport  = begin
@@ -157,19 +154,15 @@ function resolve(imp::Import, isChangedImportRef::Ref{Bool}, importTyRef::Ref{Im
 end
 
 function Import_info(imp::Import)::SourceInfo
-  local info::SourceInfo
-  info = begin
-    @match imp begin
-      UNRESOLVED_IMPORT(__) => begin
-        imp.info
-      end
+  @match imp begin
+    UNRESOLVED_IMPORT(__) => begin
+      imp.info
+    end
 
-      RESOLVED_IMPORT(__) => begin
-        imp.info
-      end
+    RESOLVED_IMPORT(__) => begin
+      imp.info
     end
   end
-  return info
 end
 
 function name(imp::Import)::String

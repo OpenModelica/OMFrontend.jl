@@ -12,7 +12,7 @@ only their target (Models/FuncEvalAssign.mo):
   compile time, so the call stays).
 - c: a record output whose field b is assigned only under a condition: b has no value
   (fixed = false, as omc); the output's cells were returned, and the empty field
-  reached the DAE as #EMPTY# (MSL Spice3 Graetz).
+  reached the flat model as #EMPTY# (MSL Spice3 Graetz).
 =#
 
 funcEvalAssignReference = "class TestFuncEvalAssign

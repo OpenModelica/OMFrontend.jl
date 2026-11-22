@@ -61,9 +61,6 @@
       end
 
       RECORD_EXPRESSION(__) => begin
-        #println("Record expression")
-        #println(toString(exp))
-        #exp.elements = Expression[simplify(e) for e in exp.elements]
         simplifyRecord(exp)
         exp
       end
@@ -161,7 +158,7 @@ end
   local stop_exp2::Expression
   local step_exp1::Option{Expression}
   local step_exp2::Option{Expression}
-  local ty::M_Type
+  local ty::ModelicaType
 
   @match RANGE_EXPRESSION(
     ty = ty,
@@ -200,7 +197,7 @@ end
       TYPED_CALL(arguments = args) where {(!isExternal(call))} => begin
         local origArgs = args
         if Flags.isSet(Flags.NF_EXPAND_FUNC_ARGS)
-          args = mapPreservingEq(args, arg -> hasArrayCall(arg) ? arg : Base.first(expand(arg)))
+          args = mapPreservingEq(args, (@nospecialize(arg::Expression),) -> hasArrayCall(arg) ? arg : Base.first(expand(arg)))
         end
         #=  HACK, TODO, FIXME! handle DynamicSelect properly in OMEdit, then disable this stuff! =#
         if Flags.isSet(Flags.NF_API) && !Flags.isSet(Flags.NF_API_DYNAMIC_SELECT)
@@ -219,21 +216,15 @@ end
         end
         builtin = isBuiltin(call.fn)
         is_pure = !isImpure(call.fn)
-        #=  Use Ceval for builtin pure functions with literal arguments.
-        =#
+        #= Use Ceval for builtin pure functions with literal arguments. =#
         if builtin
-          local scalarize = Flags.isSet(Flags.NF_SCALARIZE)
+          local scalarize = Flags.isSet(Flags.FRONTEND_SCALARIZE)
           #= A scalar result is evaluated with arrays kept too (omc evaluates every such call): a parameter's
              `0.2 * div(200, 2)` stayed a call, and the backend took the event function for one of a variable
              (MSL RealFFT1's f_max_FFT: a sample interval of 0). An array result is not: it stays the call. =#
           if (is_pure && ArrayUtil.all(args, isLiteral)) && isScalar(call.ty)
-            try
-              callExp = evalCall(call, EVALTARGET_IGNORE_ERRORS())
-              callExp = stripBindingInfo(callExp)
-            catch e
-              #@info "DBG print to remove $e"
-              callExp = CALL_EXPRESSION(call)
-            end
+            callExp = evalCall(call, EVALTARGET_IGNORE_ERRORS())
+            callExp = isEvalFailure(callExp) ? CALL_EXPRESSION(call) : stripBindingInfo(callExp)
           elseif scalarize
             callExp = simplify(nameConsiderBuiltin(call.fn), args, call)
           elseif changed
@@ -248,10 +239,8 @@ end
         else
           callExp = changed ? CALL_EXPRESSION(call) : callExp
         end
-        #=  do not expand builtin calls if we should not scalarize
-        =#
-        #=  nothing
-        =#
+        #= do not expand builtin calls if we should not scalarize
+           nothing =#
         callExp
       end
 
@@ -285,12 +274,8 @@ function simplifyCall2(call::Call)
     return hit
   end
   ErrorExt.setCheckpoint(getInstanceName())
-  try
-     outExp = evalCall(call, EVALTARGET_IGNORE_ERRORS())
-     outExp = stripBindingInfo(outExp)
-    ErrorExt.delCheckpoint(getInstanceName())
-    lock(() -> CONST_FOLD_CACHE[key] = outExp, CONST_FOLD_CACHE_LOCK)
-  catch
+  outExp = evalCall(call, EVALTARGET_IGNORE_ERRORS())
+  if isEvalFailure(outExp)
     if Flags.isSet(Flags.FAILTRACE)
       ErrorExt.delCheckpoint(getInstanceName())
       Debug.traceln(
@@ -299,8 +284,11 @@ function simplifyCall2(call::Call)
     else
       ErrorExt.rollBack(getInstanceName())
     end
-     outExp = CALL_EXPRESSION(call)
+    return CALL_EXPRESSION(call)
   end
+  outExp = stripBindingInfo(outExp)
+  ErrorExt.delCheckpoint(getInstanceName())
+  lock(() -> CONST_FOLD_CACHE[key] = outExp, CONST_FOLD_CACHE_LOCK)
   return outExp
 end
 
@@ -314,7 +302,7 @@ function simplify(
     @match AbsynUtil.pathFirstIdent(name) begin
       "cat" => begin
         (exp, _) = expandBuiltinCat(args, call)
-        exp
+        isEvalFailure(exp) ? CALL_EXPRESSION(call) : exp
       end
       "sum" => begin
         simplifySumProduct(Base.first(args), call, #=isSum=# true)
@@ -338,8 +326,8 @@ function simplifySumProduct(arg::Expression, call::Call, isSum::Bool)
 
   local expanded::Bool
   local args::Vector{Expression}
-  local ty::M_Type
-  local op::Operator
+  local ty::ModelicaType
+  local op::OPERATOR
 
   (exp, expanded) = expand(arg)
   if expanded
@@ -391,47 +379,28 @@ function simplifyTranspose(arg::Expression, call::Call)
   return exp
 end
 
-function simplifyArrayConstructor(call::Call)
-  local outExp::Expression
-  local ty::M_Type
-  local var::VariabilityType
-  local exp::Expression
-  local e::Expression
-  local iters::List{Tuple{InstNode, Expression}}
-  local iter::InstNode
-  local dim::Dimension
-  local dim_size::Int
-  local expanded::Bool
-  @match TYPED_ARRAY_CONSTRUCTOR(ty, var, exp, iters) = call
-  iters = list((Util.tuple21(i), simplify(Util.tuple22(i))) for i in iters)
-  outExp = begin
-    @matchcontinue iters begin
-      (iter, e) <| T where{T isa Nil} => begin
-        @match TYPE_ARRAY(dimensions = dim <| T) where {T isa Nil} = typeOf(e)
-        dim_size = size(dim)
-        if dim_size == 0
-          outExp = makeEmptyArray(ty)
-        elseif dim_size == 1
-          @match (ARRAY_EXPRESSION(elements = [e]), _) = expand(e)
-          exp = replaceIterator(exp, iter, e)
-          exp = makeArray(ty, Expression[exp])
-          outExp = simplify(exp)
-        else
-          fail()
+"""
+An array constructor with its iterator ranges simplified; one iterator over a range of 0 or 1
+elements gives the empty array or the array of its one element (omc simplifyArrayConstructor).
+"""
+function simplifyArrayConstructor(call::Call)::Expression
+  local iters::List{Tuple{InstNode, Expression}} = list((Util.tuple21(i), simplify(Util.tuple22(i))) for i in call.iters)
+  if !listEmpty(iters) && listEmpty(listRest(iters))
+    local (iter::InstNode, e::Expression) = listHead(iters)
+    local range_ty::ModelicaType = typeOf(e)
+    if isvariant(range_ty, TYPE_ARRAY) && listLength(range_ty.dimensions) == 1
+      local dim::Dimension = listHead(range_ty.dimensions)
+      local dim_size::Int = isKnown(dim) && hasSizeExp(dim) ? size(dim) : -1
+      dim_size == 0 && return makeEmptyArray(call.ty)
+      if dim_size == 1
+        local expanded::Expression = Base.first(expand(e))
+        if expanded isa ARRAY_EXPRESSION && length(expanded.elements) == 1
+          return simplify(makeArray(call.ty, Expression[replaceIterator(call.exp, iter, expanded.elements[1])]))
         end
-        #=  Result is Array[0], return empty array expression.
-        =#
-        #=  Result is Array[1], return array with the single element.
-        =#
-        outExp
-      end
-      _ => begin
-        exp = simplify(exp)
-        CALL_EXPRESSION(TYPED_ARRAY_CONSTRUCTOR(ty, var, exp, iters))
       end
     end
   end
-  return outExp
+  return CALL_EXPRESSION(TYPED_ARRAY_CONSTRUCTOR(call.ty, call.var, simplify(call.exp), iters))
 end
 
 #= The argument is not named sizeExp: that is Dimension's size expression, called below. =#
@@ -481,7 +450,7 @@ end
 
 #= Reuse `orig` when the fallback would rebuild the identical binary (same
    operands by identity, same operator); otherwise allocate a fresh node. =#
-@inline function reuseBinary(@nospecialize(orig), @nospecialize(e1), op::Operator, @nospecialize(e2))
+@inline function reuseBinary(@nospecialize(orig), @nospecialize(e1), op::OPERATOR, @nospecialize(e2))
   if orig isa BINARY_EXPRESSION && orig.operator === op &&
      referenceEq(orig.exp1, e1) && referenceEq(orig.exp2, e2)
     return orig
@@ -494,7 +463,7 @@ end
   local e2::Expression
   local se1::Expression
   local se2::Expression
-  local op::Operator
+  local op::OPERATOR
   @match BINARY_EXPRESSION(e1, op, e2) = binaryExp
   se1 = simplify(e1)
   se2 = simplify(e2)
@@ -505,7 +474,29 @@ end
   return binaryExp
 end
 
-@nospecializeinfer function simplifyBinaryOp(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
+"""Whether `simplifyBinaryOp` of two array literals goes element by element (as omc: `+`, `-` and the `.op` operators)."""
+function _simplifiesElementWise(op::OPERATOR)::Bool
+  local o::Int = op.op
+  return o == Op.ADD || o == Op.SUB || isElementWise(op)
+end
+
+"""
+Two array literals combined element by element, each pair simplified (omc's simplifyBinaryEW): `{x, 1} .* {2, y}` is
+`{x * 2.0, y}`. The rows of a matrix keep the element-wise operator and are combined the same way; scalars get the
+scalar operator (omc leaves the rows as `{x, 1.0} .* {2.0, y}`). Arrays of different lengths stay a binary expression.
+"""
+function _simplifyBinaryEW(a::ARRAY_EXPRESSION, op::OPERATOR, b::ARRAY_EXPRESSION)::Expression
+  length(a.elements) == length(b.elements) || return BINARY_EXPRESSION(a, op, b)
+  local eop::OPERATOR = unlift(op)
+  isArray(eop.ty) || (eop = stripEW(eop))
+  local elems::Vector{Expression} = Vector{Expression}(undef, length(a.elements))
+  for i in eachindex(elems)
+    elems[i] = simplifyBinaryOp(a.elements[i], eop, b.elements[i])
+  end
+  return makeArray(typeOf(op), elems)
+end
+
+@nospecializeinfer function simplifyBinaryOp(@nospecialize(exp1::Expression), op::OPERATOR, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local outExp::Expression
 
   if isLiteral(exp1) && isLiteral(exp2)
@@ -514,7 +505,10 @@ end
       op,
       expand(exp2)[1],
     )
-    outExp = stripBindingInfo(outExp)
+    #= Literal operands Ceval cannot combine (a division by zero, mismatched arrays): the operation stays. =#
+    outExp = isEvalFailure(outExp) ? BINARY_EXPRESSION(exp1, op, exp2) : stripBindingInfo(outExp)
+  elseif exp1 isa ARRAY_EXPRESSION && exp2 isa ARRAY_EXPRESSION && _simplifiesElementWise(op)
+    outExp = _simplifyBinaryEW(exp1, op, exp2)
   else
     outExp = begin
       @match op.op begin
@@ -547,7 +541,7 @@ end
   return outExp
 end
 
-@nospecializeinfer function simplifyBinaryAdd(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
+@nospecializeinfer function simplifyBinaryAdd(@nospecialize(exp1::Expression), op::OPERATOR, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local outExp::Expression
 
   if isZero(exp1)
@@ -563,16 +557,13 @@ end
   else
     outExp = reuseBinary(orig, exp1, op, exp2)
   end
-  #=  0 + e = e
-  =#
-  #=  e + 0 = e
-  =#
-  #=  e1 + -(e2) = e1 - e2
-  =#
+  #= 0 + e = e
+     e + 0 = e
+     e1 + -(e2) = e1 - e2 =#
   return outExp
 end
 
-@nospecializeinfer function simplifyBinarySub(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
+@nospecializeinfer function simplifyBinarySub(@nospecialize(exp1::Expression), op::OPERATOR, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local outExp::Expression
 
   if isZero(exp1)
@@ -591,18 +582,15 @@ end
   else
      outExp = reuseBinary(orig, exp1, op, exp2)
   end
-  #=  0 - e = -e
-  =#
-  #=  e - 0 = e
-  =#
-  #=  e1 - -(e2) = e1 + e2
-  =#
+  #= 0 - e = -e
+     e - 0 = e
+     e1 - -(e2) = e1 + e2 =#
   return outExp
 end
 
 @nospecializeinfer function simplifyBinaryMul(
   @nospecialize(exp1::Expression),
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
   switched::Bool = false,
   @nospecialize(orig = nothing),
@@ -637,22 +625,18 @@ end
       end
     end
   end
-  #=  0 * e = 0
-  =#
-  #=  1 * e = e
-  =#
+  #= 0 * e = 0
+     1 * e = e =#
   return outExp
 end
 
-@nospecializeinfer function simplifyBinaryDiv(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
+@nospecializeinfer function simplifyBinaryDiv(@nospecialize(exp1::Expression), op::OPERATOR, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local outExp::Expression
 
-  #=  e / 1 = e
-  =#
-  #=  0 / e = 0 for a scalar e that is not a literal, as omc's ExpressionSimplify does (MSL 4.1.0
-      HeatingNPN_NORGate: Taur = 0 leaves `cbc = 0.0/(NR*vt_t)*exlin2(...)`, a coefficient of der(vbc)
-      that is zero but kept the derivative, and the system was structurally singular).
-  =#
+  #= e / 1 = e
+     0 / e = 0 for a scalar e that is not a literal, as omc's ExpressionSimplify does (MSL 4.1.0
+     HeatingNPN_NORGate: Taur = 0 leaves `cbc = 0.0/(NR*vt_t)*exlin2(...)`, a coefficient of der(vbc)
+     that is zero but kept the derivative, and the system was structurally singular). =#
   if isOne(exp2)
      outExp = exp1
   elseif isZero(exp1) && !isLiteral(exp2) && isScalar(typeOf(op))
@@ -663,7 +647,7 @@ end
   return outExp
 end
 
-@nospecializeinfer function simplifyBinaryPow(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
+@nospecializeinfer function simplifyBinaryPow(@nospecialize(exp1::Expression), op::OPERATOR, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local outExp::Expression
 
   if isZero(exp2)
@@ -679,7 +663,7 @@ end
 @nospecializeinfer function simplifyUnary(@nospecialize(unaryExp::Expression))
   local e::Expression
   local se::Expression
-  local op::Operator
+  local op::OPERATOR
   @match UNARY_EXPRESSION(op, e) = unaryExp
    se = simplify(e)
    unaryExp = simplifyUnaryOp(se, op, unaryExp)
@@ -689,11 +673,11 @@ end
   return unaryExp
 end
 
-@nospecializeinfer function simplifyUnaryOp(@nospecialize(exp::Expression), op::Operator, @nospecialize(orig = nothing))
+@nospecializeinfer function simplifyUnaryOp(@nospecialize(exp::Expression), op::OPERATOR, @nospecialize(orig = nothing))
   local outExp::Expression
   if isLiteral(exp)
     outExp = evalUnaryOp(exp, op)
-    outExp = stripBindingInfo(outExp)
+    outExp = isEvalFailure(outExp) ? UNARY_EXPRESSION(op, exp) : stripBindingInfo(outExp)
   elseif orig isa UNARY_EXPRESSION && orig.operator === op && referenceEq(orig.exp, exp)
     outExp = orig
   else
@@ -708,7 +692,7 @@ end
   local e2::Expression
   local se1::Expression
   local se2::Expression
-  local op::Operator
+  local op::OPERATOR
 
   @match LBINARY_EXPRESSION(e1, op, e2) = binaryExp
    se1 = simplify(e1)
@@ -728,7 +712,7 @@ end
 end
 
 #= Reuse `orig` when the LBINARY fallback would rebuild the identical node. =#
-@inline function reuseLBinary(@nospecialize(orig), @nospecialize(e1), op::Operator, @nospecialize(e2))
+@inline function reuseLBinary(@nospecialize(orig), @nospecialize(e1), op::OPERATOR, @nospecialize(e2))
   if orig isa LBINARY_EXPRESSION && orig.operator === op &&
      referenceEq(orig.exp1, e1) && referenceEq(orig.exp2, e2)
     return orig
@@ -736,19 +720,29 @@ end
   return LBINARY_EXPRESSION(e1, op, e2)
 end
 
+"""
+The elementwise `f(a[i], unlift(op), b[i])` of two arrays (`f` is `simplifyLogicBinaryAnd` or `simplifyLogicBinaryOr`),
+an array of the type of `op`. A typed loop: a generator over the abstract elements compiled per element type.
+"""
+function _logicArrayBinary(f::FT, a::ARRAY_EXPRESSION, op::OPERATOR, b::ARRAY_EXPRESSION)::Expression where {FT<:Function}
+  local o::OPERATOR = unlift(op)
+  local elems::Vector{Expression} = Vector{Expression}(undef, min(length(a.elements), length(b.elements)))
+  for i in eachindex(elems)
+    elems[i] = f(a.elements[i], o, b.elements[i])
+  end
+  return makeArray(typeOf(op), elems)
+end
+
 @nospecializeinfer function simplifyLogicBinaryAnd(
   @nospecialize(exp1::Expression),
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
   @nospecialize(orig = nothing),
 )
   local exp::Expression
 
    exp = begin
-    local expl::List{Expression}
-    local o::Operator
-    #=  false and e => false
-    =#
+    #= false and e => false =#
     @match (exp1, exp2) begin
       (BOOLEAN_EXPRESSION(false), _) => begin
         exp1
@@ -767,19 +761,7 @@ end
       end
 
       (ARRAY_EXPRESSION(__), ARRAY_EXPRESSION(__)) => begin
-        #=  e and false => false
-        =#
-        #=  true and e => e
-        =#
-        #=  e and true => e
-        =#
-         o = unlift(op)
-         expl =
-          list(@do_threaded_for simplifyLogicBinaryAnd(e1, o, e2) (e1, e2) (
-            exp1.elements,
-            exp2.elements,
-          ))
-        makeArray(typeOf(op), listArray(expl))
+        _logicArrayBinary(simplifyLogicBinaryAnd, exp1::ARRAY_EXPRESSION, op, exp2::ARRAY_EXPRESSION)
       end
 
       _ => begin
@@ -790,14 +772,11 @@ end
   return exp
 end
 
-@nospecializeinfer function simplifyLogicBinaryOr(@nospecialize(exp1::Expression), op::Operator, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
+@nospecializeinfer function simplifyLogicBinaryOr(@nospecialize(exp1::Expression), op::OPERATOR, @nospecialize(exp2::Expression), @nospecialize(orig = nothing))
   local exp::Expression
 
    exp = begin
-    local expl::List{Expression}
-    local o::Operator
-    #=  true or e => true
-    =#
+    #= true or e => true =#
     @match (exp1, exp2) begin
       (BOOLEAN_EXPRESSION(true), _) => begin
         exp1
@@ -816,19 +795,7 @@ end
       end
 
       (ARRAY_EXPRESSION(__), ARRAY_EXPRESSION(__)) => begin
-        #=  e or true => true
-        =#
-        #=  false or e => e
-        =#
-        #=  e or false => e
-        =#
-         o = unlift(op)
-         expl =
-          list(@do_threaded_for simplifyLogicBinaryAnd(e1, o, e2) (e1, e2) (
-            exp1.elements,
-            exp2.elements,
-          ))
-        makeArray(typeOf(op), listArray(expl))
+        _logicArrayBinary(simplifyLogicBinaryOr, exp1::ARRAY_EXPRESSION, op, exp2::ARRAY_EXPRESSION)
       end
 
       _ => begin
@@ -842,7 +809,7 @@ end
 @nospecializeinfer function simplifyLogicUnary(@nospecialize(unaryExp::Expression))
   local e::Expression
   local se::Expression
-  local op::Operator
+  local op::OPERATOR
   @match LUNARY_EXPRESSION(op, e) = unaryExp
   se = simplify(e)
   if isLiteral(se)
@@ -859,14 +826,14 @@ end
   local e2::Expression
   local se1::Expression
   local se2::Expression
-  local op::Operator
+  local op::OPERATOR
 
   @match RELATION_EXPRESSION(e1, op, e2) = relationExp
    se1 = simplify(e1)
    se2 = simplify(e2)
   if isLiteral(se1) && isLiteral(se2)
      relationExp = evalRelationOp(se1, op, se2)
-     relationExp = stripBindingInfo(relationExp)
+     relationExp = isEvalFailure(relationExp) ? RELATION_EXPRESSION(se1, op, se2) : stripBindingInfo(relationExp)
   elseif !(referenceEq(e1, se1) && referenceEq(e2, se2))
      relationExp = RELATION_EXPRESSION(se1, op, se2)
   end
@@ -909,10 +876,10 @@ end
   return ifExp
 end
 
-@nospecializeinfer function simplifyCast(@nospecialize(exp::Expression), ty::NFType)
+@nospecializeinfer function simplifyCast(@nospecialize(exp::Expression), ty::ModelicaType)
   local castExp::Expression
   castExp = begin
-    local ety::NFType
+    local ety::ModelicaType
     @match (ty, exp) begin
       (TYPE_REAL(__), INTEGER_EXPRESSION(__)) => begin
         REAL_EXPRESSION(intReal(exp.value))
@@ -935,7 +902,7 @@ end
 @nospecializeinfer function simplifySubscriptedExp(@nospecialize(subscriptedExp::Expression); split = false)
   local e::Expression
   local subs::List{Subscript}
-  local ty::NFType
+  local ty::ModelicaType
   @match SUBSCRIPTED_EXP_EXPRESSION(e, subs, ty) = subscriptedExp
   subscriptedExp = simplify(e)
   subs = simplifyList(subs, arrayDims(typeOf(e)))
@@ -959,13 +926,12 @@ end
 @nospecializeinfer function simplifyTupleElement(@nospecialize(tupleExp::Expression))
   local e::Expression
   local index::Int
-  local ty::M_Type
+  local ty::ModelicaType
   @match TUPLE_ELEMENT_EXPRESSION(e, index, ty) = tupleExp
   e = simplify(e)
   tupleExp = tupleElement(e, ty, index)
   return tupleExp
 end
-
 
 function simplifyRecord(recordExpr::RECORD_EXPRESSION)
   # local args = if Flags.isSet(Flags.NF_EXPAND_FUNC_ARGS)

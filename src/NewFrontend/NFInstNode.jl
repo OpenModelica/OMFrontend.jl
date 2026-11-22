@@ -46,21 +46,19 @@ module NodeTree
 import ..Frontend.InstNode
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 const Key = String
 const Value = InstNode
 include("../Util/baseDictTreeCode.jl")
 
-keyCompare::Function = (inKey1::String, inKey2::String) -> begin
-  res = stringCompare(inKey1, inKey2)
-  return res
-end
+keyCompare(inKey1::Key, inKey2::Key)::Int = stringCompare(inKey1, inKey2)
+const addConflictDefault = addConflictFail
 
 @exportAll()
 end
 const CACHE_STATE_NOT_INSTANTIATED = -1
 const CACHE_STATE_PROCESSING = 0
-const CACHE_STATE_EXPANDED = 1
 const CACHE_STATE_PARTIALLY_INSTANTIATED = 2
 const CACHE_STATE_INSTANTIATED = 3
 
@@ -72,7 +70,7 @@ struct C_TOP_SCOPE <: CachedData
 end
 
 mutable struct C_FUNCTION <: CachedData
-  funcs::Vector{M_FUNCTION}
+  funcs::Vector{MODELICA_FUNCTION}
   typed::Bool
   specialBuiltin::Bool
 end
@@ -84,7 +82,6 @@ end
 
 struct C_NO_CACHE <: CachedData
 end
-
 
 const NUMBER_OF_CACHES::Int = 3
 
@@ -123,22 +120,21 @@ function getFuncCache(in_caches::Vector{<:CachedData})
   out_cache
 end
 
-function addFunc(fn::M_Function, specialBuiltin::Bool, caches::Vector{<:CachedData})
+function addFunc(fn::MODELICA_FUNCTION, specialBuiltin::Bool, caches::Vector{<:CachedData})
   local func_cache::CachedData
    func_cache = getFuncCache(caches)
    func_cache = begin
     @match func_cache begin
       C_NO_CACHE(__)  => begin
-        C_FUNCTION(M_Function[fn], false, specialBuiltin)
+        C_FUNCTION(MODELICA_FUNCTION[fn], false, specialBuiltin)
       end
 
       C_FUNCTION(__)  => begin
-        C_FUNCTION(Base.append!(func_cache.funcs, M_FUNCTION[fn]), false, func_cache.specialBuiltin || specialBuiltin)
+        C_FUNCTION(Base.append!(func_cache.funcs, MODELICA_FUNCTION[fn]), false, func_cache.specialBuiltin || specialBuiltin)
       end
 
       _  => begin
-        #=  Append to end so the error messages are ordered properly.
-        =#
+        #= Append to end so the error messages are ordered properly. =#
         Error.assertion(false, getInstanceName() + ": Invalid cache for function", sourceInfo())
         fail()
       end
@@ -153,7 +149,7 @@ function initFunc(caches::Vector{<:CachedData})
    func_cache = begin
     @match func_cache begin
       C_NO_CACHE(__)  => begin
-        C_FUNCTION(M_FUNCTION[], false, false)
+        C_FUNCTION(MODELICA_FUNCTION[], false, false)
       end
       C_FUNCTION(__)  => begin
         func_cache
@@ -237,7 +233,7 @@ function isRecord(@nospecialize(node::InstNode))
   isRec
 end
 
-@inline function withComponent(node::InstNode, component::Union{Component,Pointer{Component}})::InstNode
+@inline function withComponent(node::InstNode, component::Union{Component,ComponentCell})::InstNode
   COMPONENT_NODE(node.name, node.visibility, component, node.parent, node.nodeType)
 end
 
@@ -300,15 +296,14 @@ function copyInstancePtr(srcNode::InstNode,
   dstNode
 end
 
-function getComments(node::InstNode, accumCmts::List{<:SCode.Comment} = nil)
-  local cmts::List{SCode.Comment}
+function getComments(node::InstNode, accumCmts::List{<:SCode.COMMENT} = nil)
+  local cmts::List{SCode.COMMENT}
 
    cmts = begin
-    local cmt::SCode.Comment
-    local cls::Class
+    local cmt::SCode.COMMENT
     @match node begin
       CLASS_NODE(definition = SCode.CLASS(cmt = cmt))  => begin
-        Cons{SCode.Comment}(cmt, getDerivedComments(_clsVal(node), accumCmts))
+        Cons{SCode.COMMENT}(cmt, getDerivedComments(_clsVal(node), accumCmts))
       end
       _  => begin
         accumCmts
@@ -388,76 +383,6 @@ function isBuiltin(node::InstNode)
   isBuiltin
 end
 
-""" Returns the DAE type for a class, with the list of variables filled in. """
-function toFullDAEType(clsNode::InstNode)
-  local outType::DAE.Type
-
-   outType = begin
-    local cls::Class
-    local vars::List{DAE.Var}
-    local state::ClassInf.State
-    @match clsNode begin
-      CLASS_NODE(__)  => begin
-         cls = _clsVal(clsNode)
-        begin
-          @match cls begin
-            DAE_TYPE(__)  => begin
-              cls.ty
-            end
-            _  => begin
-              state = toDAE(restriction(cls), scopePath(clsNode, includeRoot = true))
-              vars = makeTypeVars(clsNode)
-              outType = DAE.T_COMPLEX(state, vars, NONE())
-              clsNode = updateClass(DAE_TYPE(outType), clsNode)
-              outType
-            end
-          end
-        end
-      end
-    end
-  end
-  outType
-end
-
-function stripDAETypeVars(ty::DAE.Type)
-  @match ty begin
-    DAE.T_COMPLEX(__)  => begin
-      ty = DAE.T_COMPLEX(ty.complexClassType, ty.varLst, ty.equalityConstraint)
-    end
-    _  => begin
-      ty
-    end
-  end
-end
-
-"""Returns the DAE type for a class, without the list of variables filled in."""
-function toPartialDAEType(clsNode::InstNode)
-  local outType::DAE.Type
-
-   outType = begin
-    local cls::Class
-    local state::ClassInf.SMNode
-    @match clsNode begin
-      CLASS_NODE(__)  => begin
-         cls = _clsVal(clsNode)
-        begin
-          @match cls begin
-            DAE_TYPE(__)  => begin
-              stripDAETypeVars(cls.ty)
-            end
-
-            _  => begin
-               state = toDAE(restriction(cls), scopePath(clsNode, includeRoot = true))
-              DAE.T_COMPLEX(state, nil, NONE())
-            end
-          end
-        end
-      end
-    end
-  end
-  outType
-end
-
 function setModifier(mod::Modifier, node::InstNode)
   node = @match node begin
     CLASS_NODE(__)  => begin
@@ -487,7 +412,6 @@ function mergeModifier(mod::Modifier, node::InstNode)
   end
   node
 end
-
 
 function getModifier(node::InstNode)
   local mod
@@ -570,7 +494,6 @@ function isProtectedBaseClass(node::InstNode)
   local isProtected::Bool
 
    isProtected = begin
-    local def::SCode.Element
     @match node begin
       CLASS_NODE(nodeType = BASE_CLASS(definition = SCode.EXTENDS(visibility = SCode.PROTECTED(__))))  => begin
         true
@@ -644,7 +567,6 @@ function toString(node::InstNode)
         toString(node.name, _compVal(node))
       end
       CLASS_NODE(__)  => begin
-        #SCodeDump.unparseElementStr(node.definition)
         "CLASS_NODE: " * node.name
       end
       _  => begin
@@ -686,8 +608,7 @@ function isSame(node1::InstNode, node2::InstNode)
      same = true
     return same
   end
-  #=  TODO: This is not enough. We need a better way.
-  =#
+  #= TODO: This is not enough. We need a better way. =#
   same
 end
 
@@ -726,8 +647,7 @@ function refEqual(node1::InstNode, node2::InstNode)
       end
     end
   end
-  #=  Other nodes like ref nodes might be equal, but we neither know nor care.
-  =#
+  #= Other nodes like ref nodes might be equal, but we neither know nor care. =#
   refEqualIs
 end
 
@@ -776,19 +696,17 @@ function openImplicitScope(scope::InstNode)
 end
 
 function setInnerOuterCache(node::InstNode, in_out_cache::CachedData)
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        setInnerOuterCache(node.caches, in_out_cache)
-        ()
-      end
+   @match node begin
+     CLASS_NODE(__)  => begin
+       setInnerOuterCache(node.caches, in_out_cache)
+       ()
+     end
 
-      _  => begin
-        Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
-        fail()
-      end
-    end
-  end
+     _  => begin
+       Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+       fail()
+     end
+   end
   node
 end
 
@@ -809,36 +727,32 @@ function getInnerOuterCache(inNode::InstNode)
 end
 
 function clearPackageCache(node::InstNode)
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        clearPackageCache(node.caches)
-        ()
-      end
+   @match node begin
+     CLASS_NODE(__)  => begin
+       clearPackageCache(node.caches)
+       ()
+     end
 
-      _  => begin
-        Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
-        fail()
-      end
-    end
-  end
+     _  => begin
+       Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+       fail()
+     end
+   end
   node
 end
 
 function setPackageCache(node::InstNode, in_pack_cache::CachedData)
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        setPackageCache(node.caches, in_pack_cache)
-        ()
-      end
+   @match node begin
+     CLASS_NODE(__)  => begin
+       setPackageCache(node.caches, in_pack_cache)
+       ()
+     end
 
-      _  => begin
-        Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
-        fail()
-      end
-    end
-  end
+     _  => begin
+       Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+       fail()
+     end
+   end
   node
 end
 
@@ -861,19 +775,17 @@ function getPackageCache(inNode::InstNode)
 end
 
 function setFuncCache(node::InstNode, in_func_cache::CachedData)
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        setFuncCache(node.caches, in_func_cache)
-        ()
-      end
-      _  => begin
-        #Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
-        @error "Error in set func cache"
-        fail()
-      end
-    end
-  end
+   @match node begin
+     CLASS_NODE(__)  => begin
+       setFuncCache(node.caches, in_func_cache)
+       ()
+     end
+     _  => begin
+       #Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+       @error "Error in set func cache"
+       fail()
+     end
+   end
   node
 end
 
@@ -893,36 +805,32 @@ function getFuncCache(inNode::InstNode)
   func_cache
 end
 
-function cacheAddFunc(node::InstNode, fn::M_Function, specialBuiltin::Bool)
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        addFunc(fn, specialBuiltin, node.caches)
-        ()
-      end
-      _  => begin
-        Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
-        fail()
-      end
-    end
-  end
+function cacheAddFunc(node::InstNode, fn::MODELICA_FUNCTION, specialBuiltin::Bool)
+   @match node begin
+     CLASS_NODE(__)  => begin
+       addFunc(fn, specialBuiltin, node.caches)
+       ()
+     end
+     _  => begin
+       Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+       fail()
+     end
+   end
   node
 end
 
 function cacheInitFunc(node::InstNode)
-   () = begin
-    @match node begin
-      CLASS_NODE(__)  => begin
-        initFunc(node.caches)
-        ()
-      end
+   @match node begin
+     CLASS_NODE(__)  => begin
+       initFunc(node.caches)
+       ()
+     end
 
-      _  => begin
-        Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
-        fail()
-      end
-    end
-  end
+     _  => begin
+       Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+       fail()
+     end
+   end
   node
 end
 
@@ -1178,8 +1086,7 @@ function scopePath(node::InstNode; includeRoot::Bool = false #= Whether to inclu
       end
     end
   end
-  #=  For debugging.
-  =#
+  #= For debugging. =#
   path
 end
 
@@ -1188,7 +1095,6 @@ function scopeListClass!(clsNode::InstNode,
                          includeRoot::Bool,
                          accumScopes::List{InstNode})
   local scopes::List{InstNode}
-  #local accumScopes::List{InstNode} = nil
   while true
     @match ty begin
       NORMAL_CLASS(__)  => begin
@@ -1200,7 +1106,6 @@ function scopeListClass!(clsNode::InstNode,
         break
       end
       DERIVED_CLASS(__)  => begin
-        #accumScopes = scopeListClass!(clsNode, ty.ty, includeRoot, accumScopes)
         ty = ty.ty
         continue
       end
@@ -1365,7 +1270,6 @@ function componentApply(node::T, func::Function, arg::ArgT)::T  where {T <: Inst
   node
 end
 
-
 function classApply(node::InstNode, func::FuncType, arg::ArgT)  where {ArgT}
   node = @match node begin
     CLASS_NODE(__)  => begin
@@ -1379,7 +1283,7 @@ function classApply(node::InstNode, func::FuncType, arg::ArgT)  where {ArgT}
 end
 
 function getType(node::InstNode)
-  local ty::M_Type
+  local ty::ModelicaType
    ty = begin
     @match node begin
       CLASS_NODE(__)  => begin
@@ -1451,7 +1355,6 @@ function definition(node::InstNode)
   return def
 end
 
-
 function setNodeType(@nospecialize(nodeType::InstNodeType),
                      @nospecialize(node::InstNode))
 
@@ -1500,7 +1403,6 @@ function replaceClass(cls::Class, node::InstNode)
   return node
 end
 
-
 """
 Creates a new component node holding the supplied component value.
 """
@@ -1521,46 +1423,16 @@ component value (a unique instance, not an alias of `node`).
                node.nodeType)
 end
 
-#=
-  Per-pointer write counters used by `OMFRONTEND_INST_PROFILE`. They are
-  populated by `updateClass` and `updateComponent!` below. The dispatcher
-  in `instClassInProgramFM2` resets them at entry and dumps a summary
-  at exit (see `dumpInstDiagnostics` in NFInst.jl).
-=#
-const CLASS_PTR_WRITES = Dict{UInt64, Tuple{String, Int}}()
-const COMPONENT_PTR_WRITES = Dict{UInt64, Tuple{String, Int}}()
-
-#=
-  Aliasing audit: map each Ref cell (keyed by objectid of node.component /
-  node.cls) to the set of DISTINCT node identities that wrote through it.
-  Nodes are held strongly (IdSet) so the Ref stays alive and its objectid
-  cannot be reused by a GC'd-then-reallocated cell, which would otherwise
-  fabricate aliasing. A set with size > 1 is a genuine multi-writer Ref.
-=#
-const COMPONENT_PTR_WRITERS = Dict{UInt64, Base.IdSet{Any}}()
-const CLASS_PTR_WRITERS = Dict{UInt64, Base.IdSet{Any}}()
-
 # Share immutable, unmodified TYPE_ATTRIBUTE template nodes across instances
 # instead of copying them per instance. Enabled by default; disable with
 # OMFRONTEND_SHARE_ATTRS=false. Only attributes with no instance modifier are
 # shared. Mutators rebuild component nodes instead of modifying them in place.
 const SHARE_ATTRS = Base.RefValue{Bool}(get(ENV, "OMFRONTEND_SHARE_ATTRS", "true") == "true")
 
-function _profileEnabled()
-  return get(ENV, "OMFRONTEND_INST_PROFILE", "false") == "true"
-end
-
 function updateComponent!(component::Component, node::InstNode)
    node = begin
     @match node begin
       COMPONENT_NODE(__)  => begin
-        if _profileEnabled()
-          local k = objectid(node.component)
-          local nm = try string(node.name) catch; "?" end
-          local prev = get(COMPONENT_PTR_WRITES, k, (nm, 0))
-          COMPONENT_PTR_WRITES[k] = (prev[1], prev[2] + 1)
-          push!(get!(COMPONENT_PTR_WRITERS, k, Base.IdSet{Any}()), node)
-        end
         _compSet!(node, component)
       end
     end
@@ -1573,29 +1445,18 @@ The component of a component node: a `ComponentImpl` (`Component`'s only subtype
 fields' reads are inferred and calls on them are not dynamic, 2026-11-18).
 """
 function component(node::InstNode)::ComponentImpl
-  local component::ComponentImpl
-   component = begin
-    @match node begin
-      COMPONENT_NODE(__)  => begin
-        _compVal(node)::ComponentImpl
-      end
-    end
-  end
-  component
+   @match node begin
+     COMPONENT_NODE(__)  => begin
+       _compVal(node)::ComponentImpl
+     end
+   end
 end
 
 function updateClass(cls::Class, node::InstNode)
    node = begin
     @match node begin
       CLASS_NODE(__)  => begin
-        if _profileEnabled()
-          local k = objectid(node.cls)
-          local nm = try string(node.name) catch; "?" end
-          local prev = get(CLASS_PTR_WRITES, k, (nm, 0))
-          CLASS_PTR_WRITES[k] = (prev[1], prev[2] + 1)
-          push!(get!(CLASS_PTR_WRITERS, k, Base.IdSet{Any}()), node)
-        end
-        if node.cls isa Pointer{Class}
+        if node.cls isa ClassCell
           _clsSet!(node, cls)
           node
         else
@@ -1646,21 +1507,6 @@ function setParent(@nospecialize(parent::InstNode), node::InstNode)::InstNode
   else
     return IMPLICIT_SCOPE(parent, node.locals)
   end
-end
-
-function topComponent(node::InstNode)
-  local res::InstNode
-   res = begin
-    @match node begin
-      COMPONENT_NODE(parent = EMPTY_NODE(__))  => begin
-        node
-      end
-      COMPONENT_NODE(__)  => begin
-        topComponent(node.parent)
-      end
-    end
-  end
-  res
 end
 
 function topScope(node::InstNode)
@@ -1996,23 +1842,6 @@ function isName(node::InstNode)
   isName
 end
 
-function isImplicit(node::InstNode)
-  local isImplicit::Bool
-
-   isImplicit = begin
-    @match node begin
-      IMPLICIT_SCOPE(__)  => begin
-        true
-      end
-
-      _  => begin
-        false
-      end
-    end
-  end
-  isImplicit
-end
-
 function isEmpty(node::InstNode)
   local isEmpty::Bool
    isEmpty = begin
@@ -2038,23 +1867,6 @@ function isReplaceable(node::InstNode)
     _ => false
   end
   return repl
-end
-
-function isRef(node::InstNode)
-  local isRef::Bool
-
-   isRef = begin
-    @match node begin
-      REF_NODE(__)  => begin
-        true
-      end
-
-      _  => begin
-        false
-      end
-    end
-  end
-  isRef
 end
 
 function isComponent(node::InstNode)::Bool
@@ -2227,7 +2039,6 @@ end
 
 function newClass(definition::SCode.Element, parent::InstNode, nodeType::InstNodeType = NORMAL_CLASS())
   local vis::SCode.Visibility
-  #@match SCode.CLASS(name = name, prefixes = SCode.PREFIXES(visibility = vis)) = definition
   @match SCode.CLASS(_, SCode.PREFIXES(vis)) = definition
   local v = visibilityFromSCode(vis)
   local node = CLASS_NODE(definition.name, definition, v, NOT_INSTANTIATED(), empty(), parent, nodeType)
@@ -2249,11 +2060,11 @@ function new(definition::SCode.Element, parent::InstNode)
   node
 end
 
-function newIterator(name::String, ty::NFType, info::SourceInfo)
+function newIterator(name::String, ty::ModelicaType, info::SourceInfo)
   local iterator = fromComponent(name, newIterator(ty, info), EMPTY_NODE())
   return iterator
 end
 
-function newIndexedIterator(index::Int, ty::NFType, info)
+function newIndexedIterator(index::Int, ty::ModelicaType, info)
   newIterator("\$i" + string(index), ty, info);
 end

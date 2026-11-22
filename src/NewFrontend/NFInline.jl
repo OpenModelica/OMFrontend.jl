@@ -40,10 +40,10 @@ const INLINE_POST_SUB_MAX_NODES = Ref{Int}(2)
 
 #= Per-function body info cache. Body-only stats (hasCall, node count) are
    independent of call-site arguments, so we compute them once per
-   `M_FUNCTION` and reuse across every call site. The previous unconditional
+   `MODELICA_FUNCTION` and reuse across every call site. The previous unconditional
    per-call walk dominated flatten time on MultiBody (hundreds of call sites
-   to a small pool of distinct helpers). =#
-#= (hasCall, nodeCount) tuple cache keyed by the function node's payload-cell
+   to a small pool of distinct helpers).
+   (hasCall, nodeCount) tuple cache keyed by the function node's payload-cell
    identity (_refId). Plain Tuple to dodge world-age issues on Revise-driven
    struct shape changes; UInt key to avoid String allocation per lookup. =#
 const _INLINE_BODY_INFO_CACHE = Dict{UInt, Tuple{Bool, Int}}()
@@ -70,58 +70,45 @@ end
 
 """Mostly written manualy (John) to adjust certain things in N."""
 function inlineCallExp(callExp::Expression)::Expression
-  local result::Expression
-  @assign result = begin
-    local call::Call
-    local shouldInline::Bool
-    @match callExp begin
-      CALL_EXPRESSION(call = call && TYPED_CALL(__)) => begin
-        @assign shouldInline = begin
-          @match inlineType(call) begin
-            DAE.BUILTIN_EARLY_INLINE(__) => begin
-              true
-            end
-            DAE.EARLY_INLINE(__) where {(Flags.isSet(Flags.INLINE_FUNCTIONS))} => begin
-              if Flags.INLINE_FUNCTIONS_COMPLEXITY_GATE[]
-                _passesInlineComplexityGate(call)
-              else
-                true
-              end
-            end
-            _ => begin
-              false
-            end
-          end
-        end
-        if shouldInline
-          inlineCall(call)
-        else
-          callExp
-        end
+  local call::Call
+  local shouldInline::Bool
+  @match callExp begin
+    CALL_EXPRESSION(call = call && TYPED_CALL(__)) => begin
+      local inlineTy::InlineType = inlineType(call)
+      shouldInline = if inlineTy == BUILTIN_EARLY_INLINE
+        true
+      elseif inlineTy == EARLY_INLINE && Flags.isSet(Flags.INLINE_FUNCTIONS)
+        !Flags.INLINE_FUNCTIONS_COMPLEXITY_GATE[] || _passesInlineComplexityGate(call)
+      else
+        false
       end
-      _ => begin
+      if shouldInline
+        inlineCall(call)
+      else
         callExp
       end
     end
+    _ => begin
+      callExp
+    end
   end
-  return result
 end
 
 #= Cheap node counter for a Statement. =#
 @nospecialized function _countStmtNodes(stmt::Statement)::Int
-  local n = 0
-  mapExp(stmt, e -> begin
-    map(e, x -> begin n += 1; x end)
+  local n::Base.RefValue{Int} = Ref(0)
+  mapExp(stmt, (@nospecialize(e::Expression),) -> begin
+    map(e, (@nospecialize(x::Expression),) -> (n[] += 1; x))
     e
   end)
-  return n
+  return n[]
 end
 
 #= Cheap node counter for an Expression subtree. =#
 @nospecialized function _countExpNodes(e::Expression)::Int
-  local n = 0
-  map(e, x -> begin n += 1; x end)
-  return n
+  local n::Base.RefValue{Int} = Ref(0)
+  map(e, (@nospecialize(x::Expression),) -> (n[] += 1; x))
+  return n[]
 end
 
 #= Returns true when the statement body contains any CALL_EXPRESSION. We use
@@ -166,7 +153,6 @@ function _passesInlineComplexityGate(call::Call)::Bool
   end
 end
 
-
 """
   Inline function for nonbuiltin callexps
   @author johti17
@@ -178,14 +164,8 @@ function inlineSimpleCall(callExp::Expression, top = nothing)::Expression
     CALL_EXPRESSION(c && TYPED_CALL(fn, ty, var, arguments, attributes)) => begin
       call = c
       shouldInline = true && !(attributes.builtin || isExternal(c)) && isSimpleType(ty)
-#      println("Inline = $(shouldInline) for: " * toString(c))
       #= We might want to inline more things, so check arguments anyway =#
-      if !shouldInline
-        local newArgs = Expression[map(arg, a -> inlineSimpleCall(a, top)) for arg in arguments]
-        callArguments = newArgs
-        TYPED_CALL(c.fn, c.ty, c.var, callArguments, c.attributes)
-        return CALL_EXPRESSION(call)
-      end
+      shouldInline || return callExp
       shouldInline
     end
     _ => false
@@ -205,7 +185,7 @@ end
 function inlineCall(call::Call, top = nothing)::Expression
   local exp::Expression
   exp = begin
-    local fn::M_Function
+    local fn::MODELICA_FUNCTION
     local arg::Expression
     local args::Vector{Expression}
     local inputs::List{InstNode}
@@ -215,7 +195,7 @@ function inlineCall(call::Call, top = nothing)::Expression
     local stmt::Statement
     @match call begin
       TYPED_CALL(
-        fn = fn && M_FUNCTION(inputs = inputs, outputs = outputs, locals = locals),
+        fn = fn && MODELICA_FUNCTION(inputs = inputs, outputs = outputs, locals = locals),
         arguments = args,
       ) => begin
         #= External functions can't be inlined =#
@@ -230,8 +210,8 @@ function inlineCall(call::Call, top = nothing)::Expression
           return exp
         end
         body = getBody(fn)
-        #=  This function can so far only handle functions with at most one =#
-        #=  statement and output and no local variables. =#
+        #= This function can so far only handle functions with at most one
+           statement and output and no local variables. =#
         if length(body) > 1 || listLength(outputs) != 1 || listLength(locals) > 0
           exp = CALL_EXPRESSION(call)
           return exp
@@ -243,25 +223,22 @@ function inlineCall(call::Call, top = nothing)::Expression
           AbsynUtil.pathString(name(fn)),
           sourceInfo(),
         )
-        #=
-        If we have no body there is nothing to inline.
-        This might occur for instance for complex operators that are registered as calls in the frontend
-        -johti17 2023-03-26
-        =#
+        #= If we have no body there is nothing to inline.
+           This might occur for instance for complex operators that are registered as calls in the frontend
+           -johti17 2023-03-26 =#
         if isempty(body)
           exp = CALL_EXPRESSION(call)
           return exp
         end
         stmt = body[1]
-        #=
-        TODO: Instead of repeating this for each input we should probably
-          just build a lookup tree or hash table and go through the
-          statement once.
-        =#
+        #= TODO: Instead of repeating this for each input we should probably
+           just build a lookup tree or hash table and go through the
+           statement once. =#
         for i in inputs
           @match [arg, args...] = args
+          local argI::Base.RefValue{Expression} = captureRef(arg)
           stmt = mapExp(stmt,
-                        (exp) -> map(exp, (exp) -> replaceCrefNode(exp, i, arg)))
+                        (@nospecialize(e::Expression),) -> map(e, (@nospecialize(x::Expression),) -> replaceCrefNode(x, i, argI[])))
         end
         local outExp = getOutputExp(stmt, listHead(outputs), call)
         _hasVaryingSlice(outExp) && return CALL_EXPRESSION(call)
@@ -294,9 +271,9 @@ end
    assignment statements within function classes are implicitly treated with
    noEvent"). An inlined body keeps that: its relations are wrapped in
    noEvent (e.g. MSL Frames.Internal.maxWithoutEvent, `if u1 > u2 ...`). =#
-const _NO_EVENT_FN_CACHE = Dict{UInt, M_FUNCTION}()
+const _NO_EVENT_FN_CACHE = Dict{UInt, MODELICA_FUNCTION}()
 
-function _noEventFunction(top::InstNode)::M_FUNCTION
+function _noEventFunction(top::InstNode)::MODELICA_FUNCTION
   return lock(_INST_SHARED_LOCK) do
     get!(_NO_EVENT_FN_CACHE, _refId(top)) do
       local (fnRef, _, _) = instFunctionRef(lookupFunctionSimple("noEvent", top), AbsynUtil.dummyInfo)
@@ -311,7 +288,7 @@ function _isNoEventCall(exp::Expression)::Bool
 end
 
 function _noEventRelations(exp::Expression, top::InstNode)::Expression
-  local wrap = function (e::Expression)
+  local wrap = function (@nospecialize(e::Expression),)
     if e isa RELATION_EXPRESSION
       local fn = _noEventFunction(top)
       return CALL_EXPRESSION(makeTypedCall(fn, Expression[e], variability(e), typeOf(e)))
@@ -352,8 +329,8 @@ function _freeDimensions(cr::ComponentRef)::Int
 end
 
 function replaceCrefNode(@nospecialize(exp::Expression), node::InstNode, @nospecialize(value::Expression))::Expression
-  local ty::M_Type
-  local repl_ty::M_Type
+  local ty::ModelicaType
+  local repl_ty::ModelicaType
   if exp isa CREF_EXPRESSION && isvariant(exp.cref, COMPONENT_REF_CREF)
     local cr = exp.cref
     local basePart = cr
@@ -402,31 +379,27 @@ function replaceDimExp(dim::Dimension, node::InstNode, value::Expression)::Dimen
 end
 
 function getOutputExp(stmt::Statement, outputNode::InstNode, call::Call)::Expression
-  local exp::Expression
-  exp = begin
-    local cr_node::InstNode
-    local rest_cr::ComponentRef
-    @match stmt begin
-      ALG_ASSIGNMENT(
-        lhs = CREF_EXPRESSION(
-          cref = COMPONENT_REF_CREF(
-            node = cr_node,
-            subscripts = nil(),
-            restCref = rest_cr,
-          ),
+  local cr_node::InstNode
+  local rest_cr::ComponentRef
+  @match stmt begin
+    ALG_ASSIGNMENT(
+      lhs = CREF_EXPRESSION(
+        cref = COMPONENT_REF_CREF(
+          node = cr_node,
+          subscripts = nil(),
+          restCref = rest_cr,
         ),
-      ) where {(
-        refEqual(outputNode, cr_node) &&
-        !isFromCref(rest_cr)
-      )} => begin
-        stmt.rhs
-      end
-      _ => begin
-        CALL_EXPRESSION(call)
-      end
+      ),
+    ) where {(
+      refEqual(outputNode, cr_node) &&
+      !isFromCref(rest_cr)
+    )} => begin
+      stmt.rhs
+    end
+    _ => begin
+      CALL_EXPRESSION(call)
     end
   end
-  return exp
 end
 
 function isSimpleType(ty)

@@ -38,21 +38,21 @@ function typeMatrixCommaRef(
   elements::Vector{Expression},
   origin::ORIGIN_Type,
   info::SourceInfo,
-  arrayTypeRef::Ref{NFType},
+  arrayTypeRef::Ref{ModelicaType},
   variabilityTypeRef::Ref{VariabilityType})
   local variability::VariabilityType = Variability.CONSTANT
-  local arrayType::NFType
+  local arrayType::ModelicaType
   local arrayExp::Expression
   local exp::Expression
   local expl::Vector{Expression} = Vector{Expression}(undef, length(elements))
   local res::Vector{Expression} = Vector{Expression}(undef, length(elements))
   local var::VariabilityType
-  local ty::NFType = TYPE_UNKNOWN()
-  local ty1::NFType
-  local ty2::NFType
-  local ty3::NFType
-  local tys::List{NFType} = nil
-  local tys2::Vector{NFType} = Vector{NFType}(undef, length(elements))
+  local ty::ModelicaType = TYPE_UNKNOWN()
+  local ty1::ModelicaType
+  local ty2::ModelicaType
+  local ty3::ModelicaType
+  local tys::List{ModelicaType} = nil
+  local tys2::Vector{ModelicaType} = Vector{ModelicaType}(undef, length(elements))
   local n::Int = 2
   local pos::Int
   local mk::MatchKindType
@@ -60,7 +60,7 @@ function typeMatrixCommaRef(
   if length(elements) > 1
     local varTyRef = Ref{VariabilityType}(Variability.CONSTANT)
     local refMatchKind = Ref{MatchKindType}(MatchKind.NOT_COMPATIBLE)
-    local tyRef = Ref{NFType}(TYPE_UNKNOWN())
+    local tyRef = Ref{ModelicaType}(TYPE_UNKNOWN())
     for (i,e) in enumerate(elements)
       exp = typeExp2(e, origin, info, tyRef, varTyRef)
       ty1 = tyRef.x
@@ -118,7 +118,7 @@ function typeMatrixCommaRef(
     (arrayExp, arrayType) = makeCatExp(2, res, tys2, variability, info)
   else
     local varTyRef = Ref{VariabilityType}(Variability.CONSTANT)
-    local tyRef = Ref{NFType}(TYPE_UNKNOWN())
+    local tyRef = Ref{ModelicaType}(TYPE_UNKNOWN())
     arrayExp = typeExp2(elements[1], origin, info, tyRef, varTyRef)
     arrayType = tyRef.x
     variability = varTyRef.x

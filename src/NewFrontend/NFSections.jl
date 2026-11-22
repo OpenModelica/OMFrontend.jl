@@ -35,36 +35,27 @@
 
 const EquationFn = Function
 const AlgorithmFn = Function
-const FoldFn = Function
-const MapFn = Function
-const EquationFn = Function
-const AlgorithmFn = Function
-const EquationFn = Function
-const AlgorithmFn = Function
-#=Necessary redefinitions=#
-const Sections = NFSections
-const Algorithm = AlgorithmImpl
 
-abstract type NFSections
+abstract type Sections
 end
 
-struct SECTIONS_EMPTY <: NFSections
+struct SECTIONS_EMPTY <: Sections
 end
 
-mutable struct SECTIONS_EXTERNAL <: NFSections
+mutable struct SECTIONS_EXTERNAL <: Sections
   name::String
   args::List{Expression}
   outputRef::ComponentRef
   language::String
-  ann::Option{SCode.Annotation}
+  ann::Option{SCode.ANNOTATION}
   explicit::Bool
 end
 
-mutable struct SECTIONS <: NFSections
+mutable struct SECTIONS <: Sections
   equations::Vector{Equation}
   initialEquations::Vector{Equation}
-  algorithms::Vector{Algorithm}
-  initialAlgorithms::Vector{Algorithm}
+  algorithms::Vector{ALGORITHM}
+  initialAlgorithms::Vector{ALGORITHM}
 end
 
 function isEmpty(sections::Sections)
@@ -107,18 +98,21 @@ function apply(
   end
 end
 
-function foldExp(sections::Sections, foldFn::FoldFn, arg::ArgT) where {ArgT}
+function foldExp(sections::Sections, foldFn::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
   @assign arg = begin
     @match sections begin
       SECTIONS(__) => begin
-        arg = foldExpList(sections.equations, foldFn, arg)
-        arg = foldExpList(sections.initialEquations, foldFn, arg)
-        arg = foldExpList(sections.algorithms, foldFn, arg)
-        arg = foldExpList(sections.initialAlgorithms, foldFn, arg)
+        arg = foldExpList(sections.equations, foldFn, arg, ArgT)
+        arg = foldExpList(sections.initialEquations, foldFn, arg, ArgT)
+        arg = foldExpList(sections.algorithms, foldFn, arg, ArgT)
+        arg = foldExpList(sections.initialAlgorithms, foldFn, arg, ArgT)
         arg
       end
       SECTIONS_EXTERNAL(__) => begin
-        ListUtil.fold(sections.args, foldFn, arg)
+        for e in sections.args
+          arg = foldFn(e, arg)::ArgT
+        end
+        arg
       end
       _ => begin
         arg
@@ -134,8 +128,8 @@ end
 function mapExp(sections::Sections, mapFn::MapFn)::Sections
   local eq::Vector{Equation}
   local ieq::Vector{Equation}
-  local alg::Vector{Algorithm}
-  local ialg::Vector{Algorithm}
+  local alg::Vector{ALGORITHM}
+  local ialg::Vector{ALGORITHM}
   sections = begin
     @match sections begin
       SECTIONS(__) => begin
@@ -167,21 +161,19 @@ function map1(
 ) where {ArgT}
   local eq::Vector{Equation}
   local ieq::Vector{Equation}
-  local alg::Vector{Algorithm}
-  local ialg::Vector{Algorithm}
-  () = begin
-    @match sections begin
-      SECTIONS(__) => begin
-        eq = Equation[eqFn(e, arg) for e in sections.equations]
-        ieq = Equation[ieqFn(e, arg) for e in sections.initialEquations]
-        alg = [algFn(a, arg) for a in sections.algorithms]
-        ialg = [ialgFn(a, arg) for a in sections.initialAlgorithms]
-        sections = SECTIONS(eq, ieq, alg, ialg)
-        ()
-      end
-      _ => begin
-        ()
-      end
+  local alg::Vector{ALGORITHM}
+  local ialg::Vector{ALGORITHM}
+  @match sections begin
+    SECTIONS(__) => begin
+      eq = Equation[eqFn(e, arg) for e in sections.equations]
+      ieq = Equation[ieqFn(e, arg) for e in sections.initialEquations]
+      alg = [algFn(a, arg) for a in sections.algorithms]
+      ialg = [ialgFn(a, arg) for a in sections.initialAlgorithms]
+      sections = SECTIONS(eq, ieq, alg, ialg)
+      ()
+    end
+    _ => begin
+      ()
     end
   end
   return sections
@@ -196,56 +188,50 @@ function map(
 )
   local eq::Vector{Equation}
   local ieq::Vector{Equation}
-  local alg::Vector{Algorithm}
-  local ialg::Vector{Algorithm}
-  () = begin
-    @match sections begin
-      SECTIONS(__) => begin
-        eq = Equation[eqFn(e) for e in sections.equations]
-        ieq = Equation[ieqFn(e) for e in sections.initialEquations]
-        alg = Algorithm[algFn(a) for a in sections.algorithms]
-        ialg = Algorithm[ialgFn(a) for a in sections.initialAlgorithms]
-        sections = SECTIONS(eq, ieq, alg, ialg)
-        ()
-      end
-      _ => begin
-        ()
-      end
+  local alg::Vector{ALGORITHM}
+  local ialg::Vector{ALGORITHM}
+  @match sections begin
+    SECTIONS(__) => begin
+      eq = Equation[eqFn(e) for e in sections.equations]
+      ieq = Equation[ieqFn(e) for e in sections.initialEquations]
+      alg = ALGORITHM[algFn(a) for a in sections.algorithms]
+      ialg = ALGORITHM[ialgFn(a) for a in sections.initialAlgorithms]
+      sections = SECTIONS(eq, ieq, alg, ialg)
+      ()
+    end
+    _ => begin
+      ()
     end
   end
   return sections
 end
 
 function join(sections1::Sections, sections2::Sections)::Sections
-  local sections::Sections
-  sections = begin
-    @match (sections1, sections2) begin
-      (SECTIONS_EMPTY(__), _) => begin
-        sections2
-      end
+  @match (sections1, sections2) begin
+    (SECTIONS_EMPTY(__), _) => begin
+      sections2
+    end
 
-      (_, SECTIONS_EMPTY(__)) => begin
-        sections1
-      end
+    (_, SECTIONS_EMPTY(__)) => begin
+      sections1
+    end
 
-      (SECTIONS(__), SECTIONS(__)) => begin
-        SECTIONS(
-          vcat(sections1.equations, sections2.equations),
-          vcat(sections1.initialEquations, sections2.initialEquations),
-          vcat(sections1.algorithms, sections2.algorithms),
-          vcat(sections1.initialAlgorithms, sections2.initialAlgorithms),
-        )
-      end
+    (SECTIONS(__), SECTIONS(__)) => begin
+      SECTIONS(
+        vcat(sections1.equations, sections2.equations),
+        vcat(sections1.initialEquations, sections2.initialEquations),
+        vcat(sections1.algorithms, sections2.algorithms),
+        vcat(sections1.initialAlgorithms, sections2.initialAlgorithms),
+      )
     end
   end
-  return sections
 end
 
 function append(
   equations::Vector{Equation},
   initialEquations::Vector{Equation},
-  algorithms::Vector{Algorithm},
-  initialAlgorithms::Vector{Algorithm},
+  algorithms::Vector{ALGORITHM},
+  initialAlgorithms::Vector{ALGORITHM},
   sections::Sections,
 )
   sections = begin
@@ -268,7 +254,7 @@ function append(
 end
 
 function prependAlgorithm(
-  alg::Algorithm,
+  alg::ALGORITHM,
   sections::Sections,
   isInitial::Bool = false,
 )::Sections
@@ -287,9 +273,9 @@ function prependAlgorithm(
 
       SECTIONS_EMPTY(__) => begin
         if isInitial
-          SECTIONS(Equation[], Equation[], Algorithm[], Algorithm[alg])
+          SECTIONS(Equation[], Equation[], ALGORITHM[], ALGORITHM[alg])
         else
-          SECTIONS(Equation[], Equation[], Algorithm[alg], Algorithm[])
+          SECTIONS(Equation[], Equation[], ALGORITHM[alg], ALGORITHM[])
         end
       end
 
@@ -307,7 +293,7 @@ function prependAlgorithm(
 end
 
 function toFlatStream(sections, scopeName::Absyn.Path, s::IOStream_M.IOSTREAM; inFunction = false)
-  local ann::SCode.Annotation;
+  local ann::SCode.ANNOTATION;
   local mod::SCode.Mod, modLib::SCode.Mod
   local modInc::SCode.Mod, modLibDir::SCode.Mod, modIncDir::SCode.Mod
   @match sections begin
@@ -379,10 +365,8 @@ function prependEquation(
     @match sections begin
       SECTIONS(__) => begin
         if isInitial #I think I can avoid the assignment here.. since we modify the reference.
-          #@assign sections.initialEquations = push!(sections.initialEquations, eq)
           push!(sections.initialEquations, eq)
         else
-          #@assign sections.equations = push!(sections.equations, eq)
           push!(sections.equations, eq)
         end
         sections
@@ -390,9 +374,9 @@ function prependEquation(
 
       SECTIONS_EMPTY(__) => begin
         if isInitial
-          SECTIONS(Equation[], Equation[eq], Algorithm[], Algorithm[])
+          SECTIONS(Equation[], Equation[eq], ALGORITHM[], ALGORITHM[])
         else
-          SECTIONS([eq], Equation[], Algorithm[], Algorithm[])
+          SECTIONS([eq], Equation[], ALGORITHM[], ALGORITHM[])
         end
       end
 
@@ -409,36 +393,33 @@ function prependEquation(
   return sections
 end
 
-function prepend(
+"""
+  `sections` with the flattened sections of one class appended, in place once `sections` has vectors: the
+  classes in flattening order (components before the class's own sections), as omc, which prepends and
+  reverses the lists at the end. The vectors passed in become `sections`' vectors and must not be shared.
+"""
+function appendSections!(
   equations::Vector{Equation},
   initialEquations::Vector{Equation},
-  algorithms::Vector{Algorithm},
-  initialAlgorithms::Vector{Algorithm},
+  algorithms::Vector{ALGORITHM},
+  initialAlgorithms::Vector{ALGORITHM},
   sections::Sections,
-)
-  sections = begin
-    @match sections begin
-      SECTIONS(__) => begin
-        SECTIONS(
-          vcat(equations, sections.equations),
-          vcat(initialEquations, sections.initialEquations),
-          vcat(algorithms, sections.algorithms),
-          vcat(initialAlgorithms, sections.initialAlgorithms),
-        )
-      end
-      _ => begin
-        SECTIONS(equations, initialEquations, algorithms, initialAlgorithms)
-      end
-    end
+)::Sections
+  if sections isa SECTIONS
+    append!(sections.equations, equations)
+    append!(sections.initialEquations, initialEquations)
+    append!(sections.algorithms, algorithms)
+    append!(sections.initialAlgorithms, initialAlgorithms)
+    return sections
   end
-  return sections
+  return SECTIONS(equations, initialEquations, algorithms, initialAlgorithms)
 end
 
 function new(
   equations::Vector{Equation},
   initialEquations::Vector{Equation},
-  algorithms::Vector{Algorithm},
-  initialAlgorithms::Vector{Algorithm},
+  algorithms::Vector{ALGORITHM},
+  initialAlgorithms::Vector{ALGORITHM},
   )
   local sections::Sections
   if isempty(equations) &&

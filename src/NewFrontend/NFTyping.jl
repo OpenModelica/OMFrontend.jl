@@ -34,20 +34,7 @@
 */ =#
 
 @UniontypeDecl TypingError
-function isError(error::TypingError)::Bool
-  local isError::Bool
-   isError = begin
-    @match error begin
-      NO_ERROR(__) => begin
-        false
-      end
-      _ => begin
-        true
-      end
-    end
-  end
-  return isError
-end
+isError(error::TypingError)::Bool = !isvariant(error, NO_ERROR)
 
 @Uniontype TypingError begin
   @Record OUT_OF_BOUNDS begin
@@ -59,75 +46,51 @@ end
 
 const ORIGIN_Type = Int
 const M_Type_Int = Int
-#=  Flag values:
-=#
+#= Flag values: =#
 const ORIGIN_CLASS = 0
-#=  In class.
-=#
+#= In class. =#
 const ORIGIN_FUNCTION = intBitLShift(1, 0)::M_Type_Int
-#=  In function.
-=#
+#= In function. =#
 const ORIGIN_ALGORITHM = intBitLShift(1, 1)::M_Type_Int
-#=  In algorithm section.
-=#
+#= In algorithm section. =#
 const ORIGIN_EQUATION = intBitLShift(1, 2)::M_Type_Int
-#=  In equation section.
-=#
+#= In equation section. =#
 const ORIGIN_INITIAL = intBitLShift(1, 3)::M_Type_Int
-#=  In initial section.
-=#
+#= In initial section. =#
 const ORIGIN_LHS = intBitLShift(1, 4)::M_Type_Int
-#=  On left hand side of equality/assignment.
-=#
+#= On left hand side of equality/assignment. =#
 const ORIGIN_RHS = intBitLShift(1, 5)::M_Type_Int
-#=  On right hand side of equality/assignment.
-=#
+#= On right hand side of equality/assignment. =#
 const ORIGIN_WHEN = intBitLShift(1, 6)::M_Type_Int
-#=  In when equation/statement.
-=#
+#= In when equation/statement. =#
 const ORIGIN_CLOCKED = intBitLShift(1, 7)::M_Type_Int
-#=  Part of a clocked when equation.
-=#
+#= Part of a clocked when equation. =#
 const ORIGIN_FOR = intBitLShift(1, 8)::M_Type_Int
-#=  In a for loop.
-=#
+#= In a for loop. =#
 const ORIGIN_IF = intBitLShift(1, 9)::M_Type_Int
-#=  In an if equation/statement.
-=#
+#= In an if equation/statement. =#
 const ORIGIN_WHILE = intBitLShift(1, 10)::M_Type_Int
-#=  In a while loop.
-=#
+#= In a while loop. =#
 const ORIGIN_NONEXPANDABLE = intBitLShift(1, 11)::M_Type_Int
-#=  In non-parameter if/for.
-=#
+#= In non-parameter if/for. =#
 const ORIGIN_ITERATION_RANGE = intBitLShift(1, 12)::M_Type_Int
-#=  In range used for iteration.
-=#
+#= In range used for iteration. =#
 const ORIGIN_DIMENSION = intBitLShift(1, 13)::M_Type_Int
-#=  In dimension.
-=#
+#= In dimension. =#
 const ORIGIN_BINDING = intBitLShift(1, 14)::M_Type_Int
-#=  In binding.
-=#
+#= In binding. =#
 const ORIGIN_CONDITION = intBitLShift(1, 15)::M_Type_Int
-#=  In conditional expression.
-=#
+#= In conditional expression. =#
 const ORIGIN_SUBSCRIPT = intBitLShift(1, 16)::M_Type_Int
-#=  In subscript.
-=#
+#= In subscript. =#
 const ORIGIN_SUBEXPRESSION = intBitLShift(1, 17)::M_Type_Int
-#=  Part of a larger expression.
-=#
+#= Part of a larger expression. =#
 const ORIGIN_CONNECT = intBitLShift(1, 18)::M_Type_Int
-#=  Part of connect argument.
-=#
+#= Part of connect argument. =#
 const ORIGIN_NOEVENT = intBitLShift(1, 19)::M_Type_Int
-#=  Part of noEvent argument.
-=#
+#= Part of noEvent argument. =#
 const ORIGIN_ASSERT = intBitLShift(1, 20)::M_Type_Int
 
-
-const ORIGIN_EQ_SUBEXPRESSION = intBitOr(ORIGIN_EQUATION, ORIGIN_SUBEXPRESSION)::M_Type_Int
 const ORIGIN_VALIDNAME_SCOPE = intBitOr(ORIGIN_ITERATION_RANGE, ORIGIN_DIMENSION)::M_Type_Int
 const ORIGIN_VALID_TYPENAME_SCOPE = ORIGIN_VALIDNAME_SCOPE
 const ORIGIN_DISCRETE_SCOPE = intBitOr(ORIGIN_WHEN, intBitOr(ORIGIN_INITIAL, ORIGIN_FUNCTION))::M_Type_Int
@@ -182,7 +145,7 @@ function typeClass(cls::InstNode, name::String)
   TYPE_COMPONENT_MAX_DEPTH[] = 0
   typeClassType(cls, EMPTY_BINDING, ORIGIN_CLASS, cls)
   @EXECSTAT "  ty:components" cls = typeComponents(cls, ORIGIN_CLASS)
-  local tyRef = Ref{NFType}(TYPE_UNKNOWN())
+  local tyRef = Ref{ModelicaType}(TYPE_UNKNOWN())
   local varRef = Ref{VariabilityType}(Variability.CONSTANT)
   @EXECSTAT "  ty:bindings" typeBindingsRefs(cls, cls, ORIGIN_CLASS, tyRef, varRef)
   @EXECSTAT "  ty:sections" cls = typeClassSections(cls, ORIGIN_CLASS)
@@ -207,7 +170,6 @@ function typeComponents2(cls::InstNode, origin::ORIGIN_Type)::InstNode
   local c::Class = getClass(cls)
   local c2::Class
   local cls_tree::ClassTree
-  local ext_node::InstNode
   local con::InstNode
   local de::InstNode
   @match c begin
@@ -264,10 +226,8 @@ function typeComponents2(cls::InstNode, origin::ORIGIN_Type)::InstNode
     end
 
     TYPED_DERIVED(ty = TYPE_ARRAY(__)) => begin
-      #=  For derived types with dimensions we keep them as they are, because we
-      =#
-      #=  need to preserve the dimensions.
-      =#
+      #= For derived types with dimensions we keep them as they are, because we
+         need to preserve the dimensions. =#
       local baseClass = typeComponents(c.baseClass, origin)
       if baseClass !== c.baseClass
         @assign c.baseClass = baseClass
@@ -276,8 +236,7 @@ function typeComponents2(cls::InstNode, origin::ORIGIN_Type)::InstNode
     end
 
     TYPED_DERIVED(__) => begin
-      #=  Derived types without dimensions can be collapsed.
-      =#
+      #= Derived types without dimensions can be collapsed. =#
       local baseClass = typeComponents(c.baseClass, origin)
       if baseClass !== c.baseClass
         @assign c.baseClass = baseClass
@@ -320,12 +279,12 @@ end
 
 function typeStructor2(node::InstNode)
   local cache::CachedData
-  local fnl::Vector{M_Function}
+  local fnl::Vector{MODELICA_FUNCTION}
   cache = getFuncCache(node)
   @match cache begin
     C_FUNCTION(funcs = fnl, typed = false) => begin
-      fnl = M_FUNCTION[typeFunction(fn) for fn in fnl]
-      fnl = M_FUNCTION[
+      fnl = MODELICA_FUNCTION[typeFunction(fn) for fn in fnl]
+      fnl = MODELICA_FUNCTION[
         patchOperatorRecordConstructorBinding(fn) for fn in fnl
           ]
       setFuncCache(
@@ -345,7 +304,7 @@ end
   componentBinding::Binding,
   origin::ORIGIN_Type,
   @nospecialize(instanceNode::InstNode),
-  )::NFType
+  )::ModelicaType
   #= Class nodes (derived types, records) are shared across components; their
      typing mutates the class payload and class-level dimension vectors, so it
      must run under the class node's claim. TYPED_DERIVED and INSTANCED_BUILTIN
@@ -367,13 +326,13 @@ end
   componentBinding::Binding,
   origin::ORIGIN_Type,
   @nospecialize(instanceNode::InstNode),
-  )::NFType
-  local ty::NFType
+  )::ModelicaType
+  local ty::ModelicaType
   local cls::Class
   local ty_cls::Class
   local node::InstNode
   local ty_node::InstNode
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local is_expandable::Bool
    cls = getClass(clsNode)
    ty = begin
@@ -402,8 +361,7 @@ end
       INSTANCED_CLASS(
         ty = TYPE_COMPLEX(complexTy = COMPLEX_EXTENDS_TYPE(node)),
       ) => begin
-        #=  A long class declaration of a type extending from a type has the type of the base class.
-        =#
+        #= A long class declaration of a type extending from a type has the type of the base class. =#
         ty = typeClassType(node, componentBinding, origin, instanceNode)
         @assign cls.ty = ty
         clsNode = updateClass(cls, clsNode)
@@ -413,8 +371,7 @@ end
       INSTANCED_CLASS(
         restriction = RESTRICTION_FUNCTION(__),
       ) where {(isComponent(instanceNode))} => begin
-        #=  A component of function type, i.e. a functional input parameter.
-        =#
+        #= A component of function type, i.e. a functional input parameter. =#
         fns = typeNodeCache(clsNode)
         fn = fns[1]
         if !isPartial(fn)
@@ -512,7 +469,7 @@ end
 function makeRecordType(constructor::InstNode)::ComplexType
   local recordTy::ComplexType
   local cache::CachedData
-  local fn::M_FUNCTION
+  local fn::MODELICA_FUNCTION
   local fields::List{Field}
   cache = getFuncCache(constructor)
   recordTy = begin
@@ -535,12 +492,12 @@ function makeRecordType(constructor::InstNode)::ComplexType
   return recordTy
 end
 
-function typeComponent(inComponent::InstNode, origin::ORIGIN_Type)::NFType
+function typeComponent(inComponent::InstNode, origin::ORIGIN_Type)::ModelicaType
   _, ty = typeComponentNode(inComponent, origin)
   return ty
 end
 
-function typeComponentNode(inComponent::InstNode, origin::ORIGIN_Type)::Tuple{InstNode,NFType}
+function typeComponentNode(inComponent::InstNode, origin::ORIGIN_Type)::Tuple{InstNode,ModelicaType}
   #= A component removed by `break` (omc). =#
   isvariant(inComponent, EMPTY_NODE) && return (inComponent, TYPE_UNKNOWN())
   local depthRef = _typeDepthRef()
@@ -560,7 +517,7 @@ function typeComponentNode(inComponent::InstNode, origin::ORIGIN_Type)::Tuple{In
     fail()
   end
   try
-  local ty::NFType
+  local ty::ModelicaType
   local node::InstNode = resolveOuter(inComponent)
   local c::Component = component(node)
   #= An outer left uninstantiated, its inner encloses it (instComponent): the inner's type. =#
@@ -605,7 +562,7 @@ function typeComponentPayload!(
   node::InstNode,
   c::Component,
   origin::ORIGIN_Type,
-  )::NFType
+  )::ModelicaType
   typeDimensions(c.dimensions, node, c.binding, origin, c.info)
   local ty = typeClassType(c.classInst, c.binding, origin, inComponent)
   ty = liftArrayLeftList(ty, arrayList(c.dimensions))
@@ -617,7 +574,7 @@ end
 
 #= An untyped component's type, its dimensions typed, without typing its children or installing
    the type (omc typeComponent with typeChildren = false). =#
-function _componentTypeOnly(inComponent::InstNode, origin::ORIGIN_Type)::NFType
+function _componentTypeOnly(inComponent::InstNode, origin::ORIGIN_Type)::ModelicaType
   local node = resolveOuter(inComponent)
   local c = component(node)
   #= Typed meanwhile by another task (parallel typing: the caller read it untyped), its
@@ -653,8 +610,8 @@ function typeComponentNode2(
   node::InstNode,
   c::Component,
   origin::ORIGIN_Type,
-  )::Tuple{InstNode,NFType}
-  local ty::NFType
+  )::Tuple{InstNode,ModelicaType}
+  local ty::ModelicaType
    ty = begin
     @match c begin
       #=  An untyped component, type it. =#
@@ -688,10 +645,10 @@ end
 
 function checkComponentStreamAttribute(
   cty::Int8,
-  ty::NFType,
+  ty::ModelicaType,
   component::InstNode,
   )
-  local ety::NFType
+  local ety::ModelicaType
 
   return if isFlowOrStream(cty)
      ety = arrayElementType(ty)
@@ -705,27 +662,12 @@ function checkComponentStreamAttribute(
   end
 end
 
-function checkConnectorType(node::InstNode)::Bool
-  local isConnector::Bool
-
-  local dnode::InstNode = getDerivedNode(node)
-
-  if isEmpty(dnode) || isInnerOuterNode(dnode)
-     isConnector = false
-  else
-     isConnector =
-      isConnectorClass(getClass(dnode)) ||
-      checkConnectorType(parent(dnode))
-  end
-  return isConnector
-end
-
 @nospecializeinfer function typeIterator(
   @nospecialize(iterator::InstNode),
   @nospecialize(range::RANGE_EXPRESSION),
   @nospecialize(origin::ORIGIN_Type),
   structural::Bool = false
-  )::Tuple{Expression, NFType, VariabilityType}
+  )::Tuple{Expression, ModelicaType, VariabilityType}
   #=  If the iteration range is structural, it must be a parameter expression. =#
   typeIterator2(
     Base.inferencebarrier(iterator)::InstNode,
@@ -744,8 +686,8 @@ end
   @nospecialize(range::Expression),
   @nospecialize(origin::ORIGIN_Type),
   structural::Bool = false
-  )::Tuple{Expression, NFType, VariabilityType}
-  local info::SourceInfo = AbsynUtil.dummyInfo
+  )::Tuple{Expression, ModelicaType, VariabilityType}
+  local info::SourceInfo = InstNode_info(iterator)
   local (exp, ty, var) = typeExp(range, setFlag(origin, ORIGIN_ITERATION_RANGE), info)
   if structural && var > Variability.PARAMETER
     Error.addSourceMessageAndFail(Error.NON_PARAMETER_ITERATOR_RANGE, list(toString(exp)), info)
@@ -761,9 +703,9 @@ end
   @nospecialize(origin::ORIGIN_Type),
   @nospecialize(c::Component),
   structural,
-  )::Tuple{Expression, NFType, VariabilityType}
+  )::Tuple{Expression, ModelicaType, VariabilityType}
   @nospecialize
-  local info::SourceInfo = AbsynUtil.dummyInfo
+  local info::SourceInfo = Component_info(c)
   (exp, ty, var) =
     typeRange(Base.inferencebarrier(range), setFlag(origin, ORIGIN_ITERATION_RANGE), info)
   if structural && var > Variability.PARAMETER
@@ -846,22 +788,15 @@ function typeDimension2(
     local var::VariabilityType
     local dim::Dimension
     local b::Binding
-    local ty::NFType
     local ty_err::TypingError
     local parent_dims::Int
     local dim_index::Int
-    #=  Print an error when a dimension that's currently being processed is
-    =#
-    #=  found, which indicates a dependency loop. Another way of handling this
-    =#
-    #=  would be to instead view the dimension as unknown and infer it from the
-    =#
-    #=  binding, which means that things like x[size(x, 1)] = {...} could be
-    =#
-    #=  handled. But that is not specified and doesn't seem needed, and can also
-    =#
-    #=  give different results depending on the declaration order of components.
-    =#
+    #= Print an error when a dimension that's currently being processed is
+       found, which indicates a dependency loop. Another way of handling this
+       would be to instead view the dimension as unknown and infer it from the
+       binding, which means that things like x[size(x, 1)] = {...} could be
+       handled. But that is not specified and doesn't seem needed, and can also
+       give different results depending on the declaration order of components. =#
     @match dimension begin
       DIMENSION_UNTYPED(isProcessing = true) => begin
         #= Outside a function the dimension is left as it is, which is fine if it isn't used
@@ -870,14 +805,10 @@ function typeDimension2(
         if flagNotSet(origin, ORIGIN_FUNCTION)
           return dimension
         end
-        #=  TODO: Tell the user which variables are involved in the loop (can be
-        =#
-        #=        found with DFS on the dimension expression. Maybe have a limit
-        =#
-        #=        on the output in case there's a lot of dimensions involved.
-        =#
-        #=  If we are in a functions we allow e.g. size expression of unknown dimensions.
-        =#
+        #= TODO: Tell the user which variables are involved in the loop (can be
+           found with DFS on the dimension expression. Maybe have a limit
+           on the output in case there's a lot of dimensions involved.
+           If we are in a functions we allow e.g. size expression of unknown dimensions. =#
         dim = DIMENSION_UNKNOWN()
         arrayUpdate(dimensions, index, dim)
         dim
@@ -908,11 +839,9 @@ function typeDimension2(
       end
 
       DIMENSION_UNKNOWN(__) => begin
-        #=
-        If the dimension is unknown in a function, keep it unknown.
-          If the dimension is unknown in a class, try to infer it from the components binding.
-        =#
-        #= A binding that needs the dimension itself (`Real c[:] = fill(0, size(c, 1))`) is a
+        #= If the dimension is unknown in a function, keep it unknown.
+           If the dimension is unknown in a class, try to infer it from the components binding.
+           A binding that needs the dimension itself (`Real c[:] = fill(0, size(c, 1))`) is a
            cyclic dimension, not a recursion without end (omc marks the dimension as being typed).
            Marked per component: instances can share a dimension vector. =#
         local key = (_refId(component), index)
@@ -932,18 +861,14 @@ function typeDimension2(
              b = lookupAttributeBinding("start", getClass(component))
           end
         end
-        #=  If the component has no binding, try to use its parent's binding
-        =#
-        #=  (i.e. for record fields where the record instance has a binding).
-        =#
-        #=  If the component still doesn't have a binding, try to use the start attribute instead.
-        =#
-        #=  TODO: Any attribute should actually be fine to use here. =#
+        #= If the component has no binding, try to use its parent's binding
+           (i.e. for record fields where the record instance has a binding).
+           If the component still doesn't have a binding, try to use the start attribute instead.
+           TODO: Any attribute should actually be fine to use here. =#
          (dim, ty_err) = begin
           @match b begin
             UNBOUND(__) => begin
-              #=  Print an error if there's no binding.
-              =#
+              #= Print an error if there's no binding. =#
               Error.addSourceMessage(
                 Error.FAILURE_TO_DEDUCE_DIMS_NO_MOD,
                 list(string(index), name(component)),
@@ -953,10 +878,8 @@ function typeDimension2(
             end
 
             UNTYPED_BINDING(__) => begin
-              #=  An untyped binding, type the expression only as much as is needed
-              =#
-              #=  to get the dimension we're looking for.
-              =#
+              #= An untyped binding, type the expression only as much as is needed
+                 to get the dimension we're looking for. =#
                dim_index = index + propagatedDimCount(b) + parent_dims
                (dim, oexp, ty_err) = typeExpDim(
                 b.bindingExp,
@@ -987,8 +910,7 @@ function typeDimension2(
               #=  A typed binding, get the dimension from the binding's type. =#
               dim_index = index + parent_dims
               (dim, ty_err) = nthDimensionBoundsChecked(b.bindingType, dim_index)
-              #=  If the deduced dimension is unknown, evaluate the binding and try again.
-              =#
+              #= If the deduced dimension is unknown, evaluate the binding and try again. =#
               if isUnknown(dim) && !(isError(ty_err))
                  exp = evalExp(
                   b.bindingExp,
@@ -1003,22 +925,19 @@ function typeDimension2(
             end
           end
         end
-        () = begin
-          @match ty_err begin
-            OUT_OF_BOUNDS(__) => begin
-              Error.addSourceMessage(
-                Error.DIMENSION_DEDUCTION_FROM_BINDING_FAILURE,
-                list(string(index), name(component), toString(b)),
-                info,
-              )
-            end
-            _ => begin
-              ()
-            end
+        @match ty_err begin
+          OUT_OF_BOUNDS(__) => begin
+            Error.addSourceMessage(
+              Error.DIMENSION_DEDUCTION_FROM_BINDING_FAILURE,
+              list(string(index), name(component), toString(b)),
+              info,
+            )
+          end
+          _ => begin
+            ()
           end
         end
-        #=  Make sure the dimension is constant evaluted, and also mark it as structural.
-        =#
+        #= Make sure the dimension is constant evaluted, and also mark it as structural. =#
          dim = begin
           @match dim begin
             DIMENSION_EXP(exp = exp) => begin
@@ -1064,8 +983,7 @@ function verifyDimension(dimension::Dimension, component::InstNode, info::Source
   return  () = begin
     @match dimension begin
       DIMENSION_INTEGER(__) => begin
-        #=  Check that integer dimensions are not negative.
-        =#
+        #= Check that integer dimensions are not negative. =#
         if dimension.size < 0
           Error.addSourceMessage(
             Error.NEGATIVE_DIMENSION_INDEX,
@@ -1084,7 +1002,6 @@ function verifyDimension(dimension::Dimension, component::InstNode, info::Source
   end
 end
 
-
 @nospecializeinfer function typeDimensionUntyped(@nospecialize(dimensions::Vector{Dimension}),
                               @nospecialize(dimension::Dimension),
                               @nospecialize(index::Int),
@@ -1097,10 +1014,8 @@ end
     index,
     DIMENSION_UNTYPED(dimension.dimension, true),
   )
-  #=
-  Calling typeExp directly here leads to an infitite loop in the Julia compiler
-  The code below was added to avoid that.
-  =#
+  #= Calling typeExp directly here leads to an infitite loop in the Julia compiler
+     The code below was added to avoid that. =#
   local exp
   local ty
   local var
@@ -1175,7 +1090,6 @@ end
   return dim
 end
 
-
 """
   Tries to fetch the binding for a given record field by using the binding of
   the record instance.
@@ -1185,7 +1099,6 @@ function getRecordElementBinding(componentVar::InstNode)::Tuple{Binding, Int}
   local binding::Binding
   local parent::InstNode
   local comp::Component
-  local exp::Expression
   local parent_binding::Binding
    parent = derivedParent(componentVar)
   if isComponent(parent)
@@ -1210,7 +1123,6 @@ function getRecordElementBinding(componentVar::InstNode)::Tuple{Binding, Int}
   end
   return (binding, parentDims)
 end
-
 
 function checkComponentBindingVariability(
   name::String,
@@ -1243,12 +1155,9 @@ function checkComponentBindingVariability(
     #= An error (omc fails here); this returned 404, an InexactError for the Int8 variability. =#
     fail()
   end
-  #=  Mark parameters that have a structural cref as binding as also
-  =#
-  #=  structural. This is perhaps not optimal, but is required right now
-  =#
-  #=  to avoid structural singularity and other issues.
-  =#
+  #= Mark parameters that have a structural cref as binding as also
+     structural. This is perhaps not optimal, but is required right now
+     to avoid structural singularity and other issues. =#
   if comp_var == Variability.PARAMETER && (
     bind_var == Variability.STRUCTURAL_PARAMETER && isCrefExp(binding) ||
     bind_var == Variability.NON_STRUCTURAL_PARAMETER
@@ -1286,7 +1195,7 @@ function typeComponentCondition(condition::Binding, origin::Int)::Binding
   end
 
   local exp::Expression
-  local ty::NFType
+  local ty::ModelicaType
   local var::VariabilityType
   local info::SOURCEINFO
   local mk::MatchKindType
@@ -1302,7 +1211,6 @@ function typeComponentCondition(condition::Binding, origin::Int)::Binding
           list(toString(exp), toString(ty)),
           info,
         )
-        #@error "If condition error expected $(toString(exp)) had $(toString(ty))"
         fail()
       end
       if var > Variability.PARAMETER
@@ -1333,24 +1241,19 @@ end
 
 function typeTypeAttribute(
   attribute::Modifier,
-  ty::NFType,
+  ty::ModelicaType,
   component::InstNode,
   origin::ORIGIN_Type,
   )::Modifier
   local name::String
   local binding::Binding
-  local mod_parent::InstNode
   local finalAttribute
   @match attribute begin
     MODIFIER_MODIFIER(__) where {(!ModTable.isEmpty(attribute.subModifiers))} => begin
-      #=  Modifier with submodifier, e.g. Real x(start(y = 1)), is an error.
-      =#
-      #=  Print an error for the first submodifier. The builtin attributes
-      =#
-      #=  don't have types as such, so for the error message to make sense we
-      =#
-      #=  join the attribute name and submodifier name together (e.g. start.y).
-      =#
+      #= Modifier with submodifier, e.g. Real x(start(y = 1)), is an error.
+         Print an error for the first submodifier. The builtin attributes
+         don't have types as such, so for the error message to make sense we
+         join the attribute name and submodifier name together (e.g. start.y). =#
       name =
         attribute.name +
         "." +
@@ -1364,17 +1267,14 @@ function typeTypeAttribute(
     end
 
     MODIFIER_MODIFIER(__) where {(isUnbound(attribute.binding))} => begin
-      #=  Modifier with no binding, e.g. Real x(final start).
-      =#
+      #= Modifier with no binding, e.g. Real x(final start). =#
       checkBindingEach(attribute.binding)
       finalAttribute = MODIFIER_NOMOD()
     end
 
     MODIFIER_MODIFIER(name = name, binding = binding) => begin
-      #=  Normal modifier with no submodifiers.
-      =#
-      #=  Type and type check the attribute.
-      =#
+      #= Normal modifier with no submodifiers.
+         Type and type check the attribute. =#
       checkBindingEach(binding)
       if isBound(binding)
         binding = typeBinding(binding, origin)
@@ -1399,8 +1299,7 @@ function typeTypeAttribute(
         @assign attribute.binding = attributeBinding
         finalAttribute = attribute
       end
-      #=  Check the variability. All builtin attributes have parameter variability.
-      =#
+      #= Check the variability. All builtin attributes have parameter variability. =#
     end
   end
   return finalAttribute
@@ -1454,7 +1353,7 @@ function typeExp(
   origin::ORIGIN_Type,
   info::SourceInfo
   )::Tuple
-  local typeRef = Ref{NFType}(TYPE_UNKNOWN())
+  local typeRef = Ref{ModelicaType}(TYPE_UNKNOWN())
   local variabilityTypeRef = Ref{VariabilityType}(Variability.CONSTANT)
   local typedExp = typeExp2(exp, origin, info, typeRef, variabilityTypeRef)
   return (typedExp, typeRef.x, variabilityTypeRef.x)
@@ -1464,22 +1363,15 @@ function typeExp2(
   @nospecialize(exp::Expression),
   origin::ORIGIN_Type,
   info::SourceInfo,
-  typeRef::Ref{NFType},
+  typeRef::Ref{ModelicaType},
   variabilityTypeRef::Ref{VariabilityType}
   )::Expression
   local variability::VariabilityType
-  local ty::NFType
+  local ty::ModelicaType
   exp = begin
     local e1::Expression
-    local e2::Expression
-    local e3::Expression
     local var1::VariabilityType
-    local var2::VariabilityType
-    local var3::VariabilityType
-    local ty1::NFType
-    local ty2::NFType
-    local ty3::NFType
-    local op::Operator
+    local ty1::ModelicaType
     local cref::ComponentRef
     local next_origin::ORIGIN_Type
     @match exp begin
@@ -1525,18 +1417,11 @@ function typeExp2(
         exp
       end
       ARRAY_EXPRESSION(__) => begin
-        #@info "With List.."
-        #@time arr = typeArray(exp.elements, origin, info)
-        #@info "With Array...."
-        #exp, typeRef.x, variabilityTypeRef.x = typeArray(exp.elements, origin, info);exp
         exp = typeArrayRef(exp.elements, origin, info, typeRef, variabilityTypeRef)
-        #typeRef.x = exp.ty
-        #variabilityTypeRef.x
         exp
       end
       MATRIX_EXPRESSION(__) => begin
         exp = typeMatrixRef(exp.elements, origin, info, typeRef, variabilityTypeRef)#;exp
-        #exp, typeRef.x, variabilityTypeRef.x = typeMatrix(exp.elements, origin, info);exp
       end
       RANGE_EXPRESSION(__) => begin
         exp, typeRef.x, variabilityTypeRef.x = typeRange(exp, origin, info);exp
@@ -1577,10 +1462,8 @@ function typeExp2(
 
       CALL_EXPRESSION(__) => begin
         (e1, ty, var1) = typeCall(exp, origin, info)
-        #=
-        If the call has multiple outputs and isn't alone on either side of an
-        equation/algorithm, select the first output.
-        =#
+        #= If the call has multiple outputs and isn't alone on either side of an
+           equation/algorithm, select the first output. =#
         if isTuple(ty) && !isSingleExpression(origin)
            ty = firstTupleType(ty)
            e1 = tupleElement(e1, ty, 1)
@@ -1629,9 +1512,7 @@ function typeExp2(
       end
     end
   end
-  #=
-    Expressions inside when-clauses and initial sections are discrete.
-  =#
+  #= Expressions inside when-clauses and initial sections are discrete. =#
   variability = variabilityTypeRef.x
   if flagSet(origin, ORIGIN_DISCRETE_SCOPE) &&
      variability == Variability.CONTINUOUS
@@ -1688,12 +1569,11 @@ end
   (exp, ty, variabilityMax(var1, var2))
 end
 
-
 @nospecializeinfer function typeBinaryExpressionRef(
   @nospecialize(exp::BINARY_EXPRESSION),
   origin::ORIGIN_Type,
   info::SourceInfo,
-  tyRef::Ref{NFType},
+  tyRef::Ref{ModelicaType},
   variabilityRef::Ref{VariabilityType}
   )::Expression
   next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
@@ -1718,12 +1598,10 @@ end
   return exp
 end
 
-
-
 @nospecializeinfer function typeLBinaryExpression(
   @nospecialize(exp::Expression),
   @nospecialize(origin::ORIGIN_Type),
-  @nospecialize(info::SourceInfo),)::Tuple{Expression, NFType, VariabilityType}
+  @nospecialize(info::SourceInfo),)::Tuple{Expression, ModelicaType, VariabilityType}
 
    next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
    (e1, ty1, var1) = typeExp(exp.exp1, next_origin, info)
@@ -1741,11 +1619,10 @@ end
   (exp, ty, variabilityMax(var1, var2))
 end
 
-
 @nospecializeinfer function typeUnaryExpression(
   @nospecialize(exp::Expression),
   @nospecialize(origin::ORIGIN_Type),
-  @nospecialize(info::SourceInfo),)::Tuple{Expression, NFType, VariabilityType}
+  @nospecialize(info::SourceInfo),)::Tuple{Expression, ModelicaType, VariabilityType}
    next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
    (e1, ty1, var1) = typeExp(exp.exp, next_origin, info)
    (exp, ty) =
@@ -1757,19 +1634,19 @@ end
   @nospecialize(expl::List{<:Expression}),
   @nospecialize(origin::ORIGIN_Type),
   @nospecialize(info::SourceInfo),
-)::Tuple{List{Expression}, List{NFType}, List{VariabilityType}}
+)::Tuple{List{Expression}, List{ModelicaType}, List{VariabilityType}}
   local varl::List{VariabilityType} = nil
-  local tyl::List{NFType} = nil
+  local tyl::List{ModelicaType} = nil
   local explTyped::List{Expression} = nil
 
   local exp::Expression
   local var::VariabilityType
-  local ty::NFType
+  local ty::ModelicaType
 
   for e in listReverse(expl)
      (exp, ty, var) = typeExp(e, origin, info)
      explTyped = Cons{Expression}(exp, explTyped)
-     tyl = Cons{NFType}(ty, tyl)
+     tyl = Cons{ModelicaType}(ty, tyl)
      varl = Cons{VariabilityType}(var, varl)
   end
   return (explTyped, tyl, varl)
@@ -1791,7 +1668,7 @@ function typeExpDim(
   local typedExp::Option{Expression} = NONE()
   local dim::Dimension
 
-  local ty::NFType
+  local ty::ModelicaType
   local e::Expression
 
    ty = typeOf(exp)
@@ -1814,20 +1691,13 @@ function typeExpDim(
         end
 
         _ => begin
-          #=  If the expression has already been typed, just get the dimension from the type.
-          =#
-          #=  Otherwise we try to type as little as possible of the expression to get
-          =#
-          #=  the dimension we need, to avoid introducing unnecessary cycles.
-          =#
-          #=  An untyped array, use typeArrayDim to get the dimension.
-          =#
-          #=  A cref, use typeCrefDim to get the dimension.
-          =#
-          #=  Any other expression, type the whole expression and get the dimension
-          =#
-          #=  from the type.
-          =#
+          #= If the expression has already been typed, just get the dimension from the type.
+             Otherwise we try to type as little as possible of the expression to get
+             the dimension we need, to avoid introducing unnecessary cycles.
+             An untyped array, use typeArrayDim to get the dimension.
+             A cref, use typeCrefDim to get the dimension.
+             Any other expression, type the whole expression and get the dimension
+             from the type. =#
            (e, ty, _) = typeExp(e, origin, info)
            typedExp = SOME(e)
           nthDimensionBoundsChecked(ty, dimIndex)
@@ -1848,8 +1718,7 @@ function typeArrayDim(
   local error::TypingError
   local dim::Dimension
 
-  #=  We don't yet know the number of dimensions, but the index must at least be 1.
-  =#
+  #= We don't yet know the number of dimensions, but the index must at least be 1. =#
   if dimIndex < 1
      dim = DIMENSION_UNKNOWN()
      error =
@@ -1879,10 +1748,8 @@ function typeArrayDim2(
       end
 
       _ => begin
-        #=  Modelica arrays are non-ragged and only the last dimension of an array
-        =#
-        #=  expression can be empty, so just traverse into the first element.
-        =#
+        #= Modelica arrays are non-ragged and only the last dimension of an array
+           expression can be empty, so just traverse into the first element. =#
          dim = DIMENSION_UNKNOWN()
          error = OUT_OF_BOUNDS(dimCount)
         (dim, error)
@@ -1918,29 +1785,22 @@ function typeCrefDim2(cref::ComponentRef,
   local dim_count::Int
   local dim_total::Int = 0
   local node::InstNode
-  local c::Component
-  local ty::NFType
-  #=  TODO: If the cref has subscripts it becomes trickier to correctly calculate
-      the dimension. For now we take the easy way out and just type the
-      whole cref, but doing so might introduce unnecessary cycles.
-  =#
+  local ty::ModelicaType
+  #= TODO: If the cref has subscripts it becomes trickier to correctly calculate
+     the dimension. For now we take the easy way out and just type the
+     whole cref, but doing so might introduce unnecessary cycles. =#
   if hasSubscripts(cref)
-    local typeRef = Ref{NFType}(TYPE_UNKNOWN())
+    local typeRef = Ref{ModelicaType}(TYPE_UNKNOWN())
     typeCref(cref, origin, info, typeRef, Ref{VariabilityType}(Variability.CONSTANT), Ref{VariabilityType}(Variability.CONSTANT))
     ty = typeRef.x
     (dim, error) = nthDimensionBoundsChecked(ty, dimIndex)
     return (dim, error)
   end
-  #=  Loop through the cref in reverse, reducing the index by the number of
-  =#
-  #=  dimensions each component has until we find a component that the index is
-  =#
-  #=  valid for. This is done even if the index is 0 or negative, since the loop
-  =#
-  #=  also sums up the total number of dimensions which is needed to give a good
-  =#
-  #=  error message.
-  =#
+  #= Loop through the cref in reverse, reducing the index by the number of
+     dimensions each component has until we find a component that the index is
+     valid for. This is done even if the index is 0 or negative, since the loop
+     also sums up the total number of dimensions which is needed to give a good
+     error message. =#
    crl = toVectorReverse(cref; includeScope = false)
    index = dimIndex
   for cr in crl
@@ -2032,7 +1892,7 @@ end
   indicating whether the index was valid or not.
 """
 function nthDimensionBoundsChecked(
-  ty::NFType,
+  ty::ModelicaType,
   dimIndex::Int,
   offset::Int = 0,
 )::Tuple{Dimension, TypingError} #= The number of dimensions to skip due to subscripts. =#
@@ -2054,16 +1914,15 @@ end
   cref::ComponentRef,
   o::ORIGIN_Type,
   info::SourceInfo,
-  typeRef::Ref{NFType},
+  typeRef::Ref{ModelicaType},
   nodeVariabilityTypeRef::Ref{VariabilityType},
 )::CREF_EXPRESSION
   local variability::VariabilityType
-  local ty::NFType
+  local ty::ModelicaType
   local exp::Expression
   local cr::ComponentRef
   local node_var::VariabilityType
   local subs_var::VariabilityType
-  local eval::Bool
   #= Pass typing pointers =#
   local subsVariabilityTypeRef = Ref{VariabilityType}(Variability.CONSTANT)
   cr = typeCref(cref, o, info, typeRef, nodeVariabilityTypeRef, subsVariabilityTypeRef)
@@ -2083,7 +1942,7 @@ typeCref(
   cref::ComponentRef,
   origin::ORIGIN_Type,
   info::SourceInfo,
-  typeRef::Ref{NFType},
+  typeRef::Ref{ModelicaType},
   nodeVariabilityTypeRef::Ref{VariabilityType},
   subsVariabilityTypeRef::Ref{VariabilityType}
   )
@@ -2091,7 +1950,7 @@ typeCref(
 Types a component reference.
 The three ref variables:
 ```
-  typeRef::Ref{NFType},
+  typeRef::Ref{ModelicaType},
   nodeVariabilityTypeRef::Ref{VariabilityType},
   subsVariabilityTypeRef::Ref{VariabilityType}
 ```
@@ -2102,14 +1961,12 @@ retrieve information about the variability type of the node and the subscripts o
   cref::ComponentRef,
   origin::ORIGIN_Type,
   info::SourceInfo,
-  typeRef::Ref{NFType},
+  typeRef::Ref{ModelicaType},
   nodeVariabilityTypeRef::Ref{VariabilityType},
   subsVariabilityTypeRef::Ref{VariabilityType}
   )::ComponentRef
-  local subsVariability::VariabilityType
   local nodeVariabilityType::VariabilityType
-  local ty::NFType
-  local subs_var::VariabilityType
+  local ty::ModelicaType
   if flagSet(origin, ORIGIN_FUNCTION) &&
      firstName(cref) == "time"
     Error.addSourceMessage(Error.EXP_INVALID_IN_FUNCTION, list("time"), info)
@@ -2138,12 +1995,12 @@ end
   local subsVariability::VariabilityType
 
   local rest_cr::ComponentRef
-  local node_ty::NFType
+  local node_ty::ModelicaType
   local subs::List{Subscript}
   local subs_var::VariabilityType
   local rest_var::VariabilityType
   local node_origin::ORIGIN_Type
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   @match cref begin
     COMPONENT_REF_CREF(origin = Origin.SCOPE) => begin
       local crefTy = getType(cref.node)
@@ -2163,12 +2020,9 @@ end
           info,
         )
       end
-      #=  The origin used when typing a component node depends on where the
-      =#
-      #=  component was declared, not where it's used. This can be different to
-      =#
-      #=  the given origin, e.g. for package constants used in a function.
-      =#
+      #= The origin used when typing a component node depends on where the
+         component was declared, not where it's used. This can be different to
+         the given origin, e.g. for package constants used in a function. =#
       node_origin =
         if isFunction(explicitParent(cref.node))
           ORIGIN_FUNCTION
@@ -2223,7 +2077,7 @@ end
 
 function typeSubscripts(
   subscripts::List{<:Subscript},
-  crefType::NFType,
+  crefType::ModelicaType,
   cref::ComponentRef,
   origin::ORIGIN_Type,
   info::SourceInfo,
@@ -2268,12 +2122,9 @@ function typeSubscripts(
       markStructuralParamsSub(sub)
     end
   end
-  #=  Mark parameter subscripts as structural so that they're evaluated.
-  =#
-  #=  TODO: Ideally this shouldn't be needed, but the old frontend does it and
-  =#
-  #=        the backend relies on it.
-  =#
+  #= Mark parameter subscripts as structural so that they're evaluated.
+     TODO: Ideally this shouldn't be needed, but the old frontend does it and
+     the backend relies on it. =#
   typedSubs = listReverseInPlace(typedSubs)
   return (typedSubs, variability)
 end
@@ -2289,15 +2140,14 @@ end
   local variabilityVar::VariabilityType = Variability.CONSTANT
   local outSubscript::Subscript = subscript
   local e::Expression
-  local ty::NFType
-  local ety::NFType
+  local ty::ModelicaType
+  local ety::ModelicaType
   local mk::MatchKindType
 
   (ty, variabilityVar) = begin
     @match subscript begin
       SUBSCRIPT_UNTYPED(__) => begin
-        #=  An untyped subscript, type the expression and create a typed subscript.
-        =#
+        #= An untyped subscript, type the expression and create a typed subscript. =#
         e = evaluateEnd(subscript.exp, dimension, cref, index, origin, info)
         (e, ty, variabilityVar) = typeExp(e, origin, info)
         if isArray(ty)
@@ -2334,11 +2184,9 @@ end
       end
     end
   end
-  #=  Type check the subscript's type against the expected subscript type for the dimension.
-  =#
+  #= Type check the subscript's type against the expected subscript type for the dimension. =#
   ety = subscriptType(dimension)
-  #=  We can have both : subscripts and : dimensions here, so we need to allow unknowns.
-  =#
+  #= We can have both : subscripts and : dimensions here, so we need to allow unknowns. =#
   (_, _, mk) = matchTypes(ty, ety, EMPTY_EXPRESSION(ty), #=allowUnknown=# true)
   #= A cast index, an enumeration literal for an Integer dimension under
      --allowNonStandardModelica=nonStdEnumerationAsIntegers (omc typeSubscript casts it). =#
@@ -2360,17 +2208,15 @@ end
   return (outSubscript, variabilityVar)
 end
 
-
-
 function typeArrayRef(
   elements::Vector{T},
   origin::ORIGIN_Type,
   info::SourceInfo,
-  arrayTypeRef::Ref{NFType},
+  arrayTypeRef::Ref{ModelicaType},
   variabilityTypeRef::Ref{VariabilityType}
   )::ARRAY_EXPRESSION where {T <: Expression}
   local variability::VariabilityType = Variability.CONSTANT
-  local arrayType::NFType = TYPE_UNKNOWN()
+  local arrayType::ModelicaType = TYPE_UNKNOWN()
   local arrayExp::Expression
   local numberOfElements = length(elements)::Int
   #= The typed elements go to a new vector: the untyped expression's elements are shared (a
@@ -2378,14 +2224,14 @@ function typeArrayRef(
      Buildings DX VariableSpeedEnergyPlus under parallel typing). =#
   local expV::Vector{Expression} = Vector{Expression}(undef, numberOfElements)
   local var::VariabilityType
-  local ty1::NFType = TYPE_UNKNOWN()
-  local ty2::NFType
-  local ty3::NFType
-  local tys::Vector{NFType} = Vector{NFType}(undef, numberOfElements)
+  local ty1::ModelicaType = TYPE_UNKNOWN()
+  local ty2::ModelicaType
+  local ty3::ModelicaType
+  local tys::Vector{ModelicaType} = Vector{ModelicaType}(undef, numberOfElements)
   local mk::MatchKindType
   local next_origin::ORIGIN_Type
   next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
-  local tyRef = Ref{NFType}(TYPE_UNKNOWN())
+  local tyRef = Ref{ModelicaType}(TYPE_UNKNOWN())
   local varTyRef = Ref{VariabilityType}(Variability.CONSTANT)
   local mkRef = Ref{MatchKindType}(MatchKind.NOT_COMPATIBLE)
 
@@ -2441,27 +2287,25 @@ function typeArrayRef(
   return arrayExp
 end
 
-
 function typeMatrixRef(
   elements::Vector{Vector{Expression}},
   origin::ORIGIN_Type,
   info::SourceInfo,
-  arrayTypeRef::Ref{NFType},
+  arrayTypeRef::Ref{ModelicaType},
   variabilityTypeRef::Ref{VariabilityType}
   )::Expression
   local variability::VariabilityType = Variability.CONSTANT
-  local arrayType::NFType = TYPE_UNKNOWN()
+  local arrayType::ModelicaType = TYPE_UNKNOWN()
   local arrayExp::Expression
   local exp::Expression
   local expl::Vector{Expression} = Vector{Expression}(undef, length(elements))
   local res::Vector{Expression} = Vector{Expression}(undef, length(elements))
   local var::VariabilityType
-  local ty::NFType = TYPE_UNKNOWN()
-  local tys::Vector{NFType} = Vector{NFType}(undef, length(elements))
-  #local resTys::Vector{NFType} = NFType[]
+  local ty::ModelicaType = TYPE_UNKNOWN()
+  local tys::Vector{ModelicaType} = Vector{ModelicaType}(undef, length(elements))
   local n::Int = 2
   local next_origin::ORIGIN_Type = setFlag(origin, ORIGIN_SUBEXPRESSION)
-  local tyRef::Ref{NFType} = Ref{NFType}(TYPE_UNKNOWN())
+  local tyRef::Ref{ModelicaType} = Ref{ModelicaType}(TYPE_UNKNOWN())
 
   if length(elements) > 1
     local i::Int = 1
@@ -2509,8 +2353,6 @@ const INTEGER_EXPRESSION_0 = INTEGER_EXPRESSION(0)
 
 include("TypeRef.jl")
 
-
-
 @nospecializeinfer function typeRange(
   @nospecialize(rangeExp::RANGE_EXPRESSION),
   @nospecialize(origin::ORIGIN_Type),
@@ -2528,15 +2370,15 @@ end
   @nospecialize(info::SourceInfo),)
   @nospecialize
   local variability::VariabilityType
-  local rangeType::NFType
+  local rangeType::ModelicaType
   local start_exp::Expression
   local step_exp::Expression
   local stop_exp::Expression
-  local start_ty::NFType
-  local step_ty::NFType
-  local stop_ty::NFType
+  local start_ty::ModelicaType
+  local step_ty::ModelicaType
+  local stop_ty::ModelicaType
   local ostep_exp::Option{Expression}
-  local ostep_ty::Option{NFType}
+  local ostep_ty::Option{ModelicaType}
   local start_var::VariabilityType
   local step_var::VariabilityType
   local stop_var::VariabilityType
@@ -2574,14 +2416,10 @@ end
     ostep_exp = NONE()
     ostep_ty = NONE()
   end
-  #=  Type step.
-  =#
-  #=  Type check start and step.
-  =#
-  #=  We've checked start-stop and start-step now, so step-stop must also be
-  =#
-  #=  type compatible. Stop might need to be type cast here though.
-  =#
+  #= Type step.
+     Type check start and step.
+     We've checked start-stop and start-step now, so step-stop must also be
+     type compatible. Stop might need to be type cast here though. =#
   rangeType =
     getRangeType(start_exp, ostep_exp, stop_exp, rangeType, info)
   rangeExp =
@@ -2596,20 +2434,18 @@ end
   @nospecialize(elements::List{<:Expression}),
   origin::ORIGIN_Type,
   info::SourceInfo,
-)::Tuple{TUPLE_EXPRESSION, NFType, VariabilityType}
+)::Tuple{TUPLE_EXPRESSION, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local tupleType::NFType
+  local tupleType::ModelicaType
   local tupleExp::Expression
 
   local expl::List{Expression}
-  local tyl::List{NFType}
+  local tyl::List{ModelicaType}
   local valr::List{VariabilityType}
   local next_origin::ORIGIN_Type
 
-  #=  Tuples are only allowed on the lhs side of an equality/assignment,
-  =#
-  #=  and only if they are alone and not part of a larger expression.
-  =#
+  #= Tuples are only allowed on the lhs side of an equality/assignment,
+     and only if they are alone and not part of a larger expression. =#
   if flagNotSet(origin, ORIGIN_LHS) ||
      flagSet(origin, ORIGIN_SUBEXPRESSION)
     Error.addSourceMessage(
@@ -2641,9 +2477,9 @@ end
 
 function printRangeTypeError(
   @nospecialize(exp1::Expression),
-  ty1::NFType,
+  ty1::ModelicaType,
   @nospecialize(exp2::Expression),
-  ty2::NFType,
+  ty2::ModelicaType,
   info::SourceInfo,
 )
   Error.addSourceMessage(
@@ -2669,16 +2505,15 @@ end
   origin::ORIGIN_Type,
   info::SourceInfo,
   evaluate::Bool = true,
-)#Should return ::Tuple{Expression, NFType, VariabilityType}
+)#Should return ::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local szType::NFType
+  local szType::ModelicaType
   local exp::Expression
   local index::Expression
-  local exp_ty::NFType
-  local index_ty::NFType
+  local exp_ty::ModelicaType
+  local index_ty::ModelicaType
   local ty_match::MatchKindType
   local iindex::Int
-  local dim_size::Int
   local dim::Dimension
   local ty_err::TypingError
   local oexp::Option{Expression}
@@ -2688,8 +2523,7 @@ end
     @match sizeExpArg begin
       SIZE_EXPRESSION(exp = exp, dimIndex = SOME(index)) => begin
          (index, index_ty, variability) = typeExp(index, next_origin, info)
-        #=  The second argument must be an Integer.
-        =#
+        #= The second argument must be an Integer. =#
         (index, _, ty_match) =
           matchTypes(index_ty, TYPE_INTEGER(), index)
         if isIncompatibleMatch(ty_match)
@@ -2753,28 +2587,30 @@ end
   return (sizeExpArg, szType, variability)
 end
 
+"""
+    checkSizeTypingError(typingError, exp, index, info) -> Bool
+Reports the typing error of `size(exp, index)`; true when there is none.
+"""
 function checkSizeTypingError(
   typingError::TypingError,
   @nospecialize(exp::Expression),
   index::Int,
   info::SourceInfo,
-)
-  return  () = begin
+)::Bool
+  return begin
     @match typingError begin
       NO_ERROR(__) => begin
-        ()
+        true
       end
 
       OUT_OF_BOUNDS(0) => begin
-        #=  The first argument wasn't an array.
-        =#
+        #= The first argument wasn't an array. =#
         Error.addSourceMessage(Error.INVALID_ARGUMENT_TYPE_FIRST_ARRAY, list("size"), info)
-        fail()
+        false
       end
 
       OUT_OF_BOUNDS(__) => begin
-        #=  The index referred to an invalid dimension.
-        =#
+        #= The index referred to an invalid dimension. =#
         Error.addSourceMessage(
           Error.INVALID_SIZE_INDEX,
           list(
@@ -2784,7 +2620,7 @@ function checkSizeTypingError(
           ),
           info,
         )
-        fail()
+        false
       end
     end
   end
@@ -2801,8 +2637,6 @@ function evaluateEnd(
   local outExp::Expression
 
    outExp = begin
-    local ty::NFType
-    local cr::ComponentRef
     @match exp begin
       END_EXPRESSION(__) => begin
         endExp(dim, cref, index)
@@ -2815,22 +2649,13 @@ function evaluateEnd(
       _ => begin
         mapShallow(
           exp,
-          (xx, x = dim, y = cref, z = index, zz = origin, zzz = info) -> evaluateEnd(
-            xx,
-            x,
-            y,
-            z,
-            zz,
-            zzz,
-          ),
+          (@nospecialize(xx::Expression),) -> evaluateEnd(xx, dim, cref, index, origin, info),
         )
       end
     end
   end
-  #=  Stop when encountering a cref, any 'end' in a cref expression refers to
-  =#
-  #=  the cref's dimensions and will be evaluated when the cref is typed.
-  =#
+  #= Stop when encountering a cref, any 'end' in a cref expression refers to
+     the cref's dimensions and will be evaluated when the cref is typed. =#
   return outExp
 end
 
@@ -2838,29 +2663,27 @@ end
   @nospecialize(ifExp::Expression),
   origin::ORIGIN_Type,
   info::SourceInfo,
-)::Tuple{Expression, NFType, VariabilityType}
+)::Tuple{Expression, ModelicaType, VariabilityType}
   local var::VariabilityType
-  local ty::NFType
+  local ty::ModelicaType
   local cond::Expression
   local tb::Expression
   local fb::Expression
   local tb2::Expression
   local fb2::Expression
   local next_origin::ORIGIN_Type
-  local cond_ty::NFType
-  local tb_ty::NFType
-  local fb_ty::NFType
+  local cond_ty::ModelicaType
+  local tb_ty::ModelicaType
+  local fb_ty::ModelicaType
   local cond_var::VariabilityType
   local tb_var::VariabilityType
   local fb_var::VariabilityType
   local ty_match::MatchKindType
-  #@info "typeIfExpression:" toString(ifExp)
   @match IF_EXPRESSION(condition = cond, trueBranch = tb, falseBranch = fb) =
     ifExp
    next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
    (cond, cond_ty, cond_var) = typeExp(cond, next_origin, info)
-  #=  The condition must be a scalar boolean.
-  =#
+  #= The condition must be a scalar boolean. =#
    (cond, _, ty_match) = matchTypes(cond_ty, TYPE_BOOLEAN(), cond)
   if isIncompatibleMatch(ty_match)
     Error.addSourceMessage(
@@ -2923,18 +2746,12 @@ end
        var = variabilityMax(cond_var, variabilityMax(tb_var, fb_var))
     end
   end
-  #=  If the condition is constant, always do branch selection.
-  =#
-  #=  Otherwise type both of the branches.
-  =#
-  #=  If the branches have different types but the condition is a parameter
-  =#
-  #=  expression, do branch selection.
-  =#
-  #=  Otherwise give a type mismatch error.
-  =#
-  #=  If the types match, return a typed if-expression.
-  =#
+  #= If the condition is constant, always do branch selection.
+     Otherwise type both of the branches.
+     If the branches have different types but the condition is a parameter
+     expression, do branch selection.
+     Otherwise give a type mismatch error.
+     If the types match, return a typed if-expression. =#
   return (ifExp, ty, var)
 end
 
@@ -2993,7 +2810,6 @@ end
 function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)::InstNode
   local cls::Class
   local components::Vector{InstNode}
-  local info::SourceInfo
    cls = getClass(classNode)
    _ = begin
     @match cls begin
@@ -3122,7 +2938,7 @@ function typeFunctionSections(classNode::InstNode, origin::ORIGIN_Type)::InstNod
   local typed_cls::Class
   local sections::Sections
   local info::SourceInfo
-  local alg::Algorithm
+  local alg::ALGORITHM
   cls = getClass(classNode)
   begin
     @match cls begin
@@ -3130,7 +2946,7 @@ function typeFunctionSections(classNode::InstNode, origin::ORIGIN_Type)::InstNod
         sections = begin
           @match sections begin
             SECTIONS([], [], [alg,], []) => begin
-               sections.algorithms = Algorithm[typeAlgorithm(
+               sections.algorithms = ALGORITHM[typeAlgorithm(
                 alg,
                 setFlag(origin, ORIGIN_ALGORITHM),
               )]
@@ -3162,7 +2978,7 @@ function typeFunctionSections(classNode::InstNode, origin::ORIGIN_Type)::InstNod
               res  = typeCref(sections.outputRef,
                               origin,
                               info,
-                              Ref{NFType}(TYPE_UNKNOWN()),
+                              Ref{ModelicaType}(TYPE_UNKNOWN()),
                               Ref{VariabilityType}(Variability.CONSTANT),
                               Ref{VariabilityType}(Variability.CONSTANT))
               sections.outputRef = res
@@ -3211,7 +3027,7 @@ end
 @nospecializeinfer function typeExternalArg(@nospecialize(arg::Expression), info::SourceInfo, node::InstNode)::Expression
   local outArg::Expression
 
-  local ty::NFType
+  local ty::ModelicaType
   local var::VariabilityType
   local index::Expression
 
@@ -3241,10 +3057,8 @@ end
             end
 
             _ => begin
-              #=  All kinds of crefs are allowed.
-              =#
-              #=  The only other kind of expression that's allowed is scalar constants.
-              =#
+              #= All kinds of crefs are allowed.
+                 The only other kind of expression that's allowed is scalar constants. =#
               if isScalarBuiltin(ty) && var == Variability.CONSTANT
                  outArg = evalExp(outArg, EVALTARGET_GENERIC(info))
               else
@@ -3274,33 +3088,26 @@ end
 function makeDefaultExternalCall(extDecl::Sections, fnNode::InstNode)::Sections
    extDecl = begin
     local args::List{Expression}
-    local output_ref::ComponentRef
-    local fn::M_Function
+    local fn::MODELICA_FUNCTION
     local single_output::Bool
     local comps::Vector{InstNode}
     local comp::Component
-    local ty::NFType
+    local ty::ModelicaType
     local node::InstNode
     local exp::Expression
     @match extDecl begin
       SECTIONS_EXTERNAL(__) => begin
-        #=  An explicit function call isn't needed for builtin calls.
-        =#
+        #= An explicit function call isn't needed for builtin calls. =#
         if extDecl.language == "builtin"
           return SECTIONS_EMPTY()
         end
-        #=  Fetch the cached function.
-        =#
+        #= Fetch the cached function. =#
         @match C_FUNCTION(funcs = [fn]) = getFuncCache(fnNode)
-        #=  Check whether we have a single output or not.
-        =#
+        #= Check whether we have a single output or not. =#
          single_output = listLength(fn.outputs) == 1
-        #=  When there's a single array output we can't generate a call on the
-        =#
-        #=  'output = func(inputs)' form, so print a warning and treat is as
-        =#
-        #=  though it's not a single output.
-        =#
+        #= When there's a single array output we can't generate a call on the
+           'output = func(inputs)' form, so print a warning and treat is as
+           though it's not a single output. =#
         if single_output && isArray(returnType(fn))
            single_output = false
           Error.addSourceMessage(
@@ -3309,17 +3116,14 @@ function makeDefaultExternalCall(extDecl::Sections, fnNode::InstNode)::Sections
             InstNode_info(fnNode),
           )
         end
-        #=  If we have a single output, set the external declaration's output to
-        =#
-        #=  be a reference to the function's output. Otherwise leave it as empty.
-        =#
+        #= If we have a single output, set the external declaration's output to
+           be a reference to the function's output. Otherwise leave it as empty. =#
         if single_output
            node = listHead(fn.outputs)
            ty = getType(node)
            extDecl.outputRef = fromNode(node, ty)
         end
-        #=  Generate function arguments from the function's components.
-        =#
+        #= Generate function arguments from the function's components. =#
          comps =
           getComponents(classTree(getClass(fn.node)))
         if arrayLength(comps) > 0
@@ -3363,37 +3167,35 @@ function typeComponentSections(c::InstNode, origin::ORIGIN_Type)::InstNode
   comp = component(node)
   #= An outer left uninstantiated, its inner encloses it (instComponent): no sections of its own. =#
   isDefinition(comp) && isvariant(c, INNER_OUTER_NODE) && return c
-  () = begin
-    @match comp begin
-      TYPED_COMPONENT(__) => begin
-        local classInst = typeClassSections(comp.classInst, origin)
-        if classInst !== comp.classInst
-          if _parallelTypingActive()
-            #= On the component as it is under the claim (see typeComponentChildren!): typing
-               the sections evaluates parameters, and writing back the copy read before them
-               dropped a binding evaluated meanwhile. =#
-            local n0 = node
-            _withClaim(_refId(n0)) do
-              local c2 = component(n0)
-              @assign c2.classInst = classInst
-              updateComponent!(c2, n0)
-            end
-          else
-            @assign comp.classInst = classInst
-            node = updateComponent!(comp, node)
+  @match comp begin
+    TYPED_COMPONENT(__) => begin
+      local classInst = typeClassSections(comp.classInst, origin)
+      if classInst !== comp.classInst
+        if _parallelTypingActive()
+          #= On the component as it is under the claim (see typeComponentChildren!): typing
+             the sections evaluates parameters, and writing back the copy read before them
+             dropped a binding evaluated meanwhile. =#
+          local n0 = node
+          _withClaim(_refId(n0)) do
+            local c2 = component(n0)
+            @assign c2.classInst = classInst
+            updateComponent!(c2, n0)
           end
+        else
+          @assign comp.classInst = classInst
+          node = updateComponent!(comp, node)
         end
-        ()
       end
+      ()
+    end
 
-      _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() + " got uninstantiated component " + name(node)::String,
-          sourceInfo(),
-        )
-        fail()
-      end
+    _ => begin
+      Error.assertion(
+        false,
+        getInstanceName() + " got uninstantiated component " + name(node)::String,
+        sourceInfo(),
+      )
+      fail()
     end
   end
   return is_self ? node : INNER_OUTER_NODE(c.innerNode, node)
@@ -3408,17 +3210,8 @@ end
     local cond::Expression
     local e1::Expression
     local e2::Expression
-    local e3::Expression
-    local ty::NFType
-    local ty1::NFType
-    local ty2::NFType
-    local eqs1::Vector{Equation}
     local body::Vector{Equation}
-    local tybrs::Vector{Equation}
     local iterator::InstNode
-    local mk::MatchKindType
-    local var::VariabilityType
-    local bvar::VariabilityType
     local next_origin::Int
     local info::SourceInfo
     @match eq begin
@@ -3431,7 +3224,7 @@ end
       end
 
       EQUATION_FOR(__) => begin
-        info = sourceInfo() #DAE.emptyElementSource -John
+        info = eq.source
         e1 = isSome(eq.range) ? Util.getOption(eq.range) : deduceIterationRangeEq(eq, eq.iterator, info)
         (e1, _, _) = typeIterator(eq.iterator, e1, origin, true)
         next_origin = setFlag(origin, ORIGIN_FOR)
@@ -3452,7 +3245,7 @@ end
       end
 
       EQUATION_TERMINATE(__) => begin
-        info = AbsynUtil.dummyInfo #DAE.emptyElementSource
+        info = eq.source
         e1 = typeOperatorArg(
           eq.message,
           TYPE_STRING(),
@@ -3471,13 +3264,13 @@ end
       end
 
       EQUATION_NORETCALL(__) => begin
-        info = sourceInfo() #Added by me -John
-        (e1 ,_ ,_) = typeExp(eq.exp, origin, info) #eq.source #=DAE.emptyElementSource=#)
+        info = eq.source
+        (e1 ,_ ,_) = typeExp(eq.exp, origin, info) #eq.source #=AbsynUtil.dummyInfo=#)
         EQUATION_NORETCALL(e1, eq.source)
       end
 
       EQUATION_RECONFIGURE(__) => begin
-        local info = DAE.ElementSource_getInfo(eq.source)
+        local info = eq.source
         #= Loops, not comprehensions: their closures' element types were not inferred, and the widening `collect`
            was invalidated at each load by a package's `setindex_widen_up_to` method (Unzip) (2026-11-16). =#
         local typedConds = Expression[]
@@ -3516,7 +3309,7 @@ end
 end
 
 function typeEquationAssert(eq::Equation, origin::ORIGIN_Type)
-  info = sourceInfo() #TODO: DAE.emptyElementSource
+  info = eq.source
   next_origin = setFlag(origin, ORIGIN_ASSERT)
   e1 = typeOperatorArg(
     eq.condition,
@@ -3553,28 +3346,22 @@ end
   @nospecialize(lhsConn::Expression),
   @nospecialize(rhsConn::Expression),
   origin::ORIGIN_Type,
-  source::DAE.ElementSource,
+  source::SourceInfo,
 )::Equation
   local connEq::Equation
 
   local lhs::Expression
   local rhs::Expression
-  local lhs_ty::NFType
-  local rhs_ty::NFType
-  local lhs_var::VariabilityType
-  local rhs_var::VariabilityType
+  local lhs_ty::ModelicaType
+  local rhs_ty::ModelicaType
   local mk::MatchKindType
   local next_origin::Int
   local info::SourceInfo
-  local eql::List{Equation}
 
-   info =  sourceInfo() #TODO: DAE.ElementSource_getInfo(source) ElementSource_getInfo(source)
-  #=  Connections may not be used in if-equations unless the conditions are
-  =#
-  #=  parameter expressions.
-  =#
-  #=  TODO: Also check for cardinality etc. as per 8.3.3.
-  =#
+   info = source
+  #= Connections may not be used in if-equations unless the conditions are
+     parameter expressions.
+     TODO: Also check for cardinality etc. as per 8.3.3. =#
   if flagSet(origin, ORIGIN_NONEXPANDABLE)
     Error.addSourceMessage(
       Error.CONNECT_IN_IF,
@@ -3589,12 +3376,9 @@ end
    next_origin = setFlag(origin, ORIGIN_CONNECT)
   (lhs, lhs_ty) = typeConnector(lhsConn, next_origin, info)
   (rhs, rhs_ty) = typeConnector(rhsConn, next_origin, info)
-  #=  Check that the connectors have matching types, but only if they're not expandable.
-  =#
-  #=  Expandable connectors can only be type checked after they've been augmented during
-  =#
-  #=  the connection handling.
-  =#
+  #= Check that the connectors have matching types, but only if they're not expandable.
+     Expandable connectors can only be type checked after they've been augmented during
+     the connection handling. =#
   if !(isExpandableConnector(arrayElementType(lhs_ty)) || isExpandableConnector(arrayElementType(rhs_ty)))
     (lhs, rhs, _, mk) =
        matchExpressions(lhs, lhs_ty, rhs, rhs_ty, true#=allowUnknown = true=#)
@@ -3619,8 +3403,8 @@ end
   @nospecialize(connExp::Expression),
   origin::ORIGIN_Type,
   info::SourceInfo,
-  )::Tuple{Expression, NFType}
-  local ty::NFType
+  )::Tuple{Expression, ModelicaType}
+  local ty::ModelicaType
   (connExp, ty, _) = typeExp(connExp, origin, info)
   checkConnector(connExp, info)
   return (connExp, ty)
@@ -3692,38 +3476,32 @@ function checkConnectorForm(cref::ComponentRef, isConnectorBool::Bool = true)::B
       end
     end
   end
-  #=  The only part of the connector reference allowed to not be a
-  =#
-  #=  non-connector is the very last part.
-  =#
+  #= The only part of the connector reference allowed to not be a
+     non-connector is the very last part. =#
   return valid
 end
 
 @nospecializeinfer function checkLhsInWhen(@nospecialize(exp::Expression))::Bool
-  local isValid::Bool
 
-   isValid = begin
-    @match exp begin
-      CREF_EXPRESSION(__) => begin
-        true
-      end
+   @match exp begin
+     CREF_EXPRESSION(__) => begin
+       true
+     end
 
-      TUPLE_EXPRESSION(__) => begin
-        for e in exp.elements
-          checkLhsInWhen(e)
-        end
-        true
-      end
+     TUPLE_EXPRESSION(__) => begin
+       for e in exp.elements
+         checkLhsInWhen(e)
+       end
+       true
+     end
 
-      _ => begin
-        false
-      end
-    end
-  end
-  return isValid
+     _ => begin
+       false
+     end
+   end
 end
 
-function typeAlgorithm(alg::Algorithm, origin::ORIGIN_Type)::Algorithm
+function typeAlgorithm(alg::ALGORITHM, origin::ORIGIN_Type)::ALGORITHM
   for (i,s) in enumerate(alg.statements)
     @inbounds alg.statements[i] = typeStatement(s, origin)
   end
@@ -3743,9 +3521,9 @@ end
     local e1::Expression
     local e2::Expression
     local e3::Expression
-    local ty1::NFType
-    local ty2::NFType
-    local ty3::NFType
+    local ty1::ModelicaType
+    local ty2::ModelicaType
+    local ty3::ModelicaType
     local sts1::Vector{Statement}
     local body::Vector{Statement}
     local tybrs::Vector{Tuple{Expression, Vector{Statement}}}
@@ -3756,14 +3534,12 @@ end
     local info::SourceInfo
     @match st begin
       ALG_ASSIGNMENT(__) => begin
-        info = AbsynUtil.dummyInfo#DAE.ElementSource_getInfo(st.source)
+        info = st.source
         (e1, ty1, var1) =
           typeExp(st.lhs, setFlag(origin, ORIGIN_LHS), info)
         (e2, ty2) =
           typeExp(st.rhs, setFlag(origin, ORIGIN_RHS), info)
-        #=
-          TODO: Should probably only be allowUnknown = true if in a function.
-        =#
+        #= TODO: Should probably only be allowUnknown = true if in a function. =#
         (e2, ty3, mk) = matchTypes(ty2, ty1, e2, #=allowUnknown=# true)
         if isIncompatibleMatch(mk)
           Error.addSourceMessage(
@@ -3783,7 +3559,7 @@ end
       end
 
       ALG_FOR(__) => begin
-        info = AbsynUtil.dummyInfo #DAE.ElementSource_getInfo(st.source)
+        info = st.source
         e1 = isSome(st.range) ? Util.getOption(st.range) : deduceIterationRangeStmt(st, st.iterator, info)
         (e1, _, _) = typeIterator(st.iterator, e1, origin, false)
         next_origin = setFlag(origin, ORIGIN_FOR)
@@ -3819,7 +3595,7 @@ end
       end
 
       ALG_ASSERT(__) => begin
-        info = AbsynUtil.dummyInfo #DAE.ElementSource_getInfo(st.source)
+        info = st.source
         next_origin = setFlag(origin, ORIGIN_ASSERT)
         e1 = typeOperatorArg(
           st.condition,
@@ -3853,9 +3629,8 @@ end
       end
 
       ALG_TERMINATE(__) => begin
-         info = DAE.ElementSource_getInfo(st.source)
-        #=  terminate is not allowed in a function context.
-        =#
+         info = st.source
+        #= terminate is not allowed in a function context. =#
         if flagSet(origin, ORIGIN_FUNCTION)
           Error.addSourceMessage(Error.EXP_INVALID_IN_FUNCTION, list("terminate"), info)
           fail()
@@ -3874,7 +3649,7 @@ end
 
       ALG_REINIT(__) => begin
         if flagNotSet(origin, ORIGIN_WHEN)
-          Error.addSourceMessage(Error.REINIT_NOT_IN_WHEN, nil, DAE.ElementSource_getInfo(st.source))
+          Error.addSourceMessage(Error.REINIT_NOT_IN_WHEN, nil, st.source)
           fail()
         end
         (e1, e2) = typeReinit(st.cref, st.reinitExp, origin, st.source)
@@ -3882,7 +3657,7 @@ end
       end
 
       ALG_NORETCALL(__) => begin
-        (e1, _, _) = typeExp(st.exp, origin, AbsynUtil.dummyInfo)#DAE.ElementSource_getInfo(st.source))
+        (e1, _, _) = typeExp(st.exp, origin, st.source)
         ALG_NORETCALL(e1, st.source)
       end
 
@@ -3914,21 +3689,21 @@ end
   @nospecialize(lhsExp::Expression),
   @nospecialize(rhsExp::Expression),
   origin::ORIGIN_Type,
-  source::DAE.ElementSource,
+  source::SourceInfo,
   )::Equation
   local eq::Equation
-  local info::SourceInfo = sourceInfo()
+  local info::SourceInfo = source
   local e1::Expression
   local e2::Expression
-  local ty1::NFType
-  local ty2::NFType
-  local ty::NFType
+  local ty1::ModelicaType
+  local ty2::ModelicaType
+  local ty::ModelicaType
   local mk::MatchKindType
 
   if flagSet(origin, ORIGIN_WHEN) &&
      flagNotSet(origin, ORIGIN_CLOCKED)
     if checkLhsInWhen(lhsExp)
-      fold(lhsExp, markStructuralParamsSubs, 0)
+      fold(lhsExp, markStructuralParamsSubs, 0, Int)
     else
       Error.addSourceMessage(
         Error.WHEN_EQ_LHS,
@@ -3967,18 +3742,18 @@ end
 @nospecializeinfer function typeCondition(
   @nospecialize(condition::Expression),
   origin::ORIGIN_Type,
-  source::DAE.ElementSource,
+  source::SourceInfo,
   errorMsg;
   allowVector::Bool = false,
   allowClock::Bool = false,
-)::Tuple{Expression, NFType, VariabilityType}
+)::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::NFType
+  local ty::ModelicaType
   local info::SourceInfo
 
-  local ety::NFType
+  local ety::ModelicaType
 
-  info = sourceInfo() #DAE.emptyElementSource #TODO: DAE.ElementSource_getInfo(source)
+  info = source
   (condition, ty, variability) =
     typeExp(condition, origin, info)
   ety = if allowVector
@@ -3995,14 +3770,13 @@ end
     @error "Error in  condition with the type $(ty)"
     fail()
   end
-#  fail()
   return (condition, ty, variability)
 end
 
 @nospecializeinfer function typeIfEquation(
-  @nospecialize(branches::Vector{<:Equation_Branch}),
+  @nospecialize(branches::Vector{<:EquationBranch}),
   origin::ORIGIN_Type,
-  source::DAE.ElementSource,
+  source::SourceInfo,
 )::Equation
   local ifEq::Equation
   local cond::Expression
@@ -4038,8 +3812,9 @@ end
        Unknown branches use the EQUATION_INVALID_BRANCH mechanism. =#
     local _condKnown = false
     if var <= Variability.STRUCTURAL_PARAMETER
-      try
-        local _evalCond = evalExp(cond)
+      #= A condition that does not evaluate: the normal branch typing. =#
+      local (ok::Bool, _evalCond::Expression) = evalExpChecked(cond)
+      if ok
         if isFalse(_evalCond)
           continue
         end
@@ -4049,8 +3824,6 @@ end
           cond = _evalCond
           _condKnown = true
         end
-      catch
-        #= If evaluation fails, fall through to normal branch typing =#
       end
     end
     if _condKnown
@@ -4077,10 +3850,9 @@ end
       ErrorExt.delCheckpoint(getInstanceName())
     end
   end
-  #=  Do branch selection anyway if -d=-nfScalarize is set, otherwise turning of
-    scalarization breaks currently.
-  =#
-  if !Flags.isSet(Flags.NF_SCALARIZE)
+  #= Do branch selection anyway if -d=-nfScalarize is set, otherwise turning of
+     scalarization breaks currently. =#
+  if !Flags.isSet(Flags.FRONTEND_SCALARIZE)
     bl = bl2
     bl2 = EquationBranch[]
     for b in bl
@@ -4114,36 +3886,32 @@ end
 end
 
 @nospecializeinfer function isNonConstantIfCondition(@nospecialize(exp::Expression))::Bool
-  local isConstant::Bool
-  isConstant = begin
-    local fn::M_Function
-    @match exp begin
-      CREF_EXPRESSION(__) => begin
-        isIterator(exp.cref)
-      end
-      CALL_EXPRESSION(call = TYPED_CALL(fn = fn)) => begin
-        begin
-          @match AbsynUtil.pathFirstIdent(fn.path) begin
-            "Connections" => begin
-              true
-            end
+  local fn::MODELICA_FUNCTION
+  @match exp begin
+    CREF_EXPRESSION(__) => begin
+      isIterator(exp.cref)
+    end
+    CALL_EXPRESSION(call = TYPED_CALL(fn = fn)) => begin
+      begin
+        @match AbsynUtil.pathFirstIdent(fn.path) begin
+          "Connections" => begin
+            true
+          end
 
-            "cardinality" => begin
-              true
-            end
+          "cardinality" => begin
+            true
+          end
 
-            _ => begin
-              isImpure(exp.call)
-            end
+          _ => begin
+            isImpure(exp.call)
           end
         end
       end
-      _ => begin
-        false
-      end
+    end
+    _ => begin
+      false
     end
   end
-  return isConstant
 end
 
 """
@@ -4151,31 +3919,31 @@ omc NFTyping.typeWhenCondition: a when-condition must be a discrete-time express
 (or a clock).
 """
 function typeWhenCondition(@nospecialize(condition::Expression), origin::ORIGIN_Type,
-                           source::DAE.ElementSource, allowClock::Bool)::Tuple{Expression, NFType, VariabilityType}
+                           source::SourceInfo, allowClock::Bool)::Tuple{Expression, ModelicaType, VariabilityType}
   local cond::Expression
-  local ty::NFType
+  local ty::ModelicaType
   local var::VariabilityType
   (cond, ty, var) = typeCondition(condition, origin, source, Error.WHEN_CONDITION_TYPE_ERROR,
                                   allowVector = true, allowClock = allowClock)
   if var > Variability.IMPLICITLY_DISCRETE && !isClock(ty)
     Error.addSourceMessage(Error.NON_DISCRETE_WHEN_CONDITION, list(toString(condition)),
-                           DAE.ElementSource_getInfo(source))
+                           source)
     fail()
   end
   return (cond, ty, var)
 end
 
 @nospecializeinfer function typeWhenEquation(
-  @nospecialize(branches::Vector{<:Equation_Branch}),
+  @nospecialize(branches::Vector{<:EquationBranch}),
   origin::ORIGIN_Type,
-  source::DAE.ElementSource,
+  source::SourceInfo,
 )::Equation
   local whenEq::Equation
   local next_origin::ORIGIN_Type = setFlag(origin, ORIGIN_WHEN)
   local accum_branches::Vector{EquationBranch} = EquationBranch[]
   local cond::Expression
   local body::Vector{Equation}
-  local ty::NFType
+  local ty::ModelicaType
   local var::VariabilityType
   for branch in branches
     @match EQUATION_BRANCH(cond, _, body) = branch
@@ -4183,12 +3951,12 @@ end
     if isClock(ty)
       if length(branches) != 1
         if referenceEq(branch, listHead(branches))
-          Error.addSourceMessage(Error.ELSE_WHEN_CLOCK, nil, DAE.ElementSource_getInfo(source))
+          Error.addSourceMessage(Error.ELSE_WHEN_CLOCK, nil, source)
         else
           Error.addSourceMessage(
             Error.CLOCKED_WHEN_BRANCH,
             nil,
-            DAE.ElementSource_getInfo(source),
+            source,
           )
         end
         fail()
@@ -4218,14 +3986,14 @@ end
 
 function typeOperatorArg(
   @nospecialize(arg::Expression),
-  expectedType::NFType,
+  expectedType::ModelicaType,
   @nospecialize(origin::ORIGIN_Type),
   operatorName::String,
   argName::String,
   argIndex::Int,
   info::SourceInfo,
   )
-  local ty::NFType
+  local ty::ModelicaType
   local mk::MatchKindType
   (arg, ty, _) = typeExp(arg, origin, info)
   (arg, _, mk) = matchTypes(ty, expectedType, arg)
@@ -4251,21 +4019,19 @@ function typeReinit(
   @nospecialize(crefExp::Expression),
   @nospecialize(exp::Expression),
   @nospecialize(origin::ORIGIN_Type),
-  @nospecialize(source::DAE.ElementSource),
+  @nospecialize(source::SourceInfo),
 )::Tuple{Expression, Expression}
 
-  local var::VariabilityType
   local mk::MatchKindType
-  local ty1::NFType
-  local ty2::NFType
+  local ty1::ModelicaType
+  local ty2::ModelicaType
   local cref::ComponentRef
   local info::SourceInfo
 
-   info = sourceInfo() #TODO: DAE.ElementSource_getInfo(source)
+   info = source
    (crefExp, ty1, _) = typeExp(crefExp, origin, info)
    (exp, ty2, _) = typeExp(exp, origin, info)
-  #=  The first argument must be a cref.
-  =#
+  #= The first argument must be a cref. =#
    cref = begin
     @match crefExp begin
       CREF_EXPRESSION(__) => begin
@@ -4278,12 +4044,9 @@ function typeReinit(
       end
     end
   end
-  #=  The first argument must be a continuous time variable.
-  =#
-  #=  Check the variability of the cref instead of the variability returned by
-  =#
-  #=  typeExp, since expressions in when-equations count as discrete.
-  =#
+  #= The first argument must be a continuous time variable.
+     Check the variability of the cref instead of the variability returned by
+     typeExp, since expressions in when-equations count as discrete. =#
   if nodeVariability(cref) < Variability.IMPLICITLY_DISCRETE
     Error.addSourceMessage(
       Error.REINIT_MUST_BE_VAR,
@@ -4295,8 +4058,7 @@ function typeReinit(
     )
     fail()
   end
-  #=  The first argument must be a subtype of Real.
-  =#
+  #= The first argument must be a subtype of Real. =#
   (_, _, mk) =
     matchTypes(arrayElementType(ty1), TYPE_REAL(), crefExp)
   if isIncompatibleMatch(mk)
@@ -4310,8 +4072,7 @@ function typeReinit(
     )
     fail()
   end
-  #=  The second argument must be type compatible with the first.
-  =#
+  #= The second argument must be type compatible with the first. =#
    (exp, _, mk) = matchTypes(ty2, ty1, exp)
   if isIncompatibleMatch(mk)
     Error.addSourceMessage(
@@ -4331,22 +4092,25 @@ function typeReinit(
   return (crefExp, exp)
 end
 
+"""The crefs that subscript with a for-loop iterator and the position of the iterator among the subscripts."""
+const IteratorCrefs = Vector{Tuple{ComponentRef, Int}}
+
 #= A for-loop without a range (`for i loop x[i] = ...`) iterates over the dimensions the iterator
    subscripts in its body: lower bound to end of that dimension (omc deduceIterationRange*). =#
 function deduceIterationRangeEq(@nospecialize(eq::Equation), iterator::InstNode, info::SourceInfo)::Expression
-  local crefs = foldExp(eq, (e, acc) -> fold(e, (e2, acc2) -> collectIteratorCrefs(e2, iterator, acc2), acc),
-                        Tuple{ComponentRef, Int}[])
+  local crefs::IteratorCrefs = foldExp(eq, (e::Expression, acc::IteratorCrefs) -> fold(e, (e2::Expression, acc2::IteratorCrefs) -> collectIteratorCrefs(e2, iterator, acc2), acc, IteratorCrefs),
+                        IteratorCrefs(), IteratorCrefs)
   return deduceIterationRange(crefs, iterator, info)
 end
 
 function deduceIterationRangeStmt(stmt::Statement, iterator::InstNode, info::SourceInfo)::Expression
-  local crefs = foldExp(stmt, (e, acc) -> fold(e, (e2, acc2) -> collectIteratorCrefs(e2, iterator, acc2), acc),
-                        Tuple{ComponentRef, Int}[])
+  local crefs::IteratorCrefs = foldExp(stmt, (e::Expression, acc::IteratorCrefs) -> fold(e, (e2::Expression, acc2::IteratorCrefs) -> collectIteratorCrefs(e2, iterator, acc2), acc, IteratorCrefs),
+                        IteratorCrefs(), IteratorCrefs)
   return deduceIterationRange(crefs, iterator, info)
 end
 
 function deduceIterationRangeExp(@nospecialize(exp::Expression), iterator::InstNode, info::SourceInfo)::Expression
-  local crefs = fold(exp, (e, acc) -> collectIteratorCrefs(e, iterator, acc), Tuple{ComponentRef, Int}[])
+  local crefs::IteratorCrefs = fold(exp, (e::Expression, acc::IteratorCrefs) -> collectIteratorCrefs(e, iterator, acc), IteratorCrefs(), IteratorCrefs)
   return deduceIterationRange(crefs, iterator, info)
 end
 

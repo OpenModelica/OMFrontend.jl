@@ -36,9 +36,10 @@
 module AbsynToSCode
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 import ..SCode
 import ..ListUtil
 
@@ -46,7 +47,6 @@ import ..AbsynUtil
 import ..SCodeUtil
 import ..Util
 import ..System
-
 
 const ASSERTION_LEVEL_ERROR =
   Absyn.CREF(Absyn.CREF_FULLYQUALIFIED(Absyn.CREF_QUAL(
@@ -66,13 +66,10 @@ const ASSERTION_LEVEL_ERROR =
 function translateAbsyn2SCode(inProgram::Absyn.Program)
   local outProgram::SCode.Program
    outProgram = begin
-    local spInitial::SCode.Program
     local sp::SCode.Program
     local inClasses::List{Absyn.Class}
-    local initialClasses::List{Absyn.Class}
     @match inProgram begin
       _ => begin
-        #            InstHashTable.init()
         @match Absyn.PROGRAM(classes = inClasses) = inProgram
         System.setHasInnerOuterDefinitions(false)
         System.setHasExpandableConnectors(false)
@@ -97,90 +94,82 @@ end
 
 """This functions converts an Absyn.Class to a SCode.Class."""
 function translateClass2(inClass::Absyn.Class, inNumMessages::Int)::SCode.Element
-  local outClass::SCode.Element
-   outClass = begin
-    local d_1::SCode.ClassDef
-    local r_1::SCode.Restriction
-    local c::Absyn.Class
-    local n::String
-    local p::Bool
-    local f::Bool
-    local e::Bool
-    local r::Absyn.Restriction
-    local d::Absyn.ClassDef
-    local file_info::SourceInfo
-    local scodeClass::SCode.Element
-    local sFin::SCode.Final
-    local sEnc::SCode.Encapsulated
-    local sPar::SCode.Partial
-    local cmt::SCode.Comment
-    @matchcontinue (inClass, inNumMessages) begin
-      (
-        c && Absyn.CLASS(
-          name = n,
-          partialPrefix = p,
-          finalPrefix = f,
-          encapsulatedPrefix = e,
-          restriction = r,
-          body = d,
-          info = file_info,
-        ),
-        _,
-      ) => begin
-         r_1 = translateRestriction(c, r)
-         (d_1, cmt) = translateClassdef(d, file_info, r_1)
-         sFin = SCodeUtil.boolFinal(f)
-         sEnc = SCodeUtil.boolEncapsulated(e)
-         sPar = SCodeUtil.boolPartial(p)
-         scodeClass = SCode.CLASS(
-          n,
-          SCode.PREFIXES(
-            SCode.PUBLIC(),
-            SCode.NOT_REDECLARE(),
-            sFin,
-            Absyn.NOT_INNER_OUTER(),
-            SCode.NOT_REPLACEABLE(),
-          ),
-          sEnc,
-          sPar,
-          r_1,
-          d_1,
-          cmt,
-          file_info,
-        )
-        scodeClass
-      end
+   local d_1::SCode.ClassDef
+   local r_1::SCode.Restriction
+   local c::Absyn.Class
+   local n::String
+   local p::Bool
+   local f::Bool
+   local e::Bool
+   local r::Absyn.Restriction
+   local d::Absyn.ClassDef
+   local file_info::SourceInfo
+   local scodeClass::SCode.Element
+   local sFin::SCode.Final
+   local sEnc::SCode.Encapsulated
+   local sPar::SCode.Partial
+   local cmt::SCode.COMMENT
+   @matchcontinue (inClass, inNumMessages) begin
+     (
+       c && Absyn.CLASS(
+         name = n,
+         partialPrefix = p,
+         finalPrefix = f,
+         encapsulatedPrefix = e,
+         restriction = r,
+         body = d,
+         info = file_info,
+       ),
+       _,
+     ) => begin
+        r_1 = translateRestriction(c, r)
+        (d_1, cmt) = translateClassdef(d, file_info, r_1)
+        sFin = SCodeUtil.boolFinal(f)
+        sEnc = SCodeUtil.boolEncapsulated(e)
+        sPar = SCodeUtil.boolPartial(p)
+        scodeClass = SCode.CLASS(
+         n,
+         SCode.PREFIXES(
+           SCode.PUBLIC(),
+           SCode.NOT_REDECLARE(),
+           sFin,
+           Absyn.NOT_INNER_OUTER(),
+           SCode.NOT_REPLACEABLE(),
+         ),
+         sEnc,
+         sPar,
+         r_1,
+         d_1,
+         cmt,
+         file_info,
+       )
+       scodeClass
+     end
 
-      (Absyn.CLASS(name = n, info = file_info), _) => begin
-        n = "AbsynToSCode.translateClass2 failed: " + n
-        @error n
-        fail()
-      end
-    end
-  end
-  return outClass
+     (Absyn.CLASS(name = n, info = file_info), _) => begin
+       n = "AbsynToSCode.translateClass2 failed: " + n
+       @error n
+       fail()
+     end
+   end
 end
 
-#= mahge: FIX HERE. Check for proper input and output
-=#
+#= mahge: FIX HERE. Check for proper input and output =#
 """declarations in operators according to the specifications."""
 function translateOperatorDef(
   inClassDef::Absyn.ClassDef,
   operatorName::Absyn.Ident,
   info::SourceInfo,
-)::Tuple{SCode.ClassDef, SCode.Comment}
-  local cmt::SCode.Comment
+)::Tuple{SCode.ClassDef, SCode.COMMENT}
+  local cmt::SCode.COMMENT
   local outOperDef::SCode.ClassDef
 
    (outOperDef, cmt) = begin
     local cmtString::Option{String}
     local els::List{SCode.Element}
-    local anns::List{SCode.Annotation}
     local parts::List{Absyn.ClassPart}
-    local scodeCmt::Option{SCode.Comment}
-    local opName::SCode.Ident
     local aann::List{Absyn.Annotation}
-    local ann::Option{SCode.Annotation}
+    local ann::Option{SCode.ANNOTATION}
     @match (inClassDef, operatorName, info) begin
       (Absyn.PARTS(classParts = parts, ann = aann, comment = cmtString), _, _) => begin
          els = translateClassdefElements(parts)
@@ -196,25 +185,9 @@ function translateOperatorDef(
   return (outOperDef, cmt)
 end
 
-function translatePurity(inPurity::Absyn.FunctionPurity)::Bool
-  local outPurity::Bool
+translatePurity(inPurity::Absyn.FunctionPurity)::Bool = isvariant(inPurity, Absyn.IMPURE)
 
-   outPurity = begin
-    @match inPurity begin
-      Absyn.IMPURE(__) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outPurity
-end
-
-#=  Changed to public! krsta
-=#
+#= Changed to public! krsta =#
 
 """Convert a class restriction."""
 function translateRestriction(
@@ -232,8 +205,7 @@ function translateRestriction(
     local moved::Bool
     local purity::Absyn.FunctionPurity
     local typeVars::List{String}
-    #=  ?? Only normal functions can have 'external'
-    =#
+    #= ?? Only normal functions can have 'external' =#
     @match (inClass, inRestriction) begin
       (d, Absyn.R_FUNCTION(Absyn.FR_NORMAL_FUNCTION(purity))) => begin
          isImpure = translatePurity(purity)
@@ -343,12 +315,10 @@ function translateRestriction(
       end
     end
   end
-  #=  BTH
-  =#
-  #= MetaModelica extension, added by x07simbj
-  =#
-  #= /*MetaModelica extension added by x07simbj */ =#
-  #= /*MetaModelica extension added by x07simbj */ =#
+  #= BTH
+     MetaModelica extension, added by x07simbj
+     /*MetaModelica extension added by x07simbj */
+     /*MetaModelica extension added by x07simbj */ =#
   return outRestriction
 end
 
@@ -357,7 +327,6 @@ function containsExternalFuncDecl(inClass::Absyn.Class)::Bool
   local outBoolean::Bool
 
    outBoolean = begin
-    local res::Bool
     local b::Bool
     local c::Bool
     local d::Bool
@@ -421,69 +390,61 @@ function containsExternalFuncDecl(inClass::Absyn.Class)::Bool
       end
     end
   end
-  #= /* adrpo: handling also the case model extends X external ... end X; */ =#
-  #= /* adrpo: handling also the case model extends X external ... end X; */ =#
+  #= /* adrpo: handling also the case model extends X external ... end X; */
+     /* adrpo: handling also the case model extends X external ... end X; */ =#
   return outBoolean
 end
 
 """ @author: adrpo
-    translates from Absyn.ElementAttributes to SCode.Attributes
+    translates from Absyn.ElementAttributes to SCode.ATTR
 """
 function translateAttributes(
   inEA::Absyn.ElementAttributes,
   extraArrayDim::List{<:Absyn.Subscript},
-  )::SCode.Attributes
-  local outA::SCode.Attributes
-   outA = begin
-    local f::Bool
-    local s::Bool
-    local v::Absyn.Variability
-    local p::Absyn.Parallelism
-    local adim::Absyn.ArrayDim
-    local extraADim::Absyn.ArrayDim
-    local dir::Absyn.Direction
-    local fi::Absyn.IsField
-    local ct::SCode.ConnectorType
-    local sp::SCode.Parallelism
-     local sv::SCode.Variability
-    @match (inEA, extraArrayDim) begin
-      (Absyn.ATTR(f, s, p, v, dir, fi, adim, mo), extraADim) => begin
-        ct = translateConnectorType(f, s)
-        sv = translateVariability(v)
-        sp = translateParallelism(p)
-        adim = listAppend(extraADim, adim)
-        #@debug "Value of mode in translate Attributes" mo
-        SCode.ATTR(adim, ct, sp, sv, dir, fi, mo)
-      end
-    end
-  end
-  return outA
+  )::SCode.ATTR
+   local f::Bool
+   local s::Bool
+   local v::Absyn.Variability
+   local p::Absyn.Parallelism
+   local adim::Absyn.ArrayDim
+   local extraADim::Absyn.ArrayDim
+   local dir::Absyn.Direction
+   local fi::Absyn.IsField
+   local ct::SCode.ConnectorType
+   local sp::SCode.Parallelism
+    local sv::SCode.Variability
+   @match (inEA, extraArrayDim) begin
+     (Absyn.ATTR(f, s, p, v, dir, fi, adim, mo), extraADim) => begin
+       ct = translateConnectorType(f, s)
+       sv = translateVariability(v)
+       sp = translateParallelism(p)
+       adim = listAppend(extraADim, adim)
+       #@debug "Value of mode in translate Attributes" mo
+       SCode.ATTR(adim, ct, sp, sv, dir, fi, mo)
+     end
+   end
 end
 
 function translateConnectorType(inFlow::Bool, inStream::Bool)::SCode.ConnectorType
-  local outType::SCode.ConnectorType
 
-   outType = begin
-    @match (inFlow, inStream) begin
-      (false, false) => begin
-        SCode.POTENTIAL()
-      end
+   @match (inFlow, inStream) begin
+     (false, false) => begin
+       SCode.POTENTIAL()
+     end
 
-      (true, false) => begin
-        SCode.FLOW()
-      end
+     (true, false) => begin
+       SCode.FLOW()
+     end
 
-      (false, true) => begin
-        SCode.STREAM()
-      end
+     (false, true) => begin
+       SCode.STREAM()
+     end
 
-      (true, true) => begin
-        #=  Both flow and stream is not allowed by the grammar, so this shouldn't be  possible. =#
-        fail()
-      end
-    end
-  end
-  return outType
+     (true, true) => begin
+       #=  Both flow and stream is not allowed by the grammar, so this shouldn't be  possible. =#
+       fail()
+     end
+   end
 end
 
 """
@@ -498,8 +459,8 @@ function translateClassdef(
   inClassDef::Absyn.ClassDef,
   info::SourceInfo,
   re::SCode.Restriction,
-)::Tuple{SCode.ClassDef, SCode.Comment}
-  local outComment::SCode.Comment
+)::Tuple{SCode.ClassDef, SCode.COMMENT}
+  local outComment::SCode.COMMENT
   local outClassDef::SCode.ClassDef
 
    (outClassDef, outComment) = begin
@@ -512,22 +473,21 @@ function translateClassdef(
     local cmtString::Option{String}
     local els::List{SCode.Element}
     local tvels::List{SCode.Element}
-    local anns::List{SCode.Annotation}
-    local eqs::List{SCode.Equation}
-    local initeqs::List{SCode.Equation}
-    local als::List{SCode.AlgorithmSection}
-    local initals::List{SCode.AlgorithmSection}
-    local cos::List{SCode.ConstraintSection}
-    local decl::Option{SCode.ExternalDecl}
+    local eqs::List{SCode.EQUATION}
+    local initeqs::List{SCode.EQUATION}
+    local als::List{SCode.ALGORITHM}
+    local initals::List{SCode.ALGORITHM}
+    local cos::List{SCode.CONSTRAINTS}
+    local decl::Option{SCode.EXTERNALDECL}
     local parts::List{Absyn.ClassPart}
     local vars::List{String}
-    local lst_1::List{SCode.Enum}
+    local lst_1::List{SCode.ENUM}
     local lst::List{Absyn.EnumLiteral}
-    local scodeCmt::SCode.Comment
+    local scodeCmt::SCode.COMMENT
     local path::Absyn.Path
     local pathLst::List{Absyn.Path}
     local typeVars::List{String}
-    local scodeAttr::SCode.Attributes
+    local scodeAttr::SCode.ATTR
     local classAttrs::List{Absyn.NamedArg}
     local ann::List{Absyn.Annotation}
     @match (inClassDef, info) begin
@@ -558,11 +518,11 @@ function translateClassdef(
          typeVars = begin
           @match re begin
             SCode.R_METARECORD(__) => begin
-              ListUtil.union(typeVars, re.typeVars)
+              ListUtil.union(typeVars, re.typeVars, String)
             end
 
             SCode.R_UNIONTYPE(__) => begin
-              ListUtil.union(typeVars, re.typeVars)
+              ListUtil.union(typeVars, re.typeVars, String)
             end
 
             _ => begin
@@ -570,7 +530,7 @@ function translateClassdef(
             end
           end
         end
-         tvels = ListUtil.map1(typeVars, makeTypeVarElement, info)
+         tvels = ListUtil.map1(typeVars, makeTypeVarElement, info, SCode.Element)
          els = translateClassdefElements(parts)
          els = listAppend(tvels, els)
          eqs = translateClassdefEquations(parts)
@@ -653,21 +613,20 @@ end
   it says external \\\"C\\\" ; annotation(Library=\\\"foo.lib\\\";
 """
 function translateAlternativeExternalAnnotation(
-  decl::Option{<:SCode.ExternalDecl},
-  comment::SCode.Comment,
-)::Option{SCode.ExternalDecl}
-  local outDecl::Option{SCode.ExternalDecl}
+  decl::Option{<:SCode.EXTERNALDECL},
+  comment::SCode.COMMENT,
+)::Option{SCode.EXTERNALDECL}
+  local outDecl::Option{SCode.EXTERNALDECL}
 
    outDecl = begin
     local name::Option{SCode.Ident}
     local l::Option{String}
     local out::Option{Absyn.ComponentRef}
     local a::List{Absyn.Exp}
-    local ann1::Option{SCode.Annotation}
-    local ann2::Option{SCode.Annotation}
-    local ann::Option{SCode.Annotation}
-    #=  none
-    =#
+    local ann1::Option{SCode.ANNOTATION}
+    local ann2::Option{SCode.ANNOTATION}
+    local ann::Option{SCode.ANNOTATION}
+    #= none =#
     @match (decl, comment) begin
       (NONE(), _) => begin
         NONE()
@@ -686,67 +645,30 @@ function translateAlternativeExternalAnnotation(
   return outDecl
 end
 
-function mergeSCodeAnnotationsFromParts(
-  part::Absyn.ClassPart,
-  inMod::Option{<:SCode.Annotation},
-)::Option{SCode.Annotation}
-  local outMod::Option{SCode.Annotation}
-
-   outMod = begin
-    local aann::Absyn.Annotation
-    local ann::Option{SCode.Annotation}
-    local rest::List{Absyn.ElementItem}
-    @match (part, inMod) begin
-      (Absyn.EXTERNAL(_, SOME(aann)), _) => begin
-         ann = translateAnnotation(aann)
-         ann = SCodeUtil.mergeSCodeOptAnn(ann, inMod)
-        ann
-      end
-
-      (Absyn.PUBLIC(_ <| rest), _) => begin
-        mergeSCodeAnnotationsFromParts(Absyn.PUBLIC(rest), inMod)
-      end
-
-      (Absyn.PROTECTED(_ <| rest), _) => begin
-        mergeSCodeAnnotationsFromParts(Absyn.PROTECTED(rest), inMod)
-      end
-
-      _ => begin
-        inMod
-      end
-    end
-  end
-  return outMod
-end
-
 """
   Convert an EnumLiteral list to an Ident list.
   Comments are lost.
 """
 function translateEnumlist(
   inAbsynEnumLiteralLst::List{<:Absyn.EnumLiteral},
-)::List{SCode.Enum}
-  local outEnumLst::List{SCode.Enum}
+)::List{SCode.ENUM}
 
-   outEnumLst = begin
-    local res::List{SCode.Enum}
-    local id::String
-    local cmtOpt::Option{Absyn.Comment}
-    local cmt::SCode.Comment
-    local rest::List{Absyn.EnumLiteral}
-    @match inAbsynEnumLiteralLst begin
-      nil() => begin
-        nil
-      end
+   local res::List{SCode.ENUM}
+   local id::String
+   local cmtOpt::Option{Absyn.Comment}
+   local cmt::SCode.COMMENT
+   local rest::List{Absyn.EnumLiteral}
+   @match inAbsynEnumLiteralLst begin
+     nil() => begin
+       nil
+     end
 
-      Absyn.ENUMLITERAL(id, cmtOpt) <| rest => begin
-         cmt = translateComment(cmtOpt)
-         res = translateEnumlist(rest)
-        _cons(SCode.ENUM(id, cmt), res)
-      end
-    end
-  end
-  return outEnumLst
+     Absyn.ENUMLITERAL(id, cmtOpt) <| rest => begin
+        cmt = translateComment(cmtOpt)
+        res = translateEnumlist(rest)
+       _cons(SCode.ENUM(id, cmt), res)
+     end
+   end
 end
 
 """Convert an Absyn.ClassPart list to an Element list."""
@@ -758,7 +680,6 @@ function translateClassdefElements(
    outElementLst = begin
     local els::List{SCode.Element}
     local es_1::List{SCode.Element}
-    local els_1::List{SCode.Element}
     local es::List{Absyn.ElementItem}
     local rest::List{Absyn.ClassPart}
     @match inAbsynClassPartLst begin
@@ -792,13 +713,13 @@ end
 """Convert an Absyn.ClassPart list to an Equation list."""
 function translateClassdefEquations(
   inAbsynClassPartLst::List{<:Absyn.ClassPart},
-)::List{SCode.Equation}
-  local outEquationLst::List{SCode.Equation}
+)::List{SCode.EQUATION}
+  local outEquationLst::List{SCode.EQUATION}
 
    outEquationLst = begin
-    local eqs::List{SCode.Equation}
-    local eql_1::List{SCode.Equation}
-    local eqs_1::List{SCode.Equation}
+    local eqs::List{SCode.EQUATION}
+    local eql_1::List{SCode.EQUATION}
+    local eqs_1::List{SCode.EQUATION}
     local eql::List{Absyn.EquationItem}
     local rest::List{Absyn.ClassPart}
     @match inAbsynClassPartLst begin
@@ -826,13 +747,13 @@ end
 """Convert an Absyn.ClassPart list to an initial Equation list."""
 function translateClassdefInitialequations(
   inAbsynClassPartLst::List{<:Absyn.ClassPart},
-)::List{SCode.Equation}
-  local outEquationLst::List{SCode.Equation}
+)::List{SCode.EQUATION}
+  local outEquationLst::List{SCode.EQUATION}
 
    outEquationLst = begin
-    local eqs::List{SCode.Equation}
-    local eql_1::List{SCode.Equation}
-    local eqs_1::List{SCode.Equation}
+    local eqs::List{SCode.EQUATION}
+    local eql_1::List{SCode.EQUATION}
+    local eqs_1::List{SCode.EQUATION}
     local eql::List{Absyn.EquationItem}
     local rest::List{Absyn.ClassPart}
     @match inAbsynClassPartLst begin
@@ -860,12 +781,12 @@ end
 """Convert an Absyn.ClassPart list to an Algorithm list."""
 function translateClassdefAlgorithms(
   inAbsynClassPartLst::List{<:Absyn.ClassPart},
-)::List{SCode.AlgorithmSection}
-  local outAlgorithmLst::List{SCode.AlgorithmSection}
+)::List{SCode.ALGORITHM}
+  local outAlgorithmLst::List{SCode.ALGORITHM}
 
    outAlgorithmLst = begin
-    local als::List{SCode.AlgorithmSection}
-    local als_1::List{SCode.AlgorithmSection}
+    local als::List{SCode.ALGORITHM}
+    local als_1::List{SCode.ALGORITHM}
     local al_1::List{SCode.Statement}
     local al::List{Absyn.AlgorithmItem}
     local rest::List{Absyn.ClassPart}
@@ -899,12 +820,12 @@ end
 """Convert an Absyn.ClassPart list to an Constraint list."""
 function translateClassdefConstraints(
   inAbsynClassPartLst::List{<:Absyn.ClassPart},
-)::List{SCode.ConstraintSection}
-  local outConstraintLst::List{SCode.ConstraintSection}
+)::List{SCode.CONSTRAINTS}
+  local outConstraintLst::List{SCode.CONSTRAINTS}
 
    outConstraintLst = begin
-    local cos::List{SCode.ConstraintSection}
-    local cos_1::List{SCode.ConstraintSection}
+    local cos::List{SCode.CONSTRAINTS}
+    local cos_1::List{SCode.CONSTRAINTS}
     local consts::List{Absyn.Exp}
     local rest::List{Absyn.ClassPart}
     local cp::Absyn.ClassPart
@@ -936,12 +857,12 @@ end
 """Convert an Absyn.ClassPart list to an initial Algorithm list."""
 function translateClassdefInitialalgorithms(
   inAbsynClassPartLst::List{<:Absyn.ClassPart},
-)::List{SCode.AlgorithmSection}
-  local outAlgorithmLst::List{SCode.AlgorithmSection}
+)::List{SCode.ALGORITHM}
+  local outAlgorithmLst::List{SCode.ALGORITHM}
 
    outAlgorithmLst = begin
-    local als::List{SCode.AlgorithmSection}
-    local als_1::List{SCode.AlgorithmSection}
+    local als::List{SCode.ALGORITHM}
+    local als_1::List{SCode.ALGORITHM}
     local stmts::List{SCode.Statement}
     local al::List{Absyn.AlgorithmItem}
     local rest::List{Absyn.ClassPart}
@@ -984,7 +905,7 @@ function translateClassdefAlgorithmItem(inAlgorithm::Absyn.AlgorithmItem)::SCode
   local outStatement::SCode.Statement
 
   local absynComment::Option{Absyn.Comment}
-  local comment::SCode.Comment
+  local comment::SCode.COMMENT
   local info::SourceInfo
   local alg::Absyn.Algorithm
 
@@ -997,11 +918,9 @@ function translateClassdefAlgorithmItem(inAlgorithm::Absyn.AlgorithmItem)::SCode
     local branches::List{Tuple{Absyn.Exp, List{SCode.Statement}}}
     local iter_name::String
     local iter_range::Option{Absyn.Exp}
-    local stmt::SCode.Statement
     local e1::Absyn.Exp
     local e2::Absyn.Exp
     local e3::Absyn.Exp
-    local cr::Absyn.ComponentRef
     @match alg begin
       Absyn.ALG_ASSIGN(__) => begin
         SCode.ALG_ASSIGN(alg.assignComponent, alg.value, comment, info)
@@ -1016,8 +935,7 @@ function translateClassdefAlgorithmItem(inAlgorithm::Absyn.AlgorithmItem)::SCode
 
       Absyn.ALG_FOR(__) => begin
          body = translateClassdefAlgorithmitems(alg.forBody)
-        #=  Convert for-loops with multiple iterators into nested for-loops.
-        =#
+        #= Convert for-loops with multiple iterators into nested for-loops. =#
         for i in listReverse(alg.iterators)
            (iter_name, iter_range) = translateIterator(i, info)
            body = list(SCode.ALG_FOR(iter_name, iter_range, body, comment, info))
@@ -1027,8 +945,7 @@ function translateClassdefAlgorithmItem(inAlgorithm::Absyn.AlgorithmItem)::SCode
 
       Absyn.ALG_PARFOR(__) => begin
          body = translateClassdefAlgorithmitems(alg.parforBody)
-        #=  Convert for-loops with multiple iterators into nested for-loops.
-        =#
+        #= Convert for-loops with multiple iterators into nested for-loops. =#
         for i in listReverse(alg.iterators)
            (iter_name, iter_range) = translateIterator(i, info)
            body =
@@ -1089,12 +1006,9 @@ function translateClassdefAlgorithmItem(inAlgorithm::Absyn.AlgorithmItem)::SCode
       end
 
       Absyn.ALG_NORETCALL(__) => begin
-        #=  assert(condition, message)
-        =#
-        #=  assert(condition, message, level)
-        =#
-        #=  assert(condition, message, level = arg)
-        =#
+        #= assert(condition, message)
+           assert(condition, message, level)
+           assert(condition, message, level = arg) =#
          e1 = Absyn.CALL(alg.functionCall, alg.functionArgs, nil)
         SCode.ALG_NORETCALL(e1, comment, info)
       end
@@ -1148,49 +1062,43 @@ function translateAlgBranches(
 end
 
 """
-  Converts an Absyn.ClassPart list to an SCode.ExternalDecl option.
+  Converts an Absyn.ClassPart list to an SCode.EXTERNALDECL option.
   The list should only contain one external declaration, so pick the first one.
 """
 function translateClassdefExternaldecls(
   inAbsynClassPartLst::List{<:Absyn.ClassPart},
-)::Option{SCode.ExternalDecl}
-  local outAbsynExternalDeclOption::Option{SCode.ExternalDecl}
+)::Option{SCode.EXTERNALDECL}
 
-   outAbsynExternalDeclOption = begin
-    local res::Option{SCode.ExternalDecl}
-    local rest::List{Absyn.ClassPart}
-    local fn_name::Option{SCode.Ident}
-    local lang::Option{String}
-    local output_::Option{Absyn.ComponentRef}
-    local args::List{Absyn.Exp}
-    local aann::Option{Absyn.Annotation}
-    local sann::Option{SCode.Annotation}
-    @match inAbsynClassPartLst begin
-      Absyn.EXTERNAL(externalDecl = Absyn.EXTERNALDECL(fn_name, lang, output_, args, aann)) <| _ => begin
-         sann = translateAnnotationOpt(aann)
-        SOME(SCode.EXTERNALDECL(fn_name, lang, output_, args, sann))
-      end
+   local res::Option{SCode.EXTERNALDECL}
+   local rest::List{Absyn.ClassPart}
+   local fn_name::Option{SCode.Ident}
+   local lang::Option{String}
+   local output_::Option{Absyn.ComponentRef}
+   local args::List{Absyn.Exp}
+   local aann::Option{Absyn.Annotation}
+   local sann::Option{SCode.ANNOTATION}
+   @match inAbsynClassPartLst begin
+     Absyn.EXTERNAL(externalDecl = Absyn.EXTERNALDECL(fn_name, lang, output_, args, aann)) <| _ => begin
+        sann = translateAnnotationOpt(aann)
+       SOME(SCode.EXTERNALDECL(fn_name, lang, output_, args, sann))
+     end
 
-      _ <| rest => begin
-         res = translateClassdefExternaldecls(rest)
-        res
-      end
+     _ <| rest => begin
+        res = translateClassdefExternaldecls(rest)
+       res
+     end
 
-      nil() => begin
-        NONE()
-      end
-    end
-  end
-  return outAbsynExternalDeclOption
+     nil() => begin
+       NONE()
+     end
+   end
 end
 
-#=
-  Minimum number of `Absyn.ElementItem`s in a single `translateEitemlist`
-  call before the parallel branch is considered. Below this threshold the
-  per-task spawn overhead dominates per-element work. Tuned empirically
-  against the MSL on an 8-thread machine; raise for fewer cores, lower for
-  heavier per-element work.
-=#
+#= Minimum number of `Absyn.ElementItem`s in a single `translateEitemlist`
+   call before the parallel branch is considered. Below this threshold the
+   per-task spawn overhead dominates per-element work. Tuned empirically
+   against the MSL on an 8-thread machine; raise for fewer cores, lower for
+   heavier per-element work. =#
 const NF_PARALLEL_EITEM_THRESHOLD = 8
 
 """
@@ -1234,7 +1142,7 @@ function translateEitemlistSerial(
       @match ei begin
         Absyn.ELEMENTITEM(element = e) => begin
            e_1 = translateElement(e, inVisibility)
-           l = ListUtil.append_reverse(e_1, l)
+           l = ListUtil.append_reverse(e_1, l, SCode.Element)
           ()
         end
 
@@ -1294,57 +1202,48 @@ function translateOneEitem(
   end
 end
 
-#=  stefan
-=#
+#= stefan =#
 
-"""translates an Absyn.Annotation into an SCode.Annotation"""
-function translateAnnotation(inAnnotation::Absyn.Annotation)::Option{SCode.Annotation}
-  local outAnnotation::Option{SCode.Annotation}
+"""translates an Absyn.Annotation into an SCode.ANNOTATION"""
+function translateAnnotation(inAnnotation::Absyn.Annotation)::Option{SCode.ANNOTATION}
 
-   outAnnotation = begin
-    local args::List{Absyn.ElementArg}
-    local m::SCode.Mod
-    @match inAnnotation begin
-      Absyn.ANNOTATION(elementArgs = nil()) => begin
-        NONE()
-      end
+   local args::List{Absyn.ElementArg}
+   local m::SCode.Mod
+   @match inAnnotation begin
+     Absyn.ANNOTATION(elementArgs = nil()) => begin
+       NONE()
+     end
 
-      Absyn.ANNOTATION(elementArgs = args) => begin
-         m = translateMod(
-          SOME(Absyn.CLASSMOD(args, Absyn.NOMOD())),
-          SCode.NOT_FINAL(),
-          SCode.NOT_EACH(),
-          AbsynUtil.dummyInfo,
-        )
-        if SCodeUtil.isEmptyMod(m)
-          NONE()
-        else
-          SOME(SCode.ANNOTATION(m))
-        end
-      end
-    end
-  end
-  return outAnnotation
+     Absyn.ANNOTATION(elementArgs = args) => begin
+        m = translateMod(
+         SOME(Absyn.CLASSMOD(args, Absyn.NOMOD())),
+         SCode.NOT_FINAL(),
+         SCode.NOT_EACH(),
+         AbsynUtil.dummyInfo,
+       )
+       if SCodeUtil.isEmptyMod(m)
+         NONE()
+       else
+         SOME(SCode.ANNOTATION(m))
+       end
+     end
+   end
 end
 
 function translateAnnotationOpt(
   absynAnnotation::Option{<:Absyn.Annotation},
-)::Option{SCode.Annotation}
-  local scodeAnnotation::Option{SCode.Annotation}
+)::Option{SCode.ANNOTATION}
 
-   scodeAnnotation = begin
-    local ann::Absyn.Annotation
-    @match absynAnnotation begin
-      SOME(ann) => begin
-        translateAnnotation(ann)
-      end
+   local ann::Absyn.Annotation
+   @match absynAnnotation begin
+     SOME(ann) => begin
+       translateAnnotation(ann)
+     end
 
-      _ => begin
-        NONE()
-      end
-    end
-  end
-  return scodeAnnotation
+     _ => begin
+       NONE()
+     end
+   end
 end
 
 """
@@ -1356,46 +1255,42 @@ function translateElement(
   inElement::Absyn.Element,
   inVisibility::SCode.Visibility,
 )::List{SCode.Element}
-  local outElementLst::List{SCode.Element}
 
-   outElementLst = begin
-    local es::List{SCode.Element}
-    local f::Bool
-    local repl::Option{Absyn.RedeclareKeywords}
-    local s::Absyn.ElementSpec
-    local io::Absyn.InnerOuter
-    local info::SourceInfo
-    local cc::Option{Absyn.ConstrainClass}
-    local expOpt::Option{String}
-    local weightOpt::Option{AbstractFloat}
-    local args::List{Absyn.NamedArg}
-    local name::String
-    local vis::SCode.Visibility
-    @match (inElement, inVisibility) begin
-      (
-        Absyn.ELEMENT(
-          constrainClass = cc,
-          finalPrefix = f,
-          innerOuter = io,
-          redeclareKeywords = repl,
-          specification = s,
-          info = info,
-        ),
-        vis,
-      ) => begin
-         es = translateElementspec(cc, f, io, repl, vis, s, info)
-        es
-      end
+   local es::List{SCode.Element}
+   local f::Bool
+   local repl::Option{Absyn.RedeclareKeywords}
+   local s::Absyn.ElementSpec
+   local io::Absyn.InnerOuter
+   local info::SourceInfo
+   local cc::Option{Absyn.ConstrainClass}
+   local expOpt::Option{String}
+   local weightOpt::Option{AbstractFloat}
+   local args::List{Absyn.NamedArg}
+   local name::String
+   local vis::SCode.Visibility
+   @match (inElement, inVisibility) begin
+     (
+       Absyn.ELEMENT(
+         constrainClass = cc,
+         finalPrefix = f,
+         innerOuter = io,
+         redeclareKeywords = repl,
+         specification = s,
+         info = info,
+       ),
+       vis,
+     ) => begin
+        es = translateElementspec(cc, f, io, repl, vis, s, info)
+       es
+     end
 
-      (Absyn.DEFINEUNIT(name, args, info), vis) => begin
-         expOpt = translateDefineunitParam(args, "exp")
-         weightOpt = translateDefineunitParam2(args, "weight")
-        list(SCode.DEFINEUNIT(name, vis, expOpt, weightOpt, info))
-      end
-      _ => fail()
-    end
-  end
-  return outElementLst
+     (Absyn.DEFINEUNIT(name, args, info), vis) => begin
+        expOpt = translateDefineunitParam(args, "exp")
+        weightOpt = translateDefineunitParam2(args, "weight")
+       list(SCode.DEFINEUNIT(name, vis, expOpt, weightOpt, info))
+     end
+     _ => fail()
+   end
 end
 
 """help function to translateElement"""
@@ -1403,28 +1298,24 @@ function translateDefineunitParam(
   inArgs::List{<:Absyn.NamedArg},
   inArg::String,
 )::Option{String}
-  local expOpt::Option{String}
 
-   expOpt = begin
-    local str::String
-    local name::String
-    local arg::String
-    local args::List{Absyn.NamedArg}
-    @match (inArgs, inArg) begin
-      (Absyn.NAMEDARG(name, Absyn.STRING(str)) <| _, arg) where {(name == arg)} => begin
-        SOME(str)
-      end
+   local str::String
+   local name::String
+   local arg::String
+   local args::List{Absyn.NamedArg}
+   @match (inArgs, inArg) begin
+     (Absyn.NAMEDARG(name, Absyn.STRING(str)) <| _, arg) where {(name == arg)} => begin
+       SOME(str)
+     end
 
-      (nil(), _) => begin
-        NONE()
-      end
+     (nil(), _) => begin
+       NONE()
+     end
 
-      (_ <| args, arg) => begin
-        translateDefineunitParam(args, arg)
-      end
-    end
-  end
-  return expOpt
+     (_ <| args, arg) => begin
+       translateDefineunitParam(args, arg)
+     end
+   end
 end
 
 """help function to translateElement"""
@@ -1432,30 +1323,26 @@ function translateDefineunitParam2(
   inArgs::List{<:Absyn.NamedArg},
   inArg::String,
 )::Option{AbstractFloat}
-  local weightOpt::Option{AbstractFloat}
 
-   weightOpt = begin
-    local name::String
-    local arg::String
-    local s::String
-    local r::AbstractFloat
-    local args::List{Absyn.NamedArg}
-    @match (inArgs, inArg) begin
-      (Absyn.NAMEDARG(name, Absyn.REAL(s)) <| _, arg) where {(name == arg)} => begin
-         r = System.stringReal(s)
-        SOME(r)
-      end
+   local name::String
+   local arg::String
+   local s::String
+   local r::AbstractFloat
+   local args::List{Absyn.NamedArg}
+   @match (inArgs, inArg) begin
+     (Absyn.NAMEDARG(name, Absyn.REAL(s)) <| _, arg) where {(name == arg)} => begin
+        r = System.stringReal(s)
+       SOME(r)
+     end
 
-      (nil(), _) => begin
-        NONE()
-      end
+     (nil(), _) => begin
+       NONE()
+     end
 
-      (_ <| args, arg) => begin
-        translateDefineunitParam2(args, arg)
-      end
-    end
-  end
-  return weightOpt
+     (_ <| args, arg) => begin
+       translateDefineunitParam2(args, arg)
+     end
+   end
 end
 
 """
@@ -1471,307 +1358,295 @@ function translateElementspec(
   inElementSpec4::Absyn.ElementSpec,
   inInfo::SourceInfo,
 )::List{SCode.Element}
-  local outElementLst::List{SCode.Element}
 
-   outElementLst = begin
-    local absann::Absyn.Annotation
-    local ad::List{SCode.Subscript}
-    local ann::Option{SCode.Annotation}
-    local args::List{Absyn.ElementArg}
-    local attr::Absyn.ElementAttributes
-    local cl::Absyn.Class
-    local cls::SCode.Element
-    local cmt::SCode.Comment
-    local comment::Option{Absyn.Comment}
-    local cond::Option{Absyn.Exp}
-    local ct::SCode.ConnectorType
-    local d::List{SCode.Subscript}
-    local de::Absyn.ClassDef
-    local de_1::SCode.ClassDef
-    local di::Absyn.Direction
-    local e::Bool
-    local fi::Bool
-    local fl::Bool
-    local i::SourceInfo
-    local imp::Absyn.Import
-    local info::SourceInfo
-    local isf::Absyn.IsField
-    local m::Option{Absyn.Modification}
-    local mod::SCode.Mod
-    local md::Bool
-    local n::String
-    local pa::Bool
-    local parallelism::Absyn.Parallelism
-    local path::Absyn.Path
-    local prefixes::SCode.Prefixes
-    local prl1::SCode.Parallelism
-    local re::Absyn.Restriction
-    local re_1::SCode.Restriction
-    local redecl::Bool
-    local repl::Option{Absyn.RedeclareKeywords}
-    local repl_1::Bool
-    local rp::Bool
-    local sEnc::SCode.Encapsulated
-    local sFin::SCode.Final
-    local sPar::SCode.Partial
-    local sRed::SCode.Redeclare
-    local sRep::SCode.Replaceable
-    local scc::Option{SCode.ConstrainClass}
-    local st::Bool
-    local t::Absyn.TypeSpec
-    local tot_dim::List{SCode.Subscript}
-    local var1::SCode.Variability
-    local variability::Absyn.Variability
-    local vis::SCode.Visibility
-    local xs::List{Absyn.ComponentItem}
-    local xs_1::List{SCode.Element}
-    @match (cc, finalPrefix, io, inRedeclareKeywords, inVisibility, inElementSpec4, inInfo) begin
-      (
-        _,
-        _,
-        _,
-        repl,
-        vis,
-        Absyn.CLASSDEF(
-          replaceable_ = rp,
-          class_ = Absyn.CLASS(
-            name = n,
-            partialPrefix = pa,
-            encapsulatedPrefix = e,
-            restriction = Absyn.R_OPERATOR(__),
-            body = de,
-            info = i,
-          ),
-        ),
-        _,
-      ) => begin
-         (de_1, cmt) = translateOperatorDef(de, n, i)
-         (_, redecl) = translateRedeclarekeywords(repl)
-         sRed = SCodeUtil.boolRedeclare(redecl)
-         sFin = SCodeUtil.boolFinal(finalPrefix)
-         scc = translateConstrainClass(cc)
-         sRep = if rp
-          SCode.REPLACEABLE(scc)
-        else
-          SCode.NOT_REPLACEABLE()
-        end
-         sEnc = SCodeUtil.boolEncapsulated(e)
-         sPar = SCodeUtil.boolPartial(pa)
-         cls = SCode.CLASS(
-          n,
-          SCode.PREFIXES(vis, sRed, sFin, io, sRep),
-          sEnc,
-          sPar,
-          SCode.R_OPERATOR(),
-          de_1,
-          cmt,
-          i,
-        )
-        list(cls)
-      end
+   local absann::Absyn.Annotation
+   local ad::List{SCode.Subscript}
+   local ann::Option{SCode.ANNOTATION}
+   local args::List{Absyn.ElementArg}
+   local cl::Absyn.Class
+   local cls::SCode.Element
+   local cmt::SCode.COMMENT
+   local comment::Option{Absyn.Comment}
+   local cond::Option{Absyn.Exp}
+   local ct::SCode.ConnectorType
+   local d::List{SCode.Subscript}
+   local de::Absyn.ClassDef
+   local de_1::SCode.ClassDef
+   local di::Absyn.Direction
+   local e::Bool
+   local fl::Bool
+   local i::SourceInfo
+   local imp::Absyn.Import
+   local info::SourceInfo
+   local isf::Absyn.IsField
+   local m::Option{Absyn.Modification}
+   local mod::SCode.Mod
+   local md::Bool
+   local n::String
+   local pa::Bool
+   local parallelism::Absyn.Parallelism
+   local path::Absyn.Path
+   local prefixes::SCode.PREFIXES
+   local prl1::SCode.Parallelism
+   local re::Absyn.Restriction
+   local re_1::SCode.Restriction
+   local redecl::Bool
+   local repl::Option{Absyn.RedeclareKeywords}
+   local repl_1::Bool
+   local rp::Bool
+   local sEnc::SCode.Encapsulated
+   local sFin::SCode.Final
+   local sPar::SCode.Partial
+   local sRed::SCode.Redeclare
+   local sRep::SCode.Replaceable
+   local scc::Option{SCode.CONSTRAINCLASS}
+   local st::Bool
+   local t::Absyn.TypeSpec
+   local tot_dim::List{SCode.Subscript}
+   local var1::SCode.Variability
+   local variability::Absyn.Variability
+   local vis::SCode.Visibility
+   local xs_1::List{SCode.Element}
+   @match (cc, finalPrefix, io, inRedeclareKeywords, inVisibility, inElementSpec4, inInfo) begin
+     (
+       _,
+       _,
+       _,
+       repl,
+       vis,
+       Absyn.CLASSDEF(
+         replaceable_ = rp,
+         class_ = Absyn.CLASS(
+           name = n,
+           partialPrefix = pa,
+           encapsulatedPrefix = e,
+           restriction = Absyn.R_OPERATOR(__),
+           body = de,
+           info = i,
+         ),
+       ),
+       _,
+     ) => begin
+        (de_1, cmt) = translateOperatorDef(de, n, i)
+        (_, redecl) = translateRedeclarekeywords(repl)
+        sRed = SCodeUtil.boolRedeclare(redecl)
+        sFin = SCodeUtil.boolFinal(finalPrefix)
+        scc = translateConstrainClass(cc)
+        sRep = if rp
+         SCode.REPLACEABLE(scc)
+       else
+         SCode.NOT_REPLACEABLE()
+       end
+        sEnc = SCodeUtil.boolEncapsulated(e)
+        sPar = SCodeUtil.boolPartial(pa)
+        cls = SCode.CLASS(
+         n,
+         SCode.PREFIXES(vis, sRed, sFin, io, sRep),
+         sEnc,
+         sPar,
+         SCode.R_OPERATOR(),
+         de_1,
+         cmt,
+         i,
+       )
+       list(cls)
+     end
 
-      (
-        _,
-        _,
-        _,
-        repl,
-        vis,
-        Absyn.CLASSDEF(
-          replaceable_ = rp,
-          class_ = cl && Absyn.CLASS(
-            name = n,
-            partialPrefix = pa,
-            encapsulatedPrefix = e,
-            restriction = re,
-            body = de,
-            info = i,
-          ),
-        ),
-        _,
-      ) => begin
-         re_1 = translateRestriction(cl, re)
-         (de_1, cmt) = translateClassdef(de, i, re_1)
-         (_, redecl) = translateRedeclarekeywords(repl)
-         sRed = SCodeUtil.boolRedeclare(redecl)
-         sFin = SCodeUtil.boolFinal(finalPrefix)
-         scc = translateConstrainClass(cc)
-         sRep = if rp
-          SCode.REPLACEABLE(scc)
-        else
-          SCode.NOT_REPLACEABLE()
-        end
-         sEnc = SCodeUtil.boolEncapsulated(e)
-         sPar = SCodeUtil.boolPartial(pa)
-         cls = SCode.CLASS(
-          n,
-          SCode.PREFIXES(vis, sRed, sFin, io, sRep),
-          sEnc,
-          sPar,
-          re_1,
-          de_1,
-          cmt,
-          i,
-        )
-        list(cls)
-      end
+     (
+       _,
+       _,
+       _,
+       repl,
+       vis,
+       Absyn.CLASSDEF(
+         replaceable_ = rp,
+         class_ = cl && Absyn.CLASS(
+           name = n,
+           partialPrefix = pa,
+           encapsulatedPrefix = e,
+           restriction = re,
+           body = de,
+           info = i,
+         ),
+       ),
+       _,
+     ) => begin
+        re_1 = translateRestriction(cl, re)
+        (de_1, cmt) = translateClassdef(de, i, re_1)
+        (_, redecl) = translateRedeclarekeywords(repl)
+        sRed = SCodeUtil.boolRedeclare(redecl)
+        sFin = SCodeUtil.boolFinal(finalPrefix)
+        scc = translateConstrainClass(cc)
+        sRep = if rp
+         SCode.REPLACEABLE(scc)
+       else
+         SCode.NOT_REPLACEABLE()
+       end
+        sEnc = SCodeUtil.boolEncapsulated(e)
+        sPar = SCodeUtil.boolPartial(pa)
+        cls = SCode.CLASS(
+         n,
+         SCode.PREFIXES(vis, sRed, sFin, io, sRep),
+         sEnc,
+         sPar,
+         re_1,
+         de_1,
+         cmt,
+         i,
+       )
+       list(cls)
+     end
 
-      (
-        _,
-        _,
-        _,
-        _,
-        vis,
-        Absyn.EXTENDS(path = path, elementArg = args, annotationOpt = NONE()),
-        info,
-      ) => begin
-         mod = translateMod(
-          SOME(Absyn.CLASSMOD(args, Absyn.NOMOD())),
-          SCode.NOT_FINAL(),
-          SCode.NOT_EACH(),
-          AbsynUtil.dummyInfo,
-        )
-        list(SCode.EXTENDS(path, vis, mod, NONE(), info))
-      end
+     (
+       _,
+       _,
+       _,
+       _,
+       vis,
+       Absyn.EXTENDS(path = path, elementArg = args, annotationOpt = NONE()),
+       info,
+     ) => begin
+        mod = translateMod(
+         SOME(Absyn.CLASSMOD(args, Absyn.NOMOD())),
+         SCode.NOT_FINAL(),
+         SCode.NOT_EACH(),
+         AbsynUtil.dummyInfo,
+       )
+       list(SCode.EXTENDS(path, vis, mod, NONE(), info))
+     end
 
-      (
-        _,
-        _,
-        _,
-        _,
-        vis,
-        Absyn.EXTENDS(path = path, elementArg = args, annotationOpt = SOME(absann)),
-        info,
-      ) => begin
-         mod = translateMod(
-          SOME(Absyn.CLASSMOD(args, Absyn.NOMOD())),
-          SCode.NOT_FINAL(),
-          SCode.NOT_EACH(),
-          AbsynUtil.dummyInfo,
-        )
-         ann = translateAnnotation(absann)
-        list(SCode.EXTENDS(path, vis, mod, ann, info))
-      end
+     (
+       _,
+       _,
+       _,
+       _,
+       vis,
+       Absyn.EXTENDS(path = path, elementArg = args, annotationOpt = SOME(absann)),
+       info,
+     ) => begin
+        mod = translateMod(
+         SOME(Absyn.CLASSMOD(args, Absyn.NOMOD())),
+         SCode.NOT_FINAL(),
+         SCode.NOT_EACH(),
+         AbsynUtil.dummyInfo,
+       )
+        ann = translateAnnotation(absann)
+       list(SCode.EXTENDS(path, vis, mod, ann, info))
+     end
 
-      (_, _, _, _, _, Absyn.COMPONENTS(components = nil()), _) => begin
-        nil
-      end
+     (_, _, _, _, _, Absyn.COMPONENTS(components = nil()), _) => begin
+       nil
+     end
 
-      (
-        _,
-        _,
-        _,
-        repl,
-        vis,
-        Absyn.COMPONENTS(
-          attributes = Absyn.ATTR(
-            flowPrefix = fl,
-            streamPrefix = st,
-            parallelism = parallelism,
-            variability = variability,
-            direction = di,
-            isField = isf,
-            arrayDim = ad,
-            isMode = md
-          ),
-          typeSpec = t,
-        ),
-        info,
-      ) => begin
-         xs_1 = nil
-        for comp in inElementSpec4.components
-          @match Absyn.COMPONENTITEM(
-            component = Absyn.COMPONENT(name = n, arrayDim = d, modification = m),
-            comment = comment,
-            condition = cond,
-          ) = comp
-          checkTypeSpec(t, info)
-          setHasInnerOuterDefinitionsHandler(io)
-          setHasStreamConnectorsHandler(st)
-           mod = translateMod(m, SCode.NOT_FINAL(), SCode.NOT_EACH(), info)
-           prl1 = translateParallelism(parallelism)
-           var1 = translateVariability(variability)
-           tot_dim = listAppend(d, ad)
-           (repl_1, redecl) = translateRedeclarekeywords(repl)
-           (cmt, info) = translateCommentWithLineInfoChanges(comment, info)
-           sFin = SCodeUtil.boolFinal(finalPrefix)
-           sRed = SCodeUtil.boolRedeclare(redecl)
-           scc = translateConstrainClass(cc)
-           sRep = if repl_1
-            SCode.REPLACEABLE(scc)
-          else
-            SCode.NOT_REPLACEABLE()
-          end
-           ct = translateConnectorType(fl, st)
-           prefixes = SCode.PREFIXES(vis, sRed, sFin, io, sRep)
-           xs_1 = begin
-            #=  TODO: Improve performance by iterating over all elements at once instead of creating a new Absyn.COMPONENTS in each step...
-            =#
-            #=  fprintln(Flags.TRANSLATE, \"translating component: \" + n + \" final: \" + SCodeUtil.finalStr(SCodeUtil.boolFinal(finalPrefix)));
-            =#
-            #=  signal the external flag that we have inner/outer definitions
-            =#
-            #=  signal the external flag that we have stream connectors
-            =#
-            #=  PR. This adds the arraydimension that may be specified together with the type of the component.
-            =#
-            local attr1::SCode.Attributes
-            local attr2::SCode.Attributes
-            local mod2::SCode.Mod
-            local inName::String
-            @match di begin
-              Absyn.INPUT_OUTPUT(__) => begin
-                 inName = "in_" + n
-                 attr1 = SCode.ATTR(tot_dim, ct, prl1, var1, Absyn.INPUT(), isf)
-                 attr2 = SCode.ATTR(tot_dim, ct, prl1, var1, Absyn.OUTPUT(), isf)
-                 mod2 = SCode.MOD(
-                  SCode.FINAL(),
-                  SCode.NOT_EACH(),
-                  nil,
-                  SOME(Absyn.CREF(Absyn.CREF_IDENT(inName, nil))),
-                  info,
-                )
-                _cons(
-                  SCode.COMPONENT(n, prefixes, attr2, t, mod2, cmt, cond, info),
-                  _cons(
-                    SCode.COMPONENT(inName, prefixes, attr1, t, mod, cmt, cond, info),
-                    xs_1,
-                  ),
-                )
-              end
+     (
+       _,
+       _,
+       _,
+       repl,
+       vis,
+       Absyn.COMPONENTS(
+         attributes = Absyn.ATTR(
+           flowPrefix = fl,
+           streamPrefix = st,
+           parallelism = parallelism,
+           variability = variability,
+           direction = di,
+           isField = isf,
+           arrayDim = ad,
+           isMode = md
+         ),
+         typeSpec = t,
+       ),
+       info,
+     ) => begin
+        xs_1 = nil
+       for comp in inElementSpec4.components
+         @match Absyn.COMPONENTITEM(
+           component = Absyn.COMPONENT(name = n, arrayDim = d, modification = m),
+           comment = comment,
+           condition = cond,
+         ) = comp
+         checkTypeSpec(t, info)
+         setHasInnerOuterDefinitionsHandler(io)
+         setHasStreamConnectorsHandler(st)
+          mod = translateMod(m, SCode.NOT_FINAL(), SCode.NOT_EACH(), info)
+          prl1 = translateParallelism(parallelism)
+          var1 = translateVariability(variability)
+          tot_dim = listAppend(d, ad)
+          (repl_1, redecl) = translateRedeclarekeywords(repl)
+          (cmt, info) = translateCommentWithLineInfoChanges(comment, info)
+          sFin = SCodeUtil.boolFinal(finalPrefix)
+          sRed = SCodeUtil.boolRedeclare(redecl)
+          scc = translateConstrainClass(cc)
+          sRep = if repl_1
+           SCode.REPLACEABLE(scc)
+         else
+           SCode.NOT_REPLACEABLE()
+         end
+          ct = translateConnectorType(fl, st)
+          prefixes = SCode.PREFIXES(vis, sRed, sFin, io, sRep)
+          xs_1 = begin
+           #= TODO: Improve performance by iterating over all elements at once instead of creating a new Absyn.COMPONENTS in each step...
+              fprintln(Flags.TRANSLATE, \"translating component: \" + n + \" final: \" + SCodeUtil.finalStr(SCodeUtil.boolFinal(finalPrefix)));
+              signal the external flag that we have inner/outer definitions
+              signal the external flag that we have stream connectors
+              PR. This adds the arraydimension that may be specified together with the type of the component. =#
+           local attr1::SCode.ATTR
+           local attr2::SCode.ATTR
+           local mod2::SCode.Mod
+           local inName::String
+           @match di begin
+             Absyn.INPUT_OUTPUT(__) => begin
+                inName = "in_" + n
+                attr1 = SCode.ATTR(tot_dim, ct, prl1, var1, Absyn.INPUT(), isf)
+                attr2 = SCode.ATTR(tot_dim, ct, prl1, var1, Absyn.OUTPUT(), isf)
+                mod2 = SCode.MOD(
+                 SCode.FINAL(),
+                 SCode.NOT_EACH(),
+                 nil,
+                 SOME(Absyn.CREF(Absyn.CREF_IDENT(inName, nil))),
+                 info,
+               )
+               _cons(
+                 SCode.COMPONENT(n, prefixes, attr2, t, mod2, cmt, cond, info),
+                 _cons(
+                   SCode.COMPONENT(inName, prefixes, attr1, t, mod, cmt, cond, info),
+                   xs_1,
+                 ),
+               )
+             end
 
-              _ => begin
-                _cons(
-                  SCode.COMPONENT(
-                    n,
-                    prefixes,
-                    SCode.ATTR(tot_dim, ct, prl1, var1, di, isf, md),
-                    t,
-                    mod,
-                    cmt,
-                    cond,
-                    info,
-                  ),
-                  xs_1,
-                )
-              end
-            end
-          end
-        end
-         xs_1 = listReverse(xs_1)
-        xs_1
-      end
+             _ => begin
+               _cons(
+                 SCode.COMPONENT(
+                   n,
+                   prefixes,
+                   SCode.ATTR(tot_dim, ct, prl1, var1, di, isf, md),
+                   t,
+                   mod,
+                   cmt,
+                   cond,
+                   info,
+                 ),
+                 xs_1,
+               )
+             end
+           end
+         end
+       end
+        xs_1 = listReverse(xs_1)
+       xs_1
+     end
 
-      (_, _, _, _, vis, Absyn.IMPORT(import_ = imp, info = info), _) => begin
-         xs_1 = translateImports(imp, vis, info)
-        xs_1
-      end
+     (_, _, _, _, vis, Absyn.IMPORT(import_ = imp, info = info), _) => begin
+        xs_1 = translateImports(imp, vis, info)
+       xs_1
+     end
 
-      _ => begin
-        fail()
-      end
-    end
-  end
-  return outElementLst
+     _ => begin
+       fail()
+     end
+   end
 end
 
 """Used to handle group imports, i.e. A.B.C.{x=a,b}"""
@@ -1780,36 +1655,32 @@ function translateImports(
   visibility::SCode.Visibility,
   info::SourceInfo,
 )::List{SCode.Element}
-  local elts::List{SCode.Element}
 
-   elts = begin
-    local name::String
-    local p::Absyn.Path
-    local groups::List{Absyn.GroupImport}
-    #= /* Maybe these should give warnings? I don't know. See https:trac.modelica.org/Modelica/ticket/955 */ =#
-    @match (imp, visibility, info) begin
-      (Absyn.NAMED_IMPORT(name, Absyn.FULLYQUALIFIED(p)), _, _) => begin
-        translateImports(Absyn.NAMED_IMPORT(name, p), visibility, info)
-      end
+   local name::String
+   local p::Absyn.Path
+   local groups::List{Absyn.GroupImport}
+   #= /* Maybe these should give warnings? I don't know. See https:trac.modelica.org/Modelica/ticket/955 */ =#
+   @match (imp, visibility, info) begin
+     (Absyn.NAMED_IMPORT(name, Absyn.FULLYQUALIFIED(p)), _, _) => begin
+       translateImports(Absyn.NAMED_IMPORT(name, p), visibility, info)
+     end
 
-      (Absyn.QUAL_IMPORT(Absyn.FULLYQUALIFIED(p)), _, _) => begin
-        translateImports(Absyn.QUAL_IMPORT(p), visibility, info)
-      end
+     (Absyn.QUAL_IMPORT(Absyn.FULLYQUALIFIED(p)), _, _) => begin
+       translateImports(Absyn.QUAL_IMPORT(p), visibility, info)
+     end
 
-      (Absyn.UNQUAL_IMPORT(Absyn.FULLYQUALIFIED(p)), _, _) => begin
-        translateImports(Absyn.UNQUAL_IMPORT(p), visibility, info)
-      end
+     (Absyn.UNQUAL_IMPORT(Absyn.FULLYQUALIFIED(p)), _, _) => begin
+       translateImports(Absyn.UNQUAL_IMPORT(p), visibility, info)
+     end
 
-      (Absyn.GROUP_IMPORT(prefix = p, groups = groups), _, _) => begin
-        ListUtil.map3(groups, translateGroupImport, p, visibility, info)
-      end
+     (Absyn.GROUP_IMPORT(prefix = p, groups = groups), _, _) => begin
+       ListUtil.map3(groups, translateGroupImport, p, visibility, info, SCode.Element)
+     end
 
-      _ => begin
-        list(SCode.IMPORT(imp, visibility, info))
-      end
-    end
-  end
-  return elts
+     _ => begin
+       list(SCode.IMPORT(imp, visibility, info))
+     end
+   end
 end
 
 """Used to handle group imports, i.e. A.B.C.{x=a,b}"""
@@ -1819,26 +1690,22 @@ function translateGroupImport(
   visibility::SCode.Visibility,
   info::SourceInfo,
 )::SCode.Element
-  local elt::SCode.Element
 
-   elt = begin
-    local name::String
-    local rename::String
-    local path::Absyn.Path
-    local vis::SCode.Visibility
-    @match (gimp, prefix, visibility, info) begin
-      (Absyn.GROUP_IMPORT_NAME(name = name), _, vis, _) => begin
-         path = AbsynUtil.joinPaths(prefix, Absyn.IDENT(name))
-        SCode.IMPORT(Absyn.QUAL_IMPORT(path), vis, info)
-      end
+   local name::String
+   local rename::String
+   local path::Absyn.Path
+   local vis::SCode.Visibility
+   @match (gimp, prefix, visibility, info) begin
+     (Absyn.GROUP_IMPORT_NAME(name = name), _, vis, _) => begin
+        path = AbsynUtil.joinPaths(prefix, Absyn.IDENT(name))
+       SCode.IMPORT(Absyn.QUAL_IMPORT(path), vis, info)
+     end
 
-      (Absyn.GROUP_IMPORT_RENAME(rename = rename, name = name), _, vis, _) => begin
-         path = AbsynUtil.joinPaths(prefix, Absyn.IDENT(name))
-        SCode.IMPORT(Absyn.NAMED_IMPORT(rename, path), vis, info)
-      end
-    end
-  end
-  return elt
+     (Absyn.GROUP_IMPORT_RENAME(rename = rename, name = name), _, vis, _) => begin
+        path = AbsynUtil.joinPaths(prefix, Absyn.IDENT(name))
+       SCode.IMPORT(Absyn.NAMED_IMPORT(rename, path), vis, info)
+     end
+   end
 end
 
 """
@@ -1859,10 +1726,8 @@ function setHasInnerOuterDefinitionsHandler(io::Absyn.InnerOuter)
       end
     end
   end
-  #=  no inner outer!
-  =#
-  #=  has inner, outer or innerouter components
-  =#
+  #= no inner outer!
+     has inner, outer or innerouter components =#
 end
 
 """ #= @author: adrpo
@@ -1882,10 +1747,8 @@ function setHasStreamConnectorsHandler(streamPrefix::Bool)
       end
     end
   end
-  #=  no stream prefix
-  =#
-  #=  has stream prefix
-  =#
+  #= no stream prefix
+     has stream prefix =#
 end
 
 """
@@ -1922,102 +1785,90 @@ end
 
 function translateConstrainClass(
   inConstrainClass::Option{<:Absyn.ConstrainClass},
-)::Option{SCode.ConstrainClass}
-  local outConstrainClass::Option{SCode.ConstrainClass}
+)::Option{SCode.CONSTRAINCLASS}
 
-   outConstrainClass = begin
-    local cc_path::Absyn.Path
-    local eltargs::List{Absyn.ElementArg}
-    local cmt::Option{Absyn.Comment}
-    local cc_cmt::SCode.Comment
-    local mod::Absyn.Modification
-    local cc_mod::SCode.Mod
-    @match inConstrainClass begin
-      SOME(Absyn.CONSTRAINCLASS(
-        elementSpec = Absyn.EXTENDS(path = cc_path, elementArg = eltargs),
-        comment = cmt,
-      )) => begin
-         mod = Absyn.CLASSMOD(eltargs, Absyn.NOMOD())
-         cc_mod = translateMod(
-          SOME(mod),
-          SCode.NOT_FINAL(),
-          SCode.NOT_EACH(),
-          AbsynUtil.dummyInfo,
-        )
-         cc_cmt = translateComment(cmt)
-        SOME(SCode.CONSTRAINCLASS(cc_path, cc_mod, cc_cmt))
-      end
+   local cc_path::Absyn.Path
+   local eltargs::List{Absyn.ElementArg}
+   local cmt::Option{Absyn.Comment}
+   local cc_cmt::SCode.COMMENT
+   local mod::Absyn.Modification
+   local cc_mod::SCode.Mod
+   @match inConstrainClass begin
+     SOME(Absyn.CONSTRAINCLASS(
+       elementSpec = Absyn.EXTENDS(path = cc_path, elementArg = eltargs),
+       comment = cmt,
+     )) => begin
+        mod = Absyn.CLASSMOD(eltargs, Absyn.NOMOD())
+        cc_mod = translateMod(
+         SOME(mod),
+         SCode.NOT_FINAL(),
+         SCode.NOT_EACH(),
+         AbsynUtil.dummyInfo,
+       )
+        cc_cmt = translateComment(cmt)
+       SOME(SCode.CONSTRAINCLASS(cc_path, cc_mod, cc_cmt))
+     end
 
-      _ => begin
-        NONE()
-      end
-    end
-  end
-  return outConstrainClass
+     _ => begin
+       NONE()
+     end
+   end
 end
 
 """Converts an Absyn.Parallelism to SCode.Parallelism."""
 function translateParallelism(inParallelism::Absyn.Parallelism)::SCode.Parallelism
-  local outParallelism::SCode.Parallelism
 
-   outParallelism = begin
-    @match inParallelism begin
-      Absyn.PARGLOBAL(__) => begin
-        SCode.PARGLOBAL()
-      end
+   @match inParallelism begin
+     Absyn.PARGLOBAL(__) => begin
+       SCode.PARGLOBAL()
+     end
 
-      Absyn.PARLOCAL(__) => begin
-        SCode.PARLOCAL()
-      end
+     Absyn.PARLOCAL(__) => begin
+       SCode.PARLOCAL()
+     end
 
-      Absyn.NON_PARALLEL(__) => begin
-        SCode.NON_PARALLEL()
-      end
-    end
-  end
-  return outParallelism
+     Absyn.NON_PARALLEL(__) => begin
+       SCode.NON_PARALLEL()
+     end
+   end
 end
 
 """Converts an Absyn.Variability to SCode.Variability."""
 function translateVariability(inVariability::Absyn.Variability)::SCode.Variability
-  local outVariability::SCode.Variability
 
-   outVariability = begin
-    @match inVariability begin
-      Absyn.VAR(__) => begin
-        SCode.VAR()
-      end
+   @match inVariability begin
+     Absyn.VAR(__) => begin
+       SCode.VAR()
+     end
 
-      Absyn.DISCRETE(__) => begin
-        SCode.DISCRETE()
-      end
+     Absyn.DISCRETE(__) => begin
+       SCode.DISCRETE()
+     end
 
-      Absyn.PARAM(__) => begin
-        SCode.PARAM()
-      end
+     Absyn.PARAM(__) => begin
+       SCode.PARAM()
+     end
 
-      Absyn.CONST(__) => begin
-        SCode.CONST()
-      end
-    end
-  end
-  return outVariability
+     Absyn.CONST(__) => begin
+       SCode.CONST()
+     end
+   end
 end
 
 """
   This function transforms a list of Absyn.Equation to a list of
-  SCode.Equation, by applying the translateEquation function to each
+  SCode.EQUATION, by applying the translateEquation function to each
   equation.
 """
 function translateEquations(
   inAbsynEquationItemLst::List{<:Absyn.EquationItem},
   inIsInitial::Bool,
-)::List{SCode.Equation}
-  local outEquationLst::List{SCode.Equation}
+)::List{SCode.EQUATION}
+  local outEquationLst::List{SCode.EQUATION}
 
    outEquationLst = list(
     begin
-      local com::SCode.Comment
+      local com::SCode.COMMENT
       local info::SourceInfo
       @match eq begin
         Absyn.EQUATIONITEM(__) => begin
@@ -2053,7 +1904,7 @@ function translateEEquations(
     local e::Absyn.Equation
     local es::List{Absyn.EquationItem}
     local acom::Option{Absyn.Comment}
-    local com::SCode.Comment
+    local com::SCode.COMMENT
     local info::SourceInfo
     @match (inAbsynEquationItemLst, inIsInitial) begin
       (nil(), _) => begin
@@ -2072,18 +1923,17 @@ function translateEEquations(
       end
     end
   end
-  #=  fprintln(Flags.TRANSLATE, \"translating equation: \" + Dump.unparseEquationStr(0, e));
-  =#
+  #= fprintln(Flags.TRANSLATE, \"translating equation: \" + Dump.unparseEquationStr(0, e)); =#
   return outEEquationLst
 end
 
-"""turns an Absyn.Comment into an SCode.Comment"""
+"""turns an Absyn.Comment into an SCode.COMMENT"""
 function translateCommentWithLineInfoChanges(
   inComment::Option{<:Absyn.Comment},
   inInfo::SourceInfo,
-)::Tuple{SCode.Comment, SourceInfo}
+)::Tuple{SCode.COMMENT, SourceInfo}
   local outInfo::SourceInfo
-  local outComment::SCode.Comment
+  local outComment::SCode.COMMENT
 
    outComment = translateComment(inComment)
    outInfo = getInfoAnnotationOrDefault(outComment, inInfo)
@@ -2091,256 +1941,231 @@ function translateCommentWithLineInfoChanges(
 end
 
 """Replaces the file info if there is an annotation __OpenModelica_FileInfo=(\\\"fileName\\\",line). Should be improved."""
-function getInfoAnnotationOrDefault(comment::SCode.Comment, default::SourceInfo)::SourceInfo
-  local info::SourceInfo
+function getInfoAnnotationOrDefault(comment::SCode.COMMENT, default::SourceInfo)::SourceInfo
 
-   info = begin
-    local lst::List{SCode.SubMod}
-    @match (comment, default) begin
-      (
-        SCode.COMMENT(
-          annotation_ = SOME(SCode.ANNOTATION(modification = SCode.MOD(subModLst = lst))),
-        ),
-        _,
-      ) => begin
-        getInfoAnnotationOrDefault2(lst, default)
-      end
+   local lst::List{SCode.NAMEMOD}
+   @match (comment, default) begin
+     (
+       SCode.COMMENT(
+         annotation_ = SOME(SCode.ANNOTATION(modification = SCode.MOD(subModLst = lst))),
+       ),
+       _,
+     ) => begin
+       getInfoAnnotationOrDefault2(lst, default)
+     end
 
-      _ => begin
-        default
-      end
-    end
-  end
-  return info
+     _ => begin
+       default
+     end
+   end
 end
 
 function getInfoAnnotationOrDefault2(
-  lst::List{<:SCode.SubMod},
+  lst::List{<:SCode.NAMEMOD},
   default::SourceInfo,
 )::SourceInfo
-  local info::SourceInfo
 
-   info = begin
-    local rest::List{SCode.SubMod}
-    local fileName::String
-    local line::Int
-    @match (lst, default) begin
-      (nil(), _) => begin
-        default
-      end
+   local rest::List{SCode.NAMEMOD}
+   local fileName::String
+   local line::Int
+   @match (lst, default) begin
+     (nil(), _) => begin
+       default
+     end
 
-      (
-        SCode.NAMEMOD(
-          ident = "__OpenModelica_FileInfo",
-          mod = SCode.MOD(
-            binding = SOME(Absyn.TUPLE(
-              Absyn.STRING(fileName) <| Absyn.INTEGER(line) <| nil(),
-            )),
-          ),
-        ) <| _,
-        _,
-      ) => begin
-        SOURCEINFO(fileName, false, line, 0, line, 0, 0.0)
-      end
+     (
+       SCode.NAMEMOD(
+         ident = "__OpenModelica_FileInfo",
+         mod = SCode.MOD(
+           binding = SOME(Absyn.TUPLE(
+             Absyn.STRING(fileName) <| Absyn.INTEGER(line) <| nil(),
+           )),
+         ),
+       ) <| _,
+       _,
+     ) => begin
+       SOURCEINFO(fileName, false, line, 0, line, 0, 0.0)
+     end
 
-      (_ <| rest, _) => begin
-        getInfoAnnotationOrDefault2(rest, default)
-      end
-    end
-  end
-  return info
+     (_ <| rest, _) => begin
+       getInfoAnnotationOrDefault2(rest, default)
+     end
+   end
 end
 
-"""turns an Absyn.Comment into an SCode.Comment"""
-function translateComment(inComment::Option{<:Absyn.Comment})::SCode.Comment
-  local outComment::SCode.Comment
+"""turns an Absyn.Comment into an SCode.COMMENT"""
+function translateComment(inComment::Option{<:Absyn.Comment})::SCode.COMMENT
 
-   outComment = begin
-    local absann::Option{Absyn.Annotation}
-    local ann::Option{SCode.Annotation}
-    local ostr::Option{String}
-    @match inComment begin
-      NONE() => begin
-        SCode.noComment
-      end
+   local absann::Option{Absyn.Annotation}
+   local ann::Option{SCode.ANNOTATION}
+   local ostr::Option{String}
+   @match inComment begin
+     NONE() => begin
+       SCode.noComment
+     end
 
-      SOME(Absyn.COMMENT(absann, ostr)) => begin
-         ann = translateAnnotationOpt(absann)
-         ostr = Util.applyOption(ostr, System.unescapedString)
-        SCode.COMMENT(ann, ostr)
-      end
-    end
-  end
-  return outComment
+     SOME(Absyn.COMMENT(absann, ostr)) => begin
+        ann = translateAnnotationOpt(absann)
+        ostr = Util.applyOption(ostr, System.unescapedString)
+       SCode.COMMENT(ann, ostr)
+     end
+   end
 end
 
-"""turns an Absyn.Comment into an SCode.Comment"""
+"""turns an Absyn.Comment into an SCode.COMMENT"""
 function translateCommentList(
   inAnns::List{<:Absyn.Annotation},
   inString::Option{<:String},
-)::SCode.Comment
-  local outComment::SCode.Comment
+)::SCode.COMMENT
 
-   outComment = begin
-    local absann::Absyn.Annotation
-    local anns::List{Absyn.Annotation}
-    local ann::Option{SCode.Annotation}
-    local ostr::Option{String}
-    @match (inAnns, inString) begin
-      (nil(), _) => begin
-        SCode.COMMENT(NONE(), inString)
-      end
+   local absann::Absyn.Annotation
+   local anns::List{Absyn.Annotation}
+   local ann::Option{SCode.ANNOTATION}
+   local ostr::Option{String}
+   @match (inAnns, inString) begin
+     (nil(), _) => begin
+       SCode.COMMENT(NONE(), inString)
+     end
 
-      (absann <| nil(), _) => begin
-         ann = translateAnnotation(absann)
-         ostr = Util.applyOption(inString, System.unescapedString)
-        SCode.COMMENT(ann, ostr)
-      end
+     (absann <| nil(), _) => begin
+        ann = translateAnnotation(absann)
+        ostr = Util.applyOption(inString, System.unescapedString)
+       SCode.COMMENT(ann, ostr)
+     end
 
-      (absann <| anns, _) => begin
-         absann = ListUtil.fold(anns, AbsynUtil.mergeAnnotations, absann)
-         ann = translateAnnotation(absann)
-         ostr = Util.applyOption(inString, System.unescapedString)
-        SCode.COMMENT(ann, ostr)
-      end
-    end
-  end
-  return outComment
+     (absann <| anns, _) => begin
+        absann = ListUtil.fold(anns, AbsynUtil.mergeAnnotations, absann, Absyn.Annotation)
+        ann = translateAnnotation(absann)
+        ostr = Util.applyOption(inString, System.unescapedString)
+       SCode.COMMENT(ann, ostr)
+     end
+   end
 end
 
 function translateEquation(
   inEquation::Absyn.Equation,
-  inComment::SCode.Comment,
+  inComment::SCode.COMMENT,
   inInfo::SourceInfo,
   inIsInitial::Bool,
 )::SCode.EEquation
-  local outEEquation::SCode.EEquation
 
-   outEEquation = begin
-    local exp::Absyn.Exp
-    local e1::Absyn.Exp
-    local e2::Absyn.Exp
-    local e3::Absyn.Exp
-    local abody::List{Absyn.Equation}
-    local else_branch::List{SCode.EEquation}
-    local body::List{SCode.EEquation}
-    local branches::List{Tuple{Absyn.Exp, List{SCode.EEquation}}}
-    local iter_name::String
-    local iter_range::Option{Absyn.Exp}
-    local eq::SCode.EEquation
-    local conditions::List{Absyn.Exp}
-    local bodies::List{List{SCode.EEquation}}
-    local cr::Absyn.ComponentRef
-    @match inEquation begin
-      Absyn.EQ_IF(__) => begin
-         body = translateEEquations(inEquation.equationTrueItems, inIsInitial)
-         (conditions, bodies) =
-          ListUtil.map1_2(inEquation.elseIfBranches, translateEqBranch, inIsInitial)
-         conditions = _cons(inEquation.ifExp, conditions)
-         else_branch =
-          translateEEquations(inEquation.equationElseItems, inIsInitial)
-        SCode.EQ_IF(conditions, _cons(body, bodies), else_branch, inComment, inInfo)
-      end
-
-      Absyn.EQ_WHEN_E(__) => begin
-        body = translateEEquations(inEquation.whenEquations, inIsInitial)
+   local e1::Absyn.Exp
+   local e2::Absyn.Exp
+   local e3::Absyn.Exp
+   local else_branch::List{SCode.EEquation}
+   local body::List{SCode.EEquation}
+   local branches::List{Tuple{Absyn.Exp, List{SCode.EEquation}}}
+   local iter_name::String
+   local iter_range::Option{Absyn.Exp}
+   local conditions::List{Absyn.Exp}
+   local bodies::List{List{SCode.EEquation}}
+   @match inEquation begin
+     Absyn.EQ_IF(__) => begin
+        body = translateEEquations(inEquation.equationTrueItems, inIsInitial)
         (conditions, bodies) =
-          ListUtil.map1_2(inEquation.elseWhenEquations, translateEqBranch, inIsInitial)
-        branches = list(@do_threaded_for (c, b) (c, b) (conditions, bodies))
-        SCode.EQ_WHEN(inEquation.whenExp, body, branches, inComment, inInfo)
-      end
+         ListUtil.map1_2(inEquation.elseIfBranches, translateEqBranch, inIsInitial, Absyn.Exp, List{SCode.EEquation})
+        conditions = _cons(inEquation.ifExp, conditions)
+        else_branch =
+         translateEEquations(inEquation.equationElseItems, inIsInitial)
+       SCode.EQ_IF(conditions, _cons(body, bodies), else_branch, inComment, inInfo)
+     end
 
-      Absyn.EQ_EQUALS(__) => begin
-        SCode.EQ_EQUALS(inEquation.leftSide, inEquation.rightSide, inComment, inInfo)
-      end
+     Absyn.EQ_WHEN_E(__) => begin
+       body = translateEEquations(inEquation.whenEquations, inIsInitial)
+       (conditions, bodies) =
+         ListUtil.map1_2(inEquation.elseWhenEquations, translateEqBranch, inIsInitial, Absyn.Exp, List{SCode.EEquation})
+       branches = list(@do_threaded_for (c, b) (c, b) (conditions, bodies))
+       SCode.EQ_WHEN(inEquation.whenExp, body, branches, inComment, inInfo)
+     end
 
-      Absyn.EQ_PDE(__) => begin
-        SCode.EQ_PDE(
-          inEquation.leftSide,
-          inEquation.rightSide,
-          inEquation.domain,
-          inComment,
-          inInfo,
-        )
-      end
+     Absyn.EQ_EQUALS(__) => begin
+       SCode.EQ_EQUALS(inEquation.leftSide, inEquation.rightSide, inComment, inInfo)
+     end
 
-      Absyn.EQ_CONNECT(__) => begin
-        if inIsInitial
-        end
-        SCode.EQ_CONNECT(inEquation.connector1, inEquation.connector2, inComment, inInfo)
-      end
+     Absyn.EQ_PDE(__) => begin
+       SCode.EQ_PDE(
+         inEquation.leftSide,
+         inEquation.rightSide,
+         inEquation.domain,
+         inComment,
+         inInfo,
+       )
+     end
 
-      Absyn.EQ_FOR(__) => begin
-         body = translateEEquations(inEquation.forEquations, inIsInitial)
-        #=  Convert for-loops with multiple iterators into nested for-loops.
-        =#
-        for i in listReverse(inEquation.iterators)
-           (iter_name, iter_range) = translateIterator(i, inInfo)
-           body =
-            list(SCode.EQ_FOR(iter_name, iter_range, body, inComment, inInfo))
-        end
-        listHead(body)
-      end
+     Absyn.EQ_CONNECT(__) => begin
+       if inIsInitial
+       end
+       SCode.EQ_CONNECT(inEquation.connector1, inEquation.connector2, inComment, inInfo)
+     end
 
-      Absyn.EQ_NORETCALL(
-        functionName = Absyn.CREF_IDENT(name = "assert"),
-        functionArgs = Absyn.FUNCTIONARGS(args = e1 <| e2 <| nil(), argNames = nil()),
-      ) => begin
-        SCode.EQ_ASSERT(e1, e2, ASSERTION_LEVEL_ERROR, inComment, inInfo)
-      end
+     Absyn.EQ_FOR(__) => begin
+        body = translateEEquations(inEquation.forEquations, inIsInitial)
+       #= Convert for-loops with multiple iterators into nested for-loops. =#
+       for i in listReverse(inEquation.iterators)
+          (iter_name, iter_range) = translateIterator(i, inInfo)
+          body =
+           list(SCode.EQ_FOR(iter_name, iter_range, body, inComment, inInfo))
+       end
+       listHead(body)
+     end
 
-      Absyn.EQ_NORETCALL(
-        functionName = Absyn.CREF_IDENT(name = "assert"),
-        functionArgs = Absyn.FUNCTIONARGS(args = e1 <| e2 <| e3 <| nil(), argNames = nil()),
-      ) => begin
-        SCode.EQ_ASSERT(e1, e2, e3, inComment, inInfo)
-      end
+     Absyn.EQ_NORETCALL(
+       functionName = Absyn.CREF_IDENT(name = "assert"),
+       functionArgs = Absyn.FUNCTIONARGS(args = e1 <| e2 <| nil(), argNames = nil()),
+     ) => begin
+       SCode.EQ_ASSERT(e1, e2, ASSERTION_LEVEL_ERROR, inComment, inInfo)
+     end
 
-      Absyn.EQ_NORETCALL(
-        functionName = Absyn.CREF_IDENT(name = "assert"),
-        functionArgs = Absyn.FUNCTIONARGS(
-          args = e1 <| e2 <| nil(),
-          argNames = Absyn.NAMEDARG("level", e3) <| nil(),
-        ),
-      ) => begin
-        SCode.EQ_ASSERT(e1, e2, e3, inComment, inInfo)
-      end
+     Absyn.EQ_NORETCALL(
+       functionName = Absyn.CREF_IDENT(name = "assert"),
+       functionArgs = Absyn.FUNCTIONARGS(args = e1 <| e2 <| e3 <| nil(), argNames = nil()),
+     ) => begin
+       SCode.EQ_ASSERT(e1, e2, e3, inComment, inInfo)
+     end
 
-      Absyn.EQ_NORETCALL(
-        functionName = Absyn.CREF_IDENT(name = "terminate"),
-        functionArgs = Absyn.FUNCTIONARGS(args = e1 <| nil(), argNames = nil()),
-      ) => begin
-        SCode.EQ_TERMINATE(e1, inComment, inInfo)
-      end
+     Absyn.EQ_NORETCALL(
+       functionName = Absyn.CREF_IDENT(name = "assert"),
+       functionArgs = Absyn.FUNCTIONARGS(
+         args = e1 <| e2 <| nil(),
+         argNames = Absyn.NAMEDARG("level", e3) <| nil(),
+       ),
+     ) => begin
+       SCode.EQ_ASSERT(e1, e2, e3, inComment, inInfo)
+     end
 
-      Absyn.EQ_NORETCALL(
-        functionName = Absyn.CREF_IDENT(name = "reinit"),
-        functionArgs = Absyn.FUNCTIONARGS(args = e1 <| e2 <| nil(), argNames = nil()),
-      ) => begin
-        SCode.EQ_REINIT(e1, e2, inComment, inInfo)
-      end
+     Absyn.EQ_NORETCALL(
+       functionName = Absyn.CREF_IDENT(name = "terminate"),
+       functionArgs = Absyn.FUNCTIONARGS(args = e1 <| nil(), argNames = nil()),
+     ) => begin
+       SCode.EQ_TERMINATE(e1, inComment, inInfo)
+     end
 
-      Absyn.EQ_NORETCALL(__) => begin
-        SCode.EQ_NORETCALL(
-          Absyn.CALL(inEquation.functionName, inEquation.functionArgs, nil),
-          inComment,
-          inInfo,
-        )
-      end
+     Absyn.EQ_NORETCALL(
+       functionName = Absyn.CREF_IDENT(name = "reinit"),
+       functionArgs = Absyn.FUNCTIONARGS(args = e1 <| e2 <| nil(), argNames = nil()),
+     ) => begin
+       SCode.EQ_REINIT(e1, e2, inComment, inInfo)
+     end
 
-      Absyn.EQ_RECONFIGURE(__) => begin
-        SCode.EQ_RECONFIGURE(
-          inEquation.variables,
-          inEquation.whenClauses,
-          inEquation.prompt,
-          inEquation.initialEquations,
-          inComment,
-          inInfo,
-        )
-      end
-    end
-  end
-  return outEEquation
+     Absyn.EQ_NORETCALL(__) => begin
+       SCode.EQ_NORETCALL(
+         Absyn.CALL(inEquation.functionName, inEquation.functionArgs, nil),
+         inComment,
+         inInfo,
+       )
+     end
+
+     Absyn.EQ_RECONFIGURE(__) => begin
+       SCode.EQ_RECONFIGURE(
+         inEquation.variables,
+         inEquation.whenClauses,
+         inEquation.prompt,
+         inEquation.initialEquations,
+         inComment,
+         inInfo,
+       )
+     end
+   end
 end
 
 function translateEqBranch(
@@ -2385,7 +2210,7 @@ function translateMod(
 
   local args::List{Absyn.ElementArg}
   local eqmod::Absyn.EqMod
-  local subs::List{SCode.SubMod}
+  local subs::List{SCode.NAMEMOD}
   local binding::Option{Absyn.Exp}
 
    (args, eqmod) = begin
@@ -2429,12 +2254,12 @@ function translateMod(
   return outMod
 end
 
-function translateArgs(args::List{<:Absyn.ElementArg})::List{SCode.SubMod}
-  local subMods::List{SCode.SubMod} = nil
+function translateArgs(args::List{<:Absyn.ElementArg})::List{SCode.NAMEMOD}
+  local subMods::List{SCode.NAMEMOD} = nil
 
   local smod::SCode.Mod
   local elem::SCode.Element
-  local sub::SCode.SubMod
+  local sub::SCode.NAMEMOD
 
   for arg in args
      subMods = begin
@@ -2495,30 +2320,25 @@ end
   This function converts a Absyn.ComponentRef plus a list
   of modifications into a number of nested SCode.SUBMOD.
 """
-function translateSub(inPath::Absyn.Path, inMod::SCode.Mod, info::SourceInfo)::SCode.SubMod
-  local outSubMod::SCode.SubMod
+function translateSub(inPath::Absyn.Path, inMod::SCode.Mod, info::SourceInfo)::SCode.NAMEMOD
 
-   outSubMod = begin
-    local i::String
-    local path::Absyn.Path
-    local mod::SCode.Mod
-    local sub::SCode.SubMod
-    #=  Then the normal rules
-    =#
-    @match (inPath, inMod, info) begin
-      (Absyn.IDENT(name = i), mod, _) => begin
-        SCode.NAMEMOD(i, mod)
-      end
+   local i::String
+   local path::Absyn.Path
+   local mod::SCode.Mod
+   local sub::SCode.NAMEMOD
+   #= Then the normal rules =#
+   @match (inPath, inMod, info) begin
+     (Absyn.IDENT(name = i), mod, _) => begin
+       SCode.NAMEMOD(i, mod)
+     end
 
-      (Absyn.QUALIFIED(name = i, path = path), mod, _) => begin
-         sub = translateSub(path, mod, info)
-         mod =
-          SCode.MOD(SCode.NOT_FINAL(), SCode.NOT_EACH(), list(sub), NONE(), info)
-        SCode.NAMEMOD(i, mod)
-      end
-    end
-  end
-  return outSubMod
+     (Absyn.QUALIFIED(name = i, path = path), mod, _) => begin
+        sub = translateSub(path, mod, info)
+        mod =
+         SCode.MOD(SCode.NOT_FINAL(), SCode.NOT_EACH(), list(sub), NONE(), info)
+       SCode.NAMEMOD(i, mod)
+     end
+   end
 end
 
 function makeTypeVarElement(str::String, info::SourceInfo)::SCode.Element
@@ -2565,20 +2385,16 @@ function makeTypeVarElement(str::String, info::SourceInfo)::SCode.Element
 end
 
 function translateEach(inAEach::Absyn.Each)::SCode.Each
-  local outSEach::SCode.Each
 
-   outSEach = begin
-    @match inAEach begin
-      Absyn.EACH(__) => begin
-        SCode.EACH()
-      end
+   @match inAEach begin
+     Absyn.EACH(__) => begin
+       SCode.EACH()
+     end
 
-      Absyn.NON_EACH(__) => begin
-        SCode.NOT_EACH()
-      end
-    end
-  end
-  return outSEach
+     Absyn.NON_EACH(__) => begin
+       SCode.NOT_EACH()
+     end
+   end
 end
 
 function checkTypeSpec(ts::Absyn.TypeSpec, info::SourceInfo)

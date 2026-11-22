@@ -38,16 +38,17 @@
 """
 module OMFrontend
 
-
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 #= ArrayUtil and ListUtil (formerly the packages of those names) are OMFrontend's own modules. =#
 include("ArrayUtil/ArrayUtil.jl")
 include("ListUtil/ListUtil.jl")
 include("SCode/SCode.jl")
-include("DAE/DAE.jl")
-import OMParser
+import OpenModelicaParser
+"""The parser package under its former name (OMParser.jl), for code that writes `OMFrontend.OMParser`."""
+const OMParser = OpenModelicaParser
 import PrecompileTools
 import Serialization
 
@@ -60,7 +61,6 @@ include("util.jl")
    an environment it returned nothing, and the precompile workload and the MSL loading
    failed there. =#
 packageRoot()::String = something(pkgdir(@__MODULE__), normpath(joinpath(@__DIR__, "..")))
-
 
 #= Cache for NFModelicaBuiltin. We only use the result once! =#
 """
@@ -122,7 +122,7 @@ const LIBRARY_DEPENDENCIES = Dict{String, Vector{String}}()
 function __init__()
   local packagePath::String = packageRoot()
   if !haskey(NFModelicaBuiltinCache, "NFModelicaBuiltin")
-    local builtinProg::Absyn.Program = OMParser.parseFile(packagePath * "/lib/NFModelicaBuiltin.mo", 2)
+    local builtinProg::Absyn.Program = OpenModelicaParser.parseFile(packagePath * "/lib/NFModelicaBuiltin.mo", 2)
     NFModelicaBuiltinCache["NFModelicaBuiltin"] = Frontend.AbsynToSCode.translateAbsyn2SCode(builtinProg)
   end
   Frontend.Global.initialize()
@@ -143,12 +143,11 @@ import .Frontend.Flags
 import .Frontend.FlagsUtil
 import .Frontend.StructuralModeJSON
 
-
 """
 Parse a file, returns the syntax tree.
 """
 function parseFile(file::String, acceptedGram::Int64 = 1)::Absyn.Program
-  return OMParser.parseFile(file, acceptedGram)
+  return OpenModelicaParser.parseFile(file, acceptedGram)
 end
 
 """
@@ -158,22 +157,6 @@ function translateToSCode(inProgram::Absyn.Program)::SCode.Program
   return Frontend.AbsynToSCode.translateAbsyn2SCode(inProgram)
 end
 
-"""
-  Instantiates and translates to DAE.
-  The element to instantiate should be provided in the following format:
-  <component>.<component_1>.<component_2>...
-"""
-function instantiateSCodeToDAE(elementToInstantiate::String, inProgram::SCode.Program)
-  # initialize globals
-  Frontend.Global.initialize()
-  # make sure we have all the flags loaded!
-  #Frontend.Flags.new(Flags.emptyFlags)
-  local builtinSCode = NFModelicaBuiltinCache["NFModelicaBuiltin"]
-  local program = listAppend(builtinSCode, inProgram)
-  local path = Frontend.AbsynUtil.stringPath(elementToInstantiate)
-  Frontend.instClassInProgram(path, program)
-end
-
 #= The classes a model with recompilation directives was instantiated with, beside its own
    top-level class (its libraries, the other classes of its file), by that class's name: its
    recompilation instantiates the modified class with them (recompilationProgram). =#
@@ -181,15 +164,15 @@ const RECOMPILATION_PROGRAMS = Dict{String, SCode.Program}()
 const RECOMPILATION_PROGRAMS_LOCK = ReentrantLock()
 
 """
-    keepRecompilationProgram!(flatModel::Frontend.FlatModel, inProgram::SCode.Program) -> Nothing
+    keepRecompilationProgram!(flatModel::Frontend.FLAT_MODEL, inProgram::SCode.Program) -> Nothing
 
 For a model with recompilation directives (its `scodeProgram`, the class a recompilation
 modifies), the other classes of `inProgram` (recompilationProgram).
 """
-function keepRecompilationProgram!(flatModel::Frontend.FlatModel, inProgram::SCode.Program)::Nothing
+function keepRecompilationProgram!(flatModel::Frontend.FLAT_MODEL, inProgram::SCode.Program)::Nothing
   local metaModel = flatModel.scodeProgram
   metaModel isa SOME || return nothing
-  local name = Frontend.SCodeUtil.elementName(metaModel.data)
+  local name = Frontend.SCodeUtil.elementName(metaModel.value)
   local others = SCode.Element[cls for cls in inProgram if Frontend.SCodeUtil.elementName(cls) != name]
   lock(RECOMPILATION_PROGRAMS_LOCK) do
     RECOMPILATION_PROGRAMS[name] = arrayList(others)
@@ -219,7 +202,7 @@ function instantiateSCodeToFM(elementToInstantiate::String,
   Frontend.Global.initialize()
   # make sure we have all the flags loaded!
   #  Frontend.Flags.new(Flags.emptyFlags)
-  Frontend.FlagsUtil.set(Frontend.Flags.NF_SCALARIZE, scalarize)
+  Frontend.FlagsUtil.set(Frontend.Flags.FRONTEND_SCALARIZE, scalarize)
   Frontend.FlagsUtil.set(Frontend.Flags.NF_SEPARATE_INSTANTIATION, separateInstantiation)
   local builtinSCode = NFModelicaBuiltinCache["NFModelicaBuiltin"]
   local program = listReverse(listAppend(builtinSCode, inProgram))
@@ -289,22 +272,10 @@ function applyCommandLineOptionsAnnotation(path::Frontend.Absyn.Path, program::F
 end
 
 """
-```
-  exportDAERepresentationToFile(fileName::String, contents::String)
-```
-  Prints the DAE representation to a file
-"""
-function exportDAERepresentationToFile(fileName::String, contents::String)
-  local fdesc = open(fileName, "w")
-  write(fdesc, contents)
-  close(fdesc)
-end
-
-"""
-  ```toString(model::FlatModel)```
+  ```toString(model::FLAT_MODEL)```
     Converts the flat model representation to a Julia String, the extra \\n are replaced with \n
 """
-function toString(model::Frontend.FlatModel)
+function toString(model::Frontend.FLAT_MODEL)
   local res = Frontend.toString(model)
   local res = replace(res, "\\n" => "\n")
   return res
@@ -322,8 +293,8 @@ end
 """
   Overload the Julia to string function
 """
-function Base.string(model::Frontend.FlatModel)
-  return toString(model::Frontend.FlatModel)
+function Base.string(model::Frontend.FLAT_MODEL)
+  return toString(model::Frontend.FLAT_MODEL)
 end
 
 """
@@ -381,18 +352,17 @@ function writeFlatModelicaToFile(fm, fLst;
     fmStr
   end
   f = write(fileName, fmStr)
-  #close(f)
 end
 
 """
-    cacheToFunctionList(cache::Frontend.FunctionTreeImpl.Tree)::List{Frontend.M_FUNCTION}
+    cacheToFunctionList(cache::Frontend.FunctionTreeImpl.Tree)::List{Frontend.MODELICA_FUNCTION}
 
 The functions of a function tree (the function cache, keyed by path) as a list, in the tree's
 order: OMBackend's `FunctionList`. `map` over the tree's `(path, function)` list returns a list
-whose element type is the functions' concrete type, `M_FUNCTION` (ImmutableList 0.6); the tree's
-values are typed on the abstract `M_Function`.
+whose element type is the functions' concrete type, `MODELICA_FUNCTION` (ImmutableList 0.6); the tree's
+values are typed on the abstract `MODELICA_FUNCTION`.
 """
-function cacheToFunctionList(cache::Frontend.FunctionTreeImpl.Tree)::List{Frontend.M_FUNCTION}
+function cacheToFunctionList(cache::Frontend.FunctionTreeImpl.Tree)::List{Frontend.MODELICA_FUNCTION}
   return map(last, Frontend.FunctionTreeImpl.toList(cache))
 end
 
@@ -462,9 +432,7 @@ function flattenModelWithMSL(modelName::String,
   local sCodeProgram = translateToSCode(absynProgram)
   #= Add builtin function to the program (model) and instantiate it =#
   builtin = NFModelicaBuiltinCache["NFModelicaBuiltin"]
-  #program = listReverse(listAppend(sCodeProgram, builtin))
   program = listAppend(sCodeProgram, lib)
-  #println("Attempting to instantiate..." * modelName)
   (FM, cache) = instantiateSCodeToFM(modelName, program; scalarize = scalarize)
 end
 
@@ -610,18 +578,20 @@ end
 The format of the library disk cache, part of its key (`_computeLibHash`): change it when the types of the
 serialized SCode program change. 2: the Absyn records are `OMParser.Absyn`'s (were the package Absyn.jl's).
 3: SCode is `OMFrontend.SCode` (was the package SCode.jl).
+4: the Absyn records are `OpenModelicaParser.Absyn`'s, plain structs (were `OMParser.Absyn`'s).
+5: optional values are Base's `Some` (were MetaModelica's `SOME`), `SourceInfo` is `OpenModelicaParser.Absyn`'s.
 """
-const LIB_CACHE_FORMAT = 3
+const LIB_CACHE_FORMAT = 5
 
 """
     _computeLibHash(path::String)::String
 
-The key of a library's disk cache: Julia's version, `LIB_CACHE_FORMAT`, the versions of OMParser and
+The key of a library's disk cache: Julia's version, `LIB_CACHE_FORMAT`, the versions of OpenModelicaParser and
 OMFrontend (the types of the serialized program), and the paths, modification times and sizes of the library's
 `.mo` files.
 """
 function _computeLibHash(path::String)::String
-  local h::UInt64 = hash((string(VERSION), LIB_CACHE_FORMAT, pkgversion(OMParser), pkgversion(@__MODULE__)))
+  local h::UInt64 = hash((string(VERSION), LIB_CACHE_FORMAT, pkgversion(OpenModelicaParser), pkgversion(@__MODULE__)))
   if isfile(path)
     local st = stat(path)
     h = hash((path, st.mtime, st.size), h)
@@ -711,8 +681,8 @@ function loadPackageDirectory(dirPath::String; name::Union{String, Nothing} = no
   #= Compute content hash for disk-cache lookup/invalidation =#
   local contentHash = _computeLibHash(dirPath)
 
-  #= Determine cache key from root package name (needed before parsing) =#
-  #= Try disk cache first — if hit, skip all parsing =#
+  #= Determine cache key from root package name (needed before parsing)
+     Try disk cache first — if hit, skip all parsing =#
   local cacheKey::String = name !== nothing ? name : ""
   if !isempty(cacheKey) && _loadLibCache(cacheKey, contentHash)
     LIBRARY_ROOTS[cacheKey] = abspath(dirPath)
@@ -1363,7 +1333,7 @@ function libraryVersion(key::String, name::String)::String
   for c in get(LIBRARY_CACHE, key, nil)
     (c isa SCode.CLASS && c.name == name) || continue
     local v::Option{Absyn.Exp} = Frontend.SCodeUtil.lookupElementAnnotationBinding(c, "version")
-    (isSome(v) && v.data isa Absyn.STRING) && return v.data.value
+    (isSome(v) && v.value isa Absyn.STRING) && return v.value.value
   end
   local m::Union{Nothing, RegexMatch} = match(r"(\d+)_(\d+)_(\d+)$", key)
   return m === nothing ? "" : join(m.captures, ".")
@@ -1638,7 +1608,6 @@ function flattenModelWithLibraries(modelName::String,
                                      separateInstantiation = separateInstantiation)
 end
 
-
 """
 ```
 enableDumpDebug()
@@ -1742,7 +1711,6 @@ function removeQuotesFromFlatModelica(fmStr::String)
   end
   local strs = split(fmStr, "\n")
   for str in strs
-    local matchedStr::Option{RegexMatch}
     local replaced = false
     local mstr = str
     if (contains(mstr, "'"))
@@ -1792,7 +1760,7 @@ exportJSON(fmOrTuple; kwargs...) =
                output_dir, base_name,
                hierarchy=true, flat=true, class_mapping=nothing, atd=false)
 
-Parse `fileName`, instantiate `modelName` to a FlatModel, then export it as JSON.
+Parse `fileName`, instantiate `modelName` to a FLAT_MODEL, then export it as JSON.
 When `library` is non-empty, it is loaded via `loadInstalledLibrary` and combined
 with the model via `flattenModelWithLibraries` (e.g. `library = "Modelica"`). When
 `library` is empty, the model is flattened on its own with `flattenModel`. Pass

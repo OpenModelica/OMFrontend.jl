@@ -70,7 +70,7 @@ jobs:
       - name: Checkout sibling OM*.jl packages
         uses: JKRT/OM.jl/.github/actions/checkout-siblings@master
         with:
-          packages: ImmutableList MetaModelica OMParser OMRuntimeExternalC
+          packages: ImmutableList MetaModelica OpenModelicaParser OMRuntimeExternalC
 
       - name: Setup Julia ${{ inputs.julia-version }}-${{ matrix.arch }}
         uses: julia-actions/setup-julia@v2
@@ -93,7 +93,7 @@ jobs:
             siblings = [
               "../ImmutableList.jl",
               "../MetaModelica.jl",
-              "../OMParser.jl",
+              "../OpenModelicaParser.jl",
               "../OMRuntimeExternalC.jl",
             ]
             Pkg.develop([Pkg.PackageSpec(path = p) for p in siblings])
@@ -131,7 +131,7 @@ jobs:
             mo = joinpath(pkgRoot, "test", "Models", "HelloWorld.mo")
             p = OMFrontend.parseFile(mo, 1)
             s = OMFrontend.translateToSCode(p)
-            OMFrontend.instantiateSCodeToDAE("HelloWorld", s)
+            OMFrontend.instantiateSCodeToFM("HelloWorld", s)
             println("Sysimage smoke test OK")
           '
 

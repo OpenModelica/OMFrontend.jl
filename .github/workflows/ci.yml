@@ -55,13 +55,16 @@ jobs:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
+    permissions:
+      contents: write  # the coverage badge file on gh-pages
+      actions: write  # julia-actions/cache deletes the caches it replaces
 
     strategy:
       fail-fast: false
       matrix:
         # Listing every combination explicitly keeps the matrix predictable.
         include:
-          # Coverage is only collected/uploaded on one runner.
+          # Coverage is only measured on one runner.
           - os: ubuntu-latest
             arch: x64
             version: '1.13'
@@ -88,7 +91,7 @@ jobs:
       - name: Checkout sibling OM*.jl packages
         uses: JKRT/OM.jl/.github/actions/checkout-siblings@master
         with:
-          packages: ImmutableList MetaModelica OMParser OMRuntimeExternalC
+          packages: ImmutableList MetaModelica OpenModelicaParser OMRuntimeExternalC
 
       - name: Setup Julia ${{ matrix.version }}-${{ matrix.arch }}
         uses: julia-actions/setup-julia@v2
@@ -124,7 +127,7 @@ jobs:
             siblings = [
               "../ImmutableList.jl",
               "../MetaModelica.jl",
-              "../OMParser.jl",
+              "../OpenModelicaParser.jl",
               "../OMRuntimeExternalC.jl",
             ]
             Pkg.develop([Pkg.PackageSpec(path = p) for p in siblings])
@@ -140,13 +143,15 @@ jobs:
         # OMFrontend @compile_workload, which loads MSL_4_0_0 and is the
         # most expensive part of the build. Test and Pkg ([extras]) load
         # from the standard library, so no [extras] merging is needed.
-        # --code-coverage=user emits .cov files next to user source for the
-        # downstream julia-processcoverage step. Only enabled on the coverage
-        # runner; the others run tests without the coverage overhead.
+        # --code-coverage=@<src> emits .cov files next to OMFrontend's sources
+        # for the downstream julia-processcoverage step; the dependencies keep
+        # their package images from the Build step (=user tracked them too,
+        # without their package images). Only enabled on the coverage runner; the
+        # others run tests without the coverage overhead.
         shell: bash
         working-directory: OMFrontend.jl
         run: |
-          julia --color=yes ${{ matrix.coverage && '--code-coverage=user' || '' }} --project=. -e '
+          julia --color=yes ${{ matrix.coverage && format('--code-coverage=@{0}/OMFrontend.jl/src', github.workspace) || '' }} --project=. -e '
             include("test/runtests.jl")
           '
 
@@ -155,12 +160,13 @@ jobs:
         with:
           directories: OMFrontend.jl/src
 
-      - name: Upload coverage to Codecov
+      # The coverage in the job summary and, on master, coverage.json on
+      # gh-pages for the README's badge (no external service; the action is
+      # shared by the OM.jl packages).
+      - name: Coverage
         if: matrix.coverage
-        uses: codecov/codecov-action@v4
-        # an upload problem (Codecov's service or network) must not fail the tests
-        continue-on-error: true
+        uses: JKRT/OM.jl/.github/actions/coverage@master
         with:
-          files: lcov.info
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
+          name: OMFrontend.jl/src
+          path: OMFrontend.jl
+          publish: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}

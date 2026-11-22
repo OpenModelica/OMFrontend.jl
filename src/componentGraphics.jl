@@ -57,7 +57,7 @@ items, its base classes' first, as tools draw them) and `placements` (each of th
 its `"Placement(...)"` annotation, declared in the class or a base class). An error if `fm` has no component of that
 name.
 """
-function componentGraphics(fm::Frontend.FlatModel, component::String)::NamedTuple
+function componentGraphics(fm::Frontend.FLAT_MODEL, component::String)::NamedTuple
   local depth::Int = count(==('.'), component) + 1
   local cls::Union{Nothing, Frontend.InstNode} = nothing
   local connectors::Vector{String} = String[]
@@ -109,8 +109,8 @@ function classGraphics(cls::Frontend.InstNode, connectors::Vector{String})::Name
     for sm in icon.subModLst
       if sm.ident == "coordinateSystem"
         coordinateSystem = "coordinateSystem" * Frontend.SCodeDump.printModStr(sm.mod)   # the most derived class's
-      elseif sm.ident == "graphics" && sm.mod isa SCode.MOD && isSome(sm.mod.binding) && sm.mod.binding.data isa Absyn.ARRAY
-        append!(items, String[Frontend.AbsynUtil.printExp(x) for x in sm.mod.binding.data.arrayExp])
+      elseif sm.ident == "graphics" && sm.mod isa SCode.MOD && isSome(sm.mod.binding) && sm.mod.binding.value isa Absyn.ARRAY
+        append!(items, String[Frontend.AbsynUtil.printExp(x) for x in sm.mod.binding.value.arrayExp])
       end
     end
     return nothing
@@ -120,7 +120,7 @@ function classGraphics(cls::Frontend.InstNode, connectors::Vector{String})::Name
 end
 
 """The annotation `name` (`Icon`, `Placement`) of an SCode comment, or `SCode.NOMOD()`."""
-function classGraphicsAnnotation(cmt::SCode.Comment, name::String)::SCode.Mod
-  local ann::Option{SCode.Annotation} = cmt.annotation_
-  return isSome(ann) ? Frontend.SCodeUtil.lookupAnnotation(ann.data, name) : SCode.NOMOD()
+function classGraphicsAnnotation(cmt::SCode.COMMENT, name::String)::SCode.Mod
+  local ann::Option{SCode.ANNOTATION} = cmt.annotation_
+  return isSome(ann) ? Frontend.SCodeUtil.lookupAnnotation(ann.value, name) : SCode.NOMOD()
 end

@@ -1,4 +1,5 @@
 [![Github Action CI](https://github.com/OpenModelica/OMFrontend.jl/workflows/CI/badge.svg)](https://github.com/OpenModelica/OMFrontend.jl/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://openmodelica.github.io/OMFrontend.jl/coverage.json)](https://github.com/OpenModelica/OMFrontend.jl/actions/workflows/ci.yml?query=branch%3Amaster)
 [![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://OpenModelica.github.io/OMFrontend.jl/dev/)
 [![License: AGPL-3.0 or OSMC-PL](https://img.shields.io/badge/license-AGPL--3.0%20or%20OSMC--PL-lightgrey.svg)](LICENSE.md)
 
@@ -6,7 +7,7 @@
 
 An implementation of the OpenModelica New Frontend (NF) in Julia.
 The package parses Modelica source, lowers it to SCode, and instantiates it
-into FlatModelica or DAE form.
+into a flat model (FlatModelica).
 
 For the full compiler suite that builds on top of this package, see
 [OpenModelica.jl](https://github.com/OpenModelica/OM.jl). The API exposed here is
@@ -70,9 +71,8 @@ scodeProgram  = OMFrontend.translateToSCode(absynProgram)
 (FM, funcs)   = OMFrontend.instantiateSCodeToFM("HelloWorld", scodeProgram)
 ```
 
-To obtain the DAE form instead of FlatModelica, call `instantiateSCodeToDAE`
-on the SCode program returned by `translateToSCode`. The data structures are
-`OMFrontend.SCode` and `OMFrontend.DAE` (`src/SCode`, `src/DAE`; formerly the packages SCode.jl and DAE.jl).
+The flat model is the only output of the frontend. The SCode data structures are
+in `OMFrontend.SCode` (`src/SCode`; formerly the package SCode.jl).
 
 ### Discovering and Loading Installed Libraries
 
@@ -139,14 +139,22 @@ disk:
 
 ```julia
 str = OMFrontend.toFlatModelica((FM, funcs))
-OMFrontend.exportDAERepresentationToFile("HelloWorld.flat.mo", str)
+write("HelloWorld.flat.mo", str)
 ```
 
 For debugging the lowering pipeline, `OMFrontend.enableDumpDebug()` writes the
 flat model after each compiler phase to the working directory.
 `OMFrontend.disableDumpDebug()` turns it off again.
 
-### Issues, Questions, and Contributing
+## Bug Reports and Contributions
+
+All contributions are welcome: bug reports, fixes, tests, documentation.
+
+- Report a bug as an [issue](https://github.com/OpenModelica/OMFrontend.jl/issues),
+  with the smallest Modelica model that shows it and the OMFrontend.jl version.
+- Send changes as pull requests. Every fix should, where possible, include a small
+  test that reproduces the issue: the smallest model that fails before the fix and
+  passes after it, in `test/`.
 
 OMFrontend.jl is a component of [OM.jl](https://github.com/OpenModelica/OM.jl), and
 the API reflects that low-level role.

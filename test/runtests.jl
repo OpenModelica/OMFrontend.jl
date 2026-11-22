@@ -13,9 +13,8 @@ import Pkg
 
 Pkg.resolve()
 
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 import OMFrontend.SCode
-import OMFrontend.DAE
 using MetaModelica
 using Test
 import OMFrontend
@@ -35,15 +34,6 @@ end
 
 
 #= Utility functions =#
-function flatten(modelName::String, modelFile::String)
-  @info "Parsing..."
-  @time p = OMFrontend.parseFile(modelFile)
-  @info "SCode Translation of $(modelName)..."
-  @time scodeProgram = OMFrontend.translateToSCode(p)
-  @info "Generating the DAE for $(modelName)..."
-  @time (dae, cache) = OMFrontend.instantiateSCodeToDAE(modelName, scodeProgram)
-end
-
 function parseAndLowerToScode(modelName::String, modelFile::String)
   p = OMFrontend.parseFile(modelFile)
   scodeProgram = OMFrontend.translateToSCode(p)
@@ -72,8 +62,8 @@ end
     @testset "Absyn -> SCode test" begin
       include("scodeSanityTest.jl")
     end
-    @testset "SCode -> DAE Sanity test" begin
-      include("daeTests.jl")
+    @testset "SCode -> flat model sanity test" begin
+      include("flattenSanityTests.jl")
     end
     @testset "Binding mapExp" begin
       include("bindingMapExpTests.jl")
@@ -81,6 +71,9 @@ end
   end
 
   include("listVectorTests.jl")
+  include("evalCatTests.jl")
+  include("logicArrayTests.jl")
+  include("modifierMergeTests.jl")
   include("flatModelicaFunctionTests.jl")
 
   # GUI_API tests are gated behind the OMFRONTEND_TEST_GUI_API env var while
@@ -105,6 +98,10 @@ end
 
   @testset "Arrays kept (no scalarization)" begin
     include("keepArraysTests.jl")
+  end
+
+  @testset "Array connects (connection equations as for-equations)" begin
+    include("arrayConnectTests.jl")
   end
 
   include("omcTestsuiteTests.jl")
@@ -163,6 +160,10 @@ end
 
   @testset "Testing OC-Connectors" begin
     include("dynamicOverconstrainedConnectorTests.jl")
+  end
+
+  @testset "Overconstrained connection graph" begin
+    include("occGraphTests.jl")
   end
 
   #= OMFrontend.jl extensions for variable structured systems =#

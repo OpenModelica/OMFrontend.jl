@@ -73,7 +73,7 @@ listToVec(xs) = collect(xs)
 end
 
 @testset "ArrayUtil folds and reductions" begin
-    @test ArrayUtil.fold([1, 2, 3, 4], (x, acc) -> acc + x, 0) == 10
+    @test ArrayUtil.fold([1, 2, 3, 4], (x, acc) -> acc + x, 0, Int) == 10
     @test ArrayUtil.fold1([1, 2], (x, a, acc) -> acc + x * a, 10, 0) == 30
     @test ArrayUtil.fold2([1, 2], (x, a, b, acc) -> acc + x + a + b, 10, 100, 0) == 223
     @test ArrayUtil.fold3([1, 2], (x, a, b, c, acc) -> acc + x + a + b + c, 1, 2, 3, 0) == 15

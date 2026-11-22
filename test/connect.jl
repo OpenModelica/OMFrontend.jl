@@ -293,14 +293,14 @@ equation
   R2.p.i + R1.p.i = 0.0;
   R1.n.i = 0.0;
   R2.n.i = 0.0;
-  R2.R * R2.i = R2.v;
-  R2.v = R2.p.v - R2.n.v;
-  0.0 = R2.p.i + R2.n.i;
-  R2.i = R2.p.i;
   R1.R * R1.i = R1.v;
   R1.v = R1.p.v - R1.n.v;
   0.0 = R1.p.i + R1.n.i;
   R1.i = R1.p.i;
+  R2.R * R2.i = R2.v;
+  R2.v = R2.p.v - R2.n.v;
+  0.0 = R2.p.i + R2.n.i;
+  R2.i = R2.p.i;
 end ElectricalComponentTest_ResistorCircuit0;
 "
 
@@ -333,18 +333,18 @@ equation
   R3.p.i + R2.p.i + R1.p.i = 0.0;
   R2.n.i = 0.0;
   R3.n.i = 0.0;
-  R3.R * R3.i = R3.v;
-  R3.v = R3.p.v - R3.n.v;
-  0.0 = R3.p.i + R3.n.i;
-  R3.i = R3.p.i;
-  R2.R * R2.i = R2.v;
-  R2.v = R2.p.v - R2.n.v;
-  0.0 = R2.p.i + R2.n.i;
-  R2.i = R2.p.i;
   R1.R * R1.i = R1.v;
   R1.v = R1.p.v - R1.n.v;
   0.0 = R1.p.i + R1.n.i;
   R1.i = R1.p.i;
+  R2.R * R2.i = R2.v;
+  R2.v = R2.p.v - R2.n.v;
+  0.0 = R2.p.i + R2.n.i;
+  R2.i = R2.p.i;
+  R3.R * R3.i = R3.v;
+  R3.v = R3.p.v - R3.n.v;
+  0.0 = R3.p.i + R3.n.i;
+  R3.i = R3.p.i;
 end ElectricalComponentTest_ResistorCircuit1;
 "
 
@@ -399,27 +399,27 @@ equation
   L.p.i + R2.n.i = 0.0;
   G.p.i + AC.n.i + L.n.i + C.n.i = 0.0;
   AC.p.i + R2.p.i + R1.p.i = 0.0;
-  G.p.v = 0.0;
-  AC.v = AC.A * sin(AC.w * time);
-  AC.v = AC.p.v - AC.n.v;
-  0.0 = AC.p.i + AC.n.i;
-  AC.i = AC.p.i;
-  L.L * der(L.i) = L.v;
-  L.v = L.p.v - L.n.v;
-  0.0 = L.p.i + L.n.i;
-  L.i = L.p.i;
-  R2.R * R2.i = R2.v;
-  R2.v = R2.p.v - R2.n.v;
-  0.0 = R2.p.i + R2.n.i;
-  R2.i = R2.p.i;
-  C.i = C.C * der(C.v);
-  C.v = C.p.v - C.n.v;
-  0.0 = C.p.i + C.n.i;
-  C.i = C.p.i;
   R1.R * R1.i = R1.v;
   R1.v = R1.p.v - R1.n.v;
   0.0 = R1.p.i + R1.n.i;
   R1.i = R1.p.i;
+  C.i = C.C * der(C.v);
+  C.v = C.p.v - C.n.v;
+  0.0 = C.p.i + C.n.i;
+  C.i = C.p.i;
+  R2.R * R2.i = R2.v;
+  R2.v = R2.p.v - R2.n.v;
+  0.0 = R2.p.i + R2.n.i;
+  R2.i = R2.p.i;
+  L.L * der(L.i) = L.v;
+  L.v = L.p.v - L.n.v;
+  0.0 = L.p.i + L.n.i;
+  L.i = L.p.i;
+  AC.v = AC.A * sin(AC.w * time);
+  AC.v = AC.p.v - AC.n.v;
+  0.0 = AC.p.i + AC.n.i;
+  AC.i = AC.p.i;
+  G.p.v = 0.0;
 end ElectricalComponentTest_SimpleCircuit;
 "
 

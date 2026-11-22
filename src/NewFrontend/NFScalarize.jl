@@ -33,15 +33,15 @@
 *
 */ =#
 
-function scalarize(flatModel::FlatModel, name::String)::FlatModel
-  local vars::Vector{Variable} = Variable[]
+function scalarize(flatModel::FLAT_MODEL, name::String)::FLAT_MODEL
+  local vars::Vector{VARIABLE} = VARIABLE[]
   for v in flatModel.variables
     scalarizeVariable(v, vars)
   end
   local equations = scalarizeEquations(mapExpList(flatModel.equations, expandComplexCref))
   local initialEquations = scalarizeEquations(mapExpList(flatModel.initialEquations, expandComplexCref))
-  local algorithms = Algorithm[scalarizeAlgorithm(a) for a in flatModel.algorithms]
-  local initialAlgorithms = Algorithm[scalarizeAlgorithm(a) for a in flatModel.initialAlgorithms]
+  local algorithms = ALGORITHM[scalarizeAlgorithm(a) for a in flatModel.algorithms]
+  local initialAlgorithms = ALGORITHM[scalarizeAlgorithm(a) for a in flatModel.initialAlgorithms]
   @assign begin
     flatModel.variables = vars
     flatModel.equations = equations
@@ -49,12 +49,11 @@ function scalarize(flatModel::FlatModel, name::String)::FlatModel
     flatModel.algorithms = algorithms
     flatModel.initialAlgorithms = initialAlgorithms
   end
-  #execStat(getInstanceName() + "(" + name + ")")
   return flatModel
 end
 
 """
-    scalarizeKeptArrays(flatModel::FlatModel)::FlatModel
+    scalarizeKeptArrays(flatModel::FLAT_MODEL)::FLAT_MODEL
 
 A flat model flattened without scalarization (`scalarize = false`: array variables, array
 equations, for-equations) in the scalarized form the backend takes: for-equations unrolled
@@ -63,25 +62,25 @@ whose dimensions are on a prefix part (`r.p.i` of a component array `r`: `r[1].p
 equations refer to them), then the array equations expanded by `scalarize`. Algorithms keep
 their for-statements, as when scalarizing.
 """
-function scalarizeKeptArrays(flatModel::FlatModel)::FlatModel
+function scalarizeKeptArrays(flatModel::FLAT_MODEL)::FLAT_MODEL
   #= The settings of a scalarizing flattening (setSettingForInst): expansion of operations and
      function arguments on, so der(x) expands to der(x[1]), ... They stay on: from here on
      the model is scalar, as after a scalarizing flatten. =#
-  FlagsUtil.set(Flags.NF_SCALARIZE, true)
+  FlagsUtil.set(Flags.FRONTEND_SCALARIZE, true)
   FlagsUtil.set(Flags.NF_EXPAND_OPERATIONS, true)
   FlagsUtil.set(Flags.NF_EXPAND_FUNC_ARGS, true)
   #= The array variables by name: their element crefs, dimensions and element type. A cref
      of an array variable without (literal) subscripts on its array parts becomes the array of
      its elements (the variable table knows the dimensions; the parts of a cref in a
      vectorized equation do not always carry them). =#
-  local table = Dict{String, Tuple{Vector{ComponentRef}, Vector{Int}, NFType}}()
+  local table = Dict{String, Tuple{Vector{ComponentRef}, Vector{Int}, ModelicaType}}()
   for v in flatModel.variables
     if isArray(v.ty) && hasKnownSize(v.ty) && !isEmptyArray(v.ty)
       table[_unsubscriptedName(v.name)] = (_expandArrayParts(v.name), [size(d) for d in arrayDims(v.ty)], arrayElementType(v.ty))
     end
   end
   local expandArr = (e) -> map(e, (x) -> _expandKeptArrayCref(x, table))
-  local vars::Vector{Variable} = Variable[]
+  local vars::Vector{VARIABLE} = VARIABLE[]
   for v in flatModel.variables
     _splitKeptArrayVariable(v, vars, table)
   end
@@ -102,19 +101,19 @@ end
    array (vectorizeAlgorithm, iterators named $i...): one algorithm per element instead, with
    the iterator replaced in every cref part, as a scalarizing flatten gives (the backend lowers
    when-statements per element). Loops written in the model stay. =#
-function _unrollVectorizedAlgorithms(algs::Vector{Algorithm})::Vector{Algorithm}
-  local out = Algorithm[]
+function _unrollVectorizedAlgorithms(algs::Vector{ALGORITHM})::Vector{ALGORITHM}
+  local out = ALGORITHM[]
   for alg in algs
     _unrollVectorizedAlgorithm!(out, alg.statements, alg.source)
   end
   return out
 end
 
-function _unrollVectorizedAlgorithm!(out::Vector{Algorithm}, stmts::Vector{Statement}, source)
+function _unrollVectorizedAlgorithm!(out::Vector{ALGORITHM}, stmts::Vector{Statement}, source)
   if length(stmts) == 1 && isvariant(stmts[1], ALG_FOR) && startswith(name(stmts[1].iterator), "\$") &&
      isSome(stmts[1].range)
     local loop = stmts[1]
-    local range::Expression = evalExp(Util.getOption(loop.range), EVALTARGET_RANGE(AbsynUtil.dummyInfo))
+    local range::Expression = evalExp(Util.getOption(loop.range), EVALTARGET_RANGE(source))
     local range_iter = RangeIterator_fromExp(range)
     local val::Expression
     while hasNext(range_iter)
@@ -132,7 +131,7 @@ end
    dimensions of its prefix parts: r.p.i of a component array r -> r[1].p.i, ...), with the
    binding and type attributes of each element. A scalar variable keeps its binding, array
    crefs in it expanded (an array context). =#
-function _splitKeptArrayVariable(v::Variable, vars::Vector{Variable}, table)
+function _splitKeptArrayVariable(v::VARIABLE, vars::Vector{VARIABLE}, table)
   local expandArr = (x) -> _expandKeptArrayCref(x, table)
   if !(isArray(v.ty) && hasKnownSize(v.ty))
     push!(vars, VARIABLE(v.name, v.ty, mapExp(v.binding, expandArr), v.visibility, v.attributes,
@@ -156,7 +155,7 @@ end
    one component of a component array kept as an array, or each): the element's prefix
    subscripts transferred into its crefs (r[2].p.i's binding reads r[2]'s parameters), as
    flattening a scalarized component array does. An array binding: expanded, element k. =#
-function _elementBindings(b::Binding, elems::Vector{ComponentRef}, ndims::Int, v::Variable, table)::Vector{Binding}
+function _elementBindings(b::Binding, elems::Vector{ComponentRef}, ndims::Int, v::VARIABLE, table)::Vector{Binding}
   isBound(b) || return Binding[b for _ in elems]
   local e = getTypedExp(b)
   local var = variability(b)
@@ -290,7 +289,7 @@ function _expandPrefixArrayCref(@nospecialize(exp::Expression))::Expression
   return _nestedCrefArray(_expandArrayParts(cr), dims, arrayElementType(exp.ty), 0)
 end
 
-function _nestedCrefArray(crefs::Vector{ComponentRef}, dims::Vector{Int}, elty::NFType, offset::Int)::Expression
+function _nestedCrefArray(crefs::Vector{ComponentRef}, dims::Vector{Int}, elty::ModelicaType, offset::Int)::Expression
   if length(dims) == 1
     local elems = Expression[CREF_EXPRESSION(elty, crefs[offset + i]) for i in 1:dims[1]]
     return makeArray(liftArrayLeft(elty, fromInteger(dims[1])), elems)
@@ -316,7 +315,8 @@ end
    parts: vectorizing a component array puts its iterators there (c[$i1].C), and the
    expression map (mapCref) only visits the parts of CREF origin. =#
 function _replaceIteratorAllParts(eql::Vector{Equation}, iterator::InstNode, @nospecialize(value::Expression))::Vector{Equation}
-  local f = (e) -> map(e, (x) -> _replaceIteratorInExp(x, iterator, value))
+  local v::Base.RefValue{Expression} = captureRef(value)
+  local f = (@nospecialize(e::Expression),) -> map(e, (@nospecialize(x::Expression),) -> _replaceIteratorInExp(x, iterator, v[]))
   return mapExpList(eql, f)
 end
 
@@ -329,8 +329,12 @@ end
 
 function _replaceIteratorInCrefParts(cr::ComponentRef, iterator::InstNode, @nospecialize(value::Expression))::ComponentRef
   isvariant(cr, COMPONENT_REF_CREF) || return cr
-  local rest = _replaceIteratorInCrefParts(cr.restCref, iterator, value)
-  local subs = list(mapExp(sub, (e) -> replaceIterator(e, iterator, value)) for sub in cr.subscripts)
+  local rest::ComponentRef = _replaceIteratorInCrefParts(cr.restCref, iterator, value)
+  #= simplified: the model's simplification does not visit the subscripts of prefix parts (`r[$i1 + 1].p.i` of a
+     rerolled connection equation is `r[2].p.i`, not `r[1 + 1].p.i`) =#
+  local v::Base.RefValue{Expression} = captureRef(value)
+  local g = (@nospecialize(e::Expression),) -> simplify(replaceIterator(e, iterator, v[]))
+  local subs::List{Subscript} = ListUtil.map(cr.subscripts, (@nospecialize(sub::Subscript),) -> mapExp(sub, g), Subscript)
   return COMPONENT_REF_CREF(cr.node, subs, cr.ty, cr.origin, rest)
 end
 
@@ -379,19 +383,18 @@ function _unrollForEquation!(out::Vector{Equation}, @nospecialize(eq::Equation))
   return out
 end
 
-function scalarizeVariable(var::Variable, vars::Vector{Variable})
+function scalarizeVariable(var::VARIABLE, vars::Vector{VARIABLE})
   local name::ComponentRef
   local binding::Binding
-  local ty::M_Type
+  local ty::ModelicaType
   local vis::VisibilityType
   local attr::Attributes
   local ty_attr::Vector{Tuple{String, Binding}}
-  local cmt::Option{SCode.Comment}
+  local cmt::Option{SCode.COMMENT}
   local info::SourceInfo
   local binding_iter::ExpressionIterator
   local crefs::List{ComponentRef}
   local exp::Expression
-  local v::Variable
   local ty_attr_names::Vector{String}
   local ty_attr_iters::Vector{ExpressionIterator}
   local bind_var::VariabilityType
@@ -419,7 +422,6 @@ function scalarizeVariable(var::Variable, vars::Vector{Variable})
       (ty_attr_names, ty_attr_iters) = scalarizeTypeAttributes(ty_attr)
       #= Addition by me //John =#
       if isBound(binding)
-        #        @info "bound" toString(binding)
         binding_iter = fromExpToExpressionIterator(expandComplexCref(getTypedExp(binding)))
         bind_var = variability(binding)
         #= Some other checks in omc currently... =#
@@ -435,10 +437,6 @@ function scalarizeVariable(var::Variable, vars::Vector{Variable})
               VARIABLE(cr, ty, binding, vis, attr, ty_attr, cmt, info)
             )
           else #= Did not have a next =#
-            # push!(
-            #   vars,
-            #   VARIABLE(cr, ty, binding, vis, attr, ty_attr, cmt, info)
-            # )
           end
         end
       else
@@ -463,7 +461,6 @@ function scalarizeVariable(var::Variable, vars::Vector{Variable})
     @assign var.binding = res
     push!(vars, var)
   end
-  #@info "Scalarize var res:" toString(vars)
   return vars
 end
 
@@ -509,18 +506,13 @@ function expandComplexCref(exp::Expression)
   return exp
 end
 
-
 function expandComplexCref_traverser(exp::Expression)
   @match exp begin
     CREF_EXPRESSION(ty = TYPE_ARRAY(__)) => begin
-      #=  Expand crefs where any of the prefix nodes are arrays. For example if
-      =#
-      #=  b in a.b.c is SomeType[2] we expand it into {a.b[1].c, a.b[2].c}.
-      =#
-      #=  TODO: This is only done due to backend issues and shouldn't be
-      =#
-      #=        necessary.
-      =#
+      #= Expand crefs where any of the prefix nodes are arrays. For example if
+         b in a.b.c is SomeType[2] we expand it into {a.b[1].c, a.b[2].c}.
+         TODO: This is only done due to backend issues and shouldn't be
+         necessary. =#
       if isComplexArray(exp.cref)
         (exp, _) = expand(exp)
       end
@@ -589,8 +581,8 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
     local rhs_iter::ExpressionIterator
     local lhs::Expression
     local rhs::Expression
-    local ty::M_Type
-    local src::DAE.ElementSource
+    local ty::ModelicaType
+    local src::SourceInfo
     local info::SourceInfo
     @match eq begin
 
@@ -655,7 +647,7 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
           Error.addInternalError(
             getInstanceName() +
               msg,
-            src.info,
+            src,
           )
           fail()
         end
@@ -684,7 +676,7 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
                 Error.addInternalError(
                   getInstanceName() +
                     msg,
-                  src.info,
+                  src,
                 )
                 fail()
               end
@@ -763,8 +755,8 @@ ones runs). Add the scalarized if equation to the list of equations unless we
 don't have any branches left.
 """
 function scalarizeIfEquation(
-  branches::Vector{<:Equation_Branch},
-  source::DAE.ElementSource,
+  branches::Vector{<:EquationBranch},
+  source::SourceInfo,
   equations::Vector{Equation},
 )
   local bl::Vector{EquationBranch} = EquationBranch[]
@@ -786,8 +778,8 @@ function scalarizeIfEquation(
 end
 
 function scalarizeWhenEquation(
-  branches::Vector{<:Equation_Branch},
-  source::DAE.ElementSource,
+  branches::Vector{<:EquationBranch},
+  source::SourceInfo,
   equations::Vector{Equation},
   )
   local bl::Vector{EquationBranch} = EquationBranch[]
@@ -806,7 +798,7 @@ function scalarizeWhenEquation(
   return equations
 end
 
-function scalarizeAlgorithm(alg::Algorithm)::Algorithm
+function scalarizeAlgorithm(alg::ALGORITHM)::ALGORITHM
   @assign alg.statements = scalarizeStatements(alg.statements)
   return alg
 end
@@ -860,7 +852,7 @@ end
 
 function scalarizeIfStatement(
   branches::Vector{Tuple{Expression, Vector{Statement}}},
-  source::DAE.ElementSource,
+  source::SourceInfo,
   statements::Vector{Statement},
 )
   local bl::Vector{Tuple{Expression, Vector{Statement}}} = Tuple{Expression, Vector{Statement}}[]
@@ -888,7 +880,7 @@ end
 """
 function scalarizeWhenStatement(
   branches::Vector{Tuple{Expression, Vector{Statement}}},
-  source::DAE.ElementSource,
+  source::SourceInfo,
   statements::Vector{Statement},
 )
   local bl::Vector{Tuple{Expression, Vector{Statement}}} = Tuple{Expression, Vector{Statement}}[]

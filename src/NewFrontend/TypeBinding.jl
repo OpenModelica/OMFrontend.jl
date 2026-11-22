@@ -99,7 +99,7 @@ Same as type bindings but use ref to handle multiple returns instead of tuples.
 function typeBindingsRefs(cls::InstNode,
                        component::InstNode,
                           origin::ORIGIN_Type,
-                          tyRef::Ref{NFType},
+                          tyRef::Ref{ModelicaType},
                           varRef::Ref{VariabilityType})::Nothing
   local c::Class
   local cls_tree::ClassTree
@@ -159,7 +159,7 @@ end
 function typeComponentBindingRef(inComponent::InstNode,
                                  origin::ORIGIN_Type,
                                  typeChildren::Bool,
-                                 tyRef::Ref{NFType},
+                                 tyRef::Ref{ModelicaType},
                                  varRef::Ref{VariabilityType})
   #= A component removed by `break` (omc). =#
   isvariant(inComponent, EMPTY_NODE) && return inComponent
@@ -172,7 +172,7 @@ end
 
 function typeComponentBindingRef(inComponent::InstNode,
                                  origin::ORIGIN_Type,
-                                 tyRef::Ref{NFType},
+                                 tyRef::Ref{ModelicaType},
                                  varRef::Ref{VariabilityType})
   #= A component removed by `break` (omc). =#
   isvariant(inComponent, EMPTY_NODE) && return inComponent
@@ -189,7 +189,7 @@ function typeComponentBindingRef2_typed(
   c::Component,
   origin::ORIGIN_Type,
   typeChildren::Bool,
-  tyRef::Ref{NFType},
+  tyRef::Ref{ModelicaType},
   varRef::Ref{VariabilityType}
   )::InstNode
   if isvariant(c.binding, UNTYPED_BINDING)
@@ -249,7 +249,7 @@ function typeBindingPayload!(
   node::InstNode,
   c::Component,
   origin::ORIGIN_Type,
-  tyRef::Ref{NFType},
+  tyRef::Ref{ModelicaType},
   varRef::Ref{VariabilityType}
   )::InstNode
   local nameStr::String = name(inComponent)
@@ -267,14 +267,11 @@ function typeBindingPayload!(
   #= Check if the condition evaluates to false (component is disabled). =#
   local componentDisabled = false
   if isBound(cCond)
-    try
-      local condExp = getTypedExp(cCond)
-      condExp = evalExp(condExp, EVALTARGET_CONDITION(Binding_getInfo(cCond)))
-      condExp = stripBindingInfo(condExp)
-      if condExp isa BOOLEAN_EXPRESSION && !condExp.value
-        componentDisabled = true
-      end
-    catch
+    local (ok::Bool, condExp::Expression) =
+      evalExpChecked(getTypedExp(cCond), EVALTARGET_CONDITION(Binding_getInfo(cCond)))
+    condExp = stripBindingInfo(condExp)
+    if ok && condExp isa BOOLEAN_EXPRESSION && !condExp.value
+      componentDisabled = true
     end
   end
 
@@ -304,14 +301,13 @@ function typeBindingPayload!(
   return updateComponent!(c, node)
 end
 
-
 function typeComponentBindingRef2_typeAttr(
   inComponent::InstNode,
   node::InstNode,
   c::Component,
   origin::ORIGIN_Type,
   typeChildren::Bool,
-  tyRef::Ref{NFType},
+  tyRef::Ref{ModelicaType},
   varRef::Ref{VariabilityType})
   if isvariant(c.modifier, MODIFIER_NOMOD)
     return node
@@ -330,8 +326,6 @@ function handleBindingError(binding)
     end
   end
 end
-
-
 
 @noinline function typeComponentBinding(inComponent::InstNode, origin::ORIGIN_Type)
   return typeComponentBinding(inComponent, origin, true)
@@ -383,12 +377,9 @@ function typeComponentBinding2_untyped(
   if ! isvariant(c.binding, UNTYPED_BINDING)
     return node
   end
-  #=  An untyped component with a binding. This might happen when typing a
-  =#
-  #=  dimension and having to evaluate the binding of a not yet typed
-  =#
-  #=  component. Type only the binding and let the case above handle the rest.
-  =#
+  #= An untyped component with a binding. This might happen when typing a
+     dimension and having to evaluate the binding of a not yet typed
+     component. Type only the binding and let the case above handle the rest. =#
   local nameStr = name(inComponent)::String
   #@debug "Typing UC/UB binding ... for component: $nameStr"
   checkBindingEach(c.binding)
@@ -418,7 +409,7 @@ end
 
 function typeComponentBindingRef2(inComponent::InstNode, node::InstNode, c::Component,
                                   origin::ORIGIN_Type, typeChildren::Bool,
-                                  tyRef::Ref{NFType}, varRef::Ref{VariabilityType})
+                                  tyRef::Ref{ModelicaType}, varRef::Ref{VariabilityType})
   if isvariant(c, TYPED_COMPONENT)
     return typeComponentBindingRef2_typed(inComponent, node, c, origin, typeChildren, tyRef, varRef)
   elseif isvariant(c, TYPE_ATTRIBUTE)
@@ -440,7 +431,6 @@ function typeComponentBinding2_typed(
   if isvariant(c.binding, UNTYPED_BINDING)
     nameStr = inComponent.name
     binding = c.binding
-    #ErrorExt.setCheckpoint(getInstanceName())
     checkBindingEach(c.binding)
     local originFlag = setFlag(origin, ORIGIN_BINDING)
     local typedBinding::Binding = typeBinding(binding, originFlag)
@@ -497,10 +487,10 @@ function typeComponentBinding2_typed(
 end
 
 function typeBinding(inBinding::Binding, origin::Int,
-                     tyRef::Ref{NFType} = Ref{NFType}(TYPE_UNKNOWN()),
+                     tyRef::Ref{ModelicaType} = Ref{ModelicaType}(TYPE_UNKNOWN()),
                      varRef::Ref{VariabilityType} = Ref{VariabilityType}(Variability.CONSTANT))::Binding
   local exp::Expression
-  local ty::NFType
+  local ty::ModelicaType
   local var::VariabilityType
   local info::SourceInfo
   local each_ty::Int
@@ -536,21 +526,20 @@ function typeBinding(inBinding::Binding, origin::Int,
   return binding
 end
 
-
 function typeBindingExpRef(
   exp::BINDING_EXP,
   origin::ORIGIN_Type,
   info::SourceInfo,
-  tyRef::Ref{NFType},
+  tyRef::Ref{ModelicaType},
   variabilityRef::Ref{VariabilityType}
   )::BINDING_EXP
   local variability::VariabilityType
-  local ty::NFType
+  local ty::ModelicaType
   local outExp::BINDING_EXP
   local e::Expression
   local parents::List{InstNode}
   local is_each::Bool
-  local exp_ty::NFType
+  local exp_ty::ModelicaType
   @match BINDING_EXP(e, _, _, parents, is_each) = exp
   e = typeExp2(e, origin, info, tyRef, variabilityRef)
   exp_ty = tyRef.x
@@ -570,17 +559,13 @@ function typeBindingExpRef(
       ty = unliftArrayN(parent_dims, exp_ty)
     end
   end
-  #=
-  If the binding has too few dimensions we can't unlift it, but matchBinding
-  can report the error better so we silently ignore it here.
-  =#
-  #outExp = BINDING_EXP(e, exp_ty, ty, parents, is_each)
+  #= If the binding has too few dimensions we can't unlift it, but matchBinding
+     can report the error better so we silently ignore it here. =#
   outExp =  updateBindingExp!(exp, e, exp_ty, ty, parents, is_each)
   variabilityRef.x = variability
   tyRef.x = ty
   return outExp
 end
-
 
 """
 Updates and mutates a given binding exp.

@@ -35,26 +35,25 @@
 
 """
 ```
-evaluate(flatModel::FlatModel)
+evaluate(flatModel::FLAT_MODEL)
 ```
 
 Evaluates the flat model.
 Basically this routine does constant evaluations by resolving parts of the model that is known statically.
 """
-function evaluate(flatModel::FlatModel)::FlatModel
+function evaluate(flatModel::FLAT_MODEL)::FLAT_MODEL
   local const_var::VariabilityType = Variability.STRUCTURAL_PARAMETER
   @assign begin
-    flatModel.variables = Variable[evaluateVariable(v, const_var) for v in flatModel.variables]
+    flatModel.variables = VARIABLE[evaluateVariable(v, const_var) for v in flatModel.variables]
     flatModel.initialEquations = evaluateEquations(flatModel.initialEquations, const_var)
     flatModel.equations = evaluateEquations(flatModel.equations, const_var)
     flatModel.algorithms = evaluateAlgorithms(flatModel.algorithms, const_var)
     flatModel.initialAlgorithms = evaluateAlgorithms(flatModel.initialAlgorithms, const_var)
   end
-#  execStat(getInstanceName())
   return flatModel
 end
 
-function evaluateVariable(var::Variable, constVariability::VariabilityType)::Variable
+function evaluateVariable(var::VARIABLE, constVariability::VariabilityType)::VARIABLE
   local binding::Binding
   @assign binding = evaluateBinding(
     var.binding,
@@ -142,7 +141,7 @@ function checkConstantHasValue(cref::ComponentRef)
   end
   isUnbound(getBinding(comp)) || return nothing
   isRecord(arrayElementType(getType(comp))) && return nothing
-  isSome(evalComponentStartBinding(n, comp, cref, EVALTARGET_IGNORE_ERRORS(), false)) && return nothing
+  Base.first(evalComponentStartBinding(n, comp, cref, EVALTARGET_IGNORE_ERRORS(), false)) && return nothing
   Error.addSourceMessage(Error.UNBOUND_CONSTANT, list(toString(cref)), InstNode_info(n))
   fail()
 end
@@ -154,10 +153,8 @@ function evaluateExpTraverser(
 )::Tuple{Expression, Bool}
   local outChanged::Bool
   local outExp::Expression
-  local e::Expression
   local cref::ComponentRef
-  local ty::M_Type
-  local var::VariabilityType
+  local ty::ModelicaType
   outExp = begin
     @match exp begin
       CREF_EXPRESSION(__) => begin
@@ -177,7 +174,7 @@ function evaluateExpTraverser(
              flatten: there the class is flattened per element, and the field's value over the components
              is the one structural sizes read (omc's CevalRecordArray9: `{i for i in layers.nSta}` over
              `layers.nLay`). =#
-          if !Flags.isSet(Flags.NF_SCALARIZE) && nodeVariability(cref) > Variability.CONSTANT &&
+          if !Flags.isSet(Flags.FRONTEND_SCALARIZE) && nodeVariability(cref) > Variability.CONSTANT &&
              dimensionCount(value) > dimensionCount(ty)
             value = outExp
           end
@@ -189,12 +186,12 @@ function evaluateExpTraverser(
             cref,
           )
         end
-        #=  Evaluate all constants and structural parameters. =#
-        #=  If the cref's subscripts changed, recalculate its type.=#
+        #= Evaluate all constants and structural parameters.
+           If the cref's subscripts changed, recalculate its type. =#
         outExp
       end
       _ => begin
-        func = (x, y) -> evaluateExpTraverser(x, constVariability, false)
+        func = (@nospecialize(x::Expression), y::Bool) -> evaluateExpTraverser(x, constVariability, false)
         (outExp, outChanged) = mapFoldShallow(exp, func, false)
         if outChanged
           retype(outExp)
@@ -209,36 +206,32 @@ function evaluateExpTraverser(
 end
 
 function evaluateDimension(dim::Dimension)::Dimension
-  local outDim::Dimension
-  @assign outDim = begin
-    local e::Expression
-    @match dim begin
-      DIMENSION_EXP(__) where {contains(dim.exp, isIterator)} => begin
-        #= A dimension depending on a for-loop iterator (x[:, 1:i] in a for-equation): only its
-           constants are evaluated (omc evaluateDimension; omc FuncBuiltinFill3). =#
-        e = evaluateExp(dim.exp, Variability.STRUCTURAL_PARAMETER)
-        if referenceEq(e, dim.exp)
-          dim
-        else
-          fromExp(e, dim.var)
-        end
-      end
-
-      DIMENSION_EXP(__) => begin
-        e = evalExp(dim.exp, EVALTARGET_IGNORE_ERRORS())
-        if referenceEq(e, dim.exp)
-          dim
-        else
-          fromExp(e, dim.var)
-        end
-      end
-
-      _ => begin
+  local e::Expression
+  @match dim begin
+    DIMENSION_EXP(__) where {contains(dim.exp, isIterator)} => begin
+      #= A dimension depending on a for-loop iterator (x[:, 1:i] in a for-equation): only its
+         constants are evaluated (omc evaluateDimension; omc FuncBuiltinFill3). =#
+      e = evaluateExp(dim.exp, Variability.STRUCTURAL_PARAMETER)
+      if referenceEq(e, dim.exp)
         dim
+      else
+        fromExp(e, dim.var)
       end
     end
+
+    DIMENSION_EXP(__) => begin
+      e = evalExp(dim.exp, EVALTARGET_IGNORE_ERRORS())
+      if referenceEq(e, dim.exp)
+        dim
+      else
+        fromExp(e, dim.var)
+      end
+    end
+
+    _ => begin
+      dim
+    end
   end
-  return outDim
 end
 
 function evaluateEquations(
@@ -258,7 +251,7 @@ function evaluateEquation(@nospecialize(eq::Equation), constVariability::Variabi
     local e1::Expression
     local e2::Expression
     local e3::Expression
-    local ty::M_Type
+    local ty::ModelicaType
     @match eq begin
       EQUATION_EQUALITY(__) => begin
         local ty = mapDims(eq.ty, evaluateDimension)
@@ -280,11 +273,11 @@ function evaluateEquation(@nospecialize(eq::Equation), constVariability::Variabi
         EQUATION_FOR(eq.iterator, eqRange, eqBody, eq.source)
       end
       EQUATION_IF(__) => begin
-        local eqBranches = Equation_Branch[evaluateEqBranch(b, constVariability) for b in eq.branches]
+        local eqBranches = EquationBranch[evaluateEqBranch(b, constVariability) for b in eq.branches]
         EQUATION_IF(eqBranches, eq.source)
       end
       EQUATION_WHEN(__) => begin
-        local eqBranches = Equation_Branch[evaluateEqBranch(b, constVariability) for b in eq.branches]
+        local eqBranches = EquationBranch[evaluateEqBranch(b, constVariability) for b in eq.branches]
         EQUATION_WHEN(eqBranches, eq.source)
       end
       EQUATION_ASSERT(__) => begin
@@ -313,8 +306,8 @@ function evaluateEquation(@nospecialize(eq::Equation), constVariability::Variabi
   return eq
 end
 
-function evaluateEqBranch(branch::Equation_Branch, constVariability::VariabilityType)
-  local outBranch::Equation_Branch
+function evaluateEqBranch(branch::EquationBranch, constVariability::VariabilityType)
+  local outBranch::EquationBranch
   outBranch = begin
     local condition::Expression
     local body
@@ -333,14 +326,14 @@ function evaluateEqBranch(branch::Equation_Branch, constVariability::Variability
 end
 
 function evaluateAlgorithms(
-  algs::Vector{Algorithm},
+  algs::Vector{ALGORITHM},
   constVariability::VariabilityType,
 )
-  local outAlgs::Vector{Algorithm} = [evaluateAlgorithm(a, constVariability) for a in algs]
+  local outAlgs::Vector{ALGORITHM} = [evaluateAlgorithm(a, constVariability) for a in algs]
   return outAlgs
 end
 
-function evaluateAlgorithm(alg::Algorithm, constVariability::VariabilityType)
+function evaluateAlgorithm(alg::ALGORITHM, constVariability::VariabilityType)
   @assign alg.statements = evaluateStatements(alg.statements, constVariability)
   return alg
 end
@@ -358,7 +351,7 @@ function evaluateStatement(stmt::Statement, constVariability::VariabilityType)::
     local e1::Expression
     local e2::Expression
     local e3::Expression
-    local ty::M_Type
+    local ty::ModelicaType
     @match stmt begin
       ALG_ASSIGNMENT(__) => begin
         ty = mapDims(stmt.ty, evaluateDimension)
@@ -437,13 +430,11 @@ function evaluateStmtBranch(
   return outBranch
 end
 
-function evaluateFunction(func::M_Function)::M_Function
-  local cls::Class
-  local fn_body::Algorithm
-  local sections::Sections
+function evaluateFunction(func::MODELICA_FUNCTION)::MODELICA_FUNCTION
   if !isEvaluated(func)
     markEvaluated(func)
-    func = mapExp(func, (x) -> evaluateFuncExp(x, func.node))
+    local node::InstNode = func.node
+    func = mapExp(func, (@nospecialize(x::Expression),) -> evaluateFuncExp(x, node))
     for fn_der in func.derivatives
       for der_fn in getCachedFuncs(fn_der.derivativeFn)
         evaluateFunction(der_fn)
@@ -469,7 +460,7 @@ function evaluateFuncExpTraverser(
   local e::Expression
   (e, outChanged) = mapFoldShallow(
     exp,
-    (x, y) -> evaluateFuncExpTraverser(x, fnNode, y),
+    (@nospecialize(x::Expression), y::Bool) -> evaluateFuncExpTraverser(x, fnNode, y),
     false,
   )
   outExp = begin

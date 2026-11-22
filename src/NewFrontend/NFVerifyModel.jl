@@ -33,7 +33,7 @@
 *
 */ =#
 
-function verify(flatModel::FlatModel)
+function verify(flatModel::FLAT_MODEL)
   for var in flatModel.variables
     verifyVariable(var)
   end
@@ -50,7 +50,6 @@ function verify(flatModel::FlatModel)
       verifyStatementBounds(stmt)
     end
   end
-#  return execStat(getInstanceName())
 end
 
 """
@@ -58,7 +57,7 @@ omc's subscript bounds check (VerifyModel.checkSubscriptBounds): literal subscri
 crefs against known dimensions, in bindings, equations (shallow, as omc's
 Equation.applyExpShallow) and statements.
 """
-function verifyVariable(var::Variable)
+function verifyVariable(var::VARIABLE)
   verifyBindingBounds(var.binding)
   for attr in var.typeAttributes
     verifyBindingBounds(Util.tuple22(attr))
@@ -78,7 +77,7 @@ function verifyBindingBounds(binding::Binding)
 end
 
 function verifyEquationBounds(eq::Equation)
-  local info::SourceInfo = DAE.ElementSource_getInfo(source(eq))
+  local info::SourceInfo = source(eq)
   @match eq begin
     EQUATION_EQUALITY(__) || EQUATION_CONNECT(__) => begin
       checkSubscriptBounds(eq.lhs, info)
@@ -112,7 +111,7 @@ function verifyEquationBounds(eq::Equation)
 end
 
 function verifyStatementBounds(stmt::Statement)
-  local info::SourceInfo = DAE.ElementSource_getInfo(stmt.source)
+  local info::SourceInfo = stmt.source
   @match stmt begin
     ALG_ASSIGNMENT(__) => begin
       checkSubscriptBounds(stmt.lhs, info)
@@ -149,13 +148,13 @@ function verifyStatementBounds(stmt::Statement)
 end
 
 function checkSubscriptBounds(@nospecialize(exp::Expression), info::SourceInfo)
-  fold(exp, (e, arg) -> begin
+  fold(exp, (e::Expression, arg::Nothing) -> begin
     @match e begin
       CREF_EXPRESSION(__) => checkSubscriptBoundsCref(e.cref, info)
       _ => ()
     end
     arg
-  end, nothing)
+  end, nothing, Nothing)
   return nothing
 end
 
@@ -200,8 +199,8 @@ function expandCrefSet(crefs::List{<:ComponentRef})
       outCrefs = Cons{ComponentRef}(cref, outCrefs)
     end
   end
-  outCrefs = ListUtil.sort(outCrefs, isGreater)
-  outCrefs = ListUtil.sortedUnique(outCrefs, isEqual)
+  outCrefs = ListUtil.sort(outCrefs, isGreater, ComponentRef)
+  outCrefs = ListUtil.sortedUnique(outCrefs, isEqual, ComponentRef)
   return outCrefs
 end
 
@@ -209,17 +208,14 @@ function checkCrefSetEquality(
   crefs1::List{<:ComponentRef},
   crefs2::List{<:ComponentRef},
   errMsg #= TODO=#,
-  source::DAE.ElementSource,
+  source::SourceInfo,
 )
-  #=  Assume the user isn't mixing different ways of subscripting array
-  =#
-  #=  varibles in the different branches, and just check the sets as is.
-  =#
+  #= Assume the user isn't mixing different ways of subscripting array
+     varibles in the different branches, and just check the sets as is. =#
   if ListUtil.isEqualOnTrue(crefs1, crefs2, isEqual)
     return
   end
-  #=  If the sets didn't match, expand arrays into scalars and try again.
-  =#
+  #= If the sets didn't match, expand arrays into scalars and try again. =#
   if ListUtil.isEqualOnTrue(
     expandCrefSet(crefs1),
     expandCrefSet(crefs2),
@@ -227,21 +223,20 @@ function checkCrefSetEquality(
   )
     return
   end
-  #=  Couldn't get the sets to match, print an error and fail.
-  =#
-  Error.addSourceMessage(errMsg, nil, DAE.ElementSource_getInfo(source))
+  #= Couldn't get the sets to match, print an error and fail. =#
+  Error.addSourceMessage(errMsg, nil, source)
   return fail()
 end
 
 """
   Checks that the left-hand sides of the given if-equation branches consists
   of the same set of crefs, and adds that set to the given set of crefs (omc's
-  NFVerifyModel.whenEquationIfCrefs; the branches are the if-equation's
-  `Equation_Branch`es: an if-equation in an elsewhen was a MethodError).
+  VerifyModel.whenEquationIfCrefs; the branches are the if-equation's
+  `EquationBranch`es: an if-equation in an elsewhen was a MethodError).
 """
 function whenEquationIfCrefs(
-  branches::Union{List{<:Equation_Branch}, Vector{<:Equation_Branch}},
-  source::DAE.ElementSource,
+  branches::Union{List{<:EquationBranch}, Vector{<:EquationBranch}},
+  source::SourceInfo,
   crefs::List{<:ComponentRef},
 )::List{ComponentRef}
   local crefs1::List{ComponentRef} = nil
@@ -274,7 +269,7 @@ function whenEquationEqualityCrefs(
       end
 
       TUPLE_EXPRESSION(__) => begin
-        ListUtil.fold(lhsExp.elements, whenEquationEqualityCrefs, crefs)
+        ListUtil.fold(lhsExp.elements, whenEquationEqualityCrefs, crefs, List{ComponentRef})
       end
     end
   end
@@ -310,19 +305,19 @@ function whenEquationBranchCrefs(eql::Union{List{<:Equation}, Vector{<:Equation}
       end
     end
   end
-  crefs = ListUtil.sort(crefs, isGreater)
-  crefs = ListUtil.sortedUnique(crefs, isEqual)
+  crefs = ListUtil.sort(crefs, isGreater, ComponentRef)
+  crefs = ListUtil.sortedUnique(crefs, isEqual, ComponentRef)
   return crefs
 end
 
 """ Checks that each branch in a when-equation has the same set of crefs on the lhs. """
 function verifyWhenEquation(
-  branches::List{<:Equation_Branch},
-  source::DAE.ElementSource,
+  branches::List{<:EquationBranch},
+  source::SourceInfo,
 )
   local crefs1::List{ComponentRef}
   local crefs2::List{ComponentRef}
-  local rest_branches::List{Equation_Branch}
+  local rest_branches::List{EquationBranch}
   local body::Vector{Equation}
   #=  Only when-equation with more than one branch needs to be checked. =#
   if ListUtil.hasOneElement(branches)

@@ -34,6 +34,7 @@
 */ =#
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 abstract type Attributes end
@@ -70,10 +71,10 @@ end
 
 #= Component is an abstract supertype with a SINGLE concrete tagged struct
    (ComponentImpl). Keeping the abstract type lets `::Component` fields (e.g.
-   InstNode.component) forward-reference it without the NFType<->InstNode<->Component
+   InstNode.component) forward-reference it without the ModelicaType<->InstNode<->Component
    concrete cycle, while collapsing the 8 old variants into one concrete struct so
    the compiler devirtualizes `::Component` (one subtype) and @match tag-dispatches.
-   Variants are field-disjoint, so this is hand-written (as with InstNode/NFType). =#
+   Variants are field-disjoint, so this is hand-written (as with InstNode/ModelicaType). =#
 abstract type Component end
 
 @enum ComponentTag::UInt8 CT_EMPTY CT_DELETED CT_ENUM_LITERAL CT_ITERATOR CT_TYPE_ATTRIBUTE CT_TYPED CT_UNTYPED CT_DEF
@@ -82,7 +83,7 @@ struct ComponentImpl <: Component
   tag::ComponentTag
   component::Union{Component,Nothing}
   literal::Union{Expression,Nothing}
-  ty::Union{M_Type,Nothing}
+  ty::Union{ModelicaType,Nothing}
   variability::Int8
   info::Union{SourceInfo,Nothing}
   modifier::Union{Modifier,Nothing}
@@ -91,7 +92,7 @@ struct ComponentImpl <: Component
   condition::Union{Binding,Nothing}
   attributes::Union{Attributes,Nothing}
   ann::Union{Option{Modifier},Nothing}
-  comment::Union{Option{SCode.Comment},Nothing}
+  comment::Union{Option{SCode.COMMENT},Nothing}
   dimensions::Union{Vector{Dimension},Nothing}
   instantiated::Bool
   definition::Union{SCode.Element,Nothing}
@@ -111,7 +112,6 @@ at each load (2026-11-16: 995 compiled methods).
 """
 componentTag(c::Component)::ComponentTag = (c::ComponentImpl).tag
 
-EMPTY_COMPONENT() = _comp(CT_EMPTY)
 DELETED_COMPONENT(component) = _comp(CT_DELETED; component)
 ENUM_LITERAL_COMPONENT(literal) = _comp(CT_ENUM_LITERAL; literal)
 ITERATOR_COMPONENT(ty, variability, info) = _comp(CT_ITERATOR; ty, variability=Int8(variability), info)
@@ -123,7 +123,6 @@ UNTYPED_COMPONENT(classInst, dimensions, binding, condition, attributes, comment
 COMPONENT_DEF(definition, modifier) = _comp(CT_DEF; definition, modifier)
 
 # @match / isvariant support: one concrete struct discriminated by tag.
-MetaModelica.compacted_tag_info(::typeof(EMPTY_COMPONENT))        = (ComponentImpl, :tag, CT_EMPTY, ())
 MetaModelica.compacted_tag_info(::typeof(DELETED_COMPONENT))      = (ComponentImpl, :tag, CT_DELETED, (:component,))
 MetaModelica.compacted_tag_info(::typeof(ENUM_LITERAL_COMPONENT)) = (ComponentImpl, :tag, CT_ENUM_LITERAL, (:literal,))
 MetaModelica.compacted_tag_info(::typeof(ITERATOR_COMPONENT))     = (ComponentImpl, :tag, CT_ITERATOR, (:ty, :variability, :info))
@@ -165,18 +164,6 @@ const OUTPUT_ATTR =
     Parallelism.NON_PARALLEL,
     Variability.CONTINUOUS,
     Direction.OUTPUT,
-    InnerOuter.NOT_INNER_OUTER,
-    false,
-    false,
-    NOT_REPLACEABLE(),
-    false,
-  )
-const CONSTANT_ATTR =
-  ATTRIBUTES(
-    ConnectorType.NON_CONNECTOR,
-    Parallelism.NON_PARALLEL,
-    Variability.CONSTANT,
-    Direction.NONE,
     InnerOuter.NOT_INNER_OUTER,
     false,
     false,
@@ -239,12 +226,9 @@ function getFixedAttribute(component::Component)
   local binding::Binding
   #=  for parameters the default is fixed = true =#
   fixed = isParameter(component) || isStructuralParameter(component)
-  #println("Fixed is true?:", fixed)
   binding = lookupAttributeBinding("fixed", getClass(classInstance(component)))
-  #println("binding?", toString(binding))
   #=  no fixed attribute present =#
   if isUnbound(binding)
-    #println("Return fixed ", fixed)
     return fixed
   end
   fixed = fixed && isTrue(getBindingExp(getExp(binding)))
@@ -253,7 +237,6 @@ end
 
 function getEvaluateAnnotation(component::Component)
   local evaluate::Bool
-  local cmt::SCode.Comment
   evaluate = SCodeUtil.getEvaluateAnnotation(comment(component))
   return evaluate
 end
@@ -274,7 +257,7 @@ function ann(component::Component)
 end
 
 function comment(component::Component)
-  local comment::Option{SCode.Comment}
+  local comment::Option{SCode.COMMENT}
 
    comment = begin
     @match component begin
@@ -332,7 +315,6 @@ function toFlatString(name::String, component::Component; inFunction = false)
   local str::String
   local qname::String = flatQuoteName(name)
   str = begin
-    local def::SCode.Element
     @match component begin
       TYPED_COMPONENT(__) => begin
         toFlatString(component.attributes, component.ty) *
@@ -465,24 +447,22 @@ function isFlow(component::Component)
 end
 
 function setConnectorType(cty::ConnectorType.TYPE, component::Component)
-   () = begin
-    local attr::Attributes
-    @match component begin
-      UNTYPED_COMPONENT(attributes = attr) => begin
-         @assign attr.connectorType = cty
-         @assign component.attributes = attr
-        ()
-      end
-      TYPED_COMPONENT(attributes = attr) => begin
-         @assign attr.connectorType = cty
-         @assign component.attributes = attr
-        ()
-      end
-      _ => begin
-        ()
-      end
-    end
-  end
+   local attr::Attributes
+   @match component begin
+     UNTYPED_COMPONENT(attributes = attr) => begin
+        @assign attr.connectorType = cty
+        @assign component.attributes = attr
+       ()
+     end
+     TYPED_COMPONENT(attributes = attr) => begin
+        @assign attr.connectorType = cty
+        @assign component.attributes = attr
+       ()
+     end
+     _ => begin
+       ()
+     end
+   end
   return component
 end
 
@@ -590,11 +570,6 @@ function isRedeclare(component::Component)
     end
   end
   return isRedeclare
-end
-
-function isVar(component::Component)
-  local isVar::Bool = variability(component) == CONTINIUOUS
-  return isVar
 end
 
 function isStructuralParameter(component::Component)
@@ -769,19 +744,16 @@ function hasBinding(comp::Component, parent::InstNode = EMPTY_NODE())
      b = true
     return b
   end
-  #=  Simple case, component has normal binding equation.
-  =#
-  #=  Complex case, component might be a record instance where each field has
-  =#
-  #=  its own binding equation.
-  =#
+  #= Simple case, component has normal binding equation.
+     Complex case, component might be a record instance where each field has
+     its own binding equation. =#
    cls = getClass(classInstance(comp))
   if !isRecord(restriction(cls))
      b = false
     return b
   end
-  #=  Not record. =#
-  #=  Check if any child of this component is missing a binding. =#
+  #= Not record.
+     Check if any child of this component is missing a binding. =#
    children = getComponents(classTree(cls))
   for c in children
     if isComponent(c) && !hasBinding(component(c))
@@ -865,19 +837,17 @@ end
 
 function setAttributes(attr, component::Component)
 
-   () = begin
-    @match component begin
-      UNTYPED_COMPONENT(__) => begin
-         @assign component.attributes = attr
-        ()
-      end
+   @match component begin
+     UNTYPED_COMPONENT(__) => begin
+        @assign component.attributes = attr
+       ()
+     end
 
-      TYPED_COMPONENT(__) => begin
-         @assign component.attributes = attr
-        ()
-      end
-    end
-  end
+     TYPED_COMPONENT(__) => begin
+        @assign component.attributes = attr
+       ()
+     end
+   end
   return component
 end
 
@@ -923,7 +893,7 @@ function isTyped(component::Component)
   return isTyped
 end
 
-function setType(ty::M_Type, component::Component)
+function setType(ty::ModelicaType, component::Component)
 
    component = begin
     @match component begin
@@ -955,7 +925,7 @@ function setType(ty::M_Type, component::Component)
 end
 
 function getType(component::Component)
-  local ty::M_Type
+  local ty::ModelicaType
 
    ty = begin
     @match component begin
@@ -1083,8 +1053,7 @@ function Component_info(component::Component)
       end
     end
   end
-  #=  Fail for enumeration literals, InstNode.info handles that case instead.
-  =#
+  #= Fail for enumeration literals, InstNode.info handles that case instead. =#
   return info
 end
 
@@ -1100,7 +1069,7 @@ function definition(component::Component)
   return def
 end
 
-function newEnum(enumType::M_Type, literalName::String, literalIndex::Int)
+function newEnum(enumType::ModelicaType, literalName::String, literalIndex::Int)
   local component::Component
   component =
     ENUM_LITERAL_COMPONENT(ENUM_LITERAL_EXPRESSION(enumType, literalName, literalIndex))
@@ -1111,11 +1080,11 @@ function new(definition::SCode.Element)
   COMPONENT_DEF(definition, MODIFIER_NOMOD())
 end
 
-function newIterator(iterType::Type, info::SourceInfo)
+function newIterator(iterType::ModelicaType, info::SourceInfo)
   ITERATOR_COMPONENT(iterType, Variability.IMPLICITLY_DISCRETE, info);
 end
 
-function toFlatString(attr::Attributes, ty::M_Type; isTopLevel = true)
+function toFlatString(attr::Attributes, ty::ModelicaType; isTopLevel = true)
   local str::String = ""
   if attr.isFinal
     str = str * "final "
@@ -1127,7 +1096,7 @@ function toFlatString(attr::Attributes, ty::M_Type; isTopLevel = true)
   return str
 end
 
-function toString(attr::Attributes, ty::M_Type)
+function toString(attr::Attributes, ty::ModelicaType)
   local str::String
   str =
     (
@@ -1151,17 +1120,4 @@ function toString(attr::Attributes, ty::M_Type)
       unparseVariability(attr.variability, ty) +
       unparseDirection(attr.direction)
   return str
-end
-
-function toDAE(ina::Attributes, vis)
-  local outa::DAE.Attributes
-  outa = DAE.ATTR(
-    toDAE(ina.connectorType),
-    parallelismToSCode(ina.parallelism),
-    variabilityToSCode(ina.variability),
-    directionToAbsyn(ina.direction),
-    innerOuterToAbsyn(ina.innerOuter),
-    visibilityToSCode(vis),
-  )
-  return outa
 end

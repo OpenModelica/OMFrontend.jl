@@ -64,20 +64,18 @@ function workload()
   pathToLib = joinpath(packageRoot(), "lib", "NFModelicaBuiltin.mo")
   #= The external C stuff can be a bit flaky.. =#
   GC.enable(false)
-  p = OMParser.parseFile(pathToLib, 2 #= MetaModelica=#)
+  p = OpenModelicaParser.parseFile(pathToLib, 2 #= MetaModelica=#)
   builtinSCode = Frontend.AbsynToSCode.translateAbsyn2SCode(p)
   GC.enable(true)
-  #= End preamble =#
-  #= Load the Modelica Standard Library =#
+  #= End preamble
+     Load the Modelica Standard Library =#
   @info "Loading Version 4.1.0 of the Modelica Standard Library"
   local MSL_V_STARTUP  = "MSL_4_1_0"
   initLoadMSL(MSL_Version= MSL_V_STARTUP)
-  #=
-  Instantiate the HelloWorld module
-  This will precompile a significant part of the frontend.
-  =#
+  #= Instantiate the HelloWorld module
+     This will precompile a significant part of the frontend. =#
   pathToTest = joinpath(packageRoot(), "test", "Models", "HelloWorld.mo")
-  p = OMParser.parseFile(pathToTest, 1)
+  p = OpenModelicaParser.parseFile(pathToTest, 1)
   s = Frontend.AbsynToSCode.translateAbsyn2SCode(p)
   @info "Compiling core modules. This might take awhile.."
   Frontend.Global.initialize()
@@ -86,12 +84,10 @@ function workload()
   program = listAppend(builtinSCode, s)
   path = Frontend.AbsynUtil.stringPath("HelloWorld")
   @info "Timings concerning compiling core modules for instantiation:"
-  @time res1 = Frontend.instClassInProgram(path, program)
-  #=
-  For other developers reading this.
-  Comment out below if you are using revise and want to have faster feedback when changing different datatypes.
-  -John 2023-06-22
-  =#
+  @time res1 = Frontend.instClassInProgramFM(path, program)
+  #= For other developers reading this.
+     Comment out below if you are using revise and want to have faster feedback when changing different datatypes.
+     -John 2023-06-22 =#
   @info "Testing to load MSL models"
   function flattenModelInMSL_TST(modelName::String; MSL_V, scalarize::Bool = true)
     if !haskey(OMFrontend.LIBRARY_CACHE, MSL_V)
@@ -160,39 +156,38 @@ function workload()
   end
 
   #= MultiBody examples commented out to speed up precompilation (nullRotation is slow)
-  precompile_prefix = "Modelica.Mechanics.MultiBody.Examples.Elementary"
-  @info "Checking MSL Examples in $(precompile_prefix)"
-  precompile_model_names = [
-    "DoublePendulum",
-    "DoublePendulumInitTip",
-    "ForceAndTorque",
-    "FreeBody"
-  ]
-  for p in precompile_model_names
-    @info "Translating: $(string(precompile_prefix, ".", p))"
-    try
-      @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
-    catch e
-      @warn "Precompilation workload failed for $(p)" exception=(e, catch_backtrace())
-    end
-  end
+     precompile_prefix = "Modelica.Mechanics.MultiBody.Examples.Elementary"
+     @info "Checking MSL Examples in $(precompile_prefix)"
+     precompile_model_names = [
+       "DoublePendulum",
+       "DoublePendulumInitTip",
+       "ForceAndTorque",
+       "FreeBody"
+     ]
+     for p in precompile_model_names
+       @info "Translating: $(string(precompile_prefix, ".", p))"
+       try
+         @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
+       catch e
+         @warn "Precompilation workload failed for $(p)" exception=(e, catch_backtrace())
+       end
+     end
 
-  precompile_prefix = "Modelica.Mechanics.MultiBody.Examples.Loops"
-  @info "Checking MSL Examples in $(precompile_prefix)"
-  precompile_model_names = [
-    "Engine1a",
-    "Engine1b",
-    "Engine1b_analytic"
-  ]
-  for p in precompile_model_names
-    @info "Translating: $(string(precompile_prefix, ".", p))"
-    try
-      @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
-    catch e
-      @warn "Precompilation workload failed for $(p)" exception=(e, catch_backtrace())
-    end
-  end
-  =#
+     precompile_prefix = "Modelica.Mechanics.MultiBody.Examples.Loops"
+     @info "Checking MSL Examples in $(precompile_prefix)"
+     precompile_model_names = [
+       "Engine1a",
+       "Engine1b",
+       "Engine1b_analytic"
+     ]
+     for p in precompile_model_names
+       @info "Translating: $(string(precompile_prefix, ".", p))"
+       try
+         @time flattenModelInMSL_TST(string(precompile_prefix, ".", p); MSL_V = "MSL_4_1_0")
+       catch e
+         @warn "Precompilation workload failed for $(p)" exception=(e, catch_backtrace())
+       end
+     end =#
   @info "Core compiler modules are successfully precompiled!"
   @info "Compiler modules are successfully precompiled!"
   #@info "Initializing initial memory buffers..."
@@ -209,6 +204,41 @@ PrecompileTools.@compile_workload begin
   end
 end
 
-# @recompile_invalidations begin
-#   workload()
-# end
+"""
+The names of the traced precompile statements: OMFrontend and every package loaded with it, under the names the
+trace prints (`ImmutableList.ListDef.Cons`, `Accessors.PropertyLens`), bound when OMFrontend precompiles.
+"""
+module PrecompileNames
+  import ..OMFrontend
+  for m in values(Base.loaded_modules)
+    isdefined(@__MODULE__, nameof(m)) || Core.eval(@__MODULE__, :(const $(nameof(m)) = $m))
+  end
+end
+
+"""The precompile statements traced from cold flattens of MSL models (`utilities/precompileStatements.jl`)."""
+const PRECOMPILE_STATEMENTS_FILE = joinpath(@__DIR__, "precompileStatements.txt")
+include_dependency(PRECOMPILE_STATEMENTS_FILE)
+
+"""
+Compiles the methods a cold flatten of MSL models still compiled at run time after the workload (traced over
+models of each MSL domain, `utilities/coldFlatten.jl`). A statement whose names no longer resolve, after a
+change of the code, is skipped; the number skipped is returned.
+"""
+function runPrecompileStatements()::Int
+  local skipped::Int = 0
+  for line in eachline(PRECOMPILE_STATEMENTS_FILE)
+    isempty(line) && continue
+    try
+      Core.eval(PrecompileNames, Meta.parse(line))::Bool || (skipped += 1)
+    catch
+      skipped += 1
+    end
+  end
+  return skipped
+end
+
+if ccall(:jl_generating_output, Cint, ()) == 1
+  let skipped::Int = runPrecompileStatements()
+    skipped > 0 && @info "Precompile statements skipped: $(skipped) (regenerate with utilities/precompileStatements.jl)"
+  end
+end

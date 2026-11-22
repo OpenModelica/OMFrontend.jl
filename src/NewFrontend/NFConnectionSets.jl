@@ -33,23 +33,20 @@
 *
 */ =#
 
-#=
-Original code by Per Ost
-Rewritten by John Tinnerholm(johti17)
-(Hence not automatic logic beware here may be bugs...)
-=#
+#= Original code by Per Ost
+   Rewritten by John Tinnerholm(johti17)
+   (Hence not automatic logic beware here may be bugs...) =#
 module ConnectionSets
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
 import ..ListUtil
 import Base.string
 import Base.length
 
-import ..NFConnector
 import ..CONNECTOR
-import ..NFConnections
 import ..Frontend.CONNECTION
 import ..Frontend.split
 import ..Frontend.toString
@@ -58,9 +55,7 @@ import ..Frontend.isEqual
 import ..Frontend.name
 import ..Frontend.isPrefix
 import ..Frontend.hashStructural
-const Connector = NFConnector
-const Connections = NFConnections
-const Entry = Connector
+const Entry = CONNECTOR
 
 """
   An entry's hash, consistent with `isequal` below: the cref's names and subscripts. Only the
@@ -104,23 +99,21 @@ end
 
 """Creates a new DisjointSets from a list of connection and flow variables."""
 function fromConnections(connections)
-  #ENV["JULIA_DEBUG"] = "" #Activate debug
-#  #@debug "fromConnections: Our connections" connections
   local sz = listLength(connections.connections) + listLength(connections.flows)
   local sets::Sets = emptySets(sz) # duh, is not possible to give sz size hint to DisjointSets! -Adrian Pop
   #@debug "Sets before from connections $(string(sets))"
   # Add flow variable to the sets, unless disabled by flag.
-  # Do this here if NF_SCALARIZE to use fast addList for scalarized flows.
-  # if ! Flags.isSet(Flags.DISABLE_SINGLE_FLOW_EQ) && Flags.isSet(Flags.NF_SCALARIZE) then
+  # Do this here if FRONTEND_SCALARIZE to use fast addList for scalarized flows.
+  # if ! Flags.isSet(Flags.DISABLE_SINGLE_FLOW_EQ) && Flags.isSet(Flags.FRONTEND_SCALARIZE) then
   #@debug "Before ListUtil 1 $(string(sets))"
-  sets = ListUtil.fold(connections.flows, addConnector, sets)
+  sets = ListUtil.fold(connections.flows, addConnector, sets, Sets)
   # end
   # Add the connections.
   #@debug "Before ListUtil 2 $(string(sets))"
-  sets = ListUtil.fold1(connections.connections, addConnection, connections.broken, sets)
+  sets = ListUtil.fold1(connections.connections, addConnection, connections.broken, sets, Sets)
   # Add remaining flow variables to the sets, unless disabled by flag.
-  # Do this after addConnection if not NF_SCALARIZE to get array dims right.
-  #if ! Flags.isSet(Flags.DISABLE_SINGLE_FLOW_EQ) && ! Flags.isSet(Flags.NF_SCALARIZE) then
+  # Do this after addConnection if not FRONTEND_SCALARIZE to get array dims right.
+  #if ! Flags.isSet(Flags.DISABLE_SINGLE_FLOW_EQ) && ! Flags.isSet(Flags.FRONTEND_SCALARIZE) then
   #sets = ListUtil.fold(connections.flows, addSingleConnector, sets)
   #end
   #@debug "Sets after from connections $(string(sets))"
@@ -146,7 +139,6 @@ end #=addConnection=#
 
 function addConnector(conn, sets)
   sets = addList(split(conn), sets)
-  #@debug "After addConnector $(string(sets))"
   return sets
 end
 
@@ -155,11 +147,9 @@ function isBroken(c1, c2, broken)::Bool
   local cr1 = name(c1)
   local cr2 = name(c2)
   local b = false
-  # print("Check: connect(" + ComponentRef.toString(cr1) + ", " + ComponentRef.toString(cr2) + ")\n");
   for c in broken
     @match ((lhs, rhs, _)) = c
     if (isPrefix(lhs, cr1) && isPrefix(rhs, cr2)) || (isPrefix(lhs, cr2) && isPrefix(rhs, cr1))
-      # print("Ignore broken: connect(" + Connector.toString(c1) + ", " + Connector.toString(c2) + ")\n")
       b = true
       break
     end
@@ -169,13 +159,11 @@ end
 
 """ Merges the two sets that the given entry belong to """
 function merge(conn1, conn2, sets)
-  #@debug "Sets before merge: $(string(sets))"
   #= Get the index of the two sets now. =#
   (set1Idx, sets) = findSet(conn1, sets);
   (set2Idx, sets) = findSet(conn2, sets);
   #= We need to access the integer internals of disjoint set.=#
   sets = union(set1Idx, set2Idx, sets)
-  #@debug "Sets after merge: $(string(sets))"
   #= Return the modified set=#
   return sets
 end
@@ -220,7 +208,6 @@ function findRoot(nodeIndex::Int, nodes::Vector)
   return rootIndex
 end
 
-
 """
 Merges two sets into one. This is done by attaching one set-tree to the
 other. The ranks are compared to determine which of the trees is the
@@ -253,8 +240,6 @@ function union(set1::Int, set2::Int, sets)
   #@debug "Sets after union"
   return sets
 end
-
-
 
 """ Find function, replication of the functionality in DisjointSets.mo """
 function find(entry, sets)::Tuple
@@ -317,8 +302,6 @@ function extractSets(sets::Sets)
     setsArray[set_idx] = _cons(e, setsArray[set_idx])
   end
   assignedSets = Sets(nodes, sets.elements, sets.nodeCount);
-  #@debug "Sets after extractSets $(string(assignedSets))"
-  #@debug "Sets array: $(toString(setsArray))"
   #= !Remove potentially empty sets! The roots get the indices of their sets
      after (findSetArrayIndex). =#
   local newIndex = zeros(Int, length(setsArray))
@@ -371,14 +354,12 @@ end
   Add a list of entries to the disjoint-sets forrest
 """
 function addList(entries::List{T}, sets) where {T}
-  #@debug "Calling addList $(string(sets))"
   #= Make a new set
   see below in the original impl:
   Sets.DISJOINT_SETS(nodes, elements, node_count) = sets;=#
   for e in entries
     (sets, idx) = add(e, sets)
   end
-  #@debug "Sets after addList $(string(sets))"
   return sets
 end
 
@@ -389,7 +370,6 @@ end
    use find instead.
 """
 function add(entry, sets::Sets)::Tuple
-  #@debug "Sets before add $(string(sets))"
   local nodes::Vector{Int}
   local elements::Dict
   local node_count::Int
@@ -399,11 +379,10 @@ function add(entry, sets::Sets)::Tuple
   # value -1, so we don't actually need to add a node to the array, just expand
   # it and fill the new places with -1.
   if index > length(nodes)
-#    nodes = Array.expand(realInt(intReal(index) * 1.4), nodes, -1);
     push!(nodes, -1) #Letting it expand automatically by via Julia...
   end
   # Register the node index in the index table.
-  elements[entry] = index #BaseHashTable.addNoUpdCheck((entry, index), elements);
+  elements[entry] = index
   setsR = Sets(nodes, elements, index)
   return (setsR, index)
 end

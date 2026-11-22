@@ -36,15 +36,16 @@
 module InstUtil
 
 import ..Frontend.Expression
-import ..Frontend.FlatModel
+import ..Frontend.FLAT_MODEL
 import ..Frontend.map
 
 using ..Frontend
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 
 """
 ```
-restoreMissingArrayVariables!(flatModel::FlatModel)
+restoreMissingArrayVariables!(flatModel::FLAT_MODEL)
 ```
   Some variables are never defined in the flat model.
   They can appear everywhere as expressions,
@@ -57,11 +58,11 @@ restoreMissingArrayVariables!(flatModel::FlatModel)
   Hence, we know the size and the component of the particular vector.
   For each such array variable appearing in an equation
   we create the variable and an additional equation.
-If the NF_SCALARIZE flag is set to false the function will do nothing.
+If the FRONTEND_SCALARIZE flag is set to false the function will do nothing.
 """
-function restoreMissingArrayVariables!(flatModel::FlatModel)
+function restoreMissingArrayVariables!(flatModel::FLAT_MODEL)
   local arrayVariableSet = Dict{String, ComponentRef}()
-  if Flags.isSet(Flags.NF_SCALARIZE)
+  if Flags.isSet(Flags.FRONTEND_SCALARIZE)
     function collectArrayVariable2(exp::Expression)
       local outExp = @match exp begin
         CREF_EXPRESSION(ty, cref) where {isvariant(ty, TYPE_ARRAY) && !(isvariant(cref, COMPONENT_REF_WILD))} =>  begin
@@ -84,27 +85,21 @@ function restoreMissingArrayVariables!(flatModel::FlatModel)
       exp = map(e, collectArrayVariable2)
       return exp
     end
-    #=
-    Traverse all expressions in the array equations to find component references of type array
-    =#
+    #= Traverse all expressions in the array equations to find component references of type array =#
     mapExpList!(flatModel.initialEquations, collectArrayVariable)
     mapExpList!(flatModel.equations, collectArrayVariable)
     newVars = VARIABLE[]
     for v in values(arrayVariableSet)
       push!(newVars, Variable_fromCrefNoBinding(v))
     end
-    #append!(flatModel.variables, newVars)
    end
 end
 
 function adjustIncorrectVariablePaths!(flat_model)
   #= Get all variables =#
   local variables = flat_model.variables
-  #=
-  Get all component references in the model.
-  =#
+  #= Get all component references in the model. =#
 
 end
-
 
 end #= InstUtil =#

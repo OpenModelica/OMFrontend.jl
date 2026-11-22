@@ -43,6 +43,7 @@ import ..INTEGER_EXPRESSION
 
 using ExportAll
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 
 const Table = Dict{String, Int}
 
@@ -78,7 +79,6 @@ function addConnector(conn::CONNECTOR, table::Table)
 end
 
 function evaluateCardinality(@nospecialize(arg), table::Table)
-  local res::Expression
   local count::Int
   local argStr = toString(arg)
   count = if argStr in keys(table)

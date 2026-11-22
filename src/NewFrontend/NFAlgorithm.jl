@@ -39,16 +39,16 @@ function toString(alg::ALGORITHM)::String
   return str
 end
 
-function foldExpList(algs::Vector{Algorithm}, func::FoldFunc, arg::ArgT) where {ArgT}
+function foldExpList(algs::Vector{ALGORITHM}, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
   for alg in algs
-    arg = foldExp(alg, func, arg)
+    arg = foldExp(alg, func, arg, ArgT)
   end
   return arg
 end
 
-function foldExp(alg::ALGORITHM, func::FoldFunc, arg::ArgT) where {ArgT}
+function foldExp(alg::ALGORITHM, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
   for s in alg.statements
-    arg = foldExp(s, func, arg)
+    arg = foldExp(s, func, arg, ArgT)
   end
   return arg
 end
@@ -56,14 +56,13 @@ end
 """
 Declare with! to keep with the idioms of Julia.
 """
-function mapExpList(algs::Vector{Algorithm}, func::MapFunc)
+function mapExpList(algs::Vector{ALGORITHM}, func::MapFunc)
   local f = @closure (alg) -> mapExp(alg, func)
-  local mAlgs::Vector{Algorithm} = map!(f, algs, algs)
+  local mAlgs::Vector{ALGORITHM} = map!(f, algs, algs)
   return mAlgs
 end
 
-@nospecialized function mapExp(alg::ALGORITHM, func::MapFunc)::Algorithm
-  #alg.statements = mapExpList(alg.statements, func)
+@nospecialized function mapExp(alg::ALGORITHM, func::MapFunc)::ALGORITHM
   for (i,s) in enumerate(alg.statements)
     alg.statements[i] = mapExp(s, func)
   end
@@ -76,7 +75,7 @@ function apply(alg::ALGORITHM, func::ApplyFn)
   end
 end
 
-function applyList(algs::Vector{Algorithm}, func::ApplyFn)
+function applyList(algs::Vector{ALGORITHM}, func::ApplyFn)
   return for alg in algs
     for s in alg.statements
       Statement.apply(s, func)

@@ -131,9 +131,9 @@ initial equation
   pre(reset[1]) = false;
   pre(reset[2]) = false;
 equation
-  y = edge(reset[1]) or change(reset[2]);
   reset[1] = time > 0.5;
   reset[2] = time > 0.7;
+  y = edge(reset[1]) or change(reset[2]);
 end PreArray;
 "
 preArray = (preArrayReference, "PreArray", "./Equations/PreArray.mo")

@@ -36,6 +36,7 @@
 module ModelicaExternalC
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 import OMRuntimeExternalC
 

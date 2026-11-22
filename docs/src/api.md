@@ -11,7 +11,6 @@ The reference below lists the documented API intended for users and tooling.
 ```@docs
 OMFrontend.parseFile
 OMFrontend.translateToSCode
-OMFrontend.instantiateSCodeToDAE
 OMFrontend.instantiateSCodeToFM
 OMFrontend.flattenModel
 OMFrontend.flattenModelWithMSL
@@ -21,7 +20,6 @@ OMFrontend.loadLibrary
 OMFrontend.loadPackageDirectory
 OMFrontend.toFlatModelica
 OMFrontend.toString
-OMFrontend.exportDAERepresentationToFile
 OMFrontend.exportSCodeRepresentationToFile
 OMFrontend.enableDumpDebug
 OMFrontend.disableDumpDebug

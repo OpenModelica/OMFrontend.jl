@@ -41,5 +41,4 @@ struct EachTypeStruct{T <: Int}
   REPEAT::T
 end
 
-const EachTypeType = Int
 const EachType::EachTypeStruct{Int} = EachTypeStruct{Int}(1,2,3)

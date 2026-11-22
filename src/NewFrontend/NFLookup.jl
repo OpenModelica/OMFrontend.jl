@@ -33,64 +33,12 @@
 *
 */ =#
 
-struct MatchTypeStruct{T0 <: Integer}
-  FOUND::T0
-  NOT_FOUND::T0
-  PARTIAL::T0
-end
-
-const MatchType = MatchTypeStruct(1, 2, 3)
 const MatchTypeTy = Int
 
-#=
-  Variant A of the `lookupClassName` cache. Key is
-  `(objectid(name), objectid(scope), checkAccessViolations)` — no
-  stringification, no allocation per call. Enabled by env var
-  `OMFRONTEND_LOOKUP_CACHE=true`. Default off so behavior is unchanged.
-
-  Hit rate depends on whether `Absyn.Path` objects are reused across calls:
-  parser-built paths in the SCode tree are reused, runtime-constructed paths
-  may not be. With `objectid` keys, two equivalent paths from different
-  allocations miss the cache, but hits are nanosecond-cheap.
-
-  Reset at translation entry via `resetLookupCache` from `resetInstDiagnostics`.
-  Hit/miss counters surface in `dumpInstDiagnostics` when
-  `OMFRONTEND_INST_PROFILE=true`.
-=#
-const LOOKUP_CLASS_CACHE = Dict{Tuple{UInt64, UInt64, Bool}, InstNode}()
-const LOOKUP_CLASS_HITS  = Ref(0)
-const LOOKUP_CLASS_MISSES = Ref(0)
-
-function _lookupCacheEnabled()
-  return get(ENV, "OMFRONTEND_LOOKUP_CACHE", "false") == "true"
-end
-
-function resetLookupCache()
-  empty!(LOOKUP_CLASS_CACHE)
-  LOOKUP_CLASS_HITS[] = 0
-  LOOKUP_CLASS_MISSES[] = 0
-  return nothing
-end
-
-function lookupClassName(name::Absyn.Path, scope::InstNode, info::SourceInfo, checkAccessViolations::Bool = true; isRedeclared::Bool = false)
+function lookupClassName(@nospecialize(name::Absyn.Path), scope::InstNode, info::SourceInfo, checkAccessViolations::Bool = true; isRedeclared::Bool = false)
   local node::InstNode
   local state::LookupState
   local LS_REF::Ref{LookupState}
-  if _lookupCacheEnabled() && !isRedeclared
-    local key = (objectid(name), _refId(scope), checkAccessViolations)
-    local cached = get(LOOKUP_CLASS_CACHE, key, nothing)
-    if cached !== nothing
-      LOOKUP_CLASS_HITS[] += 1
-      return cached::InstNode
-    end
-    LS_REF = Ref{LookupState}(LOOKUP_STATE_BEGIN())
-    node = lookupNameWithError(name, scope, info, "error", LS_REF, checkAccessViolations; isRedeclared = isRedeclared)
-    state = LS_REF.x
-    assertClass(state, node, name, info)
-    LOOKUP_CLASS_CACHE[key] = node
-    LOOKUP_CLASS_MISSES[] += 1
-    return node
-  end
   LS_REF = Ref{LookupState}(LOOKUP_STATE_BEGIN())
   node = lookupNameWithError(name, scope, info, "error", LS_REF, checkAccessViolations; isRedeclared = isRedeclared)
   state = LS_REF.x
@@ -154,7 +102,7 @@ function lookupConnector(cref::Absyn.ComponentRef, scope::InstNode #= The scope 
 end
 
 function fixTypenameState(n::InstNode, state::LookupState)
-  local ty::NFType
+  local ty::ModelicaType
   if isClass(n)
     ty = getType(expand(n))
     state = begin
@@ -232,23 +180,20 @@ end
 function fixExternalObjectCall(node::InstNode, cref::ComponentRef, state::LookupState)
   local cls::Class
   local constructor::InstNode
-  #=  If it's not a class it can't be an external object.
-  =#
+  #= If it's not a class it can't be an external object. =#
   if ! isClass(state)
     return (cref, state)
   end
   expand(node)
   cls = getClass(node)
-  () = begin
-    @match cls begin
-      PARTIAL_BUILTIN(ty = TYPE_COMPLEX(complexTy = COMPLEX_EXTERNAL_OBJECT(constructor = constructor)))  => begin
-        cref = prefixCref(constructor, TYPE_UNKNOWN(), nil, cref)
-        state = LOOKUP_STATE_FUNC()
-        ()
-      end
-      _  => begin
-        ()
-      end
+  @match cls begin
+    PARTIAL_BUILTIN(ty = TYPE_COMPLEX(complexTy = COMPLEX_EXTERNAL_OBJECT(constructor = constructor)))  => begin
+      cref = prefixCref(constructor, TYPE_UNKNOWN(), nil, cref)
+      state = LOOKUP_STATE_FUNC()
+      ()
+    end
+    _  => begin
+      ()
     end
   end
   (cref, state)
@@ -337,10 +282,8 @@ function lookupLocalCref(cref::Absyn.ComponentRef, scope::InstNode #= The scope 
   local state::LookupState
   local foundScope::InstNode #= The scope where the first part of the cref was found. =#
   local foundCref::ComponentRef
-  local match_ty::MatchTypeTy
   local node::InstNode
    (foundCref, foundScope, state) = begin
-    local found_scope::InstNode
     @matchcontinue cref begin
       Absyn.CREF_IDENT(__)  => begin
          (node, foundScope) = lookupLocalSimpleCref(cref.name, scope)
@@ -390,10 +333,14 @@ end
 The inner element `nameVar` of `scope`, or nothing when the scope has no such element, has it as an import or
 has it but not as inner: the common case while `lookupInner` walks up the scopes, and no failure (a throw outside
 a cheap-throw scope, in a task of the parallel fan-out, records a backtrace: 234 per MSL EngineV6).
+A component scope whose class instance is not set yet (during instantiation) has no class: skipped, as omc's failing
+`getClass` skips it, without the MethodError of `lookupElement(::String, ::InstNode)` (23 per HeatingSystem).
 """
 function _lookupInnerInScope(nameVar::String, scope::InstNode)::Union{Nothing, InstNode}
+  local cls = getClass(scope)
+  cls isa Class || return nothing
   local info::ENTRY_INFO = try
-    lookupElement(nameVar, getClass(scope))
+    lookupElement(nameVar, cls)
   catch
     return nothing
   end
@@ -414,6 +361,8 @@ function lookupSimpleName(nameStr::String, scope::InstNode)::Tuple{InstNode, Boo
   #= Past an encapsulated scope only builtin names are found (omc lookupSimpleName). =#
   local require_builtin = false
   for i in 1:Global.recursionDepthLimit
+    #= Past the top scope: not found (lookupLocalSimpleName throws on the empty scope; a throw costs 0.5-2 ms here). =#
+    isvariant(cur_scope, EMPTY_NODE) && break
     @match ENTRY_INFO(node, _) = lookupLocalSimpleName(nameStr, cur_scope)
     if node !== EMPTY_NODE() && (!require_builtin || isBuiltin(node))
       return (node, false)
@@ -439,7 +388,6 @@ function lookupSimpleName(nameStr::String, scope::InstNode)::Tuple{InstNode, Boo
   return (EMPTY_NODE(), false)
 end
 
-
 #= The SCode program of a library by its name, or nothing (set by OMFrontend: the Modelica
    Standard Library; omc loads from MODELICAPATH). =#
 const LIBRARY_LOADER = Ref{Any}(nothing)
@@ -453,23 +401,34 @@ function loadLibrary(nameStr::String, topScope::InstNode)::Bool
   local flags = Flags.getFlags()
   (flags isa Flags.FLAGS && Flags.LOAD_MISSING_LIBRARIES.index <= length(flags.configFlags) &&
    !Flags.getConfigBool(Flags.LOAD_MISSING_LIBRARIES)) && return false
-  return lock(_LIBRARY_LOAD_LOCK) do
-    #= Another task may have loaded it meanwhile. =#
-    lookupElement(nameStr, getClass(topScope)).node !== EMPTY_NODE() && return true
-    local prog = loader(nameStr)
-    prog === nothing && return false
-    local new_libs = InstNode[]
-    for c in prog
-      c isa SCode.CLASS || continue
-      lookupElement(c.name, getClass(topScope)).node === EMPTY_NODE() || continue
-      push!(new_libs, newClass(c, topScope))
-    end
-    isempty(new_libs) && return false
-    local cls = getClass(topScope)
-    cls = setClassTree(appendClasses(classTree(cls), list(new_libs...)), cls)
-    updateClass(cls, topScope)
-    return true
+  lock(_LIBRARY_LOAD_LOCK)
+  try
+    return _loadLibraryLocked(nameStr, topScope, loader)
+  finally
+    unlock(_LIBRARY_LOAD_LOCK)
   end
+end
+
+"""
+`loadLibrary` under its lock: the classes of the library `loader` returns that the top scope does not have yet.
+No closure for the lock: the loader's type is known only at run time (`LIBRARY_LOADER`).
+"""
+function _loadLibraryLocked(nameStr::String, topScope::InstNode, @nospecialize(loader))::Bool
+  #= Another task may have loaded it meanwhile. =#
+  lookupElement(nameStr, getClass(topScope)).node !== EMPTY_NODE() && return true
+  local prog = loader(nameStr)
+  prog === nothing && return false
+  local new_libs::Vector{InstNode} = InstNode[]
+  for c in prog
+    c isa SCode.CLASS || continue
+    lookupElement(c.name, getClass(topScope)).node === EMPTY_NODE() || continue
+    push!(new_libs, newClass(c, topScope))
+  end
+  isempty(new_libs) && return false
+  local cls::Class = getClass(topScope)
+  cls = setClassTree(appendClasses(classTree(cls), list(new_libs...)), cls)
+  updateClass(cls, topScope)
+  return true
 end
 
 """
@@ -489,21 +448,19 @@ function lookupLocalSimpleName(n::String, scope::InstNode)
   return inner_node === node ? ENTRY_INFO(node, isImport) : ENTRY_INFO(inner_node, isImport)
 end
 
-
-function lookupNameWithError(name::Absyn.Path, scope::InstNode, info::SourceInfo, errorType, lookupStateRef::Ref{LookupState}, checkAccessViolations::Bool = true; isRedeclared::Bool = false)
+function lookupNameWithError(@nospecialize(name::Absyn.Path), scope::InstNode, info::SourceInfo, errorType, lookupStateRef::Ref{LookupState}, checkAccessViolations::Bool = true; isRedeclared::Bool = false)
   local state::LookupState
   local node::InstNode
   node = lookupName(name, scope, lookupStateRef, checkAccessViolations; isRedeclared = isRedeclared)
   state = lookupStateRef.x
   if isvariant(node, EMPTY_NODE)
     Error.addSourceMessage(Error.LOOKUP_ERROR, list(AbsynUtil.pathString(name), scopeName(scope)), info)
-    #@error "Lookup error for path: $(AbsynUtil.pathString(name)) in the scope $(scopeName(scope))"
     fail()
   end
   node
 end
 
-function lookupName(name::Absyn.Path, scope::InstNode, lookupStateRef::Ref{LookupState}, checkAccessViolations::Bool; isRedeclared::Bool = false)
+function lookupName(@nospecialize(name::Absyn.Path), scope::InstNode, lookupStateRef::Ref{LookupState}, checkAccessViolations::Bool; isRedeclared::Bool = false)
   local state::LookupState
   local node::InstNode
   node = begin
@@ -566,11 +523,10 @@ function lookupFirstIdent(name::String, scope::InstNode, lookupStateRef::Ref{Loo
     #= omc 1.27: Clock is a class of the builtin library, found by the scope lookup, so a
        class of the model named Clock shadows it (omc Clock5: record Clock; Clock c = Clock(1)).
        Here a builtin name: the model's scopes first. =#
-    try
-      local (found, self) = lookupSimpleName(name, scope)
+    local (found, self) = lookupSimpleName(name, scope)
+    if found !== EMPTY_NODE()
       node = found
       selfReference = self
-    catch
     end
   end
   if node !== nothing && node === NFBuiltin.BUILTIN_DICT[name]
@@ -599,8 +555,7 @@ function lookupLocalName(name::Absyn.Path, node::InstNode, state::LookupState, l
   if ! selfReference
     node = instPackage(node; isRedeclared = isRedeclared)
   end
-  #=  Look up the path in the scope.
-  =#
+  #= Look up the path in the scope. =#
   @match name begin
     Absyn.IDENT(__)  => begin
       @match ENTRY_INFO(node, is_import) = lookupLocalSimpleName(name.name, node)
@@ -849,8 +804,7 @@ function lookupLocalSimpleCref(name::String, scope::InstNode)
     node = resolveInner(node)
     foundScope = parent(node)
   end
-  #=  If the node is an outer node, return the inner instead.
-  =#
+  #= If the node is an outer node, return the inner instead. =#
   node, foundScope
 end
 
@@ -864,7 +818,6 @@ function lookupIterator(iteratorName::String, iterators::Vector{<:InstNode})
     end
   end
   fail()
-#  throw("Iterator lookup error") #Addition by me, John May 2021
 end
 
 function lookupIteratorNoFail(iteratorName::String, iterators::Vector{<:InstNode})
@@ -988,7 +941,6 @@ end
   lookupCref.
 """
 function resolveInnerCref(nodeVar::InstNode, cref::ComponentRef, foundScope::InstNode)
-  local prev_node::InstNode
   local scope::InstNode
   if isInnerOuterNode(nodeVar)
     nodeVar = resolveInner(nodeVar)
@@ -1035,7 +987,9 @@ function _qualifyGeneratedInnerType(innerNode::InstNode, origScope::InstNode)::U
       #= Its declaration from its parent class's definition (a component being instantiated has
          no SCode definition of its own). =#
       local pscope = parent(origScope)
-      local cdef = SCodeUtil.getElementNamed(name(origScope), definition(classScope(pscope)))
+      local pdef::SCode.Element = definition(classScope(pscope))
+      SCodeUtil.hasElementNamed(name(origScope), pdef) || return nothing
+      local cdef::SCode.Element = SCodeUtil.getElementNamed(name(origScope), pdef)
       (cdef isa SCode.COMPONENT && cdef.typeSpec isa Absyn.TPATH) || return nothing
       scope = lookupClassName(cdef.typeSpec.path, pscope, cdef.info, false)
     end
@@ -1053,38 +1007,35 @@ function generateInner2(outerNode::InstNode, topScope::InstNode)
   local innerNode::InstNode
   local cache::CachedData
   local nameStr::String
-  local inner_node::InstNode
   cache = getInnerOuterCache(topScope)
-   () = begin
-    @match cache begin
-      C_TOP_SCOPE(__)  => begin
-        nameStr = name(outerNode)
-        local v = NodeTree.tryGet(cache.addedInner, nameStr)
-        if v !== nothing
-          innerNode = v
-        else
-          innerNode = makeInnerNode(outerNode)
-          #= Fully qualify the typespec path before reparenting.
-             The outer node's type path (e.g. Interfaces.CompositeStepState) is
-             relative to the outer's original scope (e.g. Modelica.StateGraph).
-             After setParent moves the node to the top-level model, this relative
-             path would be looked up in the wrong scope. =#
-          local qualified = _qualifyGeneratedInnerType(innerNode, parent(outerNode))
-          qualified === nothing || (innerNode = qualified)
-          innerNode = setParent(cache.rootClass, innerNode)
-          local addedInner = NodeTree.add(cache.addedInner, nameStr, innerNode)
-          cache = C_TOP_SCOPE(addedInner, cache.rootClass)
-          setInnerOuterCache(topScope, cache)
-        end
-        ()
-      end
-      _  => begin
-        # Error.assertion(false, getInstanceName() + " got top node with missing cache", sourceInfo())
-        @error " got top node with missing cache. Cache was:" * string(typeof(cache))
-        fail()
-      end
-    end
-  end
+   @match cache begin
+     C_TOP_SCOPE(__)  => begin
+       nameStr = name(outerNode)
+       local v = NodeTree.tryGet(cache.addedInner, nameStr)
+       if v !== nothing
+         innerNode = v
+       else
+         innerNode = makeInnerNode(outerNode)
+         #= Fully qualify the typespec path before reparenting.
+            The outer node's type path (e.g. Interfaces.CompositeStepState) is
+            relative to the outer's original scope (e.g. Modelica.StateGraph).
+            After setParent moves the node to the top-level model, this relative
+            path would be looked up in the wrong scope. =#
+         local qualified = _qualifyGeneratedInnerType(innerNode, parent(outerNode))
+         qualified === nothing || (innerNode = qualified)
+         innerNode = setParent(cache.rootClass, innerNode)
+         local addedInner = NodeTree.add(cache.addedInner, nameStr, innerNode)
+         cache = C_TOP_SCOPE(addedInner, cache.rootClass)
+         setInnerOuterCache(topScope, cache)
+       end
+       ()
+     end
+     _  => begin
+       # Error.assertion(false, getInstanceName() + " got top node with missing cache", sourceInfo())
+       @error " got top node with missing cache. Cache was:" * string(typeof(cache))
+       fail()
+     end
+   end
   innerNode
 end
 
@@ -1095,7 +1046,7 @@ end
 function makeInnerNode(nodeArg::InstNode)
   node = begin
     local def::SCode.Element
-    local prefs::SCode.Prefixes
+    local prefs::SCode.PREFIXES
     local comp::Component
     @match nodeArg begin
       CLASS_NODE(definition = def && SCode.CLASS(prefixes = prefs))  => begin

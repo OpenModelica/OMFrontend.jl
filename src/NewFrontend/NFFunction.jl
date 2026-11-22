@@ -35,7 +35,7 @@
 
 @Uniontype MatchedFunction begin
   @Record MATCHED_FUNC begin
-    func::M_FUNCTION
+    func::MODELICA_FUNCTION
     args::Vector{TypedArg}
     mk::FunctionMatchKind
   end
@@ -61,148 +61,42 @@ function toString(s::Nothing)
   "nothing"
 end
 
-const SlotType = (() -> begin #= Enumeration =#
-  POSITIONAL = 1  #= Only accepts positional arguments. =#
-  NAMED = 2  #= Only accepts named argument. =#
-  GENERIC = 3  #= Accepts both positional and named arguments. =#
-  #= Determines which type of argument a slot accepts. =#
-  () -> (POSITIONAL; NAMED; GENERIC)  #= Accepts both positional and named arguments. =#
-end)()
-const SlotTypeType = Int
+"""True if the slot accepts a named argument."""
+named(slot::SLOT)::Bool = slot.ty == SLOT_TYPE_NAMED || slot.ty == SLOT_TYPE_GENERIC
 
-const SlotEvalStatus = (() -> begin #= Enumeration =#
-  NOT_EVALUATED = 1
-  EVALUATING = 2
-  EVALUATED = 3
-  () -> (NOT_EVALUATED; EVALUATING; EVALUATED)
-end)()
-const SlotEvalStatusType = Int
+"""True if the slot accepts a positional argument."""
+positional(slot::SLOT)::Bool = slot.ty == SLOT_TYPE_POSITIONAL || slot.ty == SLOT_TYPE_GENERIC
 
-@UniontypeDecl Slot
-
-function hasName(name::String, slot::Slot)::Bool
-  local hasName::Bool = name == slot.name
-  return hasName
-end
-
-function named(slot::Slot)::Bool
-  local pos::Bool
-  @assign pos = begin
-    @match slot.ty begin
-      SlotType.NAMED => begin
-        true
-      end
-      SlotType.GENERIC => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return pos
-end
-
-function positional(slot::Slot)::Bool
-  local pos::Bool
-  @assign pos = begin
-    @match slot.ty begin
-      SlotType.POSITIONAL => begin
-        true
-      end
-      SlotType.GENERIC => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return pos
-end
-
-@Uniontype Slot begin
-  @Record SLOT begin
-    name::String
-    ty::SlotTypeType
-    default::Option{Expression}
-    arg::Option{TypedArg}
-    index::Int
-    evalStatus::SlotEvalStatusType
-  end
-end
+#= SLOT is defined in FrontendInterfaces/NFInterfaces.jl, before MODELICA_FUNCTION. =#
 
 @UniontypeDecl FunctionMatchKind
 
 function isExactVectorized(mk::FunctionMatchKind)::Bool
-  local b::Bool
 
-  @assign b = begin
-    @match mk begin
-      VECTORIZED_MATCH_KIND(baseMatch = EXACT_MATCH_KIND(__)) => begin
-        true
-      end
-      _ => begin
-        false
-      end
+  @match mk begin
+    VECTORIZED_MATCH_KIND(baseMatch = EXACT_MATCH_KIND(__)) => begin
+      true
+    end
+    _ => begin
+      false
     end
   end
-  return b
 end
 
-function isVectorized(mk::FunctionMatchKind)::Bool
-  local b::Bool
-  @assign b = begin
-    @match mk begin
-      VECTORIZED_MATCH_KIND(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return b
-end
+isVectorized(mk::FunctionMatchKind)::Bool = isvariant(mk, VECTORIZED_MATCH_KIND)
 
-function isExact(mk::FunctionMatchKind)::Bool
-  local b::Bool
-  @assign b = begin
-    @match mk begin
-      EXACT_MATCH_KIND(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return b
-end
+isExact(mk::FunctionMatchKind)::Bool = isvariant(mk, EXACT_MATCH_KIND)
 
-function isValid(mk::FunctionMatchKind)::Bool
-  local b::Bool
-  @assign b = begin
-    @match mk begin
-      NOT_COMPATIBLE_MATCH_KIND(__) => begin
-        false
-      end
-      _ => begin
-        true
-      end
-    end
-  end
-  return b
-end
+isValid(mk::FunctionMatchKind)::Bool = !isvariant(mk, NOT_COMPATIBLE_MATCH_KIND)
 
 @Uniontype FunctionMatchKind begin
   @Record NOT_COMPATIBLE_MATCH_KIND begin
   end
   @Record VECTORIZED_MATCH_KIND begin
     vectDims::List{Dimension}
-    #=  When vectorizing a call exact argument matches are allowed to not be vectorized =#
-    #=  Instead they are added to each call as is. =#
-    #=  This list represents which args should be vectorized. =#
+    #= When vectorizing a call exact argument matches are allowed to not be vectorized
+       Instead they are added to each call as is.
+       This list represents which args should be vectorized. =#
     vectorizedArgs::List{Int}
     baseMatch::FunctionMatchKind
   end
@@ -236,78 +130,53 @@ function getExactMatches(matchedFunctions::Vector{MatchedFunction})::Vector{Matc
   return outFuncs
 end
 
-
-const FunctionStatus = (() -> begin #= Enumeration =#
-  BUILTIN = 1  #= A builtin function. =#
-  INITIAL = 2  #= The initial status. =#
-  EVALUATED = 3  #= Constants in the function has been evaluated by EvalConstants. =#
-  SIMPLIFIED = 4  #= The function has been simplified by SimplifyModel. =#
-  COLLECTED = 5  #= The function has been added to the function tree. =#
-  () -> (BUILTIN; INITIAL; EVALUATED; SIMPLIFIED; COLLECTED)  #= The function has been added to the function tree. =#
-end)()
-
-const FunctionStatusType = Int
-
-
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
-function isPartial(fn::M_FUNCTION)::Bool
+function isPartial(fn::MODELICA_FUNCTION)::Bool
   return isPartial(fn.node)
 end
 
-function foldExpParameter(node::InstNode, foldFn::FoldFunc, arg::ArgT) where {ArgT}
+function foldExpParameter(node::InstNode, foldFn::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
 
   local comp::Component
   local cls::Class
 
   @assign comp = component(node)
-  @assign arg = foldExp(getBinding(comp), foldFn, arg)
-   () = begin
-    @match comp begin
-      TYPED_COMPONENT(__) => begin
-        @assign arg = foldDims(
-          comp.ty,
-          (dim, acc) -> foldExp(dim, foldFn, acc),
-          arg,
-        )
-        @assign cls = getClass(comp.classInst)
-        @assign arg = foldComponents(
-          classTree(cls),
-          (node, acc) -> foldExpParameter(node, foldFn, acc),
-          arg,
-        )
-        ()
-      end
+  @assign arg = foldExp(getBinding(comp), foldFn, arg, ArgT)
+   @match comp begin
+     TYPED_COMPONENT(__) => begin
+       @assign arg = foldDims(comp.ty, (dim::Dimension, acc::ArgT) -> foldExp(dim, foldFn, acc, ArgT), arg, ArgT)
+       @assign cls = getClass(comp.classInst)
+       @assign arg = foldComponents(classTree(cls), (node::InstNode, acc::ArgT) -> foldExpParameter(node, foldFn, acc, ArgT), arg, ArgT)
+       ()
+     end
 
-      _ => begin
-        ()
-      end
-    end
+     _ => begin
+       ()
+     end
    end
   return arg
 end
 
 function foldExp(
-  fn::M_FUNCTION,
-  foldFn::FoldFunc,
+  fn::MODELICA_FUNCTION,
+  foldFn::FT,
   arg::ArgT,
+  ::Type{ArgT},
   mapParameters::Bool = true,
   mapBody::Bool = true,
-  ) where {ArgT}
+  )::ArgT where {FT<:Function, ArgT}
 
   local cls::Class
 
   @assign cls = getClass(fn.node)
   if mapParameters
-    @assign arg = foldComponents(
-      classTree(cls),
-      (node, acc) -> foldExpParameter(node, foldFn, acc),
-      arg,
-    )
+    @assign arg = foldComponents(classTree(cls), (node::InstNode, acc::ArgT) -> foldExpParameter(node, foldFn, acc, ArgT), arg, ArgT)
   end
   if mapBody
-    @assign arg = P_Sections.Sections.foldExp(getSections(cls), foldFn, arg)
+    @assign arg = P_Sections.Sections.foldExp(getSections(cls), foldFn, arg, ArgT)
   end
   return arg
 end
@@ -317,7 +186,7 @@ function mapExpParameter(node::InstNode, mapFn::MapFunc)
   local binding::Binding
   local binding2::Binding
   local cls::Class
-  local ty::M_Type
+  local ty::ModelicaType
   local dirty::Bool = false
   comp = component(node)
   binding = getBinding(comp)
@@ -326,26 +195,24 @@ function mapExpParameter(node::InstNode, mapFn::MapFunc)
     comp = setBinding(binding2, comp)
     dirty = true
   end
-  () = begin
-    @match comp begin
-      TYPED_COMPONENT(__) => begin
-        ty =
-          mapDims(comp.ty, (x) -> mapExp(x, mapFn))
-        if !referenceEq(ty, comp.ty)
-          @assign comp.ty = ty
-          dirty = true
-        end
-        cls = getClass(comp.classInst)
-        applyComponents(
-          classTree(cls),
-          (nodeArg) -> mapExpParameter(nodeArg, mapFn),
-        )
-        ()
+  @match comp begin
+    TYPED_COMPONENT(__) => begin
+      ty =
+        mapDims(comp.ty, (x) -> mapExp(x, mapFn))
+      if !referenceEq(ty, comp.ty)
+        @assign comp.ty = ty
+        dirty = true
       end
+      cls = getClass(comp.classInst)
+      applyComponents(
+        classTree(cls),
+        (nodeArg) -> mapExpParameter(nodeArg, mapFn),
+      )
+      ()
+    end
 
-      _ => begin
-        ()
-      end
+    _ => begin
+      ()
     end
   end
   if dirty
@@ -355,18 +222,14 @@ function mapExpParameter(node::InstNode, mapFn::MapFunc)
 end
 
 function mapExp(
-  fn::M_FUNCTION,
+  fn::MODELICA_FUNCTION,
   mapFn::MapFunc,
   mapParameters::Bool = true,
   mapBody::Bool = true,
-  )::M_FUNCTION
+  )::MODELICA_FUNCTION
   local cls::Class
   local ctree::ClassTree
-  local comps::Vector{InstNode}
   local sections::Sections
-  local comp::Component
-  local binding::Binding
-  local binding2::Binding
   cls = getClass(fn.node)
   if mapParameters
     ctree = classTree(cls)
@@ -381,119 +244,24 @@ function mapExp(
   return fn
 end
 
-function hasUnboxArgsAnnotation(cmt::SCode.Comment)::Bool
+function hasUnboxArgsAnnotation(cmt::SCode.COMMENT)::Bool
   local res::Bool =
     SCodeUtil.commentHasBooleanNamedAnnotation(cmt, "__OpenModelica_UnboxArguments")
   return res
 end
 
 """Returns true if the function has the __OpenModelica_UnboxArguments annotation, otherwise false."""
-function hasUnboxArgs(fn::M_FUNCTION)::Bool
-  local res::Bool
-
-  @assign res = begin
-    @match fn.attributes begin
-      DAE.FUNCTION_ATTRIBUTES(
-        isBuiltin = DAE.FUNCTION_BUILTIN(unboxArgs = res),
-      ) => begin
-        res
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return res
+function hasUnboxArgs(fn::MODELICA_FUNCTION)::Bool
+  return fn.attributes.builtin == FUNCTION_BUILTIN && fn.attributes.unboxArgs
 end
 
-function getBody(fn::M_FUNCTION)::Vector{Statement}
+function getBody(fn::MODELICA_FUNCTION)::Vector{Statement}
   local body::Vector{Statement} = getBody2(fn.node)
   return body
 end
 
-function makeDAEType(fn::M_FUNCTION, boxTypes::Bool = false)::DAE.Type
-  local outType::DAE.Type
-  local params::List{DAE.FuncArg} = nil
-  local pname::String
-  local ty::M_Type
-  local ptype::DAE.Type
-  local pconst::DAE.Const
-  local ppar::DAE.VarParallelism
-  local pdefault::Option{DAE.Exp}
-  local comp::Component
-  for param in fn.inputs
-    @assign comp = component(param)
-    @assign pname = name(param)
-    @assign ty = getType(comp)
-    @assign ptype = toDAE(if boxTypes
-                            box(ty)
-                          else
-                            ty
-                          end)
-    @assign pconst = variabilityToDAEConst(variability(comp))
-    @assign ppar = parallelismToDAE(parallelism(comp))
-    @assign pdefault = Util.applyOption(
-      typedExp(getBinding(comp)),
-      toDAE,
-    )
-    @assign params =
-      _cons(DAE.FUNCARG(pname, ptype, pconst, ppar, pdefault), params)
-  end
-  @assign params = listReverse(params)
-  @assign ty = if boxTypes
-    box(fn.returnType)
-  else
-    fn.returnType
-  end
-  @assign outType = DAE.T_FUNCTION(params, toDAE(ty), fn.attributes, fn.path)
-  return outType
-end
-
-function toDAE(fn::M_FUNCTION, def::DAE.FunctionDefinition)::DAE.Function
-  local daeFn::DAE.Function
-
-  local vis::SCode.Visibility
-  local par::Bool
-  local impr::Bool
-  local ity::DAE.InlineType
-  local ty::DAE.Type
-  local defs::List{DAE.FunctionDefinition}
-  local unused_inputs::List{Int}
-
-  @assign vis = SCode.PUBLIC()
-  #=  TODO: Use the actual visibility.
-  =#
-  @assign par = false
-  #=  TODO: Use the actual partial prefix.
-  =#
-  @assign impr = fn.attributes.purity == DAE.IMPURE
-  @assign ity = fn.attributes.inline
-  @assign ty = makeDAEType(fn)
-  @assign unused_inputs = analyseUnusedParameters(fn)
-  @assign defs = _cons(
-    def,
-    list(
-      P_FunctionDerivative.FunctionDerivative.toDAE(fn_der) for fn_der in fn.derivatives
-        ),
-  )
-  @assign daeFn = DAE.FUNCTION(
-    fn.path,
-    defs,
-    ty,
-    vis,
-    par,
-    impr,
-    ity,
-    unused_inputs,
-    ElementSource.createElementSource(InstNode_info(fn.node)),
-    SCodeUtil.getElementComment(definition(fn.node)),
-  )
-  return daeFn
-end
-
 #= An operator record's constructor: 'constructor' in its path (omc isNonDefaultRecordConstructor). =#
-function isNonDefaultRecordConstructor(fn::M_FUNCTION)::Bool
+function isNonDefaultRecordConstructor(fn::MODELICA_FUNCTION)::Bool
   return isNonDefaultRecordConstructorPath(fn.path)
 end
 
@@ -502,69 +270,52 @@ function isNonDefaultRecordConstructorPath(path::Absyn.Path)::Bool
   return path.name == "'constructor'" || isNonDefaultRecordConstructorPath(path.path)
 end
 
-function isDefaultRecordConstructor(fn::M_FUNCTION)::Bool
-  local isConstructor::Bool
-  isConstructor = begin
-    @match restriction(getClass(fn.node)) begin
-      RESTRICTION_RECORD_CONSTRUCTOR(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
+function isDefaultRecordConstructor(fn::MODELICA_FUNCTION)::Bool
+  @match restriction(getClass(fn.node)) begin
+    RESTRICTION_RECORD_CONSTRUCTOR(__) => begin
+      true
+    end
+    _ => begin
+      false
     end
   end
-  return isConstructor
 end
 
-function inlineBuiltin(fn::M_FUNCTION)::DAE.InlineType
-  local inlineType::DAE.InlineType
-  @assign inlineType = begin
-    @match fn.attributes.isBuiltin begin
-      DAE.FUNCTION_BUILTIN_PTR(__) => begin
-        DAE.BUILTIN_EARLY_INLINE()
-      end
-      _ => begin
-        fn.attributes.inline
-      end
-    end
-  end
-  return inlineType
+function inlineBuiltin(fn::MODELICA_FUNCTION)::InlineType
+  return fn.attributes.builtin == FUNCTION_BUILTIN_PTR ? BUILTIN_EARLY_INLINE : fn.attributes.inline
 end
 
-function isExternal(fn::M_FUNCTION)::Bool
+function isExternal(fn::MODELICA_FUNCTION)::Bool
   local isExt::Bool =
     !isEmpty(fn.node) && isExternalFunction(getClass(fn.node))
   return isExt
 end
 
-function setFunctionPointer(isPointer::Bool, fn::M_FUNCTION)::M_FUNCTION
-  local attr::DAE.FunctionAttributes = fn.attributes
+function setFunctionPointer(isPointer::Bool, fn::MODELICA_FUNCTION)::MODELICA_FUNCTION
+  local attr::FUNCTION_ATTRIBUTES = fn.attributes
   @assign attr.isFunctionPointer = isPointer
   @assign fn.attributes = attr
   return fn
 end
 
-function isFunctionPointer(fn::M_FUNCTION)::Bool
+function isFunctionPointer(fn::MODELICA_FUNCTION)::Bool
   local isPointer::Bool = fn.attributes.isFunctionPointer
   return isPointer
 end
 
-function isOMImpure(fn::M_FUNCTION)::Bool
-  local isImpure::Bool = fn.attributes.purity == DAE.IMPURE
-  return isImpure
+function isOMImpure(fn::MODELICA_FUNCTION)::Bool
+  return fn.attributes.isImpure
 end
 
-function isImpure(fn::M_FUNCTION)::Bool
-  local impure::Bool = fn.attributes.purity == DAE.IMPURE
-  return impure
+function isImpure(fn::MODELICA_FUNCTION)::Bool
+  return fn.attributes.isImpure
 end
 
-function isNotImpure(fn::M_FUNCTION)::Bool
+function isNotImpure(fn::MODELICA_FUNCTION)::Bool
   return !isImpure(fn)
 end
 
-function isSubscriptableBuiltin(fn::M_FUNCTION)::Bool
+function isSubscriptableBuiltin(fn::MODELICA_FUNCTION)::Bool
   local scalarBuiltin::Bool
   if !isBuiltin(fn)
     @assign scalarBuiltin = false
@@ -597,7 +348,7 @@ end
     and needs to be handled in a different way.
     Examples of such functions is der
   """
-function isSpecialBuiltin(fn::M_FUNCTION)::Bool
+function isSpecialBuiltin(fn::MODELICA_FUNCTION)::Bool
   local special::Bool
   local path::Absyn.Path
   if !isBuiltin(fn)
@@ -779,23 +530,11 @@ function isSpecialBuiltin(fn::M_FUNCTION)::Bool
   return special
 end
 
-function isBuiltinAttr(attrs::DAE.FunctionAttributes)::Bool
-  local isBuiltin::Bool
-
-  @assign isBuiltin = begin
-    @match attrs.isBuiltin begin
-      DAE.FUNCTION_NOT_BUILTIN(__) => begin
-        false
-      end
-      _ => begin
-        true
-      end
-    end
-  end
-  return isBuiltin
+function isBuiltinAttr(attrs::FUNCTION_ATTRIBUTES)::Bool
+  return attrs.builtin != FUNCTION_NOT_BUILTIN
 end
 
-function isBuiltin(fn::M_FUNCTION)::Bool
+function isBuiltin(fn::MODELICA_FUNCTION)::Bool
   local isBuiltin::Bool = isBuiltinAttr(fn.attributes)
   return isBuiltin
 end
@@ -803,19 +542,19 @@ end
 function applyPartialApplicationArg(
   argName::String,
   argExp::Expression,
-  argType::M_Type,
+  argType::ModelicaType,
   inputs::List{<:InstNode},
-  slots::List{<:Slot},
-  fn::M_FUNCTION,
+  slots::List{<:SLOT},
+  fn::MODELICA_FUNCTION,
   info::SourceInfo,
-)::Tuple{Expression, List{InstNode}, List{Slot}}
-  local outSlots::List{Slot} = nil
+)::Tuple{Expression, List{InstNode}, List{SLOT}}
+  local outSlots::List{SLOT} = nil
   local outInputs::List{InstNode} = nil
 
   local i::InstNode
   local rest_inputs::List{InstNode} = inputs
-  local s::Slot
-  local rest_slots::List{Slot} = slots
+  local s::SLOT
+  local rest_slots::List{SLOT} = slots
   local mk::MatchKindType
 
   while !listEmpty(rest_inputs)
@@ -858,9 +597,9 @@ function typePartialApplication(
   exp::Expression,
   origin::ORIGIN_Type,
   info::SourceInfo,
-)::Tuple{Expression, M_Type, VariabilityType}
+)::Tuple{Expression, ModelicaType, VariabilityType}
   local variability::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
 
   local fn_ref::ComponentRef
   local args::List{Expression}
@@ -868,21 +607,19 @@ function typePartialApplication(
   local arg_names::List{String}
   local rest_names::List{String}
   local arg_name::String
-  local arg_exp::Expression
-  local arg_ty::M_Type
+  local arg_ty::ModelicaType
   local arg_var::VariabilityType
-  local fn::M_FUNCTION
+  local fn::MODELICA_FUNCTION
   local next_origin::ORIGIN_Type = setFlag(origin, ORIGIN_SUBEXPRESSION)
   local inputs::List{InstNode}
-  local slots::List{Slot}
+  local slots::List{SLOT}
 
   @match PARTIAL_FUNCTION_APPLICATION_EXPRESSION(
     fn = fn_ref,
     args = args,
     argNames = arg_names,
   ) = exp
-  #=  TODO: Handle overloaded functions?
-  =#
+  #= TODO: Handle overloaded functions? =#
   fns = typeRefCache(fn_ref)
   fn = fns[1]
   @assign inputs = fn.inputs
@@ -939,14 +676,13 @@ end
   Types the body of a function, along with any bindings of local variables
   and outputs.
 """
-function typeFunctionBody(fn::M_FUNCTION)::M_FUNCTION
+function typeFunctionBody(fn::MODELICA_FUNCTION)::MODELICA_FUNCTION
   #=  Type the bindings of the outputs and local variables. =#
   @assign fn.outputs = mapFunctionNodes(fn.outputs, (c) -> typeComponentBinding(c, ORIGIN_FUNCTION))
   @assign fn.locals = mapFunctionNodes(fn.locals, (c) -> typeComponentBinding(c, ORIGIN_FUNCTION))
   #=  Type the algorithm section of the function, if it has one. =#
   @assign fn.node = typeFunctionSections(fn.node, ORIGIN_FUNCTION)
-  #=  Type any derivatives of the function.
-  =#
+  #= Type any derivatives of the function. =#
   for fn_der in fn.derivatives
     typeDerivative(fn_der)
   end
@@ -994,7 +730,7 @@ root of each cref (omc ComponentRef.last: a in a.b.c, for local record instances
 """
 function localDependencies(compNode::InstNode, self::Int, nodes::Vector{InstNode})::Set{Int}
   local deps::Set{Int} = Set{Int}()
-  local add_cref = (e, acc) -> begin
+  local add_cref = (e::Expression, acc::Nothing) -> begin
     if e isa CREF_EXPRESSION && isvariant(e.cref, COMPONENT_REF_CREF)
       local cr::ComponentRef = e.cref
       while isvariant(cr.restCref, COMPONENT_REF_CREF)
@@ -1006,10 +742,10 @@ function localDependencies(compNode::InstNode, self::Int, nodes::Vector{InstNode
     acc
   end
   local b::Binding = getBinding(component(compNode))
-  hasExp(b) && fold(getExp(b), add_cref, nothing)
+  hasExp(b) && fold(getExp(b), add_cref, nothing, Nothing)
   for d in arrayDims(getType(compNode))
     @match d begin
-      DIMENSION_EXP(__) => fold(d.exp, add_cref, nothing)
+      DIMENSION_EXP(__) => fold(d.exp, add_cref, nothing, Nothing)
       _ => ()
     end
   end
@@ -1017,8 +753,7 @@ function localDependencies(compNode::InstNode, self::Int, nodes::Vector{InstNode
 end
 
 """Types a function's parameters, local components and default arguments."""
-function typeFunctionSignature(fn::M_FUNCTION)
-  local attr::DAE.FunctionAttributes
+function typeFunctionSignature(fn::MODELICA_FUNCTION)
   local node::InstNode = fn.node
   if !isTyped(fn)
     typeClassType(node, EMPTY_BINDING, ORIGIN_FUNCTION, node)
@@ -1035,7 +770,7 @@ function typeFunctionSignature(fn::M_FUNCTION)
     checkParamTypes(fn)
     checkPartialDerivativeTypes(fn)
     fnReturnType = makeReturnType(fn)
-    fn = M_FUNCTION(
+    fn = MODELICA_FUNCTION(
       fn.path,
       fn.node,
       fn.inputs,
@@ -1052,14 +787,14 @@ function typeFunctionSignature(fn::M_FUNCTION)
   return fn
 end
 
-function typeFunction(fn::M_FUNCTION)
+function typeFunction(fn::MODELICA_FUNCTION)
   fn = typeFunctionSignature(fn)
   fn = typeFunctionBody(fn)
   return fn
 end
 
 function getRefCache(fnRef::ComponentRef)
-  local functions::Vector{M_Function}
+  local functions::Vector{MODELICA_FUNCTION}
   local fn_node::InstNode
   fn_node = classScope(node(fnRef))
   @match C_FUNCTION(funcs = functions) = getFuncCache(fn_node)
@@ -1070,7 +805,7 @@ end
  Returns the function(s) in the cache of the given node, and types them if
  they are not already typed.
 """
-function typeNodeCache(@nospecialize(functionNode::InstNode))::Vector{M_FUNCTION}
+function typeNodeCache(@nospecialize(functionNode::InstNode))::Vector{MODELICA_FUNCTION}
   local fn_node::InstNode = classScope(functionNode)
   if _parallelTypingActive()
     return _withClaim(() -> typeNodeCache2(fn_node), _refId(fn_node))
@@ -1078,22 +813,17 @@ function typeNodeCache(@nospecialize(functionNode::InstNode))::Vector{M_FUNCTION
   return typeNodeCache2(fn_node)
 end
 
-function typeNodeCache2(fn_node::InstNode)::Vector{M_FUNCTION}
-  local functions::Vector{M_FUNCTION}
+function typeNodeCache2(fn_node::InstNode)::Vector{MODELICA_FUNCTION}
+  local functions::Vector{MODELICA_FUNCTION}
   local typed::Bool
-  local special::Bool
-  local name::String
-  #@match C_FUNCTION(functions, typed, special) = getFuncCache(fn_node)
   local cache::C_FUNCTION = getFuncCache(fn_node)::C_FUNCTION
   typed = cache.typed
   functions = cache.funcs
   #=  Type the function(s) if not already done. =#
   if !typed
-    #functions = M_FUNCTION[typeFunctionSignature(f) for f in functions]
     for (i, f) in enumerate(functions)
       functions[i] = typeFunctionSignature(f) #TODO Investigate if this approch works
     end
-    #@time local cache = C_FUNCTION(functions, true, special)
     cache.typed = true
     setFuncCache(fn_node, cache)
     for (i, f) in enumerate(functions)
@@ -1108,43 +838,35 @@ end
  Returns the function(s) referenced by the given cref, and types them if
  they are not already typed.
 """
-function typeRefCache(functionRef::ComponentRef)::Vector{M_FUNCTION}
-  local functions::Vector{M_FUNCTION}
-  functions = begin
-    @match functionRef begin
-      COMPONENT_REF_CREF(__) => begin
-        typeNodeCache(functionRef.node)
-      end
-      _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() + " got invalid function call reference",
-          sourceInfo(),
-        )
-        fail()
-      end
+function typeRefCache(functionRef::ComponentRef)::Vector{MODELICA_FUNCTION}
+  @match functionRef begin
+    COMPONENT_REF_CREF(__) => begin
+      typeNodeCache(functionRef.node)
+    end
+    _ => begin
+      Error.assertion(
+        false,
+        getInstanceName() + " got invalid function call reference",
+        sourceInfo(),
+      )
+      fail()
     end
   end
-  return functions
 end
 
-function isTyped(fn::M_FUNCTION)::Bool
-  local isTyped::Bool
-  @assign isTyped = begin
-    @match fn.returnType begin
-      TYPE_UNKNOWN(__) => begin
-        false
-      end
-      _ => begin
-        true
-      end
+function isTyped(fn::MODELICA_FUNCTION)::Bool
+  @match fn.returnType begin
+    TYPE_UNKNOWN(__) => begin
+      false
+    end
+    _ => begin
+      true
     end
   end
-  return isTyped
 end
 
 function matchFunctionsSilent(
-  funcs::Vector{M_Function},
+  funcs::Vector{MODELICA_FUNCTION},
   args::Vector{TypedArg},
   named_args::Vector{TypedNamedArg},
   info::SourceInfo,
@@ -1158,7 +880,7 @@ function matchFunctionsSilent(
 end
 
 function matchFunctions(
-  funcs::Vector{M_Function},
+  funcs::Vector{MODELICA_FUNCTION},
   args::Vector{TypedArg},
   named_args::Vector{TypedNamedArg},
   info::SourceInfo,
@@ -1167,7 +889,6 @@ function matchFunctions(
   local matchedFunctions::Vector{MatchedFunction} = MatchedFunction[]
   local m_args::Vector{TypedArg}
   local matchKind::FunctionMatchKind
-  local matched::Bool
   for func in funcs
     (m_args, matchKind) = matchFunction(func, args, named_args, info, vectorize)
     if isValid(matchKind)
@@ -1178,7 +899,7 @@ function matchFunctions(
 end
 
 function matchFunction(
-  func::M_FUNCTION,
+  func::MODELICA_FUNCTION,
   args::Vector{TypedArg},
   named_args::Vector{TypedNamedArg},
   info::SourceInfo,
@@ -1221,32 +942,29 @@ end
 
 function matchArgVectorized(
   @nospecialize(argExp::Expression),
-  argTy::M_Type,
-  inputTy::M_Type,
+  argTy::ModelicaType,
+  inputTy::ModelicaType,
   @nospecialize(vectArg::Expression),
   vectDims::List{<:Dimension},
   info::SourceInfo,
-)::Tuple{Expression, M_Type, Expression, List{Dimension}, MatchKindType}
+)::Tuple{Expression, ModelicaType, Expression, List{Dimension}, MatchKindType}
   local matchKind::MatchKindType
   local arg_dims::List{Dimension}
   local input_dims::List{Dimension}
   local vect_dims::List{Dimension}
   local rest_dims::List{Dimension}
-  local rest_ty::M_Type
-  local mk::MatchKindType
+  local rest_ty::ModelicaType
   local vect_dims_count::Int
   arg_dims = arrayDims(argTy)
   input_dims = arrayDims(inputTy)
   vect_dims_count = listLength(arg_dims) - listLength(input_dims)
-  #=  Only try to vectorize if the argument has more dimensions than the input parameter.
-  =#
+  #= Only try to vectorize if the argument has more dimensions than the input parameter. =#
   if vect_dims_count < 1
     matchKind = MatchKind.NOT_COMPATIBLE
     return (argExp, argTy, vectArg, vectDims, matchKind)
   end
-  (vect_dims, rest_dims) = ListUtil.split(arg_dims, vect_dims_count)
-  #=  Make sure the vectorization dimensions are consistent.
-  =#
+  (vect_dims, rest_dims) = ListUtil.split(arg_dims, vect_dims_count, Dimension)
+  #= Make sure the vectorization dimensions are consistent. =#
   if listEmpty(vectDims)
     vectDims = fillUnknownVectorizedDims(vect_dims, argExp)
     vectArg = argExp
@@ -1264,10 +982,8 @@ function matchArgVectorized(
       info,
     )
   end
-  #=  Check that the argument and the input parameter are type compatible when
-  =#
-  #=  the dimensions to vectorize over has been removed from the argument's type.
-  =#
+  #= Check that the argument and the input parameter are type compatible when
+     the dimensions to vectorize over has been removed from the argument's type. =#
   @assign rest_ty = liftArrayLeftList(arrayElementType(argTy), rest_dims)
   (argExp, argTy, matchKind) =
     matchTypes(rest_ty, inputTy, argExp, #=allowUnknown=# false)
@@ -1275,24 +991,21 @@ function matchArgVectorized(
 end
 
 function matchArgs(
-  func::M_FUNCTION,
+  func::MODELICA_FUNCTION,
   args::Vector{TypedArg},
   info::SourceInfo,
   vectorize::Bool = true,
 )::Tuple{Vector{TypedArg}, FunctionMatchKind}
   local funcMatchKind::FunctionMatchKind = EXACT_MATCH
-  # @info "matched arguments for function"
-  # println(toFlatString(func))
-  # println(toString(args))
   local comp::Component
   local inputs::List{InstNode} = func.inputs
   local input_node::InstNode
   local arg_idx::Int = 1
   local checked_args = Vector{TypedArg}(undef, length(args))
   local arg_exp::Expression
-  local arg_ty::M_Type
-  local input_ty::M_Type
-  local ty::M_Type
+  local arg_ty::ModelicaType
+  local input_ty::ModelicaType
+  local ty::ModelicaType
   local arg_var::VariabilityType
   local mk::MatchKindType
   local vect_arg::Expression = INTEGER_EXPRESSION(0)
@@ -1366,26 +1079,17 @@ function matchArgs(
     checked_args[i] = (arg_exp, ty, arg_var)
     arg_idx = arg_idx + 1
   end
-  #=  Check that the variability of the argument and input parameter matches.
-  =#
-  #=  Check if the type of the argument and the input parameter matches exactly.
-  =#
-  #=  If the types don't match, try to vectorize the argument.
-  =#
-  #=  Print an error if the types match neither exactly nor vectorized.
-  =#
-  #=  TODO: This should be a running reduction of the matches. Not just based on the
-  =#
-  #=  last match.
-  =#
+  #= Check that the variability of the argument and input parameter matches.
+     Check if the type of the argument and the input parameter matches exactly.
+     If the types don't match, try to vectorize the argument.
+     Print an error if the types match neither exactly nor vectorized.
+     TODO: This should be a running reduction of the matches. Not just based on the
+     last match. =#
   if !listEmpty(vectorized_args)
     funcMatchKind =
       VECTORIZED_MATCH_KIND(vect_dims, listReverse(vectorized_args), funcMatchKind)
   end
   args = checked_args #=TODO: Same here can maybe be done inline=#
-  # @info "The checked arguments...."
-  # println(toString(args))
-  # println("***********************")
   return (args, funcMatchKind)
 end
 
@@ -1393,7 +1097,7 @@ end
    and the bare catch took the failed assignment for a missing slot, so a default reading
    another input kept the function's own input (MSL WallFriction's `crossArea = pi*diameter^2/4`
    a continuous binding of a parameter: Buildings' FixedResistances). =#
-function lookupSlotInArray(slotName::String, slots::Vector{<:Slot})::Option{Slot}
+function lookupSlotInArray(slotName::String, slots::Vector{<:SLOT})::Option{SLOT}
   local i = findfirst(slot -> slot.name == slotName, slots)
   return i === nothing ? NONE() : SOME(slots[i])
 end
@@ -1406,41 +1110,37 @@ end
 
 function evaluateSlotExp_traverser(
   exp::Expression,
-  slots::Vector{<:Slot},
+  slots::Vector{<:SLOT},
   info::SourceInfo,
 )::Expression
-  local outExp::Expression
-  outExp = begin
-    local cref::ComponentRef
-    local slot::Option{Slot}
-    @match exp begin
-      CREF_EXPRESSION(
-        cref = cref && COMPONENT_REF_CREF(
-          restCref = COMPONENT_REF_EMPTY(__),
-        ),
-      ) => begin
-        #= Only a function's own component is an input (omc lookupSlotInArray by node): a default
-           from a modifier outside it (`redeclare function func = f(x = x)`, x the model's
-           parameter) reads the model's x, not the input it is the default of (omc
-           FuncDefaultArg7). =#
-        slot = _isFunctionComponent(node(cref)) ? lookupSlotInArray(firstName(cref), slots) : NONE()
-        if isSome(slot)
-          Util.tuple31(fillDefaultSlot(Util.getOption(slot), slots, info))
-        else
-          exp
-        end
-      end
-      _ => begin
+  local cref::ComponentRef
+  local slot::Option{SLOT}
+  @match exp begin
+    CREF_EXPRESSION(
+      cref = cref && COMPONENT_REF_CREF(
+        restCref = COMPONENT_REF_EMPTY(__),
+      ),
+    ) => begin
+      #= Only a function's own component is an input (omc lookupSlotInArray by node): a default
+         from a modifier outside it (`redeclare function func = f(x = x)`, x the model's
+         parameter) reads the model's x, not the input it is the default of (omc
+         FuncDefaultArg7). =#
+      slot = _isFunctionComponent(node(cref)) ? lookupSlotInArray(firstName(cref), slots) : NONE()
+      if isSome(slot)
+        Util.tuple31(fillDefaultSlot(Util.getOption(slot), slots, info))
+      else
         exp
       end
     end
+    _ => begin
+      exp
+    end
   end
-  return outExp
 end
 
 function evaluateSlotExp(
   exp::Expression,
-  slots::Vector{<:Slot},
+  slots::Vector{<:SLOT},
   info::SourceInfo,
 )::Expression
   local outExp::Expression
@@ -1472,50 +1172,35 @@ function _callVariabilityFromArgs(@nospecialize(exp::Expression))::Expression
   end
 end
 
-function fillDefaultSlot2(slot::Slot, slots::Vector{<:Slot}, info::SourceInfo)::TypedArg
+function fillDefaultSlot2(slot::SLOT, slots::Vector{<:SLOT}, info::SourceInfo)::TypedArg
   local outArg::TypedArg
 
-  @assign outArg = begin
-    local exp::Expression
-    #=  An already evaluated slot, return its binding.
-    =#
-    @match slot.evalStatus begin
-      SlotEvalStatus.EVALUATED => begin
-        Util.getOption(slot.arg)
-      end
-
-      SlotEvalStatus.EVALUATING => begin
-        #=  A slot in the process of being evaluated => cyclic bindings.
-        =#
-        Error.addSourceMessage(Error.CYCLIC_DEFAULT_VALUE, list(slot.name), info)
-        fail()
-      end
-
-      SlotEvalStatus.NOT_EVALUATED => begin
-        #=  A slot with a not evaluated binding, evaluate the binding and return it.
-        =#
-        @assign slot.evalStatus = SlotEvalStatus.EVALUATING
-        arrayUpdate(slots, slot.index, slot)
-        @assign exp = evaluateSlotExp(Util.getOption(slot.default), slots, info)
-        #= Its calls take the variability of the arguments put in (omc types the default again:
-           `input Real x = f2(dim)` in f(3) is constant, not dim's; omc FuncDefaultArg5). =#
-        exp = map(exp, _callVariabilityFromArgs)
-        @assign outArg = (
-          exp,
-          typeOf(exp),
-          variability(exp),
-        )
-        @assign slot.arg = SOME(outArg)
-        @assign slot.evalStatus = SlotEvalStatus.EVALUATED
-        arrayUpdate(slots, slot.index, slot)
-        outArg
-      end
-    end
+  local exp::Expression
+  local status::SlotEvalStatus = slot.evalStatus
+  if status == SLOT_EVALUATED
+    #= An already evaluated slot: its binding. =#
+    outArg = Util.getOption(slot.arg)
+  elseif status == SLOT_EVALUATING
+    #= A slot in the process of being evaluated: cyclic bindings. =#
+    Error.addSourceMessage(Error.CYCLIC_DEFAULT_VALUE, list(slot.name), info)
+    fail()
+  else
+    #= A slot with a binding not evaluated yet: evaluate the binding and return it. =#
+    @assign slot.evalStatus = SLOT_EVALUATING
+    arrayUpdate(slots, slot.index, slot)
+    exp = evaluateSlotExp(Util.getOption(slot.default), slots, info)
+    #= Its calls take the variability of the arguments put in (omc types the default again:
+       `input Real x = f2(dim)` in f(3) is constant, not dim's; omc FuncDefaultArg5). =#
+    exp = map(exp, _callVariabilityFromArgs)
+    outArg = (exp, typeOf(exp), variability(exp))
+    @assign slot.arg = SOME(outArg)
+    @assign slot.evalStatus = SLOT_EVALUATED
+    arrayUpdate(slots, slot.index, slot)
   end
   return outArg
 end
 
-function fillDefaultSlot(slot::Slot, slots::Vector{<:Slot}, info::SourceInfo)::TypedArg
+function fillDefaultSlot(slot::SLOT, slots::Vector{<:SLOT}, info::SourceInfo)::TypedArg
   local outArg::TypedArg
 
   @assign outArg = begin
@@ -1529,12 +1214,9 @@ function fillDefaultSlot(slot::Slot, slots::Vector{<:Slot}, info::SourceInfo)::T
       end
 
       _ => begin
-        #=  Slot already filled by function argument.
-        =#
-        #=  Slot not filled by function argument, but has default value.
-        =#
-        #=  Give an error if no argument was given and there's no default argument.
-        =#
+        #= Slot already filled by function argument.
+           Slot not filled by function argument, but has default value.
+           Give an error if no argument was given and there's no default argument. =#
         Error.addSourceMessage(Error.UNFILLED_SLOT, list(slot.name), info)
         fail()
       end
@@ -1544,7 +1226,7 @@ function fillDefaultSlot(slot::Slot, slots::Vector{<:Slot}, info::SourceInfo)::T
 end
 
 """ Collects the arguments from the given slots. """
-function collectArgs(slots::Vector{<:Slot}, info::SourceInfo)::Tuple{Vector{TypedArg}, Bool}
+function collectArgs(slots::Vector{<:SLOT}, info::SourceInfo)::Tuple{Vector{TypedArg}, Bool}
   local matching::Bool = true
   local args::Vector{TypedArg} = TypedArg[]
   local default::Option{Expression}
@@ -1583,24 +1265,21 @@ end
 """
 function fillNamedArg(
   inArg::TypedNamedArg,
-  slots::Vector{<:Slot},
-  fn::M_FUNCTION,
+  slots::Vector{<:SLOT},
+  fn::MODELICA_FUNCTION,
   info::SourceInfo,
-)::Tuple{Array{Slot}, Bool} #= For error reporting =#
+)::Tuple{Array{SLOT}, Bool} #= For error reporting =#
   local matching::Bool = true
 
-  local s::Slot
+  local s::SLOT
   local argName::String
-  local ty::M_Type
+  local ty::ModelicaType
   local argExp::Expression
   local var::VariabilityType
 
-  #=  Try to find a slot and fill it with the argument expression.
-  =#
-  #=  Positional arguments fill the slots from the start of the array, so
-  =#
-  #=  searching backwards will generally be a bit more efficient.
-  =#
+  #= Try to find a slot and fill it with the argument expression.
+     Positional arguments fill the slots from the start of the array, so
+     searching backwards will generally be a bit more efficient. =#
   for i = arrayLength(slots):(-1):1
     @assign s = slots[i]
      (argName, argExp, ty, var) = inArg
@@ -1617,19 +1296,13 @@ function fillNamedArg(
       return (slots, matching)
     end
   end
-  #=  Slot doesn't allow named argument (used for some builtin functions).
-  =#
-  #=  TODO: Improve the error message, should mention function name.
-  =#
-  #=  No slot could be found.
-  =#
+  #= Slot doesn't allow named argument (used for some builtin functions).
+     TODO: Improve the error message, should mention function name.
+     No slot could be found. =#
   @assign matching = false
-  #=  A slot with the given name couldn't be found. This means it doesn't
-  =#
-  #=  exist, or we removed it when handling positional argument. We need to
-  =#
-  #=  search through all slots to be sure.
-  =#
+  #= A slot with the given name couldn't be found. This means it doesn't
+     exist, or we removed it when handling positional argument. We need to
+     search through all slots to be sure. =#
   for s in fn.slots
     if argName == s.name
       Error.addSourceMessage(Error.FUNCTION_SLOT_ALREADY_FILLED, list(argName, ""), info)
@@ -1641,10 +1314,8 @@ function fillNamedArg(
       info,
     )
   end
-  #=  We found a slot, so it must have already been filled.
-  =#
-  #=  No slot could be found, so it doesn't exist.
-  =#
+  #= We found a slot, so it must have already been filled.
+     No slot could be found, so it doesn't exist. =#
   return (slots, matching)
 end
 
@@ -1654,16 +1325,14 @@ end
 function fillArgs(
   posArgs::Vector{TypedArg},
   namedArgs::Vector{TypedNamedArg},
-  fn::M_FUNCTION,
+  fn::MODELICA_FUNCTION,
   info::SourceInfo,
 )::Tuple{Vector{TypedArg}, Bool}
   local matching::Bool
   local args::Vector{TypedArg} = posArgs
-  local slot::Slot
-  local slots::List{Slot}
-  local remaining_slots::List{Slot}
-  local filled_named_args::Vector{TypedArg}
-  local slots_arr::Vector{Slot}
+  local slot::SLOT
+  local slots::List{SLOT}
+  local slots_arr::Vector{SLOT}
   local pos_arg_count::Int
   local slot_count::Int
   local index::Int = 1
@@ -1678,12 +1347,9 @@ function fillArgs(
     matching = true
     return (args, matching)
   end
-  #=  If we have too many positional arguments it can't possibly match.
-  =#
-  #=  If we have exactly as many positional arguments as slots and no named
-  =#
-  #=  arguments we can just return the list of arguments as it is.
-  =#
+  #= If we have too many positional arguments it can't possibly match.
+     If we have exactly as many positional arguments as slots and no named
+     arguments we can just return the list of arguments as it is. =#
   slots_arr = listArray(slots)
   for arg in args
     slot = slots_arr[index]
@@ -1695,8 +1361,7 @@ function fillArgs(
     slots_arr[index] = slot
     index = index + 1
   end
-  #=  Slot doesn't allow positional arguments (used for some builtin functions).
-  =#
+  #= Slot doesn't allow positional arguments (used for some builtin functions). =#
   for narg in namedArgs
     (slots_arr, matching) = fillNamedArg(narg, slots_arr, fn, info)
     if !matching
@@ -1707,23 +1372,23 @@ function fillArgs(
   return (args, matching)
 end
 
-function setReturnType(ty::M_Type, fn::M_FUNCTION)::M_FUNCTION
+function setReturnType(ty::ModelicaType, fn::MODELICA_FUNCTION)::MODELICA_FUNCTION
 
   @assign fn.returnType = ty
   return fn
 end
 
-function returnType(fn::M_FUNCTION)::M_Type
-  local ty::M_Type = fn.returnType
+function returnType(fn::MODELICA_FUNCTION)::ModelicaType
+  local ty::ModelicaType = fn.returnType
   return ty
 end
 
-function instance(fn::M_FUNCTION)::InstNode
+function instance(fn::MODELICA_FUNCTION)::InstNode
   local node::InstNode = fn.node
   return node
 end
 
-function toFlatString(fn::M_FUNCTION)::String
+function toFlatString(fn::MODELICA_FUNCTION)::String
   local str::String
   local s
   s = IOStream_M.create(getInstanceName(), IOStream_M.LIST())
@@ -1733,12 +1398,11 @@ function toFlatString(fn::M_FUNCTION)::String
   return str
 end
 
-function toFlatStream(fn::M_FUNCTION, s; overrideName::String)
-  local fn_body::Vector{Statement}
+function toFlatStream(fn::MODELICA_FUNCTION, s; overrideName::String)
   if isDefaultRecordConstructor(fn)
     s = IOStream_M.append(s, toFlatString(fn.node))
   else
-    s = toFlatStreamHelper(fn::M_FUNCTION, s, overrideName)
+    s = toFlatStreamHelper(fn::MODELICA_FUNCTION, s, overrideName)
   end
   return s
 end
@@ -1746,18 +1410,18 @@ end
 """
 Returns a function as  a flat string.
 """
-function toFlatStream(fn::M_FUNCTION, s::IOStream_M.IOSTREAM)
+function toFlatStream(fn::MODELICA_FUNCTION, s::IOStream_M.IOSTREAM)
   local fn_name::String
   if isDefaultRecordConstructor(fn)
     s = IOStream_M.append(s, toFlatString(fn.node))
   else
     fn_name = AbsynUtil.pathString(fn.path)
-    s = toFlatStreamHelper(fn::M_FUNCTION, s, string("'", fn_name, "'"))
+    s = toFlatStreamHelper(fn::MODELICA_FUNCTION, s, string("'", fn_name, "'"))
   end
   return s
 end
 
-function toFlatStreamHelper(fn::M_FUNCTION, s, fn_name)
+function toFlatStreamHelper(fn::MODELICA_FUNCTION, s, fn_name)
     #= A partial derivative as its declaration, function df = der(f, x) (omc toFlatStream). =#
     if isPartialDerivative(fn)
       local ins = Base.collect(fn.inputs)
@@ -1806,16 +1470,10 @@ function toFlatStreamHelper(fn::M_FUNCTION, s, fn_name)
   # #= End of annotation handling=#
   if isExternal(fn)
     s = IOStream_M.append(s, "/* Externally defined function*/")
-    # s = IOStream_M.append(s, )
     s = IOStream_M.append(s, "\nend ")
     s = IOStream_M.append(s, fn_name)
     return s
   end
-  #fn_body = getBody(fn)
-  #if !listEmpty(fn_body)
-  #s = IOStream_M.append(s, "algorithm\\n")
-  #s = toFlatStreamList(fn_body, "  ", s)
-  #end
   s = IOStream_M.append(s, "\nend ")
   s = IOStream_M.append(s, fn_name)
 end
@@ -1828,7 +1486,7 @@ end
 """  Constructs a string representing the type of the function, on the form
      function_name<function>(input types) => output type
 """
-function typeString(fn::M_FUNCTION)::String
+function typeString(fn::MODELICA_FUNCTION)::String
   local str::String
 
   @assign str = ListUtil.toString(
@@ -1843,19 +1501,19 @@ function typeString(fn::M_FUNCTION)::String
   return str
 end
 
-function candidateFuncListString(fns::List{<:M_Function})::String
+function candidateFuncListString(fns::List{MODELICA_FUNCTION})::String
   local s::String =
     stringDelimitList(list(signatureString(fn, true) for fn in fns), "\\n  ")
   return s
 end
 
-function candidateFuncListString(fns::Vector{M_Function})
+function candidateFuncListString(fns::Vector{MODELICA_FUNCTION})
   local s::String = stringDelimitList(list(signatureString(fn, true) for fn in fns), "\\n  ")
   return s
 end
 
 """Constructs a signature string for a function, e.g. Real func(Real x, Real y)"""
-function signatureString(fn::M_FUNCTION, printTypes::Bool = true)::String
+function signatureString(fn::MODELICA_FUNCTION, printTypes::Bool = true)::String
   local str::String
 
   local fn_name::Absyn.Path
@@ -1866,7 +1524,7 @@ function signatureString(fn::M_FUNCTION, printTypes::Bool = true)::String
   local inputs::List{InstNode} = fn.inputs
   local c::Component
   local def_exp::Expression
-  local ty::M_Type
+  local ty::ModelicaType
 
   for s in fn.slots
     @assign input_str = ""
@@ -1877,17 +1535,6 @@ function signatureString(fn::M_FUNCTION, printTypes::Bool = true)::String
       @assign input_str = " = " + toString(def_exp)::String
     end
     @assign input_str = (s.name::String) + (input_str::String)
-    @assign input_str = begin
-      @match s.ty begin
-        SlotType.POSITIONAL => begin
-          "" + input_str
-        end
-
-        _ => begin
-          input_str
-        end
-      end
-    end
     if printTypes && isTyped(c)
       ty = getType(c)
       var_s = unparseVariability(variability(c), ty)
@@ -1895,18 +1542,12 @@ function signatureString(fn::M_FUNCTION, printTypes::Bool = true)::String
     end
     inputs_strl = _cons(input_str, inputs_strl)
   end
-  #=  Add the default expression if it has any.
-  =#
-  #=  Add the name from the slot and not the node, since some builtin
-  =#
-  #=  functions don't bother using proper names for the nodes.
-  =#
-  #=  Add a $ in front of the name if the parameter only takes positional
-  =#
-  #=  arguments.
-  =#
-  #=  Add the type if the parameter has been typed.
-  =#
+  #= Add the default expression if it has any.
+     Add the name from the slot and not the node, since some builtin
+     functions don't bother using proper names for the nodes.
+     Add a $ in front of the name if the parameter only takes positional
+     arguments.
+     Add the type if the parameter has been typed. =#
   input_str = stringDelimitList(listReverse(inputs_strl), ", ")
   output_str = if printTypes && isTyped(fn)
     " => " + toString(fn.returnType)
@@ -1914,46 +1555,31 @@ function signatureString(fn::M_FUNCTION, printTypes::Bool = true)::String
     ""
   end
   fn_name = nameConsiderBuiltin(fn)
-  #=  if isSome(display_name) then Util.getOption(display_name) else fn.path;
-  =#
+  #= if isSome(display_name) then Util.getOption(display_name) else fn.path; =#
   str = AbsynUtil.pathString(fn_name) + "(" + input_str + ")" + output_str
   return str
 end
 
-"""Handles the DAE.mo structure where builtin calls are replaced by their simpler name"""
-function nameConsiderBuiltin(fn::M_FUNCTION)::Absyn.Path
-  local path::Absyn.Path
-
-  @assign path = begin
-    local name::String
-    @match fn.attributes.isBuiltin begin
-      DAE.FUNCTION_BUILTIN(name = SOME(name)) => begin
-        Absyn.IDENT(name)
-      end
-
-      DAE.FUNCTION_BUILTIN(__) => begin
-        AbsynUtil.pathLast(fn.path)
-      end
-
-      _ => begin
-        fn.path
-      end
-    end
+"""The name calls of `fn` use: a builtin function's builtin name (or the last part of its path), else its path."""
+function nameConsiderBuiltin(fn::MODELICA_FUNCTION)::Absyn.Path
+  local attrs::FUNCTION_ATTRIBUTES = fn.attributes
+  if attrs.builtin != FUNCTION_BUILTIN
+    return fn.path
   end
-  return path
+  local builtinName::Option{String} = attrs.builtinName
+  return builtinName === nothing ? AbsynUtil.pathLast(fn.path) : Absyn.IDENT(something(builtinName))
 end
 
-function name(fn::M_FUNCTION)::Absyn.Path
+function name(fn::MODELICA_FUNCTION)::Absyn.Path
   local path::Absyn.Path = fn.path
   return path
 end
 
 """Marks this function as collected for addition to the function tree."""
-function collect(fn::M_FUNCTION)
-  #=  The pointer might be immutable, check before assigning to it.
-  =#
-  return if P_Pointer.access(fn.status) != FunctionStatus.BUILTIN
-    P_Pointer.update(fn.status, FunctionStatus.COLLECTED)
+function collect(fn::MODELICA_FUNCTION)
+  #= The pointer might be immutable, check before assigning to it. =#
+  return if P_Pointer.access(fn.status) != FUNCTION_STATUS_BUILTIN
+    P_Pointer.update(fn.status, FUNCTION_STATUS_COLLECTED)
   end
 end
 
@@ -1961,74 +1587,31 @@ end
   Returns true if this function has already been added to the function tree
   (or shouldn't be added, e.g. if it's builtin), otherwise false.
 """
-function isCollected(fn::M_FUNCTION)::Bool
-  local collected::Bool
-  @assign collected = begin
-    @match P_Pointer.access(fn.status) begin
-      FunctionStatus.BUILTIN => begin
-        true
-      end
-      FunctionStatus.COLLECTED => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return collected
+function isCollected(fn::MODELICA_FUNCTION)::Bool
+  local status::FunctionStatus = P_Pointer.access(fn.status)
+  return status == FUNCTION_STATUS_BUILTIN || status == FUNCTION_STATUS_COLLECTED
 end
 
-function markSimplified(fn::M_FUNCTION)
-  return if P_Pointer.access(fn.status) != FunctionStatus.BUILTIN
-    P_Pointer.update(fn.status, FunctionStatus.SIMPLIFIED)
+function markSimplified(fn::MODELICA_FUNCTION)
+  return if P_Pointer.access(fn.status) != FUNCTION_STATUS_BUILTIN
+    P_Pointer.update(fn.status, FUNCTION_STATUS_SIMPLIFIED)
   end
 end
 
-function isSimplified(fn::M_FUNCTION)::Bool
-  local simplified::Bool
-
-  @assign simplified = begin
-    @match P_Pointer.access(fn.status) begin
-      FunctionStatus.BUILTIN => begin
-        true
-      end
-
-      FunctionStatus.SIMPLIFIED => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return simplified
+function isSimplified(fn::MODELICA_FUNCTION)::Bool
+  local status::FunctionStatus = P_Pointer.access(fn.status)
+  return status == FUNCTION_STATUS_BUILTIN || status == FUNCTION_STATUS_SIMPLIFIED
 end
 
-function markEvaluated(fn::M_FUNCTION)
-  return if P_Pointer.access(fn.status) != FunctionStatus.BUILTIN
-    P_Pointer.update(fn.status, FunctionStatus.EVALUATED)
+function markEvaluated(fn::MODELICA_FUNCTION)
+  return if P_Pointer.access(fn.status) != FUNCTION_STATUS_BUILTIN
+    P_Pointer.update(fn.status, FUNCTION_STATUS_EVALUATED)
   end
 end
 
-function isEvaluated(fn::M_FUNCTION)::Bool
-  local evaluated::Bool
-  local status = P_Pointer.access(fn.status)
-  evaluated = begin
-    @match status begin
-      FunctionStatus.BUILTIN => begin
-        true
-      end
-      FunctionStatus.EVALUATED => begin
-        true
-      end
-      _ => begin
-        false
-      end
-    end
-  end
-  return evaluated
+function isEvaluated(fn::MODELICA_FUNCTION)::Bool
+  local status::FunctionStatus = P_Pointer.access(fn.status)
+  return status == FUNCTION_STATUS_BUILTIN || status == FUNCTION_STATUS_EVALUATED
 end
 
 function mapCachedFuncs(inNode::InstNode, mapFn::MapFn)
@@ -2039,7 +1622,7 @@ function mapCachedFuncs(inNode::InstNode, mapFn::MapFn)
   cache = begin
     @match cache begin
       C_FUNCTION(__) => begin
-        cacheFuncs = M_FUNCTION[mapFn(fn) for fn in cache.funcs]
+        cacheFuncs = MODELICA_FUNCTION[mapFn(fn) for fn in cache.funcs]
         cache = C_FUNCTION(cacheFuncs, cache.typed, cache.specialBuiltin)
         cache
       end
@@ -2053,7 +1636,7 @@ function mapCachedFuncs(inNode::InstNode, mapFn::MapFn)
 end
 
 function getCachedFuncs(inNode::InstNode)
-  local outFuncs::Vector{M_FUNCTION}
+  local outFuncs::Vector{MODELICA_FUNCTION}
   local cache::CachedData
   cache = getFuncCache(classScope(inNode))
   outFuncs = begin
@@ -2093,11 +1676,9 @@ function instFunction2(
 
    (fnNode, specialBuiltin) = begin
     local cdef::SCode.ClassDef
-    local fn::M_FUNCTION
+    local fn::MODELICA_FUNCTION
     local cr::Absyn.ComponentRef
     local sub_fnNode::InstNode
-    local funcs::List{M_Function}
-    local fn_ders::List{FunctionDerivative}
     @match def begin
       SCode.CLASS(__) where {(SCodeUtil.isOperatorRecord(def))} => begin
         @assign fnNode = instFunction3(fnNode)
@@ -2148,7 +1729,7 @@ function instFunction2(
         specialBuiltin = isSpecialBuiltin(fn)
         fnDerivatives =
           instDerivatives(fnNode, fn)
-        fn = M_FUNCTION(
+        fn = MODELICA_FUNCTION(
           fn.path,
           fn.node,
           fn.inputs,
@@ -2171,7 +1752,7 @@ end
 
 #= The inputs of a partial derivative of a function, `function df = der(f, x, y)`, by index
    (omc instPartialDerivedVars). =#
-function instPartialDerivedVars(classDef::SCode.ClassDef, inputs::List{InstNode}, fn::M_FUNCTION, info::SourceInfo)::List{Int}
+function instPartialDerivedVars(classDef::SCode.ClassDef, inputs::List{InstNode}, fn::MODELICA_FUNCTION, info::SourceInfo)::List{Int}
   classDef isa SCode.PDER || return nil
   local derivedVars = Int[]
   local ins = Base.collect(inputs)
@@ -2189,7 +1770,7 @@ end
 
 #= The inputs a partial derivative is taken with respect to are scalar Reals (omc
    checkPartialDerivativeTypes). =#
-function checkPartialDerivativeTypes(fn::M_FUNCTION)
+function checkPartialDerivativeTypes(fn::MODELICA_FUNCTION)
   local ins = Base.collect(fn.inputs)
   for i in fn.derivedInputs
     local node = ins[i]
@@ -2204,10 +1785,10 @@ function checkPartialDerivativeTypes(fn::M_FUNCTION)
 end
 
 #= Whether a function is a partial derivative of a function, df = der(f, x) (omc). =#
-isPartialDerivative(fn::M_FUNCTION)::Bool = !listEmpty(fn.derivedInputs)
+isPartialDerivative(fn::MODELICA_FUNCTION)::Bool = !listEmpty(fn.derivedInputs)
 
 #= The function a partial derivative is of: df = der(f, x) => f (omc getDerivedFunctionName). =#
-function getDerivedFunctionName(fn::M_FUNCTION)::Absyn.Path
+function getDerivedFunctionName(fn::MODELICA_FUNCTION)::Absyn.Path
   local def = definition(fn.node)
   if def isa SCode.CLASS && def.classDef isa SCode.PDER
     return def.classDef.functionPath
@@ -2224,7 +1805,7 @@ end
        value := ...;
      end $E;
    omc selects the literal with {E.l1, ..., E.ln}[index]; here an if-chain over the literals, which
-   the DAE conversion and the backend take (they have no subscripted expressions). The class is
+   the backend takes (it has no subscripted expressions). The class is
    named $E so that E inside it is the type; the function keeps the call's path. =#
 function makeEnumConversionOp(enumNode::InstNode)::InstNode
   local info = InstNode_info(enumNode)
@@ -2275,18 +1856,16 @@ end
 function instFunctionNode2(node::InstNode)::InstNode
   local cache::CachedData
   @assign cache = getFuncCache(node)
-   () = begin
-    @match cache begin
-      C_FUNCTION(__) => begin
-        ()
-      end
-      _ => begin
-        (node, _) =
-          instFunction2(scopePath(node), node, InstNode_info(node))#info(node))
-        ()
-      end
-    end
-  end
+   @match cache begin
+     C_FUNCTION(__) => begin
+       ()
+     end
+     _ => begin
+       (node, _) =
+         instFunction2(scopePath(node), node, InstNode_info(node))#info(node))
+       ()
+     end
+   end
   return node
 end
 
@@ -2345,7 +1924,6 @@ function instFunction(
   local specialBuiltin::Bool
   local fn_node::InstNode
   local fn_ref::ComponentRef
-  local cache::CachedData
   fn_ref = lookupFunction(functionName, scope, info)
   (fn_ref, fn_node, specialBuiltin) = instFunctionRef(fn_ref, info)
   return (fn_ref, fn_node, specialBuiltin)
@@ -2358,18 +1936,14 @@ function lookupFunction(
 )::ComponentRef
   local functionRef::ComponentRef
   local found_scope::InstNode
-  local state::LookupState
   local functionPath::Absyn.Path
   local prefix::ComponentRef
   local is_class::Bool
   functionPath = AbsynUtil.crefToPath(functionName)
-  #=  Make sure the name is a path.
-  =#
+  #= Make sure the name is a path. =#
   (functionRef, found_scope) = lookupFunctionName(functionName, scope, info)
-  #=  If we found a function class we include the root in the prefix, but if we
-  =#
-  #=  instead found a component (i.e. a functional parameter) we don't.
-  =#
+  #= If we found a function class we include the root in the prefix, but if we
+     instead found a component (i.e. a functional parameter) we don't. =#
   is_class = isClass(node(functionRef))
   prefix = fromNodeList(scopeList!(
     found_scope,
@@ -2382,8 +1956,6 @@ end
 function lookupFunctionSimple(functionName::String, scope::InstNode)::ComponentRef
   local functionRef::ComponentRef
   local found_scope::InstNode
-  local state::LookupState
-  local functionPath::Absyn.Path
   local prefix::ComponentRef
    (functionRef, found_scope) =
     lookupFunctionNameSilent(Absyn.CREF_IDENT(functionName, nil), scope)
@@ -2392,26 +1964,23 @@ function lookupFunctionSimple(functionName::String, scope::InstNode)::ComponentR
   return functionRef
 end
 
-function new(path::Absyn.Path, node::InstNode)::M_FUNCTION
-  local fn::M_FUNCTION
-  local cls::Class
+function new(path::Absyn.Path, node::InstNode)::MODELICA_FUNCTION
+  local fn::MODELICA_FUNCTION
   local inputs::List{InstNode}
   local outputs::List{InstNode}
   local locals::List{InstNode}
-  local slots::List{Slot}
-  local attr::DAE.FunctionAttributes
-  local status::FunctionStatusType
+  local attr::FUNCTION_ATTRIBUTES
+  local status::FunctionStatus
 
   (inputs, outputs, locals) = collectParams(node)
   @assign attr = makeAttributes(node, inputs, outputs)
-  #=  Make sure builtin functions aren't added to the function tree.
-  =#
+  #= Make sure builtin functions aren't added to the function tree. =#
   @assign status = if isBuiltinAttr(attr)
-    FunctionStatus.COLLECTED
+    FUNCTION_STATUS_COLLECTED
   else
-    FunctionStatus.INITIAL
+    FUNCTION_STATUS_INITIAL
   end
-  @assign fn = M_FUNCTION(
+  @assign fn = MODELICA_FUNCTION(
     path,
     node,
     inputs,
@@ -2421,102 +1990,94 @@ function new(path::Absyn.Path, node::InstNode)::M_FUNCTION
     TYPE_UNKNOWN(),
     attr,
     nil,
-    P_Pointer.create(status),
-    P_Pointer.create(0),
+    P_Pointer.create(status, FunctionStatus),
+    P_Pointer.create(0, Int),
   )
   return fn
 end
 
 function isValidParamState(cls::InstNode)::Bool
-  local isValid::Bool
-  @assign isValid = begin
-    @match restriction(getClass(cls)) begin
-      RESTRICTION_RECORD(__) => begin
-        true
-      end
-      RESTRICTION_TYPE(__) => begin
-        true
-      end
-      RESTRICTION_OPERATOR(__) => begin
-        true
-      end
-      RESTRICTION_FUNCTION(__) => begin
-        true
-      end
+  @match restriction(getClass(cls)) begin
+    RESTRICTION_RECORD(__) => begin
+      true
+    end
+    RESTRICTION_TYPE(__) => begin
+      true
+    end
+    RESTRICTION_OPERATOR(__) => begin
+      true
+    end
+    RESTRICTION_FUNCTION(__) => begin
+      true
+    end
 
-      RESTRICTION_EXTERNAL_OBJECT(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
+    RESTRICTION_EXTERNAL_OBJECT(__) => begin
+      true
+    end
+    _ => begin
+      false
     end
   end
-  return isValid
 end
 
-function isValidParamType(ty::NFType)::Bool
-  local isValid::Bool
-  @assign isValid = begin
-    @match ty begin
-      TYPE_INTEGER(__) => begin
-        true
-      end
+function isValidParamType(ty::ModelicaType)::Bool
+  @match ty begin
+    TYPE_INTEGER(__) => begin
+      true
+    end
 
-      TYPE_REAL(__) => begin
-        true
-      end
+    TYPE_REAL(__) => begin
+      true
+    end
 
-      TYPE_STRING(__) => begin
-        true
-      end
+    TYPE_STRING(__) => begin
+      true
+    end
 
-      TYPE_BOOLEAN(__) => begin
-        true
-      end
+    TYPE_BOOLEAN(__) => begin
+      true
+    end
 
-      TYPE_CLOCK(__) => begin
-        true
-      end
+    TYPE_CLOCK(__) => begin
+      true
+    end
 
-      TYPE_ENUMERATION(__) => begin
-        true
-      end
+    TYPE_ENUMERATION(__) => begin
+      true
+    end
 
-      TYPE_ENUMERATION_ANY(__) => begin
-        true
-      end
+    TYPE_ENUMERATION_ANY(__) => begin
+      true
+    end
 
-      TYPE_POLYMORPHIC(__) => begin
-        true
-      end
+    TYPE_POLYMORPHIC(__) => begin
+      true
+    end
 
-      TYPE_ARRAY(__) => begin
-        isValidParamType(ty.elementType)
-      end
+    TYPE_ARRAY(__) => begin
+      isValidParamType(ty.elementType)
+    end
 
-      TYPE_COMPLEX(__) => begin
-        isValidParamState(ty.cls)
-      end
+    TYPE_COMPLEX(__) => begin
+      isValidParamState(ty.cls)
+    end
 
-      TYPE_FUNCTION(__) => begin
-        true
-      end
+    TYPE_FUNCTION(__) => begin
+      true
+    end
 
-      TYPE_METABOXED(__) => begin
-        isValidParamType(ty.ty)
-      end
+    TYPE_METABOXED(__) => begin
+      isValidParamType(ty.ty)
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return isValid
 end
 
 function checkParamTypes2(params::List{<:InstNode})
-  local ty::M_Type
+  local ty::ModelicaType
   return for p in params
     ty = getType(p)
     if !isValidParamType(ty)
@@ -2534,153 +2095,57 @@ end
   Checks that all the function parameters have types which are allowed in a
   function.
 """
-function checkParamTypes(fn::M_FUNCTION)
+function checkParamTypes(fn::MODELICA_FUNCTION)
   checkParamTypes2(fn.inputs)
   checkParamTypes2(fn.outputs)
   return checkParamTypes2(fn.locals)
 end
 
+"""The attributes of a function: builtin, inline, impure, partial (omc makeAttributes)."""
 function makeAttributes(
   @nospecialize(node::InstNode),
   @nospecialize(inputs::List{<:InstNode}),
-  @nospecialize (outputs::List{<:InstNode})
-)::DAE.FunctionAttributes
-  local attr::DAE.FunctionAttributes
-
-  local def::SCode.Element
-  local params::Vector{InstNode}
-  local res::SCode.Restriction
-  local fres::SCode.FunctionRestriction
-  local is_partial::Bool
-  local cmts::List{SCode.Comment}
-  local cmt::SCode.Comment
-
-  @assign def = definition(node)
-  @assign res = SCodeUtil.getClassRestriction(def)
-  # Error.assertion(
-  #   SCodeUtil.isFunctionRestriction(res),
-  #   getInstanceName() + " got non-function restriction",
-  #   sourceInfo(),
-  # ) TODO
-  @match SCode.R_FUNCTION(functionRestriction = fres) = res
-  @assign is_partial = SCodeUtil.isPartial(def)
-  @assign cmts = getComments(node)
-  @assign cmt = mergeFunctionAnnotations(cmts)
-  @assign attr = begin
-    local is_impure::Bool
-    local is_om_pure::Bool
-    local has_out_params::Bool
-    local has_unbox_args::Bool
-    local nameVar::String
-    local in_params::List{String}
-    local out_params::List{String}
-    local inline_ty::DAE.InlineType
-    local builtin::DAE.FunctionBuiltin
-    #=  External function. =#
-    @matchcontinue fres begin
-      SCode.FR_EXTERNAL_FUNCTION(is_impure) => begin
-        @assign in_params = list(name(i) for i in inputs)
-        @assign out_params = list(name(o) for o in outputs)
-        @assign nameVar = SCodeUtil.isBuiltinFunction(def, in_params, out_params)
-        @assign inline_ty = commentIsInlineFunc(cmt)
-        @assign is_impure = is_impure || hasImpure(cmt)
-        @assign has_unbox_args = hasUnboxArgsAnnotation(cmt)
-        DAE.FUNCTION_ATTRIBUTES(
-          inline_ty,
-          hasOMPure(cmt),
-          is_impure,
-          is_partial,
-          DAE.FUNCTION_BUILTIN(SOME(nameVar), has_unbox_args),
-          DAE.FP_NON_PARALLEL(),
-        )
-      end
-
-      SCode.FR_PARALLEL_FUNCTION(__) => begin
-        #=  Parallel function: there are some builtin functions.
-        =#
-        @assign in_params = list(name(i) for i in inputs)
-        @assign out_params = list(name(o) for o in outputs)
-        @assign nameVar = SCodeUtil.isBuiltinFunction(def, in_params, out_params)
-        @assign inline_ty = commentIsInlineFunc(cmt)
-        @assign has_unbox_args = hasUnboxArgsAnnotation(cmt)
-        DAE.FUNCTION_ATTRIBUTES(
-          inline_ty,
-          hasOMPure(cmt),
-          false,
-          is_partial,
-          DAE.FUNCTION_BUILTIN(SOME(nameVar), has_unbox_args),
-          DAE.FP_PARALLEL_FUNCTION(),
-        )
-      end
-
-      SCode.FR_PARALLEL_FUNCTION(__) => begin
-        #=  Parallel function: non-builtin.
-        =#
-        @assign inline_ty = commentIsInlineFunc(cmt)
-        DAE.FUNCTION_ATTRIBUTES(
-          inline_ty,
-          hasOMPure(cmt),
-          false,
-          is_partial,
-          getBuiltin(def),
-          DAE.FP_PARALLEL_FUNCTION(),
-        )
-      end
-
-      SCode.FR_KERNEL_FUNCTION(__) => begin
-        DAE.FUNCTION_ATTRIBUTES(
-          DAE.NO_INLINE(),
-          true,
-          false,
-          is_partial,
-          DAE.FUNCTION_NOT_BUILTIN(),
-          DAE.FP_KERNEL_FUNCTION(),
-        )
-      end
-
-      _ => begin
-        #=  Kernel functions: never builtin and never inlined.
-        =#
-        #=  Normal function.
-        =#
-        inline_ty = commentIsInlineFunc(cmt)
-        #=  In Modelica 3.2 and before, external functions with side-effects are not marked.
-        =#
-        @assign is_impure =
-          SCodeUtil.isRestrictionImpure(
-            res,
-#            Config.languageStandardAtLeast(Config.LanguageStandard.V3_3) ||
-            !listEmpty(outputs),
-          ) || SCodeUtil.commentHasBooleanNamedAnnotation(
-            cmt,
-            "__ModelicaAssociation_Impure",
-          )
-        DAE.FUNCTION_ATTRIBUTES(
-          inline_ty,
-          hasOMPure(cmt),
-          is_impure,
-          is_partial,
-          getBuiltin(def),
-          DAE.FP_NON_PARALLEL(),
-        )
-      end
+  @nospecialize(outputs::List{<:InstNode}),
+)::FUNCTION_ATTRIBUTES
+  local def::SCode.Element = definition(node)
+  local res::SCode.Restriction = SCodeUtil.getClassRestriction(def)
+  local fres::SCode.FunctionRestriction = (res::SCode.R_FUNCTION).functionRestriction
+  local is_partial::Bool = SCodeUtil.isPartial(def)
+  local cmt::SCode.COMMENT = mergeFunctionAnnotations(getComments(node))
+  if fres isa SCode.FR_EXTERNAL_FUNCTION || fres isa SCode.FR_PARALLEL_FUNCTION
+    #= An external or parallel function: some are builtin. =#
+    local in_params::List{String} = list(name(i) for i in inputs)
+    local out_params::List{String} = list(name(o) for o in outputs)
+    local builtin_name::String = SCodeUtil.isBuiltinFunction(def, in_params, out_params)
+    if !isempty(builtin_name)
+      local impure::Bool = fres isa SCode.FR_EXTERNAL_FUNCTION && (fres.isImpure || hasImpure(cmt))
+      return FUNCTION_ATTRIBUTES(commentIsInlineFunc(cmt), impure, is_partial, FUNCTION_BUILTIN, SOME(builtin_name),
+                                 hasUnboxArgsAnnotation(cmt))
     end
+    fres isa SCode.FR_PARALLEL_FUNCTION &&
+      return FUNCTION_ATTRIBUTES(commentIsInlineFunc(cmt), false, is_partial, getBuiltin(def), nothing, false)
   end
-  return attr
+  #= Kernel functions: never builtin and never inlined. =#
+  fres isa SCode.FR_KERNEL_FUNCTION && return FUNCTION_ATTRIBUTES(NO_INLINE, false, is_partial, FUNCTION_NOT_BUILTIN, nothing, false)
+  #= A normal function (or an external one that is not builtin). In Modelica 3.2 and before, external
+     functions with side-effects are not marked. =#
+  local is_impure::Bool = SCodeUtil.isRestrictionImpure(res, !listEmpty(outputs)) ||
+                          SCodeUtil.commentHasBooleanNamedAnnotation(cmt, "__ModelicaAssociation_Impure")
+  return FUNCTION_ATTRIBUTES(commentIsInlineFunc(cmt), is_impure, is_partial, getBuiltin(def), nothing, false)
 end
 
-function commentIsInlineFunc(cmt::SCode.Comment)
+function commentIsInlineFunc(cmt::SCode.COMMENT)::InlineType
   if SCodeUtil.commentHasBooleanNamedAnnotation(cmt, "LateInline")
-    return DAE.AFTER_INDEX_RED_INLINE()
+    return AFTER_INDEX_RED_INLINE
   elseif SCodeUtil.commentHasBooleanNamedAnnotation(cmt, "Inline")
-    return DAE.EARLY_INLINE()
+    return EARLY_INLINE
   end
-  return DAE.NO_INLINE()
+  return NO_INLINE
 end
 
 """Merges the function's comments from inherited classes."""
-function mergeFunctionAnnotations(comments::List{<:SCode.Comment})::SCode.Comment
-  local outComment::SCode.Comment
+function mergeFunctionAnnotations(comments::List{<:SCode.COMMENT})::SCode.COMMENT
+  local outComment::SCode.COMMENT
 
   local comment::Option{String} = NONE()
   local mod::SCode.Mod = SCode.NOMOD()
@@ -2716,30 +2181,18 @@ function mergeFunctionAnnotations(comments::List{<:SCode.Comment})::SCode.Commen
   return outComment
 end
 
-
-function getBuiltin(def::SCode.Element)::DAE.FunctionBuiltin
-  local builtin::DAE.FunctionBuiltin = if SCodeUtil.isBuiltinElement(def)
-    DAE.FUNCTION_BUILTIN_PTR()
-  else
-    DAE.FUNCTION_NOT_BUILTIN()
-  end
-  return builtin
+function getBuiltin(def::SCode.Element)::BuiltinKind
+  return SCodeUtil.isBuiltinElement(def) ? FUNCTION_BUILTIN_PTR : FUNCTION_NOT_BUILTIN
 end
 
-function hasImpure(cmt::SCode.Comment)::Bool
+function hasImpure(cmt::SCode.COMMENT)::Bool
   local res::Bool =
     SCodeUtil.commentHasBooleanNamedAnnotation(cmt, "__ModelicaAssociation_Impure")
   return res
 end
 
-function hasOMPure(cmt::SCode.Comment)::Bool
-  local res::Bool =
-    !SCodeUtil.commentHasBooleanNamedAnnotation(cmt, "__OpenModelica_Impure")
-  return res
-end
-
 function makeSlot(@nospecialize(componentArg::InstNode), index::Int)::SLOT
-  local slot::Slot
+  local slot::SLOT
   local comp::Component
   local default::Option{Expression}
   local nameVar::String
@@ -2754,25 +2207,24 @@ function makeSlot(@nospecialize(componentArg::InstNode), index::Int)::SLOT
     end
     slot = SLOT(
       name(componentArg),
-      SlotType.GENERIC,
+      SLOT_TYPE_GENERIC,
       default,
       NONE(),
       index,
-      SlotEvalStatus.NOT_EVALUATED,
+      SLOT_NOT_EVALUATED,
     )
   catch e
     #    Error.assertion(false, getInstanceName() + " got invalid component", sourceInfo())
     @error "Error. Our error was $e"
     fail()
   end
-  #=  Remove $in_ for OM input output arguments.
-  =#
-  #= /*$*/ =#
+  #= Remove $in_ for OM input output arguments.
+     /*$*/ =#
   return slot
 end
 
-function makeSlots(@nospecialize(inputs::List{<:InstNode}))::List{Slot}
-  local slots::List{Slot} = nil
+function makeSlots(@nospecialize(inputs::List{<:InstNode}))::List{SLOT}
+  local slots::List{SLOT} = nil
   local index::Int = 1
   for i in inputs
     slots = _cons(makeSlot(i, index), slots)
@@ -2796,8 +2248,7 @@ function paramDirection(@nospecialize(componentArg::InstNode))::DirectionType
   ) = getAttributes(component(componentArg))
   @assign vis = visibility(componentArg)
   @assign var = variability(component(componentArg))
-  #=  Function components may not be connectors.
-  =#
+  #= Function components may not be connectors. =#
   if isFlowOrStream(cty)
     Error.addSourceMessage(
       Error.INNER_OUTER_FORMAL_PARAMETER,
@@ -2806,8 +2257,7 @@ function paramDirection(@nospecialize(componentArg::InstNode))::DirectionType
     )
     fail()
   end
-  #=  Function components may not be inner/outer.
-  =#
+  #= Function components may not be inner/outer. =#
   if io != InnerOuter.NOT_INNER_OUTER
     # Error.addSourceMessage(
     #   Error.INNER_OUTER_FORMAL_PARAMETER,
@@ -2816,8 +2266,7 @@ function paramDirection(@nospecialize(componentArg::InstNode))::DirectionType
     # )
     fail()
   end
-  #=  Formal parameters must be public, other function variables must be protected.
-  =#
+  #= Formal parameters must be public, other function variables must be protected. =#
   if direction != Direction.NONE
     if vis == Visibility.PROTECTED
       # Error.addSourceMessage(
@@ -2860,102 +2309,47 @@ function collectParams(
   #   sourceInfo(),
   # ) TODO
   @assign cls = getClass(node)
-   () = begin
-    @match cls begin
-      INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps)) =>
-        begin
-          for i = arrayLength(comps):(-1):1
-            @assign n = comps[i]
-             () = begin
-              @match paramDirection(n) begin
-                Direction.INPUT => begin
-                  #=  Sort the components based on their direction.
-                  =#
-                  @assign inputs = _cons(n, inputs)
-                  ()
-                end
+   @match cls begin
+     INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps)) =>
+       begin
+         for i = arrayLength(comps):(-1):1
+           @assign n = comps[i]
+            @match paramDirection(n) begin
+              Direction.INPUT => begin
+                #= Sort the components based on their direction. =#
+                @assign inputs = _cons(n, inputs)
+                ()
+              end
 
-                Direction.OUTPUT => begin
-                  @assign outputs = _cons(n, outputs)
-                  ()
-                end
+              Direction.OUTPUT => begin
+                @assign outputs = _cons(n, outputs)
+                ()
+              end
 
-                Direction.NONE => begin
-                  @assign locals = _cons(n, locals)
-                  ()
-                end
+              Direction.NONE => begin
+                @assign locals = _cons(n, locals)
+                ()
               end
             end
-          end
-          ()
-        end
+         end
+         ()
+       end
 
-      EXPANDED_DERIVED(__) => begin
-         (inputs, outputs, locals) = collectParams(cls.baseClass)
-        ()
-      end
+     EXPANDED_DERIVED(__) => begin
+        (inputs, outputs, locals) = collectParams(cls.baseClass)
+       ()
+     end
 
-      _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() + " got non-instantiated function",
-          sourceInfo(),
-        )
-        fail()
-      end
-    end
-  end
+     _ => begin
+       Error.assertion(
+         false,
+         getInstanceName() + " got non-instantiated function",
+         sourceInfo(),
+       )
+       fail()
+     end
+   end
   return (inputs, outputs, locals)
-end
-
-function analyseUnusedParametersExp2(
-  exp::Expression,
-  params::List{<:InstNode},
-)::List{InstNode}
-
-   () = begin
-    @match exp begin
-      CREF_EXPRESSION(__) => begin
-        @assign params = ListUtil.deleteMemberOnTrue(
-          exp.cref,
-          params,
-          containsNode,
-        )
-        ()
-      end
-
-      _ => begin
-        ()
-      end
-    end
-  end
-  return params
-end
-
-function analyseUnusedParametersExp(
-  exp::Expression,
-  params::List{<:InstNode},
-)::List{InstNode}
-
-  if !listEmpty(params)
-    @assign params = fold(exp, analyseUnusedParametersExp2, params)
-  end
-  return params
-end
-
-function analyseUnusedParameters(fn::M_FUNCTION)::List{Int}
-  local unusedInputs::List{Int} = nil
-
-  local inputs::List{InstNode}
-  local index::Int
-
-  @assign inputs = foldExp(fn, analyseUnusedParametersExp, fn.inputs)
-  for i in inputs
-    @assign index =
-      ListUtil.positionOnTrue(fn.inputs, (inp) -> refEqual(i, inp))
-    @assign unusedInputs = _cons(index, unusedInputs)
-  end
-  return unusedInputs
 end
 
 """
@@ -2964,7 +2358,7 @@ end
 function getBody2(node::InstNode)
   local body::Vector{Statement}
   local cls::Class = getClass(node)
-  local fn_body::Algorithm
+  local fn_body::ALGORITHM
   body = begin
     @match cls begin
       INSTANCED_CLASS(
@@ -2998,9 +2392,9 @@ function getBody2(node::InstNode)
   return body
 end
 
-function makeReturnType(fn::M_FUNCTION)::M_Type
-  local returnType::M_Type
-  local ret_tyl::List{M_Type}
+function makeReturnType(fn::MODELICA_FUNCTION)::ModelicaType
+  local returnType::ModelicaType
+  local ret_tyl::List{ModelicaType}
   ret_tyl = list(getType(o) for o in fn.outputs)
   returnType = begin
     @match ret_tyl begin

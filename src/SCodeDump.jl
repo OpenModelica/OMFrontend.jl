@@ -36,12 +36,13 @@
 module SCodeDump
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 #= Forward declarations for uniontypes until Julia adds support for mutual recursion =#
 
 @UniontypeDecl SCodeDumpOptions
 
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 import ..SCode
 import ..ListUtil
 
@@ -73,9 +74,9 @@ function printModStr(inMod::SCode.Mod, options::SCodeDumpOptions = defaultOption
 end
 
 """The annotation of an SCode comment as Modelica, `annotation(...)`; empty for none."""
-function printAnnotationStr(inComment::SCode.Comment, options::SCodeDumpOptions = defaultOptions)::String
-  local ann::Option{SCode.Annotation} = inComment.annotation_
-  return isSome(ann) ? dumpAnnotation(ann.data, options) : ""
+function printAnnotationStr(inComment::SCode.COMMENT, options::SCodeDumpOptions = defaultOptions)::String
+  local ann::Option{SCode.ANNOTATION} = inComment.annotation_
+  return isSome(ann) ? dumpAnnotation(ann.value, options) : ""
 end
 
 """The annotations a tool draws, left out with the option `stripGraphicalAnnotations`."""
@@ -96,7 +97,7 @@ function dumpModifier(mod::SCode.Mod, options::SCodeDumpOptions)::String
     local subs::Vector{String} = String[subModStr(sm, options) for sm in mod.subModLst]
     local binding::Option{Absyn.Exp} = mod.binding
     return (isempty(subs) ? "" : "(" * join(subs, ", ") * ")") *
-           (isSome(binding) ? " = " * AbsynUtil.printExp(binding.data) : "")
+           (isSome(binding) ? " = " * AbsynUtil.printExp(binding.value) : "")
   elseif mod isa SCode.REDECL
     return "redeclare " * unparseElementStr(mod.element, options)
   end
@@ -104,7 +105,7 @@ function dumpModifier(mod::SCode.Mod, options::SCodeDumpOptions)::String
 end
 
 """A submodifier as Modelica: its prefixes, name and modifier."""
-function subModStr(sm::SCode.SubMod, options::SCodeDumpOptions)::String
+function subModStr(sm::SCode.NAMEMOD, options::SCodeDumpOptions)::String
   local mod::SCode.Mod = sm.mod
   mod isa SCode.REDECL && return dumpModifier(mod, options)
   local prefixes::String = mod isa SCode.MOD ?
@@ -231,10 +232,8 @@ function restrString(inRestriction::SCode.Restriction)::String
       end
     end
   end
-  #=  predefined types
-  =#
-  #=  BTH
-  =#
+  #= predefined types
+     BTH =#
   return outString
 end
 
@@ -256,76 +255,64 @@ end
 
 """Print Variability to a string."""
 function variabilityString(inVariability::SCode.Variability)::String
-  local outString::String
 
-  @assign outString = begin
-    @match inVariability begin
-      SCode.VAR(__) => begin
-        "VAR"
-      end
+  @match inVariability begin
+    SCode.VAR(__) => begin
+      "VAR"
+    end
 
-      SCode.DISCRETE(__) => begin
-        "DISCRETE"
-      end
+    SCode.DISCRETE(__) => begin
+      "DISCRETE"
+    end
 
-      SCode.PARAM(__) => begin
-        "PARAM"
-      end
+    SCode.PARAM(__) => begin
+      "PARAM"
+    end
 
-      SCode.CONST(__) => begin
-        "CONST"
-      end
+    SCode.CONST(__) => begin
+      "CONST"
     end
   end
-  return outString
 end
 
 """Print parallelism to a string."""
 function parallelismString(inParallelism::SCode.Parallelism)::String
-  local outString::String
 
-  @assign outString = begin
-    @match inParallelism begin
-      SCode.PARGLOBAL(__) => begin
-        "PARGLOBAL"
-      end
+  @match inParallelism begin
+    SCode.PARGLOBAL(__) => begin
+      "PARGLOBAL"
+    end
 
-      SCode.PARLOCAL(__) => begin
-        "PARLOCAL"
-      end
+    SCode.PARLOCAL(__) => begin
+      "PARLOCAL"
+    end
 
-      SCode.NON_PARALLEL(__) => begin
-        "NON_PARALLEL"
-      end
+    SCode.NON_PARALLEL(__) => begin
+      "NON_PARALLEL"
     end
   end
-  return outString
 end
 
 """Print Variability to a string."""
 function unparseVariability(inVariability::SCode.Variability)::String
-  local outString::String
 
-  @assign outString = begin
-    @match inVariability begin
-      SCode.VAR(__) => begin
-        ""
-      end
+  @match inVariability begin
+    SCode.VAR(__) => begin
+      ""
+    end
 
-      SCode.DISCRETE(__) => begin
-        "discrete"
-      end
+    SCode.DISCRETE(__) => begin
+      "discrete"
+    end
 
-      SCode.PARAM(__) => begin
-        "parameter"
-      end
+    SCode.PARAM(__) => begin
+      "parameter"
+    end
 
-      SCode.CONST(__) => begin
-        "constant"
-      end
+    SCode.CONST(__) => begin
+      "constant"
     end
   end
-  return outString
 end
 
 @exportAll()

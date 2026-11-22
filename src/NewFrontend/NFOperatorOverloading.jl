@@ -33,7 +33,7 @@
 *
 */ =#
 
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 
 function instConstructor(path::Absyn.Path, recordNode::InstNode, info::SourceInfo)::InstNode
   local ctor_ref::ComponentRef
@@ -55,14 +55,10 @@ function instConstructor(path::Absyn.Path, recordNode::InstNode, info::SourceInf
       recordNode = cacheAddFunc(recordNode, f, false)
     end
   end
-  #=  If it has an overloaded constructor, instantiate it and add the
-  =#
-  #=  function(s) to the record node.
-  =#
-  #= ctor_node := node(ctor_ref);
-  =#
-  #= ctor_node := Function.instFunction2(ctor_path, ctor_node, info);
-  =#
+  #= If it has an overloaded constructor, instantiate it and add the
+     function(s) to the record node.
+     ctor_node := node(ctor_ref);
+     ctor_node := Function.instFunction2(ctor_path, ctor_node, info); =#
   recordNode = instDefaultConstructor(path, recordNode, info)
   return recordNode
 end
@@ -71,39 +67,34 @@ function instOperatorFunctions(node::InstNode, info::SourceInfo)::InstNode
 
   local tree::ClassTree
   local mclss::Vector{InstNode}
-  local path::Absyn.Path
-  local allfuncs::Vector{M_FUNCTION} = M_FUNCTION[]
-  local funcs::Vector{M_FUNCTION}
+  local allfuncs::Vector{MODELICA_FUNCTION} = MODELICA_FUNCTION[]
+  local funcs::Vector{MODELICA_FUNCTION}
   checkOperatorRestrictions(node)
   @assign tree = classTree(getClass(node))
-   () = begin
-    @match tree begin
-      CLASS_TREE_FLAT_TREE(classes = mclss) => begin
-        for op in mclss
-          instFunctionNode(op)
-          funcs = getCachedFuncs(op)
-          allfuncs = Base.append!(allfuncs, funcs)
-        end
-        #= path := InstNode.scopePath(op, includeRoot = true);
-        =#
-        #= Function.instFunction2(path, op, info);
-        =#
-        for f in allfuncs
-          node = cacheAddFunc(node, f, false)
-        end
-        ()
-      end
+   @match tree begin
+     CLASS_TREE_FLAT_TREE(classes = mclss) => begin
+       for op in mclss
+         instFunctionNode(op)
+         funcs = getCachedFuncs(op)
+         allfuncs = Base.append!(allfuncs, funcs)
+       end
+       #= path := InstNode.scopePath(op, includeRoot = true);
+          Function.instFunction2(path, op, info); =#
+       for f in allfuncs
+         node = cacheAddFunc(node, f, false)
+       end
+       ()
+     end
 
-      _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() + " got non-instantiated function",
-          sourceInfo(),
-        )
-        fail()
-      end
-    end
-  end
+     _ => begin
+       Error.assertion(
+         false,
+         getInstanceName() + " got non-instantiated function",
+         sourceInfo(),
+       )
+       fail()
+     end
+   end
   return node
 end
 
@@ -118,8 +109,8 @@ function checkOperatorRestrictions(operatorNode::InstNode)
   end
 end
 
-function lookupOperatorFunctionsInType(operatorName::String, ty::M_Type)::Vector{M_FUNCTION}
-  local functions::Vector{M_Function}
+function lookupOperatorFunctionsInType(operatorName::String, ty::ModelicaType)::Vector{MODELICA_FUNCTION}
+  local functions::Vector{MODELICA_FUNCTION}
   local node::InstNode
   local fn_ref::ComponentRef
   local is_defined::Bool
@@ -136,12 +127,12 @@ function lookupOperatorFunctionsInType(operatorName::String, ty::M_Type)::Vector
           (fn_ref, _, _) = instFunctionRef(fn_ref, InstNode_info(node))
           functions = typeRefCache(fn_ref)
         else
-          functions = M_FUNCTION[]
+          functions = MODELICA_FUNCTION[]
         end
         functions
       end
       _ => begin
-        M_FUNCTION[]
+        MODELICA_FUNCTION[]
       end
     end
   end
@@ -158,16 +149,14 @@ end
   so to avoid that we rewrite any calls to the constructor in the binding as
   record expressions.
 """
-function patchOperatorRecordConstructorBinding(fn::M_Function)::M_Function
+function patchOperatorRecordConstructorBinding(fn::MODELICA_FUNCTION)::MODELICA_FUNCTION
 
   local output_node::InstNode
   local output_comp::Component
   local output_binding::Binding
 
-  #=  Due to how this function is used it might also be called on destructors,
-  =#
-  #=  which we just ignore.
-  =#
+  #= Due to how this function is used it might also be called on destructors,
+     which we just ignore. =#
   if listLength(fn.outputs) != 1
     return fn
   end
@@ -187,7 +176,7 @@ function patchOperatorRecordConstructorBinding(fn::M_Function)::M_Function
 end
 
 function checkOperatorConstructorOutput(
-  fn::M_Function,
+  fn::MODELICA_FUNCTION,
   recordNode::InstNode,
   path::Absyn.Path,
   info::SourceInfo,
@@ -222,26 +211,22 @@ end
 
 function patchOperatorRecordConstructorBinding_traverser(
   exp::Expression,
-  constructorFn::M_Function,
+  constructorFn::MODELICA_FUNCTION,
 )::Expression
-  local outExp::Expression
 
-  local fn::M_Function
+  local fn::MODELICA_FUNCTION
   local args::Vector{Expression}
-  local ty::M_Type
+  local ty::ModelicaType
 
-  @assign outExp = begin
-    @match exp begin
-      CALL_EXPRESSION(
-        call = TYPED_CALL(fn = fn, ty = ty, arguments = args),
-      ) where {(referenceEq(constructorFn.node, fn.node))} => begin
-        makeRecord(name(constructorFn), ty, args)
-      end
+  @match exp begin
+    CALL_EXPRESSION(
+      call = TYPED_CALL(fn = fn, ty = ty, arguments = args),
+    ) where {(referenceEq(constructorFn.node, fn.node))} => begin
+      makeRecord(name(constructorFn), ty, args)
+    end
 
-      _ => begin
-        exp
-      end
+    _ => begin
+      exp
     end
   end
-  return outExp
 end

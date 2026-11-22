@@ -34,13 +34,10 @@
 */ =#
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
-#= Forward declarations for uniontypes until Julia adds support for mutual recursion =#
 
-@UniontypeDecl NFConnection
-const Connection = NFConnection
-
-function toString(conn::Connection)::String
+function toString(conn::CONNECTION)::String
   local str::String
   @assign str =
     "connect(" +
@@ -51,7 +48,7 @@ function toString(conn::Connection)::String
   return str
 end
 
-function Base.string(conn::Connection)::String
+function Base.string(conn::CONNECTION)::String
   local str::String
   @assign str =
     "connect(" +
@@ -60,20 +57,11 @@ function Base.string(conn::Connection)::String
     #=Connector.=#toString(conn.rhs) +
     ")"
   return str
-end
-
-
-@Uniontype NFConnection begin
-  @Record CONNECTION begin
-    #=  TODO: This should be Connector, but the import above doesn't work due to some compiler bug.=#
-    lhs::NFConnector
-    rhs::NFConnector
-  end
 end
 
 """
   Split function for a connection.
-   Given a connection split and return a List{Connection}
+   Given a connection split and return a List{CONNECTION}
 """
 function split(connection::CONNECTION)::List
   local connectionLstRight = split(connection.rhs)

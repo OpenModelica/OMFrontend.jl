@@ -35,45 +35,37 @@
 
 module FunctionTreeImpl
   using MetaModelica
+  import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
   using ExportAll
   import ..Absyn
-  import ..Frontend.M_Function
+  import ..Frontend.MODELICA_FUNCTION
   import ..Frontend.toString
   import ..Frontend.toFlatString
   import ..Frontend.AbsynUtil
   const Key = Absyn.Path
-  const Value = M_Function
+  const Value = MODELICA_FUNCTION
   include("../Util/baseAvlTreeCode.jl")
-  addConflictDefault = addConflictKeep
-  keyStr = (k) -> begin
-    return AbsynUtil.pathString(k)
-  end
-  valueStr = (vs) -> begin
-    return toFlatString(vs)
-  end
-#= John 2023-04-03:
-Default(Julia) string compare does not give the right result.
-MetaModelica string comp is used instead.
-=#
-  keyCompare = (inKey1::Key, inKey2::Key) -> begin
-    return stringCompare(keyStr(inKey1), keyStr(inKey2))
-  end
+  const addConflictDefault = addConflictKeep
+  keyStr(k::Key)::String = AbsynUtil.pathString(k)
+  valueStr(v::Value)::String = toFlatString(v)
+  #= The order of the path strings (John 2023-04-03: Julia's default comparison of the paths gave another order). =#
+  keyCompare(inKey1::Key, inKey2::Key)::Int = stringCompare(keyStr(inKey1), keyStr(inKey2))
 end #= FunctionTreeImpl =#
-FunctionTree = FunctionTreeImpl.Tree
-const NFFunctionTree = FunctionTreeImpl
+"""The functions of a flat model by name."""
+const FunctionTree = FunctionTreeImpl.Tree
 
 import .FunctionTree
 
 function flatten(classInst::InstNode, name::String; prefix = COMPONENT_REF_EMPTY(), isTopLevel::Bool = true)
-  local flatModel::FlatModel
+  local flatModel::FLAT_MODEL
   local sections::Sections
-  local vars::Vector{Variable}
+  local vars::Vector{VARIABLE}
   local eql::Vector{Equation}
   local ieql::Vector{Equation}
-  local alg::Vector{Algorithm}
-  local ialg::Vector{Algorithm}
+  local alg::Vector{ALGORITHM}
+  local ialg::Vector{ALGORITHM}
   local structuralSubmodels::List{FLAT_MODEL} = nil
-  local cmt::Option{SCode.Comment}
+  local cmt::Option{SCode.COMMENT}
   sections = SECTIONS_EMPTY()
   #@debug "CALLING TOP LEVEL FLATTEN"
   cmt = SCodeUtil.getElementComment(definition(classInst))
@@ -83,7 +75,7 @@ function flatten(classInst::InstNode, name::String; prefix = COMPONENT_REF_EMPTY
     prefix,
     Visibility.PUBLIC,
     NONE(),
-    Variable[],
+    VARIABLE[],
     sections,
     structuralSubmodels,
     isTopLevel = isTopLevel,
@@ -110,36 +102,34 @@ function flatten(classInst::InstNode, name::String; prefix = COMPONENT_REF_EMPTY
                    vars,
                    Equation[],
                    Equation[],
-                   Algorithm[],
-                   Algorithm[],
+                   ALGORITHM[],
+                   ALGORITHM[],
                    nil,
                    NONE(),
                    cmt)
       end
     end
   end
-#  execStat(getInstanceName() + "(" + name + ")")
-#  flatModel = resolveConnections(flatModel, name)
   return flatModel
 end
 
-function collectFunctions(flatModel::FlatModel, name::String)::FunctionTree
+function collectFunctions(flatModel::FLAT_MODEL, name::String)::FunctionTree
   return collectModelFuncs(flatModel, FunctionTreeImpl.new())
 end
 
 """
-    collectModelFuncs(flatModel::FlatModel, funcs::FunctionTree) -> FunctionTree
+    collectModelFuncs(flatModel::FLAT_MODEL, funcs::FunctionTree) -> FunctionTree
 
 The functions `flatModel` calls, with those of its structural modes (`structuralSubmodels`):
 a mode is a flat model of its own, and the backend generates its code with the model's
 functions (a table in a mode was an undefined function).
 """
-function collectModelFuncs(flatModel::FlatModel, funcs::FunctionTree)::FunctionTree
-  funcs = ArrayUtil.fold(flatModel.variables, collectComponentFuncs, funcs)
-  funcs = ArrayUtil.fold(flatModel.equations, collectEquationFuncs, funcs)
-  funcs = ArrayUtil.fold(flatModel.initialEquations, collectEquationFuncs, funcs)
-  funcs = ArrayUtil.fold(flatModel.algorithms, collectAlgorithmFuncs, funcs)
-  funcs = ArrayUtil.fold(flatModel.initialAlgorithms, collectAlgorithmFuncs, funcs)
+function collectModelFuncs(flatModel::FLAT_MODEL, funcs::FunctionTree)::FunctionTree
+  funcs = ArrayUtil.fold(flatModel.variables, collectComponentFuncs, funcs, FunctionTree)
+  funcs = ArrayUtil.fold(flatModel.equations, collectEquationFuncs, funcs, FunctionTree)
+  funcs = ArrayUtil.fold(flatModel.initialEquations, collectEquationFuncs, funcs, FunctionTree)
+  funcs = ArrayUtil.fold(flatModel.algorithms, collectAlgorithmFuncs, funcs, FunctionTree)
+  funcs = ArrayUtil.fold(flatModel.initialAlgorithms, collectAlgorithmFuncs, funcs, FunctionTree)
   for mode in flatModel.structuralSubmodels
     funcs = collectModelFuncs(mode, funcs)
   end
@@ -151,7 +141,7 @@ function flattenClass(
   prefix::ComponentRef,
   visibility::VisibilityType,
   binding::Option{<:Binding},
-  vars::Vector{Variable},
+  vars::Vector{VARIABLE},
   sections::Sections,
   #= Extension. Models that are a structural part of a flat model and should not be merged.=#
   structuralSubModels::List{FLAT_MODEL},
@@ -163,90 +153,85 @@ function flattenClass(
   local comps::Vector{InstNode}
   local bindings::List{Binding}
   local b::Binding
-  () = begin
-    @match cls begin
-      #= A type (`type T extends Integer`) has no variables of its own (omc flattenClass). =#
-      INSTANCED_CLASS(restriction = RESTRICTION_TYPE(__)) => ()
+  @match cls begin
+    #= A type (`type T extends Integer`) has no variables of its own (omc flattenClass). =#
+    INSTANCED_CLASS(restriction = RESTRICTION_TYPE(__)) => ()
 
-      INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps)) =>
-        begin
-          if isSome(binding)
-            @match SOME(b) = binding
-            if isBound(b)
-              b = flattenBinding(b, rest(prefix))
-              bindings = getRecordBindings(b, comps)
-              Error.assertion(
-                listLength(bindings) == arrayLength(comps),
-                getInstanceName() +
-                " got record binding with wrong number of elements for " +
-                toString(prefix),
-                sourceInfo(),
+    INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps)) =>
+      begin
+        if isSome(binding)
+          @match SOME(b) = binding
+          if isBound(b)
+            b = flattenBinding(b, rest(prefix))
+            bindings = getRecordBindings(b, comps)
+            Error.assertion(
+              listLength(bindings) == arrayLength(comps),
+              getInstanceName() +
+              " got record binding with wrong number of elements for " +
+              toString(prefix),
+              sourceInfo(),
+            )
+            for c in comps
+              (vars, sections) = flattenComponent(
+                c,
+                prefix,
+                visibility,
+                SOME(listHead(bindings)),
+                vars,
+                sections,
+                structuralSubModels,
+                isTopLevel = isTopLevel,
               )
-              for c in comps
-                #@info "Calling flatten component" toString(c)
-                (vars, sections) = flattenComponent(
-                  c,
-                  prefix,
-                  visibility,
-                  SOME(listHead(bindings)),
-                  vars,
-                  sections,
-                  structuralSubModels,
-                  isTopLevel = isTopLevel,
-                )
-                bindings = listRest(bindings)
-              end
-            else
-              for c in comps
-                #@info "Calling flatten component" toString(c)
-                (vars, sections, structuralSubModels) =
-                  flattenComponent(c, prefix, visibility, binding,
-                                   vars, sections, structuralSubModels,
-                                   isTopLevel = isTopLevel)
-              end
+              bindings = listRest(bindings)
             end
           else
             for c in comps
-              #@info "Calling flatten component" toString(c)
               (vars, sections, structuralSubModels) =
-                flattenComponent(c, prefix, visibility, NONE(),
+                flattenComponent(c, prefix, visibility, binding,
                                  vars, sections, structuralSubModels,
                                  isTopLevel = isTopLevel)
             end
           end
-          sections = flattenSections(cls.sections, prefix, sections)
-          ()
+        else
+          for c in comps
+            (vars, sections, structuralSubModels) =
+              flattenComponent(c, prefix, visibility, NONE(),
+                               vars, sections, structuralSubModels,
+                               isTopLevel = isTopLevel)
+          end
         end
-
-      TYPED_DERIVED(__) => begin
-         (vars, sections) = flattenClass(
-          getClass(cls.baseClass),
-          prefix,
-          visibility,
-          binding,
-          vars,
-          sections,
-          structuralSubModels,
-          isTopLevel = isTopLevel,
-        )
+        sections = flattenSections(cls.sections, prefix, sections)
         ()
       end
 
-      INSTANCED_BUILTIN(__) => begin
-        ()
-      end
+    TYPED_DERIVED(__) => begin
+       (vars, sections) = flattenClass(
+        getClass(cls.baseClass),
+        prefix,
+        visibility,
+        binding,
+        vars,
+        sections,
+        structuralSubModels,
+        isTopLevel = isTopLevel,
+      )
+      ()
+    end
 
-      _ => begin
-        Error.assertion(
-          false,
-          getInstanceName() +
-          " got non-instantiated component " +
-          toString(prefix) +
-          "\\n",
-          sourceInfo(),
-        )
-        ()
-      end
+    INSTANCED_BUILTIN(__) => begin
+      ()
+    end
+
+    _ => begin
+      Error.assertion(
+        false,
+        getInstanceName() +
+        " got non-instantiated component " +
+        toString(prefix) +
+        "\\n",
+        sourceInfo(),
+      )
+      ()
     end
   end
   return (vars, sections, structuralSubModels)
@@ -257,16 +242,15 @@ function flattenComponent(
   prefix::ComponentRef,
   visibility::VisibilityType,
   outerBinding::Option{<:Binding},
-  vars::Vector{Variable},
+  vars::Vector{VARIABLE},
   sections::Sections,
   #= Passed from the top level class. =#
   structuralSubModels::List{FLAT_MODEL};
   isTopLevel::Bool = false,
   )
-  #@info "FLATTEN COMPONENT: " * toString(inComponent)
   local comp_node::InstNode
   local c::Component
-  local ty::M_Type
+  local ty::ModelicaType
   local condition::Binding
   local cls::Class
   local vis::VisibilityType
@@ -297,20 +281,18 @@ function flattenComponent(
         visibility
       end
       if isComplexComponent(ty)
-        #= A complex component such as a model or a class =#
-        #= Keep the component as a separate submodel when it is declared
+        #= A complex component such as a model or a class
+           Keep the component as a separate submodel when it is declared
            `structuralmode`, or when the separate-index-reduction flag splits
            every top-level component. The flag is gated on isTopLevel so it
            does not cascade into a submodel's own internals. =#
         if c.attributes.isStructuralMode == true ||
            (isTopLevel && Flags.isSet(Flags.NF_SEPARATE_INSTANTIATION))
           #@debug "FLATTEN A COMPLEX STRUCTURAL COMPONENT"
-          #=
-            Since this component is structural we do not flatten it.
-            Instead we create a new FlatModel and add it to the list.
-            If this component in turn has structural subcomponents these are added
-            to the list of FlatModels for this component using recursion.
-          =#
+          #= Since this component is structural we do not flatten it.
+             Instead we create a new FLAT_MODEL and add it to the list.
+             If this component in turn has structural subcomponents these are added
+             to the list of FlatModels for this component using recursion. =#
           local prefixOfComponent = fromNode(comp_node, ty)
           structuralSubModels =
             flatten(comp_node #= TODO: Or do we need some instantation specific stuff=#,
@@ -358,7 +340,7 @@ end
 #= A ragged dimension (an expression, typeDimensionUntyped) for one element of the enclosing arrays
    of components: evaluated in the context of the element's cref, a binding from the arrays'
    modifier read for that element (omc: split indices resolved by the prefix). =#
-function flattenRaggedDimensions(@nospecialize(ty::M_Type), cref::ComponentRef)::M_Type
+function flattenRaggedDimensions(@nospecialize(ty::ModelicaType), cref::ComponentRef)::ModelicaType
   isArray(ty) || return ty
   any(d -> isvariant(d, DIMENSION_EXP) && !isLiteral(d.exp), arrayDims(ty)) || return ty
   return mapDims(ty, d -> flattenRaggedDimension(d, cref))
@@ -371,11 +353,9 @@ function flattenRaggedDimension(dim::Dimension, cref::ComponentRef)::Dimension
   local ctx = _elementContext()
   push!(ctx, cref)
   local e::Expression
-  try
-    e = evalExp(dim.exp, EVALTARGET_IGNORE_ERRORS())
-  finally
-    pop!(ctx)
-  end
+  #= A dimension that does not evaluate (the expression itself) stays. =#
+  (_, e) = evalExpChecked(dim.exp, EVALTARGET_IGNORE_ERRORS())
+  pop!(ctx)
   return isLiteral(e) ? fromExp(e, dim.var) : dim
 end
 
@@ -390,7 +370,7 @@ omc Flatten.checkDeletedVarRefs: a reference to a component deleted by a false c
 is an error, unless --allowNonStandardModelica=illegalConditionalContext. Run after the
 connections are resolved (connects to deleted components are removed there).
 """
-function checkDeletedVarRefs(flatModel::FlatModel)
+function checkDeletedVarRefs(flatModel::FLAT_MODEL)
   Flags.isConfigFlagSet(Flags.ALLOW_NON_STANDARD_MODELICA, "illegalConditionalContext") && return nothing
   for var in flatModel.variables
     checkDeletedVarRefsInBinding(var.binding, var.info)
@@ -399,13 +379,13 @@ function checkDeletedVarRefs(flatModel::FlatModel)
     end
   end
   for eq in Iterators.flatten((flatModel.equations, flatModel.initialEquations))
-    local info::SourceInfo = DAE.ElementSource_getInfo(source(eq))
-    foldExp(eq, (e, arg) -> (checkDeletedVarRefsInExp(e, info); arg), nothing)
+    local info::SourceInfo = source(eq)
+    foldExp(eq, (e::Expression, arg::Nothing) -> (checkDeletedVarRefsInExp(e, info); arg), nothing, Nothing)
   end
   for alg in Iterators.flatten((flatModel.algorithms, flatModel.initialAlgorithms))
     for stmt in alg.statements
-      local info::SourceInfo = DAE.ElementSource_getInfo(stmt.source)
-      foldExp(stmt, (e, arg) -> (checkDeletedVarRefsInExp(e, info); arg), nothing)
+      local info::SourceInfo = stmt.source
+      foldExp(stmt, (e::Expression, arg::Nothing) -> (checkDeletedVarRefsInExp(e, info); arg), nothing, Nothing)
     end
   end
   return nothing
@@ -417,7 +397,7 @@ function checkDeletedVarRefsInBinding(binding::Binding, info::SourceInfo)
 end
 
 function checkDeletedVarRefsInExp(@nospecialize(exp::Expression), info::SourceInfo)
-  fold(exp, (e, arg) -> begin
+  fold(exp, (e::Expression, arg::Nothing) -> begin
     @match e begin
       CREF_EXPRESSION(__) where {isDeletedCref(e.cref)} => begin
         Error.addSourceMessage(Error.INVALID_DELETED_COMPONENT_CONTEXT, list(toString(e.cref)), info)
@@ -426,7 +406,7 @@ function checkDeletedVarRefsInExp(@nospecialize(exp::Expression), info::SourceIn
       _ => ()
     end
     arg
-  end, nothing)
+  end, nothing, Nothing)
   return nothing
 end
 
@@ -508,8 +488,7 @@ end
 function deleteComponent(compNode::InstNode)
   local comp::Component
 
-  #=  @adrpo: don't delete the inner/outer node, it doesn't work!
-  =#
+  #= @adrpo: don't delete the inner/outer node, it doesn't work! =#
   if isInnerOuterNode(compNode)
     return compNode
   end
@@ -550,26 +529,22 @@ function deleteClassComponents(clsNode::InstNode)
   end
 end
 
-function isComplexComponent(ty::NFType)::Bool
-  local isComplex::Bool
-  @assign isComplex = begin
-    @match ty begin
-      TYPE_COMPLEX(complexTy = COMPLEX_EXTERNAL_OBJECT(__)) => begin
-        false
-      end
-      TYPE_COMPLEX(__) => begin
-        true
-      end
-      TYPE_ARRAY(__) => begin
-        isComplexComponent(ty.elementType)
-      end
+function isComplexComponent(ty::ModelicaType)::Bool
+  @match ty begin
+    TYPE_COMPLEX(complexTy = COMPLEX_EXTERNAL_OBJECT(__)) => begin
+      false
+    end
+    TYPE_COMPLEX(__) => begin
+      true
+    end
+    TYPE_ARRAY(__) => begin
+      isComplexComponent(ty.elementType)
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return isComplex
 end
 
 function flattenSimpleComponent(
@@ -579,17 +554,16 @@ function flattenSimpleComponent(
   outerBinding::Option{<:Binding},
   typeAttrs::List{<:Modifier},
   prefix::ComponentRef,
-  vars::Vector{Variable},
+  vars::Vector{VARIABLE},
   sections::Sections,
 )
   local comp_node::InstNode = n
   local name::ComponentRef
   local binding::Binding
   local ty
-  local cmt::Option{SCode.Comment}
+  local cmt::Option{SCode.COMMENT}
   local info::SourceInfo
   local comp_attr::Attributes
-  local vis::VisibilityType
   local eq::Equation
   local ty_attrs::Vector{Tuple{String, Binding}}
   local var::VariabilityType
@@ -606,7 +580,6 @@ function flattenSimpleComponent(
   for d in arrayDims(ty)
     verifyDimension(d, comp_node, info)
   end
-  #@info "Flatten simple... $(toString(n))"
   if isSome(outerBinding)
     @match SOME(binding) = outerBinding
     unfix = isUnbound(binding) && var == Variability.PARAMETER
@@ -614,10 +587,8 @@ function flattenSimpleComponent(
     binding = flattenBinding(binding, prefix)
     unfix = false
   end
-  #=  If the component is an array component with a binding and at least discrete variability,
-  =#
-  #=  move the binding into an equation. This avoids having to scalarize the binding.
-  =#
+  #= If the component is an array component with a binding and at least discrete variability,
+     move the binding into an equation. This avoids having to scalarize the binding. =#
   if !Flags.isSet(Flags.NF_API)
     if isArray(ty) && isBound(binding) && var >= Variability.DISCRETE
       name = prefixCref(comp_node, ty, nil, prefix)
@@ -625,19 +596,16 @@ function flattenSimpleComponent(
         CREF_EXPRESSION(ty, name),
         getTypedExp(binding),
         ty,
-        ElementSource.createElementSource(info),
+        info,
       )
-      #@info "Typed binding:" toString(getTypedExp(binding))
       sections = prependEquation(eq, sections)
       binding = EMPTY_BINDING
     end
   end
   name = prefixScope(comp_node, ty, nil, prefix)
   ty_attrs = Tuple{String, Binding}[flattenTypeAttribute(m, name) for m in typeAttrs]
-  #=
-  Set fixed = true for parameters that are part of a record instance whose
-  binding couldn't be split and was moved to an initial equation.
-  =#
+  #= Set fixed = true for parameters that are part of a record instance whose
+     binding couldn't be split and was moved to an initial equation. =#
   if unfix
     ty_attrs = ArrayUtil.removeOnTrue("fixed", isTypeAttributeNamed, ty_attrs)
     ty_attrs = push!(
@@ -651,7 +619,7 @@ function flattenSimpleComponent(
       )
     )
   end
-  local v::Variable = VARIABLE(name, ty, binding, visibility, comp_attr, ty_attrs, cmt, info)
+  local v::VARIABLE = VARIABLE(name, ty, binding, visibility, comp_attr, ty_attrs, cmt, info)
   #= The binding a constant or a fixed parameter needs (omc: not in checkModel or the API). =#
   if var < Variability.DISCRETE && !unfix && !isComplex(arrayElementType(ty)) &&
      !(Flags.isSet(Flags.NF_API) || Flags.getConfigBool(Flags.CHECK_MODEL))
@@ -667,7 +635,7 @@ end
 """
 omc Flatten.checkUnspecifiedEnumType: a component may not have the type enumeration(:).
 """
-function checkUnspecifiedEnumType(ty::NFType, node::InstNode, info::SourceInfo)
+function checkUnspecifiedEnumType(ty::ModelicaType, node::InstNode, info::SourceInfo)
   if isEnumeration(ty) && listEmpty(ty.literals)
     Error.addSourceMessage(Error.UNSPECIFIED_ENUM_COMPONENT, list(name(node)), info)
     fail()
@@ -682,8 +650,7 @@ diagnostic; 3.7: the fallback value cannot. With
 --allowNonStandardModelica=implicitParameterStartAttribute a parameter with neither gets its
 type's default value (makeDefaultValue). Returns the variable's binding.
 """
-function verifyBinding(v::Variable, var::VariabilityType)::Binding
-  local name::String = toString(v.name)
+function verifyBinding(v::VARIABLE, var::VariabilityType)::Binding
   if var > Variability.CONSTANT && isBound(v.binding)
     return v.binding
   end
@@ -697,20 +664,20 @@ function verifyBinding(v::Variable, var::VariabilityType)::Binding
   end
   if var == Variability.CONSTANT
     if !fixed
-      Error.addSourceMessage(Error.NON_FIXED_CONSTANT, list(name), v.info)
+      Error.addSourceMessage(Error.NON_FIXED_CONSTANT, list(toString(v.name)), v.info)
       fail()
     end
     if isUnbound(v.binding)
-      Error.addSourceMessage(Error.NO_CONSTANT_BINDING, list(name), v.info)
+      Error.addSourceMessage(Error.NO_CONSTANT_BINDING, list(toString(v.name)), v.info)
       fail()
     end
   elseif fixed && isUnbound(v.binding)
     local start_binding::Binding = lookupTypeAttribute("start", v)
     if isBound(start_binding)
       Error.addSourceMessage(Error.UNBOUND_PARAMETER_WITH_START_VALUE_WARNING,
-                             list(name, toString(start_binding)), v.info)
+                             list(toString(v.name), toString(start_binding)), v.info)
     else
-      Error.addSourceMessage(Error.UNBOUND_PARAMETER_ERROR, list(name), v.info)
+      Error.addSourceMessage(Error.UNBOUND_PARAMETER_ERROR, list(toString(v.name)), v.info)
       Flags.isConfigFlagSet(Flags.ALLOW_NON_STANDARD_MODELICA, "implicitParameterStartAttribute") || fail()
       local start_exp::Expression = makeDefaultValue(v.ty, evaluatedTypeAttribute("min", v),
                                                      evaluatedTypeAttribute("max", v))
@@ -723,7 +690,7 @@ end
 """
 A type attribute of the variable, evaluated (omc verifyBinding's eval_binding); nothing if unbound.
 """
-function evaluatedTypeAttribute(attr::String, v::Variable)::Union{Expression, Nothing}
+function evaluatedTypeAttribute(attr::String, v::VARIABLE)::Union{Expression, Nothing}
   local b::Binding = lookupTypeAttribute(attr, v)
   return isBound(b) ? tryEvalExp(getExp(b)) : nothing
 end
@@ -764,15 +731,13 @@ function getRecordBindings(binding::Binding, comps::Vector{<:InstNode})::List{Bi
       #= An array of records (a vectorized component array, not scalarizing): field i is bound
          to the array of field i in each element (as omc's getRecordBindings). Scalarizing, each
          element gets its own subscripted binding, so an array here is a bug upstream. =#
-      ARRAY_EXPRESSION(__) where (!Flags.isSet(Flags.NF_SCALARIZE) && isRecord(arrayElementType(typeOf(binding_exp)))) => begin
+      ARRAY_EXPRESSION(__) where (!Flags.isSet(Flags.FRONTEND_SCALARIZE) && isRecord(arrayElementType(typeOf(binding_exp)))) => begin
         list(FLAT_BINDING(nthRecordElement(i, binding_exp), var) for i in 1:length(comps))
       end
 
       _ => begin
-        #=  The binding for a record field might be Expression.EMPTY if it comes
-        =#
-        #=  from an evaluated function call where it wasn't assigned a value.
-        =#
+        #= The binding for a record field might be Expression.EMPTY if it comes
+           from an evaluated function call where it wasn't assigned a value. =#
         Error.assertion(
           false,
           getInstanceName() +
@@ -784,7 +749,6 @@ function getRecordBindings(binding::Binding, comps::Vector{<:InstNode})::List{Bi
       end
     end
   end
-  #@info "Returning record bindings..." toString(recordBindings)
   return recordBindings
 end
 
@@ -812,23 +776,21 @@ function flattenComplexComponent(
   node::InstNode,
   comp::Component,
   cls::Class,
-  ty::NFType,
+  ty::ModelicaType,
   visibility::VisibilityType,
   outerBinding::Option{<:Binding},
   prefix::ComponentRef,
-  vars::Vector{Variable},
+  vars::Vector{VARIABLE},
   sections::Sections,
-)::Tuple{Vector{Variable}, Sections}
+)::Tuple{Vector{VARIABLE}, Sections}
   local dims::List{Dimension}
   local name::ComponentRef
   local binding::Binding
   local opt_binding::Option{Binding}
   local binding_exp::Expression
   local eq::Equation
-  local bindings::List{Expression}
   local comp_var::VariabilityType
   local binding_var::VariabilityType
-  local structuralSubModels::List{FLAT_MODEL}
   ty = flattenRaggedDimensions(ty, prefixCref(node, TYPE_UNKNOWN(), nil, prefix))
   dims = arrayDims(ty)
   binding = if isSome(outerBinding)
@@ -836,8 +798,7 @@ function flattenComplexComponent(
   else
     getBinding(comp)
   end
-  #=  Create an equation if there's a binding on a complex component.
-  =#
+  #= Create an equation if there's a binding on a complex component. =#
   if isExplicitlyBound(binding)
     binding = flattenBinding(binding, prefix)
     binding_exp = getTypedExp(binding)
@@ -847,14 +808,16 @@ function flattenComplexComponent(
       local evaluatedBindingExp = evalExp(binding_exp)
       binding_exp = stripBindingInfo(evaluatedBindingExp)
     elseif binding_var == Variability.PARAMETER && isFinal(comp)
-      try
-        binding_exp = stripBindingInfo(evalExp(binding_exp))
-      catch
-        #= If constant evaluation fails for a final parameter binding,
-           fall back to simplification. The expression is still valid,
-           just not constant-folded. This handles cases like chained
-           final parameter bindings with function calls. =#
-        Error.clearMessages()
+      #= A final parameter binding that does not evaluate is simplified: the expression is
+         still valid, just not constant-folded (chained final parameter bindings with function
+         calls); the messages of the attempt are dropped. =#
+      ErrorExt.setCheckpoint("NFFlatten.flattenComplexComponent")
+      local (ok::Bool, value::Expression) = evalExpChecked(binding_exp)
+      if ok
+        ErrorExt.delCheckpoint("NFFlatten.flattenComplexComponent")
+        binding_exp = stripBindingInfo(value)
+      else
+        ErrorExt.rollBack("NFFlatten.flattenComplexComponent")
         binding_exp = simplify(binding_exp)
       end
     else
@@ -871,7 +834,7 @@ function flattenComplexComponent(
         CREF_EXPRESSION(ty, name),
         binding_exp,
         ty,
-        ElementSource.createElementSource(InstNode_info(node)),
+        InstNode_info(node),
       )
       sections = prependEquation(
         eq,
@@ -886,17 +849,12 @@ function flattenComplexComponent(
   else
     opt_binding = NONE()
   end
-  #=  TODO: This will probably not work so well if the binding is an array that
-  =#
-  #=        contains record non-literals. In that case we should probably
-  =#
-  #=        create an equation for each non-literal in the array, and pass the
-  =#
-  #=        rest on as usual.
-  =#
+  #= TODO: This will probably not work so well if the binding is an array that
+     contains record non-literals. In that case we should probably
+     create an equation for each non-literal in the array, and pass the
+     rest on as usual. =#
   name = prefixScope(node, ty, nil, prefix)
-  #=  Flatten the class directly if the component is a scalar, otherwise scalarize it.
-  =#
+  #= Flatten the class directly if the component is a scalar, otherwise scalarize it. =#
   if listEmpty(dims)
     (vars, sections) = flattenClass(cls, name, visibility, opt_binding, vars, sections, nil)
   else
@@ -914,18 +872,21 @@ function flattenArray(
   prefix::ComponentRef,
   visibility::VisibilityType,
   binding::Option{<:Binding},
-  vars::Vector{Variable},
+  vars::Vector{VARIABLE},
   sections::Sections,
   subscripts::List{<:Subscript} = nil;
   elementwise::Bool = false,
-  )::Tuple{Vector{Variable}, Sections}
+  )::Tuple{Vector{VARIABLE}, Sections}
+  # One instance for the argument types: the recursion passes Nil{Any} or Cons{Dimension}, Some or nothing,
+  # and each combination compiled 78 ms.
+  @nospecialize cls dimensions binding sections subscripts
   local dim::Dimension
   local rest_dims::List{Dimension}
   local sub_pre::ComponentRef
   local range_iter::RangeIterator
   local sub_exp::Expression
   local subs::List{Subscript}
-  local vrs::Vector{Variable}
+  local vrs::Vector{VARIABLE}
   local sects::Sections
   #= Skip the array if any dimension is zero (omc): flattened once and vectorized, the
      class brought back elements that do not exist (MSL ClosedVolume's
@@ -933,17 +894,16 @@ function flattenArray(
   if any(isZero, dimensions)
     return (vars, sections)
   end
-  #=  if we don't scalarize flatten the class and vectorize it
-  =#
-  if !elementwise && !Flags.isSet(Flags.NF_SCALARIZE)
+  #= if we don't scalarize flatten the class and vectorize it =#
+  if !elementwise && !Flags.isSet(Flags.FRONTEND_SCALARIZE)
     local deletedBefore::Int = length(_deletedElementCrefs())
     (vrs, sects) = flattenClass(
       cls,
       prefix,
       visibility,
       binding,
-      Variable[],
-      SECTIONS(Equation[], Equation[], Algorithm[], Algorithm[]),
+      VARIABLE[],
+      SECTIONS(Equation[], Equation[], ALGORITHM[], ALGORITHM[]),
       nil #= No structural submodels =#
     )
     #= A ragged class, an element's dimension from its own parameters (Buildings' MultiLayer lay[nLay] with
@@ -956,40 +916,36 @@ function flattenArray(
       @assign v.ty = liftArrayLeftList(v.ty, dimensions)
       vars = push!(vars, v)
     end
-     () = begin
-      @match sects begin
-        SECTIONS(__) => begin
-          #=  add dimensions to the types
-          =#
-          #=  vectorize equations
-          =#
-          for eqn in sects.equations #listReverse(sects.equations)
-            for veq in _vectorizeEquationSplit(eqn, dimensions, prefix)
-              sections = prependEquation(veq, sections)
-            end
-          end
-          for eqn in sects.initialEquations #listReverse(sects.initialEquations)
-            for veq in _vectorizeEquationSplit(eqn, dimensions, prefix)
-              sections = prependEquation(veq, sections, true)
-            end
-          end
-          for alg in sects.algorithms #listReverse(sects.algorithms)
-            sections = prependAlgorithm(
-              vectorizeAlgorithm(alg, dimensions, prefix),
-              sections,
-            )
-          end
-          for alg in sects.initialAlgorithms #listReverse(sects.initialAlgorithms)
-            sections = prependAlgorithm(
-              vectorizeAlgorithm(alg, dimensions, prefix),
-              sections,
-              true,
-            )
-          end
-          ()
-        end
-      end
-    end
+     @match sects begin
+       SECTIONS(__) => begin
+         #= add dimensions to the types
+            vectorize equations =#
+         for eqn in sects.equations #listReverse(sects.equations)
+           for veq in _vectorizeEquationSplit(eqn, dimensions, prefix)
+             sections = prependEquation(veq, sections)
+           end
+         end
+         for eqn in sects.initialEquations #listReverse(sects.initialEquations)
+           for veq in _vectorizeEquationSplit(eqn, dimensions, prefix)
+             sections = prependEquation(veq, sections, true)
+           end
+         end
+         for alg in sects.algorithms #listReverse(sects.algorithms)
+           sections = prependAlgorithm(
+             vectorizeAlgorithm(alg, dimensions, prefix),
+             sections,
+           )
+         end
+         for alg in sects.initialAlgorithms #listReverse(sects.initialAlgorithms)
+           sections = prependAlgorithm(
+             vectorizeAlgorithm(alg, dimensions, prefix),
+             sections,
+             true,
+           )
+         end
+         ()
+       end
+     end
     return (vars, sections)
   end
   if listEmpty(dimensions)
@@ -1032,17 +988,17 @@ settings on meanwhile. Arrays per element (`Real[2] lay[1].T`) do not do: the ba
 kept as an element of the variable named without the reference's subscripts (`lay.T`).
 """
 function _flattenRaggedArray(cls::Class, dimensions::List{<:Dimension}, prefix::ComponentRef, visibility::VisibilityType,
-                             binding::Option{<:Binding}, vars::Vector{Variable}, sections::Sections,
-                             subscripts::List{<:Subscript})::Tuple{Vector{Variable}, Sections}
+                             binding::Option{<:Binding}, vars::Vector{VARIABLE}, sections::Sections,
+                             subscripts::List{<:Subscript})::Tuple{Vector{VARIABLE}, Sections}
   local settings::Vector{Tuple{Flags.DebugFlag, Bool}} =
-    [(f, Flags.isSet(f)) for f in (Flags.NF_SCALARIZE, Flags.NF_EXPAND_OPERATIONS, Flags.NF_EXPAND_FUNC_ARGS)]
+    [(f, Flags.isSet(f)) for f in (Flags.FRONTEND_SCALARIZE, Flags.NF_EXPAND_OPERATIONS, Flags.NF_EXPAND_FUNC_ARGS)]
   for (f, _) in settings
     FlagsUtil.set(f, true)
   end
   try
-    local (vrs::Vector{Variable}, sects::Sections) =
-      flattenArray(cls, dimensions, prefix, visibility, binding, Variable[],
-                   SECTIONS(Equation[], Equation[], Algorithm[], Algorithm[]), subscripts; elementwise = true)
+    local (vrs::Vector{VARIABLE}, sects::Sections) =
+      flattenArray(cls, dimensions, prefix, visibility, binding, VARIABLE[],
+                   SECTIONS(Equation[], Equation[], ALGORITHM[], ALGORITHM[]), subscripts; elementwise = true)
     for v in vrs
       scalarizeVariable(v, vars)
     end
@@ -1071,7 +1027,7 @@ end
 Whether `ty` has a ragged dimension: its sizes per element of the enclosing arrays of components, an array
 (`flattenRaggedDimension` in the context of an array of components flattened once, `{2, 1, 2}`).
 """
-function _hasRaggedDimension(@nospecialize(ty::M_Type))::Bool
+function _hasRaggedDimension(@nospecialize(ty::ModelicaType))::Bool
   isArray(ty) || return false
   return any(d -> isvariant(d, DIMENSION_EXP) && isArray(typeOf(d.exp)), arrayDims(ty))
 end
@@ -1083,7 +1039,7 @@ end
 function _vectorizeEquationSplit(eqn::Equation, dimensions::List, prefix::ComponentRef)::Vector{Equation}
   local veq = vectorizeEquation(eqn, dimensions, prefix)
   if isvariant(veq, EQUATION_FOR) &&
-     (contains(veq, isConnectEq) || foldExp(veq, (e, acc) -> acc || contains(e, _isConnectionCall), false))
+     (contains(veq, isConnectEq) || foldExp(veq, (e::Expression, acc::Bool) -> acc || contains(e, _isConnectionCall), false, Bool))
     local (connects, rest) = splitForLoop2(Equation[veq])
     local out = Equation[]
     for c in connects
@@ -1099,38 +1055,34 @@ function vectorizeEquation(
   dimensions::List,
   prefix::ComponentRef,
 )::Equation
-  local veqn::Equation
-  veqn = begin
-    @match eqn begin
-      #=  convert simple equality of crefs to array equality; not one of a subscripted cref: the subscript is the
-          instance's own (`pin_p.v = plug_p.pin[k].v` with `k` per instance), which the array equality of the
-          whole component array would read as a slice (`plugToPin_p.plug_p.pin[{1, 2, 3}].v`); and not one with a
-          cref outside the component array (`t0 = time`), which stays a scalar =#
-      EQUATION_EQUALITY(
-        lhs = CREF_EXPRESSION(__),
-        rhs = CREF_EXPRESSION(__),
-      ) where (isVectorizedWhole(eqn.lhs.cref, prefix) && isVectorizedWhole(eqn.rhs.cref, prefix)) => begin
-        EQUATION_ARRAY_EQUALITY(
-          eqn.lhs,
-          eqn.rhs,
-          liftArrayLeftList(eqn.ty, dimensions),
-          eqn.source,
-        )
+  @match eqn begin
+    #=  convert simple equality of crefs to array equality; not one of a subscripted cref: the subscript is the
+        instance's own (`pin_p.v = plug_p.pin[k].v` with `k` per instance), which the array equality of the
+        whole component array would read as a slice (`plugToPin_p.plug_p.pin[{1, 2, 3}].v`); and not one with a
+        cref outside the component array (`t0 = time`), which stays a scalar =#
+    EQUATION_EQUALITY(
+      lhs = CREF_EXPRESSION(__),
+      rhs = CREF_EXPRESSION(__),
+    ) where (isVectorizedWhole(eqn.lhs.cref, prefix) && isVectorizedWhole(eqn.rhs.cref, prefix)) => begin
+      EQUATION_ARRAY_EQUALITY(
+        eqn.lhs,
+        eqn.rhs,
+        liftArrayLeftList(eqn.ty, dimensions),
+        eqn.source,
+      )
+    end
+    #=  wrap general equation into one for loop per dimension (omc's vectorizeEquationGeneric) =#
+    _ => begin
+      local (iters, ranges, subs) = makeIterators(prefix, dimensions, nextIteratorIndex(eqn))
+      local subsInOrder::List{Subscript} = listReverse(subs)
+      local element::Equation = elementBindingEquation(eqn, dimensions, subsInOrder)
+      local mappedEq = mapExp(element, (@nospecialize(x::Expression),) -> addIterator(x, prefix, subsInOrder))
+      for (iter, range) in zip(iters, ranges)
+        mappedEq = EQUATION_FOR(iter, SOME(range), Equation[mappedEq], source(eqn))
       end
-      #=  wrap general equation into one for loop per dimension (omc's vectorizeEquationGeneric) =#
-      _ => begin
-        local (iters, ranges, subs) = makeIterators(prefix, dimensions, nextIteratorIndex(eqn))
-        local subsInOrder::List{Subscript} = listReverse(subs)
-        local element::Equation = elementBindingEquation(eqn, dimensions, subsInOrder)
-        local mappedEq = mapExp(element, (x) -> addIterator(x, prefix, subsInOrder))
-        for (iter, range) in zip(iters, ranges)
-          mappedEq = EQUATION_FOR(iter, SOME(range), Equation[mappedEq], source(eqn))
-        end
-        mappedEq
-      end
+      mappedEq
     end
   end
-  return veqn
 end
 
 """
@@ -1150,10 +1102,10 @@ function elementBindingEquation(eqn::Equation, dimensions::List, subscripts::Lis
 end
 
 function vectorizeAlgorithm(
-  alg::Algorithm,
+  alg::ALGORITHM,
   dimensions::List{Dimension},
   prefix::ComponentRef
-)::Algorithm
+)::ALGORITHM
   #=  let simple assignment as is =#
   if length(alg.statements) == 1
     local stmt = alg.statements[1]
@@ -1244,7 +1196,6 @@ function makeIterators(prefix::ComponentRef,
   local ranges::List{Expression} = nil
   local subscripts::List{Subscript} = nil
   #Locals
-  local iter_comp::Component
   local prefix_node::InstNode
   local iter::InstNode
   local range::Expression
@@ -1269,7 +1220,7 @@ function addIterator(
 )::Expression
   exp = map(
     exp,
-    (exp) -> addIterator_traverse(exp, prefix, subscripts),
+    (@nospecialize(exp::Expression),) -> addIterator_traverse(exp, prefix, subscripts),
   )
   return exp
 end
@@ -1311,7 +1262,7 @@ function subscriptBindingOpt(
 )::Option{Binding}
   local b::Binding
   local exp::Expression
-  local ty::M_Type
+  local ty::ModelicaType
   if isSome(binding)
     @match SOME(b) = binding
     @assign binding = begin
@@ -1343,7 +1294,6 @@ function subscriptBindingOpt(
   return binding
 end
 
-
 @nospecialized function flattenBinding(
   binding::Binding,
   prefix::ComponentRef
@@ -1357,12 +1307,6 @@ end
   isTypeAttribute::Bool
   )
   binding = begin
-    local subs::List{Subscript}
-    local accum_subs::List{Subscript}
-    local binding_level::Int
-    local bind_exp::Expression
-    local pars::List{InstNode}
-    local par::InstNode
     @match binding begin
       UNBOUND(__) => begin
         binding
@@ -1392,10 +1336,8 @@ end
       end
 
       INVALID_BINDING(__) => begin
-        #=  CEVAL_BINDINGs are temporary bindings generated by the constant
-        =#
-        #=  evaluation and no longer needed after flattening.
-        =#
+        #= CEVAL_BINDINGs are temporary bindings generated by the constant
+           evaluation and no longer needed after flattening. =#
         Error.addTotalMessages(binding.errors)
         fail()
       end
@@ -1415,13 +1357,7 @@ function flattenBindingExp(
   isTypeAttribute::Bool = false
 )::Expression
   local outExp::Expression
-  local subs::List{Subscript}
-  local accum_subs::List{Subscript}
-  local binding_level::Int
   local parents::List{InstNode}
-  local pre::ComponentRef
-  local cr_node::InstNode
-  local par::InstNode
   outExp = begin
     @match exp begin
       BINDING_EXP(exp = outExp) => begin
@@ -1483,18 +1419,16 @@ function flattenBindingExp2(
     local subsT = list(listReverse(s) for s in listReverse(subscriptsAll(pre)) if !(s isa Nil))
     subs = list(Base.collect(Iterators.flatten(subsT))...)
     binding_level = min(binding_level, listLength(subs))
-    subs = listReverse(ListUtil.firstN(subs, binding_level))
+    subs = listReverse(ListUtil.firstN(subs, binding_level, Subscript))
     outExp = applySubscripts(subs, exp)
   end
-  #=
-  TODO: Optimize this, making a list of all subscripts in the prefix when
-  only a few are needed is unnecessary.
-  =#
+  #= TODO: Optimize this, making a list of all subscripts in the prefix when
+     only a few are needed is unnecessary. =#
   return outExp
 end
 
 @nospecialized function flattenExp(exp::Expression, prefix::ComponentRef)
-  exp = map(exp, (x) -> flattenExp_traverse(x, prefix))
+  exp = map(exp, (@nospecialize(x::Expression),) -> flattenExp_traverse(x, prefix))
   return exp
 end
 
@@ -1529,23 +1463,21 @@ function flattenSections(
   prefix::ComponentRef,
   accumSections::Sections,
 )::Sections
-  () = begin
-    local eq::Vector{Equation}
-    local ieq::Vector{Equation}
-    local alg::Vector{Algorithm}
-    local ialg::Vector{Algorithm}
-    @match sections begin
-      SECTIONS(__) => begin
-        eq = flattenEquations(sections.equations, prefix)
-        ieq = flattenEquations(sections.initialEquations, prefix)
-        alg = flattenAlgorithms(sections.algorithms, prefix)
-        ialg = flattenAlgorithms(sections.initialAlgorithms, prefix)
-        accumSections = prepend(eq, ieq, alg, ialg, accumSections)
-        ()
-      end
-      _ => begin
-        ()
-      end
+  local eq::Vector{Equation}
+  local ieq::Vector{Equation}
+  local alg::Vector{ALGORITHM}
+  local ialg::Vector{ALGORITHM}
+  @match sections begin
+    SECTIONS(__) => begin
+      eq = flattenEquations(sections.equations, prefix)
+      ieq = flattenEquations(sections.initialEquations, prefix)
+      alg = flattenAlgorithms(sections.algorithms, prefix)
+      ialg = flattenAlgorithms(sections.initialAlgorithms, prefix)
+      accumSections = appendSections!(eq, ieq, alg, ialg, accumSections)
+      ()
+    end
+    _ => begin
+      ()
     end
   end
   return accumSections
@@ -1578,8 +1510,7 @@ function flattenEquation(
         push!(inEquations, EQUATION_EQUALITY(e1, e2, flattenRaggedDimensions(eq.ty, prefix), eq.source))
       end
       EQUATION_FOR(__) => begin
-        eql = if Flags.isSet(Flags.NF_SCALARIZE)
-          #splitForLoop(eq, prefix, inEquations)
+        eql = if Flags.isSet(Flags.FRONTEND_SCALARIZE)
           unrollForLoop(eq, prefix, inEquations)
         else
           splitForLoop(eq, prefix, inEquations)
@@ -1587,18 +1518,15 @@ function flattenEquation(
         eql
       end
       EQUATION_CONNECT(__) => begin
-        #@info "eq.lhs" toString(eq.lhs)
-        #@info "eq.rhs" toString(eq.rhs)
         e1 = flattenExp(eq.lhs, prefix)
         e2 = flattenExp(eq.rhs, prefix)
-        #@info "Flatten" toString(EQUATION_CONNECT(e1, e2, eq.source))
         push!(inEquations, EQUATION_CONNECT(e1, e2, eq.source))
       end
       EQUATION_IF(__) => begin
         flattenIfEquation(eq, prefix, inEquations)
       end
       EQUATION_WHEN(__) => begin
-        @assign eq.branches = Equation_Branch[flattenEqBranch(b, prefix) for b in eq.branches]
+        @assign eq.branches = EquationBranch[flattenEqBranch(b, prefix) for b in eq.branches]
         push!(inEquations, eq)
       end
       EQUATION_ASSERT(__) => begin
@@ -1633,20 +1561,19 @@ function flattenIfEquation(
   prefix::ComponentRef,
   equations::Vector{Equation},
 )
-  local branch::Equation_Branch
+  local branch::EquationBranch
   local branches::Vector{EquationBranch}
   local bl::Vector{EquationBranch} = EquationBranch[]
   local cond::Expression
   local eql::Vector{Equation} = Equation[]
   local var::VariabilityType
   local has_connect::Bool
-  local src::DAE.ElementSource
-  local info::SourceInfo
+  local src::SourceInfo
   local target::EvalTarget
   @match EQUATION_IF(branches = branches, source = src) = eq
   has_connect = contains(eq, isConnectEq)
-  #=  Print errors for unbound constants/parameters if the if-equation contains =#
-  #=  connects, since we must select a branch in that case. =#
+  #= Print errors for unbound constants/parameters if the if-equation contains
+     connects, since we must select a branch in that case. =#
   target = if has_connect
     EVALTARGET_GENERIC(Equation_info(eq))
   else
@@ -1663,7 +1590,7 @@ function flattenIfEquation(
           #=  Evaluate structural conditions. Not scalarizing, a condition with a for-loop
               iterator is kept (the iterator has no value here; omc's flattenIfEquation). =#
           if var <= Variability.STRUCTURAL_PARAMETER &&
-             (has_connect || Flags.isSet(Flags.NF_SCALARIZE) || !contains(cond, isIterator))
+             (has_connect || Flags.isSet(Flags.FRONTEND_SCALARIZE) || !contains(cond, isIterator))
             local cond0 = cond
             #= Kept when it cannot be evaluated (an external function's value, Buildings' heat
                pump data); with connects it must be (omc flattenIfEquation, tryEvalExp). =#
@@ -1671,7 +1598,7 @@ function flattenIfEquation(
             #= Not scalarizing, an arrayed component's condition is its elements' values: the
                if-equation stays, vectorized and unrolled, its branch picked per element
                (_unrollForEquation!). =#
-            if !Flags.isSet(Flags.NF_SCALARIZE) && cond isa ARRAY_EXPRESSION
+            if !Flags.isSet(Flags.FRONTEND_SCALARIZE) && cond isa ARRAY_EXPRESSION
               cond = cond0
             elseif !isBoolean(cond) && has_connect
               Error.addInternalError(
@@ -1696,9 +1623,9 @@ function flattenIfEquation(
           elseif !isFalse(cond)
             push!(bl, makeBranch(cond, eql, var))
           end
-          #=  Otherwise, append this branch. =#
-          #=  Only add the branch to the list of branches if the condition is not =#
-          #=  literal false, otherwise just drop it since it will never trigger. =#
+          #= Otherwise, append this branch.
+             Only add the branch to the list of branches if the condition is not
+             literal false, otherwise just drop it since it will never trigger. =#
           bl
         end
           EQUATION_INVALID_BRANCH(
@@ -1707,8 +1634,7 @@ function flattenIfEquation(
             conditionVar = var,
           ),
         ) where {(has_connect)} => begin
-          #=  An invalid branch must have a false condition, anything else is an error.
-          =#
+          #= An invalid branch must have a false condition, anything else is an error. =#
           if var <= Variability.STRUCTURAL_PARAMETER
             cond = evalExp(cond, target)
           end
@@ -1723,10 +1649,8 @@ function flattenIfEquation(
       end
     end
   end
-  #=
-  Add the flattened if-equation to the list of equations if there are any
-  branches still remaining.
-  =#
+  #= Add the flattened if-equation to the list of equations if there are any
+     branches still remaining. =#
   if !isempty(bl)
     equations = push!(equations, EQUATION_IF(bl, src))
     return equations
@@ -1735,33 +1659,29 @@ function flattenIfEquation(
 end
 
 function isConnectEq(eq::Equation)::Bool
-  local isConnect::Bool
 
-  @assign isConnect = begin
-    local fn::M_Function
-    @match eq begin
-      EQUATION_CONNECT(__) => begin
-        true
-      end
+  local fn::MODELICA_FUNCTION
+  @match eq begin
+    EQUATION_CONNECT(__) => begin
+      true
+    end
 
-      EQUATION_NORETCALL(
-        exp = CALL_EXPRESSION(call = TYPED_CALL(fn = fn)),
-      ) => begin
-        AbsynUtil.pathFirstIdent(name(fn)) == "Connections"
-      end
+    EQUATION_NORETCALL(
+      exp = CALL_EXPRESSION(call = TYPED_CALL(fn = fn)),
+    ) => begin
+      AbsynUtil.pathFirstIdent(name(fn)) == "Connections"
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return isConnect
 end
 
 function flattenEqBranch(
-  @nospecialize(branch::Equation_Branch),
+  @nospecialize(branch::EquationBranch),
   prefix::ComponentRef,
-)::Equation_Branch
+)::EquationBranch
   local exp::Expression
   local eql::Vector{Equation}
   local var::VariabilityType
@@ -1783,23 +1703,15 @@ function unrollForLoop(forLoop::Equation, prefix::ComponentRef, equations::Vecto
   local range_iter::RangeIterator
   local val::Expression
   @match EQUATION_FOR(iterator = iter, range = SOME(range), body = body) = forLoop
-  #=
-  Unroll the loop by replacing the iterator with each of its values
-  in the for loop body.
-  =#
-  # local body = Equation[]
-  # for i in oldbody
-  #   body[i] = oldbody[i]
-  # end
+  #= Unroll the loop by replacing the iterator with each of its values
+     in the for loop body. =#
   range = flattenExp(range, prefix)
   range = evalExp(range, EVALTARGET_RANGE(Equation_info(forLoop)))
   range_iter = RangeIterator_fromExp(range)
   while hasNext(range_iter)
     (range_iter, val) = next(range_iter)
-    #=
-    Unroll.
-    Note that this function will call mapExp for several elements in the compiler(!)
-    =#
+    #= Unroll.
+       Note that this function will call mapExp for several elements in the compiler(!) =#
     unrolled_body = replaceIteratorList(body, iter, val)
     unrolled_body = flattenEquations(unrolled_body, prefix)
     equations = append!(equations, unrolled_body)
@@ -1817,7 +1729,7 @@ function splitForLoop(
   local body::Vector{Equation}
   local connects::Vector{Equation}
   local non_connects::Vector{Equation}
-  local src::DAE.ElementSource
+  local src::SourceInfo
   @match EQUATION_FOR(iter, range, body, src) = forLoop
   #= Split the body before flattening it (omc flattens first): the part with connects or
      connection calls, also inside if-equations whose conditions use the iterator, is
@@ -1841,37 +1753,35 @@ function splitForLoop2(forBody::Vector{Equation})::Tuple{Vector{Equation}, Vecto
   local conns::Vector{Equation}
   local nconns::Vector{Equation}
   for eq in forBody
-    () = begin
-      @match eq begin
-        EQUATION_CONNECT(__) => begin
+    @match eq begin
+      EQUATION_CONNECT(__) => begin
+        connects = push!(connects, eq)
+        ()
+      end
+      EQUATION_FOR(__) => begin
+        (conns, nconns) = splitForLoop2(eq.body)
+        if !isempty(conns)
+          connects = push!(connects,
+                           EQUATION_FOR(eq.iterator, eq.range, conns, eq.source),
+                           )
+        end
+        if !isempty(nconns)
+          nonConnects = push!(nonConnects,
+                              EQUATION_FOR(eq.iterator, eq.range, nconns, eq.source),
+                              )
+        end
+        ()
+      end
+      _ => begin
+        #= Equations that contain a connect or a connection call (Connections.*, inStream,
+           actualStream, cardinality) are resolved per scalar: unroll them (omc's splitForLoop2). =#
+        if contains(eq, isConnectEq) ||
+           foldExp(eq, (e::Expression, acc::Bool) -> acc || contains(e, _isConnectionCall), false, Bool)
           connects = push!(connects, eq)
-          ()
+        else
+          nonConnects = push!(nonConnects, eq)
         end
-        EQUATION_FOR(__) => begin
-          (conns, nconns) = splitForLoop2(eq.body)
-          if !isempty(conns)
-            connects = push!(connects,
-                             EQUATION_FOR(eq.iterator, eq.range, conns, eq.source),
-                             )
-          end
-          if !isempty(nconns)
-            nonConnects = push!(nonConnects,
-                                EQUATION_FOR(eq.iterator, eq.range, nconns, eq.source),
-                                )
-          end
-          ()
-        end
-        _ => begin
-          #= Equations that contain a connect or a connection call (Connections.*, inStream,
-             actualStream, cardinality) are resolved per scalar: unroll them (omc's splitForLoop2). =#
-          if contains(eq, isConnectEq) ||
-             foldExp(eq, (e, acc) -> acc || contains(e, _isConnectionCall), false)
-            connects = push!(connects, eq)
-          else
-            nonConnects = push!(nonConnects, eq)
-          end
-          ()
-        end
+        ()
       end
     end
   end
@@ -1893,19 +1803,17 @@ function _isConnectionCall(exp::Expression)::Bool
 end
 
 function flattenAlgorithms(
-  algorithms::Vector{Algorithm},
+  algorithms::Vector{ALGORITHM},
   prefix::ComponentRef)
-  local outAlgorithms::Vector{Algorithm} = Algorithm[]
+  local outAlgorithms::Vector{ALGORITHM} = ALGORITHM[]
   for alg in algorithms
     @assign alg.statements = flattenAlgorithmStatements(alg.statements, prefix)
-    #=
-      CheckModel relies on the ElementSource to know whether a certain algorithm comes from
-      an array component, otherwise is will miscount the number of equations.
-    =#
+    #= omc's CheckModel relies on the element source to know whether a certain algorithm comes from
+       an array component, otherwise is will miscount the number of equations. =#
     if hasSubscripts(prefix)
       @assign alg.source = addElementSourceArrayPrefix(alg.source, prefix)
     end
-    outAlgorithms = prepend!([alg], outAlgorithms)
+    push!(outAlgorithms, alg)
   end
   return outAlgorithms
 end
@@ -1931,13 +1839,13 @@ function flattenAlgorithmStatement(
       ALG_FOR(__) => begin
         local unrolled = tryUnrollAlgorithmForLoop(stmt, prefix)
         if unrolled === nothing
-          push!(outStatements, mapExp(stmt, (x) -> flattenExp(x, prefix)))
+          push!(outStatements, mapExp(stmt, (@nospecialize(x::Expression),) -> flattenExp(x, prefix)))
         else
           append!(outStatements, unrolled)
         end
       end
       _ => begin
-        push!(outStatements, mapExp(stmt, (x) -> flattenExp(x, prefix)))
+        push!(outStatements, mapExp(stmt, (@nospecialize(x::Expression),) -> flattenExp(x, prefix)))
       end
     end
   end
@@ -1970,7 +1878,7 @@ function tryUnrollAlgorithmForLoop(
   forStmt::Statement,
   prefix::ComponentRef,
 )::Union{Vector{Statement}, Nothing}
-  if !Flags.isSet(Flags.NF_SCALARIZE)
+  if !Flags.isSet(Flags.FRONTEND_SCALARIZE)
     return nothing
   end
   if !isSome(forStmt.range)
@@ -2086,37 +1994,33 @@ function _branchesHaveBreakOrReturn(
 end
 
 function addElementSourceArrayPrefix(
-  source::DAE.ElementSource,
+  source::SourceInfo,
   prefix::ComponentRef,
-)::DAE.ElementSource
-  #=  The backend does not use the ComponentPrefix from ElementSource,
-  =#
-  #=  so we skip creating one here to avoid pulling in Prefix constructors
-  =#
-  #=  with incorrect DAE subscript types from the translator port.
-  =#
+)::SourceInfo
+  #= The backend does not use a component prefix in the element source
+     (a plain SourceInfo), so the source is returned unchanged. =#
   return source
 end
 
 """ Generates the connect equations and adds them to the equation list """
-function resolveConnections(flatModel::FlatModel, name::String)::FlatModel
-  local conns::Connections
+function resolveConnections(flatModel::FLAT_MODEL, name::String)::FLAT_MODEL
+  local conns::CONNECTIONS
   local conn_eql::Vector{Equation}
   local csets::ConnectionSets.Sets
-  local csets_array::Vector{List{Connector}}
+  local csets_array::Vector{List{CONNECTOR}}
   local ctable::CardinalityTable.Table
   local broken::BrokenEdges = nil
   #=  get the connections from the model =#
   @EXECSTAT "  rc:collect" (flatModel, conns) = collect(flatModel)
   #=  Elaborate expandable connectors.=#
   @EXECSTAT "  rc:elaborate" (flatModel, conns) = elaborate(flatModel, conns)
-  #=  handle overconstrained connections =#
-  #=  - build the graph =#
-  #=  - evaluate the Connections.* operators =#
-  #=  - generate the equations to replace the broken connects =#
-  #=  - return the broken connects + the equations =#
+  #= handle overconstrained connections
+     - build the graph
+     - evaluate the Connections.* operators
+     - generate the equations to replace the broken connects
+     - return the broken connects + the equations =#
   if System.getHasOverconstrainedConnectors()
-    @EXECSTAT "  rc:overconstrained" (flatModel, broken, _) = handleOverconstrainedConnections(flatModel, conns, name)
+    @EXECSTAT "  rc:overconstrained" (flatModel, broken) = handleOverconstrainedConnections(flatModel, conns, name)
   end
   #=  add the broken connections  =#
   conns = addBroken(broken, conns)
@@ -2125,34 +2029,37 @@ function resolveConnections(flatModel::FlatModel, name::String)::FlatModel
   @EXECSTAT "  rc:extractSets" (csets_array, _) = ConnectionSets.extractSets(csets)
   #=  generate the equations =#
   @EXECSTAT "  rc:generateEquations" conn_eql = generateEquations(csets_array) #=In NFConnectEquations=#
+  #=  not scalarizing: the scalar connection equations as for-equations where they differ only in affine subscripts =#
+  if !Flags.isSet(Flags.FRONTEND_SCALARIZE)
+    @EXECSTAT "  rc:reroll" conn_eql = rerollConnectEquations(conn_eql)
+  end
   #=  append the equalityConstraint call equations for the broken connects =#
   if System.getHasOverconstrainedConnectors()
-    local flatBrokenEQL = listArray(ListUtil.flatten(ListUtil.map(broken, Util.tuple33)))
+    local flatBrokenEQL = listArray(ListUtil.flatten(ListUtil.map(broken, Util.tuple33, List{Equation}), Equation))
     conn_eql = vcat(conn_eql, flatBrokenEQL)
   end
   #=  add the equations to the flat model=#
   @assign begin
     flatModel.equations = vcat(conn_eql, flatModel.equations)
-    flatModel.variables = Variable[v for v in flatModel.variables if isPresent(v)]
+    flatModel.variables = VARIABLE[v for v in flatModel.variables if isPresent(v)]
   end
   @EXECSTAT "  rc:cardinality" ctable = CardinalityTable.fromConnections(conns)
   #=  Evaluate any connection operators if they're used. =#
   if System.getHasStreamConnectors() || System.getUsesCardinality()
     @EXECSTAT "  rc:connOperators" flatModel = evaluateConnectionOperators(flatModel, csets, csets_array, ctable)
   end
-#  execStat(getInstanceName() + "(" + name + ")")
   return flatModel
 end
 
 function evaluateConnectionOperators(
-  flatModel::FlatModel,
+  flatModel::FLAT_MODEL,
   sets::ConnectionSets.Sets,
-  setsArray::Vector{<:List{<:Connector}},
+  setsArray::Vector{<:List{<:CONNECTOR}},
   ctable::CardinalityTable.Table,
-)::FlatModel
+)::FLAT_MODEL
   @assign begin
     flatModel.variables =
-      Variable[evaluateBindingConnOp(c, sets, setsArray, ctable) for c in flatModel.variables]
+      VARIABLE[evaluateBindingConnOp(c, sets, setsArray, ctable) for c in flatModel.variables]
     flatModel.equations =
       evaluateEquationsConnOp(flatModel.equations, sets, setsArray, ctable)
     flatModel.initialEquations =
@@ -2163,30 +2070,28 @@ function evaluateConnectionOperators(
 end
 
 function evaluateBindingConnOp(
-  var::Variable,
+  var::VARIABLE,
   sets#=::ConnectionSets.Sets=#,
-  setsArray::Vector{<:List{<:Connector}},
+  setsArray::Vector{<:List{<:CONNECTOR}},
   ctable::CardinalityTable.Table,
-)::Variable
+)::VARIABLE
   local binding::Binding
   local exp::Expression
   local eval_exp::Expression
-  () = begin
-    @match var begin
-      VARIABLE(
-        binding = binding && TYPED_BINDING(bindingExp = exp),
-      ) => begin
-        eval_exp = evaluateOperators(exp, sets, setsArray, ctable)
-        if !referenceEq(exp, eval_exp)
-          @assign binding.bindingExp = eval_exp
-          @assign var.binding = binding
-        end
-        ()
+  @match var begin
+    VARIABLE(
+      binding = binding && TYPED_BINDING(bindingExp = exp),
+    ) => begin
+      eval_exp = evaluateOperators(exp, sets, setsArray, ctable)
+      if !referenceEq(exp, eval_exp)
+        @assign binding.bindingExp = eval_exp
+        @assign var.binding = binding
       end
+      ()
+    end
 
-      _ => begin
-        ()
-      end
+    _ => begin
+      ()
     end
   end
   return var
@@ -2195,13 +2100,13 @@ end
 function evaluateEquationsConnOp(
   equations::Vector{Equation},
   sets#=::ConnectionSets.Sets=#,
-  setsArray::Vector{<:List{<:Connector}},
+  setsArray::Vector{<:List{<:CONNECTOR}},
   ctable::CardinalityTable.Table,
 )
   equations = [
     mapExp(
       eq,
-      (expArg) -> evaluateOperators(
+      (@nospecialize(expArg::Expression),) -> evaluateOperators(
         expArg,
         sets,
         setsArray,
@@ -2212,17 +2117,15 @@ function evaluateEquationsConnOp(
   return equations
 end
 
-function collectComponentFuncs(var::Variable, funcs::FunctionTree)::FunctionTree
-  () = begin
-    @match var begin
-      VARIABLE(__) => begin
-        funcs = collectTypeFuncs(var.ty, funcs)
-        funcs = collectBindingFuncs(var.binding, funcs)
-        for attr in var.typeAttributes
-          funcs = collectBindingFuncs(Util.tuple22(attr), funcs)
-        end
-        ()
+function collectComponentFuncs(var::VARIABLE, funcs::FunctionTree)::FunctionTree
+  @match var begin
+    VARIABLE(__) => begin
+      funcs = collectTypeFuncs(var.ty, funcs)
+      funcs = collectBindingFuncs(var.binding, funcs)
+      for attr in var.typeAttributes
+        funcs = collectBindingFuncs(Util.tuple22(attr), funcs)
       end
+      ()
     end
   end
   return funcs
@@ -2235,211 +2138,192 @@ function collectBindingFuncs(binding::Binding, funcs::FunctionTree)::FunctionTre
   return funcs
 end
 
-function collectTypeFuncs(ty::NFType, funcs::FunctionTree)::FunctionTree
-   () = begin
-    local con::InstNode
-    local de::InstNode
-    local fn::M_Function
-    @match ty begin
-      TYPE_ARRAY(__) => begin
-        funcs = foldExpList(
-          ty.dimensions,
-          collectExpFuncs_traverse,
-          funcs,
-        )
-        funcs = collectTypeFuncs(ty.elementType, funcs)
-        ()
-      end
+function collectTypeFuncs(ty::ModelicaType, funcs::FunctionTree)::FunctionTree
+   local con::InstNode
+   local de::InstNode
+   @match ty begin
+     TYPE_ARRAY(__) => begin
+       funcs = foldExpList(ty.dimensions, collectExpFuncs_traverse, funcs, FunctionTree)
+       funcs = collectTypeFuncs(ty.elementType, funcs)
+       ()
+     end
 
-      TYPE_FUNCTION(fn = fn) => begin
-        funcs = flattenFunction(fn, funcs)
-        ()
-      end
+     TYPE_FUNCTION(__) => begin
+       funcs = flattenFunction(functionOf(ty), funcs)
+       ()
+     end
 
-      TYPE_COMPLEX(
-        complexTy = COMPLEX_EXTERNAL_OBJECT(constructor = con, destructor = de),
-      ) => begin
-        #=  Collect external object structors.
-        =#
-        @assign funcs = collectStructor(con, funcs)
-        @assign funcs = collectStructor(de, funcs)
-        ()
-      end
+     TYPE_COMPLEX(
+       complexTy = COMPLEX_EXTERNAL_OBJECT(constructor = con, destructor = de),
+     ) => begin
+       #= Collect external object structors. =#
+       @assign funcs = collectStructor(con, funcs)
+       @assign funcs = collectStructor(de, funcs)
+       ()
+     end
 
-      TYPE_COMPLEX(complexTy = COMPLEX_RECORD(constructor = con)) => begin
-        #=  Collect record constructors.
-        =#
-        @assign funcs = collectStructor(con, funcs)
-        ()
-      end
-      _ => begin
-        ()
-      end
-    end
-  end
+     TYPE_COMPLEX(complexTy = COMPLEX_RECORD(constructor = con)) => begin
+       #= Collect record constructors. =#
+       @assign funcs = collectStructor(con, funcs)
+       ()
+     end
+     _ => begin
+       ()
+     end
+   end
   return funcs
 end
 
 function collectStructor(node::InstNode, funcs::FunctionTree)::FunctionTree
   local cache::CachedData
-  local fn::List{M_Function}
+  local fn::List{MODELICA_FUNCTION}
   cache = getFuncCache(node)
-   () = begin
-    @match cache begin
-      C_FUNCTION(__) => begin
-        for fn in cache.funcs
-          funcs = flattenFunction(fn, funcs)
-        end
-        ()
-      end
+   @match cache begin
+     C_FUNCTION(__) => begin
+       for fn in cache.funcs
+         funcs = flattenFunction(fn, funcs)
+       end
+       ()
+     end
 
-      _ => begin
-        ()
-      end
-    end
-  end
+     _ => begin
+       ()
+     end
+   end
   return funcs
 end
 
 function collectEquationFuncs(@nospecialize(eq::Equation),
                               @nospecialize(funcs::FunctionTree))
-  () = begin
-    @match eq begin
-      EQUATION_EQUALITY(__) => begin
-        funcs = collectExpFuncs(eq.lhs, funcs)
-        funcs = collectExpFuncs(eq.rhs, funcs)
-        funcs = collectTypeFuncs(eq.ty, funcs)
-        ()
-      end
-      EQUATION_ARRAY_EQUALITY(__) => begin
-        #=  Lhs is always a cref, no need to check it. =#
-        funcs = collectExpFuncs(eq.rhs, funcs)
-        funcs = collectTypeFuncs(eq.ty, funcs)
-        ()
-      end
-      EQUATION_FOR(__) => begin
-        #=
-          For equations are always unrolled, so functions in the range doesn't
-          matter since they are always evaluated.
-        =#
-        funcs = ArrayUtil.fold(eq.body, collectEquationFuncs, funcs)
-        ()
-      end
-      EQUATION_IF(__) => begin
-        funcs = ArrayUtil.fold(eq.branches, collectEqBranchFuncs, funcs)
-        ()
-      end
-      EQUATION_WHEN(__) => begin
-        funcs = ArrayUtil.fold(eq.branches, collectEqBranchFuncs, funcs)
-        ()
-      end
-      EQUATION_ASSERT(__) => begin
-        funcs = collectExpFuncs(eq.condition, funcs)
-        funcs = collectExpFuncs(eq.message, funcs)
-        funcs = collectExpFuncs(eq.level, funcs)
-        ()
-      end
-      EQUATION_TERMINATE(__) => begin
-        funcs = collectExpFuncs(eq.message, funcs)
-        ()
-      end
-      EQUATION_REINIT(__) => begin
-        funcs = collectExpFuncs(eq.reinitExp, funcs)
-        ()
-      end
-      EQUATION_NORETCALL(__) => begin
-        funcs = collectExpFuncs(eq.exp, funcs)
-        ()
-      end
-      _ => begin
-        ()
-      end
+  @match eq begin
+    EQUATION_EQUALITY(__) => begin
+      funcs = collectExpFuncs(eq.lhs, funcs)
+      funcs = collectExpFuncs(eq.rhs, funcs)
+      funcs = collectTypeFuncs(eq.ty, funcs)
+      ()
+    end
+    EQUATION_ARRAY_EQUALITY(__) => begin
+      #=  Lhs is always a cref, no need to check it. =#
+      funcs = collectExpFuncs(eq.rhs, funcs)
+      funcs = collectTypeFuncs(eq.ty, funcs)
+      ()
+    end
+    EQUATION_FOR(__) => begin
+      #= For equations are always unrolled, so functions in the range doesn't
+         matter since they are always evaluated. =#
+      funcs = ArrayUtil.fold(eq.body, collectEquationFuncs, funcs, FunctionTree)
+      ()
+    end
+    EQUATION_IF(__) => begin
+      funcs = ArrayUtil.fold(eq.branches, collectEqBranchFuncs, funcs, FunctionTree)
+      ()
+    end
+    EQUATION_WHEN(__) => begin
+      funcs = ArrayUtil.fold(eq.branches, collectEqBranchFuncs, funcs, FunctionTree)
+      ()
+    end
+    EQUATION_ASSERT(__) => begin
+      funcs = collectExpFuncs(eq.condition, funcs)
+      funcs = collectExpFuncs(eq.message, funcs)
+      funcs = collectExpFuncs(eq.level, funcs)
+      ()
+    end
+    EQUATION_TERMINATE(__) => begin
+      funcs = collectExpFuncs(eq.message, funcs)
+      ()
+    end
+    EQUATION_REINIT(__) => begin
+      funcs = collectExpFuncs(eq.reinitExp, funcs)
+      ()
+    end
+    EQUATION_NORETCALL(__) => begin
+      funcs = collectExpFuncs(eq.exp, funcs)
+      ()
+    end
+    _ => begin
+      ()
     end
   end
   return funcs
 end
 
 function collectEqBranchFuncs(
-  @nospecialize(branch::Equation_Branch),
+  @nospecialize(branch::EquationBranch),
   @nospecialize(funcs::FunctionTree),
   )::FunctionTree
-  () = begin
-    @match branch begin
-      EQUATION_BRANCH(__) => begin
-        funcs = collectExpFuncs(branch.condition, funcs)
-        funcs = ArrayUtil.fold(branch.body, collectEquationFuncs, funcs)
-        ()
-      end
-      _ => begin
-        ()
-      end
+  @match branch begin
+    EQUATION_BRANCH(__) => begin
+      funcs = collectExpFuncs(branch.condition, funcs)
+      funcs = ArrayUtil.fold(branch.body, collectEquationFuncs, funcs, FunctionTree)
+      ()
+    end
+    _ => begin
+      ()
     end
   end
   return funcs
 end
 
-function collectAlgorithmFuncs(alg::Algorithm, funcs::FunctionTree)::FunctionTree
-  funcs = ArrayUtil.fold(alg.statements, collectStatementFuncs, funcs)
+function collectAlgorithmFuncs(alg::ALGORITHM, funcs::FunctionTree)::FunctionTree
+  funcs = ArrayUtil.fold(alg.statements, collectStatementFuncs, funcs, FunctionTree)
   return funcs
 end
 
 function collectStatementFuncs(@nospecialize(stmt::Statement), funcs::FunctionTree)::FunctionTree
-  () = begin
-    @match stmt begin
-      ALG_ASSIGNMENT(__) => begin
-        funcs = collectExpFuncs(stmt.lhs, funcs)
-        funcs = collectExpFuncs(stmt.rhs, funcs)
-        funcs = collectTypeFuncs(stmt.ty, funcs)
-        ()
-      end
+  @match stmt begin
+    ALG_ASSIGNMENT(__) => begin
+      funcs = collectExpFuncs(stmt.lhs, funcs)
+      funcs = collectExpFuncs(stmt.rhs, funcs)
+      funcs = collectTypeFuncs(stmt.ty, funcs)
+      ()
+    end
 
-      ALG_FOR(__) => begin
-        funcs = ArrayUtil.fold(stmt.body, collectStatementFuncs, funcs)
-        funcs = collectExpFuncs(Util.getOption(stmt.range), funcs)
-        ()
-      end
+    ALG_FOR(__) => begin
+      funcs = ArrayUtil.fold(stmt.body, collectStatementFuncs, funcs, FunctionTree)
+      funcs = collectExpFuncs(Util.getOption(stmt.range), funcs)
+      ()
+    end
 
-      ALG_IF(__) => begin
-        funcs = ArrayUtil.fold(stmt.branches, collectStmtBranchFuncs, funcs)
-        ()
-      end
+    ALG_IF(__) => begin
+      funcs = ArrayUtil.fold(stmt.branches, collectStmtBranchFuncs, funcs, FunctionTree)
+      ()
+    end
 
-      ALG_WHEN(__) => begin
-        funcs = ArrayUtil.fold(stmt.branches, collectStmtBranchFuncs, funcs)
-        ()
-      end
+    ALG_WHEN(__) => begin
+      funcs = ArrayUtil.fold(stmt.branches, collectStmtBranchFuncs, funcs, FunctionTree)
+      ()
+    end
 
-      ALG_ASSERT(__) => begin
-        funcs = collectExpFuncs(stmt.condition, funcs)
-        funcs = collectExpFuncs(stmt.message, funcs)
-        funcs = collectExpFuncs(stmt.level, funcs)
-        ()
-      end
+    ALG_ASSERT(__) => begin
+      funcs = collectExpFuncs(stmt.condition, funcs)
+      funcs = collectExpFuncs(stmt.message, funcs)
+      funcs = collectExpFuncs(stmt.level, funcs)
+      ()
+    end
 
-      ALG_TERMINATE(__) => begin
-        funcs = collectExpFuncs(stmt.message, funcs)
-        ()
-      end
+    ALG_TERMINATE(__) => begin
+      funcs = collectExpFuncs(stmt.message, funcs)
+      ()
+    end
 
-      ALG_REINIT(__) => begin
-        funcs = collectExpFuncs(stmt.reinitExp, funcs)
-        ()
-      end
+    ALG_REINIT(__) => begin
+      funcs = collectExpFuncs(stmt.reinitExp, funcs)
+      ()
+    end
 
-      ALG_NORETCALL(__) => begin
-        funcs = collectExpFuncs(stmt.exp, funcs)
-        ()
-      end
+    ALG_NORETCALL(__) => begin
+      funcs = collectExpFuncs(stmt.exp, funcs)
+      ()
+    end
 
-      ALG_WHILE(__) => begin
-        funcs = collectExpFuncs(stmt.condition, funcs)
-        funcs = ArrayUtil.fold(stmt.body, collectStatementFuncs, funcs)
-        ()
-      end
+    ALG_WHILE(__) => begin
+      funcs = collectExpFuncs(stmt.condition, funcs)
+      funcs = ArrayUtil.fold(stmt.body, collectStatementFuncs, funcs, FunctionTree)
+      ()
+    end
 
-      _ => begin
-        ()
-      end
+    _ => begin
+      ()
     end
   end
   return funcs
@@ -2450,47 +2334,45 @@ function collectStmtBranchFuncs(
   funcs::FunctionTree,
 )::FunctionTree
   funcs = collectExpFuncs(Util.tuple21(branch), funcs)
-  funcs = ArrayUtil.fold(Util.tuple22(branch), collectStatementFuncs, funcs)
+  funcs = ArrayUtil.fold(Util.tuple22(branch), collectStatementFuncs, funcs, FunctionTree)
   return funcs
 end
 
 function collectExpFuncs(exp::Expression, funcs::FunctionTree)::FunctionTree
-  funcs = fold(exp, collectExpFuncs_traverse, funcs)
+  funcs = fold(exp, collectExpFuncs_traverse, funcs, FunctionTree)
   return funcs
 end
 
 function collectExpFuncs_traverse(exp::Expression, funcs::FunctionTree)::FunctionTree
-   () = begin
-    local fn::M_Function
-    @match exp begin
-      CALL_EXPRESSION(__) => begin
-        funcs = flattenFunction(typedFunction(exp.call), funcs)
-        ()
-      end
-      CREF_EXPRESSION(__) => begin
-        funcs = collectTypeFuncs(exp.ty, funcs)
-        ()
-      end
-      RECORD_EXPRESSION(__) => begin
-        funcs = collectTypeFuncs(exp.ty, funcs)
-        ()
-      end
-      PARTIAL_FUNCTION_APPLICATION_EXPRESSION(__) => begin
-        for f in getRefCache(exp.fn)
-          funcs = flattenFunction(f, funcs)
-        end
-        ()
-      end
-      _ => begin
-        ()
-      end
-    end
-  end
+   local fn::MODELICA_FUNCTION
+   @match exp begin
+     CALL_EXPRESSION(__) => begin
+       funcs = flattenFunction(typedFunction(exp.call), funcs)
+       ()
+     end
+     CREF_EXPRESSION(__) => begin
+       funcs = collectTypeFuncs(exp.ty, funcs)
+       ()
+     end
+     RECORD_EXPRESSION(__) => begin
+       funcs = collectTypeFuncs(exp.ty, funcs)
+       ()
+     end
+     PARTIAL_FUNCTION_APPLICATION_EXPRESSION(__) => begin
+       for f in getRefCache(exp.fn)
+         funcs = flattenFunction(f, funcs)
+       end
+       ()
+     end
+     _ => begin
+       ()
+     end
+   end
   return funcs
 end
 
-function flattenFunction(func::M_Function, funcs::FunctionTree)::FunctionTree
-  local fn::M_Function = func
+function flattenFunction(func::MODELICA_FUNCTION, funcs::FunctionTree)::FunctionTree
+  local fn::MODELICA_FUNCTION = func
   if !isCollected(fn)
     fn = evaluateFunction(fn)
     simplifyFunction(fn)
@@ -2515,43 +2397,39 @@ function collectClassFunctions(clsNode::InstNode, funcs::FunctionTree)::Function
   local comp::Component
   local binding::Binding
   cls = getClass(clsNode)
-  () = begin
-    @match cls begin
-      INSTANCED_CLASS(
-        elements = cls_tree && CLASS_TREE_FLAT_TREE(__),
-        sections = sections,
-      ) => begin
-        for c in cls_tree.components
-          comp = component(c)
-          funcs = collectTypeFuncs(getType(comp), funcs)
-          binding = getBinding(comp)
-          if isExplicitlyBound(binding)
-            funcs = collectExpFuncs(getTypedExp(binding), funcs)
-          end
+  @match cls begin
+    INSTANCED_CLASS(
+      elements = cls_tree && CLASS_TREE_FLAT_TREE(__),
+      sections = sections,
+    ) => begin
+      for c in cls_tree.components
+        comp = component(c)
+        funcs = collectTypeFuncs(getType(comp), funcs)
+        binding = getBinding(comp)
+        if isExplicitlyBound(binding)
+          funcs = collectExpFuncs(getTypedExp(binding), funcs)
         end
-        () = begin
-          @match sections begin
-            SECTIONS(__) => begin
-              funcs = ArrayUtil.fold(sections.algorithms, collectAlgorithmFuncs, funcs)
-              ()
-            end
-
-            _ => begin
-              ()
-            end
-          end
+      end
+      @match sections begin
+        SECTIONS(__) => begin
+          funcs = ArrayUtil.fold(sections.algorithms, collectAlgorithmFuncs, funcs, FunctionTree)
+          ()
         end
-        ()
-      end
 
-      TYPED_DERIVED(__) => begin
-        funcs = collectClassFunctions(cls.baseClass, funcs)
-        ()
+        _ => begin
+          ()
+        end
       end
+      ()
+    end
 
-      _ => begin
-        ()
-      end
+    TYPED_DERIVED(__) => begin
+      funcs = collectClassFunctions(cls.baseClass, funcs)
+      ()
+    end
+
+    _ => begin
+      ()
     end
   end
   return funcs

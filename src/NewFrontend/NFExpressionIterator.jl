@@ -33,7 +33,7 @@
 *
 */ =#
 
-@Mutable_Uniontype NFExpressionIterator begin
+@Mutable_Uniontype ExpressionIterator begin
   @Record EXPRESSION_REPEAT_ITERATOR begin
     current::List{Expression}
     all::List{Expression}
@@ -105,62 +105,54 @@ function next(iterator::ExpressionIterator)::Tuple{ExpressionIterator, Expressio
 end
 
 function hasNext(iterator::ExpressionIterator)::Bool
-  local hasNext::Bool
-  hasNext = begin
-    @match iterator begin
-      EXPRESSION_ARRAY_ITERATOR(__) => begin
-        !listEmpty(iterator.slice)
-      end
+  @match iterator begin
+    EXPRESSION_ARRAY_ITERATOR(__) => begin
+      !listEmpty(iterator.slice)
+    end
 
-      EXPRESSION_SCALAR_ITERATOR(__) => begin
-        true
-      end
+    EXPRESSION_SCALAR_ITERATOR(__) => begin
+      true
+    end
 
-      EXPRESSION_EACH_ITERATOR(__) => begin
-        true
-      end
+    EXPRESSION_EACH_ITERATOR(__) => begin
+      true
+    end
 
-      EXPRESSION_NONE_ITERATOR(__) => begin
-        false
-      end
+    EXPRESSION_NONE_ITERATOR(__) => begin
+      false
+    end
 
-      EXPRESSION_REPEAT_ITERATOR(__) => begin
-        true
-      end
+    EXPRESSION_REPEAT_ITERATOR(__) => begin
+      true
     end
   end
-  return hasNext
 end
 
 function fromBinding(binding::Binding)::ExpressionIterator
-  local iterator::ExpressionIterator
 
-  @assign iterator = begin
-    local expl::List{Expression}
-    @match binding begin
-      TYPED_BINDING(eachType = EachType.REPEAT) => begin
-        @assign expl = arrayScalarElements(binding.bindingExp)
-        if listLength(expl) == 1
-          EXPRESSION_EACH_ITERATOR(listHead(expl))
-        else
-          EXPRESSION_REPEAT_ITERATOR(expl, expl)
-        end
-      end
-
-      TYPED_BINDING(eachType = EachType.EACH) => begin
-        EXPRESSION_EACH_ITERATOR(binding.bindingExp)
-      end
-
-      TYPED_BINDING(__) => begin
-        fromExpToExpressionIterator(binding.bindingExp)
-      end
-
-      FLAT_BINDING(__) => begin
-        EXPRESSION_EACH_ITERATOR(binding.bindingExp)
+  local expl::List{Expression}
+  @match binding begin
+    TYPED_BINDING(eachType = EachType.REPEAT) => begin
+      @assign expl = arrayScalarElements(binding.bindingExp)
+      if listLength(expl) == 1
+        EXPRESSION_EACH_ITERATOR(listHead(expl))
+      else
+        EXPRESSION_REPEAT_ITERATOR(expl, expl)
       end
     end
+
+    TYPED_BINDING(eachType = EachType.EACH) => begin
+      EXPRESSION_EACH_ITERATOR(binding.bindingExp)
+    end
+
+    TYPED_BINDING(__) => begin
+      fromExpToExpressionIterator(binding.bindingExp)
+    end
+
+    FLAT_BINDING(__) => begin
+      EXPRESSION_EACH_ITERATOR(binding.bindingExp)
+    end
   end
-  return iterator
 end
 
 function fromExpToExpressionIterator(exp::Expression)
@@ -185,7 +177,6 @@ function fromExpToExpressionIterator(exp::Expression)
         end
         (arr, slice) = nextArraySlice(arrayList(e.elements))
         EXPRESSION_ARRAY_ITERATOR(arr, slice)
-        #makeArrayIterator(e)
       end
       CREF_EXPRESSION(__) => begin
         (e, _) = expandCref(exp)
@@ -278,8 +269,7 @@ function nextArraySlice(
   return (arrayArg, slice)
 end
 
-
-function toString(@nospecialize(iterator::NFExpressionIterator))
+function toString(@nospecialize(iterator::ExpressionIterator))
   local buffer = IOBuffer()
   println(buffer, "$(typeof(iterator)):")
   @match iterator begin

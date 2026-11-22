@@ -39,21 +39,21 @@
 """
 module Frontend
 
-#= Import the parser for precompilation=#
-#= We also use it at the top level(!) =#
-import OMParser
+#= Import the parser for precompilation
+   We also use it at the top level(!) =#
+import OpenModelicaParser
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 import ..ArrayUtil
-import ..DAE
 import ..ListUtil
 import ..SCode
 import PrecompileTools
+import ConstructionBase
 import Base.@nospecializeinfer
 #= Import the execstat macro from the enclosing module..=#
 import ..@EXECSTAT
-
 
 """Utility functions."""
 function toString(vec::Vector{T}) where {T}
@@ -76,13 +76,10 @@ function toString(vec::List{T}) where {T}
   String(take!(buffer))
 end
 
-
 #= Top level functionality =#
 
-include("./Util/ElementSource.jl")
 include("./Util/Pointer.jl")
 include("./Util/System.jl")
-include("./Util/Corba.jl")
 include("./Util/Gettext.jl")
 include("./Util/ErrorTypes.jl")
 include("./Util/ErrorExt.jl")
@@ -98,11 +95,6 @@ include("./Util/UnorderedSet.jl")
 import .P_UnorderedSet
 const UnorderedSet = P_UnorderedSet
 #= Include various utility structures =#
-include("./Util/BaseAvlSet.jl")
-include("./Util/BaseAvlTree.jl")
-include("./Util/BaseHashTable.jl")
-include("./Util/BaseHashSet.jl")
-
 include("./Util/Global.jl")
 include("./Util/Settings.jl")
 include("./Util/Print.jl")
@@ -141,33 +133,6 @@ include("./AbsynUtil.jl")
 include("./SCodeUtil.jl")
 include("./SCodeDump.jl")
 include("./AbsynToSCode.jl")
-#= Minimal Values stub (OMC legacy, needed by toDAEValue in BindingExpression.jl) =#
-module Values
-  using MetaModelica
-  import OMParser.Absyn
-  abstract type Value end
-  struct INTEGER_EXPRESSION <: Value; value::Int; end
-  struct REAL_EXPRESSION <: Value; value::Float64; end
-  struct STRING_EXPRESSION <: Value; value::String; end
-  struct BOOL <: Value; value::Bool; end
-  struct ENUM_LITERAL <: Value; name::Absyn.Path; index::Int; end
-  struct RECORD <: Value; path::Absyn.Path; orderd::List; comp::List; index::Int; end
-  struct ARRAY <: Value; valueLst::List; dims::List; end
-end
-
-module ValuesUtil
-  import ..Values
-  using MetaModelica
-  function makeArray(vals::List)::Values.Value
-    Values.ARRAY(vals, list(listLength(vals)))
-  end
-  function makeReal(r::Float64)::Values.Value
-    Values.REAL_EXPRESSION(r)
-  end
-end
-
-#=Utility for frontend=#
-include("./FrontendUtil/Prefix.jl")
 #= Include interfaces and aliases New Frontend=#
 include("./FrontendInterfaces/NFInterfaces.jl")
 include("./FrontendInterfaces/NFAlias.jl")
@@ -177,62 +142,18 @@ include("./NewFrontend/NFExpression.jl")
 include("./NewFrontend/NFType.jl")
 include("./NewFrontend/NFComplexType.jl")
 include("./NewFrontend/NFPrefixes.jl")
+include("./FrontendInterfaces/FlatInterfaces.jl")
 include("./NewFrontend/NFComponent.jl")
 include("./NewFrontend/NFImport.jl")
 include("./NewFrontend/LookupTree.jl")
 include("./NewFrontend/DuplicateTree.jl")
-include("./NewFrontend/JLookupTree.jl")
 include("./NewFrontend/NFClassTree.jl")
 include("./NewFrontend/NFEquation.jl")
-
-#= Declare the signature for a M_Function early.. =#
-abstract type M_Function end
-struct M_FUNCTION <: M_Function
-  path::Absyn.Path
-  node::InstNode
-  inputs::List{InstNode}
-  outputs::List{InstNode}
-  locals::List{InstNode}
-  slots::List{Slot}
-  returnType::NFType
-  attributes::DAE.FunctionAttributes
-  derivatives::List{FunctionDerivative}
-  status::Pointer
-  callCounter::Pointer
-  #= The inputs a partial derivative of a function is taken with respect to, by index
-     (`function df = der(f, x)`; omc derivedInputs), empty for other functions. =#
-  derivedInputs::List{Int}
-  #= One constructor for all argument types (docstring below the struct). =#
-  function M_FUNCTION(@nospecialize(path::Absyn.Path), @nospecialize(node::InstNode), @nospecialize(inputs::List),
-                      @nospecialize(outputs::List), @nospecialize(locals::List), @nospecialize(slots::List),
-                      @nospecialize(returnType::NFType), @nospecialize(attributes::DAE.FunctionAttributes),
-                      @nospecialize(derivatives::List), @nospecialize(status::Pointer),
-                      @nospecialize(callCounter::Pointer), @nospecialize(derivedInputs::List))
-    return new(path, node, inputs, outputs, locals, slots, returnType, attributes, derivatives, status, callCounter,
-               derivedInputs)
-  end
-end
-
-"""
-    M_FUNCTION(path, node, inputs, outputs, locals, slots, returnType, attributes, derivatives, status, callCounter[, derivedInputs])
-
-A function. One constructor for all argument types (the default one was compiled per combination of `Cons`/`Nil`
-lists and path kinds at run time). The lists are `List` of any element type, as the default constructor took them:
-`new` converts them to the field types (a `Cons{Any}` built at run time). `derivedInputs` defaults to `nil`.
-"""
-M_FUNCTION(@nospecialize(path::Absyn.Path), @nospecialize(node::InstNode), @nospecialize(inputs::List),
-           @nospecialize(outputs::List), @nospecialize(locals::List), @nospecialize(slots::List),
-           @nospecialize(returnType::NFType), @nospecialize(attributes::DAE.FunctionAttributes),
-           @nospecialize(derivatives::List), @nospecialize(status::Pointer), @nospecialize(callCounter::Pointer)) =
-  M_FUNCTION(path, node, inputs, outputs, locals, slots, returnType, attributes, derivatives, status, callCounter, nil)
 
 include("./NewFrontend/NFInstNode.jl")
 include("./NewFrontend/NFSections.jl")
 include("./NewFrontend/NFRecord.jl")
 include("./NewFrontend/NFOperatorOverloading.jl")
-#= NFComponentRef uses @CUniontype; its compacted_tag_info registration must be
-   evaluated before any file whose @match patterns destructure crefs (NFCeval
-   is the first), so @match compiles the tag-dispatch path, not the record path. =#
 include("./NewFrontend/NFComponentRef.jl")
 include("./NewFrontend/NFBinding.jl")
 include("./NewFrontend/NFModifier.jl")
@@ -251,8 +172,8 @@ include("./NewFrontend/NFStatement.jl")
 include("./NewFrontend/NFVariable.jl")
 include("./NewFrontend/NFFlatModel.jl")
 include("./NewFrontend/NFConnector.jl")
-include("./NewFrontend/NFConnections.jl")
 include("./NewFrontend/NFConnection.jl")
+include("./NewFrontend/NFConnections.jl")
 
 include("./NewFrontend/NFConnectionSets.jl")
 
@@ -268,32 +189,20 @@ include("./NewFrontend/NFSubscript.jl")
 
 include("./NewFrontend/NFFlatten.jl")
 
-include("./NewFrontend/NFConvertDAE.jl")
-
 include("./NewFrontend/NFRestriction.jl")
-
-
-
-
-
 
 include("./NewFrontend/NFLookup.jl")
 
 include("./NewFrontend/NFLookupState.jl")
 
 @exportAll
-#= For over constrained connectors =#
-include("./NewFrontend/NFHashTable.jl")
-include("./NewFrontend/NFHashTable3.jl")
-include("./NewFrontend/NFHashTableCG.jl")
-include("./NewFrontend/NFOCConnectionGraph.jl")
-#= End =#
+#= Overconstrained connectors =#
+include("./NewFrontend/OCCGraph.jl")
 @exportAll
 include("./NewFrontend/NFBuiltinFuncs.jl")
 include("./NewFrontend/NFBuiltin.jl")
 #import ..NFBuiltin
 include("./NewFrontend/BindingExpression.jl")
-include("./NewFrontend/BindingExpression!.jl")
 
 include("./Util/ModelicaExternalC.jl")
 include("./NewFrontend/NFEvalFunction.jl")
@@ -304,6 +213,8 @@ include("./NewFrontend/NFCall.jl")
 include("./NewFrontend/NFBuiltinCall.jl")
 
 include("./NewFrontend/NFOperator.jl")
+#= after NFOperator.jl: its methods dispatch on OPERATOR =#
+include("./NewFrontend/NFRerollConnects.jl")
 
 include("./NewFrontend/NFTypeCheck.jl")
 
@@ -322,8 +233,7 @@ include("./NewFrontend/NFInline.jl")
 #=  Builtin functions =#
 include("./NewFrontend/NFRangeIterator.jl")
 
-
-#= JSON export of FlatModel (structural-mode components and templates). =#
+#= JSON export of FLAT_MODEL (structural-mode components and templates). =#
 include("./Export/StructuralModeJSON.jl")
 
 end

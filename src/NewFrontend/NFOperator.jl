@@ -33,8 +33,6 @@
 *
 */ =#
 
-@UniontypeDecl NFOperator
-
 """
   Structure describing different operators
 """
@@ -118,15 +116,10 @@ const Op = OpStruct(
 
 const OpType = Int
 
-abstract type NFOperator end
+#= OPERATOR is defined in FrontendInterfaces/NFInterfaces.jl, before the expressions that hold one. =#
 
-struct OPERATOR{T <: Integer} <: NFOperator
-  ty::M_Type
-  op::T
-end
-
-function negate(op::Operator)::Operator
-  local outOp::Operator
+function negate(op::OPERATOR)::OPERATOR
+  local outOp::OPERATOR
   local neg_op::OpType
   neg_op = begin
     @match op.op begin
@@ -163,39 +156,49 @@ function negate(op::Operator)::Operator
   return outOp
 end
 
-function isElementWise(op::Operator)::Bool
-  local ew::Bool
-  ew = begin
-    @match op.op begin
-      Op.ADD_EW => begin
-        true
-      end
+function isElementWise(op::OPERATOR)::Bool
+  @match op.op begin
+    Op.ADD_EW => begin
+      true
+    end
 
-      Op.SUB_EW => begin
-        true
-      end
+    Op.SUB_EW => begin
+      true
+    end
 
-      Op.MUL_EW => begin
-        true
-      end
+    Op.MUL_EW => begin
+      true
+    end
 
-      Op.DIV_EW => begin
-        true
-      end
+    Op.DIV_EW => begin
+      true
+    end
 
-      Op.POW_EW => begin
-        true
-      end
+    Op.POW_EW => begin
+      true
+    end
 
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return ew
 end
 
-function stripEW(op::Operator)
+"""
+The element-wise kind of an arithmetic operator (`Op.MUL` → `Op.MUL_EW`; omc's `Operator.makeEW`). An operation on
+two arrays keeps it (`p .* p`, not the matrix product `p * p`). Other operators are returned as they are.
+"""
+function makeEW(op::OPERATOR)::OPERATOR
+  local o::Int = op.op
+  o == Op.ADD && return OPERATOR(op.ty, Op.ADD_EW)
+  o == Op.SUB && return OPERATOR(op.ty, Op.SUB_EW)
+  o == Op.MUL && return OPERATOR(op.ty, Op.MUL_EW)
+  o == Op.DIV && return OPERATOR(op.ty, Op.DIV_EW)
+  o == Op.POW && return OPERATOR(op.ty, Op.POW_EW)
+  return op
+end
+
+function stripEW(op::OPERATOR)::OPERATOR
   opOP = @match op.op begin
     Op.ADD_EW => begin
       Op.ADD
@@ -223,8 +226,8 @@ function stripEW(op::Operator)
   return OPERATOR(op.ty, opOP)
 end
 
-function makeArrayScalar(ty::M_Type, op::OpType)::Operator
-  local outOp::Operator
+function makeArrayScalar(ty::ModelicaType, op::OpType)::OPERATOR
+  local outOp::OPERATOR
   local o::OpType
   o = begin
     @match op begin
@@ -253,8 +256,8 @@ function makeArrayScalar(ty::M_Type, op::OpType)::Operator
   return outOp
 end
 
-function makeScalarArray(ty::M_Type, op::OpType)::Operator
-  local outOp::Operator
+function makeScalarArray(ty::ModelicaType, op::OpType)::OPERATOR
+  local outOp::OPERATOR
   local o::OpType
   o = begin
     @match op begin
@@ -283,115 +286,101 @@ function makeScalarArray(ty::M_Type, op::OpType)::Operator
   return outOp
 end
 
-function makeNotEqual(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.NEQUAL)
+function makeEqual(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.EQUAL)
   return op
 end
 
-function makeEqual(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.EQUAL)
+function makeGreater(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.GREATER)
   return op
 end
 
-function makeGreaterEq(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.GREATEREQ)
+function makeLessEq(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.LESSEQ)
   return op
 end
 
-function makeGreater(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.GREATER)
+function makeLess(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.LESS)
   return op
 end
 
-function makeLessEq(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.LESSEQ)
+function makeNot(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.NOT)
   return op
 end
 
-function makeLess(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.LESS)
+function makeOr(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.OR)
   return op
 end
 
-function makeNot(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.NOT)
+function makeAnd(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.AND)
   return op
 end
 
-function makeOr(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.OR)
+function makeUMinus(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.UMINUS)
   return op
 end
 
-function makeAnd(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.AND)
+function makePow(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.POW)
   return op
 end
 
-function makeUMinus(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.UMINUS)
+function makeDiv(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.DIV)
   return op
 end
 
-function makePow(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.POW)
+function makeMul(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.MUL)
   return op
 end
 
-function makeDiv(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.DIV)
+function makeSub(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.SUB)
   return op
 end
 
-function makeMul(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.MUL)
+function makeAdd(ty::ModelicaType)::OPERATOR
+  local op::OPERATOR = OPERATOR(ty, Op.ADD)
   return op
 end
 
-function makeSub(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.SUB)
-  return op
-end
+function isNonAssociative(op::OPERATOR)::Bool
 
-function makeAdd(ty::M_Type)::Operator
-  local op::Operator = OPERATOR(ty, Op.ADD)
-  return op
-end
+  @match op.op begin
+    Op.POW => begin
+      true
+    end
 
-function isNonAssociative(op::Operator)::Bool
-  local isNonAssociative::Bool
+    Op.POW_EW => begin
+      true
+    end
 
-  @assign isNonAssociative = begin
-    @match op.op begin
-      Op.POW => begin
-        true
-      end
+    Op.POW_SCALAR_ARRAY => begin
+      true
+    end
 
-      Op.POW_EW => begin
-        true
-      end
+    Op.POW_ARRAY_SCALAR => begin
+      true
+    end
 
-      Op.POW_SCALAR_ARRAY => begin
-        true
-      end
+    Op.POW_MATRIX => begin
+      true
+    end
 
-      Op.POW_ARRAY_SCALAR => begin
-        true
-      end
-
-      Op.POW_MATRIX => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
+    _ => begin
+      false
     end
   end
-  return isNonAssociative
 end
 
-function isAssociative(op::Operator)::Bool
+function isAssociative(op::OPERATOR)::Bool
   local isAssoc::Bool
 
   isAssoc = begin
@@ -413,86 +402,112 @@ function isAssociative(op::Operator)::Bool
       end
     end
   end
-  #= case ADD_ARRAY_SCALAR() then true; =#
-  #= case MUL_ARRAY_SCALAR() then true;
-  =#
+  #= case ADD_ARRAY_SCALAR() then true;
+     case MUL_ARRAY_SCALAR() then true; =#
   return isAssoc
 end
 
-function priority(op::Operator, lhs::Bool)::Int
-  local priority::Int
+function priority(op::OPERATOR, lhs::Bool)::Int
 
-  @assign priority = begin
-    @match op.op begin
-      Op.ADD => begin
-        if lhs
-          5
-        else
-          6
-        end
-      end
-
-      Op.SUB => begin
+  @match op.op begin
+    Op.ADD => begin
+      if lhs
         5
-      end
-
-      Op.MUL => begin
-        2
-      end
-
-      Op.DIV => begin
-        2
-      end
-
-      Op.POW => begin
-        1
-      end
-
-      Op.ADD_EW => begin
-        if lhs
-          5
-        else
-          6
-        end
-      end
-
-      Op.SUB_EW => begin
-        5
-      end
-
-      Op.MUL_EW => begin
-        if lhs
-          2
-        else
-          3
-        end
-      end
-
-      Op.DIV_EW => begin
-        2
-      end
-
-      Op.POW_EW => begin
-        1
-      end
-
-      Op.AND => begin
-        8
-      end
-
-      Op.OR => begin
-        9
-      end
-
-      _ => begin
-        0
+      else
+        6
       end
     end
+
+    Op.SUB => begin
+      5
+    end
+
+    Op.MUL => begin
+      2
+    end
+
+    Op.DIV => begin
+      2
+    end
+
+    Op.POW => begin
+      1
+    end
+
+    Op.ADD_EW => begin
+      if lhs
+        5
+      else
+        6
+      end
+    end
+
+    Op.SUB_EW => begin
+      5
+    end
+
+    Op.MUL_EW => begin
+      if lhs
+        2
+      else
+        3
+      end
+    end
+
+    Op.DIV_EW => begin
+      2
+    end
+
+    Op.POW_EW => begin
+      1
+    end
+
+    #= The array kinds as their scalar operator (omc's Operator.priority): with 0 the right operand of each got
+       parentheses (`{1.0, 2.0} .* (time)`). =#
+    Op.ADD_SCALAR_ARRAY || Op.ADD_ARRAY_SCALAR => begin
+      if lhs
+        5
+      else
+        6
+      end
+    end
+
+    Op.SUB_SCALAR_ARRAY || Op.SUB_ARRAY_SCALAR => begin
+      5
+    end
+
+    Op.MUL_SCALAR_ARRAY || Op.MUL_ARRAY_SCALAR || Op.MUL_VECTOR_MATRIX || Op.MUL_MATRIX_VECTOR ||
+    Op.SCALAR_PRODUCT || Op.MATRIX_PRODUCT => begin
+      if lhs
+        2
+      else
+        3
+      end
+    end
+
+    Op.DIV_SCALAR_ARRAY || Op.DIV_ARRAY_SCALAR => begin
+      2
+    end
+
+    Op.POW_SCALAR_ARRAY || Op.POW_ARRAY_SCALAR || Op.POW_MATRIX => begin
+      1
+    end
+
+    Op.AND => begin
+      8
+    end
+
+    Op.OR => begin
+      9
+    end
+
+    _ => begin
+      0
+    end
   end
-  return priority
 end
 
-function symbol(op::Operator, spacing::String = " ")::String
+function symbol(op::OPERATOR, spacing::String = " ")::String
   local symbol::String
 
   @assign symbol = begin
@@ -638,8 +653,7 @@ function symbol(op::Operator, spacing::String = " ")::String
       end
 
       _ => begin
-        #= case Op.USERDEFINED      then \"Userdefined:\" + AbsynUtil.pathString(op.fqName);
-        =#
+        #= case Op.USERDEFINED      then \"Userdefined:\" + AbsynUtil.pathString(op.fqName); =#
         Error.assertion(false, getInstanceName() + " got unknown type.", sourceInfo())
         fail()
       end
@@ -651,191 +665,25 @@ end
 
 function unlift(op::OPERATOR)
   local ty = unliftArray(op.ty)
-  return OPERATOR{Int}(ty, op.op)
+  return OPERATOR(ty, op.op)
 end
 
 function scalarize(op::OPERATOR)
   local ty = arrayElementType(op.ty)
-  return OPERATOR{Int}(ty, op.op)
+  return OPERATOR(ty, op.op)
 end
 
-function setType(ty::M_Type, op::OPERATOR)
-  return OPERATOR{Int}(ty, op.op)
+function setType(ty::ModelicaType, op::OPERATOR)
+  return OPERATOR(ty, op.op)
 end
 
-function typeOf(op::Operator)::M_Type
-  local ty::M_Type = op.ty
+function typeOf(op::OPERATOR)::ModelicaType
+  local ty::ModelicaType = op.ty
   return ty
 end
 
-function toDAE(op::Operator)::DAE.Operator #Tuple{DAE.Operator, Bool}
-  local swapArguments::Bool = false #= The DAE structure only has array*scalar, not scalar*array, etc =#
-  local daeOp::DAE.Operator
-  local ty::DAE.Type
-  @assign ty = toDAE(op.ty)
-  @assign daeOp = begin
-    @match op.op begin
-      Op.ADD => begin
-        if isArray(op.ty)
-          DAE.ADD_ARR(ty)
-        else
-          DAE.ADD(ty)
-        end
-      end
-
-      Op.SUB => begin
-        if isArray(op.ty)
-          DAE.SUB_ARR(ty)
-        else
-          DAE.SUB(ty)
-        end
-      end
-
-      Op.MUL => begin
-        if isArray(op.ty)
-          DAE.MUL_ARR(ty)
-        else
-          DAE.MUL(ty)
-        end
-      end
-
-      Op.DIV => begin
-        if isArray(op.ty)
-          DAE.DIV_ARR(ty)
-        else
-          DAE.DIV(ty)
-        end
-      end
-
-      Op.POW => begin
-        if isArray(op.ty)
-          DAE.POW_ARR2(ty)
-        else
-          DAE.POW(ty)
-        end
-      end
-
-      Op.ADD_SCALAR_ARRAY => begin
-        @assign swapArguments = true
-        DAE.ADD_ARRAY_SCALAR(ty)
-      end
-
-      Op.ADD_ARRAY_SCALAR => begin
-        DAE.ADD_ARRAY_SCALAR(ty)
-      end
-
-      Op.SUB_SCALAR_ARRAY => begin
-        DAE.SUB_SCALAR_ARRAY(ty)
-      end
-
-      Op.SUB_ARRAY_SCALAR => begin
-        Error.addInternalError(
-          getInstanceName() + ": Don't know how to handle " + (string(op.op)::String),
-          sourceInfo(),
-        )
-        DAE.SUB(ty)
-      end
-
-      Op.MUL_SCALAR_ARRAY => begin
-        @assign swapArguments = true
-        DAE.MUL_ARRAY_SCALAR(ty)
-      end
-
-      Op.MUL_ARRAY_SCALAR => begin
-        DAE.MUL_ARRAY_SCALAR(ty)
-      end
-
-      Op.MUL_VECTOR_MATRIX => begin
-        DAE.MUL_MATRIX_PRODUCT(ty)
-      end
-
-      Op.MUL_MATRIX_VECTOR => begin
-        DAE.MUL_MATRIX_PRODUCT(ty)
-      end
-
-      Op.SCALAR_PRODUCT => begin
-        DAE.MUL_SCALAR_PRODUCT(ty)
-      end
-
-      Op.MATRIX_PRODUCT => begin
-        DAE.MUL_MATRIX_PRODUCT(ty)
-      end
-
-      Op.DIV_SCALAR_ARRAY => begin
-        DAE.DIV_SCALAR_ARRAY(ty)
-      end
-
-      Op.DIV_ARRAY_SCALAR => begin
-        DAE.DIV_ARRAY_SCALAR(ty)
-      end
-
-      Op.POW_SCALAR_ARRAY => begin
-        DAE.POW_SCALAR_ARRAY(ty)
-      end
-
-      Op.POW_ARRAY_SCALAR => begin
-        DAE.POW_ARRAY_SCALAR(ty)
-      end
-
-      Op.POW_MATRIX => begin
-        DAE.POW_ARR(ty)
-      end
-
-      Op.UMINUS => begin
-        if isArray(op.ty)
-          DAE.UMINUS_ARR(ty)
-        else
-          DAE.UMINUS(ty)
-        end
-      end
-
-      Op.AND => begin
-        DAE.AND(ty)
-      end
-
-      Op.OR => begin
-        DAE.OR(ty)
-      end
-
-      Op.NOT => begin
-        DAE.NOT(ty)
-      end
-
-      Op.LESS => begin
-        DAE.LESS(ty)
-      end
-
-      Op.LESSEQ => begin
-        DAE.LESSEQ(ty)
-      end
-
-      Op.GREATER => begin
-        DAE.GREATER(ty)
-      end
-
-      Op.GREATEREQ => begin
-        DAE.GREATEREQ(ty)
-      end
-
-      Op.EQUAL => begin
-        DAE.EQUAL(ty)
-      end
-
-      Op.NEQUAL => begin
-        DAE.NEQUAL(ty)
-      end
-
-      _ => begin
-        Error.assertion(false, getInstanceName() + " got unknown type.", sourceInfo())
-        fail()
-      end
-    end
-  end
-  return daeOp #, swapArguments) #= The DAE structure only has array*scalar, not scalar*array, etc =#
-end
-
-function fromAbsyn(inOperator::Absyn.Operator)::Operator
-  local outOperator::Operator
+function fromAbsyn(inOperator::Absyn.Operator)::OPERATOR
+  local outOperator::OPERATOR
   local op::OpType
   op = begin
     @match inOperator begin
@@ -936,7 +784,7 @@ function fromAbsyn(inOperator::Absyn.Operator)::Operator
   return outOperator
 end
 
-function compare(op1::Operator, op2::Operator)::Int
+function compare(op1::OPERATOR, op2::OPERATOR)::Int
   local comp::Int
   local o1::OpType = op1.op
   local o2::OpType = op2.op

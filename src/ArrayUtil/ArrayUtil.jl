@@ -36,6 +36,7 @@
 module ArrayUtil
 
 using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 #= ExportAll is not good practice but it makes it so that we do not have to write export after each function :( =#
 using ExportAll
 using MetaModelica.Dangerous: arrayGetNoBoundsChecking, arrayUpdateNoBoundsChecking, arrayCreateNoInit
@@ -233,8 +234,6 @@ function mapFoldRef(inArray::Vector{T}, inFunc::F, inArg::FT, outRefArg::Ref{FT}
   return outArr
 end
 
-
-
 """
 ```
 map1Fold
@@ -256,7 +255,7 @@ end
 
 """ Applies a function to only the elements given by the sorted list of indices. """
 function mapIndices(inList::Vector{T}, indices::Vector{Int}, func::F) where {T, F<:Function}
-  local outList::Vector{T} = T[i for i in inList]
+  local outList::Vector{T} = Base.copy(inList)
   if isempty(indices)
     return outList
   end
@@ -265,7 +264,6 @@ function mapIndices(inList::Vector{T}, indices::Vector{Int}, func::F) where {T, 
   end
   return outList
 end
-
 
 """
 Applies a function to only the elements given by the sorted list of indices.
@@ -281,19 +279,14 @@ function mapIndices!(inList::Vector{T}, indices::Vector{Int}, func::F) where {T,
   return inList
 end
 
-
-
-""" Takes an array, a function, and a start value. The function is applied to
-each array element, and the start value is passed to the function and
-updated. """
-function fold(inArray::Vector{T},
-              inFunction::F,
-              inStartValue) where {T, F<:Function}
-  local outResult = inStartValue
+""" Takes an array, a function, and a start value of type `TO`. The function is applied to each array element,
+and the start value is passed to the function and updated: `inFunction(e, acc)::TO`. """
+function fold(inArray::Vector{T}, inFunction::F, inStartValue::TO, ::Type{TO})::TO where {T, F<:Function, TO}
+  local outResult::TO = inStartValue
   for e in inArray
-    outResult = inFunction(e, outResult)
+    outResult = inFunction(e, outResult)::TO
   end
-  outResult
+  return outResult
 end
 
 # Fold accumulators stay untyped here and in foldIndex, mapFold and mapNoCopy_1: a
@@ -383,7 +376,6 @@ function. Example:
 reduce([1, 2, 3], intAdd) => 6 """
 function reduce(inArray::Vector{T}, inFunction::F) where {T, F<:Function}
   local outResult::T
-  local rest::List{T}
   outResult = arrayGet(inArray, 1)
   for i in 2:arrayLength(inArray)
     outResult = inFunction(outResult, arrayGet(inArray, i))
@@ -531,7 +523,6 @@ end
 @author:johti17
 """
 function appendList!(arr::Vector{T}, lst::Cons{T}) where {T}
-  local outArray::Vector{T}
   local arr_len::ModelicaInteger = length(arr)
   local e::T
   if arr_len == 0
@@ -582,7 +573,6 @@ function any(inArray::Vector{T}, inFunc::F) where {T, F<:Function}
   end
   return outResult
 end
-
 
 """ Copies all values from inArraySrc to inArrayDest. Fails if inArraySrc is
 larger than inArrayDest.
@@ -664,7 +654,6 @@ end
 """ Returns the index of the given element in the array, or 0 if it wasn't found. """
 function position(inArray::Vector{T}, inElement::T, inFilledSize::ModelicaInteger = arrayLength(inArray) #= The filled size of the array. =#)  where {T}
   local outIndex::ModelicaInteger
-  local e::T
   for i in 1:inFilledSize
     if valueEq(inElement, inArray[i])
       outIndex = i
@@ -710,16 +699,12 @@ function reverse(inArray::Vector{T})  where {T}
 end
 
 """ output true if all lists in the array are empty """
-function arrayListsEmpty(arr::Array{List{T}})  where {T}
-  local isEmpty::Bool
-  isEmpty = fold(arr, arrayListsEmpty1, true)
-  isEmpty
+function arrayListsEmpty(arr::Array{List{T}})::Bool  where {T}
+  return fold(arr, arrayListsEmpty1, true, Bool)
 end
 
-function arrayListsEmpty1(lst::List{T}, isEmptyIn::Bool)  where {T}
-  local isEmptyOut::Bool
-  isEmptyOut = listEmpty(lst) && isEmptyIn
-  isEmptyOut
+function arrayListsEmpty1(lst::List{T}, isEmptyIn::Bool)::Bool  where {T}
+  return listEmpty(lst) && isEmptyIn
 end
 
 """ Checks if two arrays are equal. """
@@ -813,9 +798,7 @@ function partition(inV::Vector{T}, inPartitionLength::ModelicaInteger)  where {T
   elseif inPartitionLength >= vLength
     return Vector{T}[inV]
   end #Else proceed
-  #=
-  Declare local vars
-  =#
+  #= Declare local vars =#
   local vWork::Vector = inV
   for i in 1:div(vLength, inPartitionLength)
     (part, vWork) = split(vWork, inPartitionLength)

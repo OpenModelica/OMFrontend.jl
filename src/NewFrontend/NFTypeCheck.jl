@@ -88,15 +88,15 @@ end
 
 function checkBinaryOperation(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  operator::Operator,
+  operator::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local resultType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local binaryExp::Expression
 
   if isComplex(arrayElementType(type1)) ||
@@ -172,28 +172,27 @@ end
 
 function checkOverloadedBinaryOperator(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local op_str::String
-  local candidates::Vector{M_Function}
-  local ety1::M_Type
-  local ety2::M_Type
+  local candidates::Vector{MODELICA_FUNCTION}
+  local ety1::ModelicaType
+  local ety2::ModelicaType
 
   op_str = symbol(stripEW(op), "'")
   ety1 = arrayElementType(type1)
   ety2 = arrayElementType(type2)
   candidates = lookupOperatorFunctionsInType(op_str, ety1)
-  #=  Only collect operators from both types if they're not the same type.
-  =#
+  #= Only collect operators from both types if they're not the same type. =#
   if !isEqual(ety1, ety2)
     candidates = Base.append!(
       lookupOperatorFunctionsInType(op_str, ety2),
@@ -238,31 +237,28 @@ end
 
 function matchOverloadedBinaryOperator(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
   showErrors::Bool = true,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local args::Vector{TypedArg}
-  local matchKind::FunctionMatchKind
   local matchedFunc::MatchedFunction
   local matchedFunctions::Vector{MatchedFunction}
   local exactMatches::Vector{MatchedFunction}
-  local fn::M_Function
-  local oop::Op
+  local fn::MODELICA_FUNCTION
 
   args = TypedArg[(exp1, type1, var1), (exp2, type2, var2)]
   matchedFunctions = matchFunctionsSilent(candidates, args, TypedNamedArg[], info)
-  #=  We only allow exact matches for operator overloading. e.g. no casting or generic matches.
-  =#
+  #= We only allow exact matches for operator overloading. e.g. no casting or generic matches. =#
   @assign exactMatches = getExactMatches(matchedFunctions)
   if isempty(exactMatches)
     ErrorExt.setCheckpoint("NFTypeCheck:implicitConstruction")
@@ -336,8 +332,7 @@ function matchOverloadedBinaryOperator(
             end
 
             _ => begin
-              #=  TODO: new error mentioning overloaded operators.
-              =#
+              #= TODO: new error mentioning overloaded operators. =#
               printUnresolvableTypeError(
                 BINARY_EXPRESSION(exp1, op, exp2),
                 list(type1, type2),
@@ -385,21 +380,21 @@ end
 
 function checkBinaryOperationBoxed(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local e1::Expression
   local e2::Expression
-  local ty1::M_Type
-  local ty2::M_Type
+  local ty1::ModelicaType
+  local ty2::ModelicaType
 
    (e1, ty1) = matchTypes(type1, unbox(type1), exp1)
    (e2, ty2) = matchTypes(type2, unbox(type2), exp2)
@@ -409,24 +404,23 @@ end
 
 function checkOverloadedBinaryArrayAddSub(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local e1::Expression
   local e2::Expression
   local mk::MatchKindType
 
-  #=  For addition or subtraction both sides must have the same type.
-  =#
+  #= For addition or subtraction both sides must have the same type. =#
    (e1, e2, _, mk) = matchExpressions(exp1, type1, exp2, type2, true)
   if !isCompatibleMatch(mk)
     printUnresolvableTypeError(
@@ -453,22 +447,22 @@ end
 
 function checkOverloadedBinaryArrayAddSub2(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
    (outExp, outType) = begin
-    local ty::M_Type
-    local ty1::M_Type
-    local ty2::M_Type
+    local ty::ModelicaType
+    local ty1::ModelicaType
+    local ty2::ModelicaType
     local e::Expression
     local e2::Expression
     local expl::Vector{Expression}
@@ -522,8 +516,7 @@ function checkOverloadedBinaryArrayAddSub2(
             push!(expl, e)
           end
         end
-        #=  If the arrays are empty, match against the element types to get the expected return type.
-        =#
+        #= If the arrays are empty, match against the element types to get the expected return type. =#
         outType = setArrayElementType(type1, ty)
         outExp = makeArray(outType, expl)
         (outExp, outType)
@@ -549,16 +542,16 @@ end
 
 function checkOverloadedBinaryArrayMul(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local valid::Bool
@@ -574,8 +567,7 @@ function checkOverloadedBinaryArrayMul(
    (valid, outExp) = begin
     @match (dims1, dims2) begin
       (nil(), _ <| nil()) => begin
-        #=  scalar * array = array
-        =#
+        #= scalar * array = array =#
         @assign (outExp, _) = checkOverloadedBinaryScalarArray(
           exp1,
           type1,
@@ -591,8 +583,7 @@ function checkOverloadedBinaryArrayMul(
       end
 
       (_ <| nil(), nil()) => begin
-        #=  array * scalar = array
-        =#
+        #= array * scalar = array =#
         @assign (outExp, _) = checkOverloadedBinaryArrayScalar(
           exp1,
           type1,
@@ -608,22 +599,18 @@ function checkOverloadedBinaryArrayMul(
       end
 
       (dim11 <| dim12 <| nil(), dim21 <| nil()) => begin
-        #=  matrix[n, m] * vector[m] = vector[n]
-        =#
+        #= matrix[n, m] * vector[m] = vector[n] =#
         @assign valid = isEqual(dim12, dim21)
-        #=  TODO: Implement me!
-        =#
+        #= TODO: Implement me! =#
         @assign outExp = BINARY_EXPRESSION(exp1, op, exp2)
         @assign valid = false
         (valid, outExp)
       end
 
       (dim11 <| dim12 <| nil(), dim21 <| dim22 <| nil()) => begin
-        #=  matrix[n, m] * matrix[m, p] = vector[n, p]
-        =#
+        #= matrix[n, m] * matrix[m, p] = vector[n, p] =#
         @assign valid = isEqual(dim12, dim21)
-        #=  TODO: Implement me!
-        =#
+        #= TODO: Implement me! =#
         @assign outExp = BINARY_EXPRESSION(exp1, op, exp2)
         @assign valid = false
         (valid, outExp)
@@ -634,10 +621,8 @@ function checkOverloadedBinaryArrayMul(
       end
     end
   end
-  #=  scalar * scalar should never get here.
-  =#
-  #=  vector * vector and vector * matrix are undefined for overloaded operators.
-  =#
+  #= scalar * scalar should never get here.
+     vector * vector and vector * matrix are undefined for overloaded operators. =#
   if !valid
     printUnresolvableTypeError(outExp, list(type1, type2), info)
   end
@@ -647,16 +632,16 @@ end
 
 function checkOverloadedBinaryScalarArray(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
    (exp2_expanded, _) = expand(exp2)
@@ -676,20 +661,20 @@ end
 
 function checkOverloadedBinaryScalarArray2(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local expl::Vector{Expression}
-  local ty::M_Type
+  local ty::ModelicaType
 
    (outExp, outType) = begin
     @match exp2 begin
@@ -761,16 +746,16 @@ end
 
 function checkOverloadedBinaryArrayScalar(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
    (exp1_expanded, _) = expand(exp1)
@@ -790,21 +775,20 @@ end
 
 function checkOverloadedBinaryArrayScalar2(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
-  local e1::Expression
   local expl::Vector{Expression}
-  local ty::M_Type
+  local ty::ModelicaType
 
    (outExp, outType) = begin
     @match exp1 begin
@@ -876,16 +860,16 @@ end
 
 function checkOverloadedBinaryArrayDiv(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   if isArray(type1) && isScalar(type2)
@@ -912,24 +896,21 @@ end
 
 function checkOverloadedBinaryArrayEW(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local e1::Expression
   local e2::Expression
   local mk::MatchKindType
-  local expl1::Vector{Expression}
-  local expl2::Vector{Expression}
-  local ty::M_Type
 
   if isArray(type1) && isArray(type2)
      (e1, e2, _, mk) = matchExpressions(exp1, type1, exp2, type2, true)
@@ -958,25 +939,25 @@ end
 
 function checkOverloadedBinaryArrayEW2(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   var1::VariabilityType,
-  op::Operator,
+  op::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   var2::VariabilityType,
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local outType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local e2::Expression
   local expl::Vector{Expression}
   local expl1::Vector{Expression}
   local expl2::Vector{Expression}
-  local ty::M_Type
-  local ty1::M_Type
-  local ty2::M_Type
+  local ty::ModelicaType
+  local ty1::ModelicaType
+  local ty2::ModelicaType
   local is_array1::Bool
   local is_array2::Bool
 
@@ -1072,31 +1053,26 @@ function checkOverloadedBinaryArrayEW2(
 end
 
 function implicitConstructAndMatch(
-  candidates::Vector{M_Function},
+  candidates::Vector{MODELICA_FUNCTION},
   @nospecialize(inExp1::Expression),
-  inType1::M_Type,
-  op::Operator,
+  inType1::ModelicaType,
+  op::OPERATOR,
   @nospecialize(inExp2::Expression),
-  inType2::M_Type,
+  inType2::ModelicaType,
   info::SourceInfo,
-  )::Tuple{Expression, M_Type}
-  local outType::M_Type
+  )::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local inputs::List{InstNode}
   local in1::InstNode
   local in2::InstNode
-  local scope::InstNode
-  local mk1::MatchKindType
-  local mk2::MatchKindType
-  local fn_ref::ComponentRef
-  local operfn::M_Function
-  local matchedfuncs::List{Tuple{M_Function, List{Expression}, VariabilityType}} = nil
+  local operfn::MODELICA_FUNCTION
+  local matchedfuncs::List{Tuple{MODELICA_FUNCTION, List{Expression}, VariabilityType}} = nil
   local exp1::Expression
   local exp2::Expression
-  local ty::M_Type
-  local arg1_ty::M_Type
-  local arg2_ty::M_Type
+  local arg1_ty::ModelicaType
+  local arg2_ty::ModelicaType
   local var::VariabilityType
   local matched::Bool
   local arg1_info::SourceInfo
@@ -1143,10 +1119,8 @@ function implicitConstructAndMatch(
       matchedfuncs,
     )
   end
-  #=  Try to implicitly construct a matching record from the first argument.
-  =#
-  #=  Try to implicitly construct a matching record from the second argument.
-  =#
+  #= Try to implicitly construct a matching record from the first argument.
+     Try to implicitly construct a matching record from the second argument. =#
   if listLength(matchedfuncs) == 1
     @match (operfn, exp1 <| (exp2 <| _), var) <| _ = matchedfuncs
     @assign outType = returnType(operfn)
@@ -1172,17 +1146,17 @@ end
 
 function implicitConstructAndMatch2(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  paramType1::M_Type,
+  paramType1::ModelicaType,
   paramInfo1::SourceInfo,
-  paramType2::M_Type,
+  paramType2::ModelicaType,
   paramInfo2::SourceInfo,
   scope::InstNode,
-  fn::M_Function,
+  fn::MODELICA_FUNCTION,
   reverseArgs::Bool,
-  matchedFns::List{<:Tuple{<:M_Function, List{<:Expression}, VariabilityType}},
-)::Tuple{List{Tuple{M_Function, List{Expression}, VariabilityType}}, Bool}
+  matchedFns::List{<:Tuple{MODELICA_FUNCTION, List{<:Expression}, VariabilityType}},
+)::Tuple{List{Tuple{MODELICA_FUNCTION, List{Expression}, VariabilityType}}, Bool}
   local matched::Bool
 
   local fn_ref::ComponentRef
@@ -1190,13 +1164,11 @@ function implicitConstructAndMatch2(
   local e2::Expression
   local mk::MatchKindType
   local var::VariabilityType
-  local ty::M_Type
+  local ty::ModelicaType
 
    (e1, _, mk) = matchTypes(paramType1, type1, exp1, false)
-  #=  We only want overloaded constructors when trying to implicitly construct.
-  =#
-  #=  Default constructors are not considered.
-  =#
+  #= We only want overloaded constructors when trying to implicitly construct.
+     Default constructors are not considered. =#
   if mk == MatchKind.EXACT
     (fn_ref, _, _) =
       instFunction(Absyn.CREF_IDENT("'constructor'", nil), scope, paramInfo2)
@@ -1205,7 +1177,7 @@ function implicitConstructAndMatch2(
      (e2, ty, var) = typeCall(e2, 0, paramInfo1)
      (_, _, mk) = matchTypes(paramType2, ty, e2, false)
     if mk == MatchKind.EXACT
-      matchedFns = Cons{Tuple{M_Function, List{Expression}, VariabilityType}}(
+      matchedFns = Cons{Tuple{MODELICA_FUNCTION, List{Expression}, VariabilityType}}(
         (fn,
          if reverseArgs
            list(e2, e1)
@@ -1227,12 +1199,12 @@ end
 
 function checkBinaryOperationAdd(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local resultType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local binaryExp::Expression
 
   local e1::Expression
@@ -1271,12 +1243,12 @@ end
 
 function checkBinaryOperationSub(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   info::SourceInfo,
-)::Tuple{Expression, M_Type}
-  local resultType::M_Type
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local binaryExp::Expression
 
   local e1::Expression
@@ -1311,18 +1283,18 @@ end
 
 @nospecializeinfer function checkBinaryOperationMul(
   @nospecialize(exp1::Expression),
-  type1::M_Type,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::M_Type,
+  type2::ModelicaType,
   info::SourceInfo,
-)::Tuple{Expression, NFType}
-  local resultType::NFType
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local binaryExp::Expression
 
   local e1::Expression
   local e2::Expression
-  local ty1::M_Type
-  local ty2::M_Type
+  local ty1::ModelicaType
+  local ty2::ModelicaType
   local dims1::List{Dimension}
   local dims2::List{Dimension}
   local dim11::Dimension
@@ -1369,35 +1341,28 @@ end
       end
 
       (dim11 <| nil(), dim21 <| nil()) => begin
-        #=  scalar * scalar = scalar
-        =#
-        #=  scalar * array = array
-        =#
-        #=  array * scalar = array
-        =#
-        #=  vector[n] * vector[n] = scalar
-        =#
+        #= scalar * scalar = scalar
+           scalar * array = array
+           array * scalar = array
+           vector[n] * vector[n] = scalar =#
         @assign valid = isEqual(dim11, dim21)
         (resultType, Op.SCALAR_PRODUCT)
       end
 
       (dim11 <| nil(), dim21 <| dim22 <| nil()) => begin
-        #=  vector[n] * matrix[n, m] = vector[m]
-        =#
+        #= vector[n] * matrix[n, m] = vector[m] =#
         @assign valid = isEqual(dim11, dim21)
         (TYPE_ARRAY(resultType, list(dim22)), Op.MUL_VECTOR_MATRIX)
       end
 
       (dim11 <| dim12 <| nil(), dim21 <| nil()) => begin
-        #=  matrix[n, m] * vector[m] = vector[n]
-        =#
+        #= matrix[n, m] * vector[m] = vector[n] =#
         @assign valid = isEqual(dim12, dim21)
         (TYPE_ARRAY(resultType, list(dim11)), Op.MUL_MATRIX_VECTOR)
       end
 
       (dim11 <| dim12 <| nil(), dim21 <| dim22 <| nil()) => begin
-        #=  matrix[n, m] * matrix[m, p] = vector[n, p]
-        =#
+        #= matrix[n, m] * matrix[m, p] = vector[n, p] =#
         @assign valid = isEqual(dim12, dim21)
         (TYPE_ARRAY(resultType, list(dim11, dim22)), Op.MATRIX_PRODUCT)
       end
@@ -1418,31 +1383,29 @@ end
 
 function checkBinaryOperationDiv(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   info::SourceInfo,
   isElementWise::Bool,
-)::Tuple{Expression, NFType}
-  local resultType::NFType
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local binaryExp::Expression
   local e1::Expression
   local e2::Expression
-  local ty1::NFType
-  local ty2::NFType
+  local ty1::ModelicaType
+  local ty2::ModelicaType
   local mk::MatchKindType
   local valid::Bool
-  local op::Operator
+  local op::OPERATOR
   (e1, ty1, mk) =
     matchTypes(type1, setArrayElementType(type1, TYPE_REAL()), exp1, #=allowUnknown=# true)
   valid = isCompatibleMatch(mk)
    (e2, ty2, mk) =
     matchTypes(type2, setArrayElementType(type2, TYPE_REAL()), exp2, #=allowUnknown=# true)
   valid = valid && isCompatibleMatch(mk)
-  #=  Division is always element-wise, the only difference between / and ./ is
-  =#
-  #=  which operands they accept.
-  =#
+  #= Division is always element-wise, the only difference between / and ./ is
+     which operands they accept. =#
    (resultType, op) = begin
     @match (isArray(ty1), isArray(ty2), isElementWise) begin
       (false, false, _) => begin
@@ -1458,24 +1421,15 @@ function checkBinaryOperationDiv(
       end
 
       (true, _, true) => begin
-        #=  scalar / scalar or scalar ./ scalar
-        =#
-        #=  array / scalar or array ./ scalar
-        =#
-        #=  scalar ./ array
-        =#
-        #=  array ./ array
-        =#
-        #=  If both operands are arrays, check that their dimensions are compatible.
-        =#
+        #= array ./ array: both dimensions must be compatible. Op.DIV_EW, not Op.DIV with an array type (omc): a
+           second typing of a DIV takes it as `/`, which does not accept two arrays. =#
          (_, _, mk) = matchArrayTypes(ty1, ty2, e1, true)
         @assign valid = valid && isCompatibleMatch(mk)
-        (ty1, makeDiv(ty1))
+        (ty1, OPERATOR(ty1, Op.DIV_EW))
       end
 
       _ => begin
-        #=  Anything else is an error.
-        =#
+        #= Anything else is an error. =#
         @assign valid = false
         (ty1, makeDiv(ty1))
       end
@@ -1490,19 +1444,19 @@ end
 
 function checkBinaryOperationPow(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   info::SourceInfo,
-)::Tuple{Expression, NFType}
-  local resultType::NFType
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local binaryExp::Expression
 
   local e1::Expression
   local e2::Expression
   local mk::MatchKindType
   local valid::Bool
-  local op::Operator
+  local op::OPERATOR
 
   #=  The first operand of ^ should be Real. =#
   (e1, resultType, mk) =
@@ -1518,10 +1472,8 @@ function checkBinaryOperationPow(
     @assign valid = valid && isCompatibleMatch(mk)
     @assign op = OPERATOR(resultType, Op.POW)
   end
-  #=  Real[n, n] ^ Integer
-  =#
-  #=  Real ^ Real
-  =#
+  #= Real[n, n] ^ Integer
+     Real ^ Real =#
   @assign binaryExp = BINARY_EXPRESSION(e1, op, e2)
   if !valid
     printUnresolvableTypeError(binaryExp, list(type1, type2), info)
@@ -1531,26 +1483,24 @@ end
 
 function checkBinaryOperationPowEW(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   info::SourceInfo,
-)::Tuple{Expression, NFType}
-  local resultType::NFType
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local binaryExp::Expression
 
   local e1::Expression
   local e2::Expression
-  local ty1::NFType
-  local ty2::NFType
+  local ty1::ModelicaType
+  local ty2::ModelicaType
   local mk::MatchKindType
   local valid::Bool
-  local op::Operator
+  local op::OPERATOR
 
-  #=  Exponentiation always returns a Real value, so instead of checking if the types
-  =#
-  #=  are compatible with ecah other we check if each type is compatible with Real.
-  =#
+  #= Exponentiation always returns a Real value, so instead of checking if the types
+     are compatible with ecah other we check if each type is compatible with Real. =#
    (e1, ty1, mk) =
     matchTypes(type1, setArrayElementType(type1, TYPE_REAL()), exp1, #=allowUnknown=# true)
   @assign valid = isCompatibleMatch(mk)
@@ -1572,19 +1522,11 @@ function checkBinaryOperationPowEW(
       end
 
       _ => begin
-        #=  scalar .^ scalar
-        =#
-        #=  array .^ scalar
-        =#
-        #=  scalar .^ array
-        =#
-        #=  array .^ array
-        =#
-        #=  If both operands are arrays, check that their dimensions are compatible.
-        =#
+        #= array .^ array: both dimensions must be compatible. Op.POW_EW, not Op.POW with an array type (omc): a
+           second typing of a POW takes it as the matrix power `^` (omc's new backend fails on `x .^ y` so). =#
          (_, _, mk) = matchArrayTypes(ty1, ty2, e1, true)
         @assign valid = valid && isCompatibleMatch(mk)
-        (ty1, makePow(ty1))
+        (ty1, OPERATOR(ty1, Op.POW_EW))
       end
     end
   end
@@ -1597,23 +1539,23 @@ end
 
 function checkBinaryOperationEW(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   elemOp::OpType,
   info::SourceInfo,
-)::Tuple{Expression, NFType}
-  local resultType::NFType
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local binaryExp::Expression
   local e1::Expression
   local e2::Expression
-  local ty1::NFType
-  local ty2::NFType
+  local ty1::ModelicaType
+  local ty2::ModelicaType
   local mk::MatchKindType
   local valid::Bool
   local is_arr1::Bool
   local is_arr2::Bool
-  local op::Operator
+  local op::OPERATOR
   is_arr1 = isArray(type1)
   is_arr2 = isArray(type2)
   if is_arr1 && is_arr2
@@ -1623,13 +1565,10 @@ function checkBinaryOperationEW(
     ty2 = arrayElementType(type2)
     (e1, e2, resultType, mk) = matchExpressions(exp1, ty1, exp2, ty2, true)
   end
-  #=  The expressions must be type compatible if they are both arrays.
-  =#
-  #=  Otherwise it's enough if their element types are compatible.
-  =#
+  #= The expressions must be type compatible if they are both arrays.
+     Otherwise it's enough if their element types are compatible. =#
   @assign valid = isCompatibleMatch(mk)
-  #=  Check that the type is valid for the operation.
-  =#
+  #= Check that the type is valid for the operation. =#
   @assign valid = begin
     @match (arrayElementType(resultType), elemOp) begin
       (TYPE_INTEGER(__), _) => begin
@@ -1652,28 +1591,30 @@ function checkBinaryOperationEW(
   (resultType, op) = begin
     @match (is_arr1, is_arr2) begin
       (true, false) => begin
-        #=  array * scalar => Op.{elemOp}_ARRAY_SCALAR.
-        =#
+        #= array * scalar => Op.{elemOp}_ARRAY_SCALAR. =#
         resultType = copyDims(type1, resultType)
         op = makeArrayScalar(resultType, elemOp)
         (resultType, op)
       end
 
       (false, true) => begin
-        #=  scalar * array => Op.{elemOp}_SCALAR_ARRAY;
-        =#
+        #= scalar * array => Op.{elemOp}_SCALAR_ARRAY; =#
         resultType = copyDims(type2, resultType)
         op = makeScalarArray(resultType, elemOp)
         (resultType, op)
       end
 
+      (true, true) => begin
+        #= array * array => Op.{elemOp}_EW (omc f3c163ba5b: the flat model keeps `.*`, not the matrix product `*`). =#
+        (resultType, makeEW(OPERATOR(resultType, elemOp)))
+      end
+
       _ => begin
+        #= scalar * scalar => Op.{elemOp}. =#
         (resultType, OPERATOR(resultType, elemOp))
       end
     end
   end
-  #=  scalar * scalar and array * array => elemOp.
-  =#
   @assign binaryExp = BINARY_EXPRESSION(e1, op, e2)
   if !valid
     printUnresolvableTypeError(binaryExp, list(type1, type2), info)
@@ -1683,16 +1624,16 @@ end
 
 function checkUnaryOperation(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   var1::VariabilityType,
-  operator::Operator,
+  operator::OPERATOR,
   info::SourceInfo,
-)::Tuple{Expression, NFType}
-  local unaryType::NFType
+)::Tuple{Expression, ModelicaType}
+  local unaryType::ModelicaType
   local unaryExp::Expression
 
   local valid::Bool = true
-  local op::Operator
+  local op::OPERATOR
 
   if isComplex(arrayElementType(type1))
      (unaryExp, unaryType) =
@@ -1712,8 +1653,7 @@ function checkUnaryOperation(
       end
     end
   end
-  #=  + is a no-op for arithmetic unary operations.
-  =#
+  #= + is a no-op for arithmetic unary operations. =#
   if !isNumeric(type1)
     printUnresolvableTypeError(unaryExp, list(type1), info)
   end
@@ -1722,23 +1662,17 @@ end
 
 function checkOverloadedUnaryOperator(
   @nospecialize(inExp1::Expression),
-  inType1::NFType,
+  inType1::ModelicaType,
   var::VariabilityType,
-  inOp::Operator,
+  inOp::OPERATOR,
   info::SourceInfo,
-)::Tuple{Expression, NFType}
-  local outType::NFType
+)::Tuple{Expression, ModelicaType}
+  local outType::ModelicaType
   local outExp::Expression
 
   local opstr::String
-  local operfn::M_Function
-  local node1::InstNode
-  local fn_node::InstNode
-  local fn_ref::ComponentRef
-  local candidates::Vector{M_Function}
-  local matched::Bool
+  local candidates::Vector{MODELICA_FUNCTION}
   local args::Vector{TypedArg}
-  local matchKind::FunctionMatchKind
   local matchedFunc::MatchedFunction
   local matchedFunctions::Vector{MatchedFunction}
   local exactMatches::Vector{MatchedFunction}
@@ -1746,16 +1680,12 @@ function checkOverloadedUnaryOperator(
   @assign opstr = symbol(inOp, "'")
   @assign candidates = lookupOperatorFunctionsInType(opstr, inType1)
   #= for fn in candidates loop
-  =#
-  #=   checkValidOperatorOverload(opstr, fn, node1);
-  =#
-  #= end for;
-  =#
+     checkValidOperatorOverload(opstr, fn, node1);
+     end for; =#
   @assign args = TypedArg[(inExp1, inType1, var)]
   @assign matchedFunctions =
     matchFunctionsSilent(candidates, args, TypedNamedArg[], info)
-  #=  We only allow exact matches for operator overloading. e.g. no casting or generic matches.
-  =#
+  #= We only allow exact matches for operator overloading. e.g. no casting or generic matches. =#
   @assign exactMatches = getExactMatches(matchedFunctions)
   if isempty(exactMatches)
     printUnresolvableTypeError(
@@ -1790,15 +1720,15 @@ end
 
 function checkLogicalBinaryOperation(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   var1::VariabilityType,
-  operator::Operator,
+  operator::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   var2::VariabilityType,
   info::SourceInfo,
-)::Tuple{Expression, NFType}
-  local resultType::NFType
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local outExp::Expression
 
   local e1::Expression
@@ -1825,17 +1755,13 @@ end
 
 function checkLogicalUnaryOperation(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   var1::VariabilityType,
-  operator::Operator,
+  operator::OPERATOR,
   info::SourceInfo,
-)::Tuple{Expression, NFType}
-  local resultType::NFType = type1
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType = type1
   local outExp::Expression
-
-  local e1::Expression
-  local e2::Expression
-  local mk::MatchKindType
 
   if isComplex(arrayElementType(type1))
      (outExp, resultType) =
@@ -1852,21 +1778,21 @@ end
 
 function checkRelationOperation(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   var1::VariabilityType,
-  operator::Operator,
+  operator::OPERATOR,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   var2::VariabilityType,
   origin::ORIGIN_Type,
   info::SourceInfo,
-)::Tuple{Expression, NFType}
-  local resultType::NFType
+)::Tuple{Expression, ModelicaType}
+  local resultType::ModelicaType
   local outExp::Expression
 
   local e1::Expression
   local e2::Expression
-  local ty::NFType
+  local ty::ModelicaType
   local mk::MatchKindType
   local valid::Bool
   local o::OpType
@@ -1930,7 +1856,7 @@ end
 
 function printUnresolvableTypeError(
   @nospecialize(exp::Expression),
-  types::List{<:NFType},
+  types::List{<:ModelicaType},
   info::SourceInfo,
   printError::Bool = true,
 )
@@ -1951,21 +1877,19 @@ end
 
 @nospecializeinfer function matchExpressions(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   allowUnknown::Bool = false,
   )
 
-  #=  Return true if the references are the same.
-  =#
+  #= Return true if the references are the same. =#
   if referenceEq(type1, type2)
     compatibleType = type1
     matchKind = MatchKind.EXACT
     return (exp1, exp2, compatibleType, matchKind)
   end
-  #=  Check if the types are different kinds of types.
-  =#
+  #= Check if the types are different kinds of types. =#
   if valueConstructor(type1) != valueConstructor(type2)
     @match (exp1, exp2, compatibleType, matchKind) =
       matchExpressions_cast(exp1, type1, exp2, type2, allowUnknown)
@@ -1980,24 +1904,21 @@ end
     allowUnknown)
 end
 
-
 function matchExpressions2(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   allowUnknown::Bool = false,
-)::Tuple{Expression, Expression, NFType, MatchKindType}
+)::Tuple{Expression, Expression, ModelicaType, MatchKindType}
   local e1::Expression
   local e2::Expression
-  local cty::NFType
+  local cty::ModelicaType
   local mk::MatchKindType
 
-  #=
-  If the types are not of the same kind we might need to type cast one of the expressions
-  to make them compatible.
-  =#
-  #=  The types are of the same kind, so we only need to match on one of them. =#
+  #= If the types are not of the same kind we might need to type cast one of the expressions
+     to make them compatible.
+     The types are of the same kind, so we only need to match on one of them. =#
   mk = MatchKind.EXACT
   cty = begin
     @match type1 begin
@@ -2060,8 +1981,7 @@ function matchExpressions2(
       end
 
       TYPE_COMPLEX(__) => begin
-        #=  TODO: This needs more work to handle e.g. type casting of complex expressions.
-        =#
+        #= TODO: This needs more work to handle e.g. type casting of complex expressions. =#
         (e1, cty, mk) = matchComplexTypes(type1, type2, exp1, allowUnknown)
         e2 = exp2
         cty
@@ -2099,13 +2019,13 @@ function matchExpressions2(
 end
 
 @nospecializeinfer function matchTypes(
-  @nospecialize(actualType::NFType),
-  @nospecialize(expectedType::NFType),
+  @nospecialize(actualType::ModelicaType),
+  @nospecialize(expectedType::ModelicaType),
   @nospecialize(expression::Expression),
   allowUnknown::Bool = false,
-  )::Tuple{Expression, NFType, Int}
+  )::Tuple{Expression, ModelicaType, Int}
   local matchKind::MatchKindType
-  local compatibleType::NFType
+  local compatibleType::ModelicaType
   #=  Return true if the references are the same. =#
   if referenceEq(actualType, expectedType)
     compatibleType = actualType
@@ -2118,12 +2038,9 @@ end
       matchTypes_cast(actualType, expectedType, expression, allowUnknown)
     return (expression, compatibleType, matchKind)
   end
-  #=  If the types are not of the same kind we might need to type cast the
-  =#
-  #=  expression to make it compatible.
-  =#
-  #=  The types are of the same kind, so we only need to match on one of them.
-  =#
+  #= If the types are not of the same kind we might need to type cast the
+     expression to make it compatible.
+     The types are of the same kind, so we only need to match on one of them. =#
   matchKind = MatchKind.EXACT
   compatibleType = begin
     @match actualType begin
@@ -2211,17 +2128,16 @@ end
   return (expression, compatibleType, matchKind)
 end
 
-
 function matchTypesRef(
   actualType::T1,
   expectedType::T2,
   @nospecialize(expression::Expression),
-  refTyExp::Ref{NFType},
+  refTyExp::Ref{ModelicaType},
   refMatchKind::Ref{MatchKindType},
   allowUnknown::Bool = false,
-  )::Expression where {T1 <: NFType, T2 <: NFType}
+  )::Expression where {T1 <: ModelicaType, T2 <: ModelicaType}
   local matchKind::MatchKindType
-  local compatibleType::NFType
+  local compatibleType::ModelicaType
   #=  Return true if the references are the same. =#
   if referenceEq(actualType, expectedType)
     compatibleType = actualType
@@ -2235,12 +2151,9 @@ function matchTypesRef(
     expression = matchTypes_castRef(actualType, expectedType, expression, refTyExp, refMatchKind, allowUnknown)
     return expression
   end
-  #=  If the types are not of the same kind we might need to type cast the
-  =#
-  #=  expression to make it compatible.
-  =#
-  #=  The types are of the same kind, so we only need to match on one of them.
-  =#
+  #= If the types are not of the same kind we might need to type cast the
+     expression to make it compatible.
+     The types are of the same kind, so we only need to match on one of them. =#
   matchKind = MatchKind.EXACT
   compatibleType = begin
     @match actualType begin
@@ -2274,7 +2187,6 @@ function matchTypesRef(
       end
 
       TYPE_ARRAY(__) => begin
-        #(expression, compatibleType, matchKind) = matchArrayTypes(actualType, expectedType, expression, allowUnknown)
         expression = matchArrayTypesRef(actualType, expectedType, expression, refTyExp, refMatchKind, allowUnknown)
         compatibleType = refTyExp.x
         matchKind = refMatchKind.x
@@ -2333,20 +2245,19 @@ function matchTypesRef(
 end
 
 function matchTypes_castRef(
-  actualType::NFType,
-  expectedType::NFType,
+  actualType::ModelicaType,
+  expectedType::ModelicaType,
   @nospecialize(expression::Expression),
-  refTyExp::Ref{NFType},
+  refTyExp::Ref{ModelicaType},
   refMatchKind::Ref{MatchKindType},
   allowUnknown::Bool = false,
   )::Expression
   local matchKind::MatchKindType
-  local compatibleType::NFType
+  local compatibleType::ModelicaType
   matchKind = begin
     @match (actualType, expectedType) begin
       (TYPE_INTEGER(__), TYPE_REAL(__)) => begin
-        #=  Integer can be cast to Real.
-        =#
+        #= Integer can be cast to Real. =#
         expression = typeCast(expression, expectedType)
         refTyExp.x = expectedType
         MatchKind.CAST
@@ -2411,8 +2322,7 @@ function matchTypes_castRef(
       end
 
       (TYPE_METABOXED(__), _) => begin
-        #=  Allow unknown types in some cases, e.g. () has type METALIST(UNKNOWN)
-        =#
+        #= Allow unknown types in some cases, e.g. () has type METALIST(UNKNOWN) =#
         expression = unbox(expression)
         (expression, compatibleType, matchKind) = matchTypes(actualType.ty, expectedType, expression, allowUnknown)
         refTyExp.x = compatibleType
@@ -2458,30 +2368,26 @@ function matchTypes_castRef(
       end
     end
   end
-  #=
-  Expected type is any, any actual type matches.
-  Anything else is not compatible.
-  =#
+  #= Expected type is any, any actual type matches.
+     Anything else is not compatible. =#
   refMatchKind.x = matchKind
   return expression
 end
 
-
 function matchExpressions_cast(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   allowUnknown::Bool,
-)::Tuple{Expression, Expression, NFType, MatchKindType}
+)::Tuple{Expression, Expression, ModelicaType, MatchKindType}
   local matchKind::MatchKindType
-  local compatibleType::NFType
+  local compatibleType::ModelicaType
 
    (compatibleType, matchKind) = begin
     @match (type1, type2) begin
       (TYPE_INTEGER(__), TYPE_REAL(__)) => begin
-        #=  Integer can be cast to Real.
-        =#
+        #= Integer can be cast to Real. =#
         @assign exp1 = typeCast(exp1, type2)
         (type2, MatchKind.CAST)
       end
@@ -2492,10 +2398,8 @@ function matchExpressions_cast(
       end
 
       (TYPE_BOOLEAN(__), TYPE_REAL(__)) where {(Flags.isSet(Flags.NF_API))} => begin
-        #=  Boolean can be cast to Real (only if -d=nfAPI is on)
-        =#
-        #=  as there are annotations having expressions such as Boolean x > 0.5
-        =#
+        #= Boolean can be cast to Real (only if -d=nfAPI is on)
+           as there are annotations having expressions such as Boolean x > 0.5 =#
         Error.addCompilerWarning(
           "Allowing casting of boolean expression: " +
           toString(exp1) +
@@ -2516,14 +2420,10 @@ function matchExpressions_cast(
       end
 
       (_, TYPE_TUPLE(types = compatibleType <| _)) => begin
-        #=  This case takes care of equations where the lhs is a non-tuple and the rhs a
-        =#
-        #=  function call returning a tuple, in which case only the first element of the
-        =#
-        #=  tuple is used. exp1 should never be a tuple here, since any tuple expression
-        =#
-        #=  not alone on the rhs of an equation is \"tuple subscripted\" by typeExp.
-        =#
+        #= This case takes care of equations where the lhs is a non-tuple and the rhs a
+           function call returning a tuple, in which case only the first element of the
+           tuple is used. exp1 should never be a tuple here, since any tuple expression
+           not alone on the rhs of an equation is \"tuple subscripted\" by typeExp. =#
         exp2 = tupleElement(exp2, compatibleType, 1)
         (exp2, compatibleType, matchKind) =
           matchTypes(compatibleType, type1, exp2, allowUnknown)
@@ -2590,13 +2490,13 @@ function matchExpressions_cast(
 end
 
 function matchComplexTypes(
-  actualType::NFType,
-  expectedType::NFType,
+  actualType::ModelicaType,
+  expectedType::ModelicaType,
   @nospecialize(expression::Expression),
   allowUnknown::Bool,
-)::Tuple{Expression, NFType, MatchKindType}
+)::Tuple{Expression, ModelicaType, MatchKindType}
   local matchKind::MatchKindType = MatchKind.NOT_COMPATIBLE
-  local compatibleType::NFType = actualType
+  local compatibleType::ModelicaType = actualType
 
   local cls1::Class
   local cls2::Class
@@ -2604,8 +2504,7 @@ function matchComplexTypes(
   local enode::InstNode
   local comps1::Vector{InstNode}
   local comps2::Vector{InstNode}
-  local path::Absyn.Path
-  local ty::NFType
+  local ty::ModelicaType
   local cty1::ComplexType
   local cty2::ComplexType
   local e::Expression
@@ -2617,8 +2516,7 @@ function matchComplexTypes(
 
   @match TYPE_COMPLEX(cls = anode) = actualType
   @match TYPE_COMPLEX(cls = enode) = expectedType
-  #=  TODO: revise this.
-  =#
+  #= TODO: revise this. =#
   if isSame(anode, enode)
     matchKind = MatchKind.EXACT
     return (expression, compatibleType, matchKind)
@@ -2641,103 +2539,101 @@ function matchComplexTypes(
     end
     return (expression, compatibleType, matchKind)
   end
-  () = begin
-    @match (cls1, cls2, expression) begin
-      (
-        INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps1)),
-        INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps2)),
-        RECORD_EXPRESSION(elements = elementsV),
-      ) => begin
+  @match (cls1, cls2, expression) begin
+    (
+      INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps1)),
+      INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps2)),
+      RECORD_EXPRESSION(elements = elementsV),
+    ) => begin
+      matchKind = MatchKind.PLUG_COMPATIBLE
+      if arrayLength(comps1) != arrayLength(comps2) ||
+         arrayLength(comps1) != length(elementsV)
+        matchKind = MatchKind.NOT_COMPATIBLE
+      else
+        local matched_elements = Expression[]
+        for i = 1:arrayLength(comps1)
+          e = elementsV[i]
+           (e, _, mk) = matchTypes(
+            getType(comps1[i]),
+            getType(comps2[i]),
+            e,
+            allowUnknown,
+          )
+          push!(matched_elements, e)
+          if mk == MatchKind.CAST
+            matchKind = mk
+          elseif !isValidPlugCompatibleMatch(mk)
+            matchKind = MatchKind.NOT_COMPATIBLE
+            break
+          end
+        end
+        if matchKind == MatchKind.CAST
+          expression.elements = matched_elements
+        end
+      end
+      if matchKind != MatchKind.NOT_COMPATIBLE
         matchKind = MatchKind.PLUG_COMPATIBLE
-        if arrayLength(comps1) != arrayLength(comps2) ||
-           arrayLength(comps1) != length(elementsV)
-          matchKind = MatchKind.NOT_COMPATIBLE
-        else
-          local matched_elements = Expression[]
-          for i = 1:arrayLength(comps1)
-            e = elementsV[i]
-             (e, _, mk) = matchTypes(
-              getType(comps1[i]),
-              getType(comps2[i]),
-              e,
+      end
+      ()
+    end
+
+    (
+      INSTANCED_CLASS(
+        ty = TYPE_COMPLEX(complexTy = cty1 && COMPLEX_CONNECTOR(__)),
+      ),
+      INSTANCED_CLASS(
+        ty = TYPE_COMPLEX(complexTy = cty2 && COMPLEX_CONNECTOR(__)),
+      ),
+      _,
+    ) => begin
+      @assign matchKind =
+        matchComponentList(cty1.potentials, cty2.potentials, allowUnknown)
+      if matchKind != MatchKind.NOT_COMPATIBLE
+        @assign matchKind = matchComponentList(cty1.flows, cty2.flows, allowUnknown)
+        if matchKind != MatchKind.NOT_COMPATIBLE
+          @assign matchKind = matchComponentList(cty1.streams, cty2.streams, allowUnknown)
+        end
+      end
+      if matchKind != MatchKind.NOT_COMPATIBLE
+        @assign matchKind = MatchKind.PLUG_COMPATIBLE
+      end
+      ()
+    end
+
+    (
+      INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps1)),
+      INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps2)),
+      _,
+    ) => begin
+      @assign matchKind = MatchKind.PLUG_COMPATIBLE
+      if arrayLength(comps1) != arrayLength(comps2)
+        @assign matchKind = MatchKind.NOT_COMPATIBLE
+      else
+        for i = 1:arrayLength(comps1)
+          @assign comp1 = component(comps1[i])
+          @assign comp2 = component(comps2[i])
+          #= Both typed: an untyped field's type is its element type (under parallel typing
+             another task's record: sta of Stage[1] read as Stage, a binding type mismatch). =#
+          if isTyped(comp1) && isTyped(comp2)
+             (_, _, mk) = matchTypes(
+              getType(comp1),
+              getType(comp2),
+              expression,
               allowUnknown,
             )
-            push!(matched_elements, e)
-            if mk == MatchKind.CAST
-              matchKind = mk
-            elseif !isValidPlugCompatibleMatch(mk)
-              matchKind = MatchKind.NOT_COMPATIBLE
+            if !isValidPlugCompatibleMatch(mk)
+              @assign matchKind = MatchKind.NOT_COMPATIBLE
               break
             end
           end
-          if matchKind == MatchKind.CAST
-            expression.elements = matched_elements
-          end
         end
-        if matchKind != MatchKind.NOT_COMPATIBLE
-          matchKind = MatchKind.PLUG_COMPATIBLE
-        end
-        ()
       end
+      ()
+    end
 
-      (
-        INSTANCED_CLASS(
-          ty = TYPE_COMPLEX(complexTy = cty1 && COMPLEX_CONNECTOR(__)),
-        ),
-        INSTANCED_CLASS(
-          ty = TYPE_COMPLEX(complexTy = cty2 && COMPLEX_CONNECTOR(__)),
-        ),
-        _,
-      ) => begin
-        @assign matchKind =
-          matchComponentList(cty1.potentials, cty2.potentials, allowUnknown)
-        if matchKind != MatchKind.NOT_COMPATIBLE
-          @assign matchKind = matchComponentList(cty1.flows, cty2.flows, allowUnknown)
-          if matchKind != MatchKind.NOT_COMPATIBLE
-            @assign matchKind = matchComponentList(cty1.streams, cty2.streams, allowUnknown)
-          end
-        end
-        if matchKind != MatchKind.NOT_COMPATIBLE
-          @assign matchKind = MatchKind.PLUG_COMPATIBLE
-        end
-        ()
-      end
-
-      (
-        INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps1)),
-        INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps2)),
-        _,
-      ) => begin
-        @assign matchKind = MatchKind.PLUG_COMPATIBLE
-        if arrayLength(comps1) != arrayLength(comps2)
-          @assign matchKind = MatchKind.NOT_COMPATIBLE
-        else
-          for i = 1:arrayLength(comps1)
-            @assign comp1 = component(comps1[i])
-            @assign comp2 = component(comps2[i])
-            #= Both typed: an untyped field's type is its element type (under parallel typing
-               another task's record: sta of Stage[1] read as Stage, a binding type mismatch). =#
-            if isTyped(comp1) && isTyped(comp2)
-               (_, _, mk) = matchTypes(
-                getType(comp1),
-                getType(comp2),
-                expression,
-                allowUnknown,
-              )
-              if !isValidPlugCompatibleMatch(mk)
-                @assign matchKind = MatchKind.NOT_COMPATIBLE
-                break
-              end
-            end
-          end
-        end
-        ()
-      end
-
-      _ => begin
-        @assign matchKind = MatchKind.NOT_COMPATIBLE
-        ()
-      end
+    _ => begin
+      @assign matchKind = MatchKind.NOT_COMPATIBLE
+      ()
     end
   end
   return (expression, compatibleType, matchKind)
@@ -2775,34 +2671,29 @@ function matchComponentList(
 end
 
 function matchFunctionTypes(
-  actualType::NFType,
-  expectedType::NFType,
+  actualType::ModelicaType,
+  expectedType::ModelicaType,
   @nospecialize(expression::Expression),
   allowUnknown::Bool,
-)::Tuple{Expression, NFType, MatchKindType}
+)::Tuple{Expression, ModelicaType, MatchKindType}
   local matchKind::MatchKindType = MatchKind.EXACT
-  local compatibleType::NFType = actualType
+  local compatibleType::ModelicaType = actualType
   local inputs1::List{InstNode}
   local inputs2::List{InstNode}
-  local remaining_inputs::List{InstNode}
   local outputs1::List{InstNode}
   local outputs2::List{InstNode}
-  local slots1::List{Slot}
-  local slots2::List{Slot}
-  local input2::InstNode
-  local output2::InstNode
-  local slot1::Slot
-  local slot2::Slot
-  local matching::Bool
+  local slots1::List{SLOT}
+  local slots2::List{SLOT}
+  local slot1::SLOT
+  local slot2::SLOT
 
   @match TYPE_FUNCTION(
-    fn = M_FUNCTION(inputs = inputs1, outputs = outputs1, slots = slots1),
+    fn = MODELICA_FUNCTION(inputs = inputs1, outputs = outputs1, slots = slots1),
   ) = actualType
   @match TYPE_FUNCTION(
-    fn = M_FUNCTION(inputs = inputs2, outputs = outputs2, slots = slots2),
+    fn = MODELICA_FUNCTION(inputs = inputs2, outputs = outputs2, slots = slots2),
   ) = expectedType
-  #=  The functions must have the same number of outputs.
-  =#
+  #= The functions must have the same number of outputs. =#
   if listLength(outputs1) != listLength(outputs2)
     @assign matchKind = MatchKind.NOT_COMPATIBLE
     return (expression, compatibleType, matchKind)
@@ -2815,10 +2706,8 @@ function matchFunctionTypes(
     @assign matchKind = MatchKind.NOT_COMPATIBLE
     return (expression, compatibleType, matchKind)
   end
-  #=  An input in the actual type must have a default argument if the
-  =#
-  #=  corresponding input in the expected type has one.
-  =#
+  #= An input in the actual type must have a default argument if the
+     corresponding input in the expected type has one. =#
   for i in inputs2
     @match _cons(slot1, slots1) = slots1
     @match _cons(slot2, slots2) = slots2
@@ -2827,10 +2716,8 @@ function matchFunctionTypes(
       return (expression, compatibleType, matchKind)
     end
   end
-  #=  The actual type can have more inputs than expected if the extra inputs have
-  =#
-  #=  default arguments.
-  =#
+  #= The actual type can have more inputs than expected if the extra inputs have
+     default arguments. =#
   for slot in slots1
     if !isSome(slot.default)
       @assign matchKind = MatchKind.NOT_COMPATIBLE
@@ -2877,7 +2764,7 @@ function matchFunctionParameters(
   return matching
 end
 
-function matchEnumerationTypes(type1::NFType, type2::NFType)::MatchKindType
+function matchEnumerationTypes(type1::ModelicaType, type2::ModelicaType)::MatchKindType
   local matchKind::MatchKindType
   local lits1::List{String}
   local lits2::List{String}
@@ -2893,43 +2780,41 @@ end
 
 function matchArrayExpressions(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   allowUnknown::Bool,
-)::Tuple{Expression, Expression, NFType, MatchKindType}
+)::Tuple{Expression, Expression, ModelicaType, MatchKindType}
   local matchKind::MatchKindType
-  local compatibleType::NFType
+  local compatibleType::ModelicaType
 
-  local ety1::NFType
-  local ety2::NFType
+  local ety1::ModelicaType
+  local ety2::ModelicaType
   local dims1::List{Dimension}
   local dims2::List{Dimension}
 
   @match TYPE_ARRAY(elementType = ety1, dimensions = dims1) = type1
   @match TYPE_ARRAY(elementType = ety2, dimensions = dims2) = type2
-  #=  Check that the element types are compatible.
-  =#
+  #= Check that the element types are compatible. =#
    (exp1, exp2, compatibleType, matchKind) =
     matchExpressions(exp1, ety1, exp2, ety2, allowUnknown)
-  #=  If the element types are compatible, check the dimensions too.
-  =#
+  #= If the element types are compatible, check the dimensions too. =#
    (compatibleType, matchKind) =
     matchArrayDims(dims1, dims2, compatibleType, matchKind, allowUnknown)
   return (exp1, exp2, compatibleType, matchKind)
 end
 
 function matchArrayTypes(
-  arrayType1::NFType,
-  arrayType2::NFType,
+  arrayType1::ModelicaType,
+  arrayType2::ModelicaType,
   @nospecialize(expression::Expression),
   allowUnknown::Bool,
-)::Tuple{Expression, NFType, Int}
+)::Tuple{Expression, ModelicaType, Int}
   local matchKind::MatchKindType
-  local compatibleType::NFType
+  local compatibleType::ModelicaType
 
-  local ety1::NFType
-  local ety2::NFType
+  local ety1::ModelicaType
+  local ety2::ModelicaType
   local dims1::List{Dimension}
   local dims2::List{Dimension}
 
@@ -2944,19 +2829,18 @@ function matchArrayTypes(
   return (expression, compatibleType, matchKind)
 end
 
-
 function matchArrayTypesRef(
-  arrayType1::NFType,
-  arrayType2::NFType,
+  arrayType1::ModelicaType,
+  arrayType2::ModelicaType,
   @nospecialize(expression::Expression),
-  refTyExp::Ref{NFType},
+  refTyExp::Ref{ModelicaType},
   refMatchKind::Ref{MatchKindType},
   allowUnknown::Bool,
 )::Expression
   local matchKind::MatchKindType
-  local compatibleType::NFType
-  local ety1::NFType
-  local ety2::NFType
+  local compatibleType::ModelicaType
+  local ety1::ModelicaType
+  local ety2::ModelicaType
   local dims1::List{Dimension}
   local dims2::List{Dimension}
   @match TYPE_ARRAY(elementType = ety1, dimensions = dims1) = arrayType1
@@ -2968,16 +2852,13 @@ function matchArrayTypesRef(
   #=  If the element types are compatible, check the dimensions too. =#
   #(compatibleType, matchKind) =
   matchArrayDimsRef(dims1, dims2, compatibleType, matchKind, refTyExp, refMatchKind, allowUnknown)
-  #(compatibleType, matchKind) = matchArrayDims(dims1, dims2, compatibleType, matchKind, allowUnknown)
-  #refTyExp.x = compatibleType
-  #refMatchKind.x = matchKind
   return expression
 end
 
 function matchArrayDimsRef(
   dims1::List{Dimension},
   dims2::List{Dimension},
-  ty::NFType,
+  ty::ModelicaType,
   matchKind::MatchKindType,
   refTyExp,
   refMatchKind,
@@ -3000,10 +2881,8 @@ function matchArrayDimsRef(
   end
   local dims1V = dims1
   local dims2V = dims2
-  #=
-  The dimensions of both array types must be compatible.
-  We do not preallocate the array here since we might need to break before that.
-  =#
+  #= The dimensions of both array types must be compatible.
+     We do not preallocate the array here since we might need to break before that. =#
   local cDims::List{Dimension} = nil
   for dim1 in dims1V
     @match Cons{Dimension}(dim2, rest_dims2) = rest_dims2
@@ -3020,16 +2899,14 @@ function matchArrayDimsRef(
   return
 end
 
-
 function matchArrayDims(
   dims1::List{<:Dimension},
   dims2::List{<:Dimension},
-  ty::NFType,
+  ty::ModelicaType,
   matchKind::MatchKindType,
   allowUnknown::Bool,
-)::Tuple{NFType, Int}
+)::Tuple{ModelicaType, Int}
   local rest_dims2::List{Dimension} = dims2
-  local dim2::Dimension
   local compat::Bool
   if !isCompatibleMatch(matchKind)
     return (ty, matchKind)
@@ -3041,14 +2918,11 @@ function matchArrayDims(
   end
   local dims1V = listArray(dims1)
   local dims2V = listArray(dims2)
-  #=
-  The dimensions of both array types must be compatible.
-  We do not preallocate the array here since we might need to break before that.
-  =#
+  #= The dimensions of both array types must be compatible.
+     We do not preallocate the array here since we might need to break before that. =#
   local cDims = Dimension[]
   local refComp = Ref{Bool}(false)
   for (i, dim1) in enumerate(dims1V)
-    #@match _cons(dim2, rest_dims2) = rest_dims2
     dim1 = matchDimensionsRef(dim1, dims2V[i], refComp, allowUnknown)
     compat = refComp.x
     if !compat
@@ -3115,19 +2989,18 @@ function matchDimensionsRef(
   return compatibleDim
 end
 
-
 function matchTupleTypes(
-  tupleType1::NFType,
-  tupleType2::NFType,
+  tupleType1::ModelicaType,
+  tupleType2::ModelicaType,
   @nospecialize(expression::Expression),
   allowUnknown::Bool,
-)::Tuple{Expression, NFType, MatchKindType}
+)::Tuple{Expression, ModelicaType, MatchKindType}
   local matchKind::MatchKindType = MatchKind.EXACT
-  local compatibleType::NFType = tupleType1
+  local compatibleType::ModelicaType = tupleType1
 
-  local tyl1::List{NFType}
-  local tyl2::List{NFType}
-  local ty1::NFType
+  local tyl1::List{ModelicaType}
+  local tyl2::List{ModelicaType}
+  local ty1::ModelicaType
 
   @match TYPE_TUPLE(types = tyl1) = tupleType1
   @match TYPE_TUPLE(types = tyl2) = tupleType2
@@ -3145,20 +3018,19 @@ function matchTupleTypes(
       break
     end
   end
-  #=  Skip matching if the rhs is _.
-  =#
+  #= Skip matching if the rhs is _. =#
   return (expression, compatibleType, matchKind)
 end
 
 function matchBoxedExpressions(
   @nospecialize(exp1::Expression),
-  type1::NFType,
+  type1::ModelicaType,
   @nospecialize(exp2::Expression),
-  type2::NFType,
+  type2::ModelicaType,
   allowUnknown::Bool,
-)::Tuple{Expression, Expression, NFType, MatchKindType}
+)::Tuple{Expression, Expression, ModelicaType, MatchKindType}
   local matchKind::MatchKindType
-  local compatibleType::NFType
+  local compatibleType::ModelicaType
 
   local e1::Expression
   local e2::Expression
@@ -3176,19 +3048,18 @@ function matchBoxedExpressions(
 end
 
 function matchTypes_cast(
-  actualType::NFType,
-  expectedType::NFType,
+  actualType::ModelicaType,
+  expectedType::ModelicaType,
   @nospecialize(expression::Expression),
   allowUnknown::Bool = false,
-)::Tuple{Expression, NFType, MatchKindType}
+)::Tuple{Expression, ModelicaType, MatchKindType}
   local matchKind::MatchKindType
-  local compatibleType::NFType
+  local compatibleType::ModelicaType
 
    (compatibleType, matchKind) = begin
     @match (actualType, expectedType) begin
       (TYPE_INTEGER(__), TYPE_REAL(__)) => begin
-        #=  Integer can be cast to Real.
-        =#
+        #= Integer can be cast to Real. =#
         @assign expression = typeCast(expression, expectedType)
         (expectedType, MatchKind.CAST)
       end
@@ -3200,18 +3071,14 @@ function matchTypes_cast(
       end
 
       (TYPE_ENUMERATION(__), TYPE_ENUMERATION_ANY(__)) => begin
-        #=  Any enumeration is compatible with enumeration(:).
-        =#
-        #=  TODO: FIXME: Maybe this should be generic match
-        =#
+        #= Any enumeration is compatible with enumeration(:).
+           TODO: FIXME: Maybe this should be generic match =#
         (actualType, MatchKind.CAST)
       end
 
       (TYPE_TUPLE(types = _ <| _), _) => begin
-        #=  If the actual type is a tuple but the expected type isn't,
-        =#
-        #=  try to use the first type in the tuple.
-        =#
+        #= If the actual type is a tuple but the expected type isn't,
+           try to use the first type in the tuple. =#
          (expression, compatibleType, matchKind) =
            matchTypes(listHead(actualType.types), expectedType, expression, allowUnknown)
         if isCompatibleMatch(matchKind)
@@ -3255,8 +3122,7 @@ function matchTypes_cast(
       end
 
       (TYPE_METABOXED(__), _) => begin
-        #=  Allow unknown types in some cases, e.g. () has type METALIST(UNKNOWN)
-        =#
+        #= Allow unknown types in some cases, e.g. () has type METALIST(UNKNOWN) =#
         @assign expression = unbox(expression)
          (expression, compatibleType, matchKind) =
           matchTypes(actualType.ty, expectedType, expression, allowUnknown)
@@ -3281,16 +3147,13 @@ function matchTypes_cast(
 
       (_, TYPE_POLYMORPHIC(__)) => begin
         @assign expression = BOX_EXPRESSION(expression)
-        #=  matchKind := MatchKind.GENERIC(expectedType.b,actualType);
-        =#
+        #= matchKind := MatchKind.GENERIC(expectedType.b,actualType); =#
         (TYPE_METABOXED(actualType), MatchKind.GENERIC)
       end
 
       (TYPE_POLYMORPHIC(__), _) => begin
-        #=  expression := Expression.UNBOX(expression, Expression.typeOf(expression));
-        =#
-        #=  matchKind := MatchKind.GENERIC(expectedType.b,actualType);
-        =#
+        #= expression := Expression.UNBOX(expression, Expression.typeOf(expression));
+           matchKind := MatchKind.GENERIC(expectedType.b,actualType); =#
         (expectedType, MatchKind.GENERIC)
       end
 
@@ -3303,10 +3166,8 @@ function matchTypes_cast(
       end
     end
   end
-  #=  Expected type is any, any actual type matches.
-  =#
-  #=  Anything else is not compatible.
-  =#
+  #= Expected type is any, any actual type matches.
+     Anything else is not compatible. =#
   return (expression, compatibleType, matchKind)
 end
 
@@ -3314,12 +3175,11 @@ function getRangeType(
   @nospecialize(startExp::Expression),
   @nospecialize(stepExp::Option{<:Expression}),
   @nospecialize(stopExp::Expression),
-  rangeElemType::NFType,
+  rangeElemType::ModelicaType,
   info::SourceInfo,
-)::NFType
-  local rangeType::NFType
+)::ModelicaType
+  local rangeType::ModelicaType
 
-  local step_exp::Expression
   local dim::Dimension
 
   @assign dim = begin
@@ -3374,89 +3234,80 @@ function getRangeTypeInt(
   @nospecialize(stopExp::Expression),
   info::SourceInfo,
 )::Dimension
-  local dim::Dimension
 
-  @assign dim = begin
-    local step::Int
-    local step_exp::Expression
-    local dim_exp::Expression
-    local var::VariabilityType
-    @match (startExp, stepExp, stopExp) begin
-      (INTEGER_EXPRESSION(__), NONE(), INTEGER_EXPRESSION(__)) => begin
-        fromInteger(max(stopExp.value - startExp.value + 1, 0))
+  local step::Int
+  local step_exp::Expression
+  local dim_exp::Expression
+  local var::VariabilityType
+  @match (startExp, stepExp, stopExp) begin
+    (INTEGER_EXPRESSION(__), NONE(), INTEGER_EXPRESSION(__)) => begin
+      fromInteger(max(stopExp.value - startExp.value + 1, 0))
+    end
+
+    (
+      INTEGER_EXPRESSION(__),
+      SOME(INTEGER_EXPRESSION(value = step)),
+      INTEGER_EXPRESSION(__),
+    ) => begin
+      #= Don't allow infinite ranges. =#
+      if step == 0
+        Error.addSourceMessageAndFail(Error.RANGE_TOO_SMALL_STEP, list(string(step)), info)
       end
+      fromInteger(max(
+        intDiv(stopExp.value - startExp.value, step) + 1,
+        0,
+      ))
+    end
 
-      (
-        INTEGER_EXPRESSION(__),
-        SOME(INTEGER_EXPRESSION(value = step)),
-        INTEGER_EXPRESSION(__),
-      ) => begin
-        #=  Don't allow infinite ranges.
-        =#
-        if step == 0
-          Error.addSourceMessageAndFail(Error.RANGE_TOO_SMALL_STEP, list(string(step)), info)
-        end
-        fromInteger(max(
-          intDiv(stopExp.value - startExp.value, step) + 1,
-          0,
-        ))
-      end
+    (INTEGER_EXPRESSION(1), NONE(), _) => begin
+      #= Ranges like 1:n have size n. =#
+      @assign dim_exp = simplify(stopExp)
+      fromExp(dim_exp, variability(dim_exp))
+    end
 
-      (INTEGER_EXPRESSION(1), NONE(), _) => begin
-        #=  Ranges like 1:n have size n.
-        =#
-        @assign dim_exp = simplify(stopExp)
-        fromExp(dim_exp, variability(dim_exp))
-      end
+    (_, NONE(), _) where {(isEqual(startExp, stopExp))} => begin
+      fromInteger(1)
+    end
 
-      (_, NONE(), _) where {(isEqual(startExp, stopExp))} => begin
-        fromInteger(1)
-      end
-
-      _ => begin
-        #=  Ranges like n:n have size 1.
-        =#
-        #=  For other ranges, create the appropriate expression as dimension.
-        =#
-        #=  max(stop - start + 1, 0) or max(((stop - start) / step) + 1, 0)
-        =#
-        @assign dim_exp = BINARY_EXPRESSION(
-          stopExp,
-          makeSub(TYPE_INTEGER()),
-          startExp,
-        )
+    _ => begin
+      #= Ranges like n:n have size 1.
+         For other ranges, create the appropriate expression as dimension.
+         max(stop - start + 1, 0) or max(((stop - start) / step) + 1, 0) =#
+      @assign dim_exp = BINARY_EXPRESSION(
+        stopExp,
+        makeSub(TYPE_INTEGER()),
+        startExp,
+      )
+      @assign var = variabilityMax(
+        variability(stopExp),
+        variability(startExp),
+      )
+      if isSome(stepExp)
+        @match SOME(step_exp) = stepExp
         @assign var = variabilityMax(
-          variability(stopExp),
-          variability(startExp),
+          var,
+          variability(step_exp),
         )
-        if isSome(stepExp)
-          @match SOME(step_exp) = stepExp
-          @assign var = variabilityMax(
-            var,
-            variability(step_exp),
-          )
-          @assign dim_exp = CALL_EXPRESSION(makeTypedCall(
-            NFBuiltinFuncs.DIV_INT,
-            Expression[dim_exp, step_exp],
-            var,
-          ))
-        end
-        dim_exp = BINARY_EXPRESSION(
-          dim_exp,
-          makeAdd(TYPE_INTEGER()),
-          INTEGER_EXPRESSION(1),
-        )
-        dim_exp = CALL_EXPRESSION(makeTypedCall(
-          NFBuiltinFuncs.MAX_INT,
-          Expression[dim_exp, INTEGER_EXPRESSION(0)],
+        @assign dim_exp = CALL_EXPRESSION(makeTypedCall(
+          NFBuiltinFuncs.DIV_INT,
+          Expression[dim_exp, step_exp],
           var,
         ))
-        dim_exp = simplify(dim_exp)
-        fromExp(dim_exp, var)
       end
+      dim_exp = BINARY_EXPRESSION(
+        dim_exp,
+        makeAdd(TYPE_INTEGER()),
+        INTEGER_EXPRESSION(1),
+      )
+      dim_exp = CALL_EXPRESSION(makeTypedCall(
+        NFBuiltinFuncs.MAX_INT,
+        Expression[dim_exp, INTEGER_EXPRESSION(0)],
+        var,
+      ))
+      dim_exp = simplify(dim_exp)
+      fromExp(dim_exp, var)
     end
   end
-  return dim
 end
 
 function getRangeTypeReal(
@@ -3465,95 +3316,89 @@ function getRangeTypeReal(
   @nospecialize(stopExp::Expression),
   info::SourceInfo,
 )::Dimension
-  local dim::Dimension
 
-  @assign dim = begin
-    local start::AbstractFloat
-    local step::AbstractFloat
-    local dim_exp::Expression
-    local step_exp::Expression
-    local var::VariabilityType
-    @match (startExp, stepExp, stopExp) begin
-      (REAL_EXPRESSION(__), NONE(), REAL_EXPRESSION(__)) =>
-        begin
-          fromInteger(Util.realRangeSize(
-            startExp.value,
-            1.0,
-            stopExp.value,
-          ))
-        end
-
-      (
-        REAL_EXPRESSION(value = start),
-        SOME(REAL_EXPRESSION(value = step)),
-        REAL_EXPRESSION(__),
-      ) => begin
-        #=  Check that adding step to start actually produces a different value,
-        =#
-        #=  otherwise the step size is too small.
-        =#
-        if start == start + step
-          Error.addSourceMessageAndFail(Error.RANGE_TOO_SMALL_STEP, list(string(step)), info)
-        end
+  local start::AbstractFloat
+  local step::AbstractFloat
+  local dim_exp::Expression
+  local step_exp::Expression
+  local var::VariabilityType
+  @match (startExp, stepExp, stopExp) begin
+    (REAL_EXPRESSION(__), NONE(), REAL_EXPRESSION(__)) =>
+      begin
         fromInteger(Util.realRangeSize(
           startExp.value,
-          step,
+          1.0,
           stopExp.value,
         ))
       end
 
-      (_, NONE(), _) where {(isEqual(startExp, stopExp))} => begin
-        fromInteger(1)
+    (
+      REAL_EXPRESSION(value = start),
+      SOME(REAL_EXPRESSION(value = step)),
+      REAL_EXPRESSION(__),
+    ) => begin
+      #= Check that adding step to start actually produces a different value,
+         otherwise the step size is too small. =#
+      if start == start + step
+        Error.addSourceMessageAndFail(Error.RANGE_TOO_SMALL_STEP, list(string(step)), info)
       end
+      fromInteger(Util.realRangeSize(
+        startExp.value,
+        step,
+        stopExp.value,
+      ))
+    end
 
-      _ => begin
-        dim_exp = BINARY_EXPRESSION(
-          stopExp,
-          makeSub(TYPE_REAL()),
-          startExp,
-        )
+    (_, NONE(), _) where {(isEqual(startExp, stopExp))} => begin
+      fromInteger(1)
+    end
+
+    _ => begin
+      dim_exp = BINARY_EXPRESSION(
+        stopExp,
+        makeSub(TYPE_REAL()),
+        startExp,
+      )
+      var = variabilityMax(
+        variability(stopExp),
+        variability(startExp),
+      )
+      if isSome(stepExp)
+        @match SOME(step_exp) = stepExp
         var = variabilityMax(
-          variability(stopExp),
-          variability(startExp),
+          var,
+          variability(step_exp),
         )
-        if isSome(stepExp)
-          @match SOME(step_exp) = stepExp
-          var = variabilityMax(
-            var,
-            variability(step_exp),
-          )
-          dim_exp = BINARY_EXPRESSION(
-            dim_exp,
-            makeDiv(TYPE_REAL()),
-            step_exp,
-          )
-          dim_exp = BINARY_EXPRESSION(
-            dim_exp,
-            makeAdd(TYPE_REAL()),
-            REAL_EXPRESSION(5e-15),
-          )
-        end
-        dim_exp = CALL_EXPRESSION(makeTypedCall(
-          NFBuiltinFuncs.FLOOR,
-          Expression[dim_exp],
-          var,
-        ))
-        dim_exp = CALL_EXPRESSION(makeTypedCall(
-          NFBuiltinFuncs.INTEGER_REAL,
-          Expression[dim_exp],
-          var,
-        ))
         dim_exp = BINARY_EXPRESSION(
           dim_exp,
-          makeAdd(TYPE_INTEGER()),
-          INTEGER_EXPRESSION(1),
+          makeDiv(TYPE_REAL()),
+          step_exp,
         )
-        dim_exp = simplify(dim_exp)
-        fromExp(dim_exp, var)
+        dim_exp = BINARY_EXPRESSION(
+          dim_exp,
+          makeAdd(TYPE_REAL()),
+          REAL_EXPRESSION(5e-15),
+        )
       end
+      dim_exp = CALL_EXPRESSION(makeTypedCall(
+        NFBuiltinFuncs.FLOOR,
+        Expression[dim_exp],
+        var,
+      ))
+      dim_exp = CALL_EXPRESSION(makeTypedCall(
+        NFBuiltinFuncs.INTEGER_REAL,
+        Expression[dim_exp],
+        var,
+      ))
+      dim_exp = BINARY_EXPRESSION(
+        dim_exp,
+        makeAdd(TYPE_INTEGER()),
+        INTEGER_EXPRESSION(1),
+      )
+      dim_exp = simplify(dim_exp)
+      fromExp(dim_exp, var)
     end
   end
-  return dim
 end
 
 @nospecializeinfer function getRangeTypeBool(@nospecialize(startExp::Expression), @nospecialize(stopExp::Expression))::Dimension
@@ -3654,15 +3499,15 @@ end
 
 function matchBinding(
   binding::Binding,
-  componentType::NFType,
+  componentType::ModelicaType,
   name::String,
   component::InstNode,
   )::Binding
   local ty_match::MatchKindType
   local exp::Expression
-  local ty::NFType
-  local exp_ty::NFType
-  local comp_ty::NFType
+  local ty::ModelicaType
+  local exp_ty::ModelicaType
+  local comp_ty::ModelicaType
   local dims::List{List{Dimension}}
   @match binding begin
     TYPED_BINDING(bindingExp = exp) => begin
@@ -3677,7 +3522,7 @@ function matchBinding(
               dims = Cons{List{Dimension}}(arrayDims(getType(p)), dims)
             end
             dims = listReverse(dims)
-            comp_ty = liftArrayLeftList(componentType, ListUtil.flattenReverse(dims))
+            comp_ty = liftArrayLeftList(componentType, ListUtil.flattenReverse(dims, Dimension))
             exp_ty = exp.expType
           end
 
@@ -3686,7 +3531,7 @@ function matchBinding(
             exp_ty = binding.bindingType
           end
         end
-      local tyRef = Ref{NFType}(TYPE_UNKNOWN())
+      local tyRef = Ref{ModelicaType}(TYPE_UNKNOWN())
       local mkRef = Ref{MatchKindType}(MatchKind.NOT_COMPATIBLE)
       exp = matchTypesRef(exp_ty, comp_ty, exp, tyRef, mkRef, #=allowUnknown=# true)
       ty = tyRef.x
@@ -3721,14 +3566,12 @@ end
 function printBindingTypeError(
   name::String,
   binding::Binding,
-  componentType::NFType,
-  bindingType::NFType,
+  componentType::ModelicaType,
+  bindingType::ModelicaType,
   component::InstNode,
 )
   local binding_info::SourceInfo
   local comp_info::SourceInfo
-  local bind_ty_str::String
-  local comp_ty_str::String
   local mk::MatchKindType
 
   @assign binding_info = Binding_getInfo(binding)
@@ -3772,41 +3615,37 @@ function printBindingTypeError(
       end
     end
   end
-  #=  forget errors when handling annotations
-  =#
+  #= forget errors when handling annotations =#
 end
 
 """ #= Checks that an expression used as a dimension has a valid type for a
    dimension, otherwise prints an error and fails. =#"""
-@nospecializeinfer function checkDimensionType(@nospecialize(exp::Expression), ty::NFType, info::SourceInfo)
+@nospecializeinfer function checkDimensionType(@nospecialize(exp::Expression), ty::ModelicaType, info::SourceInfo)
   return if !isInteger(ty)
-     () = begin
-      @match exp begin
-        TYPENAME_EXPRESSION(ty = TYPE_ARRAY(elementType = TYPE_BOOLEAN(__))) => begin
-          ()
-        end
+     @match exp begin
+       TYPENAME_EXPRESSION(ty = TYPE_ARRAY(elementType = TYPE_BOOLEAN(__))) => begin
+         ()
+       end
 
-        TYPENAME_EXPRESSION(
-          ty = TYPE_ARRAY(elementType = TYPE_ENUMERATION(__)),
-        ) => begin
-          ()
-        end
+       TYPENAME_EXPRESSION(
+         ty = TYPE_ARRAY(elementType = TYPE_ENUMERATION(__)),
+       ) => begin
+         ()
+       end
 
-        _ => begin
-          Error.addSourceMessage(
-            Error.INVALID_DIMENSION_TYPE,
-            list(toString(exp), toString(ty)),
-            info,
-          )
-          fail()
-        end
-      end
-    end
+       _ => begin
+         Error.addSourceMessage(
+           Error.INVALID_DIMENSION_TYPE,
+           list(toString(exp), toString(ty)),
+           info,
+         )
+         fail()
+       end
+     end
   end
 end
 
-@nospecializeinfer function checkReductionType(ty::NFType, name::Absyn.Path, @nospecialize(exp::Expression), info::SourceInfo)
-  local ety::NFType
+@nospecializeinfer function checkReductionType(ty::ModelicaType, name::Absyn.Path, @nospecialize(exp::Expression), info::SourceInfo)
   local err::String
   @assign err = begin
     @match name begin
@@ -3921,10 +3760,9 @@ end
   end
 end
 
-@nospecializeinfer function checkSumComplexType(ty::NFType, @nospecialize(exp::Expression), info::SourceInfo)::Bool
+@nospecializeinfer function checkSumComplexType(ty::ModelicaType, @nospecialize(exp::Expression), info::SourceInfo)::Bool
   local valid::Bool = true
   local cls_node::InstNode
-  local op_node::InstNode
   local cls::Class
   @match TYPE_COMPLEX(cls = cls_node) = ty
   cls = getClass(cls_node)

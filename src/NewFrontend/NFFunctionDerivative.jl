@@ -33,80 +33,20 @@
 *
 */ =#
 
-@UniontypeDecl NFFunctionDerivative
-
-Condition = (() -> begin #= Enumeration =#
-  ZERO_DERIVATIVE = 1
-  NO_DERIVATIVE = 2
-  () -> (ZERO_DERIVATIVE; NO_DERIVATIVE)
-             end)()
-const ConditionType = Int
-
-
-@Uniontype NFFunctionDerivative begin
-  @Record FUNCTION_DER begin
-    derivativeFn::InstNode
-    derivedFn::InstNode
-    order::Expression
-    conditions::List{Tuple{Int, String, ConditionType}}
-    lowerOrderDerivatives::List{InstNode}
-  end
-end
+#= FUNCTION_DER is defined in FrontendInterfaces/NFInterfaces.jl, before MODELICA_FUNCTION. =#
 
 #import ..SCodeUtil
 #import ..SCodeDump
 
-function conditionToDAE(
-  cond::Tuple{<:Int, String, ConditionType},
-)::Tuple{Int, DAE.derivativeCond}
-  local daeCond::Tuple{Int, DAE.derivativeCond}
-  local idx::Int
-  local c::ConditionType
-  (idx, _, c) = cond
-  @assign daeCond = begin
-    @match c begin
-      Condition.ZERO_DERIVATIVE => begin
-        (idx, DAE.ZERO_DERIVATIVE())
-      end
-
-      Condition.NO_DERIVATIVE => begin
-        (idx, DAE.NO_DERIVATIVE(DAE.ICONST(99)))
-      end
-    end
-  end
-  return daeCond
-end
-
-function toDAE(fnDer::FunctionDerivative)::DAE.FunctionDefinition
-  local derDef::DAE.FunctionDefinition
-
-  local order::Int
-
-  @match INTEGER_EXPRESSION(order) = fnDer.order
-  @assign derDef = DAE.FUNCTION_DER_MAPPER(
-    name(listHead(getCachedFuncs(fnDer.derivedFn))),
-    name(listHead(getCachedFuncs(fnDer.derivativeFn))),
-    order,
-    list(conditionToDAE(c) for c in fnDer.conditions),
-    NONE(),
-    list(
-      name(listHead(getCachedFuncs(fn)))
-      for fn in fnDer.lowerOrderDerivatives
-    ),
-  )
-  #=  TODO: Figure out if the two fields below are needed. =#
-  return derDef
-end
-
-function typeDerivative(fnDer::FunctionDerivative)
+function typeDerivative(fnDer::FUNCTION_DER)
   local mk::MatchKindType
   local order::Expression
-  local order_ty::M_Type
+  local order_ty::ModelicaType
   local var::VariabilityType
   local infoVar::SourceInfo
 
   typeNodeCache(fnDer.derivativeFn)
-  infoVar = sourceInfo() #info(fnDer.derivedFn)
+  infoVar = InstNode_info(fnDer.derivedFn)
   (order, order_ty, var) = typeExp(fnDer.order, ORIGIN_FUNCTION, infoVar)
   (order, _, mk) = matchTypes(order_ty, TYPE_INTEGER(), order)
   if isIncompatibleMatch(mk)
@@ -139,8 +79,8 @@ function typeDerivative(fnDer::FunctionDerivative)
   return order
 end
 
-function instDerivatives(fnNode::InstNode, fn::M_Function)::List{FunctionDerivative}
-  local ders::List{FunctionDerivative} = nil
+function instDerivatives(fnNode::InstNode, fn::MODELICA_FUNCTION)::List{FUNCTION_DER}
+  local ders::List{FUNCTION_DER} = nil
   local der_mods::List{SCode.Mod}
   local scope::InstNode
   der_mods = getDerivativeAnnotations(definition(fnNode))
@@ -151,7 +91,7 @@ function instDerivatives(fnNode::InstNode, fn::M_Function)::List{FunctionDerivat
   return ders
 end
 
-function addLowerOrderDerivative2(fn::M_Function, lowerDerNode::InstNode)
+function addLowerOrderDerivative2(fn::MODELICA_FUNCTION, lowerDerNode::InstNode)
   fnDerivatives = list(
     begin
       if fn_der isa FUNCTION_DER
@@ -164,7 +104,7 @@ function addLowerOrderDerivative2(fn::M_Function, lowerDerNode::InstNode)
       end
     end
     for fn_der in fn.derivatives)
-  local f = M_FUNCTION(fn.path,
+  local f = MODELICA_FUNCTION(fn.path,
                        fn.node,
                        fn.inputs,
                        fn.outputs,
@@ -185,7 +125,7 @@ function addLowerOrderDerivative(fnNode::InstNode, lowerDerNode::InstNode)
   )
 end
 
-function getInputIndex(nameArg::String, fn::M_Function, info::SourceInfo)::Int
+function getInputIndex(nameArg::String, fn::MODELICA_FUNCTION, info::SourceInfo)::Int
   local index::Int = 1
 
   for i in fn.inputs
@@ -204,74 +144,71 @@ function getInputIndex(nameArg::String, fn::M_Function, info::SourceInfo)::Int
 end
 
 function getDerivativeAttributes(
-  attrs::List{<:SCode.SubMod},
-  fn::M_Function,
+  attrs::List{<:SCode.NAMEMOD},
+  fn::MODELICA_FUNCTION,
   scope::InstNode,
   info::SourceInfo,
-)::Tuple{Expression, List{Tuple{Int, String, ConditionType}}}
-  local conditions::List{Tuple{Int, String, ConditionType}} = nil
+)::Tuple{Expression, List{Tuple{Int, String, DerivativeCondition}}}
+  local conditions::List{Tuple{Int, String, DerivativeCondition}} = nil
   local order::Expression = EMPTY_EXPRESSION(TYPE_UNKNOWN())
 
   local id::String
   local mod::SCode.Mod
   local aexp::Absyn.Exp
-  local acref::Absyn.P_ComponentRef.ComponentRef
   local index::Int
 
   for attr in attrs
     @match SCode.NAMEMOD(id, mod) = attr
-     () = begin
-      @match (id, mod) begin
-        ("order", SCode.MOD(binding = SOME(aexp))) => begin
-          if !isEmpty(order)
-            Error.addSourceMessage(
-              Error.DUPLICATE_MODIFICATIONS,
-              list(id, "derivative"),
-              info,
-            )
-          end
-          order = instExp(aexp, scope, info)
-          ()
-        end
+     @match (id, mod) begin
+       ("order", SCode.MOD(binding = SOME(aexp))) => begin
+         if !isEmpty(order)
+           Error.addSourceMessage(
+             Error.DUPLICATE_MODIFICATIONS,
+             list(id, "derivative"),
+             info,
+           )
+         end
+         order = instExp(aexp, scope, info)
+         ()
+       end
 
-        (
-          "noDerivative",
-          SCode.MOD(
-            binding = SOME(Absyn.CREF(componentRef = Absyn.CREF_IDENT(name = id))),
-          ),
-        ) => begin
-          @assign index = getInputIndex(id, fn, info)
-          @assign conditions = _cons((index, id, Condition.NO_DERIVATIVE), conditions)
-          ()
-        end
+       (
+         "noDerivative",
+         SCode.MOD(
+           binding = SOME(Absyn.CREF(componentRef = Absyn.CREF_IDENT(name = id))),
+         ),
+       ) => begin
+         @assign index = getInputIndex(id, fn, info)
+         @assign conditions = _cons((index, id, DERIVATIVE_CONDITION_NO_DERIVATIVE), conditions)
+         ()
+       end
 
-        (
-          "zeroDerivative",
-          SCode.MOD(
-            binding = SOME(Absyn.CREF(componentRef = Absyn.CREF_IDENT(name = id))),
-          ),
-        ) => begin
-          @assign index = getInputIndex(id, fn, info)
-          @assign conditions = _cons((index, id, Condition.ZERO_DERIVATIVE), conditions)
-          ()
-        end
+       (
+         "zeroDerivative",
+         SCode.MOD(
+           binding = SOME(Absyn.CREF(componentRef = Absyn.CREF_IDENT(name = id))),
+         ),
+       ) => begin
+         @assign index = getInputIndex(id, fn, info)
+         @assign conditions = _cons((index, id, DERIVATIVE_CONDITION_ZERO_DERIVATIVE), conditions)
+         ()
+       end
 
-        _ => begin
-          Error.addStrictMessage(
-            Error.INVALID_FUNCTION_DERIVATIVE_ATTR,
-            list(id + (
-              if SCodeUtil.isEmptyMod(mod)
-                ""
-              else
-                " = " + SCodeDump.printModStr(mod)
-              end
-            )),
-            info,
-          )
-          ()
-        end
-      end
-    end
+       _ => begin
+         Error.addStrictMessage(
+           Error.INVALID_FUNCTION_DERIVATIVE_ATTR,
+           list(id + (
+             if SCodeUtil.isEmptyMod(mod)
+               ""
+             else
+               " = " + SCodeDump.printModStr(mod)
+             end
+           )),
+           info,
+         )
+         ()
+       end
+     end
   end
   if isEmpty(order)
     @assign order = INTEGER_EXPRESSION(1)
@@ -282,17 +219,17 @@ end
 function instDerivativeMod(
   mod::SCode.Mod,
   fnNode::InstNode,
-  fn::M_Function,
+  fn::MODELICA_FUNCTION,
   scope::InstNode,
-  fnDers::List{<:FunctionDerivative},
-)::List{FunctionDerivative}
+  fnDers::List{<:FUNCTION_DER},
+)::List{FUNCTION_DER}
 
   @assign fnDers = begin
-    local attrs::List{SCode.SubMod}
+    local attrs::List{SCode.NAMEMOD}
     local acref::Absyn.ComponentRef
     local der_node::InstNode
     local order::Expression
-    local conds::List{Tuple{Int, String, ConditionType}}
+    local conds::List{Tuple{Int, String, DerivativeCondition}}
     @match mod begin
       SCode.MOD(subModLst = attrs, binding = SOME(Absyn.CREF(acref))) => begin
          (_, der_node, _) = instFunction(acref, scope, mod.info)
@@ -302,8 +239,7 @@ function instDerivativeMod(
       end
 
       SCode.MOD(__) => begin
-        #=  Give a warning if the derivative annotation doesn't specify a function name.
-        =#
+        #= Give a warning if the derivative annotation doesn't specify a function name. =#
         Error.addStrictMessage(
           Error.MISSING_FUNCTION_DERIVATIVE_NAME,
           list(AbsynUtil.pathString(name(fn))),
@@ -313,10 +249,8 @@ function instDerivativeMod(
       end
 
       _ => begin
-        #=  We shouldn't get any NOMODs here since they're filtered out when
-        =#
-        #=  translating Absyn to SCode, and redeclare isn't allowed by the syntax.
-        =#
+        #= We shouldn't get any NOMODs here since they're filtered out when
+           translating Absyn to SCode, and redeclare isn't allowed by the syntax. =#
         Error.assertion(false, getInstanceName() + " got invalid modifier", sourceInfo())
         fail()
       end
@@ -326,39 +260,34 @@ function instDerivativeMod(
 end
 
 function getDerivativeAnnotations(definition::SCode.Element)::List{SCode.Mod}
-  local derMods::List{SCode.Mod}
-  @assign derMods = begin
-    local ann::SCode.Annotation
-    @match definition begin
-      SCode.CLASS(
-        classDef = SCode.PARTS(
-          externalDecl = SOME(SCode.EXTERNALDECL(annotation_ = SOME(ann))),
-        ),
-      ) => begin
-        SCodeUtil.lookupNamedAnnotations(ann, "derivative")
-      end
+  local ann::SCode.ANNOTATION
+  @match definition begin
+    SCode.CLASS(
+      classDef = SCode.PARTS(
+        externalDecl = SOME(SCode.EXTERNALDECL(annotation_ = SOME(ann))),
+      ),
+    ) => begin
+      SCodeUtil.lookupNamedAnnotations(ann, "derivative")
+    end
 
-      SCode.CLASS(cmt = SCode.COMMENT(annotation_ = SOME(ann))) => begin
-        SCodeUtil.lookupNamedAnnotations(ann, "derivative")
-      end
+    SCode.CLASS(cmt = SCode.COMMENT(annotation_ = SOME(ann))) => begin
+      SCodeUtil.lookupNamedAnnotations(ann, "derivative")
+    end
 
-      _ => begin
-        nil
-      end
+    _ => begin
+      nil
     end
   end
-  return derMods
 end
 
-
-function toSubMod(fnDer::FunctionDerivative) ::SCode.SubMod
-  local subMod::SCode.SubMod
-  local tpl::Tuple{Integer, String, ConditionType}
-  local condition::ConditionType
+function toSubMod(fnDer::FUNCTION_DER) ::SCode.NAMEMOD
+  local subMod::SCode.NAMEMOD
+  local tpl::Tuple{Integer, String, DerivativeCondition}
+  local condition::DerivativeCondition
   local id::String
   local mod::SCode.Mod
-  local orderMod::SCode.SubMod
-  local subMods::List{SCode.SubMod}
+  local orderMod::SCode.NAMEMOD
+  local subMods::List{SCode.NAMEMOD}
   local order::Int
   local info::SourceInfo
   info = InstNode_info(fnDer.derivedFn)
@@ -380,20 +309,12 @@ function toSubMod(fnDer::FunctionDerivative) ::SCode.SubMod
   subMod
 end
 
-function conditionToString(condition::ConditionType)
-  local str::String
-  str = begin
-    @match condition begin
-      Condition.NO_DERIVATIVE  => begin
-        "noDerivative"
-      end
-      Condition.ZERO_DERIVATIVE  => begin
-        "zeroDerivative"
-      end
-      _  => begin
-        string(condition)
-      end
-    end
+"""The annotation name of a derivative condition: `noDerivative` or `zeroDerivative`."""
+function conditionToString(condition::DerivativeCondition)::String
+  if condition == DERIVATIVE_CONDITION_NO_DERIVATIVE
+    return "noDerivative"
+  elseif condition == DERIVATIVE_CONDITION_ZERO_DERIVATIVE
+    return "zeroDerivative"
   end
-  str
+  return string(condition)
 end

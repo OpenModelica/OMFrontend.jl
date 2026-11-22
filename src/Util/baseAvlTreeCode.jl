@@ -33,8 +33,8 @@
 *
 */ =#
 
-#=  TODO: We should have an Any type =#
-#= The binary tree data structure. =#
+#= TODO: We should have an Any type
+   The binary tree data structure. =#
 abstract type Tree end
 
 mutable struct NODE <: Tree
@@ -53,14 +53,10 @@ end
 struct EMPTY <: Tree
 end
 
-#=
-valueStr
-Need to be implemented by the client
-=#
-keyCompare::Function = (inKey1::Key, inKey2::Key) -> begin
-  res = inKey1 == inKey2
-  return res
-end
+#= The including module defines, after the include:
+   `keyCompare(k1::Key, k2::Key)::Int` (-1, 0 or 1), `keyStr(k::Key)::String`, `valueStr(v::Value)::String`
+   and `const addConflictDefault`, the conflict function `add` uses by default (`addConflictFail`, `addConflictKeep`
+   or `addConflictReplace`). They are functions and constants, so the calls on them are static. =#
 
 """  Return an empty tree """
 function new()::Tree
@@ -395,32 +391,28 @@ function printNodeStr(inNode::Tree)
 end
 
 
-#= Default conflict resolving function for add. =#
 """Conflict resolving function for add which fails on conflict."""
-function addConflictFail(newValue::Value, oldValue::Value, key::Key)
+function addConflictFail(newValue::Value, oldValue::Value, key::Key)::Value
   fail()
 end
-addConflictDefault = addConflictFail
 
 """Conflict resolving function for add which replaces the old value with the new."""
-function addConflictReplace(newValue::Value, oldValue::Value, key::Key)
-  local value::Value = newValue
-  return value
+function addConflictReplace(newValue::Value, oldValue::Value, key::Key)::Value
+  return newValue
 end
 
 """Conflict resolving function for add which keeps the old value."""
-function addConflictKeep(newValue::Value, oldValue::Value, key::Key)
-  local value::Value = oldValue
-  return value
+function addConflictKeep(newValue::Value, oldValue::Value, key::Key)::Value
+  return oldValue
 end
 
-"""Inserts a new node in the tree."""
+"""Inserts a new node in the tree; `conflictFunc` resolves a key that is already there."""
 function add(
   @nospecialize(inTree::Tree),
   inKey::Key,
   @nospecialize(inValue::Value),
-  @nospecialize(conflictFunc::Function = addConflictDefault),
-)::Tree #= Used to resolve conflicts. =#
+  conflictFunc::Function = addConflictDefault,
+)::Tree
   local tree::Tree = inTree
 
    tree = begin
@@ -428,8 +420,7 @@ function add(
     local value::Value
     local key_comp::Int
     local outTree::Tree
-    #=  Empty tree.
-    =#
+    #= Empty tree. =#
     @match tree begin
       EMPTY(__) => begin
         LEAF(inKey, inValue)
@@ -447,12 +438,9 @@ function add(
              tree.value = value
           end
         end
-        #=  Replace left branch.
-        =#
-        #=  Replace right branch.
-        =#
-        #=  Use the given function to resolve the conflict.
-        =#
+        #= Replace left branch.
+           Replace right branch.
+           Use the given function to resolve the conflict. =#
         if key_comp == 0
           tree
         else
@@ -836,29 +824,17 @@ function map(inTree::Tree, inFunc::Function)::Tree
 end
 
 """
-  Traverses the tree in depth-first pre-order and applies the given function to
-  each node, in the process updating the given argument.
+  Traverses the tree in depth-first in-order and applies `inFunc(key, value, arg)::FT` to each node, in the
+  process updating the argument; `FT` is the argument's type (an abstract tree type when the argument is a tree).
 """
-function fold(inTree::Tree, inFunc::Function, inStartValue::FT) where {FT}
-  local outResult = inStartValue
-  outResult = begin
-    local key::Key
-    local value::Value
-    @match inTree begin
-      NODE(key = key, value = value) => begin
-        outResult = fold(inTree.left, inFunc, outResult)
-        outResult = inFunc(key, value, outResult)
-        outResult = fold(inTree.right, inFunc, outResult)
-        outResult
-      end
-      LEAF(key = key, value = value) => begin
-        outResult = inFunc(key, value, outResult)
-        outResult
-      end
-      _ => begin
-        outResult
-      end
-    end
+function fold(inTree::Tree, inFunc::FF, inStartValue::FT, ::Type{FT})::FT where {FF<:Function, FT}
+  local outResult::FT = inStartValue
+  if inTree isa NODE
+    outResult = fold(inTree.left, inFunc, outResult, FT)
+    outResult = inFunc(inTree.key, inTree.value, outResult)::FT
+    outResult = fold(inTree.right, inFunc, outResult, FT)
+  elseif inTree isa LEAF
+    outResult = inFunc(inTree.key, inTree.value, outResult)::FT
   end
   return outResult
 end

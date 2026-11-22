@@ -33,26 +33,24 @@
 *
 */ =#
 
-#=
-  Command-line interface for OMFrontend.
+#= Command-line interface for OMFrontend.
 
-  Wired up as `OMFrontend.julia_main`, this module is the entry point for a
-  self-contained binary built with `PackageCompiler.create_app`. The CLI
-  surfaces the most-used translation pipeline steps from src/OMFrontend.jl:
-  parse a file, translate to SCode, flatten a model (optionally against the
-  Modelica Standard Library), and emit the result as flat Modelica.
+   Wired up as `OMFrontend.julia_main`, this module is the entry point for a
+   self-contained binary built with `PackageCompiler.create_app`. The CLI
+   surfaces the most-used translation pipeline steps from src/OMFrontend.jl:
+   parse a file, translate to SCode, flatten a model (optionally against the
+   Modelica Standard Library), and emit the result as flat Modelica.
 
-  No external argument-parsing dependency is used. The hand-rolled scanner
-  in `_parseOpts` keeps the closure of OMFrontend's deps unchanged.
+   No external argument-parsing dependency is used. The hand-rolled scanner
+   in `_parseOpts` keeps the closure of OMFrontend's deps unchanged.
 
-  All terminal output goes through ccall(:write, fd, ...) helpers rather
-  than print/println(stderr, ...). Julia's Base.stderr / Base.stdout are
-  typed as the abstract IO supertype, which juliac --trim=safe cannot
-  resolve to a concrete dispatch. The fd writes are type-stable, work
-  identically in cooked and trimmed binaries, and are sufficient for plain
-  UTF-8 text emission. Use _stdoutPrint(ln) / _stderrPrint(ln) below
-  instead of touching stderr / stdout directly.
-=#
+   All terminal output goes through ccall(:write, fd, ...) helpers rather
+   than print/println(stderr, ...). Julia's Base.stderr / Base.stdout are
+   typed as the abstract IO supertype, which juliac --trim=safe cannot
+   resolve to a concrete dispatch. The fd writes are type-stable, work
+   identically in cooked and trimmed binaries, and are sufficient for plain
+   UTF-8 text emission. Use _stdoutPrint(ln) / _stderrPrint(ln) below
+   instead of touching stderr / stdout directly. =#
 
 const CLI_PROGRAM = "OMFrontend"
 
@@ -143,12 +141,10 @@ Options:
   --out PATH         Write the SCode dump to PATH instead of stdout.
 """
 
-#=
-  Lightweight option scanner. Returns (positional, options) where options is
-  Dict{String, Any} keyed by the flag/option name as it appears on the command
-  line (e.g. "--file"). Flags map to `true`, valued options to their string
-  value. Throws ArgumentError on missing values or unknown flags.
-=#
+#= Lightweight option scanner. Returns (positional, options) where options is
+   Dict{String, Any} keyed by the flag/option name as it appears on the command
+   line (e.g. "--file"). Flags map to `true`, valued options to their string
+   value. Throws ArgumentError on missing values or unknown flags. =#
 function _parseOpts(args::AbstractVector{<:AbstractString},
                     flags::AbstractSet{String},
                     valued::AbstractSet{String})
