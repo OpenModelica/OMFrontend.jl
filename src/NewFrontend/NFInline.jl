@@ -157,7 +157,6 @@ function _passesInlineComplexityGate(call::Call)::Bool
   end
 end
 
-
 """
   Inline function for nonbuiltin callexps
   @author johti17
@@ -169,7 +168,6 @@ function inlineSimpleCall(callExp::Expression, top = nothing)::Expression
     CALL_EXPRESSION(c && TYPED_CALL(fn, ty, var, arguments, attributes)) => begin
       call = c
       shouldInline = true && !(attributes.builtin || isExternal(c)) && isSimpleType(ty)
-#      println("Inline = $(shouldInline) for: " * toString(c))
       #= We might want to inline more things, so check arguments anyway =#
       shouldInline || return callExp
       shouldInline

@@ -92,7 +92,6 @@ function restoreMissingArrayVariables!(flatModel::FLAT_MODEL)
     for v in values(arrayVariableSet)
       push!(newVars, Variable_fromCrefNoBinding(v))
     end
-    #append!(flatModel.variables, newVars)
    end
 end
 
@@ -102,6 +101,5 @@ function adjustIncorrectVariablePaths!(flat_model)
   #= Get all component references in the model. =#
 
 end
-
 
 end #= InstUtil =#

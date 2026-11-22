@@ -63,7 +63,6 @@ function mapExpList(algs::Vector{ALGORITHM}, func::MapFunc)
 end
 
 @nospecialized function mapExp(alg::ALGORITHM, func::MapFunc)::ALGORITHM
-  #alg.statements = mapExpList(alg.statements, func)
   for (i,s) in enumerate(alg.statements)
     alg.statements[i] = mapExp(s, func)
   end

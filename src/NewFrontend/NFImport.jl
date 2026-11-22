@@ -82,7 +82,6 @@ function instUnqualified(
   local path::Absyn.Path
   local node::InstNode
   local tree::ClassTree
-  local elements::List{InstNode}
 
   @match Absyn.UNQUAL_IMPORT(path = path) = imp
   node = lookupImport(path, scope, info)
@@ -129,7 +128,6 @@ end
 
 function resolve(imp::Import, isChangedImportRef::Ref{Bool}, importTyRef::Ref{Import})::InstNode
   local outImport::Import
-  local changed::Bool
   local node::InstNode
 
   outImport  = begin

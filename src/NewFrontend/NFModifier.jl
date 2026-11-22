@@ -104,7 +104,6 @@ function fromElement(element::SCode.Element)
   return scope
 end
 
-
 function toFlatString(mod::Modifier, printName::Bool = true)
   local string::String
   string = begin
@@ -239,10 +238,6 @@ function toList(mod::Modifier)
   modList = begin
     @match mod begin
       MODIFIER_MODIFIER(__) => begin
-        #println("Vector")
-        #res = ModTable.vectorValues!(mod.subModifiers)
-        #println(toString(res))
-        #println("List")
         res = ModTable.listValues(mod.subModifiers)
       end
       _ => begin
@@ -256,9 +251,6 @@ end
 const TMP_MOD = Modifier[]
 function toVector!(mod::Modifier)
   local modV::Vector{Modifier}
-  # println("Vector...")
-  # println(toString(mod))
-  # println("....")
   modV = @match mod begin
     MODIFIER_MODIFIER(__) where mod.subModifiers !== nothing => begin
       ModTable.vectorValues!(mod.subModifiers, Modifier[])
@@ -371,14 +363,6 @@ function merge(outerMod::Modifier, innerMod::Modifier, name::String = "")
 end
 
 function setBinding(binding::Binding, mod::Modifier)
-  # local modifier = MODIFIER_MODIFIER(
-  #       mod.name,
-  #       mod.finalPrefix,
-  #       mod.eachPrefix,
-  #       binding,
-  #       mod.subModifiers,
-  #       mod.info,
-  # )
   if isvariant(mod, MODIFIER_MODIFIER)
     @assign mod.binding = binding
   end
@@ -539,7 +523,6 @@ function fromElement(
   parents::List{<:InstNode},
   scope::InstNode,
   )::Modifier
-  local mod::Modifier
     local def::SCode.ClassDef
     local smod::SCode.Mod
   @match element begin
@@ -591,8 +574,6 @@ create(mod::SCode.NOMOD,
        parents::List{<:InstNode},
        scope::InstNode) = MODIFIER_NOMOD()
 
-
-
 function create(mod::SCode.REDECL,
                 name::String,
                 modScope::ModifierScope,
@@ -615,10 +596,7 @@ function create(mod::SCode.MOD,
   local submodV::Vector{Modifier}
   local submod_table::ModTable.Tree
   local binding::Binding
-  local elem::SCode.Element
-  local smod::SCode.Mod
   local is_each::Bool
-  local node::InstNode
   local pars::List{InstNode}
   is_each = SCodeUtil.eachBool(mod.eachPrefix)
   binding = fromAbsyn(mod.binding, is_each, parents, scope, mod.info)

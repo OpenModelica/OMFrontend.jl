@@ -523,7 +523,6 @@ function mapExtends(tree::ClassTree, func::Function)
   return
 end
 
-
 function mapExtendsWithExtendsNode(tree::ClassTree, extendsNode::InstNode)
   local exts::Vector{InstNode} = getExtends(tree)
   for i in 1:length(exts)
@@ -532,7 +531,6 @@ function mapExtendsWithExtendsNode(tree::ClassTree, extendsNode::InstNode)
   end
   return
 end
-
 
 function mapExtends(tree::ClassTree, parent::InstNode)
   local exts::Vector{InstNode} = getExtends(tree)
@@ -627,12 +625,7 @@ end
 
 """  Returns the class or component with the given name in the class tree. """
 function lookupElement(name::String, classTree::ClassTree)
-  local isImport::Bool
-  local element::InstNode
   local entry::LookupTree.Entry
-  #@info "Looking up element $name in class tree!"
-  #@info "Fetching from tree. Soon to report entry"
-  #@info "Structure of the tree" LookupTree.printTreeStr(tree.tree)
   lTree = lookupTree(classTree)
   entry = LookupTree.get(lTree, name)
   if entry == LookupTree.FAILURE
@@ -954,7 +947,6 @@ function instantiate(
   local classCount::Int = 0
   local cls::Class
   local tree::ClassTree
-  local ext_tree::ClassTree
   local ltree::LookupTree.Tree
   local exts::Vector{InstNode}
   local old_clss::Vector{InstNode}
@@ -969,10 +961,8 @@ function instantiate(
   local comp_count::Int
   local node::InstNode
   local parent_scope::InstNode
-  local inner_node::InstNode
   local inst_scope::InstNode
   local dups::DuplicateTree.Tree
-  local comp::Component
   local ext_def::SCode.Element
   local is_typish::Bool
   #@debug "Instantiating in class tree"
@@ -1173,7 +1163,6 @@ function expand(tree::ClassTree)::ClassTree
   local comps::Vector{InstNode}
   local imps::Vector{Import}
   local ext_idxs::List{Tuple{Int, Int}} = nil
-  local ccount::Int
   local cls_idx::Int
   local comp_idx::Int = 1
   local dups::DuplicateTree.Tree
@@ -1294,7 +1283,6 @@ function fromEnumeration(
   local i::Int = 0
   local comp::InstNode
   local ltree::LookupTree.Tree
-  local name::String
   comps = arrayCreateNoInit(listLength(literals) + attr_count, EMPTY_NODE())
   ltree = NFBuiltin.GET_ENUM_LOOKUP_TREE()
   arrayUpdateNoBoundsChecking(
@@ -1342,8 +1330,6 @@ function fromEnumeration(
       enumClass,
     ),
   )
-#  @info "Before"
-#  @info LookupTree.printTreeStr(ltree)
   for l in literals
     nameStr = l.literal
     i = i + 1
@@ -1377,7 +1363,6 @@ function fromSCode(
   local clsc::Int
   local compc::Int
   local extc::Int
-  local i::Int
   local clss::Vector{InstNode}
   local comps::Vector{InstNode}
   local exts::Vector{InstNode}
@@ -2222,7 +2207,6 @@ function replaceElementNode(name::String,
   return replaceEntryNode(entry, node, tree)
 end
 
-
 resolveClass(index::Int, tree::ClassTree) =
   isvariant(tree, CLASS_TREE_INSTANTIATED_TREE) ? P_Pointer.access(tree.classes[index]) : tree.classes[index]
 
@@ -2319,7 +2303,6 @@ function lookupElementNode(name::String, classTree::ClassTree)::InstNode
   end
   return resolveEntryNode(entry, classTree)
 end
-
 
 function addImportConflict(
   newEntry::LookupTree.Entry,
@@ -2543,7 +2526,6 @@ function instExtendsComps(
   local ext_comps_ptrs::Vector{Pointer{InstNode}}
   local ext_comps::Vector{InstNode}
   local comp_count::Int
-  local ext_comp::InstNode
   () = begin
     @match classTree(getClass(extNode)) begin
       CLASS_TREE_INSTANTIATED_TREE(components = ext_comps_ptrs) => begin

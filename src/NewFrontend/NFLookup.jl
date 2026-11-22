@@ -291,10 +291,8 @@ function lookupLocalCref(cref::Absyn.ComponentRef, scope::InstNode #= The scope 
   local state::LookupState
   local foundScope::InstNode #= The scope where the first part of the cref was found. =#
   local foundCref::ComponentRef
-  local match_ty::MatchTypeTy
   local node::InstNode
    (foundCref, foundScope, state) = begin
-    local found_scope::InstNode
     @matchcontinue cref begin
       Absyn.CREF_IDENT(__)  => begin
          (node, foundScope) = lookupLocalSimpleCref(cref.name, scope)
@@ -399,7 +397,6 @@ function lookupSimpleName(nameStr::String, scope::InstNode)::Tuple{InstNode, Boo
   return (EMPTY_NODE(), false)
 end
 
-
 #= The SCode program of a library by its name, or nothing (set by OMFrontend: the Modelica
    Standard Library; omc loads from MODELICAPATH). =#
 const LIBRARY_LOADER = Ref{Any}(nothing)
@@ -460,7 +457,6 @@ function lookupLocalSimpleName(n::String, scope::InstNode)
   return inner_node === node ? ENTRY_INFO(node, isImport) : ENTRY_INFO(inner_node, isImport)
 end
 
-
 function lookupNameWithError(@nospecialize(name::Absyn.Path), scope::InstNode, info::SourceInfo, errorType, lookupStateRef::Ref{LookupState}, checkAccessViolations::Bool = true; isRedeclared::Bool = false)
   local state::LookupState
   local node::InstNode
@@ -468,7 +464,6 @@ function lookupNameWithError(@nospecialize(name::Absyn.Path), scope::InstNode, i
   state = lookupStateRef.x
   if isvariant(node, EMPTY_NODE)
     Error.addSourceMessage(Error.LOOKUP_ERROR, list(AbsynUtil.pathString(name), scopeName(scope)), info)
-    #@error "Lookup error for path: $(AbsynUtil.pathString(name)) in the scope $(scopeName(scope))"
     fail()
   end
   node
@@ -832,7 +827,6 @@ function lookupIterator(iteratorName::String, iterators::Vector{<:InstNode})
     end
   end
   fail()
-#  throw("Iterator lookup error") #Addition by me, John May 2021
 end
 
 function lookupIteratorNoFail(iteratorName::String, iterators::Vector{<:InstNode})
@@ -956,7 +950,6 @@ end
   lookupCref.
 """
 function resolveInnerCref(nodeVar::InstNode, cref::ComponentRef, foundScope::InstNode)
-  local prev_node::InstNode
   local scope::InstNode
   if isInnerOuterNode(nodeVar)
     nodeVar = resolveInner(nodeVar)
@@ -1023,7 +1016,6 @@ function generateInner2(outerNode::InstNode, topScope::InstNode)
   local innerNode::InstNode
   local cache::CachedData
   local nameStr::String
-  local inner_node::InstNode
   cache = getInnerOuterCache(topScope)
    () = begin
     @match cache begin

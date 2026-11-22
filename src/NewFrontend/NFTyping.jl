@@ -104,8 +104,6 @@ const ORIGIN_NOEVENT = intBitLShift(1, 19)::M_Type_Int
 #= Part of noEvent argument. =#
 const ORIGIN_ASSERT = intBitLShift(1, 20)::M_Type_Int
 
-
-const ORIGIN_EQ_SUBEXPRESSION = intBitOr(ORIGIN_EQUATION, ORIGIN_SUBEXPRESSION)::M_Type_Int
 const ORIGIN_VALIDNAME_SCOPE = intBitOr(ORIGIN_ITERATION_RANGE, ORIGIN_DIMENSION)::M_Type_Int
 const ORIGIN_VALID_TYPENAME_SCOPE = ORIGIN_VALIDNAME_SCOPE
 const ORIGIN_DISCRETE_SCOPE = intBitOr(ORIGIN_WHEN, intBitOr(ORIGIN_INITIAL, ORIGIN_FUNCTION))::M_Type_Int
@@ -185,7 +183,6 @@ function typeComponents2(cls::InstNode, origin::ORIGIN_Type)::InstNode
   local c::Class = getClass(cls)
   local c2::Class
   local cls_tree::ClassTree
-  local ext_node::InstNode
   local con::InstNode
   local de::InstNode
   @match c begin
@@ -678,21 +675,6 @@ function checkComponentStreamAttribute(
   end
 end
 
-function checkConnectorType(node::InstNode)::Bool
-  local isConnector::Bool
-
-  local dnode::InstNode = getDerivedNode(node)
-
-  if isEmpty(dnode) || isInnerOuterNode(dnode)
-     isConnector = false
-  else
-     isConnector =
-      isConnectorClass(getClass(dnode)) ||
-      checkConnectorType(parent(dnode))
-  end
-  return isConnector
-end
-
 @nospecializeinfer function typeIterator(
   @nospecialize(iterator::InstNode),
   @nospecialize(range::RANGE_EXPRESSION),
@@ -819,7 +801,6 @@ function typeDimension2(
     local var::VariabilityType
     local dim::Dimension
     local b::Binding
-    local ty::ModelicaType
     local ty_err::TypingError
     local parent_dims::Int
     local dim_index::Int
@@ -1036,7 +1017,6 @@ function verifyDimension(dimension::Dimension, component::InstNode, info::Source
   end
 end
 
-
 @nospecializeinfer function typeDimensionUntyped(@nospecialize(dimensions::Vector{Dimension}),
                               @nospecialize(dimension::Dimension),
                               @nospecialize(index::Int),
@@ -1125,7 +1105,6 @@ end
   return dim
 end
 
-
 """
   Tries to fetch the binding for a given record field by using the binding of
   the record instance.
@@ -1135,7 +1114,6 @@ function getRecordElementBinding(componentVar::InstNode)::Tuple{Binding, Int}
   local binding::Binding
   local parent::InstNode
   local comp::Component
-  local exp::Expression
   local parent_binding::Binding
    parent = derivedParent(componentVar)
   if isComponent(parent)
@@ -1160,7 +1138,6 @@ function getRecordElementBinding(componentVar::InstNode)::Tuple{Binding, Int}
   end
   return (binding, parentDims)
 end
-
 
 function checkComponentBindingVariability(
   name::String,
@@ -1249,7 +1226,6 @@ function typeComponentCondition(condition::Binding, origin::Int)::Binding
           list(toString(exp), toString(ty)),
           info,
         )
-        #@error "If condition error expected $(toString(exp)) had $(toString(ty))"
         fail()
       end
       if var > Variability.PARAMETER
@@ -1286,7 +1262,6 @@ function typeTypeAttribute(
   )::Modifier
   local name::String
   local binding::Binding
-  local mod_parent::InstNode
   local finalAttribute
   @match attribute begin
     MODIFIER_MODIFIER(__) where {(!ModTable.isEmpty(attribute.subModifiers))} => begin
@@ -1410,15 +1385,8 @@ function typeExp2(
   local ty::ModelicaType
   exp = begin
     local e1::Expression
-    local e2::Expression
-    local e3::Expression
     local var1::VariabilityType
-    local var2::VariabilityType
-    local var3::VariabilityType
     local ty1::ModelicaType
-    local ty2::ModelicaType
-    local ty3::ModelicaType
-    local op::OPERATOR
     local cref::ComponentRef
     local next_origin::ORIGIN_Type
     @match exp begin
@@ -1464,18 +1432,11 @@ function typeExp2(
         exp
       end
       ARRAY_EXPRESSION(__) => begin
-        #@info "With List.."
-        #@time arr = typeArray(exp.elements, origin, info)
-        #@info "With Array...."
-        #exp, typeRef.x, variabilityTypeRef.x = typeArray(exp.elements, origin, info);exp
         exp = typeArrayRef(exp.elements, origin, info, typeRef, variabilityTypeRef)
-        #typeRef.x = exp.ty
-        #variabilityTypeRef.x
         exp
       end
       MATRIX_EXPRESSION(__) => begin
         exp = typeMatrixRef(exp.elements, origin, info, typeRef, variabilityTypeRef)#;exp
-        #exp, typeRef.x, variabilityTypeRef.x = typeMatrix(exp.elements, origin, info);exp
       end
       RANGE_EXPRESSION(__) => begin
         exp, typeRef.x, variabilityTypeRef.x = typeRange(exp, origin, info);exp
@@ -1623,7 +1584,6 @@ end
   (exp, ty, variabilityMax(var1, var2))
 end
 
-
 @nospecializeinfer function typeBinaryExpressionRef(
   @nospecialize(exp::BINARY_EXPRESSION),
   origin::ORIGIN_Type,
@@ -1653,8 +1613,6 @@ end
   return exp
 end
 
-
-
 @nospecializeinfer function typeLBinaryExpression(
   @nospecialize(exp::Expression),
   @nospecialize(origin::ORIGIN_Type),
@@ -1675,7 +1633,6 @@ end
   )
   (exp, ty, variabilityMax(var1, var2))
 end
-
 
 @nospecializeinfer function typeUnaryExpression(
   @nospecialize(exp::Expression),
@@ -1843,7 +1800,6 @@ function typeCrefDim2(cref::ComponentRef,
   local dim_count::Int
   local dim_total::Int = 0
   local node::InstNode
-  local c::Component
   local ty::ModelicaType
   #= TODO: If the cref has subscripts it becomes trickier to correctly calculate
      the dimension. For now we take the easy way out and just type the
@@ -1982,7 +1938,6 @@ end
   local cr::ComponentRef
   local node_var::VariabilityType
   local subs_var::VariabilityType
-  local eval::Bool
   #= Pass typing pointers =#
   local subsVariabilityTypeRef = Ref{VariabilityType}(Variability.CONSTANT)
   cr = typeCref(cref, o, info, typeRef, nodeVariabilityTypeRef, subsVariabilityTypeRef)
@@ -2025,10 +1980,8 @@ retrieve information about the variability type of the node and the subscripts o
   nodeVariabilityTypeRef::Ref{VariabilityType},
   subsVariabilityTypeRef::Ref{VariabilityType}
   )::ComponentRef
-  local subsVariability::VariabilityType
   local nodeVariabilityType::VariabilityType
   local ty::ModelicaType
-  local subs_var::VariabilityType
   if flagSet(origin, ORIGIN_FUNCTION) &&
      firstName(cref) == "time"
     Error.addSourceMessage(Error.EXP_INVALID_IN_FUNCTION, list("time"), info)
@@ -2270,8 +2223,6 @@ end
   return (outSubscript, variabilityVar)
 end
 
-
-
 function typeArrayRef(
   elements::Vector{T},
   origin::ORIGIN_Type,
@@ -2351,7 +2302,6 @@ function typeArrayRef(
   return arrayExp
 end
 
-
 function typeMatrixRef(
   elements::Vector{Vector{Expression}},
   origin::ORIGIN_Type,
@@ -2368,7 +2318,6 @@ function typeMatrixRef(
   local var::VariabilityType
   local ty::ModelicaType = TYPE_UNKNOWN()
   local tys::Vector{ModelicaType} = Vector{ModelicaType}(undef, length(elements))
-  #local resTys::Vector{ModelicaType} = ModelicaType[]
   local n::Int = 2
   local next_origin::ORIGIN_Type = setFlag(origin, ORIGIN_SUBEXPRESSION)
   local tyRef::Ref{ModelicaType} = Ref{ModelicaType}(TYPE_UNKNOWN())
@@ -2418,8 +2367,6 @@ end
 const INTEGER_EXPRESSION_0 = INTEGER_EXPRESSION(0)
 
 include("TypeRef.jl")
-
-
 
 @nospecializeinfer function typeRange(
   @nospecialize(rangeExp::RANGE_EXPRESSION),
@@ -2582,7 +2529,6 @@ end
   local index_ty::ModelicaType
   local ty_match::MatchKindType
   local iindex::Int
-  local dim_size::Int
   local dim::Dimension
   local ty_err::TypingError
   local oexp::Option{Expression}
@@ -2706,8 +2652,6 @@ function evaluateEnd(
   local outExp::Expression
 
    outExp = begin
-    local ty::ModelicaType
-    local cr::ComponentRef
     @match exp begin
       END_EXPRESSION(__) => begin
         endExp(dim, cref, index)
@@ -2750,7 +2694,6 @@ end
   local tb_var::VariabilityType
   local fb_var::VariabilityType
   local ty_match::MatchKindType
-  #@info "typeIfExpression:" toString(ifExp)
   @match IF_EXPRESSION(condition = cond, trueBranch = tb, falseBranch = fb) =
     ifExp
    next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
@@ -2882,7 +2825,6 @@ end
 function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)::InstNode
   local cls::Class
   local components::Vector{InstNode}
-  local info::SourceInfo
    cls = getClass(classNode)
    _ = begin
     @match cls begin
@@ -3161,7 +3103,6 @@ end
 function makeDefaultExternalCall(extDecl::Sections, fnNode::InstNode)::Sections
    extDecl = begin
     local args::List{Expression}
-    local output_ref::ComponentRef
     local fn::MODELICA_FUNCTION
     local single_output::Bool
     local comps::Vector{InstNode}
@@ -3286,17 +3227,8 @@ end
     local cond::Expression
     local e1::Expression
     local e2::Expression
-    local e3::Expression
-    local ty::ModelicaType
-    local ty1::ModelicaType
-    local ty2::ModelicaType
-    local eqs1::Vector{Equation}
     local body::Vector{Equation}
-    local tybrs::Vector{Equation}
     local iterator::InstNode
-    local mk::MatchKindType
-    local var::VariabilityType
-    local bvar::VariabilityType
     local next_origin::Int
     local info::SourceInfo
     @match eq begin
@@ -3439,12 +3371,9 @@ end
   local rhs::Expression
   local lhs_ty::ModelicaType
   local rhs_ty::ModelicaType
-  local lhs_var::VariabilityType
-  local rhs_var::VariabilityType
   local mk::MatchKindType
   local next_origin::Int
   local info::SourceInfo
-  local eql::List{Equation}
 
    info = source
   #= Connections may not be used in if-equations unless the conditions are
@@ -3862,7 +3791,6 @@ end
     @error "Error in  condition with the type $(ty)"
     fail()
   end
-#  fail()
   return (condition, ty, variability)
 end
 
@@ -4119,7 +4047,6 @@ function typeReinit(
   @nospecialize(source::SourceInfo),
 )::Tuple{Expression, Expression}
 
-  local var::VariabilityType
   local mk::MatchKindType
   local ty1::ModelicaType
   local ty2::ModelicaType

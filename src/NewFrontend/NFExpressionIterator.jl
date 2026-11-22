@@ -185,7 +185,6 @@ function fromExpToExpressionIterator(exp::Expression)
         end
         (arr, slice) = nextArraySlice(arrayList(e.elements))
         EXPRESSION_ARRAY_ITERATOR(arr, slice)
-        #makeArrayIterator(e)
       end
       CREF_EXPRESSION(__) => begin
         (e, _) = expandCref(exp)
@@ -277,7 +276,6 @@ function nextArraySlice(
   end
   return (arrayArg, slice)
 end
-
 
 function toString(@nospecialize(iterator::ExpressionIterator))
   local buffer = IOBuffer()

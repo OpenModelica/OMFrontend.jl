@@ -397,7 +397,6 @@ function typenameString(ty::ModelicaType)::String
   return str
 end
 
-
 @nospecializeinfer function toFlatString(ty::ModelicaType)::String
   local str::String
 
@@ -487,7 +486,6 @@ end
 end
 
 function toFlatDeclarationStream(ty::ModelicaType, s::IOStream_M.IOSTREAM)
-  #println("Type " * toString(ty))
   local index = 0
   @match ty begin
     TYPE_ENUMERATION(__) => begin
@@ -625,8 +623,6 @@ end
       TYPE_ANY(__) => begin
         "ANY"
       end
-
-
 
       _ => begin
         Error.assertion(
@@ -1130,23 +1126,6 @@ end
     end
   end
   return isNumeric
-end
-
-function isScalarArray(ty::ModelicaType)::Bool
-  local isScalar::Bool
-
-  @assign isScalar = begin
-    @match ty begin
-      TYPE_ARRAY(dimensions = _ <| nil()) => begin
-        true
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return isScalar
 end
 
 function isRecord(ty::ModelicaType)::Bool

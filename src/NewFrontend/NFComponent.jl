@@ -112,7 +112,6 @@ at each load (2026-11-16: 995 compiled methods).
 """
 componentTag(c::Component)::ComponentTag = (c::ComponentImpl).tag
 
-EMPTY_COMPONENT() = _comp(CT_EMPTY)
 DELETED_COMPONENT(component) = _comp(CT_DELETED; component)
 ENUM_LITERAL_COMPONENT(literal) = _comp(CT_ENUM_LITERAL; literal)
 ITERATOR_COMPONENT(ty, variability, info) = _comp(CT_ITERATOR; ty, variability=Int8(variability), info)
@@ -124,7 +123,6 @@ UNTYPED_COMPONENT(classInst, dimensions, binding, condition, attributes, comment
 COMPONENT_DEF(definition, modifier) = _comp(CT_DEF; definition, modifier)
 
 # @match / isvariant support: one concrete struct discriminated by tag.
-MetaModelica.compacted_tag_info(::typeof(EMPTY_COMPONENT))        = (ComponentImpl, :tag, CT_EMPTY, ())
 MetaModelica.compacted_tag_info(::typeof(DELETED_COMPONENT))      = (ComponentImpl, :tag, CT_DELETED, (:component,))
 MetaModelica.compacted_tag_info(::typeof(ENUM_LITERAL_COMPONENT)) = (ComponentImpl, :tag, CT_ENUM_LITERAL, (:literal,))
 MetaModelica.compacted_tag_info(::typeof(ITERATOR_COMPONENT))     = (ComponentImpl, :tag, CT_ITERATOR, (:ty, :variability, :info))
@@ -240,12 +238,9 @@ function getFixedAttribute(component::Component)
   local binding::Binding
   #=  for parameters the default is fixed = true =#
   fixed = isParameter(component) || isStructuralParameter(component)
-  #println("Fixed is true?:", fixed)
   binding = lookupAttributeBinding("fixed", getClass(classInstance(component)))
-  #println("binding?", toString(binding))
   #=  no fixed attribute present =#
   if isUnbound(binding)
-    #println("Return fixed ", fixed)
     return fixed
   end
   fixed = fixed && isTrue(getBindingExp(getExp(binding)))
@@ -254,7 +249,6 @@ end
 
 function getEvaluateAnnotation(component::Component)
   local evaluate::Bool
-  local cmt::SCode.COMMENT
   evaluate = SCodeUtil.getEvaluateAnnotation(comment(component))
   return evaluate
 end
@@ -333,7 +327,6 @@ function toFlatString(name::String, component::Component; inFunction = false)
   local str::String
   local qname::String = flatQuoteName(name)
   str = begin
-    local def::SCode.Element
     @match component begin
       TYPED_COMPONENT(__) => begin
         toFlatString(component.attributes, component.ty) *

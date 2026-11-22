@@ -59,7 +59,6 @@ const addConflictDefault = addConflictFail
 end
 const CACHE_STATE_NOT_INSTANTIATED = -1
 const CACHE_STATE_PROCESSING = 0
-const CACHE_STATE_EXPANDED = 1
 const CACHE_STATE_PARTIALLY_INSTANTIATED = 2
 const CACHE_STATE_INSTANTIATED = 3
 
@@ -83,7 +82,6 @@ end
 
 struct C_NO_CACHE <: CachedData
 end
-
 
 const NUMBER_OF_CACHES::Int = 3
 
@@ -303,7 +301,6 @@ function getComments(node::InstNode, accumCmts::List{<:SCode.COMMENT} = nil)
 
    cmts = begin
     local cmt::SCode.COMMENT
-    local cls::Class
     @match node begin
       CLASS_NODE(definition = SCode.CLASS(cmt = cmt))  => begin
         Cons{SCode.COMMENT}(cmt, getDerivedComments(_clsVal(node), accumCmts))
@@ -416,7 +413,6 @@ function mergeModifier(mod::Modifier, node::InstNode)
   node
 end
 
-
 function getModifier(node::InstNode)
   local mod
   mod = if isvariant(node, CLASS_NODE)
@@ -498,7 +494,6 @@ function isProtectedBaseClass(node::InstNode)
   local isProtected::Bool
 
    isProtected = begin
-    local def::SCode.Element
     @match node begin
       CLASS_NODE(nodeType = BASE_CLASS(definition = SCode.EXTENDS(visibility = SCode.PROTECTED(__))))  => begin
         true
@@ -572,7 +567,6 @@ function toString(node::InstNode)
         toString(node.name, _compVal(node))
       end
       CLASS_NODE(__)  => begin
-        #SCodeDump.unparseElementStr(node.definition)
         "CLASS_NODE: " * node.name
       end
       _  => begin
@@ -1113,7 +1107,6 @@ function scopeListClass!(clsNode::InstNode,
                          includeRoot::Bool,
                          accumScopes::List{InstNode})
   local scopes::List{InstNode}
-  #local accumScopes::List{InstNode} = nil
   while true
     @match ty begin
       NORMAL_CLASS(__)  => begin
@@ -1125,7 +1118,6 @@ function scopeListClass!(clsNode::InstNode,
         break
       end
       DERIVED_CLASS(__)  => begin
-        #accumScopes = scopeListClass!(clsNode, ty.ty, includeRoot, accumScopes)
         ty = ty.ty
         continue
       end
@@ -1290,7 +1282,6 @@ function componentApply(node::T, func::Function, arg::ArgT)::T  where {T <: Inst
   node
 end
 
-
 function classApply(node::InstNode, func::FuncType, arg::ArgT)  where {ArgT}
   node = @match node begin
     CLASS_NODE(__)  => begin
@@ -1376,7 +1367,6 @@ function definition(node::InstNode)
   return def
 end
 
-
 function setNodeType(@nospecialize(nodeType::InstNodeType),
                      @nospecialize(node::InstNode))
 
@@ -1424,7 +1414,6 @@ function replaceClass(cls::Class, node::InstNode)
   end
   return node
 end
-
 
 """
 Creates a new component node holding the supplied component value.
@@ -2115,7 +2104,6 @@ end
 
 function newClass(definition::SCode.Element, parent::InstNode, nodeType::InstNodeType = NORMAL_CLASS())
   local vis::SCode.Visibility
-  #@match SCode.CLASS(name = name, prefixes = SCode.PREFIXES(visibility = vis)) = definition
   @match SCode.CLASS(_, SCode.PREFIXES(vis)) = definition
   local v = visibilityFromSCode(vis)
   local node = CLASS_NODE(definition.name, definition, v, NOT_INSTANTIATED(), empty(), parent, nodeType)

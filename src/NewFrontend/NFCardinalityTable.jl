@@ -79,7 +79,6 @@ function addConnector(conn::CONNECTOR, table::Table)
 end
 
 function evaluateCardinality(@nospecialize(arg), table::Table)
-  local res::Expression
   local count::Int
   local argStr = toString(arg)
   count = if argStr in keys(table)

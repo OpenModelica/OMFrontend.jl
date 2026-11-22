@@ -33,7 +33,6 @@
 *
 */ =#
 
-
 function makeConnectors(
   cref::ComponentRef,
   ty::ModelicaType,
@@ -48,14 +47,6 @@ function makeConnectors(
   cr = evaluateSubscripts(cref)
   #= If we are to expand the connectors or not. Let's assume we do for now
      Change by John (johti17) 2021-04-26 =#
-  # if !Flags.isSet(Flags.FRONTEND_SCALARIZE)
-  #   @assign connectors = list(Connector.fromCref(
-  #     cr,
-  #     getSubscriptedType(cr),
-  #     source,
-  #   ))
-  #   return connectors
-  # end
   cref_exp =
     CREF_EXPRESSION(getSubscriptedType(cr), cr)
   (cref_exp, expanded) = expand(cref_exp)
@@ -124,12 +115,8 @@ function collect(flatModel::FLAT_MODEL)::Tuple{FLAT_MODEL, CONNECTIONS}
   local eql::Vector{Equation} = Equation[]
   local cl1::List{CONNECTOR}
   local cl2::List{CONNECTOR}
-  local e1::Expression
-  local e2::Expression
   local ty1::ModelicaType
   local ty2::ModelicaType
-  local b1::Bool
-  local b2::Bool
   #=  Collect all flow variables. =#
   for var in flatModel.variables
     comp = component(node(var.name))

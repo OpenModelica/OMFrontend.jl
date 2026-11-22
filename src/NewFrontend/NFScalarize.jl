@@ -49,7 +49,6 @@ function scalarize(flatModel::FLAT_MODEL, name::String)::FLAT_MODEL
     flatModel.algorithms = algorithms
     flatModel.initialAlgorithms = initialAlgorithms
   end
-  #execStat(getInstanceName() + "(" + name + ")")
   return flatModel
 end
 
@@ -396,7 +395,6 @@ function scalarizeVariable(var::VARIABLE, vars::Vector{VARIABLE})
   local binding_iter::ExpressionIterator
   local crefs::List{ComponentRef}
   local exp::Expression
-  local v::VARIABLE
   local ty_attr_names::Vector{String}
   local ty_attr_iters::Vector{ExpressionIterator}
   local bind_var::VariabilityType
@@ -424,7 +422,6 @@ function scalarizeVariable(var::VARIABLE, vars::Vector{VARIABLE})
       (ty_attr_names, ty_attr_iters) = scalarizeTypeAttributes(ty_attr)
       #= Addition by me //John =#
       if isBound(binding)
-        #        @info "bound" toString(binding)
         binding_iter = fromExpToExpressionIterator(expandComplexCref(getTypedExp(binding)))
         bind_var = variability(binding)
         #= Some other checks in omc currently... =#
@@ -440,10 +437,6 @@ function scalarizeVariable(var::VARIABLE, vars::Vector{VARIABLE})
               VARIABLE(cr, ty, binding, vis, attr, ty_attr, cmt, info)
             )
           else #= Did not have a next =#
-            # push!(
-            #   vars,
-            #   VARIABLE(cr, ty, binding, vis, attr, ty_attr, cmt, info)
-            # )
           end
         end
       else
@@ -468,7 +461,6 @@ function scalarizeVariable(var::VARIABLE, vars::Vector{VARIABLE})
     @assign var.binding = res
     push!(vars, var)
   end
-  #@info "Scalarize var res:" toString(vars)
   return vars
 end
 
@@ -513,7 +505,6 @@ function expandComplexCref(exp::Expression)
   exp = map(exp, expandComplexCref_traverser)
   return exp
 end
-
 
 function expandComplexCref_traverser(exp::Expression)
   @match exp begin

@@ -33,8 +33,6 @@
 *
 */ =#
 
-
-
 #= FUNCTION_DER is defined in FrontendInterfaces/NFInterfaces.jl, before MODELICA_FUNCTION. =#
 
 #import ..SCodeUtil
@@ -157,7 +155,6 @@ function getDerivativeAttributes(
   local id::String
   local mod::SCode.Mod
   local aexp::Absyn.Exp
-  local acref::Absyn.P_ComponentRef.ComponentRef
   local index::Int
 
   for attr in attrs
@@ -288,7 +285,6 @@ function getDerivativeAnnotations(definition::SCode.Element)::List{SCode.Mod}
   end
   return derMods
 end
-
 
 function toSubMod(fnDer::FUNCTION_DER) ::SCode.NAMEMOD
   local subMod::SCode.NAMEMOD

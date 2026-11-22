@@ -298,7 +298,6 @@ function _evalPartial(@nospecialize(exp::Expression), @nospecialize(target::Eval
   return getBindingExp(v)
 end
 
-
 """The value of a cref: the binding of a constant or structural parameter component, else `defaultExp` (the cref)."""
 function evalCref(cref::ComponentRef, @nospecialize(defaultExp::Expression), target::EvalTarget;
                   evalSubscripts::Bool = true)::Expression

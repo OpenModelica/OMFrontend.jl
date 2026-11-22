@@ -204,10 +204,6 @@ function typeSpecEqual(a::TypeSpec, b::TypeSpec)::Bool
     local oad2::Option{ArrayDim}
     local lst1::List{TypeSpec}
     local lst2::List{TypeSpec}
-    local i1::Ident
-    local i2::Ident
-    local pos1::Int
-    local pos2::Int
     #= first try full equality =#
     @matchcontinue (a, b) begin
       (TPATH(p1, oad1), TPATH(p2, oad2)) => begin
@@ -404,31 +400,12 @@ function pathStringWork(
         end
 
         QUALIFIED(__) => begin
-          # System.stringAllocatorStringCopy(
-          #   sb,
-          #   p.name,
-          #   if reverse
-          #     len - count - dlen - stringLength(p.name)
-          #   else
-          #     count
-          #   end,
-          # )
-          # System.stringAllocatorStringCopy(sb, delimiter, if reverse
-          #     len - count - dlen
-          #   else
-          #     count + stringLength(p.name)
-          #   end)
           print(sb, p.name)
           print(sb, delimiter)
           (p.path, count + stringLength(p.name) + dlen, true)
         end
 
         FULLYQUALIFIED(__) => begin
-          # System.stringAllocatorStringCopy(sb, delimiter, if reverse
-          #   len - count - dlen
-          # else
-          #   count
-          # end)
           print(sb, delimiter)
           (p.path, count + dlen, true)
         end
@@ -745,7 +722,6 @@ function pathToStringListWork(path::Path, acc::List{<:String})::List{String}
   @assign outPaths = begin
     local n::String
     local p::Path
-    local strings::List{String}
     @match (path, acc) begin
       (IDENT(name = n), _) => begin
         _cons(n, acc)
@@ -856,8 +832,6 @@ function getCrefFromExp(
     local e1::ComponentCondition
     local e2::ComponentCondition
     local e3::ComponentCondition
-    local op::Operator
-    local e4::List{Tuple{ComponentCondition, ComponentCondition}}
     local farg::FunctionArgs
     local expl::List{ComponentCondition}
     local expll::List{List{ComponentCondition}}
@@ -1404,7 +1378,6 @@ end
 """
   Checks if the name of a ComponentRef is
   equal to the name of another ComponentRef, including subscripts.
-  See also crefEqualNoSubs.
 """
 function crefEqual(iCr1::ComponentRef, iCr2::ComponentRef)::Bool
   local outBoolean::Bool
@@ -1474,49 +1447,6 @@ function subscriptsEqual(inSubList1::List{<:Subscript}, inSubList2::List{<:Subsc
 
   @assign outIsEqual = ListUtil.isEqualOnTrue(inSubList1, inSubList2, subscriptEqual)
   return outIsEqual
-end
-
-"""
-  Checks if the name of a ComponentRef is equal to the name
-  of another ComponentRef without checking subscripts.
-  See also crefEqual.
-"""
-function crefEqualNoSubs(cr1::ComponentRef, cr2::ComponentRef)::Bool
-  local outBoolean::Bool
-
-  @assign outBoolean = begin
-    local rest1::ComponentRef
-    local rest2::ComponentRef
-    local id::Ident
-    local id2::Ident
-    @matchcontinue (cr1, cr2) begin
-      (CREF_IDENT(name = id), CREF_IDENT(name = id2)) => begin
-        @match true = stringEq(id, id2)
-        true
-      end
-
-      (
-        CREF_QUAL(name = id, componentRef = rest1),
-        CREF_QUAL(name = id2, componentRef = rest2),
-      ) => begin
-        @match true = stringEq(id, id2)
-        @match true = crefEqualNoSubs(rest1, rest2)
-        true
-      end
-
-      (
-        CREF_FULLYQUALIFIED(componentRef = rest1),
-        CREF_FULLYQUALIFIED(componentRef = rest2),
-      ) => begin
-        crefEqualNoSubs(rest1, rest2)
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outBoolean
 end
 
 """Returns true if two expressions are equal"""
@@ -1736,13 +1666,6 @@ function canonIfExp(inExp::Exp)::Exp
   return outExp
 end
 
-function crefIdent(cr::ComponentRef)::String
-  local str::String
-
-  @match CREF_IDENT(str, nil) = cr
-  return str
-end
-
 function pathIsIdent(inPath::Path)::Bool
   local outIsIdent::Bool
 
@@ -1938,8 +1861,6 @@ function mergeAnnotations2(
 )::List{ElementArg}
   local res::List{ElementArg} = listReverse(oldmods)
 
-  local mods::List{ElementArg}
-  local b::Bool
   local p::Path
   local mod1::ElementArg
   local mod2::ElementArg
@@ -1987,7 +1908,6 @@ function subModsInSameOrder(oldmod::ElementArg, newmod::ElementArg)::ElementArg
     local args2::List{ElementArg}
     local res::List{ElementArg}
     local arg2::ElementArg
-    local eq1::EqMod
     local eq2::EqMod
     local p::Path
     #= mod1 or mod2 has no submods =#
@@ -2061,7 +1981,6 @@ function getNamedAnnotationStr(
 
   @assign outString = begin
     local str::TypeA
-    local ann::ElementArg
     local mod::Option{Modification}
     local xs::List{ElementArg}
     local id1::Ident

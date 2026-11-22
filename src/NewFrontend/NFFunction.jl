@@ -61,12 +61,6 @@ function toString(s::Nothing)
   "nothing"
 end
 
-
-function hasName(name::String, slot::SLOT)::Bool
-  local hasName::Bool = name == slot.name
-  return hasName
-end
-
 """True if the slot accepts a named argument."""
 named(slot::SLOT)::Bool = slot.ty == SLOT_TYPE_NAMED || slot.ty == SLOT_TYPE_GENERIC
 
@@ -179,9 +173,6 @@ function getExactMatches(matchedFunctions::Vector{MatchedFunction})::Vector{Matc
   return outFuncs
 end
 
-
-
-
 using MetaModelica
 import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
@@ -285,11 +276,7 @@ function mapExp(
   )::MODELICA_FUNCTION
   local cls::Class
   local ctree::ClassTree
-  local comps::Vector{InstNode}
   local sections::Sections
-  local comp::Component
-  local binding::Binding
-  local binding2::Binding
   cls = getClass(fn.node)
   if mapParameters
     ctree = classTree(cls)
@@ -671,7 +658,6 @@ function typePartialApplication(
   local arg_names::List{String}
   local rest_names::List{String}
   local arg_name::String
-  local arg_exp::Expression
   local arg_ty::ModelicaType
   local arg_var::VariabilityType
   local fn::MODELICA_FUNCTION
@@ -881,19 +867,14 @@ end
 function typeNodeCache2(fn_node::InstNode)::Vector{MODELICA_FUNCTION}
   local functions::Vector{MODELICA_FUNCTION}
   local typed::Bool
-  local special::Bool
-  local name::String
-  #@match C_FUNCTION(functions, typed, special) = getFuncCache(fn_node)
   local cache::C_FUNCTION = getFuncCache(fn_node)::C_FUNCTION
   typed = cache.typed
   functions = cache.funcs
   #=  Type the function(s) if not already done. =#
   if !typed
-    #functions = MODELICA_FUNCTION[typeFunctionSignature(f) for f in functions]
     for (i, f) in enumerate(functions)
       functions[i] = typeFunctionSignature(f) #TODO Investigate if this approch works
     end
-    #@time local cache = C_FUNCTION(functions, true, special)
     cache.typed = true
     setFuncCache(fn_node, cache)
     for (i, f) in enumerate(functions)
@@ -967,7 +948,6 @@ function matchFunctions(
   local matchedFunctions::Vector{MatchedFunction} = MatchedFunction[]
   local m_args::Vector{TypedArg}
   local matchKind::FunctionMatchKind
-  local matched::Bool
   for func in funcs
     (m_args, matchKind) = matchFunction(func, args, named_args, info, vectorize)
     if isValid(matchKind)
@@ -1033,7 +1013,6 @@ function matchArgVectorized(
   local vect_dims::List{Dimension}
   local rest_dims::List{Dimension}
   local rest_ty::ModelicaType
-  local mk::MatchKindType
   local vect_dims_count::Int
   arg_dims = arrayDims(argTy)
   input_dims = arrayDims(inputTy)
@@ -1077,9 +1056,6 @@ function matchArgs(
   vectorize::Bool = true,
 )::Tuple{Vector{TypedArg}, FunctionMatchKind}
   local funcMatchKind::FunctionMatchKind = EXACT_MATCH
-  # @info "matched arguments for function"
-  # println(toFlatString(func))
-  # println(toString(args))
   local comp::Component
   local inputs::List{InstNode} = func.inputs
   local input_node::InstNode
@@ -1173,9 +1149,6 @@ function matchArgs(
       VECTORIZED_MATCH_KIND(vect_dims, listReverse(vectorized_args), funcMatchKind)
   end
   args = checked_args #=TODO: Same here can maybe be done inline=#
-  # @info "The checked arguments...."
-  # println(toString(args))
-  # println("***********************")
   return (args, funcMatchKind)
 end
 
@@ -1422,8 +1395,6 @@ function fillArgs(
   local args::Vector{TypedArg} = posArgs
   local slot::SLOT
   local slots::List{SLOT}
-  local remaining_slots::List{SLOT}
-  local filled_named_args::Vector{TypedArg}
   local slots_arr::Vector{SLOT}
   local pos_arg_count::Int
   local slot_count::Int
@@ -1491,7 +1462,6 @@ function toFlatString(fn::MODELICA_FUNCTION)::String
 end
 
 function toFlatStream(fn::MODELICA_FUNCTION, s; overrideName::String)
-  local fn_body::Vector{Statement}
   if isDefaultRecordConstructor(fn)
     s = IOStream_M.append(s, toFlatString(fn.node))
   else
@@ -1563,7 +1533,6 @@ function toFlatStreamHelper(fn::MODELICA_FUNCTION, s, fn_name)
   # #= End of annotation handling=#
   if isExternal(fn)
     s = IOStream_M.append(s, "/* Externally defined function*/")
-    # s = IOStream_M.append(s, )
     s = IOStream_M.append(s, "\nend ")
     s = IOStream_M.append(s, fn_name)
     return s
@@ -1773,8 +1742,6 @@ function instFunction2(
     local fn::MODELICA_FUNCTION
     local cr::Absyn.ComponentRef
     local sub_fnNode::InstNode
-    local funcs::List{MODELICA_FUNCTION}
-    local fn_ders::List{FUNCTION_DER}
     @match def begin
       SCode.CLASS(__) where {(SCodeUtil.isOperatorRecord(def))} => begin
         @assign fnNode = instFunction3(fnNode)
@@ -2022,7 +1989,6 @@ function instFunction(
   local specialBuiltin::Bool
   local fn_node::InstNode
   local fn_ref::ComponentRef
-  local cache::CachedData
   fn_ref = lookupFunction(functionName, scope, info)
   (fn_ref, fn_node, specialBuiltin) = instFunctionRef(fn_ref, info)
   return (fn_ref, fn_node, specialBuiltin)
@@ -2035,7 +2001,6 @@ function lookupFunction(
 )::ComponentRef
   local functionRef::ComponentRef
   local found_scope::InstNode
-  local state::LookupState
   local functionPath::Absyn.Path
   local prefix::ComponentRef
   local is_class::Bool
@@ -2056,8 +2021,6 @@ end
 function lookupFunctionSimple(functionName::String, scope::InstNode)::ComponentRef
   local functionRef::ComponentRef
   local found_scope::InstNode
-  local state::LookupState
-  local functionPath::Absyn.Path
   local prefix::ComponentRef
    (functionRef, found_scope) =
     lookupFunctionNameSilent(Absyn.CREF_IDENT(functionName, nil), scope)
@@ -2068,11 +2031,9 @@ end
 
 function new(path::Absyn.Path, node::InstNode)::MODELICA_FUNCTION
   local fn::MODELICA_FUNCTION
-  local cls::Class
   local inputs::List{InstNode}
   local outputs::List{InstNode}
   local locals::List{InstNode}
-  local slots::List{SLOT}
   local attr::FUNCTION_ATTRIBUTES
   local status::FunctionStatus
 
@@ -2292,7 +2253,6 @@ function mergeFunctionAnnotations(comments::List{<:SCode.COMMENT})::SCode.COMMEN
   end
   return outComment
 end
-
 
 function getBuiltin(def::SCode.Element)::BuiltinKind
   return SCodeUtil.isBuiltinElement(def) ? FUNCTION_BUILTIN_PTR : FUNCTION_NOT_BUILTIN

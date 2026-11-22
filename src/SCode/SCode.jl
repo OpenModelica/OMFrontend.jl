@@ -756,10 +756,6 @@ const defaultPrefixes = PREFIXES(PUBLIC(), NOT_REDECLARE(), NOT_FINAL(), Absyn.N
 
 const defaultVarAttr = ATTR(list(), POTENTIAL(), NON_PARALLEL(), VAR(), Absyn.BIDIR(), Absyn.NONFIELD(), false)::ATTR
 
-const defaultParamAttr = ATTR(list(), POTENTIAL(), NON_PARALLEL(), PARAM(), Absyn.BIDIR(), Absyn.NONFIELD(), false)::ATTR
-
-const defaultConstAttr = ATTR(list(), POTENTIAL(), NON_PARALLEL(), CONST(), Absyn.BIDIR(), Absyn.NONFIELD(), false)::ATTR
-
 const defaultInputAttr = ATTR(list(), POTENTIAL(), NON_PARALLEL(), VAR(), Absyn.INPUT(), Absyn.NONFIELD(), false)::ATTR
 
 const defaultOutputAttr = ATTR(list(), POTENTIAL(), NON_PARALLEL(), VAR(), Absyn.OUTPUT(), Absyn.NONFIELD(), false)::ATTR

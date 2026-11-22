@@ -87,7 +87,6 @@ function removeGivenSubModNames(submod::SCode.NAMEMOD; namesToRemove::List{Strin
   !(listMember(submod.ident, namesToRemove))
 end
 
-
 """The elements of a class's own parts (`model extends X` included), or `nil` for another class definition."""
 function _classPartsElements(cls::SCode.Element)::List{SCode.Element}
   cls isa SCode.CLASS || return nil
@@ -592,22 +591,16 @@ function classDefEqual(cdef1::SCode.ClassDef, cdef2::SCode.ClassDef)::Bool
     local algs2::List{SCode.ALGORITHM}
     local ialgs1::List{SCode.ALGORITHM}
     local ialgs2::List{SCode.ALGORITHM}
-    local cons1::List{SCode.CONSTRAINTS}
-    local cons2::List{SCode.CONSTRAINTS}
     local attr1::SCode.ATTR
     local attr2::SCode.ATTR
     local tySpec1::Absyn.TypeSpec
     local tySpec2::Absyn.TypeSpec
-    local p1::Absyn.Path
-    local p2::Absyn.Path
     local mod1::SCode.Mod
     local mod2::SCode.Mod
     local elst1::List{SCode.ENUM}
     local elst2::List{SCode.ENUM}
     local ilst1::List{SCode.Ident}
     local ilst2::List{SCode.Ident}
-    local clsttrs1::List{Absyn.NamedArg}
-    local clsttrs2::List{Absyn.NamedArg}
     @match (cdef1, cdef2) begin
       (
         SCode.PARTS(elts1, eqns1, ieqns1, algs1, ialgs1, _, _, _),
@@ -1018,8 +1011,6 @@ function subModsEqual(
     local id2::SCode.Ident
     local mod1::SCode.Mod
     local mod2::SCode.Mod
-    local ss1::List{SCode.Subscript}
-    local ss2::List{SCode.Subscript}
     local subModLst1::List{SCode.NAMEMOD}
     local subModLst2::List{SCode.NAMEMOD}
     @matchcontinue (inSubModLst1, inSubModLst2) begin
@@ -1217,7 +1208,6 @@ function statementToAlgorithmItem(stmt::SCode.Statement)::Absyn.AlgorithmItem
     local trueBranch::List{SCode.Statement}
     local elseBranch::List{SCode.Statement}
     local branches::List{Tuple{Absyn.Exp, List{SCode.Statement}}}
-    local comment::Option{SCode.COMMENT}
     local algs1::List{Absyn.AlgorithmItem}
     local algs2::List{Absyn.AlgorithmItem}
     local algsLst::List{List{Absyn.AlgorithmItem}}
@@ -2171,7 +2161,6 @@ function replaceOrAddElementInProgram(
   local outProgram::SCode.Program
   outProgram = begin
     local sp::SCode.Program
-    local c::SCode.Element
     local e::SCode.Element
     local p::Absyn.Path
     local i::Absyn.Ident
@@ -2213,7 +2202,6 @@ function replaceOrAddElementWithId(
   @assign outProgram = begin
     local sp::SCode.Program
     local rest::SCode.Program
-    local c::SCode.Element
     local e::SCode.Element
     local p::Absyn.Path
     local i::Absyn.Ident
@@ -2259,7 +2247,6 @@ function getElementsFromElement(
     local els::SCode.Program
     local e::SCode.Element
     local p::Absyn.Path
-    local i::Absyn.Ident
     #= a class with parts =#
     @match (inProgram, inElement) begin
       (_, SCode.CLASS(classDef = SCode.PARTS(elementLst = els))) => begin
@@ -2297,10 +2284,7 @@ function replaceElementsInElement(
   local outElement::SCode.Element
 
   @assign outElement = begin
-    local els::SCode.Program
     local e::SCode.Element
-    local p::Absyn.Path
-    local i::Absyn.Ident
     local name::SCode.Ident #= the name of the class =#
     local prefixes::SCode.PREFIXES #= the common class or component prefixes =#
     local encapsulatedPrefix::SCode.Encapsulated #= the encapsulated prefix =#
@@ -2402,9 +2386,7 @@ function getElementWithId(inProgram::SCode.Program, inId::String)::SCode.Element
   local outElement::SCode.Element
 
   @assign outElement = begin
-    local sp::SCode.Program
     local rest::SCode.Program
-    local c::SCode.Element
     local e::SCode.Element
     local p::Absyn.Path
     local i::Absyn.Ident
@@ -2442,12 +2424,9 @@ function getElementWithPath(inProgram::SCode.Program, inPath::Absyn.Path)::SCode
 
   @assign outElement = begin
     local sp::SCode.Program
-    local rest::SCode.Program
-    local c::SCode.Element
     local e::SCode.Element
     local p::Absyn.Path
     local i::Absyn.Ident
-    local n::Absyn.Ident
     @match (inProgram, inPath) begin
       (_, Absyn.FULLYQUALIFIED(p)) => begin
         getElementWithPath(inProgram, p)
@@ -2579,7 +2558,6 @@ function getElementComment(inElement::SCode.Element)::Option{SCode.COMMENT}
 
   @assign outComment = begin
     local cmt::SCode.COMMENT
-    local cdef::SCode.ClassDef
     @match inElement begin
       SCode.COMPONENT(comment = cmt) => begin
         SOME(cmt)
@@ -2612,7 +2590,6 @@ function mergeModifiers(inNewMod::SCode.Mod, inOldMod::SCode.Mod)::SCode.Mod
     local b2::Option{Absyn.Exp}
     local b::Option{Absyn.Exp}
     local i1::SourceInfo
-    local i2::SourceInfo
     local m::SCode.Mod
     @matchcontinue (inNewMod, inOldMod) begin
       (_, SCode.NOMOD(__)) => begin
@@ -2708,8 +2685,6 @@ function removeSub(inSub::SCode.NAMEMOD, inOld::List{<:SCode.NAMEMOD})::List{SCo
     local rest::List{SCode.NAMEMOD}
     local id1::SCode.Ident
     local id2::SCode.Ident
-    local idxs1::List{SCode.Subscript}
-    local idxs2::List{SCode.Subscript}
     local s::SCode.NAMEMOD
     @matchcontinue (inSub, inOld) begin
       (_, nil()) => begin
@@ -2887,9 +2862,7 @@ function mergeSCodeMods(inModOuter::SCode.Mod, inModInner::SCode.Mod)::SCode.Mod
 
   @assign outMod = begin
     local f1::SCode.Final
-    local f2::SCode.Final
     local e1::SCode.Each
-    local e2::SCode.Each
     local subMods1::List{SCode.NAMEMOD}
     local subMods2::List{SCode.NAMEMOD}
     local b1::Option{Absyn.Exp}

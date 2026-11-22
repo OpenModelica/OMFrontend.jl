@@ -327,7 +327,6 @@ function evaluateRecordConstructor(
   local result::Expression
   local repl::ReplTree.Tree
   local arg::Expression
-  local repl_exp::Expression
   local fields::List{Field}
   local rest_args::Vector{Expression} = args
   local inputs::List{InstNode} = fn.inputs
@@ -426,7 +425,6 @@ end
 
 function addMutableReplacement(node::InstNode, repl::ReplTree.Tree)::ReplTree.Tree
 
-  local binding::Binding
   local repl_exp::Expression
 
   @assign repl_exp = getBindingExp(node, repl)
@@ -452,7 +450,6 @@ function buildBinding(node::InstNode, repl::ReplTree.Tree)::Expression
   local ty::ModelicaType
   ty = getType(node)
   ty = mapDims(ty, (expArg) -> applyReplacementsDim(repl, expArg))
-  #@info "Our node is a " toString(ty) typeof(ty)
   result = begin
     @match ty begin
       TYPE_ARRAY(__) where {(hasKnownSize(ty))} => begin
@@ -472,7 +469,6 @@ function buildBinding(node::InstNode, repl::ReplTree.Tree)::Expression
       end
     end
   end
-  #@info "Done buildbinding..." string(dump(result; maxdepth=5))
   return result
 end
 

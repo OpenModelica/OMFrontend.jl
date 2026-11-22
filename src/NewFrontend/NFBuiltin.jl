@@ -261,8 +261,6 @@ const REAL_LOOKUP_TREE =
     ),
   )::LookupTree.Tree
 
-
-
 const STATESELECT_TYPE =
   TYPE_ENUMERATION(
     Absyn.IDENT("StateSelect"),
@@ -552,7 +550,6 @@ const BOOLEAN_CLASS_TREE =
     listArray(nil),
     DuplicateTree.EMPTY(),
   )::ClassTree
-
 
 #= TODO: #4895: This should be listArrayLiteral too, but causes compilation issues. =#
 const BOOLEAN_NODE =

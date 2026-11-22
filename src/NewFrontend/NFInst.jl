@@ -79,7 +79,6 @@ function instClassInProgramFM(classPath::Absyn.Path, program::SCode.Program)::Tu
   return (flat_model, funcs, inst_cls)
 end
 
-
 """
 Helper function called by instClassInProgramFM. Runs the frontend pipeline:
 instantiate -> instantiate expressions -> type -> flatten -> resolve
@@ -444,7 +443,6 @@ end
 
 function expandClass2(node::InstNode) ::InstNode
 
-
   local def::SCode.Element = definition(node)
   local cdef::SCode.ClassDef
   local info::SourceInfo
@@ -528,7 +526,6 @@ function expandExtends(ext::InstNode, builtinExt::InstNode = EMPTY_NODE()) ::Tup
       SCode.EXTENDS(base_path, vis, smod, ann, info)  => begin
         #= Look up the base class and expand it. =#
         scope = parent(ext)
-        #@match (@match _cons(base_node, _) = base_nodes) = lookupBaseClassName(base_path, scope, info)
         base_nodes = lookupBaseClassName(base_path, scope, info) #Modification by me:) Corresponds to the above
         base_node = listHead(base_nodes)
         checkExtendsLoop(base_node, base_path, info)
@@ -581,7 +578,6 @@ end
 """
 function checkReplaceableBaseClass(baseClasses::List{<:InstNode}, basePath::Absyn.Path, info::SourceInfo)
   local i::Int = 0
-  local pos::Int
   local name::String
   local rest::List{InstNode}
   for base in baseClasses
@@ -612,7 +608,6 @@ function checkReplaceableBaseClass(baseClasses::List{<:InstNode}, basePath::Absy
 end
 
 function expandExternalObject(clsTree::ClassTree, node::InstNode) ::InstNode
-
 
   local eo_ty::ComplexType
   local c::Class
@@ -718,7 +713,6 @@ function makeExternalObjectType(tree::ClassTree, node::InstNode) ::ComplexType
 end
 
 function expandClassDerived(element::SCode.Element, definition::SCode.ClassDef, node::InstNode, info::SourceInfo) ::InstNode
-
 
   local ty::Absyn.TypeSpec
   local ext_node::InstNode
@@ -847,15 +841,6 @@ function instClassDef(cls::INSTANCED_CLASS,
                       parentArg::InstNode,
                       instLevel::Int,
                       attributeRef::Ref{Attributes})::InstNode
-  local par::InstNode
-  local base_node::InstNode
-  local inst_cls::Class
-  local cls_tree::ClassTree
-  local mod::Modifier
-  local outer_mod::Modifier
-  local res::Restriction
-  local ty::ModelicaType
-  local attrs::Attributes
   #= If a class has an instance of a encapsulating class, then the encapsulating
      class will have been fully instantiated to allow lookup in it. This is a
      rather uncommon case hopefully, so in that case just reinstantiate the class. =#
@@ -921,8 +906,6 @@ function instClassDef(cls::EXPANDED_DERIVED,
   mod = withConstrainingMod(fromElement(definition(node), list(node), rootParent(node)), node, rootParent(node))
   outer_mod = merge(outerMod, addParent(node, cls.modifier))
   mod = merge(outer_mod, mod)
-  #strMod = toString(mod, true)
-  #@debug "Merged mod EXPANDED_DERIVED: $strMod"
   attrs = updateClassConnectorType(cls.restriction, cls.attributes)
   attributes = mergeDerivedAttributes(attrs, attributes, parentArg)
   #= Instantiate the base class and update the nodes. =#
@@ -949,14 +932,11 @@ function instClassDef(cls::EXPANDED_CLASS,
                       instLevel::Int,
                       attributeRef::Ref{Attributes})::InstNode
   local par::InstNode
-  local base_node::InstNode
   local inst_cls::Class
   local cls_tree::ClassTree
   local mod::Modifier
   local outer_mod::Modifier
   local res::Restriction
-  local ty::ModelicaType
-  local attrs::Attributes
   res = cls.restriction
   #= Skip instantiating the class tree if the class is a base class,
      it has (hopefully) already been instantiated in that case. =#
@@ -1178,8 +1158,6 @@ end
 const ExtendsVisibility::ExtendsVisabilityStruct{Int} = ExtendsVisabilityStruct(1, 2, 3)
 const ExtendsVisibilityType = Int
 
-
-
 """
 omc NFInst.applyExtendsVisibility: the elements inherited through a protected extends are
 protected, also through nested extends; done before the modifiers are applied, so that a
@@ -1262,7 +1240,6 @@ function instExtends(node::InstNode,
   node
 end
 
-
 """
 Applies a modifier in the given scope, by splitting the modifier and merging
 each part with the relevant element in the scope.
@@ -1272,7 +1249,6 @@ function applyModifier(modifier::Modifier, cls::ClassTree, parent::InstNode) ::C
   local mods::List{Modifier}
   local node_ptrs::List{Pointer{InstNode}}
   local node::InstNode
-  local comp::Component
   #= Split the modifier into a list of submodifiers. =#
   mods = toList(modifier)
   if listEmpty(mods)
@@ -1652,7 +1628,6 @@ function instComponentDef(component::SCode.COMPONENT,
   local decl_mod::Modifier
   local mod::Modifier
   local cc_mod::Modifier
-  local ty_dims::List
   local bindingVar::Binding
   local attr::Attributes
   local ty_attr::Attributes
@@ -1931,16 +1906,6 @@ function mergeComponentAttributes(outerAttr::Attributes, innerAttr::Attributes, 
     fin = outerAttr.isFinal || innerAttr.isFinal
     redecl = innerAttr.isRedeclare
     repl = innerAttr.isReplaceable
-    # outerAttr.connectorType = cty
-    # outerAttr.parallelism = par
-    # outerAttr.variability = var
-    # outerAttr.direction = dir
-    # outerAttr.innerOuter = innerAttr.innerOuter
-    # outerAttr.isFinal = fin
-    # outerAttr.isRedeclare = redecl
-    # outerAttr.isReplaceable = repl
-    # outerAttr.isStructuralMode = innerAttr.isStructuralMode
-    # attr = outerAttr
     attr = ATTRIBUTES(cty, par, var, dir, innerAttr.innerOuter, fin, redecl, repl,innerAttr.isStructuralMode #= TODO: VSS Unsure if this should propagate like this=#)
   end
   attr
@@ -2209,7 +2174,6 @@ function instTypeSpec(typeSpec::Absyn.TPATH,
   instClass(node, modifier, attributes, attributeRef, useBinding, instLevel, parent)
 end
 
-
 function instTypeSpec(typeSpec::Absyn.TCOMPLEX,
                       modifier::Modifier,
                       attributes::Attributes,
@@ -2221,7 +2185,6 @@ function instTypeSpec(typeSpec::Absyn.TCOMPLEX,
   @error("NFInst.instTypeSpec: $(typeof(typeSpec)) not implemented.\\n")
   fail()
 end
-
 
 """
   Prints an error if a component causes a loop in the instance tree, for
@@ -2570,7 +2533,6 @@ function instExpressions(node::InstNode,
   local local_comps::Vector{InstNode}
   local exts::Vector{InstNode}
   local cls_tree::ClassTree
-  local res::Restriction
   local dims::Vector{Dimension}
   local dim_scope::InstNode
   local info::SourceInfo
@@ -2660,7 +2622,6 @@ function instExpressions(node::InstNode,
 end
 
 function makeComplexType(restriction::Restriction, node::InstNode, cls::Class)::ModelicaType
-  local ty::ModelicaType
   local cty::ComplexType
   cty = begin
     @match restriction begin
@@ -2676,10 +2637,8 @@ function makeComplexType(restriction::Restriction, node::InstNode, cls::Class)::
 end
 
 function makeRecordComplexType(node::InstNode, cls::Class) ::ComplexType
-  local ty::ComplexType
 
   local cls_node::InstNode
-  local fields::List{Field}
 
   cls_node = if SCodeUtil.isOperatorRecord(definition(node))
     classScope(node)
@@ -2692,7 +2651,6 @@ end
 function instComplexType(ty::ModelicaType)
    () = begin
     local node::InstNode
-    local cache::CachedData
     @match ty begin
       TYPE_COMPLEX(complexTy = COMPLEX_RECORD(node)) where (! isModel(node))  => begin
         #= Make sure it's really a record, and not e.g. a record inherited by a model.
@@ -2730,7 +2688,6 @@ function instRecordConstructor(node::InstNode)
   return node
 end
 
-
 function instBuiltinAttribute(attribute::Modifier, node::InstNode)
   if isvariant(attribute, MODIFIER_REDECLARE)
     #=  Redeclaration of builtin attributes is not allowed. =#
@@ -2743,8 +2700,6 @@ function instBuiltinAttribute(attribute::Modifier, node::InstNode)
 end
 
 function instBuiltinAttributeModifier(attribute::Modifier, node::InstNode)
-  # strMod1 = toString(attribute, true)
-  #@debug ">instBuiltinAttribute($strMod1)"
   local bindingVar = attribute.binding
   local outAttr
   local bv = addParent(node, bindingVar)
@@ -2752,8 +2707,6 @@ function instBuiltinAttributeModifier(attribute::Modifier, node::InstNode)
   outAttr = attribute
   @assign outAttr.binding = attributeBinding
 
-  #strMod2 = toString(attribute, true)
-  #@debug "<instBuiltinAttribute($strMod2)"
   return outAttr
 end
 
@@ -2815,7 +2768,6 @@ function instComponentExpressions(componentArg::InstNode)::InstNode
       nothing
     end
     _  => begin
-      #@error "Relaxed instantation for: " + name(componentArg)
       Error.assertion(false, getInstanceName() + " got invalid component", sourceInfo())
       fail()
     end
@@ -2988,17 +2940,13 @@ end
       end
     end
   end
-  #@info "Calling instExp result was" toString(exp)
   exp
 end
 
 function instCref(absynCref::Absyn.ComponentRef, scope::InstNode, info::SourceInfo)::Expression
   local crefExp::Expression
   local cref::ComponentRef
-  local prefixed_cref::ComponentRef
   local found_scope::InstNode
-  local ty::ModelicaType
-  local comp::Component
   cref  = begin
     @match absynCref begin
       Absyn.WILD(__)  => begin
@@ -3017,9 +2965,7 @@ function instCref(absynCref::Absyn.ComponentRef, scope::InstNode, info::SourceIn
       end
     end
   end
-  #@info "Calling instExpCref0 result was" toString(cref)
   cref = instCrefSubscripts(cref, scope, info)
-  #@info "Calling instExpCref00 result was" toString(cref)
    crefExp = begin
     @match cref begin
       COMPONENT_REF_CREF(__)  => begin
@@ -3047,7 +2993,6 @@ function instCref(absynCref::Absyn.ComponentRef, scope::InstNode, info::SourceIn
       end
     end
    end
-  #@info "Calling instExpCref result was" toString(crefExp)
   crefExp
 end
 
@@ -3071,9 +3016,6 @@ function instCrefComponent(cref::ComponentRef, node::InstNode, scope::InstNode, 
         fail()
       end
       _  => begin
-        #@info "slst 1"
-        #local sLst = scopeList(scope)
-        #@info "slst 2"
         local sLst2 = scopeList(scope)
         prefixed_cref = fromNodeList(sLst2)
         prefixed_cref = if isEmpty(prefixed_cref)
@@ -3211,7 +3153,6 @@ function instSections2(parts::SCode.ClassDef, scope::InstNode, sections::Section
     local ieq::Vector{Equation}
     local alg::Vector{ALGORITHM}
     local ialg::Vector{ALGORITHM}
-    local ext_decl::SCode.EXTERNALDECL
     local origin::ORIGIN_Type
     local iorigin::ORIGIN_Type
     #= Plain conditionals instead of matching on a constructed tuple; the
@@ -3344,8 +3285,6 @@ function instEEquation(@nospecialize(scodeEq::SCode.EEquation), @nospecialize(sc
     local info::SourceInfo
     local for_scope::InstNode
     local iter::InstNode
-    local lhs_cr::ComponentRef
-    local rhs_cr::ComponentRef
     local next_origin::ORIGIN_Type
     @match scodeEq begin
       SCode.EQ_EQUALS(info = info)  => begin
@@ -3569,7 +3508,6 @@ function insertGeneratedInners(node::InstNode, topScope::InstNode)
   local inner_comps::List{Pointer{InstNode}}
   local n::InstNode
   local name::String
-  local str::String
   local cls::Class
   local cls_tree::ClassTree
   local base_node::InstNode
@@ -3608,7 +3546,6 @@ end
 
 function updateImplicitVariability(node::InstNode, evalAllParams::Bool)::Nothing
   local cls::Class = getClass(node)
-  local cls_tree::ClassTree
   updateImplicitVariabilityCls(cls, evalAllParams)::Nothing
 end
 
@@ -3695,7 +3632,6 @@ end
 
 function isStructuralComponent(component::Component, compAttrs::Attributes, compBinding::Binding, compNode::InstNode, evalAllParams::Bool) ::Bool
   local isStructural::Bool
-  local is_fixed::Bool
   if compAttrs.variability != Variability.PARAMETER
      isStructural = false
   elseif evalAllParams || getEvaluateAnnotation(component)
@@ -3786,7 +3722,6 @@ function isExpressionNotFixed(@nospecialize(exp::Expression); requireFinal::Bool
     local nodeVar::InstNode
     local c::Component
     local var::VariabilityType
-    local e::Expression
     @match exp begin
       CREF_EXPRESSION(__)  => begin
         @assign nodeVar = node(exp.cref)
@@ -3835,19 +3770,6 @@ function isExpressionNotFixed(@nospecialize(exp::Expression); requireFinal::Bool
   end
 end
 
-function getRecordFieldBinding(comp::Component, node::InstNode) ::Binding
-  local binding::Binding
-  local parent::InstNode
-  binding = getBinding(comp)
-  if isUnbound(binding)
-    parent = parent(node)
-    if isComponent(parent) && isRecord(restriction(getClass(parent)))
-      binding = getRecordFieldBinding(component(parent), parent)
-    end
-  end
-  binding
-end
-
 function markStructuralParamsDim(dimension::Dimension)::Nothing
   @match dimension begin
     DIMENSION_UNTYPED(__)  => begin
@@ -3869,7 +3791,6 @@ end
 function markStructuralParamsExp_traverser(@nospecialize(exp::Expression))::Nothing
   local node::InstNode
   local comp::Component
-  local binding::Option{Expression}
   @match exp begin
     CREF_EXPRESSION(cref = COMPONENT_REF_CREF(node = node, origin = Origin.CREF))  => begin
       if isComponent(node)
@@ -3914,7 +3835,6 @@ function markStructuralParamsExpSize(@nospecialize(exp::Expression))
   apply(exp, markStructuralParamsExpSize_traverser)
 end
 
-
 markStructuralParamsExpSize_traverser(exp::Expression) = nothing
 function markStructuralParamsExpSize_traverser(exp::CALL_EXPRESSION)
   local iters::List{Tuple{InstNode, Expression}}
@@ -3938,8 +3858,6 @@ function updateImplicitVariabilityEql(eql::Vector{Equation}, inWhen::Bool = fals
 end
 
 function updateImplicitVariabilityEq(eq::Equation, inWhen::Bool = false)::Nothing
-  local exp::Expression
-  local eql::Vector{Equation}
   @match eq begin
     EQUATION_EQUALITY(__)  => begin
       if inWhen

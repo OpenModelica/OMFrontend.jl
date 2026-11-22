@@ -183,7 +183,6 @@ function collectSubscriptedFlatType(
   local exp_ty::ModelicaType
   local sub_tyl::List{ModelicaType}
   local dims::List{Dimension}
-  local strl::List{String}
   local name::String
   exp_ty = typeOf(exp)
   dims = ListUtil.firstN(arrayDims(exp_ty), listLength(subs), Dimension)
@@ -444,7 +443,6 @@ function collectFlatTypes(flatModel::FLAT_MODEL, functions::List{MODELICA_FUNCTI
   types = ArrayUtil.fold(flatModel.algorithms, collectAlgorithmFlatTypes, types, TypeTree)
   types = ArrayUtil.fold(flatModel.initialAlgorithms, collectAlgorithmFlatTypes, types, TypeTree)
   types = ListUtil.fold(functions, collectFunctionFlatTypes, types, TypeTree)
-  #println(TypeTreeImpl.printTreeStr(types))
   local typeLst = TypeTreeImpl.listValues(types)
   return typeLst
 end
@@ -821,7 +819,6 @@ function recompilationDirectiveExists(@nospecialize(eqs::Vector{Equation}))::Boo
   local hasReconfigure = any(eq -> isvariant(eq, EQUATION_RECONFIGURE), eqs)
   return hasCallDirective || hasReconfigure
 end
-
 
 """
   This function returns true if a EQUATION_NORETCALL is a func name.

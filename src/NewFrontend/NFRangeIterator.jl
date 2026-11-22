@@ -69,7 +69,6 @@ struct RANGEITERATOR_INT_RANGE <: RangeIterator
   last::Int
 end
 
-
 function fold(iterator::RangeIterator, func::FuncT, arg::ArgT) where {ArgT}
   local iter::RangeIterator = iterator
   local exp::Expression
@@ -204,7 +203,6 @@ function fromDim(dim::Dimension)::RangeIterator
   local iterator::RangeIterator
   iterator = begin
     local ty::ModelicaType
-    local expl::List{Expression}
     @match dim begin
       DIMENSION_INTEGER(__) => begin
         RANGEITERATOR_INT_RANGE(1, dim.size)
@@ -253,7 +251,6 @@ function RangeIterator_fromExp(@nospecialize(exp::Expression))::RangeIterator
     local rstop::AbstractFloat
     local ty::ModelicaType
     local literals::List{String}
-    local path::Absyn.Path
     local values::List{Expression}
     @match exp begin
       ARRAY_EXPRESSION(__) => begin

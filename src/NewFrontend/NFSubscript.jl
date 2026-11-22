@@ -57,15 +57,9 @@ mutable struct SUBSCRIPT_RAW_SUBSCRIPT <: Subscript
   subscript::Absyn.Subscript
 end
 
-
 struct SUBSCRIPT_SPLIT_INDEX <: Subscript
   node:: InstNode
   dimIndex::Int
-end
-
-struct SUBSCRIPT_SPLIT_PROXY <: Subscript
-  origin::InstNode
-  parent::InstNode
 end
 
 function isSplitIndex(s::Subscript)::Bool
@@ -352,7 +346,6 @@ function expand(subscript::Subscript, dimension::Dimension)::Tuple{Subscript, Bo
   local expandedBool::Bool
   local outSubscript::Subscript
   (outSubscript, expandedBool) = begin
-    local exp::Expression
     local iter::RangeIterator
     @match subscript begin
       SUBSCRIPT_SLICE(__) => begin
@@ -538,7 +531,6 @@ function simplifyList(subscripts::List{<:Subscript}, dimensions::List{Dimension}
   return outSubscripts
 end
 
-
 function evalSubscript(
   subscript::Subscript,
   target::EvalTarget = EVALTARGET_IGNORE_ERRORS(),
@@ -679,51 +671,6 @@ function mapFoldExpShallow(subscript::Subscript, func::FT, arg::ArgT)::Tuple{Sub
   end
   return (outSubscript, arg)
 end
-
-
-"""
-```
-mapFoldExpShallowO1
-```
-Same as ```mapFoldExpShallow``` but returns only one argument.
-"""
-function mapFoldExpShallowO1(subscript::Subscript, func::MapFunc, arg::ArgT) where {ArgT}
-  local outSubscript::Subscript
-  outSubscript = begin
-    local exp::Expression
-    @match subscript begin
-      SUBSCRIPT_UNTYPED(__) => begin
-        (exp, _) = func(subscript.exp, arg)
-        if referenceEq(subscript.exp, exp)
-          subscript
-        else
-          SUBSCRIPT_UNTYPED(exp)
-        end
-      end
-      SUBSCRIPT_INDEX(__) => begin
-        (exp, _) = func(subscript.index, arg)
-        if referenceEq(subscript.index, exp)
-          subscript
-        else
-          fromTypedExp(exp)
-        end
-      end
-      SUBSCRIPT_SLICE(__) => begin
-        (exp, _) = func(subscript.slice, arg)
-        if referenceEq(subscript.slice, exp)
-          subscript
-        else
-          fromTypedExp(exp)
-        end
-      end
-      _ => begin
-        subscript
-      end
-    end
-  end
-  return outSubscript
-end
-
 
 function foldExp(subscript::Subscript, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
   local result = begin
@@ -938,7 +885,6 @@ function containsExp(@nospecialize(subscript::Subscript), func::FT)::Bool where 
   end
   return res
 end
-
 
 function compareList(
   subscripts1::Nil,

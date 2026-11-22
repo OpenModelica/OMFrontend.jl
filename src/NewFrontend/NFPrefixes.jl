@@ -257,16 +257,7 @@ const DISCRETE::VariabilityType = 5
 const IMPLICITLY_DISCRETE::VariabilityType = 6
 const CONTINUOUS::VariabilityType = 7
 
-const variabilityStrings = ["CONSTANT",
-                            "STRUCTURAL_PARAMETER",
-                            "PARAMETER",
-                            "NON_STRUCTURAL_PARAMETER",
-                            "DISCRETE",
-                            "IMPLICITLY_DISCRETE",
-                            "CONTINUOUS",]
-
 end
-
 
 const DirectionType = Int8
 struct DirectionStruct

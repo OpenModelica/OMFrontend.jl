@@ -533,7 +533,6 @@ end
         for (i,s) in enumerate(stmt.body)
           @inbounds stmt.body[i] = map(s, func)
         end
-        #@assign stmt.body = Statement[map(s, func) for s in stmt.body]
         ()
       end
       ALG_IF(__) => begin
@@ -552,7 +551,6 @@ end
         for (i, s) in enumerate(stmt.body)
           @inbounds stmt.body[i] = map(s, func)
         end
-        #@assign stmt.body = Statement[map(s, func) for s in stmt.body]
         ()
       end
       _ => begin

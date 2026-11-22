@@ -55,7 +55,6 @@ import Base.@nospecializeinfer
 #= Import the execstat macro from the enclosing module..=#
 import ..@EXECSTAT
 
-
 """Utility functions."""
 function toString(vec::Vector{T}) where {T}
   buffer = IOBuffer()
@@ -76,7 +75,6 @@ function toString(vec::List{T}) where {T}
   println(buffer, "}")
   String(take!(buffer))
 end
-
 
 #= Top level functionality =#
 
@@ -191,13 +189,7 @@ include("./NewFrontend/NFSubscript.jl")
 
 include("./NewFrontend/NFFlatten.jl")
 
-
 include("./NewFrontend/NFRestriction.jl")
-
-
-
-
-
 
 include("./NewFrontend/NFLookup.jl")
 
@@ -240,7 +232,6 @@ include("./NewFrontend/NFVerifyModel.jl")
 include("./NewFrontend/NFInline.jl")
 #=  Builtin functions =#
 include("./NewFrontend/NFRangeIterator.jl")
-
 
 #= JSON export of FLAT_MODEL (structural-mode components and templates). =#
 include("./Export/StructuralModeJSON.jl")

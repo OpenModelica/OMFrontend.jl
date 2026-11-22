@@ -48,7 +48,6 @@ import ..SCodeUtil
 import ..Util
 import ..System
 
-
 const ASSERTION_LEVEL_ERROR =
   Absyn.CREF(Absyn.CREF_FULLYQUALIFIED(Absyn.CREF_QUAL(
     "AssertionLevel",
@@ -67,13 +66,10 @@ const ASSERTION_LEVEL_ERROR =
 function translateAbsyn2SCode(inProgram::Absyn.Program)
   local outProgram::SCode.Program
    outProgram = begin
-    local spInitial::SCode.Program
     local sp::SCode.Program
     local inClasses::List{Absyn.Class}
-    local initialClasses::List{Absyn.Class}
     @match inProgram begin
       _ => begin
-        #            InstHashTable.init()
         @match Absyn.PROGRAM(classes = inClasses) = inProgram
         System.setHasInnerOuterDefinitions(false)
         System.setHasExpandableConnectors(false)
@@ -175,10 +171,7 @@ function translateOperatorDef(
    (outOperDef, cmt) = begin
     local cmtString::Option{String}
     local els::List{SCode.Element}
-    local anns::List{SCode.ANNOTATION}
     local parts::List{Absyn.ClassPart}
-    local scodeCmt::Option{SCode.COMMENT}
-    local opName::SCode.Ident
     local aann::List{Absyn.Annotation}
     local ann::Option{SCode.ANNOTATION}
     @match (inClassDef, operatorName, info) begin
@@ -353,7 +346,6 @@ function containsExternalFuncDecl(inClass::Absyn.Class)::Bool
   local outBoolean::Bool
 
    outBoolean = begin
-    local res::Bool
     local b::Bool
     local c::Bool
     local d::Bool
@@ -508,7 +500,6 @@ function translateClassdef(
     local cmtString::Option{String}
     local els::List{SCode.Element}
     local tvels::List{SCode.Element}
-    local anns::List{SCode.ANNOTATION}
     local eqs::List{SCode.EQUATION}
     local initeqs::List{SCode.EQUATION}
     local als::List{SCode.ALGORITHM}
@@ -681,39 +672,6 @@ function translateAlternativeExternalAnnotation(
   return outDecl
 end
 
-function mergeSCodeAnnotationsFromParts(
-  part::Absyn.ClassPart,
-  inMod::Option{<:SCode.ANNOTATION},
-)::Option{SCode.ANNOTATION}
-  local outMod::Option{SCode.ANNOTATION}
-
-   outMod = begin
-    local aann::Absyn.Annotation
-    local ann::Option{SCode.ANNOTATION}
-    local rest::List{Absyn.ElementItem}
-    @match (part, inMod) begin
-      (Absyn.EXTERNAL(_, SOME(aann)), _) => begin
-         ann = translateAnnotation(aann)
-         ann = SCodeUtil.mergeSCodeOptAnn(ann, inMod)
-        ann
-      end
-
-      (Absyn.PUBLIC(_ <| rest), _) => begin
-        mergeSCodeAnnotationsFromParts(Absyn.PUBLIC(rest), inMod)
-      end
-
-      (Absyn.PROTECTED(_ <| rest), _) => begin
-        mergeSCodeAnnotationsFromParts(Absyn.PROTECTED(rest), inMod)
-      end
-
-      _ => begin
-        inMod
-      end
-    end
-  end
-  return outMod
-end
-
 """
   Convert an EnumLiteral list to an Ident list.
   Comments are lost.
@@ -753,7 +711,6 @@ function translateClassdefElements(
    outElementLst = begin
     local els::List{SCode.Element}
     local es_1::List{SCode.Element}
-    local els_1::List{SCode.Element}
     local es::List{Absyn.ElementItem}
     local rest::List{Absyn.ClassPart}
     @match inAbsynClassPartLst begin
@@ -992,11 +949,9 @@ function translateClassdefAlgorithmItem(inAlgorithm::Absyn.AlgorithmItem)::SCode
     local branches::List{Tuple{Absyn.Exp, List{SCode.Statement}}}
     local iter_name::String
     local iter_range::Option{Absyn.Exp}
-    local stmt::SCode.Statement
     local e1::Absyn.Exp
     local e2::Absyn.Exp
     local e3::Absyn.Exp
-    local cr::Absyn.ComponentRef
     @match alg begin
       Absyn.ALG_ASSIGN(__) => begin
         SCode.ALG_ASSIGN(alg.assignComponent, alg.value, comment, info)
@@ -1465,7 +1420,6 @@ function translateElementspec(
     local ad::List{SCode.Subscript}
     local ann::Option{SCode.ANNOTATION}
     local args::List{Absyn.ElementArg}
-    local attr::Absyn.ElementAttributes
     local cl::Absyn.Class
     local cls::SCode.Element
     local cmt::SCode.COMMENT
@@ -1477,7 +1431,6 @@ function translateElementspec(
     local de_1::SCode.ClassDef
     local di::Absyn.Direction
     local e::Bool
-    local fi::Bool
     local fl::Bool
     local i::SourceInfo
     local imp::Absyn.Import
@@ -1510,7 +1463,6 @@ function translateElementspec(
     local var1::SCode.Variability
     local variability::Absyn.Variability
     local vis::SCode.Visibility
-    local xs::List{Absyn.ComponentItem}
     local xs_1::List{SCode.Element}
     @match (cc, finalPrefix, io, inRedeclareKeywords, inVisibility, inElementSpec4, inInfo) begin
       (
@@ -2194,20 +2146,16 @@ function translateEquation(
   local outEEquation::SCode.EEquation
 
    outEEquation = begin
-    local exp::Absyn.Exp
     local e1::Absyn.Exp
     local e2::Absyn.Exp
     local e3::Absyn.Exp
-    local abody::List{Absyn.Equation}
     local else_branch::List{SCode.EEquation}
     local body::List{SCode.EEquation}
     local branches::List{Tuple{Absyn.Exp, List{SCode.EEquation}}}
     local iter_name::String
     local iter_range::Option{Absyn.Exp}
-    local eq::SCode.EEquation
     local conditions::List{Absyn.Exp}
     local bodies::List{List{SCode.EEquation}}
-    local cr::Absyn.ComponentRef
     @match inEquation begin
       Absyn.EQ_IF(__) => begin
          body = translateEEquations(inEquation.equationTrueItems, inIsInitial)

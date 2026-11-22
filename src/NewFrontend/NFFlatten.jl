@@ -53,7 +53,6 @@ module FunctionTreeImpl
 end #= FunctionTreeImpl =#
 """The functions of a flat model by name."""
 const FunctionTree = FunctionTreeImpl.Tree
-const NFFunctionTree = FunctionTreeImpl
 
 import .FunctionTree
 
@@ -111,8 +110,6 @@ function flatten(classInst::InstNode, name::String; prefix = COMPONENT_REF_EMPTY
       end
     end
   end
-#  execStat(getInstanceName() + "(" + name + ")")
-#  flatModel = resolveConnections(flatModel, name)
   return flatModel
 end
 
@@ -176,7 +173,6 @@ function flattenClass(
                 sourceInfo(),
               )
               for c in comps
-                #@info "Calling flatten component" toString(c)
                 (vars, sections) = flattenComponent(
                   c,
                   prefix,
@@ -191,7 +187,6 @@ function flattenClass(
               end
             else
               for c in comps
-                #@info "Calling flatten component" toString(c)
                 (vars, sections, structuralSubModels) =
                   flattenComponent(c, prefix, visibility, binding,
                                    vars, sections, structuralSubModels,
@@ -200,7 +195,6 @@ function flattenClass(
             end
           else
             for c in comps
-              #@info "Calling flatten component" toString(c)
               (vars, sections, structuralSubModels) =
                 flattenComponent(c, prefix, visibility, NONE(),
                                  vars, sections, structuralSubModels,
@@ -256,7 +250,6 @@ function flattenComponent(
   structuralSubModels::List{FLAT_MODEL};
   isTopLevel::Bool = false,
   )
-  #@info "FLATTEN COMPONENT: " * toString(inComponent)
   local comp_node::InstNode
   local c::Component
   local ty::ModelicaType
@@ -577,7 +570,6 @@ function flattenSimpleComponent(
   local cmt::Option{SCode.COMMENT}
   local info::SourceInfo
   local comp_attr::Attributes
-  local vis::VisibilityType
   local eq::Equation
   local ty_attrs::Vector{Tuple{String, Binding}}
   local var::VariabilityType
@@ -594,7 +586,6 @@ function flattenSimpleComponent(
   for d in arrayDims(ty)
     verifyDimension(d, comp_node, info)
   end
-  #@info "Flatten simple... $(toString(n))"
   if isSome(outerBinding)
     @match SOME(binding) = outerBinding
     unfix = isUnbound(binding) && var == Variability.PARAMETER
@@ -613,7 +604,6 @@ function flattenSimpleComponent(
         ty,
         info,
       )
-      #@info "Typed binding:" toString(getTypedExp(binding))
       sections = prependEquation(eq, sections)
       binding = EMPTY_BINDING
     end
@@ -765,7 +755,6 @@ function getRecordBindings(binding::Binding, comps::Vector{<:InstNode})::List{Bi
       end
     end
   end
-  #@info "Returning record bindings..." toString(recordBindings)
   return recordBindings
 end
 
@@ -806,10 +795,8 @@ function flattenComplexComponent(
   local opt_binding::Option{Binding}
   local binding_exp::Expression
   local eq::Equation
-  local bindings::List{Expression}
   local comp_var::VariabilityType
   local binding_var::VariabilityType
-  local structuralSubModels::List{FLAT_MODEL}
   ty = flattenRaggedDimensions(ty, prefixCref(node, TYPE_UNKNOWN(), nil, prefix))
   dims = arrayDims(ty)
   binding = if isSome(outerBinding)
@@ -1221,7 +1208,6 @@ function makeIterators(prefix::ComponentRef,
   local ranges::List{Expression} = nil
   local subscripts::List{Subscript} = nil
   #Locals
-  local iter_comp::Component
   local prefix_node::InstNode
   local iter::InstNode
   local range::Expression
@@ -1320,7 +1306,6 @@ function subscriptBindingOpt(
   return binding
 end
 
-
 @nospecialized function flattenBinding(
   binding::Binding,
   prefix::ComponentRef
@@ -1334,12 +1319,6 @@ end
   isTypeAttribute::Bool
   )
   binding = begin
-    local subs::List{Subscript}
-    local accum_subs::List{Subscript}
-    local binding_level::Int
-    local bind_exp::Expression
-    local pars::List{InstNode}
-    local par::InstNode
     @match binding begin
       UNBOUND(__) => begin
         binding
@@ -1390,13 +1369,7 @@ function flattenBindingExp(
   isTypeAttribute::Bool = false
 )::Expression
   local outExp::Expression
-  local subs::List{Subscript}
-  local accum_subs::List{Subscript}
-  local binding_level::Int
   local parents::List{InstNode}
-  local pre::ComponentRef
-  local cr_node::InstNode
-  local par::InstNode
   outExp = begin
     @match exp begin
       BINDING_EXP(exp = outExp) => begin
@@ -1552,7 +1525,6 @@ function flattenEquation(
       end
       EQUATION_FOR(__) => begin
         eql = if Flags.isSet(Flags.FRONTEND_SCALARIZE)
-          #splitForLoop(eq, prefix, inEquations)
           unrollForLoop(eq, prefix, inEquations)
         else
           splitForLoop(eq, prefix, inEquations)
@@ -1560,11 +1532,8 @@ function flattenEquation(
         eql
       end
       EQUATION_CONNECT(__) => begin
-        #@info "eq.lhs" toString(eq.lhs)
-        #@info "eq.rhs" toString(eq.rhs)
         e1 = flattenExp(eq.lhs, prefix)
         e2 = flattenExp(eq.rhs, prefix)
-        #@info "Flatten" toString(EQUATION_CONNECT(e1, e2, eq.source))
         push!(inEquations, EQUATION_CONNECT(e1, e2, eq.source))
       end
       EQUATION_IF(__) => begin
@@ -1614,7 +1583,6 @@ function flattenIfEquation(
   local var::VariabilityType
   local has_connect::Bool
   local src::SourceInfo
-  local info::SourceInfo
   local target::EvalTarget
   @match EQUATION_IF(branches = branches, source = src) = eq
   has_connect = contains(eq, isConnectEq)
@@ -1755,10 +1723,6 @@ function unrollForLoop(forLoop::Equation, prefix::ComponentRef, equations::Vecto
   @match EQUATION_FOR(iterator = iter, range = SOME(range), body = body) = forLoop
   #= Unroll the loop by replacing the iterator with each of its values
      in the for loop body. =#
-  # local body = Equation[]
-  # for i in oldbody
-  #   body[i] = oldbody[i]
-  # end
   range = flattenExp(range, prefix)
   range = evalExp(range, EVALTARGET_RANGE(Equation_info(forLoop)))
   range_iter = RangeIterator_fromExp(range)
@@ -2104,7 +2068,6 @@ function resolveConnections(flatModel::FLAT_MODEL, name::String)::FLAT_MODEL
   if System.getHasStreamConnectors() || System.getUsesCardinality()
     @EXECSTAT "  rc:connOperators" flatModel = evaluateConnectionOperators(flatModel, csets, csets_array, ctable)
   end
-#  execStat(getInstanceName() + "(" + name + ")")
   return flatModel
 end
 
@@ -2203,7 +2166,6 @@ function collectTypeFuncs(ty::ModelicaType, funcs::FunctionTree)::FunctionTree
    () = begin
     local con::InstNode
     local de::InstNode
-    local fn::MODELICA_FUNCTION
     @match ty begin
       TYPE_ARRAY(__) => begin
         funcs = foldExpList(ty.dimensions, collectExpFuncs_traverse, funcs, FunctionTree)

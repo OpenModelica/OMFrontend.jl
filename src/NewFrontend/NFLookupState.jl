@@ -274,7 +274,6 @@ function next(
 )::LookupState
   local nextState::LookupState
   local entry_ty::LookupState
-  local el::SCode.Element
   if checkAccessViolations
     checkProtection(node, currentState)
   end

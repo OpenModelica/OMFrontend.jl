@@ -247,5 +247,4 @@ function toFlatString(var::VARIABLE; ident = "")
   return IOStream_M.string(s)
 end
 
-
 Base.:(==)(a::VARIABLE, b::VARIABLE) = toString(a) == toString(b)

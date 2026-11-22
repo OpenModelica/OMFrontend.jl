@@ -38,7 +38,6 @@
 """
 module OMFrontend
 
-
 using MetaModelica
 import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 
@@ -62,7 +61,6 @@ include("util.jl")
    an environment it returned nothing, and the precompile workload and the MSL loading
    failed there. =#
 packageRoot()::String = something(pkgdir(@__MODULE__), normpath(joinpath(@__DIR__, "..")))
-
 
 #= Cache for NFModelicaBuiltin. We only use the result once! =#
 """
@@ -144,7 +142,6 @@ include("main.jl")
 import .Frontend.Flags
 import .Frontend.FlagsUtil
 import .Frontend.StructuralModeJSON
-
 
 """
 Parse a file, returns the syntax tree.
@@ -274,7 +271,6 @@ function applyCommandLineOptionsAnnotation(path::Frontend.Absyn.Path, program::F
   return old_flags
 end
 
-
 """
   ```toString(model::FLAT_MODEL)```
     Converts the flat model representation to a Julia String, the extra \\n are replaced with \n
@@ -356,7 +352,6 @@ function writeFlatModelicaToFile(fm, fLst;
     fmStr
   end
   f = write(fileName, fmStr)
-  #close(f)
 end
 
 """
@@ -437,9 +432,7 @@ function flattenModelWithMSL(modelName::String,
   local sCodeProgram = translateToSCode(absynProgram)
   #= Add builtin function to the program (model) and instantiate it =#
   builtin = NFModelicaBuiltinCache["NFModelicaBuiltin"]
-  #program = listReverse(listAppend(sCodeProgram, builtin))
   program = listAppend(sCodeProgram, lib)
-  #println("Attempting to instantiate..." * modelName)
   (FM, cache) = instantiateSCodeToFM(modelName, program; scalarize = scalarize)
 end
 
@@ -1615,7 +1608,6 @@ function flattenModelWithLibraries(modelName::String,
                                      separateInstantiation = separateInstantiation)
 end
 
-
 """
 ```
 enableDumpDebug()
@@ -1719,7 +1711,6 @@ function removeQuotesFromFlatModelica(fmStr::String)
   end
   local strs = split(fmStr, "\n")
   for str in strs
-    local matchedStr::Option{RegexMatch}
     local replaced = false
     local mstr = str
     if (contains(mstr, "'"))

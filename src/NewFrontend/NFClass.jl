@@ -207,7 +207,6 @@ end
 function hasOperator(name::String, cls::Class)::Bool
   local hasOperator::Bool
   local op_node::InstNode
-  local op_cls::Class
   if isOperatorRecord(restriction(cls))
     op_node = lookupElementNode(name, cls)
     if isvariant(op_node, EMPTY_NODE)
@@ -756,9 +755,6 @@ function classTree(cls::Class)::ClassTree
       end
     end
   end
-  #@debug "Our resulting tree in class tree"
-  #  str = LookupTree.printTreeStr(lookupTree(tree))
-  #@debug "Value of str"
   return tree
 end
 
@@ -815,8 +811,6 @@ function lookupComponentIndex(name::String, cls::Class)::Int
 end
 
 function lookupElement(name::String, cls::Class)
-  local isImport::Bool
-  local node::InstNode
   local entryInfo = lookupElement(name, classTree(cls))
   return entryInfo
 end

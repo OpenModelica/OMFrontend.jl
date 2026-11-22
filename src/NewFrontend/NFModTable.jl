@@ -187,7 +187,6 @@ function listKeysReverse(inTree::Tree, lst::List{<:Key} = nil)
   return lst
 end
 
-
 """
   Prints the tree to a string using UTF-8 box-drawing characters to construct a
   graphical view of the tree.
@@ -230,7 +229,6 @@ function balance(inTree::Tree)
     local lh::Int
     local rh::Int
     local diff::Int
-    local child::Tree
     local balanced_tree::Tree
     @match outTree begin
       LEAF(__) => begin
@@ -271,7 +269,6 @@ function balance(inTree::Tree)
   end
   return outTree
 end
-
 
 function height(inNode::Tree)::Int
   local outHeight::Int
@@ -365,11 +362,8 @@ end
 """Helper function to printTreeStr."""
 function printTreeStr2(inTree::Tree, isLeft::Bool, inIndent::String)
   local outString::String
-  local val_node::Option{ValueNode}
   local left::Option{Tree}
   local right::Option{Tree}
-  local left_str::String
-  local right_str::String
   outString = begin
     @match inTree begin
       NODE(__) => begin
@@ -409,7 +403,6 @@ function printTreeStr2(inTree::Tree, isLeft::Bool, inIndent::String)
   return outString
 end
 
-
 """="""
 function printNodeStr(inNode::Tree)
   outString = begin
@@ -425,7 +418,6 @@ function printNodeStr(inNode::Tree)
   end
   return outString
 end
-
 
 #= Default conflict resolving function for add. =#
 """Conflict resolving function for add which fails on conflict."""
@@ -459,7 +451,6 @@ function add(
     local key::Key
     local value::Value
     local key_comp::Int
-    local outTree::Tree
     #= Empty tree. =#
     @match tree begin
       EMPTY(__) => begin
@@ -501,7 +492,6 @@ function add(
   return tree
 end
 
-
 """
 modtable specific add. Calls merge instead of conflict func.
 """
@@ -518,7 +508,6 @@ function add(
     local key::Key
     local value::Value
     local key_comp::Int
-    local outTree::Tree
     #= Empty tree. =#
     @match tree begin
       EMPTY(__) => begin
@@ -559,7 +548,6 @@ function add(
   end
   return tree
 end
-
 
 """  Adds a list of key-value pairs to the tree. """
 function addList(
@@ -651,7 +639,6 @@ function fromList(
   return tree
 end
 
-
 function fromVector(
   inValues::Vector{<:Tuple{Key, <:Value}},
   conflictFunc::Function = addConflictDefault,
@@ -674,14 +661,11 @@ function fromVector(
   )::Tree #= Used to resolve conflicts. =#
   local tree::Tree = EMPTY()
   local key::Key
-  local value::Value
   for (key, val) in zip(inKeys, inValues)
     tree = add(tree, key, val, scope, prefix)
   end
   return tree
 end
-
-
 
 """Converts the tree to a flat list of key-value tuples."""
 function toList(
@@ -781,7 +765,6 @@ function vectorValues!(tree::Tree, vec::Vector{T} = Value[]) where {T <: Value}
   return reverse!(vec)
 end
 
-
 """Joins two trees by adding the second one to the first."""
 function join(
   tree::Tree,
@@ -808,7 +791,6 @@ function join(
   return tree
 end
 
-
 function join(tree::Tree, treeToJoin::Tree, scope, prefix)
    tree = begin
     @match treeToJoin begin
@@ -829,7 +811,6 @@ function join(tree::Tree, treeToJoin::Tree, scope, prefix)
   end
   return tree
 end
-
 
 """
   Traverses the tree in depth-first pre-order and applies the given function to
@@ -871,8 +852,6 @@ function map(inTree::Tree, inFunc::Function)::Tree
     local key::Key
     local value::Value
     local new_value::Value
-    local branch::Tree
-    local new_branch::Tree
     @match outTree begin
       NODE(key = key, value = value) => begin
          new_left = map(outTree.left, inFunc)
@@ -1002,8 +981,6 @@ function mapFold(inTree::Tree, inFunc::Function, inStartValue::FT) where {FT}
     local key::Key
     local value::Value
     local new_value::Value
-    local branch::Tree
-    local new_branch::Tree
     @match outTree begin
       NODE(key = key, value = value) => begin
          (new_left, outResult) = mapFold(outTree.left, inFunc, outResult)
@@ -1060,7 +1037,6 @@ function setTreeLeftRight(orig::Tree, left::Tree = EMPTY(), right::Tree = EMPTY(
   end
   return res
 end
-
 
 @exportAll()
 end

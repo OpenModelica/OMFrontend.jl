@@ -50,7 +50,6 @@ function evaluate(flatModel::FLAT_MODEL)::FLAT_MODEL
     flatModel.algorithms = evaluateAlgorithms(flatModel.algorithms, const_var)
     flatModel.initialAlgorithms = evaluateAlgorithms(flatModel.initialAlgorithms, const_var)
   end
-#  execStat(getInstanceName())
   return flatModel
 end
 
@@ -154,10 +153,8 @@ function evaluateExpTraverser(
 )::Tuple{Expression, Bool}
   local outChanged::Bool
   local outExp::Expression
-  local e::Expression
   local cref::ComponentRef
   local ty::ModelicaType
-  local var::VariabilityType
   outExp = begin
     @match exp begin
       CREF_EXPRESSION(__) => begin
@@ -438,9 +435,6 @@ function evaluateStmtBranch(
 end
 
 function evaluateFunction(func::MODELICA_FUNCTION)::MODELICA_FUNCTION
-  local cls::Class
-  local fn_body::ALGORITHM
-  local sections::Sections
   if !isEvaluated(func)
     markEvaluated(func)
     local node::InstNode = func.node

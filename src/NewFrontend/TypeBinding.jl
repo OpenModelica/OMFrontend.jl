@@ -301,7 +301,6 @@ function typeBindingPayload!(
   return updateComponent!(c, node)
 end
 
-
 function typeComponentBindingRef2_typeAttr(
   inComponent::InstNode,
   node::InstNode,
@@ -327,8 +326,6 @@ function handleBindingError(binding)
     end
   end
 end
-
-
 
 @noinline function typeComponentBinding(inComponent::InstNode, origin::ORIGIN_Type)
   return typeComponentBinding(inComponent, origin, true)
@@ -434,7 +431,6 @@ function typeComponentBinding2_typed(
   if isvariant(c.binding, UNTYPED_BINDING)
     nameStr = inComponent.name
     binding = c.binding
-    #ErrorExt.setCheckpoint(getInstanceName())
     checkBindingEach(c.binding)
     local originFlag = setFlag(origin, ORIGIN_BINDING)
     local typedBinding::Binding = typeBinding(binding, originFlag)
@@ -530,7 +526,6 @@ function typeBinding(inBinding::Binding, origin::Int,
   return binding
 end
 
-
 function typeBindingExpRef(
   exp::BINDING_EXP,
   origin::ORIGIN_Type,
@@ -566,13 +561,11 @@ function typeBindingExpRef(
   end
   #= If the binding has too few dimensions we can't unlift it, but matchBinding
      can report the error better so we silently ignore it here. =#
-  #outExp = BINDING_EXP(e, exp_ty, ty, parents, is_each)
   outExp =  updateBindingExp!(exp, e, exp_ty, ty, parents, is_each)
   variabilityRef.x = variability
   tyRef.x = ty
   return outExp
 end
-
 
 """
 Updates and mutates a given binding exp.

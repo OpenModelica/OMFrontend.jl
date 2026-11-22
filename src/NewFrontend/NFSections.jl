@@ -374,10 +374,8 @@ function prependEquation(
     @match sections begin
       SECTIONS(__) => begin
         if isInitial #I think I can avoid the assignment here.. since we modify the reference.
-          #@assign sections.initialEquations = push!(sections.initialEquations, eq)
           push!(sections.initialEquations, eq)
         else
-          #@assign sections.equations = push!(sections.equations, eq)
           push!(sections.equations, eq)
         end
         sections

@@ -74,7 +74,6 @@ function expandGeneric(@nospecialize(exp::Expression))::Tuple{Expression, Bool}
   local ty::ModelicaType
   local dims::List{Dimension}
   local subs::List{List{Subscript}}
-#  @info "expandGeneric with" toString(exp)
   ty = typeOf(exp)
   if isArray(ty)
     expanded = hasKnownSize(ty)
@@ -590,7 +589,6 @@ function expandSize(@nospecialize(exp::Expression))::Tuple{Expression, Bool}
     local dims::Int
     local e::Expression
     local ty::ModelicaType
-    local expl::List{Expression}
     @match exp begin
       SIZE_EXPRESSION(exp = e, dimIndex = NONE()) => begin
         @assign ty = typeOf(e)
@@ -713,8 +711,6 @@ function expandBuiltinGeneric(call::Call)::Tuple{Expression, Bool}
   local var::VariabilityType
   local attr::CALL_ATTR
   local arg::Expression
-  local args::List{Expression}
-  local expl::List{Expression}
   #= The arguments are a Vector (the Cons pattern never matched: der(x), pre(x) of an array
      fell back to a subscripted call). =#
   @match TYPED_CALL(fn, ty, var, _, attr) = call
@@ -850,7 +846,6 @@ end
 @nospecializeinfer function expandRange(@nospecialize(exp::Expression))::Tuple{Expression, Bool}
   local expanded::Bool
   local outExp::Expression
-  local range_iter::RangeIterator
   local ty::ModelicaType
   @match RANGE_EXPRESSION(ty = ty) = exp
   expanded = hasKnownSize(ty)
@@ -958,10 +953,6 @@ function expandCref3(
           CREF_EXPRESSION(crefType, cref)
         else
           local arrSubs = Vector{Subscript}[listArray(e) for e in accum]
-          #global ARR_SUBS = arrSubs
-          #global LIST_SUBS = accum
-          #global TEST_CREF = cref
-          #@info typeof(arrSubs)
           local crefR = setSubscriptsListV(arrSubs, cref)
           #@info "Done..."
           CREF_EXPRESSION(
@@ -1014,7 +1005,6 @@ Expands a component reference
 @nospecializeinfer function expandCref(@nospecialize(crefExp::Expression))::Tuple{Expression, Bool}
   local expanded::Bool
   local arrayExp::Expression
-  local subs::List{List{Subscript}}
   (arrayExp, expanded) = begin
     @match crefExp begin
       CREF_EXPRESSION(cref = COMPONENT_REF_CREF(__)) => begin
@@ -1083,7 +1073,6 @@ function expandVector(
   local outExpl::Vector{Expression} = Expression[]
   local res::Bool
   for exp in expl
-    #(exp, res) = expand(exp)
     (exp, res) = expand(exp)
     expanded = res && expanded
     if !res && abortOnFailure
@@ -1098,7 +1087,6 @@ end
 @nospecializeinfer function expand(@nospecialize(exp::Expression))
   local expanded::Bool
    (exp, expanded) = begin
-    local expl::List{Expression}
     @match exp begin
       CREF_EXPRESSION(ty = TYPE_ARRAY(__)) => begin
         expandCref(exp)
@@ -1161,7 +1149,6 @@ end
   end
   return (exp, expanded)
 end
-
 
 function expandBuiltinFill(args::Vector)
   local expanded = true

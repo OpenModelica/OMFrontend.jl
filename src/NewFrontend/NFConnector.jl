@@ -67,7 +67,6 @@ function toString(conn::CONNECTOR)::String
   return toString(conn.name)
 end
 
-
 function Base.string(conn::CONNECTOR)::String
   return toString(conn.name)
 end

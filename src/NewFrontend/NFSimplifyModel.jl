@@ -144,7 +144,6 @@ function simplifyEquations(eql::Vector{Equation})
   return outEql
 end
 
-
 function simplifyBranch(b)
   @match b begin
     EQUATION_BRANCH(__) => begin
@@ -156,7 +155,6 @@ function simplifyBranch(b)
 end
 
 function simplifyEquation(@nospecialize(eq::Equation), equations::Vector{Equation})
-  #@info "Called simplify equation for" toString(eq)
   equations = begin
     local e::Expression
     local lhs::Expression
@@ -235,7 +233,6 @@ function simplifyEqualityEquation(eq::Equation, equations::Vector{Equation})
   local rhs::Expression
   local ty::ModelicaType
   local src::SourceInfo
-  #@info "Simplify equality equation..." toString(eq)
   if typeof(eq.rhs) == ARRAY_EXPRESSION
     #= If it is an empty array we have no eq to compute. =#
     if isEmptyArray(eq.rhs)
@@ -300,8 +297,6 @@ end
 function simplifyStatement(stmt::Statement, statements::Vector{Statement})
   statements = begin
     local e::Expression
-    local lhs::Expression
-    local rhs::Expression
     local ty::ModelicaType
     local dim::Dimension
     local body::Vector{Statement}
@@ -356,8 +351,6 @@ end
 function simplifyAssignment(stmt::Statement, statements::Vector{Statement})
   local lhs::Expression
   local rhs::Expression
-  local rhs_exp::Expression
-  local rhs_rest::List{Expression}
   local ty::ModelicaType
   local src::SourceInfo
   @match ALG_ASSIGNMENT(lhs = lhs, rhs = rhs, ty = ty, source = src) = stmt

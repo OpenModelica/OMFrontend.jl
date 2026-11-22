@@ -251,12 +251,10 @@ function matchOverloadedBinaryOperator(
   local outExp::Expression
 
   local args::Vector{TypedArg}
-  local matchKind::FunctionMatchKind
   local matchedFunc::MatchedFunction
   local matchedFunctions::Vector{MatchedFunction}
   local exactMatches::Vector{MatchedFunction}
   local fn::MODELICA_FUNCTION
-  local oop::Op
 
   args = TypedArg[(exp1, type1, var1), (exp2, type2, var2)]
   matchedFunctions = matchFunctionsSilent(candidates, args, TypedNamedArg[], info)
@@ -789,7 +787,6 @@ function checkOverloadedBinaryArrayScalar2(
   local outType::ModelicaType
   local outExp::Expression
 
-  local e1::Expression
   local expl::Vector{Expression}
   local ty::ModelicaType
 
@@ -914,9 +911,6 @@ function checkOverloadedBinaryArrayEW(
   local e1::Expression
   local e2::Expression
   local mk::MatchKindType
-  local expl1::Vector{Expression}
-  local expl2::Vector{Expression}
-  local ty::ModelicaType
 
   if isArray(type1) && isArray(type2)
      (e1, e2, _, mk) = matchExpressions(exp1, type1, exp2, type2, true)
@@ -1073,15 +1067,10 @@ function implicitConstructAndMatch(
   local inputs::List{InstNode}
   local in1::InstNode
   local in2::InstNode
-  local scope::InstNode
-  local mk1::MatchKindType
-  local mk2::MatchKindType
-  local fn_ref::ComponentRef
   local operfn::MODELICA_FUNCTION
   local matchedfuncs::List{Tuple{MODELICA_FUNCTION, List{Expression}, VariabilityType}} = nil
   local exp1::Expression
   local exp2::Expression
-  local ty::ModelicaType
   local arg1_ty::ModelicaType
   local arg2_ty::ModelicaType
   local var::VariabilityType
@@ -1682,14 +1671,8 @@ function checkOverloadedUnaryOperator(
   local outExp::Expression
 
   local opstr::String
-  local operfn::MODELICA_FUNCTION
-  local node1::InstNode
-  local fn_node::InstNode
-  local fn_ref::ComponentRef
   local candidates::Vector{MODELICA_FUNCTION}
-  local matched::Bool
   local args::Vector{TypedArg}
-  local matchKind::FunctionMatchKind
   local matchedFunc::MatchedFunction
   local matchedFunctions::Vector{MatchedFunction}
   local exactMatches::Vector{MatchedFunction}
@@ -1779,10 +1762,6 @@ function checkLogicalUnaryOperation(
 )::Tuple{Expression, ModelicaType}
   local resultType::ModelicaType = type1
   local outExp::Expression
-
-  local e1::Expression
-  local e2::Expression
-  local mk::MatchKindType
 
   if isComplex(arrayElementType(type1))
      (outExp, resultType) =
@@ -1924,7 +1903,6 @@ end
     type2,
     allowUnknown)
 end
-
 
 function matchExpressions2(
   @nospecialize(exp1::Expression),
@@ -2150,7 +2128,6 @@ end
   return (expression, compatibleType, matchKind)
 end
 
-
 function matchTypesRef(
   actualType::T1,
   expectedType::T2,
@@ -2210,7 +2187,6 @@ function matchTypesRef(
       end
 
       TYPE_ARRAY(__) => begin
-        #(expression, compatibleType, matchKind) = matchArrayTypes(actualType, expectedType, expression, allowUnknown)
         expression = matchArrayTypesRef(actualType, expectedType, expression, refTyExp, refMatchKind, allowUnknown)
         compatibleType = refTyExp.x
         matchKind = refMatchKind.x
@@ -2398,7 +2374,6 @@ function matchTypes_castRef(
   return expression
 end
 
-
 function matchExpressions_cast(
   @nospecialize(exp1::Expression),
   type1::ModelicaType,
@@ -2529,7 +2504,6 @@ function matchComplexTypes(
   local enode::InstNode
   local comps1::Vector{InstNode}
   local comps2::Vector{InstNode}
-  local path::Absyn.Path
   local ty::ModelicaType
   local cty1::ComplexType
   local cty2::ComplexType
@@ -2708,16 +2682,12 @@ function matchFunctionTypes(
   local compatibleType::ModelicaType = actualType
   local inputs1::List{InstNode}
   local inputs2::List{InstNode}
-  local remaining_inputs::List{InstNode}
   local outputs1::List{InstNode}
   local outputs2::List{InstNode}
   local slots1::List{SLOT}
   local slots2::List{SLOT}
-  local input2::InstNode
-  local output2::InstNode
   local slot1::SLOT
   local slot2::SLOT
-  local matching::Bool
 
   @match TYPE_FUNCTION(
     fn = MODELICA_FUNCTION(inputs = inputs1, outputs = outputs1, slots = slots1),
@@ -2861,7 +2831,6 @@ function matchArrayTypes(
   return (expression, compatibleType, matchKind)
 end
 
-
 function matchArrayTypesRef(
   arrayType1::ModelicaType,
   arrayType2::ModelicaType,
@@ -2885,9 +2854,6 @@ function matchArrayTypesRef(
   #=  If the element types are compatible, check the dimensions too. =#
   #(compatibleType, matchKind) =
   matchArrayDimsRef(dims1, dims2, compatibleType, matchKind, refTyExp, refMatchKind, allowUnknown)
-  #(compatibleType, matchKind) = matchArrayDims(dims1, dims2, compatibleType, matchKind, allowUnknown)
-  #refTyExp.x = compatibleType
-  #refMatchKind.x = matchKind
   return expression
 end
 
@@ -2935,7 +2901,6 @@ function matchArrayDimsRef(
   return
 end
 
-
 function matchArrayDims(
   dims1::List{<:Dimension},
   dims2::List{<:Dimension},
@@ -2944,7 +2909,6 @@ function matchArrayDims(
   allowUnknown::Bool,
 )::Tuple{ModelicaType, Int}
   local rest_dims2::List{Dimension} = dims2
-  local dim2::Dimension
   local compat::Bool
   if !isCompatibleMatch(matchKind)
     return (ty, matchKind)
@@ -2961,7 +2925,6 @@ function matchArrayDims(
   local cDims = Dimension[]
   local refComp = Ref{Bool}(false)
   for (i, dim1) in enumerate(dims1V)
-    #@match _cons(dim2, rest_dims2) = rest_dims2
     dim1 = matchDimensionsRef(dim1, dims2V[i], refComp, allowUnknown)
     compat = refComp.x
     if !compat
@@ -3027,7 +2990,6 @@ function matchDimensionsRef(
   isComp.x = compatible
   return compatibleDim
 end
-
 
 function matchTupleTypes(
   tupleType1::ModelicaType,
@@ -3220,7 +3182,6 @@ function getRangeType(
 )::ModelicaType
   local rangeType::ModelicaType
 
-  local step_exp::Expression
   local dim::Dimension
 
   @assign dim = begin
@@ -3621,8 +3582,6 @@ function printBindingTypeError(
 )
   local binding_info::SourceInfo
   local comp_info::SourceInfo
-  local bind_ty_str::String
-  local comp_ty_str::String
   local mk::MatchKindType
 
   @assign binding_info = Binding_getInfo(binding)
@@ -3699,7 +3658,6 @@ end
 end
 
 @nospecializeinfer function checkReductionType(ty::ModelicaType, name::Absyn.Path, @nospecialize(exp::Expression), info::SourceInfo)
-  local ety::ModelicaType
   local err::String
   @assign err = begin
     @match name begin
@@ -3817,7 +3775,6 @@ end
 @nospecializeinfer function checkSumComplexType(ty::ModelicaType, @nospecialize(exp::Expression), info::SourceInfo)::Bool
   local valid::Bool = true
   local cls_node::InstNode
-  local op_node::InstNode
   local cls::Class
   @match TYPE_COMPLEX(cls = cls_node) = ty
   cls = getClass(cls_node)

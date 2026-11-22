@@ -50,7 +50,6 @@ function verify(flatModel::FLAT_MODEL)
       verifyStatementBounds(stmt)
     end
   end
-#  return execStat(getInstanceName())
 end
 
 """

@@ -45,7 +45,6 @@ import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 using MetaModelica.Dangerous
 
-
 const DUMMY_ELEMENT =
   SCode.CLASS(
     "DummyFunction",
@@ -648,22 +647,6 @@ const FILL_FUNC =
     P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
     P_Pointer.create(0, Int),
   )::MODELICA_FUNCTION
-
-const INITIAL_STRUCTURAL_STATE_FUNC =
-  MODELICA_FUNCTION(
-    Absyn.IDENT("initialStructuralState"),
-    EMPTY_NODE(),
-    nil,
-    nil,
-    nil,
-    nil,
-    TYPE_UNKNOWN(),
-    FUNCTION_ATTRIBUTES_BUILTIN,
-    nil,
-    P_Pointer.create(FUNCTION_STATUS_BUILTIN, FunctionStatus),
-    P_Pointer.create(0, Int),
-  )::MODELICA_FUNCTION
-
 
 const SMOOTH =
   MODELICA_FUNCTION(

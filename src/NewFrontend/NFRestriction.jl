@@ -75,7 +75,6 @@
   end
 end
 
-
 function toString(res::Restriction)::String
   local str::String
   str = begin

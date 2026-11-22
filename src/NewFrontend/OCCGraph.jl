@@ -749,7 +749,6 @@ function generateEqualityConstraintEquation(clhs::ComponentRef,
   local cc2::CONNECTOR
   local cl1::List{CONNECTOR}
   local cl2::List{CONNECTOR}
-  local cref::ComponentRef
   local eql::Vector{Equation} = Equation[]
   local expLHS::Expression
   local expRHS::Expression
@@ -760,14 +759,10 @@ function generateEqualityConstraintEquation(clhs::ComponentRef,
   local lhs::ComponentRef
   local lhsArr::ComponentRef
   local lhsl::List{CONNECTOR}
-  local lst::List{Expression}
-  local msg::Expression
-  local priority::Int
   local replaceEq::Equation
   local rhs::ComponentRef
   local rhsArr::ComponentRef
   local rhsl::List{CONNECTOR}
-  local root::Expression
   local ty1::ModelicaType
   local ty2::ModelicaType
   local ty::ModelicaType

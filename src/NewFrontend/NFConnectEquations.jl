@@ -89,7 +89,6 @@ function evaluateOperators(
   local evalExp::Expression
   evalExp = begin
     local call::Call
-    local expanded::Bool
     @match exp begin
       CALL_EXPRESSION(call = call) => begin
         begin
@@ -337,7 +336,6 @@ function generateFlowEquations(elements::List{<:CONNECTOR})::List{Equation}
     else
       list(forEq)
     end
-    #equations = list(forEq)
     iterators = listRest(iterators)
     ranges = listRest(ranges)
   end
@@ -382,7 +380,6 @@ function unrollFlowForLoop(forLoop::Equation,
   return out
 end
 
-
 """
 Replaces flow iterators.
 Note, this assumes that the encompassing for loop is constructed in a certain way.
@@ -412,8 +409,6 @@ function replaceFlowIterator(@nospecialize(exp::Expression),
   end
   return res
 end
-
-
 
 """
 Walk a COMPONENT_REF_CREF chain and replace any subscript that references
@@ -481,8 +476,6 @@ function generateStreamEquations(
     local e2::Expression
     local inside::List{CONNECTOR}
     local outside::List{CONNECTOR}
-    local var1::VariabilityType
-    local var2::VariabilityType
     local f1::Face
     local f2::Face
     #= Unconnected stream connector, do nothing. =#
@@ -579,7 +572,6 @@ function streamSumEquationExp(
   local outside_sum2::Expression
   local inside_sum1::Expression
   local inside_sum2::Expression
-  local res::Expression
 
   if listEmpty(outsideElements)
     @assign inside_sum1 = sumMap(insideElements, sumInside1, flowThreshold)
@@ -698,7 +690,6 @@ function sumInside1(element::CONNECTOR, @nospecialize(flowThreshold::Expression)
 
   local stream_exp::Expression
   local flow_exp::Expression
-  local flow_threshold::Expression
 
    (stream_exp, flow_exp) = streamFlowExp(element)
   @assign flow_exp =
@@ -1103,7 +1094,6 @@ function evaluateActualStreamMul(
   local e1::Expression
   local e2::Expression
   local cr::ComponentRef
-  local flow_cr::ComponentRef
 
   e1 = evaluateOperators(crefExp, sets, setsArray, ctable)
   @match CREF_EXPRESSION(cref = cr) = e1

@@ -67,7 +67,6 @@ function instOperatorFunctions(node::InstNode, info::SourceInfo)::InstNode
 
   local tree::ClassTree
   local mclss::Vector{InstNode}
-  local path::Absyn.Path
   local allfuncs::Vector{MODELICA_FUNCTION} = MODELICA_FUNCTION[]
   local funcs::Vector{MODELICA_FUNCTION}
   checkOperatorRestrictions(node)

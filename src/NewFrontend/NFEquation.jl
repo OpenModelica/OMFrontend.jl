@@ -711,7 +711,6 @@ end
   mapExpList with atleast one element
 """
 function mapExpList!(eql::Vector{Equation}, func::MapExpFn)
-  #local eqV = Equation[mapExp(eq, func) for eq in eql]
   for (i, eq) in enumerate(eql)
     eql[i] = mapExp(eq, func)
   end
@@ -726,11 +725,9 @@ function mapExpList(eql::Vector{Equation}, func::MapExpFn)::Vector{Equation}
   return eqV
 end
 
-
 function mapList(eql::Vector{Equation}, func::Function)
   eqs = Equation[map(eq, func) for eq in eql]
 end
-
 
 """
   An empty list results in nil
@@ -782,7 +779,6 @@ Applies the function `func` to `eq`
   eq = func(eq)
   return eq
 end
-
 
 @nospecializeinfer function apply(@nospecialize(eq::Equation), func::ApplyFn)
    () = begin

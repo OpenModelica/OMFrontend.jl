@@ -54,7 +54,6 @@ end #=ParameterTreeImpl=#
 
 const ParameterTree = ParameterTreeImpl.Tree
 
-
 function typeCast(callExp::CALL_EXPRESSION, ty::ModelicaType)
   @match CALL_EXPRESSION(call = call) = callExp
   return _typeCastCall(call, ty, callExp)
@@ -144,7 +143,6 @@ function typedString(call::Call)::String
   local name::String
   local arg_str::String
   local c::String
-  local argexp::Expression
 
    str = begin
     @match call begin
@@ -200,7 +198,6 @@ function toFlatString(call::Call; inFunction = false)
   local nameVar::String
   local arg_str::String
   local c::String
-  local argexp::Expression
   local iters::List{InstNode}
    str = begin
     @match call begin
@@ -268,7 +265,6 @@ function toString(call::Call)::String
   local nameStr::String
   local arg_str::String
   local c::String
-  local argexp::Expression
   local iters::List{InstNode}
 
    str = begin
@@ -783,7 +779,6 @@ function typeCall2(
   local outExp::Expression
   local call::Call
   local ty_call::Call
-  local args::Vector{Expression}
   local cref::ComponentRef
   @match CALL_EXPRESSION(call = call) = callExp
   outExp = begin
@@ -1112,7 +1107,6 @@ function vectorizeCall(
   scope::InstNode,
   info::SourceInfo,
   )::Call
-  #@info "vectorizeCall" toString(base_call)
   local vectorized_call::Call
   local ty::ModelicaType
   local vect_ty::ModelicaType
@@ -1120,12 +1114,8 @@ function vectorizeCall(
   local iters::List{Tuple{InstNode, Expression}}
   local iter::InstNode
   local i::Int
-  local vect_idx::Int
-  local b::Bool
   local call_args::Vector{Expression}
-  local vect_args::Vector{Expression}
   local sub::Subscript
-  local vect_idxs::List{Int}
   vectorized_call = begin
     @match (base_call, mk) begin
       (TYPED_CALL(arguments = call_args), VECTORIZED_MATCH_KIND(__)) => begin
@@ -1195,7 +1185,6 @@ function checkMatchingFunctions(call::Call, info::SourceInfo)
   local allfuncs::Vector{MODELICA_FUNCTION}
   local fn_node::InstNode
   local numerr::Int = 0 # TODO Error.getNumErrorMessages()
-  local errors::List{Int}
 
   ErrorExt.setCheckpoint("NFCall:checkMatchingFunctions")
   matchedFunctions = begin
@@ -1265,7 +1254,6 @@ function checkMatchingFunctions(call::Call, info::SourceInfo)
                func.derivatives,
                func.status,
                func.callCounter)
-    #@assign matchedFunc.func = func
     matchedFunc = MATCHED_FUNC(func, matchedFunc.args, matchedFunc.mk)
   end
   return matchedFunc
@@ -1274,11 +1262,8 @@ end
 function typeArgs(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Call
    call = begin
     local arg::Expression
-    local arg_ty::ModelicaType
-    local arg_var::VariabilityType
     local typedArgs::Vector{TypedArg}
     local typedNamedArgs::Vector{TypedNamedArg}
-    local name::String
     local next_origin::ORIGIN_Type
     @match call begin
       UNTYPED_CALL(__) => begin
@@ -1292,7 +1277,6 @@ function typeArgs(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Call
         end
         typedNamedArgs = Vector{TypedNamedArg}(undef, length(call.named_args))
         for (i,narg) in enumerate(call.named_args)
-          #(name, arg) = narg
           typedNamedArgs[i] = (narg[1], typeExp(narg[2], next_origin, info)...)#::Tuple{Expression, ModelicaType, Int}
           # = T#(name, arg, arg_ty, arg_var)
         end
@@ -1322,7 +1306,6 @@ function reductionFoldExpression(
 )::Option{Expression}
   local foldExp::Option{Expression}
 
-  local ty::ModelicaType
   local op_node::InstNode
   local fn::MODELICA_FUNCTION
 
@@ -1635,7 +1618,6 @@ function instIteratorCall(
   local fn_ref::ComponentRef
   local exp::Expression
   local iters::List{Tuple{InstNode, Expression}}
-  local is_array::Bool
   #= The parser turns {exp for i in ...} into $array(exp for i in ...), but we
      change it to just array here so we can handle array constructors uniformly. =#
    fn_name = begin

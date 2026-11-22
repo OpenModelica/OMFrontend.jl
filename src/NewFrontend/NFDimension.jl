@@ -532,8 +532,6 @@ end
 function fromExp(@nospecialize(exp::Expression), var::VariabilityType)::Dimension
   local dim::Dimension
   @assign dim = begin
-    local cls::Class
-    local cref::ComponentRef
     local ty::ModelicaType
     @match exp begin
       INTEGER_EXPRESSION(__) => begin

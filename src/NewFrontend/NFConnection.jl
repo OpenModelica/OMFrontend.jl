@@ -59,7 +59,6 @@ function Base.string(conn::CONNECTION)::String
   return str
 end
 
-
 """
   Split function for a connection.
    Given a connection split and return a List{CONNECTION}

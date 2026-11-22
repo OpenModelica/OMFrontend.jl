@@ -104,7 +104,6 @@ function depth(cref::ComponentRef)
   return d
 end
 
-
 """
 ```
 toListReverse(
@@ -162,7 +161,6 @@ function toVectorReverse(cref::ComponentRef; includeScope::Bool = true)::Vector{
   return result
 end
 
-
 """
 ```
 function getOriginCref(cref::ComponentRef)
@@ -190,7 +188,6 @@ function toString(crefLst::List{ComponentRef})
   end
   print("]")
 end
-
 
 function isFromCref(cref::ComponentRef)::Bool
   local fromCref::Bool
@@ -251,8 +248,6 @@ function evaluateSubscripts(cref::ComponentRef)::ComponentRef
   end
   return cref
 end
-
-
 
 function simplifySubscripts(cref::ComponentRef; trim = false)::ComponentRef
   cref = begin
@@ -470,18 +465,6 @@ Base.isequal(k1::CrefHashKey, k2::CrefHashKey) = isEqual(k1.cref, k2.cref)
 
 #= hashes the cref without subscripts. Used for non-expanded variables. =#
 
-function toStringStripImpl(cref::ComponentRef, acc::String)::String
-  return begin
-    @match cref begin
-      COMPONENT_REF_CREF(__) => toStringStripImpl(cref.restCref, acc + name(cref.node) + ".")
-      COMPONENT_REF_WILD(__) => acc + "_"
-      _ => acc
-    end
-  end
-end
-
-const SPECIAL_SYMBOLS = Dict{String, String}("+" => "ADD", "*" => "MUL", "/" => "DIV", "-" => "SUB")
-
 function toFlatString_impl(cref::ComponentRef, strl::List{<:String}; inFunction = false)::List{String}
   strl = begin
     local str::String
@@ -506,10 +489,6 @@ function toFlatString_impl(cref::ComponentRef, strl::List{<:String}; inFunction 
       end
     end
   end
-  #= Replace odd symbols... =#
-  # for ss in keys(SPECIAL_SYMBOLS)
-  #   replace(strl,  ss => SPECIAL_SYMBOLS[ss])
-  # end
   return strl
 end
 
@@ -916,7 +895,6 @@ function setSubscriptsListV(subscripts::Vector{Vector{Subscript}}
   return cref
 end
 
-
 function setSubscripts(subscripts::List{<:Subscript}, cref::ComponentRef)
   if isvariant(cref, COMPONENT_REF_CREF)
     return COMPONENT_REF_CREF(cref.node, subscripts, cref.ty, cref.origin, cref.restCref)
@@ -1123,7 +1101,6 @@ function appendCref!(cref::ComponentRef, restCref::ComponentRef)
   @assign cref.restCref = restCrefTmp
   return cref
 end
-
 
 function firstNonScope(cref::ComponentRef)::ComponentRef
   local first::ComponentRef

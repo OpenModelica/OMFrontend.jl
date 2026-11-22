@@ -61,9 +61,6 @@
       end
 
       RECORD_EXPRESSION(__) => begin
-        #println("Record expression")
-        #println(toString(exp))
-        #exp.elements = Expression[simplify(e) for e in exp.elements]
         simplifyRecord(exp)
         exp
       end
@@ -935,7 +932,6 @@ end
   tupleExp = tupleElement(e, ty, index)
   return tupleExp
 end
-
 
 function simplifyRecord(recordExpr::RECORD_EXPRESSION)
   # local args = if Flags.isSet(Flags.NF_EXPAND_FUNC_ARGS)

@@ -64,7 +64,6 @@ unevaluated and its backend found no `Modelica.Math.asin`).
 """
 function collectConstants(flatModel::FLAT_MODEL, functions::FunctionTree)::Tuple{FLAT_MODEL, FunctionTree}
   local vars::Vector{VARIABLE} = VARIABLE[]
-  local binding::Binding
   local constants::Constants
   constants = ConstantsSetImpl.new()
   constants =

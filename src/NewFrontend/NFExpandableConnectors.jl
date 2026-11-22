@@ -100,7 +100,6 @@ function sortConnections(
 
   local c1::CONNECTOR
   local c2::CONNECTOR
-  local err_msg::Option{Tuple{ErrorTypes.Message, List{CONNECTOR}}}
   local is_undeclared1::Bool
   local is_undeclared2::Bool
   local is_expandable1::Bool
@@ -391,9 +390,7 @@ function augmentExpandableConnector(
   local nodeElem::InstNode
   local cls::Class
   local cls_tree::ClassTree
-  local comp::Component
   local nodes::List{InstNode} = nil
-  local var::VARIABLE
   local ty::ModelicaType
   local complex_ty::ComplexType
 
@@ -456,7 +453,6 @@ end
 
 function createVirtualVariables(connectorName::ComponentRef, connectorType::ModelicaType, info::SourceInfo, vars::List{VARIABLE})
   local var::VARIABLE
-  local comps::Vector{InstNode}
   local name::ComponentRef
   local ty::ModelicaType
   if isComplex(connectorType)

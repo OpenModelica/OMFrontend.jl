@@ -87,7 +87,6 @@ function instDefaultConstructor(
   local out_rec::InstNode
   local out_comp::Component
   local ctor_cls::Class
-  local ty_node::InstNode
   try
     @match ENTRY_INFO(ctor_node, _) = lookupLocalSimpleName(
       name(node),

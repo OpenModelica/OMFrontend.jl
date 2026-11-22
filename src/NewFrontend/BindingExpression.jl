@@ -108,9 +108,6 @@ end
 
 function bindingExpMap3(@nospecialize(exp::Expression), evalFunc::EvalFunc, subs::List{<:Subscript})
   local result::Expression
-  local e1::Expression
-  local e2::Expression
-  local op::OPERATOR
    result = map(exp, (@nospecialize(x::Expression),) -> bindingExpMap4(x, subs)) #TODO?
    result = evalFunc(result)
   result
@@ -347,7 +344,6 @@ function splitRecordCref(@nospecialize(exp::Expression)) ::Expression
     @match outExp begin
       CREF_EXPRESSION(ty = TYPE_COMPLEX(cls = cls), cref = cr)  => begin
         local comps::Vector{InstNode} = getComponents(classTree(getClass(cls)))
-        #@info "Components...." toString(comps)
         local compsLen::Int = arrayLength(comps)
         local fields::Vector{Expression} = Vector{Expression}(undef, compsLen)
         local j::Int = 1
@@ -368,7 +364,6 @@ function splitRecordCref(@nospecialize(exp::Expression)) ::Expression
       end
     end
   end
-  #@info "Out Components" toString(outExp)
   outExp
 end
 
@@ -381,7 +376,6 @@ function nthRecordElement(index::Int, @nospecialize(recordExp::Expression)) ::Ex
 
    outExp = begin
     local node::InstNode
-    local expl::List{Expression}
     @match recordExp begin
       RECORD_EXPRESSION(__)  => begin
         recordExp.elements[index]
@@ -468,7 +462,6 @@ function recordElement(elementName::String, @nospecialize(recordExp::Expression)
     local cls_tree::ClassTree
     local ty::ModelicaType
     local index::Int
-    local expl::List{Expression}
     local cref::ComponentRef
     @match recordExp begin
       RECORD_EXPRESSION(ty = TYPE_COMPLEX(cls = node))  => begin
@@ -820,7 +813,6 @@ function promote2(@nospecialize(exp::Expression), isArray::Bool, dims::Int, type
    outExp = begin
     local ty::ModelicaType
     local rest_ty::List{ModelicaType}
-    local arr_exp::Expression
     local expanded::Bool
     #= No types left, we're done! =#
     @match (exp, types) begin
@@ -1249,7 +1241,6 @@ function liftArray(dim::Dimension, @nospecialize(exp::Expression)) ::Tuple{Expre
   local arrayType::ModelicaType = typeOf(exp)
   local expl::Vector{Expression} = Expression[]
   for i in 1:size(dim)
-    #expl = _cons(exp, expl)
     push!(expl, exp)
   end
   arrayType = liftArrayLeft(arrayType, dim)
@@ -1301,7 +1292,6 @@ function isRecordOrRecordArray(@nospecialize(exp::Expression)) ::Bool
         true
       end
       ARRAY_EXPRESSION(__)  => begin
-        #ListUtil.all(exp.elements, isRecordOrRecordArray)
         ArrayUtil.all(exp.elements, isRecordOrRecordArray)
       end
       _  => begin
@@ -1986,7 +1976,6 @@ end
     return res
   end
    res = begin
-    local e::Expression
     @match exp begin
       CREF_EXPRESSION(__)  => begin
         crefContains(exp.cref, func)
@@ -2306,13 +2295,11 @@ when no child changed. Specialized on `func` (3 callers, all with a Bool argumen
     local e1::Expression
     local e2::Expression
     local e3::Expression
-    local e4::Expression
     local oe::Option{Expression}
     local cr::ComponentRef
     local expl::List{Expression}
     local call::Call
     local subs::List{Subscript}
-    local unchanged::Bool
     #@debug "Calling mapFoldShallow"
     @match exp begin
       CLKCONST_EXPRESSION(__)  => begin
@@ -3011,8 +2998,6 @@ end
 @nospecializeinfer function mapCallShallow(call::Call, func::FT) where {FT<:Function}
   local outCall::Call
   outCall = begin
-    local args::Vector{Expression}
-    local nargs::Vector{NamedArg}
     local targs::Vector{TypedArg}
     local tnargs::Vector{TypedNamedArg}
     local s::String
@@ -3091,7 +3076,6 @@ function mapCrefShallow(cref::ComponentRef, func::FT) ::ComponentRef where {FT<:
     local rest::ComponentRef
     @match cref begin
       COMPONENT_REF_CREF(origin = Origin.CREF)  => begin
-        #subs = list(mapShallowExp(s, func) for s in cref.subscripts)
         #= New body... =#
         subs = cref.subscripts #list(mapExp(s, func) for s in cref.subscripts)
         tmp = listReverse(subs)
@@ -3181,7 +3165,6 @@ end
 
       CREF_EXPRESSION(__)  => begin
         mapCrefShallow(exp.cref, func)
-        #CREF_EXPRESSION(exp.ty, )
         exp
       end
 
@@ -3190,7 +3173,6 @@ end
         for (i, e) in enumerate(elems)
           elems[i] = func(e)::Expression
         end
-        #ARRAY_EXPRESSION(exp.ty, Expression[func(e) for e in exp.elements], exp.literal)
         exp
       end
 
@@ -3467,8 +3449,6 @@ end
 @nospecializeinfer function mapCall(call::Call, func::FT) ::Call where {FT<:Function}
   local outCall::Call
   outCall = begin
-    local args::Vector{Expression}
-    local nargs::Vector{NamedArg}
     local targs::Vector{TypedArg}
     local tnargs::Vector{TypedNamedArg}
     local s::String
@@ -3901,16 +3881,6 @@ end
   dimCount
 end
 
-#= The bound arguments of `function f(b = e, ...)` in the function's input order (they are
-   in the order written; the flat model has no names: the backend places them by the inputs the
-   partial application's type no longer has). =#
-function _partialArgsInInputOrder(exp::PARTIAL_FUNCTION_APPLICATION_EXPRESSION, fn::MODELICA_FUNCTION)::Vector{Expression}
-  local position = Dict{String, Int}(name(n) => k for (k, n) in enumerate(fn.inputs))
-  local args = Expression[a for a in exp.args]
-  local order = sortperm([get(position, nm, typemax(Int)) for nm in exp.argNames])
-  return args[order]
-end
-
 function isNonAssociativeExp(@nospecialize(exp::Expression)) ::Bool
   local isAssociative::Bool
 
@@ -4089,7 +4059,6 @@ function toFlatSubscriptedString(@nospecialize(exp::Expression), subs::List{<:Su
   str = stringAppendList(strl)
   str
 end
-
 
 function toFlatString(exp::BINDING_EXP; inFunction = false)
   toFlatString(exp.exp; inFunction = inFunction)
@@ -4780,9 +4749,6 @@ end
 function applySubscriptRange(subscript::Subscript, @nospecialize(exp::Expression)) ::Expression
   local outExp::Expression
   local sub::Subscript
-  local start_exp::Expression
-  local stop_exp::Expression
-  local step_exp::Option{Expression}
   local ty::ModelicaType
   local expl::Vector{Expression}
   (sub, _) = expandSlice(subscript)
@@ -4928,7 +4894,6 @@ end
 function applySubscriptTypename(subscript::Subscript, ty::ModelicaType) ::Expression
   local outExp::Expression
   local sub::Subscript
-  local index::Int
   local expl::Vector{Expression}
   (sub, _) = expandSlice(subscript)
   outExp = begin
@@ -4970,12 +4935,6 @@ end
 """
 function applySubscript(@nospecialize(subscript::Subscript), @nospecialize(exp::Expression), @nospecialize(restSubscripts::List{<:Subscript} = nil)) ::Expression
   local outExp::Expression
-  # @info "Apply subscript:"
-  # println("exp:")
-  # println(toString(exp))
-  # println("subscript:")
-  # println(toString(subscript))
-  # println("*******************")
   outExp = begin
     @match exp begin
       CREF_EXPRESSION(__)  => begin
@@ -5078,9 +5037,6 @@ end
 Generic make array function
 """
 function makeArray(ty::ModelicaType, expl::List; literal::Bool = false)
-  # @warn "Called make array with old interface"
-  # st = stacktrace()
-  # println(st[3])  # 2 because 1 is the current function itself
   ARRAY_EXPRESSION(ty, listArray(expl), literal)
 end
 
@@ -5267,7 +5223,6 @@ function setType(ty::ModelicaType, @nospecialize(exp::Expression))
   retExp
 end
 
-
 @nospecializeinfer function typeOf(@nospecialize(exp::Expression))
   local ty::ModelicaType
   ty = begin
@@ -5431,7 +5386,6 @@ function compareList(expl1::List{<:Expression}, expl2::List{<:Expression}) ::Int
    comp = 0
   comp
 end
-
 
 function compareVector(expl1::Vector{Expression}, expl2::Vector{Expression})::Int
   local comp::Int
@@ -5964,7 +5918,6 @@ function toDebugString(ick::ClockKind) ::String
 
    ock = begin
     local i::Expression
-    local ic::Expression
     local r::Expression
     local c::Expression
     local si::Expression
@@ -5999,13 +5952,11 @@ function compare(ck1::ClockKind, ck2::ClockKind) ::Int
 
    comp = begin
     local i1::Expression
-    local ic1::Expression
     local r1::Expression
     local c1::Expression
     local si1::Expression
     local sm1::Expression
     local i2::Expression
-    local ic2::Expression
     local r2::Expression
     local c2::Expression
     local si2::Expression
@@ -6298,7 +6249,6 @@ function addParent(parent::InstNode,
             binding.isEach,
             binding.info)
   elseif isvariant(binding, RAW_BINDING)
-    #binding.parents = parentLst
     RAW_BINDING(binding.bindingExp,
                 binding.scope,
                 parentLst,
@@ -6308,12 +6258,6 @@ function addParent(parent::InstNode,
     binding
   end
   return newBinding
-end
-
-
-@nospecializeinfer function parentCount(binding::Binding)
-  local count::Int = length(parents(binding))
-  return count
 end
 
 function parents(binding::Binding)
@@ -6741,5 +6685,3 @@ function fromAbsyn(
   end
   return binding
 end
-
-
