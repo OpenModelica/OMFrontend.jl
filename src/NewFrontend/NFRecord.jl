@@ -76,7 +76,7 @@ function instDefaultConstructor(
       classScope(parent(node)),
     )
     @match true = referenceEq(definition(node), definition(ctor_node))
-  catch e
+  catch
     ctor_node = replaceClass(NOT_INSTANTIATED(), node)
   end
   #= Backported from the original code. =#

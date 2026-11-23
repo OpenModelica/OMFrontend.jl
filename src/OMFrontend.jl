@@ -211,7 +211,7 @@ function instantiateSCodeToFM(elementToInstantiate::String,
   local flat_model
   local funcs
   try
-    (flat_model, funcs, inst_cls) = Frontend.instClassInProgramFM(path, program)
+    (flat_model, funcs, _) = Frontend.instClassInProgramFM(path, program)
   finally
     old_flags === nothing || Frontend.FlagsUtil.saveFlags(old_flags)
   end
@@ -351,7 +351,7 @@ function writeFlatModelicaToFile(fm, fLst;
   else
     fmStr
   end
-  f = write(fileName, fmStr)
+  return write(fileName, fmStr)
 end
 
 """
@@ -431,9 +431,8 @@ function flattenModelWithMSL(modelName::String,
   local absynProgram = parseFile(fileName)
   local sCodeProgram = translateToSCode(absynProgram)
   #= Add builtin function to the program (model) and instantiate it =#
-  builtin = NFModelicaBuiltinCache["NFModelicaBuiltin"]
   program = listAppend(sCodeProgram, lib)
-  (FM, cache) = instantiateSCodeToFM(modelName, program; scalarize = scalarize)
+  return instantiateSCodeToFM(modelName, program; scalarize = scalarize)
 end
 
 """
@@ -458,7 +457,7 @@ function flattenModelWithMSL(modelName::String;
     initLoadMSL(MSL_Version = MSL_Version)
   end
   local lib = LIBRARY_CACHE[mslKey]
-  (FM, cache) = instantiateSCodeToFM(modelName, lib; scalarize = scalarize)
+  return instantiateSCodeToFM(modelName, lib; scalarize = scalarize)
 end
 
 """
@@ -470,7 +469,7 @@ function flattenModel(modelName::String, fileName::String; scalarize = true,
                       separateInstantiation = false)
   local absynProgram = parseFile(fileName)
   local sCodeProgram = translateToSCode(absynProgram)
-  (FM, cache) = instantiateSCodeToFM(modelName, sCodeProgram; scalarize = scalarize,
+  return instantiateSCodeToFM(modelName, sCodeProgram; scalarize = scalarize,
                                      separateInstantiation = separateInstantiation)
 end
 
@@ -502,7 +501,7 @@ function loadMSL(; MSL_Version)
       _storeLibrary!(MSL_Version, scodeMSL)
       _saveLibCache(MSL_Version, contentHash)
       return scodeMSL
-    catch e
+    catch
       @info "Failed loading the Modelica Standard Library. Valid versions are 3.2.3 and 4.1.0"
       @info "Continue instantiating the model until the next error."
     end
@@ -1489,7 +1488,7 @@ function _findPackageDirectory(clone::String, name::String, repo::String, tag::S
   isfile(joinpath(clone, name, "package.mo")) && return joinpath(clone, name)
   isfile(joinpath(clone, "package.mo")) && _packageName(joinpath(clone, "package.mo")) == name && return clone
   local candidates = String[]
-  for (root, dirs, files) in walkdir(clone)
+  for (root, _, files) in walkdir(clone)
     occursin(".git", root) && continue
     "package.mo" in files && push!(candidates, relpath(root, clone))
     length(candidates) >= 10 && break
@@ -1604,7 +1603,7 @@ function flattenModelWithLibraries(modelName::String,
     end
     combined = listAppend(combined, LIBRARY_CACHE[mslKey])
   end
-  (FM, cache) = instantiateSCodeToFM(modelName, combined; scalarize = scalarize,
+  return instantiateSCodeToFM(modelName, combined; scalarize = scalarize,
                                      separateInstantiation = separateInstantiation)
 end
 
@@ -1698,12 +1697,6 @@ function removeQuotesFromFlatModelica(fmStr::String)
 
   local specialSymbols = ["'+'", "'*'", "'/'", "'-'", "'constructor'"]
 
-  function shouldBeQuoted(matchedString)
-    local reg = r"\["
-    local reg2 = r"\*|\+|-"
-    contains(matchedString.match, reg) || contains(matchedString.match, reg2)
-  end
-
   local buffer::IOBuffer = IOBuffer()
   if ! isascii(fmStr)
     @info "The model contains characters not in the ascii character encoding format.\nThe string was not modified."
@@ -1711,7 +1704,6 @@ function removeQuotesFromFlatModelica(fmStr::String)
   end
   local strs = split(fmStr, "\n")
   for str in strs
-    local replaced = false
     local mstr = str
     if (contains(mstr, "'"))
       local reg = r"'[^']*'"

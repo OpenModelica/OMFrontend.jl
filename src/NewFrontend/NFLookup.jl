@@ -65,7 +65,6 @@ function lookupComponent(cref::Absyn.ComponentRef, scope::InstNode #= The scope 
   local nodeVar::InstNode
   local stateRef = Ref{LookupState}(LOOKUP_STATE_BEGIN())
   foundCref = lookupCref(cref, scope, scopeRef, stateRef)
-  local foundScope = scopeRef.x
   local state = stateRef.x
   if state isa LOOKUP_STATE_ERROR
     @error "Failed to lookup" toString(scope)
@@ -360,7 +359,7 @@ function lookupSimpleName(nameStr::String, scope::InstNode)::Tuple{InstNode, Boo
   local loaded = false
   #= Past an encapsulated scope only builtin names are found (omc lookupSimpleName). =#
   local require_builtin = false
-  for i in 1:Global.recursionDepthLimit
+  for _ in 1:Global.recursionDepthLimit
     #= Past the top scope: not found (lookupLocalSimpleName throws on the empty scope; a throw costs 0.5-2 ms here). =#
     isvariant(cur_scope, EMPTY_NODE) && break
     @match ENTRY_INFO(node, _) = lookupLocalSimpleName(nameStr, cur_scope)
@@ -670,7 +669,7 @@ function lookupSimpleCref(crefName::String,
   #= omc lookupSimpleCref's inEnclosingScope: found after leaving a non-implicit scope. =#
   local in_enclosing::Bool = false
   #= First try the normal scope chain. Local declarations shadow builtins. =#
-  for i in 1:Global.recursionDepthLimit
+  for _ in 1:Global.recursionDepthLimit
     try
       @match foundScope begin
         IMPLICIT_SCOPE(__)  => begin
@@ -727,7 +726,7 @@ function lookupSimpleCref(crefName::String,
       stateRef.x = state
       scopeRef.x = foundScope
       return (node, cref)
-    catch e
+    catch
       in_enclosing |= !isvariant(foundScope, IMPLICIT_SCOPE) && !isStructuralModeScope(foundScope)
       foundScope = parentScope(foundScope)
       scopeRef.x = foundScope

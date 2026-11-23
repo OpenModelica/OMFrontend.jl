@@ -1124,7 +1124,7 @@ function unliftArrayN(N::Int, ty::ModelicaType)::ModelicaType
 
   N == 0 && return ty
   @match TYPE_ARRAY(el_ty, dims) = ty
-  for i = 1:N
+  for _ = 1:N
     dims = listRest(dims)
   end
   if listEmpty(dims)

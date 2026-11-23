@@ -115,7 +115,7 @@ function appendReversedList(inStringLst::List{<:String})::String
   map(lstAsArr) do x
     print(buffer, x)
   end
-  outSting = String(take!(buffer))
+  return String(take!(buffer))
 end
 
 function printReversedList(inStringLst::List{<:String}, whereToPrint::Int) #= stdout:1, stderr:2 =#

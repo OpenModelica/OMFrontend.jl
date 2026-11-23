@@ -184,7 +184,7 @@ end
 """
 function getSections(node::InstNode)
   local cls = getClass(node)
-  sections = @match cls begin
+  return @match cls begin
     INSTANCED_CLASS() => cls.sections
     TYPED_DERIVED() =>  getSections(cls.baseClass)
     _ => begin
@@ -414,8 +414,7 @@ function mergeModifier(mod::Modifier, node::InstNode)
 end
 
 function getModifier(node::InstNode)
-  local mod
-  mod = if isvariant(node, CLASS_NODE)
+  return if isvariant(node, CLASS_NODE)
     getModifier(_clsVal(node))
   elseif isvariant(node, COMPONENT_NODE)
     getModifier(_compVal(node))
@@ -1484,7 +1483,7 @@ function getDerivedNode(node::InstNode)
 end
 
 function getClass(node::InstNode)
-  cls = if isvariant(node, CLASS_NODE)
+  return if isvariant(node, CLASS_NODE)
     _clsVal(node)
   elseif  isvariant(node, COMPONENT_NODE)
     getClass(classInstance(_compVal(node)))

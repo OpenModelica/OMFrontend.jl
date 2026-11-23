@@ -338,7 +338,7 @@ function makeCatExpRef(n::Int,
   local mkRef = Ref{MatchKindType}(MatchKind.NOT_COMPATIBLE)
   @assert length(args) == length(tys) && length(args) >= 1
   #= First: Get the number of dimensions and the element type =#
-  for (i,arg) in enumerate(args)
+  for (i, _) in enumerate(args)
     ty = tys2[i]
     dimsLst = Cons{List{Dimension}}(arrayDims(ty), dimsLst)
     if isvariant(resTy, TYPE_UNKNOWN)
@@ -390,7 +390,7 @@ function makeCatExpRef(n::Int,
      Try to match the dimensions as well =#
   resTy = TYPE_UNKNOWN()
   tys2 = tys3
-  for (i,arg) in enumerate(args2)
+  for (i, _) in enumerate(args2)
     ty = tys2[i]
     if isvariant(resTy, TYPE_UNKNOWN)
       resTy = ty
@@ -2002,7 +2002,7 @@ function typeDynamicSelectCall(name::String, call::Call, origin::ORIGIN_Type, in
      https:trac.openmodelica.org/OpenModelica/ticket/5631 =#
   try
      (arg2, ty2, var2) = typeExp(expDynamic, origin, info)
-  catch e
+  catch
     @assign variability = var1
     @assign callExp = arg1
     return (callExp, ty, variability)

@@ -713,8 +713,6 @@ function typeCall(
   arg3 = info
   @match CALL_EXPRESSION(call = call) = callExp
   if isvariant(call, TYPED_ARRAY_CONSTRUCTOR) || isvariant(call, TYPED_REDUCTION) || isvariant(call, TYPED_CALL)
-    ty = call.ty
-    var = call.var
     return (callExp, call.ty, call.var)
   end
   return typeCall2(

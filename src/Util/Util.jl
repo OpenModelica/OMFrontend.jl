@@ -308,7 +308,6 @@ function applyOption(inOption::Option{TI}, inFunc::FuncType) where {TI}
 
    outOption = begin
     local ival::TI
-    local oval
     @match inOption begin
       SOME(ival) => begin
         SOME(inFunc(ival))

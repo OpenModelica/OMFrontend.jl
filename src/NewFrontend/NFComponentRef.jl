@@ -516,7 +516,6 @@ function toFlatString(cref::ComponentRef; inFunction = false)
   if isIterator(cref)
     return stringDelimitList(toFlatString_impl(cref, nil; inFunction = inFunction), ".")
   end
-  subs2 = getSubscripts(cref)
   (cr, subs) = stripSubscripts(cref)
   strl = toFlatString_impl(cr, strl; inFunction = inFunction)
   #= Inside functions, crefs use plain dot notation without quotes.
@@ -872,7 +871,7 @@ function applySubscripts2(subscripts::List{<:Subscript},
 end
 
 function applySubscripts(subscripts::List{<:Subscript}, cref::ComponentRef)::ComponentRef
-  (nil, cref) = applySubscripts2(subscripts, cref)
+  (_, cref) = applySubscripts2(subscripts, cref)
   return cref
 end
 
@@ -1164,7 +1163,7 @@ Returns true if a component ref refers to a model.
 @author:johti17
 """
 function isModel(cref::ComponentRef)
-  res = @match cref begin
+  return @match cref begin
     COMPONENT_REF_CREF(node,_,_,_,_) where{isvariant(node, COMPONENT_NODE) || isvariant(node, CLASS_NODE)} => begin
       println(typeof(node))
       local cls = getClass(node)

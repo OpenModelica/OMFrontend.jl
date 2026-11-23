@@ -2708,7 +2708,7 @@ function matchFunctionTypes(
   end
   #= An input in the actual type must have a default argument if the
      corresponding input in the expected type has one. =#
-  for i in inputs2
+  for _ in inputs2
     @match _cons(slot1, slots1) = slots1
     @match _cons(slot2, slots2) = slots2
     if isSome(slot2.default) && !isSome(slot1.default)
@@ -2880,7 +2880,6 @@ function matchArrayDimsRef(
     return #(ty, matchKind::Int)
   end
   local dims1V = dims1
-  local dims2V = dims2
   #= The dimensions of both array types must be compatible.
      We do not preallocate the array here since we might need to break before that. =#
   local cDims::List{Dimension} = nil

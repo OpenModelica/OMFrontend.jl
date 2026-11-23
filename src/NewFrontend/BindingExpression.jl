@@ -803,11 +803,11 @@ function makeIdentityMatrix(n::Int, elementType::ModelicaType) ::Expression
   row_ty = TYPE_ARRAY(elementType, list(fromInteger(n)))
   for i in 1:n
      row = nil
-    for j in 2:i
+    for _ in 2:i
        row = Cons{Expression}(zero, row)
     end
      row = Cons{Expression}(one, row)
-    for j in i:n - 1
+    for _ in i:n - 1
        row = Cons{Expression}(zero, row)
     end
      rows = Cons{Expression}(makeArray(row_ty, row, literal = true), rows)
@@ -1097,7 +1097,7 @@ end
 function liftArray(dim::Dimension, @nospecialize(exp::Expression)) ::Tuple{Expression, ModelicaType}
   local arrayType::ModelicaType = typeOf(exp)
   local expl::Vector{Expression} = Expression[]
-  for i in 1:size(dim)
+  for _ in 1:size(dim)
     push!(expl, exp)
   end
   arrayType = liftArrayLeft(arrayType, dim)
@@ -1117,7 +1117,7 @@ function fillType(ty::ModelicaType, @nospecialize(fillExp::Expression)) ::Expres
   #= Innermost dimension first: each pass lifts the array by one dimension on the left. =#
   for dim in listReverse(dims)
     expl  = Expression[]
-    for i in 1:size(dim)
+    for _ in 1:size(dim)
       push!(expl, exp)
     end
     arr_ty = liftArrayLeft(arr_ty, dim)
@@ -1134,7 +1134,7 @@ function fillArgsDimVec(@nospecialize(fillExp::Expression), dims::Vector{Express
   local literal::Bool = isLiteral(fillExp)
   for d in Iterators.reverse(dims)
     dimSize = toInteger(d)
-    arr = Expression[result for e in 1:dimSize]
+    arr = Expression[result for _ in 1:dimSize]
     arrTy = liftArrayLeft(arrTy, fromInteger(dimSize))
     result = makeArray(arrTy, arr, literal = literal)
   end

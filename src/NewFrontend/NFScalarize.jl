@@ -446,7 +446,7 @@ function scalarizeVariable(var::VARIABLE, vars::Vector{VARIABLE})
                 VARIABLE(cr, ty, binding, vis, attr, ty_attr, cmt, info))
         end
       end
-    catch e
+    catch
       Error.assertion(
         false,
         getInstanceName() +

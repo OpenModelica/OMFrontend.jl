@@ -94,7 +94,7 @@ function workload()
       OMFrontend.initLoadMSL(MSL_Version= MSL_V)
     end
     local libraryAsScoded = OMFrontend.LIBRARY_CACHE[MSL_V]
-    (FM, cache) = OMFrontend.instantiateSCodeToFM(modelName, libraryAsScoded; scalarize = scalarize)
+    return OMFrontend.instantiateSCodeToFM(modelName, libraryAsScoded; scalarize = scalarize)
   end
   #= Each model is flattened scalarized and with the arrays kept (scalarize = false, OM's translate): the arrays-kept
      path compiles code of its own (2026-11-16: the first flatten of PID_Controller in OM compiled 890 new instances
@@ -115,7 +115,6 @@ function workload()
       @warn "Precompilation workload failed for $(p)" exception=(e, catch_backtrace())
     end
   end
-  precompile_libraryAsScode = OMFrontend.LIBRARY_CACHE["MSL_4_1_0"]
   precompile_prefix = "Modelica.Mechanics.Rotational.Examples"
   precompile_model_names = [
     "RollingWheel",

@@ -699,7 +699,7 @@ function mapExpList(eql::Vector{Equation}, func::MapExpFn)::Vector{Equation}
 end
 
 function mapList(eql::Vector{Equation}, func::Function)
-  eqs = Equation[map(eq, func) for eq in eql]
+  return Equation[map(eq, func) for eq in eql]
 end
 
 """

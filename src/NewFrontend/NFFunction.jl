@@ -1064,8 +1064,6 @@ function matchArgs(
       local msg = AbsynUtil.pathString(func.path)
       local expectedType = toString(input_ty)
       local actualType = toString(arg_ty)
-      local msgPart1 = "Arg type mismatch for $msg for $(name(input_node)) with exp: $(toString(arg_exp))"
-      local msgPart2 = "\nExpected type: $expectedType. Argument type was: $actualType"
       #@error msgPart1 * msgPart2 it should not be an error yet. These should be printed in the end.
       # Fix the error reporting module.
       funcMatchKind = NO_MATCH

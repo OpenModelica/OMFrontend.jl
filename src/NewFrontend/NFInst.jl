@@ -580,7 +580,7 @@ function checkReplaceableBaseClass(baseClasses::List{<:InstNode}, basePath::Absy
       if listLength(baseClasses) > 1
         rest = baseClasses
         name = ""
-        for j in 1:i - 1
+        for _ in 1:i - 1
           name = "." + name(listHead(rest)) + name
           rest = listRest(rest)
         end

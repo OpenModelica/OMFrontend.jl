@@ -358,7 +358,7 @@ function addList(entries::List{T}, sets) where {T}
   see below in the original impl:
   Sets.DISJOINT_SETS(nodes, elements, node_count) = sets;=#
   for e in entries
-    (sets, idx) = add(e, sets)
+    (sets, _) = add(e, sets)
   end
   return sets
 end

@@ -772,7 +772,7 @@ function split(inArr::Vector{T},  inPosition::Int) where {T}
   local e::T
   @match true = inPosition >= 0
   pos = inPosition
-  for i in 1:pos
+  for _ in 1:pos
     e = popfirst!(a2)
     push!(a1, e)
   end
@@ -800,7 +800,7 @@ function partition(inV::Vector{T}, inPartitionLength::ModelicaInteger)  where {T
   end #Else proceed
   #= Declare local vars =#
   local vWork::Vector = inV
-  for i in 1:div(vLength, inPartitionLength)
+  for _ in 1:div(vLength, inPartitionLength)
     (part, vWork) = split(vWork, inPartitionLength)
     push!(outPartitions, part)
   end
@@ -835,7 +835,6 @@ function transposeArray(arr::Vector{Vector{T}}) where {T}
   local outArr = Vector{Vector{T}}(undef, M)
   for i in 1:M
     col = Vector{T}(undef, N)
-    local cntr = 0
     for j in 1:N
       col[j] = arr[j][i]
     end
