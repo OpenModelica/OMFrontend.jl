@@ -4627,8 +4627,8 @@ const dummyInfo = SOURCEINFO("", false, 0, 0, 0, 0, 0.0)::SourceInfo
   Adds a message given ID and tokens. The rest of the info
   is looked up in the message table. """
 function addMessage(
-  inErrorMsg::ErrorTypes.Message,
-  inMessageTokens::ErrorTypes.MessageTokens,
+  ::ErrorTypes.Message,
+  ::ErrorTypes.MessageTokens,
   )
 end
 
@@ -4645,9 +4645,9 @@ function addSourceMessage(
 end
 
 function addStrictMessage(
-  errorMsg::ErrorTypes.Message,
-  tokens::ErrorTypes.MessageTokens,
-  info::SourceInfo,
+  ::ErrorTypes.Message,
+  ::ErrorTypes.MessageTokens,
+  ::SourceInfo,
 )
 end
 

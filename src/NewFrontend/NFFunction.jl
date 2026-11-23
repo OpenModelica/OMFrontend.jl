@@ -57,7 +57,7 @@ function toString(args::Vector{TypedArg})
   return String(take!(buffer))
 end
 
-function toString(s::Nothing)
+function toString(::Nothing)
   "nothing"
 end
 

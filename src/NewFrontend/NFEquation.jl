@@ -705,7 +705,7 @@ end
 """
   An empty list results in nil
 """
-function mapExpList(eql::Nil, func::MapExpFn)
+function mapExpList(::Nil, ::MapExpFn)
   return nil
 end
 
@@ -949,7 +949,7 @@ end
 
 function makeCrefEquality(lhsCref::ComponentRef,
                           rhsCref::ComponentRef,
-                          scope::InstNode,
+                          ::InstNode,
                           src::SourceInfo)
   local e1 = fromCref(lhsCref)
   local e2 = fromCref(rhsCref)

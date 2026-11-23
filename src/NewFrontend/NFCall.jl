@@ -584,7 +584,7 @@ function typeOf(call::Call)::ModelicaType
    end
 end
 
-function matchTypedNormalCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Call
+function matchTypedNormalCall(call::Call, ::ORIGIN_Type, info::SourceInfo)::Call
   local func::MODELICA_FUNCTION
   local args::Vector{Expression}
   local typed_args::Vector{TypedArg}

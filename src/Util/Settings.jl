@@ -66,7 +66,7 @@ function getInstallationDirectoryPath()::String
   end
 end
 
-function getHomeDir(runningTestsuite::Bool) ::String 
+function getHomeDir(::Bool) ::String 
     #= TODO: Defined in the runtime =#
     "getHomeDir"
 end

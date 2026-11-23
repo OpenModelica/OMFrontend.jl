@@ -33,7 +33,7 @@
 *
 */ =#
 
-function scalarize(flatModel::FLAT_MODEL, name::String)::FLAT_MODEL
+function scalarize(flatModel::FLAT_MODEL, ::String)::FLAT_MODEL
   local vars::Vector{VARIABLE} = VARIABLE[]
   for v in flatModel.variables
     scalarizeVariable(v, vars)

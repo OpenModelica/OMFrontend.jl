@@ -39,7 +39,7 @@ using MetaModelica
 import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
-function printBuf(inString::String)
+function printBuf(::String)
   return @error "TODO: Defined in the runtime"
 end
 

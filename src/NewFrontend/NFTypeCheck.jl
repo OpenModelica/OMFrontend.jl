@@ -1853,7 +1853,7 @@ end
 function printUnresolvableTypeError(
   @nospecialize(exp::Expression),
   types::List{<:ModelicaType},
-  info::SourceInfo,
+  ::SourceInfo,
   printError::Bool = true,
 )
   local exp_str::String
@@ -2931,7 +2931,7 @@ end
 function matchDimensions(
   dim1::Dimension,
   dim2::Dimension,
-  allowUnknown::Bool,
+  ::Bool,
 )::Tuple{Dimension, Bool}
   local compatible::Bool
   local compatibleDim::Dimension
@@ -2958,7 +2958,7 @@ function matchDimensionsRef(
   dim1::Dimension,
   dim2::Dimension,
   isComp::Ref{Bool},
-  allowUnknown::Bool,
+  ::Bool,
   )::Dimension
   local compatible::Bool
   local compatibleDim::Dimension

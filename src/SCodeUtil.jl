@@ -464,8 +464,8 @@ function visibilityBool(inVisibility::SCode.Visibility)::Bool
   end
 end
 
-eachBool(inEach::SCode.EACH) = true
-eachBool(inEach::SCode.NOT_EACH) = false
+eachBool(::SCode.EACH) = true
+eachBool(::SCode.NOT_EACH) = false
 
 function prefixesRedeclare(inPrefixes::SCode.PREFIXES)::SCode.Redeclare
   local outRedeclare::SCode.Redeclare
@@ -1707,7 +1707,7 @@ function getEquationInfo(eq::SCode.EEquation)::SourceInfo
 end
 
 """Map a function over expressions in statements. Stub - returns unchanged."""
-function mapStatementExps(stmt::SCode.Statement, func)::SCode.Statement
+function mapStatementExps(stmt::SCode.Statement, _)::SCode.Statement
   return stmt
 end
 

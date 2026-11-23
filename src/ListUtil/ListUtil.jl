@@ -72,7 +72,7 @@ const TypedList{T} = Union{Nil{Any}, Cons{T}}
 
 The accumulator `acc`, built reversed, in order. An accumulator of zero or one element is returned as it is.
 """
-_reverseTyped(::Type{TO}, acc::Nil) where {TO} = nil
+_reverseTyped(::Type{TO}, ::Nil) where {TO} = nil
 function _reverseTyped(::Type{TO}, acc::Cons{TO})::Cons{TO} where {TO}
   acc.tail isa Nil && return acc
   local out::Cons{TO} = Cons{TO}(acc.head, nil)
@@ -89,7 +89,7 @@ end
 
 The elements of `lst` in reverse order in front of `acc`, in `Cons{TO}` cells.
 """
-_reverseOnto(::Type{TO}, lst::Nil, acc::TypedList{TO}) where {TO} = acc
+_reverseOnto(::Type{TO}, ::Nil, acc::TypedList{TO}) where {TO} = acc
 function _reverseOnto(::Type{TO}, lst::Cons{T}, acc::TypedList{TO})::Cons{TO} where {TO, T}
   local out::TypedList{TO} = acc
   for e::T in lst
@@ -103,7 +103,7 @@ end
 
 `lst` as a `TypedList{TO}`: itself when it is empty or has `Cons{TO}` cells, else a copy.
 """
-_typed(::Type{TO}, lst::Nil) where {TO} = nil
+_typed(::Type{TO}, ::Nil) where {TO} = nil
 _typed(::Type{TO}, lst::Cons{TO}) where {TO} = lst
 _typed(::Type{TO}, lst::Cons{T}) where {TO, T} = _reverseTyped(TO, _reverseOnto(TO, lst, nil))
 
@@ -112,8 +112,8 @@ _typed(::Type{TO}, lst::Cons{T}) where {TO, T} = _reverseTyped(TO, _reverseOnto(
 
 The elements of `lst`, in order, in front of `acc`; `lst` itself is shared when `acc` is empty.
 """
-_copyOnto(::Type{TO}, lst::Nil, acc::TypedList{TO}) where {TO} = acc
-_copyOnto(::Type{TO}, lst::Cons{T}, acc::Nil) where {TO, T} = _typed(TO, lst)
+_copyOnto(::Type{TO}, ::Nil, acc::TypedList{TO}) where {TO} = acc
+_copyOnto(::Type{TO}, lst::Cons{T}, ::Nil) where {TO, T} = _typed(TO, lst)
 function _copyOnto(::Type{TO}, lst::Cons{T}, acc::Cons{TO})::Cons{TO} where {TO, T}
   return _reverseOnto(TO, _reverseOnto(TO, lst, nil), acc)
 end
@@ -151,7 +151,7 @@ end
 
 A rest of a list (a `tail` field, of type `Union{Nil, Cons{T}}`) with its empty list as `nil`.
 """
-_norm(lst::Nil) = nil
+_norm(::Nil) = nil
 _norm(lst::Cons{T}) where {T} = lst
 
 #= ---------------------------------------------------------------------------------------------------------------
@@ -244,7 +244,7 @@ end
 
 """ All elements but the first (shared); the empty list for the empty list. """
 stripFirst(inList::Cons{T}) where {T} = _norm(inList.tail)
-stripFirst(inList::Nil) = nil
+stripFirst(::Nil) = nil
 
 """
     stripN(inList, inN) -> List
@@ -260,7 +260,7 @@ function stripN(inList::Cons{T}, inN::Int) where {T}
   end
   return _norm(cur)
 end
-stripN(inList::Nil, inN::Int) = inN == 0 ? nil : fail()
+stripN(::Nil, inN::Int) = inN == 0 ? nil : fail()
 
 """
     split(inList, inPosition, TO) -> (TypedList{TO}, List)
@@ -288,7 +288,7 @@ function splitr(inList::Cons{T}, inPosition::Int, ::Type{TO}) where {T, TO}
   end
   return (acc, _norm(cur))
 end
-splitr(inList::Nil, inPosition::Int, ::Type{TO}) where {TO} = inPosition == 0 ? (nil, nil) : fail()
+splitr(::Nil, inPosition::Int, ::Type{TO}) where {TO} = inPosition == 0 ? (nil, nil) : fail()
 
 """
     splitOnTrue(inList, inFunc, TO) -> (TypedList{TO}, TypedList{TO})
@@ -362,7 +362,7 @@ function trim(lst::Cons{T}, pred_func::F) where {T, F<:Function}
   end
   return _norm(cur)
 end
-trim(lst::Nil, pred_func::F) where {F<:Function} = nil
+trim(::Nil, ::F) where {F<:Function} = nil
 
 """
     filterOnTrue(inList, inFilterFunc, TO) -> TypedList{TO}
@@ -442,8 +442,8 @@ An empty list and a list give that list as it is.
 function union(inList1::Cons{T1}, inList2::Cons{T2}, ::Type{TO})::TypedList{TO} where {T1, T2, TO}
   return _fromVector(TO, Base.union(_vector(TO, inList1), _vector(TO, inList2)))
 end
-union(inList1::Nil, inList2::List{T2}, ::Type{TO}) where {T2, TO} = _typed(TO, inList2)
-union(inList1::Cons{T1}, inList2::Nil, ::Type{TO}) where {T1, TO} = _typed(TO, inList1)
+union(::Nil, inList2::List{T2}, ::Type{TO}) where {T2, TO} = _typed(TO, inList2)
+union(inList1::Cons{T1}, ::Nil, ::Type{TO}) where {T1, TO} = _typed(TO, inList1)
 
 """
     unionOnTrue(inList1, inList2, inCompFunc, TO) -> TypedList{TO}
@@ -723,7 +723,7 @@ function reduce(inList::Cons{T}, inReduceFunc::F, ::Type{TO})::TO where {T, F<:F
   end
   return out
 end
-reduce(::Nil, inReduceFunc::F, ::Type{TO}) where {F<:Function, TO} = fail()
+reduce(::Nil, ::F, ::Type{TO}) where {F<:Function, TO} = fail()
 
 """
     mapFold(inList, inFunc, inArg, TO, TA) -> (TypedList{TO}, TA)

@@ -733,7 +733,7 @@ function getCondition(component::Component)
   return cond
 end
 
-function hasBinding(comp::Component, parent::InstNode = EMPTY_NODE())
+function hasBinding(comp::Component, ::InstNode = EMPTY_NODE())
   local b::Bool
 
   local cls::Class

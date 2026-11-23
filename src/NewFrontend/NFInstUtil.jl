@@ -95,7 +95,7 @@ function restoreMissingArrayVariables!(flatModel::FLAT_MODEL)
    end
 end
 
-function adjustIncorrectVariablePaths!(flat_model)
+function adjustIncorrectVariablePaths!(_)
   #= Get all variables =#
   #= Get all component references in the model. =#
 

@@ -82,7 +82,7 @@ function merge(
   outerCty::T,
   innerCty::T,
   node::InstNode,
-  isClass::Bool = false,
+  ::Bool = false,
 )::T where {T <: Integer}
   local cty::T
   #=  If both the outer and the inner has flow or stream, give an error.=#

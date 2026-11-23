@@ -277,7 +277,7 @@ function lookupCref(cref::Absyn.ComponentRef,
 end
 
 """Looks up a cref in the local scope without going into any enclosing scopes."""
-function lookupLocalCref(cref::Absyn.ComponentRef, scope::InstNode #= The scope to look in. =#, info::SourceInfo)
+function lookupLocalCref(cref::Absyn.ComponentRef, scope::InstNode #= The scope to look in. =#, ::SourceInfo)
   local state::LookupState
   local foundScope::InstNode #= The scope where the first part of the cref was found. =#
   local foundCref::ComponentRef

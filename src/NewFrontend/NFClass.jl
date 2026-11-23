@@ -625,9 +625,9 @@ function getModifier(cls::Union{PARTIAL_CLASS, EXPANDED_CLASS, EXPANDED_DERIVED,
   return cls.modifier
 end
 
-getModifier(cls::Class) = MODIFIER_NOMOD()
+getModifier(::Class) = MODIFIER_NOMOD()
 
-classTreeApply(cls::Class, func::FuncType) = cls
+classTreeApply(cls::Class, ::FuncType) = cls
 
 function classTreeApply(cls::INSTANCED_BUILTIN, func::FuncType)
   local elements = func(cls.elements)
@@ -659,7 +659,7 @@ function classTreeApply(cls::PARTIAL_CLASS, func::FuncType)
   return tmpCls
 end
 
-function setClassTree(tree::ClassTree, cls::Class)
+function setClassTree(::ClassTree, cls::Class)
   return cls
 end
 

@@ -146,7 +146,7 @@ getExtends(tree::ClassTree) = tree.exts
 getClasses(tree::ClassTree)::Vector{InstNode} = tree.classes::Vector{InstNode}
 
 function enumerateComponents2(
-  name::String,
+  ::String,
   entry::LookupTree.Entry,
   comps::Vector{<:InstNode},
   components::List{<:InstNode},
@@ -180,15 +180,12 @@ function setClassExtends(extNode::InstNode, tree::ClassTree)::ClassTree
   return tree
 end
 
-function isIdentical(tree1::ClassTree, tree2::ClassTree)::Bool
-  local identical::Bool
-
-  identical = true
-  return identical
+function isIdentical(::ClassTree, ::ClassTree)::Bool
+  return true
 end
 
 function checkDuplicates2(
-  name::String,
+  ::String,
   entry::DuplicateTree.Entry,
   tree::ClassTree,
 )::ClassTree
@@ -533,7 +530,7 @@ function mapExtends(tree::ClassTree, parent::InstNode)
   return
 end
 
-function mapExtends(tree::ClassTree, attributes::Attributes, useBinding::Bool, visibility, instLevel::Int, attributeRef::Ref{Attributes})::Nothing
+function mapExtends(tree::ClassTree, attributes::Attributes, useBinding::Bool, _, instLevel::Int, attributeRef::Ref{Attributes})::Nothing
   local exts::Vector{InstNode} = getExtends(tree)
   for i in 1:length(exts)
     local res = @inbounds exts[i]::InstNode
@@ -623,7 +620,7 @@ function lookupElement(name::String, classTree::ClassTree)
 end
 
 function flattenLookupTree2(
-  key::LookupTree.Key,
+  ::LookupTree.Key,
   entry::LookupTree.Entry,
   offsets::Vector{<:Int},
 )::LookupTree.Entry
@@ -1447,7 +1444,7 @@ end
 #= omc ClassTree.initImports: instantiates the unqualified imports (the names they import are not
    in the clause) and adds all imports to the lookup tree; called once the tree from fromSCode is on
    its node (partialInstClass), so `import A.Units.*` inside A finds A.Units. =#
-function initImports(tree::ClassTree, parent::InstNode)::ClassTree
+function initImports(tree::ClassTree, ::InstNode)::ClassTree
   isvariant(tree, CLASS_TREE_PARTIAL_TREE) || return tree
   isempty(tree.imports) && return tree
   local init_imports::List{Import} = nil
@@ -1614,7 +1611,7 @@ function replaceDuplicates4(
 end
 
 function replaceDuplicates2(
-  name::String,
+  ::String,
   entry::DuplicateTree.DUPLICATE_TREE_ENTRY,
   tree::ClassTree,
 )::DuplicateTree.Entry
@@ -1699,7 +1696,7 @@ function getRedeclareChain(
 end
 
 function mapRedeclareChain(
-  name::String,
+  ::String,
   entry::DuplicateTree.Entry,
   func::FuncT,
   tree::ClassTree,
@@ -1748,7 +1745,7 @@ function enumerateDuplicates3(
 end
 
 function enumerateDuplicates2(
-  name::String,
+  ::String,
   entry::DuplicateTree.Entry,
   classes::List{Int},
   components::List{Int},
@@ -1786,7 +1783,7 @@ end
 function joinDuplicates(
   newEntry::DuplicateTree.Entry,
   oldEntry::DuplicateTree.Entry,
-  name::String,
+  ::String,
   )
   local entry::DuplicateTree.Entry = oldEntry
 
@@ -1838,7 +1835,7 @@ function addInheritedElementConflict(
   oldEntry::LookupTree.Entry,
   name::String,
   duplicates::Pointer{<:DuplicateTree.Tree},
-  extDuplicates::DuplicateTree.Tree,
+  ::DuplicateTree.Tree,
 )::LookupTree.Entry
   local entry::LookupTree.Entry
   local dups::DuplicateTree.Tree
@@ -2248,7 +2245,7 @@ end
 function addImportConflict(
   newEntry::LookupTree.Entry,
   oldEntry::LookupTree.Entry,
-  name::String,
+  ::String,
   imports::Vector{<:Import},
 )::LookupTree.Entry
   local entry::LookupTree.Entry
@@ -2326,9 +2323,9 @@ end
 
 """Conflict handler for fromEnumeration."""
 function addEnumConflict(
-  newEntry::LookupTree.Entry,
-  oldEntry::LookupTree.Entry,
-  nameStr::String,
+  ::LookupTree.Entry,
+  ::LookupTree.Entry,
+  ::String,
   literal::InstNode,
 )::LookupTree.Entry
   local entry::LookupTree.Entry

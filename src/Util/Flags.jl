@@ -399,7 +399,7 @@ const LOAD_MISSING_LIBRARIES =
 """
   Loads the flags with getGlobalRoot. Assumes flags have been loaded.
 """
-function getFlags(initialize::Bool = true)::Flag
+function getFlags(::Bool = true)::Flag
   local flags::Flag = getGlobalRoot(Global.flagsIndex)
   return flags
 end

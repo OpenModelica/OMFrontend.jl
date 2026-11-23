@@ -290,7 +290,7 @@ function isEmpty(mod::Modifier)
   return isEmpty
 end
 
-function merge(outerMod::Modifier, innerMod::Modifier, name::String = "")
+function merge(outerMod::Modifier, innerMod::Modifier, ::String = "")
   #= One of the modifiers is NOMOD, return the other. Checked before the
      @match: matching on (a, b) allocates the tuple it destructures, and the
      no-modifier case dominates instantiation. =#
@@ -493,7 +493,7 @@ end
 const DUMMY_MOD::SCode.MOD = SCode.MOD(SCode.FINAL(), SCode.NOT_EACH(), nil, NONE(), AbsynUtil.dummyInfo)
 function patchElementModFinal(
   prefixes::SCode.PREFIXES,
-  info::SourceInfo,
+  ::SourceInfo,
   mod::SCode.Mod,
   )
   if SCodeUtil.finalBool(SCodeUtil.prefixesFinal(prefixes))
@@ -566,16 +566,16 @@ function fromElement(
   end
 end
 
-create(mod::SCode.NOMOD,
-       name::String,
-       modScope::ModifierScope,
-       parents::List{<:InstNode},
-       scope::InstNode) = MODIFIER_NOMOD()
+create(::SCode.NOMOD,
+       ::String,
+       ::ModifierScope,
+       ::List{<:InstNode},
+       ::InstNode) = MODIFIER_NOMOD()
 
 function create(mod::SCode.REDECL,
-                name::String,
-                modScope::ModifierScope,
-                parents::List{<:InstNode},
+                ::String,
+                ::ModifierScope,
+                ::List{<:InstNode},
                 scope::InstNode)::Modifier
   local elem = mod.element
   node = new(elem, scope)
@@ -636,7 +636,7 @@ end
   element, otherwise it's an error.
 """
 #= The prefix is the path of the enclosing modifiers, innermost first (omc). =#
-function mergeLocal(mod1::Modifier, mod2::Modifier, key::String, scope::ModifierScope,
+function mergeLocal(mod1::Modifier, mod2::Modifier, ::String, scope::ModifierScope,
                     prefix::List{String} = nil)::Modifier
   @match (mod1, mod2) begin
     (MODIFIER_MODIFIER(__), MODIFIER_MODIFIER(binding = UNBOUND(__))) => begin

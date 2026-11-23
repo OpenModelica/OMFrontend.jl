@@ -59,7 +59,7 @@ end
 function instDefaultConstructor(
   path::Absyn.Path,
   node::InstNode,
-  info::SourceInfo,
+  ::SourceInfo,
 )::InstNode
   local inputs::List{InstNode}
   local locals::List{InstNode}

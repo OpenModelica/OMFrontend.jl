@@ -306,9 +306,9 @@ function typeComponentBindingRef2_typeAttr(
   node::InstNode,
   c::Component,
   origin::ORIGIN_Type,
-  typeChildren::Bool,
-  tyRef::Ref{ModelicaType},
-  varRef::Ref{VariabilityType})
+  ::Bool,
+  ::Ref{ModelicaType},
+  ::Ref{VariabilityType})
   if isvariant(c.modifier, MODIFIER_NOMOD)
     return node
   end
@@ -356,7 +356,7 @@ function typeComponentBinding2_typeAttr(
   node::InstNode,
   c::Component,
   origin::ORIGIN_Type,
-  typeChildren::Bool,
+  ::Bool,
   )
   if isvariant(c.modifier, MODIFIER_NOMOD)
     return node
@@ -372,7 +372,7 @@ function typeComponentBinding2_untyped(
   node::InstNode,
   c::Component,
   origin::ORIGIN_Type,
-  typeChildren::Bool,
+  ::Bool,
   )
   if ! isvariant(c.binding, UNTYPED_BINDING)
     return node
@@ -571,6 +571,6 @@ end
 Updates and mutates a given binding exp.
 NOTE: Creates a new BIINDING_EXP
 """
-function updateBindingExp!(bindingExp::BINDING_EXP, exp, expType, bindingType, parents, isEach)::BINDING_EXP
+function updateBindingExp!(::BINDING_EXP, exp, expType, bindingType, parents, isEach)::BINDING_EXP
   return BINDING_EXP(exp, expType, bindingType, parents, isEach)
 end

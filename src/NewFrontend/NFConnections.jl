@@ -35,7 +35,7 @@
 
 function makeConnectors(
   cref::ComponentRef,
-  ty::ModelicaType,
+  ::ModelicaType,
   source::SourceInfo,
 )::List{CONNECTOR}
   local connectors::List{CONNECTOR}

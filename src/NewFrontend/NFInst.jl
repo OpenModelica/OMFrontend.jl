@@ -478,7 +478,7 @@ function expandClass2(node::InstNode) ::InstNode
   node
 end
 
-function expandClassParts(def::SCode.Element, node::InstNode, info::SourceInfo) ::InstNode
+function expandClassParts(def::SCode.Element, node::InstNode, ::SourceInfo) ::InstNode
   local cls::Class
   local cls_tree::ClassTree
   local mod::Modifier
@@ -567,7 +567,7 @@ end
   Checks that all parts of a name used as a base class are transitively
   non-replaceable.
 """
-function checkReplaceableBaseClass(baseClasses::List{<:InstNode}, basePath::Absyn.Path, info::SourceInfo)
+function checkReplaceableBaseClass(baseClasses::List{<:InstNode}, basePath::Absyn.Path, ::SourceInfo)
   local i::Int = 0
   local name::String
   local rest::List{InstNode}
@@ -618,7 +618,7 @@ function expandExternalObject(clsTree::ClassTree, node::InstNode) ::InstNode
   node
 end
 
-function checkBuiltinTypeExtends(builtinExtends::InstNode, tree::ClassTree, node::InstNode)
+function checkBuiltinTypeExtends(::InstNode, tree::ClassTree, ::InstNode)
   #= A class extending from a builtin type may not have other components or baseclasses. =#
   if componentCount(tree) > 0 || extendsCount(tree) > 1
     #Error.addSourceMessage(Error.BUILTIN_EXTENDS_INVALID_ELEMENTS, list(name(builtinExtends)), InstNode_info(node))
@@ -813,12 +813,12 @@ function instClass(node::InstNode, modifier::Modifier, attributes::Attributes, a
 end
 
 """On failure call the generic function."""
-function instClassDef(cls::Class)
+function instClassDef(::Class)
   @error "Unknown class during instantiation"
   fail()
 end
 
-function instClassDef(cls::INSTANCED_CLASS,
+function instClassDef(::INSTANCED_CLASS,
                       outerMod::Modifier,
                       attributes::Attributes,
                       useBinding::Bool,
@@ -840,10 +840,10 @@ end
 function instClassDef(cls::PARTIAL_BUILTIN,
                       outerMod::Modifier,
                       attributes::Attributes,
-                      useBinding::Bool,
+                      ::Bool,
                       node::InstNode,
                       parentArg::InstNode,
-                      instLevel::Int,
+                      ::Int,
                       attributeRef::Ref{Attributes})::InstNode
   @match cls begin
     PARTIAL_BUILTIN(restriction = RESTRICTION_EXTERNAL_OBJECT(__))  => begin
@@ -1484,7 +1484,7 @@ function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMo
   redeclaredNode
 end
 
-function redeclareEnum(redeclareClass::Class, originalClass::Class, prefixes::PREFIXES, outerMod::Modifier, redeclareNode::InstNode, originalNode::InstNode) ::Class
+function redeclareEnum(::Class, originalClass::Class, prefixes::PREFIXES, outerMod::Modifier, redeclareNode::InstNode, originalNode::InstNode) ::Class
   #= Expanded, so that a short class of an enumeration (`redeclare type AE = E`) is one (omc). =#
   expand(redeclareNode)
   local redeclaredClass::Class = getClass(redeclareNode)
@@ -2074,7 +2074,7 @@ function printRedeclarePrefixError(node::InstNode, prefix1::String, prefix2::Str
   Error.addSourceMessageAndFail(Error.REDECLARE_MISMATCHED_PREFIX, list(prefix1, name(node), prefix2), InstNode_info(node))
 end
 
-function updateComponentVariability(attr::Attributes, cls::Class, clsNode::InstNode,
+function updateComponentVariability(attr::Attributes, ::Class, clsNode::InstNode,
                                     inFunction::Bool = false, comment::SCode.COMMENT = SCode.noComment)::Attributes
   local var::VariabilityType = attr.variability
   if referenceEq(attr, DEFAULT_ATTR) && isDiscreteClass(clsNode)
@@ -2146,13 +2146,13 @@ function instTypeSpec(typeSpec::Absyn.TPATH,
 end
 
 function instTypeSpec(typeSpec::Absyn.TCOMPLEX,
-                      modifier::Modifier,
-                      attributes::Attributes,
-                      useBinding::Bool,
-                      scope::InstNode,
-                      parent::InstNode,
-                      info::SourceInfo,
-                      instLevel::Int)
+                      ::Modifier,
+                      ::Attributes,
+                      ::Bool,
+                      ::InstNode,
+                      ::InstNode,
+                      ::SourceInfo,
+                      ::Int)
   @error("NFInst.instTypeSpec: $(typeof(typeSpec)) not implemented.\\n")
   fail()
 end
@@ -2607,7 +2607,7 @@ function makeComplexType(restriction::Restriction, node::InstNode, cls::Class)::
   TYPE_COMPLEX(node, cty)
 end
 
-function makeRecordComplexType(node::InstNode, cls::Class) ::ComplexType
+function makeRecordComplexType(node::InstNode, ::Class) ::ComplexType
 
   local cls_node::InstNode
 
@@ -3377,7 +3377,7 @@ function instConnectorCref(absynCref::Absyn.ComponentRef, scope::InstNode, info:
 end
 
 """The source of an equation or statement: its position (the comment is not kept)."""
-makeSource(comment::SCode.COMMENT, info::SourceInfo)::SourceInfo = info
+makeSource(::SCode.COMMENT, info::SourceInfo)::SourceInfo = info
 
 function addIteratorToScope(name::String, scope::InstNode, info::SourceInfo, iter_type::ModelicaType = TYPE_UNKNOWN()) ::Tuple{InstNode, InstNode}
   local iterator::InstNode
@@ -3758,7 +3758,7 @@ function markStructuralParamsExp_traverser(@nospecialize(exp::Expression))::Noth
   end
 end
 
-function markStructuralParamsComp(component::Component, node::InstNode)::Nothing
+function markStructuralParamsComp(::Component, node::InstNode)::Nothing
   if _parallelTypingActive()
     return _withClaim(() -> markStructuralParamsComp2(node), _refId(node))
   end
@@ -3786,7 +3786,7 @@ function markStructuralParamsExpSize(@nospecialize(exp::Expression))
   apply(exp, markStructuralParamsExpSize_traverser)
 end
 
-markStructuralParamsExpSize_traverser(exp::Expression) = nothing
+markStructuralParamsExpSize_traverser(::Expression) = nothing
 function markStructuralParamsExpSize_traverser(exp::CALL_EXPRESSION)
   local iters::List{Tuple{InstNode, Expression}}
   @match exp begin

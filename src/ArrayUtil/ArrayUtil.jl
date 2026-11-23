@@ -538,7 +538,7 @@ function appendList!(arr::Vector{T}, lst::Cons{T}) where {T}
   arr
 end
 
-function appendList!(arr::Vector{T}, lst::Nil) where {T}
+function appendList!(arr::Vector{T}, ::Nil) where {T}
   return arr
 end
 

@@ -386,17 +386,17 @@ end
 
 
 """Conflict resolving function for add which fails on conflict."""
-function addConflictFail(newValue::Value, oldValue::Value, key::Key)::Value
+function addConflictFail(::Value, ::Value, ::Key)::Value
   fail()
 end
 
 """Conflict resolving function for add which replaces the old value with the new."""
-function addConflictReplace(newValue::Value, oldValue::Value, key::Key)::Value
+function addConflictReplace(newValue::Value, ::Value, ::Key)::Value
   return newValue
 end
 
 """Conflict resolving function for add which keeps the old value."""
-function addConflictKeep(newValue::Value, oldValue::Value, key::Key)::Value
+function addConflictKeep(::Value, oldValue::Value, ::Key)::Value
   return oldValue
 end
 
@@ -517,7 +517,7 @@ end
 """
 Get on an empty tree results in failure...
 """
-@noinline function get(tree::EMPTY, key::Key)
+@noinline function get(::EMPTY, ::Key)
   fail()
 end
 

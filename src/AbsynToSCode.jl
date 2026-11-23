@@ -2179,7 +2179,7 @@ end
 
 function translateIterator(
   inIterator::Absyn.ForIterator,
-  inInfo::SourceInfo,
+  ::SourceInfo,
 )::Tuple{String, Option{Absyn.Exp}}
   local outRange::Option{Absyn.Exp}
   local outName::String

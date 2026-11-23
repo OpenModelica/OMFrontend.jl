@@ -63,7 +63,7 @@ function instConstructor(path::Absyn.Path, recordNode::InstNode, info::SourceInf
   return recordNode
 end
 
-function instOperatorFunctions(node::InstNode, info::SourceInfo)::InstNode
+function instOperatorFunctions(node::InstNode, ::SourceInfo)::InstNode
 
   local tree::ClassTree
   local mclss::Vector{InstNode}

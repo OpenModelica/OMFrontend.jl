@@ -169,7 +169,7 @@ COMPONENT_NODE(name, visibility, component, parent, nodeType) =
            Int8(visibility), _compPayload(component), parent, nodeType, nothing, nothing, nothing)
 @inline _clsPayload(cls::ClassCell) = cls
 @inline _clsPayload(cls::Class) = ClassCell(cls)
-@inline _clsPayload(cls::Nothing) = nothing
+@inline _clsPayload(::Nothing) = nothing
 CLASS_NODE(name, definition, visibility, cls, caches, parentScope, nodeType) =
   InstNode(IN_CLASS, name, nothing, nothing, parentScope, nothing, 0, nothing, nothing,
            Int8(visibility), nothing, nothing, nodeType, definition, _clsPayload(cls), caches)

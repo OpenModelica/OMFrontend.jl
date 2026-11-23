@@ -242,7 +242,7 @@ function makeEqualityEquation(
   lhsCref::ComponentRef,
   lhsSource::SourceInfo,
   rhsCref::ComponentRef,
-  rhsSource::SourceInfo,
+  ::SourceInfo,
 )::Equation
   local equalityEq::Equation
 
@@ -256,7 +256,7 @@ function makeEqualityAssert(
   lhsCref::ComponentRef,
   lhsSource::SourceInfo,
   rhsCref::ComponentRef,
-  rhsSource::SourceInfo,
+  ::SourceInfo,
 )::Equation
   local equalityAssert::Equation
 

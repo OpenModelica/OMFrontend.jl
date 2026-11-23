@@ -559,7 +559,7 @@ function addInputReplacement(
 end
 
 function applyBindingReplacement(
-  node::InstNode,
+  ::InstNode,
   @nospecialize(exp::Expression),
   repl::ReplTree.Tree,
 )::Expression

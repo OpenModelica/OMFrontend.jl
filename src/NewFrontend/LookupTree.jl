@@ -82,7 +82,7 @@ keyStr(key::Key)::String = key
 # into a Dict without change. The height argument is ignored.
 EMPTY()::Tree = Dict{Key, Value}()
 LEAF(key::Key, value::Value)::Tree = Dict{Key, Value}(key => value)
-function NODE(key::Key, value::Value, height, left::Tree, right::Tree)::Tree
+function NODE(key::Key, value::Value, _, left::Tree, right::Tree)::Tree
   local d = Dict{Key, Value}()
   merge!(d, left, right)
   d[key] = value
@@ -99,15 +99,15 @@ hasKey(tree::Tree, key::Key)::Bool = haskey(tree, key)
 
 #= Conflict resolving functions for add. =#
 """Conflict resolving function for add which fails on conflict."""
-addConflictFail(newValue::Value, oldValue::Value, key::Key) = fail()
+addConflictFail(::Value, ::Value, ::Key) = fail()
 
 const addConflictDefault = addConflictFail
 
 """Conflict resolving function for add which replaces the old value with the new."""
-addConflictReplace(newValue::Value, oldValue::Value, key::Key)::Value = newValue
+addConflictReplace(newValue::Value, ::Value, ::Key)::Value = newValue
 
 """Conflict resolving function for add which keeps the old value."""
-addConflictKeep(newValue::Value, oldValue::Value, key::Key)::Value = oldValue
+addConflictKeep(::Value, oldValue::Value, ::Key)::Value = oldValue
 
 """Inserts a new entry, mutating and returning the tree."""
 function add(
@@ -288,11 +288,11 @@ function printTreeStr(inTree::Tree)::String
   return Base.join(parts, ", ")
 end
 
-function isImport(entry::IMPORT)::Bool
+function isImport(::IMPORT)::Bool
   true
 end
 
-function isImport(entry::Entry)::Bool
+function isImport(::Entry)::Bool
   false
 end
 

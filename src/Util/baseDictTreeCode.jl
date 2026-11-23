@@ -47,9 +47,9 @@ const Tree = Dict{Key, Value}
 
 @inline _sortedKeys(tree::Tree) = sort!(collect(keys(tree)); lt = (a::Key, b::Key) -> keyCompare(a, b) < 0)
 
-addConflictFail(newValue::Value, oldValue::Value, key::Key)::Value = fail()
-addConflictReplace(newValue::Value, oldValue::Value, key::Key)::Value = newValue
-addConflictKeep(newValue::Value, oldValue::Value, key::Key)::Value = oldValue
+addConflictFail(::Value, ::Value, ::Key)::Value = fail()
+addConflictReplace(newValue::Value, ::Value, ::Key)::Value = newValue
+addConflictKeep(::Value, oldValue::Value, ::Key)::Value = oldValue
 
 """Return an empty tree."""
 new()::Tree = Dict{Key, Value}()

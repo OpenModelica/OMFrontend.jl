@@ -607,7 +607,7 @@ function stringPadRight(inString::String, inPadWidth::Int, inPadString::String):
 
    pad_length = inPadWidth - stringLength(inString)
   if pad_length > 0
-     pad_str = stringAppendList(list(inPadString for i = 1:pad_length))
+     pad_str = stringAppendList(list(inPadString for _ = 1:pad_length))
      outString = inString + pad_str
   else
      outString = inString
@@ -628,7 +628,7 @@ function stringPadLeft(inString::String, inPadWidth::Int, inPadString::String)::
 
    pad_length = inPadWidth - stringLength(inString)
   if pad_length > 0
-     pad_str = stringAppendList(list(inPadString for i = 1:pad_length))
+     pad_str = stringAppendList(list(inPadString for _ = 1:pad_length))
      outString = pad_str + inString
   else
      outString = inString
@@ -706,7 +706,7 @@ function swap(cond::Bool, in1, in2)
   return (out1, out2)
 end
 
-function replace(replaced::T, arg::T) where {T}
+function replace(::T, arg::T) where {T}
   local outArg::T = arg
   return outArg
 end

@@ -743,7 +743,7 @@ function promote(@nospecialize(e::Expression), ty::ModelicaType, n::Int) ::Tuple
   local tys::List{ModelicaType} = nil
   local is_array::Bool
   #=  Construct the dimensions that needs to be added. =#
-   dims = list(fromInteger(1) for i in dimensionCount(ty):n - 1)
+   dims = list(fromInteger(1) for _ in dimensionCount(ty):n - 1)
   if ! listEmpty(dims)
      dims = listAppend(arrayDims(ty), dims)
      is_array = isArray(ty)
@@ -768,7 +768,7 @@ function promoteRef(@nospecialize(e::Expression), ty::ModelicaType, n::Int, tyRe
   local tys::List{ModelicaType} = nil
   local is_array::Bool
   #=  Construct the dimensions that needs to be added. =#
-   dims = list(fromInteger(1) for i in dimensionCount(ty):n - 1)
+   dims = list(fromInteger(1) for _ in dimensionCount(ty):n - 1)
   if ! listEmpty(dims)
      dims = listAppend(arrayDims(ty), dims)
      is_array = isArray(ty)
@@ -1154,7 +1154,7 @@ function isRecordOrRecordArray(@nospecialize(exp::Expression)) ::Bool
   end
 end
 
-isRecord(exp::Expression) = false
+isRecord(::Expression) = false
 isRecord(exp::RECORD_EXPRESSION) = isRecordOrRecordArray(exp::Expression)
 
 isBoolean(@nospecialize(exp::Expression)) ::Bool = isvariant(exp, BOOLEAN_EXPRESSION)

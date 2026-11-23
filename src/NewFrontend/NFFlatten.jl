@@ -113,7 +113,7 @@ function flatten(classInst::InstNode, name::String; prefix = COMPONENT_REF_EMPTY
   return flatModel
 end
 
-function collectFunctions(flatModel::FLAT_MODEL, name::String)::FunctionTree
+function collectFunctions(flatModel::FLAT_MODEL, ::String)::FunctionTree
   return collectModelFuncs(flatModel, FunctionTreeImpl.new())
 end
 
@@ -1995,7 +1995,7 @@ end
 
 function addElementSourceArrayPrefix(
   source::SourceInfo,
-  prefix::ComponentRef,
+  ::ComponentRef,
 )::SourceInfo
   #= The backend does not use a component prefix in the element source
      (a plain SourceInfo), so the source is returned unchanged. =#

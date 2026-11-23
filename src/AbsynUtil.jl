@@ -280,10 +280,10 @@ I rewrote this to not use the string allocator - John
 """
 function pathStringWork(
   inPath::Path,
-  len::Int,
+  ::Int,
   delimiter::String,
   dlen::Int,
-  reverse::Bool,
+  ::Bool,
 )::String
   local s::String
   local p::Path = inPath

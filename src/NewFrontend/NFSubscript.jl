@@ -835,22 +835,22 @@ function containsExp(@nospecialize(subscript::Subscript), func::FT)::Bool where 
 end
 
 function compareList(
-  subscripts1::Nil,
-  subscripts2::Nil
+  ::Nil,
+  ::Nil
   )::Int
   return 0
 end
 
 function compareList(
-  subscripts1::Nil,
-  subscripts2::Cons{<:Subscript},
+  ::Nil,
+  ::Cons{<:Subscript},
   )::Int
   return 1
 end
 
 function compareList(
-  subscripts1::Cons{<:Subscript},
-  subscripts2::Nil,
+  ::Cons{<:Subscript},
+  ::Nil,
   )::Int
   return 1
 end

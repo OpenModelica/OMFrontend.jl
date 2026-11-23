@@ -143,7 +143,7 @@ function collectExpConstants_traverser(@nospecialize(exp::Expression), @nospecia
 end
 
 function collectFuncConstants(
-  name::Absyn.Path,
+  ::Absyn.Path,
   func::MODELICA_FUNCTION,
   constants::Constants,
 )::Constants

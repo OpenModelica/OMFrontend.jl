@@ -255,18 +255,18 @@ function rotateRight(inNode::Tree)::Tree
 end
 
 """Conflict resolving function for add which fails on conflict."""
-function addConflictFail(newValue::Value, oldValue::Value, key::Key)
+function addConflictFail(::Value, ::Value, ::Key)
   fail()
 end
 
 """Conflict resolving function for add which replaces the old value with the new."""
-function addConflictReplace(newValue::Value, oldValue::Value, key::Key)
+function addConflictReplace(newValue::Value, ::Value, ::Key)
   local value::Value = newValue
   return value
 end
 
 """Conflict resolving function for add which keeps the old value."""
-function addConflictKeep(newValue::Value, oldValue::Value, key::Key)
+function addConflictKeep(::Value, oldValue::Value, ::Key)
   local value::Value = oldValue
   return value
 end

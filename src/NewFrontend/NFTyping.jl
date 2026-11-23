@@ -140,7 +140,7 @@ const TYPE_COMPONENT_MAX_DEPTH = Threads.Atomic{Int}(0)
   return r::Base.RefValue{Int}
 end
 
-function typeClass(cls::InstNode, name::String)
+function typeClass(cls::InstNode, ::String)
   _typeDepthRef()[] = 0
   TYPE_COMPONENT_MAX_DEPTH[] = 0
   typeClassType(cls, EMPTY_BINDING, ORIGIN_CLASS, cls)
@@ -2766,7 +2766,7 @@ end
 
 function evaluateCondition(
   @nospecialize(condExp::Expression),
-  origin::ORIGIN_Type,
+  ::ORIGIN_Type,
   info::SourceInfo,
 )::Bool
   local condBool::Bool

@@ -1324,7 +1324,7 @@ end
 Author: johti17
 Extension. Types an initialStructuralState call.
 """
-function typeInitialStructuralStateCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)
+function typeInitialStructuralStateCall(call::Call, ::ORIGIN_Type, ::SourceInfo)
   local variabilityType::VariabilityType = Variability.PARAMETER
   #@debug "Typing..."
   @match UNTYPED_CALL(fn_ref, args, namedArgs) = call
@@ -1351,7 +1351,7 @@ Extension:
   runtime by an external agent that receives the model metamodel and current
   simulation state. No second argument is required — the agent provides it.
 """
-function typeAgenticRecompilationCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)
+function typeAgenticRecompilationCall(call::Call, ::ORIGIN_Type, ::SourceInfo)
   local variabilityType::VariabilityType = Variability.PARAMETER
   @match UNTYPED_CALL(fn_ref, args, namedArgs) = call
   if length(args) < 1

@@ -719,9 +719,9 @@ no start value.
 function evalComponentStartBinding(
   node::InstNode,
   comp::Component,
-  cref::ComponentRef,
+  ::ComponentRef,
   @nospecialize(target::EvalTarget),
-  evalSubscripts::Bool,
+  ::Bool,
 )::Tuple{Bool, Expression}
   local var::VariabilityType = variability(comp)
   (var == Variability.PARAMETER || var == Variability.STRUCTURAL_PARAMETER) && getFixedAttribute(comp) ||
@@ -2000,7 +2000,7 @@ end
 
 evalBuiltinZeros(args::Union{List{Expression}, Vector{Expression}})::Expression = evalBuiltinFill2(INTEGER_EXPRESSION(0), args)
 
-function evalUriToFilename(fn::MODELICA_FUNCTION, args::Vector{Expression}, @nospecialize(target::EvalTarget))::Expression
+function evalUriToFilename(::MODELICA_FUNCTION, args::Vector{Expression}, @nospecialize(_target::EvalTarget))::Expression
   args[1] isa STRING_EXPRESSION || return _wrongArgs("uriToFilename", args[1])
   return STRING_EXPRESSION(resolveModelicaUri(args[1].value))
 end
@@ -2093,7 +2093,7 @@ function evalSolverClock(args::Vector{Expression})::Expression
 end
 
 """`DynamicSelect(static, dynamic)`: the static value."""
-function evalBuiltinDynamicSelect(fn::MODELICA_FUNCTION, args::Vector{Expression}, @nospecialize(target::EvalTarget))::Expression
+function evalBuiltinDynamicSelect(::MODELICA_FUNCTION, args::Vector{Expression}, @nospecialize(target::EvalTarget))::Expression
   length(args) == 2 || return _wrongArgs("DynamicSelect", args)
   return _evalValue(unbox(args[1]), target)
 end

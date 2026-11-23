@@ -44,7 +44,7 @@ import Printf
 
 
 """removes chars in charsToRemove from begin and end of inString"""
-function trim(inString::String, charsToRemove::String = " \\f\\n\\r\\t\\v") ::String
+function trim(::String, ::String = " \\f\\n\\r\\t\\v") ::String
   local outString::String
 
   @error "TODO: Defined in the runtime"
@@ -52,7 +52,7 @@ function trim(inString::String, charsToRemove::String = " \\f\\n\\r\\t\\v") ::St
 end
 
 """locates substring searchStr in str. If succeeds return position (starting from 0), otherwise return -1"""
-function stringFind(str::String, searchStr::String) ::Int
+function stringFind(::String, ::String) ::Int
   local outInteger::Int
 
   @error "TODO: Defined in the runtime"
@@ -98,7 +98,7 @@ function regex(str::String, re::String, maxMatches::Int #= The maximum number of
   (numMatches #= 0 means no match, else returns a number 1..maxMatches (1 if maxMatches<0) =#, strs #= This list has length = maxMatches. Substrings that did not match are filled with the empty string =#)
 end
 
-function strncmp(inString1::String, inString2::String, len::Int) ::Int
+function strncmp(::String, ::String, ::Int) ::Int
   local outInteger::Int
 
   @error "TODO: Defined in the runtime"
@@ -110,7 +110,7 @@ function stringReplace(str::String, source::String, target::String) ::String
 end
 
 """ Replaces unknown characters with _ """
-function makeC89Identifier(str::String) ::String
+function makeC89Identifier(::String) ::String
   local res::String
 
   @error "TODO: internal function makeC89Identifier not defined in the runtime"
@@ -128,14 +128,14 @@ function strtok(string::String, token::String) ::List{String}
   return list((String(p) for p in pieces)...)
 end
 
-function loadLibrary(inLib::String, inPrintDebug::Bool) ::Int
+function loadLibrary(::String, ::Bool) ::Int
   local outLibHandle::Int
 
   @error "TODO: Defined in the runtime"
   outLibHandle
 end
 
-function lookupFunction(inLibHandle::Int, inFunc::String) ::Int
+function lookupFunction(::Int, ::String) ::Int
   local outFuncHandle::Int
 
   @error "TODO: Defined in the runtime"
@@ -153,28 +153,28 @@ function appendFile(file::String, data::String)
 end
 
 """Does not fail. Returns strings describing the error instead."""
-function readFile(inString::String) ::String
+function readFile(::String) ::String
   local outString::String
 
   @error "TODO: Defined in the runtime"
   outString
 end
 
-function systemCall(command::String, outFile::String = "" #= empty file means no redirection unless it is part of the command =#) ::Int
+function systemCall(::String, ::String = "" #= empty file means no redirection unless it is part of the command =#) ::Int
   local outInteger::Int
 
   @error "TODO: Defined in the runtime"
   outInteger
 end
 
-function cd(inString::String) ::Int
+function cd(::String) ::Int
   local outInteger::Int
 
   @error "TODO: Defined in the runtime"
   outInteger
 end
 
-function createDirectory(inString::String) ::Bool
+function createDirectory(::String) ::Bool
   local outBool::Bool
 
   @error "TODO: Defined in the runtime"
@@ -195,7 +195,7 @@ function time() ::AbstractFloat
   outReal
 end
 
-function directoryExists(inString::String) ::Bool
+function directoryExists(::String) ::Bool
   local outBool::Bool
 
   @error "TODO: Defined in the runtime"
@@ -319,7 +319,7 @@ const _REALTIME_CLOCKS = Dict{Int, UInt64}()
   Returns the name of the file without any leading directory path.
   See man 3 basename.
 """
-function basename(filename::String) ::String
+function basename(::String) ::String
   local base::String
 
   @error "TODO: Defined in the runtime"
@@ -330,7 +330,7 @@ end
   Returns the name of the file without any leading directory path.
   See man 3 dirname.
 """
-function dirname(filename::String) ::String
+function dirname(::String) ::String
   local base::String
 
   @error "TODO: Defined in the runtime"
@@ -341,7 +341,7 @@ end
   Because list() requires escape-sequences to be in the AST, we need to be
   able to unescape them in some places of the code.
 """
-function escapedString(unescapedString::String, unescapeNewline::Bool) ::String
+function escapedString(::String, ::Bool) ::String
   local escapedString::String
 
   @error "TODO: Defined in the runtime"
@@ -453,7 +453,7 @@ end
   set to another.
   See man (3) iconv for more information.
 """
-function iconv(string::String, from::String, to::String) ::String
+function iconv(::String, ::String, ::String) ::String
   local result::String
 
   @error "TODO: Defined in the runtime"
@@ -481,7 +481,7 @@ function sprintff(format::String, val::AbstractFloat) ::String
 end
 
 """Choose a locale for subsequent gettext calls. Prints warnings on failures."""
-function gettextInit(locale::String = "" #= Empty string choses automatically from the environment =#)
+function gettextInit(::String = "" #= Empty string choses automatically from the environment =#)
   @error "TODO: Defined in the runtime"
 end
 
@@ -492,14 +492,14 @@ function gettext(msgid::String) ::String
   return msgstr
 end
 
-function realpath(path::String) ::String
+function realpath(::String) ::String
   local fullpath::String
 
   @error "TODO: Defined in the runtime"
   fullpath
 end
 
-function getSimulationHelpText(detailed::Bool = false, sphinx::Bool = false) ::String
+function getSimulationHelpText(::Bool = false, ::Bool = false) ::String
   local text::String
 
   @error "TODO: Defined in the runtime"
@@ -513,7 +513,7 @@ function getTerminalWidth() ::Int
   width
 end
 
-function rename(source::String, dest::String) ::Bool
+function rename(::String, ::String) ::Bool
   local result::Bool
 
   @error "TODO: Defined in the runtime"
@@ -521,11 +521,11 @@ function rename(source::String, dest::String) ::Bool
 end
 
 """Exits the compiler at this point with the given exit status."""
-function exit(status::Int)
+function exit(::Int)
   @error "TODO: Defined in the runtime"
 end
 
-function stat(filename::String) ::Tuple{Bool, AbstractFloat, AbstractFloat}
+function stat(::String) ::Tuple{Bool, AbstractFloat, AbstractFloat}
   local st_mtime::AbstractFloat
   local st_size::AbstractFloat
   local success::Bool
@@ -534,7 +534,7 @@ function stat(filename::String) ::Tuple{Bool, AbstractFloat, AbstractFloat}
   (success, st_size, st_mtime)
 end
 
-function alarm(seconds::Int) ::Int
+function alarm(::Int) ::Int
   local previousAlarm::Int
 
   @error "TODO: Defined in the runtime"
@@ -549,7 +549,7 @@ function dladdr(symbol::T #= Function pointer =#)  where {T}
 end
 
 
-function updateUriMapping(namesAndDirs::Array{<:String})
+function updateUriMapping(::Array{<:String})
   @error "TODO: Defined in the runtime"
 end
 
@@ -562,7 +562,7 @@ end
 
 StringAllocator(::Int = 0) = StringAllocator(IOBuffer())
 
-function stringAllocatorStringCopy(dest::StringAllocator, source::AbstractString, destOffset::Int = 0)
+function stringAllocatorStringCopy(dest::StringAllocator, source::AbstractString, ::Int = 0)
   write(dest.io, source)
   return dest
 end
