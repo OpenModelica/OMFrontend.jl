@@ -85,7 +85,7 @@ end
     @match eq begin
       EQUATION_EQUALITY(__) => begin
         s = IOStream_M.append(s, toFlatString(eq.lhs))
-        s = IOStream_M.append(s, " = /*Equality*/")
+        s = IOStream_M.append(s, " = ")
         s = IOStream_M.append(s, toFlatString(eq.rhs))
         s
       end

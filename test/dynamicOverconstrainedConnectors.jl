@@ -10,8 +10,8 @@ end 'Modelica.SIunits.ComplexPerUnit';
   public 'Modelica.SIunits.ComplexPerUnit' i;
   public Real omegaRef;
 equation
-  'i'.re = /*Equality*/0.0;
-  'i'.im = /*Equality*/0.0;
+  'i'.re = 0.0;
+  'i'.im = 0.0;
 end 'DynamicOverconstrainedConnectors.ACPort';
 "
 
@@ -32,9 +32,9 @@ end 'Modelica.SIunits.ComplexPerUnit';
   public Real P(unit = \"1\") = 0.0;
   public Real Q = 0.0;
 equation
-  'port.i'.re = /*Equality*/0.0;
-  'port.i'.im = /*Equality*/0.0;
-  'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('port.v', 'Modelica.ComplexMath.conj'('port.i')) = /*Equality*/'Complex.'constructor'.fromReal'(P, Q);
+  'port.i'.re = 0.0;
+  'port.i'.im = 0.0;
+  'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('port.v', 'Modelica.ComplexMath.conj'('port.i')) = 'Complex.'constructor'.fromReal'(P, Q);
 end 'DynamicOverconstrainedConnectors.Load';
 "
 
@@ -61,14 +61,14 @@ end 'Modelica.SIunits.ComplexPerUnit';
   public Real theta(fixed = true, start = 0.0, displayUnit = \"deg\", unit = \"rad\", quantity = \"Angle\");
   public Real omega(fixed = true, start = 1.0, unit = \"1\");
 equation
-  'port.i'.re = /*Equality*/0.0;
-  'port.i'.im = /*Equality*/0.0;
-  der(theta) = /*Equality*/(omega - 'port.omegaRef') * 314.1592653589793;
-  Ta * omega * der(omega) = /*Equality*/Ps + Pc - Pe;
-  'port.v' = /*Equality*/'Modelica.ComplexMath.fromPolar'(V, theta);
-  Pe = /*Equality*/(-'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('port.v', 'Modelica.ComplexMath.conj'('port.i'))[field: re]);
-  Pc = /*Equality*/(-(omega - 1.0) / droop);
-  'port.omegaRef' = /*Equality*/omega;
+  'port.i'.re = 0.0;
+  'port.i'.im = 0.0;
+  der(theta) = (omega - 'port.omegaRef') * 314.1592653589793;
+  Ta * omega * der(omega) = Ps + Pc - Pe;
+  'port.v' = 'Modelica.ComplexMath.fromPolar'(V, theta);
+  Pe = (-'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('port.v', 'Modelica.ComplexMath.conj'('port.i'))[field: re]);
+  Pc = (-(omega - 1.0) / droop);
+  'port.omegaRef' = omega;
 end 'DynamicOverconstrainedConnectors.Generator';
 "
 
@@ -95,25 +95,25 @@ end 'Modelica.SIunits.ComplexPerUnit';
   public 'Modelica.SIunits.ComplexPerUnit' 'port_b.i';
   public Real 'port_b.omegaRef';
 initial equation
-  closed = /*Equality*/true;
-  B_act = /*Equality*/B;
+  closed = true;
+  B_act = B;
 equation
-  'port_a.i'.re = /*Equality*/0.0;
-  'port_a.i'.im = /*Equality*/0.0;
-  'port_b.i'.re = /*Equality*/0.0;
-  'port_b.i'.im = /*Equality*/0.0;
-  'Modelica.SIunits.ComplexPerUnit.'+''('port_a.i', 'port_b.i') = /*Equality*/'Complex.'constructor'.fromReal'(0.0, 0.0);
-  'port_a.i' = /*Equality*/'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, B_act), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('port_a.v', 'port_b.v'));
+  'port_a.i'.re = 0.0;
+  'port_a.i'.im = 0.0;
+  'port_b.i'.re = 0.0;
+  'port_b.i'.im = 0.0;
+  'Modelica.SIunits.ComplexPerUnit.'+''('port_a.i', 'port_b.i') = 'Complex.'constructor'.fromReal'(0.0, 0.0);
+  'port_a.i' = 'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, B_act), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('port_a.v', 'port_b.v'));
 
   when open then
-    closed = /*Equality*/false;
-    B_act = /*Equality*/0.0;
+    closed = false;
+    B_act = 0.0;
   elsewhen close then
-    closed = /*Equality*/true;
-    B_act = /*Equality*/B;
+    closed = true;
+    B_act = B;
   end when;
 
-  'port_a.omegaRef' = /*Equality*/'port_b.omegaRef';
+  'port_a.omegaRef' = 'port_b.omegaRef';
 end 'DynamicOverconstrainedConnectors.TransmissionLine';
 "
 
@@ -172,50 +172,50 @@ end 'Modelica.SIunits.ComplexPerUnit';
   public 'Modelica.SIunits.ComplexPerUnit' 'T.port_b.i';
   public Real 'T.port_b.omegaRef';
 initial equation
-  'T.closed' = /*Equality*/true;
-  'T.B_act' = /*Equality*/'T.B';
+  'T.closed' = true;
+  'T.B_act' = 'T.B';
 equation
-  'G1.port.omegaRef' = /*Equality*/'T.port_a.omegaRef';
-  'G1.port.omegaRef' = /*Equality*/'L1.port.omegaRef';
-  'G1.port.v'.re = /*Equality*/'T.port_a.v'.re;
-  'G1.port.v'.re = /*Equality*/'L1.port.v'.re;
-  'G1.port.v'.im = /*Equality*/'T.port_a.v'.im;
-  'G1.port.v'.im = /*Equality*/'L1.port.v'.im;
-  'G2.port.omegaRef' = /*Equality*/'T.port_b.omegaRef';
-  'G2.port.omegaRef' = /*Equality*/'L2.port.omegaRef';
-  'G2.port.v'.re = /*Equality*/'T.port_b.v'.re;
-  'G2.port.v'.re = /*Equality*/'L2.port.v'.re;
-  'G2.port.v'.im = /*Equality*/'T.port_b.v'.im;
-  'G2.port.v'.im = /*Equality*/'L2.port.v'.im;
-  'T.port_a.i'.re + 'L1.port.i'.re + 'G1.port.i'.re = /*Equality*/0.0;
-  'T.port_a.i'.im + 'L1.port.i'.im + 'G1.port.i'.im = /*Equality*/0.0;
-  'T.port_b.i'.re + 'L2.port.i'.re + 'G2.port.i'.re = /*Equality*/0.0;
-  'T.port_b.i'.im + 'L2.port.i'.im + 'G2.port.i'.im = /*Equality*/0.0;
-  der('G1.theta') = /*Equality*/('G1.omega' - 'G1.port.omegaRef') * 314.1592653589793;
-  'G1.Ta' * 'G1.omega' * der('G1.omega') = /*Equality*/'G1.Ps' + 'G1.Pc' - 'G1.Pe';
-  'G1.port.v' = /*Equality*/'Modelica.ComplexMath.fromPolar'('G1.V', 'G1.theta');
-  'G1.Pe' = /*Equality*/(-'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('G1.port.v', 'Modelica.ComplexMath.conj'('G1.port.i'))[field: re]);
-  'G1.Pc' = /*Equality*/(-('G1.omega' - 1.0) / 'G1.droop');
-  'G1.port.omegaRef' = /*Equality*/'G1.omega';
-  der('G2.theta') = /*Equality*/('G2.omega' - 'G2.port.omegaRef') * 314.1592653589793;
-  'G2.Ta' * 'G2.omega' * der('G2.omega') = /*Equality*/'G2.Ps' + 'G2.Pc' - 'G2.Pe';
-  'G2.port.v' = /*Equality*/'Modelica.ComplexMath.fromPolar'('G2.V', 'G2.theta');
-  'G2.Pe' = /*Equality*/(-'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('G2.port.v', 'Modelica.ComplexMath.conj'('G2.port.i'))[field: re]);
-  'G2.Pc' = /*Equality*/(-('G2.omega' - 1.0) / 'G2.droop');
-  'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('L1.port.v', 'Modelica.ComplexMath.conj'('L1.port.i')) = /*Equality*/'Complex.'constructor'.fromReal'('L1.P', 'L1.Q');
-  'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('L2.port.v', 'Modelica.ComplexMath.conj'('L2.port.i')) = /*Equality*/'Complex.'constructor'.fromReal'('L2.P', 'L2.Q');
-  'Modelica.SIunits.ComplexPerUnit.'+''('T.port_a.i', 'T.port_b.i') = /*Equality*/'Complex.'constructor'.fromReal'(0.0, 0.0);
-  'T.port_a.i' = /*Equality*/'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T.port_a.v', 'T.port_b.v'));
+  'G1.port.omegaRef' = 'T.port_a.omegaRef';
+  'G1.port.omegaRef' = 'L1.port.omegaRef';
+  'G1.port.v'.re = 'T.port_a.v'.re;
+  'G1.port.v'.re = 'L1.port.v'.re;
+  'G1.port.v'.im = 'T.port_a.v'.im;
+  'G1.port.v'.im = 'L1.port.v'.im;
+  'G2.port.omegaRef' = 'T.port_b.omegaRef';
+  'G2.port.omegaRef' = 'L2.port.omegaRef';
+  'G2.port.v'.re = 'T.port_b.v'.re;
+  'G2.port.v'.re = 'L2.port.v'.re;
+  'G2.port.v'.im = 'T.port_b.v'.im;
+  'G2.port.v'.im = 'L2.port.v'.im;
+  'T.port_a.i'.re + 'L1.port.i'.re + 'G1.port.i'.re = 0.0;
+  'T.port_a.i'.im + 'L1.port.i'.im + 'G1.port.i'.im = 0.0;
+  'T.port_b.i'.re + 'L2.port.i'.re + 'G2.port.i'.re = 0.0;
+  'T.port_b.i'.im + 'L2.port.i'.im + 'G2.port.i'.im = 0.0;
+  der('G1.theta') = ('G1.omega' - 'G1.port.omegaRef') * 314.1592653589793;
+  'G1.Ta' * 'G1.omega' * der('G1.omega') = 'G1.Ps' + 'G1.Pc' - 'G1.Pe';
+  'G1.port.v' = 'Modelica.ComplexMath.fromPolar'('G1.V', 'G1.theta');
+  'G1.Pe' = (-'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('G1.port.v', 'Modelica.ComplexMath.conj'('G1.port.i'))[field: re]);
+  'G1.Pc' = (-('G1.omega' - 1.0) / 'G1.droop');
+  'G1.port.omegaRef' = 'G1.omega';
+  der('G2.theta') = ('G2.omega' - 'G2.port.omegaRef') * 314.1592653589793;
+  'G2.Ta' * 'G2.omega' * der('G2.omega') = 'G2.Ps' + 'G2.Pc' - 'G2.Pe';
+  'G2.port.v' = 'Modelica.ComplexMath.fromPolar'('G2.V', 'G2.theta');
+  'G2.Pe' = (-'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('G2.port.v', 'Modelica.ComplexMath.conj'('G2.port.i'))[field: re]);
+  'G2.Pc' = (-('G2.omega' - 1.0) / 'G2.droop');
+  'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('L1.port.v', 'Modelica.ComplexMath.conj'('L1.port.i')) = 'Complex.'constructor'.fromReal'('L1.P', 'L1.Q');
+  'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('L2.port.v', 'Modelica.ComplexMath.conj'('L2.port.i')) = 'Complex.'constructor'.fromReal'('L2.P', 'L2.Q');
+  'Modelica.SIunits.ComplexPerUnit.'+''('T.port_a.i', 'T.port_b.i') = 'Complex.'constructor'.fromReal'(0.0, 0.0);
+  'T.port_a.i' = 'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T.port_a.v', 'T.port_b.v'));
 
   when 'T.open' then
-    'T.closed' = /*Equality*/false;
-    'T.B_act' = /*Equality*/0.0;
+    'T.closed' = false;
+    'T.B_act' = 0.0;
   elsewhen 'T.close' then
-    'T.closed' = /*Equality*/true;
-    'T.B_act' = /*Equality*/'T.B';
+    'T.closed' = true;
+    'T.B_act' = 'T.B';
   end when;
 
-  'T.port_a.omegaRef' = /*Equality*/'T.port_b.omegaRef';
+  'T.port_a.omegaRef' = 'T.port_b.omegaRef';
 end 'DynamicOverconstrainedConnectors.System1';
 "
 
@@ -296,88 +296,88 @@ end 'Modelica.SIunits.ComplexPerUnit';
   public 'Modelica.SIunits.ComplexPerUnit' 'T2.port_b.i';
   public Real 'T2.port_b.omegaRef';
 initial equation
-  'T1a.closed' = /*Equality*/true;
-  'T1a.B_act' = /*Equality*/'T1a.B';
-  'T1b.closed' = /*Equality*/true;
-  'T1b.B_act' = /*Equality*/'T1b.B';
-  'T2.closed' = /*Equality*/true;
-  'T2.B_act' = /*Equality*/'T2.B';
+  'T1a.closed' = true;
+  'T1a.B_act' = 'T1a.B';
+  'T1b.closed' = true;
+  'T1b.B_act' = 'T1b.B';
+  'T2.closed' = true;
+  'T2.B_act' = 'T2.B';
 equation
-  'G1.port.omegaRef' = /*Equality*/'T1b.port_a.omegaRef';
-  'G1.port.omegaRef' = /*Equality*/'L1.port.omegaRef';
-  'G2.port.omegaRef' = /*Equality*/'T2.port_b.omegaRef';
-  'G2.port.omegaRef' = /*Equality*/'L2.port.omegaRef';
-  'G2.port.v'.re = /*Equality*/'T2.port_b.v'.re;
-  'G2.port.v'.re = /*Equality*/'L2.port.v'.re;
-  'G2.port.v'.im = /*Equality*/'T2.port_b.v'.im;
-  'G2.port.v'.im = /*Equality*/'L2.port.v'.im;
-  'G1.port.v'.re = /*Equality*/'T1b.port_a.v'.re;
-  'G1.port.v'.re = /*Equality*/'T1a.port_a.v'.re;
-  'G1.port.v'.re = /*Equality*/'L1.port.v'.re;
-  'G1.port.v'.im = /*Equality*/'T1b.port_a.v'.im;
-  'G1.port.v'.im = /*Equality*/'T1a.port_a.v'.im;
-  'G1.port.v'.im = /*Equality*/'L1.port.v'.im;
-  'T1b.port_b.omegaRef' = /*Equality*/'T2.port_a.omegaRef';
-  'T1b.port_b.omegaRef' = /*Equality*/'T1a.port_b.omegaRef';
-  'T1b.port_b.v'.re = /*Equality*/'T2.port_a.v'.re;
-  'T1b.port_b.v'.re = /*Equality*/'T1a.port_b.v'.re;
-  'T1b.port_b.v'.im = /*Equality*/'T2.port_a.v'.im;
-  'T1b.port_b.v'.im = /*Equality*/'T1a.port_b.v'.im;
-  'T2.port_b.i'.re + 'L2.port.i'.re + 'G2.port.i'.re = /*Equality*/0.0;
-  'T2.port_b.i'.im + 'L2.port.i'.im + 'G2.port.i'.im = /*Equality*/0.0;
-  'T1b.port_a.i'.re + 'T1a.port_a.i'.re + 'L1.port.i'.re + 'G1.port.i'.re = /*Equality*/0.0;
-  'T1b.port_a.i'.im + 'T1a.port_a.i'.im + 'L1.port.i'.im + 'G1.port.i'.im = /*Equality*/0.0;
-  'T2.port_a.i'.re + 'T1b.port_b.i'.re + 'T1a.port_b.i'.re = /*Equality*/0.0;
-  'T2.port_a.i'.im + 'T1b.port_b.i'.im + 'T1a.port_b.i'.im = /*Equality*/0.0;
-  der('G1.theta') = /*Equality*/('G1.omega' - 'G1.port.omegaRef') * 314.1592653589793;
-  'G1.Ta' * 'G1.omega' * der('G1.omega') = /*Equality*/'G1.Ps' + 'G1.Pc' - 'G1.Pe';
-  'G1.port.v' = /*Equality*/'Modelica.ComplexMath.fromPolar'('G1.V', 'G1.theta');
-  'G1.Pe' = /*Equality*/(-'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('G1.port.v', 'Modelica.ComplexMath.conj'('G1.port.i'))[field: re]);
-  'G1.Pc' = /*Equality*/(-('G1.omega' - 1.0) / 'G1.droop');
-  'G1.port.omegaRef' = /*Equality*/'G1.omega';
-  der('G2.theta') = /*Equality*/('G2.omega' - 'G2.port.omegaRef') * 314.1592653589793;
-  'G2.Ta' * 'G2.omega' * der('G2.omega') = /*Equality*/'G2.Ps' + 'G2.Pc' - 'G2.Pe';
-  'G2.port.v' = /*Equality*/'Modelica.ComplexMath.fromPolar'('G2.V', 'G2.theta');
-  'G2.Pe' = /*Equality*/(-'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('G2.port.v', 'Modelica.ComplexMath.conj'('G2.port.i'))[field: re]);
-  'G2.Pc' = /*Equality*/(-('G2.omega' - 1.0) / 'G2.droop');
-  'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('L1.port.v', 'Modelica.ComplexMath.conj'('L1.port.i')) = /*Equality*/'Complex.'constructor'.fromReal'('L1.P', 'L1.Q');
-  'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('L2.port.v', 'Modelica.ComplexMath.conj'('L2.port.i')) = /*Equality*/'Complex.'constructor'.fromReal'('L2.P', 'L2.Q');
-  'Modelica.SIunits.ComplexPerUnit.'+''('T1a.port_a.i', 'T1a.port_b.i') = /*Equality*/'Complex.'constructor'.fromReal'(0.0, 0.0);
-  'T1a.port_a.i' = /*Equality*/'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T1a.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T1a.port_a.v', 'T1a.port_b.v'));
+  'G1.port.omegaRef' = 'T1b.port_a.omegaRef';
+  'G1.port.omegaRef' = 'L1.port.omegaRef';
+  'G2.port.omegaRef' = 'T2.port_b.omegaRef';
+  'G2.port.omegaRef' = 'L2.port.omegaRef';
+  'G2.port.v'.re = 'T2.port_b.v'.re;
+  'G2.port.v'.re = 'L2.port.v'.re;
+  'G2.port.v'.im = 'T2.port_b.v'.im;
+  'G2.port.v'.im = 'L2.port.v'.im;
+  'G1.port.v'.re = 'T1b.port_a.v'.re;
+  'G1.port.v'.re = 'T1a.port_a.v'.re;
+  'G1.port.v'.re = 'L1.port.v'.re;
+  'G1.port.v'.im = 'T1b.port_a.v'.im;
+  'G1.port.v'.im = 'T1a.port_a.v'.im;
+  'G1.port.v'.im = 'L1.port.v'.im;
+  'T1b.port_b.omegaRef' = 'T2.port_a.omegaRef';
+  'T1b.port_b.omegaRef' = 'T1a.port_b.omegaRef';
+  'T1b.port_b.v'.re = 'T2.port_a.v'.re;
+  'T1b.port_b.v'.re = 'T1a.port_b.v'.re;
+  'T1b.port_b.v'.im = 'T2.port_a.v'.im;
+  'T1b.port_b.v'.im = 'T1a.port_b.v'.im;
+  'T2.port_b.i'.re + 'L2.port.i'.re + 'G2.port.i'.re = 0.0;
+  'T2.port_b.i'.im + 'L2.port.i'.im + 'G2.port.i'.im = 0.0;
+  'T1b.port_a.i'.re + 'T1a.port_a.i'.re + 'L1.port.i'.re + 'G1.port.i'.re = 0.0;
+  'T1b.port_a.i'.im + 'T1a.port_a.i'.im + 'L1.port.i'.im + 'G1.port.i'.im = 0.0;
+  'T2.port_a.i'.re + 'T1b.port_b.i'.re + 'T1a.port_b.i'.re = 0.0;
+  'T2.port_a.i'.im + 'T1b.port_b.i'.im + 'T1a.port_b.i'.im = 0.0;
+  der('G1.theta') = ('G1.omega' - 'G1.port.omegaRef') * 314.1592653589793;
+  'G1.Ta' * 'G1.omega' * der('G1.omega') = 'G1.Ps' + 'G1.Pc' - 'G1.Pe';
+  'G1.port.v' = 'Modelica.ComplexMath.fromPolar'('G1.V', 'G1.theta');
+  'G1.Pe' = (-'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('G1.port.v', 'Modelica.ComplexMath.conj'('G1.port.i'))[field: re]);
+  'G1.Pc' = (-('G1.omega' - 1.0) / 'G1.droop');
+  'G1.port.omegaRef' = 'G1.omega';
+  der('G2.theta') = ('G2.omega' - 'G2.port.omegaRef') * 314.1592653589793;
+  'G2.Ta' * 'G2.omega' * der('G2.omega') = 'G2.Ps' + 'G2.Pc' - 'G2.Pe';
+  'G2.port.v' = 'Modelica.ComplexMath.fromPolar'('G2.V', 'G2.theta');
+  'G2.Pe' = (-'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('G2.port.v', 'Modelica.ComplexMath.conj'('G2.port.i'))[field: re]);
+  'G2.Pc' = (-('G2.omega' - 1.0) / 'G2.droop');
+  'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('L1.port.v', 'Modelica.ComplexMath.conj'('L1.port.i')) = 'Complex.'constructor'.fromReal'('L1.P', 'L1.Q');
+  'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('L2.port.v', 'Modelica.ComplexMath.conj'('L2.port.i')) = 'Complex.'constructor'.fromReal'('L2.P', 'L2.Q');
+  'Modelica.SIunits.ComplexPerUnit.'+''('T1a.port_a.i', 'T1a.port_b.i') = 'Complex.'constructor'.fromReal'(0.0, 0.0);
+  'T1a.port_a.i' = 'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T1a.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T1a.port_a.v', 'T1a.port_b.v'));
 
   when 'T1a.open' then
-    'T1a.closed' = /*Equality*/false;
-    'T1a.B_act' = /*Equality*/0.0;
+    'T1a.closed' = false;
+    'T1a.B_act' = 0.0;
   elsewhen 'T1a.close' then
-    'T1a.closed' = /*Equality*/true;
-    'T1a.B_act' = /*Equality*/'T1a.B';
+    'T1a.closed' = true;
+    'T1a.B_act' = 'T1a.B';
   end when;
 
-  'T1a.port_a.omegaRef' = /*Equality*/'T1a.port_b.omegaRef';
-  'Modelica.SIunits.ComplexPerUnit.'+''('T1b.port_a.i', 'T1b.port_b.i') = /*Equality*/'Complex.'constructor'.fromReal'(0.0, 0.0);
-  'T1b.port_a.i' = /*Equality*/'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T1b.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T1b.port_a.v', 'T1b.port_b.v'));
+  'T1a.port_a.omegaRef' = 'T1a.port_b.omegaRef';
+  'Modelica.SIunits.ComplexPerUnit.'+''('T1b.port_a.i', 'T1b.port_b.i') = 'Complex.'constructor'.fromReal'(0.0, 0.0);
+  'T1b.port_a.i' = 'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T1b.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T1b.port_a.v', 'T1b.port_b.v'));
 
   when 'T1b.open' then
-    'T1b.closed' = /*Equality*/false;
-    'T1b.B_act' = /*Equality*/0.0;
+    'T1b.closed' = false;
+    'T1b.B_act' = 0.0;
   elsewhen 'T1b.close' then
-    'T1b.closed' = /*Equality*/true;
-    'T1b.B_act' = /*Equality*/'T1b.B';
+    'T1b.closed' = true;
+    'T1b.B_act' = 'T1b.B';
   end when;
 
-  'T1b.port_a.omegaRef' = /*Equality*/'T1b.port_b.omegaRef';
-  'Modelica.SIunits.ComplexPerUnit.'+''('T2.port_a.i', 'T2.port_b.i') = /*Equality*/'Complex.'constructor'.fromReal'(0.0, 0.0);
-  'T2.port_a.i' = /*Equality*/'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T2.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T2.port_a.v', 'T2.port_b.v'));
+  'T1b.port_a.omegaRef' = 'T1b.port_b.omegaRef';
+  'Modelica.SIunits.ComplexPerUnit.'+''('T2.port_a.i', 'T2.port_b.i') = 'Complex.'constructor'.fromReal'(0.0, 0.0);
+  'T2.port_a.i' = 'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T2.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T2.port_a.v', 'T2.port_b.v'));
 
   when 'T2.open' then
-    'T2.closed' = /*Equality*/false;
-    'T2.B_act' = /*Equality*/0.0;
+    'T2.closed' = false;
+    'T2.B_act' = 0.0;
   elsewhen 'T2.close' then
-    'T2.closed' = /*Equality*/true;
-    'T2.B_act' = /*Equality*/'T2.B';
+    'T2.closed' = true;
+    'T2.B_act' = 'T2.B';
   end when;
 
-  'T2.port_a.omegaRef' = /*Equality*/'T2.port_b.omegaRef';
+  'T2.port_a.omegaRef' = 'T2.port_b.omegaRef';
 end 'DynamicOverconstrainedConnectors.System2';
 "
 
@@ -458,88 +458,88 @@ end 'Modelica.SIunits.ComplexPerUnit';
   public 'Modelica.SIunits.ComplexPerUnit' 'T2.port_b.i';
   public Real 'T2.port_b.omegaRef';
 initial equation
-  'T1a.closed' = /*Equality*/true;
-  'T1a.B_act' = /*Equality*/'T1a.B';
-  'T1b.closed' = /*Equality*/true;
-  'T1b.B_act' = /*Equality*/'T1b.B';
-  'T2.closed' = /*Equality*/true;
-  'T2.B_act' = /*Equality*/'T2.B';
+  'T1a.closed' = true;
+  'T1a.B_act' = 'T1a.B';
+  'T1b.closed' = true;
+  'T1b.B_act' = 'T1b.B';
+  'T2.closed' = true;
+  'T2.B_act' = 'T2.B';
 equation
-  'G1.port.omegaRef' = /*Equality*/'T1b.port_a.omegaRef';
-  'G1.port.omegaRef' = /*Equality*/'L1.port.omegaRef';
-  'G2.port.omegaRef' = /*Equality*/'T2.port_b.omegaRef';
-  'G2.port.omegaRef' = /*Equality*/'L2.port.omegaRef';
-  'G2.port.v'.re = /*Equality*/'T2.port_b.v'.re;
-  'G2.port.v'.re = /*Equality*/'L2.port.v'.re;
-  'G2.port.v'.im = /*Equality*/'T2.port_b.v'.im;
-  'G2.port.v'.im = /*Equality*/'L2.port.v'.im;
-  'G1.port.v'.re = /*Equality*/'T1b.port_a.v'.re;
-  'G1.port.v'.re = /*Equality*/'T1a.port_a.v'.re;
-  'G1.port.v'.re = /*Equality*/'L1.port.v'.re;
-  'G1.port.v'.im = /*Equality*/'T1b.port_a.v'.im;
-  'G1.port.v'.im = /*Equality*/'T1a.port_a.v'.im;
-  'G1.port.v'.im = /*Equality*/'L1.port.v'.im;
-  'T1b.port_b.omegaRef' = /*Equality*/'T2.port_a.omegaRef';
-  'T1b.port_b.omegaRef' = /*Equality*/'T1a.port_b.omegaRef';
-  'T1b.port_b.v'.re = /*Equality*/'T2.port_a.v'.re;
-  'T1b.port_b.v'.re = /*Equality*/'T1a.port_b.v'.re;
-  'T1b.port_b.v'.im = /*Equality*/'T2.port_a.v'.im;
-  'T1b.port_b.v'.im = /*Equality*/'T1a.port_b.v'.im;
-  'T2.port_b.i'.re + 'L2.port.i'.re + 'G2.port.i'.re = /*Equality*/0.0;
-  'T2.port_b.i'.im + 'L2.port.i'.im + 'G2.port.i'.im = /*Equality*/0.0;
-  'T1b.port_a.i'.re + 'T1a.port_a.i'.re + 'L1.port.i'.re + 'G1.port.i'.re = /*Equality*/0.0;
-  'T1b.port_a.i'.im + 'T1a.port_a.i'.im + 'L1.port.i'.im + 'G1.port.i'.im = /*Equality*/0.0;
-  'T2.port_a.i'.re + 'T1b.port_b.i'.re + 'T1a.port_b.i'.re = /*Equality*/0.0;
-  'T2.port_a.i'.im + 'T1b.port_b.i'.im + 'T1a.port_b.i'.im = /*Equality*/0.0;
-  der('G1.theta') = /*Equality*/('G1.omega' - 'G1.port.omegaRef') * 314.1592653589793;
-  'G1.Ta' * 'G1.omega' * der('G1.omega') = /*Equality*/'G1.Ps' + 'G1.Pc' - 'G1.Pe';
-  'G1.port.v' = /*Equality*/'Modelica.ComplexMath.fromPolar'('G1.V', 'G1.theta');
-  'G1.Pe' = /*Equality*/(-'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('G1.port.v', 'Modelica.ComplexMath.conj'('G1.port.i'))[field: re]);
-  'G1.Pc' = /*Equality*/(-('G1.omega' - 1.0) / 'G1.droop');
-  'G1.port.omegaRef' = /*Equality*/'G1.omega';
-  der('G2.theta') = /*Equality*/('G2.omega' - 'G2.port.omegaRef') * 314.1592653589793;
-  'G2.Ta' * 'G2.omega' * der('G2.omega') = /*Equality*/'G2.Ps' + 'G2.Pc' - 'G2.Pe';
-  'G2.port.v' = /*Equality*/'Modelica.ComplexMath.fromPolar'('G2.V', 'G2.theta');
-  'G2.Pe' = /*Equality*/(-'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('G2.port.v', 'Modelica.ComplexMath.conj'('G2.port.i'))[field: re]);
-  'G2.Pc' = /*Equality*/(-('G2.omega' - 1.0) / 'G2.droop');
-  'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('L1.port.v', 'Modelica.ComplexMath.conj'('L1.port.i')) = /*Equality*/'Complex.'constructor'.fromReal'('L1.P', 'L1.Q');
-  'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('L2.port.v', 'Modelica.ComplexMath.conj'('L2.port.i')) = /*Equality*/'Complex.'constructor'.fromReal'('L2.P', 'L2.Q');
-  'Modelica.SIunits.ComplexPerUnit.'+''('T1a.port_a.i', 'T1a.port_b.i') = /*Equality*/'Complex.'constructor'.fromReal'(0.0, 0.0);
-  'T1a.port_a.i' = /*Equality*/'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T1a.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T1a.port_a.v', 'T1a.port_b.v'));
+  'G1.port.omegaRef' = 'T1b.port_a.omegaRef';
+  'G1.port.omegaRef' = 'L1.port.omegaRef';
+  'G2.port.omegaRef' = 'T2.port_b.omegaRef';
+  'G2.port.omegaRef' = 'L2.port.omegaRef';
+  'G2.port.v'.re = 'T2.port_b.v'.re;
+  'G2.port.v'.re = 'L2.port.v'.re;
+  'G2.port.v'.im = 'T2.port_b.v'.im;
+  'G2.port.v'.im = 'L2.port.v'.im;
+  'G1.port.v'.re = 'T1b.port_a.v'.re;
+  'G1.port.v'.re = 'T1a.port_a.v'.re;
+  'G1.port.v'.re = 'L1.port.v'.re;
+  'G1.port.v'.im = 'T1b.port_a.v'.im;
+  'G1.port.v'.im = 'T1a.port_a.v'.im;
+  'G1.port.v'.im = 'L1.port.v'.im;
+  'T1b.port_b.omegaRef' = 'T2.port_a.omegaRef';
+  'T1b.port_b.omegaRef' = 'T1a.port_b.omegaRef';
+  'T1b.port_b.v'.re = 'T2.port_a.v'.re;
+  'T1b.port_b.v'.re = 'T1a.port_b.v'.re;
+  'T1b.port_b.v'.im = 'T2.port_a.v'.im;
+  'T1b.port_b.v'.im = 'T1a.port_b.v'.im;
+  'T2.port_b.i'.re + 'L2.port.i'.re + 'G2.port.i'.re = 0.0;
+  'T2.port_b.i'.im + 'L2.port.i'.im + 'G2.port.i'.im = 0.0;
+  'T1b.port_a.i'.re + 'T1a.port_a.i'.re + 'L1.port.i'.re + 'G1.port.i'.re = 0.0;
+  'T1b.port_a.i'.im + 'T1a.port_a.i'.im + 'L1.port.i'.im + 'G1.port.i'.im = 0.0;
+  'T2.port_a.i'.re + 'T1b.port_b.i'.re + 'T1a.port_b.i'.re = 0.0;
+  'T2.port_a.i'.im + 'T1b.port_b.i'.im + 'T1a.port_b.i'.im = 0.0;
+  der('G1.theta') = ('G1.omega' - 'G1.port.omegaRef') * 314.1592653589793;
+  'G1.Ta' * 'G1.omega' * der('G1.omega') = 'G1.Ps' + 'G1.Pc' - 'G1.Pe';
+  'G1.port.v' = 'Modelica.ComplexMath.fromPolar'('G1.V', 'G1.theta');
+  'G1.Pe' = (-'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('G1.port.v', 'Modelica.ComplexMath.conj'('G1.port.i'))[field: re]);
+  'G1.Pc' = (-('G1.omega' - 1.0) / 'G1.droop');
+  'G1.port.omegaRef' = 'G1.omega';
+  der('G2.theta') = ('G2.omega' - 'G2.port.omegaRef') * 314.1592653589793;
+  'G2.Ta' * 'G2.omega' * der('G2.omega') = 'G2.Ps' + 'G2.Pc' - 'G2.Pe';
+  'G2.port.v' = 'Modelica.ComplexMath.fromPolar'('G2.V', 'G2.theta');
+  'G2.Pe' = (-'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('G2.port.v', 'Modelica.ComplexMath.conj'('G2.port.i'))[field: re]);
+  'G2.Pc' = (-('G2.omega' - 1.0) / 'G2.droop');
+  'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('L1.port.v', 'Modelica.ComplexMath.conj'('L1.port.i')) = 'Complex.'constructor'.fromReal'('L1.P', 'L1.Q');
+  'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('L2.port.v', 'Modelica.ComplexMath.conj'('L2.port.i')) = 'Complex.'constructor'.fromReal'('L2.P', 'L2.Q');
+  'Modelica.SIunits.ComplexPerUnit.'+''('T1a.port_a.i', 'T1a.port_b.i') = 'Complex.'constructor'.fromReal'(0.0, 0.0);
+  'T1a.port_a.i' = 'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T1a.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T1a.port_a.v', 'T1a.port_b.v'));
 
   when 'T1a.open' then
-    'T1a.closed' = /*Equality*/false;
-    'T1a.B_act' = /*Equality*/0.0;
+    'T1a.closed' = false;
+    'T1a.B_act' = 0.0;
   elsewhen 'T1a.close' then
-    'T1a.closed' = /*Equality*/true;
-    'T1a.B_act' = /*Equality*/'T1a.B';
+    'T1a.closed' = true;
+    'T1a.B_act' = 'T1a.B';
   end when;
 
-  'T1a.port_a.omegaRef' = /*Equality*/'T1a.port_b.omegaRef';
-  'Modelica.SIunits.ComplexPerUnit.'+''('T1b.port_a.i', 'T1b.port_b.i') = /*Equality*/'Complex.'constructor'.fromReal'(0.0, 0.0);
-  'T1b.port_a.i' = /*Equality*/'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T1b.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T1b.port_a.v', 'T1b.port_b.v'));
+  'T1a.port_a.omegaRef' = 'T1a.port_b.omegaRef';
+  'Modelica.SIunits.ComplexPerUnit.'+''('T1b.port_a.i', 'T1b.port_b.i') = 'Complex.'constructor'.fromReal'(0.0, 0.0);
+  'T1b.port_a.i' = 'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T1b.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T1b.port_a.v', 'T1b.port_b.v'));
 
   when 'T1b.open' then
-    'T1b.closed' = /*Equality*/false;
-    'T1b.B_act' = /*Equality*/0.0;
+    'T1b.closed' = false;
+    'T1b.B_act' = 0.0;
   elsewhen 'T1b.close' then
-    'T1b.closed' = /*Equality*/true;
-    'T1b.B_act' = /*Equality*/'T1b.B';
+    'T1b.closed' = true;
+    'T1b.B_act' = 'T1b.B';
   end when;
 
-  'T1b.port_a.omegaRef' = /*Equality*/'T1b.port_b.omegaRef';
-  'Modelica.SIunits.ComplexPerUnit.'+''('T2.port_a.i', 'T2.port_b.i') = /*Equality*/'Complex.'constructor'.fromReal'(0.0, 0.0);
-  'T2.port_a.i' = /*Equality*/'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T2.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T2.port_a.v', 'T2.port_b.v'));
+  'T1b.port_a.omegaRef' = 'T1b.port_b.omegaRef';
+  'Modelica.SIunits.ComplexPerUnit.'+''('T2.port_a.i', 'T2.port_b.i') = 'Complex.'constructor'.fromReal'(0.0, 0.0);
+  'T2.port_a.i' = 'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T2.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T2.port_a.v', 'T2.port_b.v'));
 
   when 'T2.open' then
-    'T2.closed' = /*Equality*/false;
-    'T2.B_act' = /*Equality*/0.0;
+    'T2.closed' = false;
+    'T2.B_act' = 0.0;
   elsewhen 'T2.close' then
-    'T2.closed' = /*Equality*/true;
-    'T2.B_act' = /*Equality*/'T2.B';
+    'T2.closed' = true;
+    'T2.B_act' = 'T2.B';
   end when;
 
-  'T2.port_a.omegaRef' = /*Equality*/'T2.port_b.omegaRef';
+  'T2.port_a.omegaRef' = 'T2.port_b.omegaRef';
 end 'DynamicOverconstrainedConnectors.System3';
 "
 
@@ -623,91 +623,91 @@ end 'Modelica.SIunits.ComplexPerUnit';
   public 'Modelica.SIunits.ComplexPerUnit' 'T2.port_b_int.i';
   protected Real 'T2.port_b_int.omegaRef';
 initial equation
-  'T1a.closed' = /*Equality*/true;
-  'T1a.B_act' = /*Equality*/'T1a.B';
-  'T1b.closed' = /*Equality*/true;
-  'T1b.B_act' = /*Equality*/'T1b.B';
-  'T2.closed' = /*Equality*/true;
-  'T2.B_act' = /*Equality*/'T2.B';
+  'T1a.closed' = true;
+  'T1a.B_act' = 'T1a.B';
+  'T1b.closed' = true;
+  'T1b.B_act' = 'T1b.B';
+  'T2.closed' = true;
+  'T2.B_act' = 'T2.B';
 equation
-  'G1.port.omegaRef' = /*Equality*/'T1b.port_a.omegaRef';
-  'G1.port.omegaRef' = /*Equality*/'L1.port.omegaRef';
-  'G2.port.omegaRef' = /*Equality*/'T2.port_b.omegaRef';
-  'G2.port.omegaRef' = /*Equality*/'L2.port.omegaRef';
-  'G2.port.v'.re = /*Equality*/'T2.port_b.v'.re;
-  'G2.port.v'.re = /*Equality*/'L2.port.v'.re;
-  'G2.port.v'.im = /*Equality*/'T2.port_b.v'.im;
-  'G2.port.v'.im = /*Equality*/'L2.port.v'.im;
-  'G1.port.v'.re = /*Equality*/'T1b.port_a.v'.re;
-  'G1.port.v'.re = /*Equality*/'T1a.port_a.v'.re;
-  'G1.port.v'.re = /*Equality*/'L1.port.v'.re;
-  'G1.port.v'.im = /*Equality*/'T1b.port_a.v'.im;
-  'G1.port.v'.im = /*Equality*/'T1a.port_a.v'.im;
-  'G1.port.v'.im = /*Equality*/'L1.port.v'.im;
-  'T1b.port_b.omegaRef' = /*Equality*/'T2.port_a.omegaRef';
-  'T1b.port_b.omegaRef' = /*Equality*/'T1a.port_b.omegaRef';
-  'T1b.port_b.v'.re = /*Equality*/'T2.port_a.v'.re;
-  'T1b.port_b.v'.re = /*Equality*/'T1a.port_b.v'.re;
-  'T1b.port_b.v'.im = /*Equality*/'T2.port_a.v'.im;
-  'T1b.port_b.v'.im = /*Equality*/'T1a.port_b.v'.im;
-  'T2.port_b.i'.re + 'L2.port.i'.re + 'G2.port.i'.re = /*Equality*/0.0;
-  'T2.port_b.i'.im + 'L2.port.i'.im + 'G2.port.i'.im = /*Equality*/0.0;
-  'T1b.port_a.i'.re + 'T1a.port_a.i'.re + 'L1.port.i'.re + 'G1.port.i'.re = /*Equality*/0.0;
-  'T1b.port_a.i'.im + 'T1a.port_a.i'.im + 'L1.port.i'.im + 'G1.port.i'.im = /*Equality*/0.0;
-  'T2.port_a.i'.re + 'T1b.port_b.i'.re + 'T1a.port_b.i'.re = /*Equality*/0.0;
-  'T2.port_a.i'.im + 'T1b.port_b.i'.im + 'T1a.port_b.i'.im = /*Equality*/0.0;
-  'T2.port_b_int.i'.re = /*Equality*/0.0;
-  'T2.port_b_int.i'.im = /*Equality*/0.0;
-  der('G1.theta') = /*Equality*/('G1.omega' - 'G1.port.omegaRef') * 314.1592653589793;
-  'G1.Ta' * 'G1.omega' * der('G1.omega') = /*Equality*/'G1.Ps' + 'G1.Pc' - 'G1.Pe';
-  'G1.port.v' = /*Equality*/'Modelica.ComplexMath.fromPolar'('G1.V', 'G1.theta');
-  'G1.Pe' = /*Equality*/(-'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('G1.port.v', 'Modelica.ComplexMath.conj'('G1.port.i'))[field: re]);
-  'G1.Pc' = /*Equality*/(-('G1.omega' - 1.0) / 'G1.droop');
-  'G1.port.omegaRef' = /*Equality*/'G1.omega';
-  der('G2.theta') = /*Equality*/('G2.omega' - 'G2.port.omegaRef') * 314.1592653589793;
-  'G2.Ta' * 'G2.omega' * der('G2.omega') = /*Equality*/'G2.Ps' + 'G2.Pc' - 'G2.Pe';
-  'G2.port.v' = /*Equality*/'Modelica.ComplexMath.fromPolar'('G2.V', 'G2.theta');
-  'G2.Pe' = /*Equality*/(-'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('G2.port.v', 'Modelica.ComplexMath.conj'('G2.port.i'))[field: re]);
-  'G2.Pc' = /*Equality*/(-('G2.omega' - 1.0) / 'G2.droop');
-  'G2.port.omegaRef' = /*Equality*/'G2.omega';
-  'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('L1.port.v', 'Modelica.ComplexMath.conj'('L1.port.i')) = /*Equality*/'Complex.'constructor'.fromReal'('L1.P', 'L1.Q');
-  'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('L2.port.v', 'Modelica.ComplexMath.conj'('L2.port.i')) = /*Equality*/'Complex.'constructor'.fromReal'('L2.P', 'L2.Q');
-  'Modelica.SIunits.ComplexPerUnit.'+''('T1a.port_a.i', 'T1a.port_b.i') = /*Equality*/'Complex.'constructor'.fromReal'(0.0, 0.0);
-  'T1a.port_a.i' = /*Equality*/'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T1a.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T1a.port_a.v', 'T1a.port_b.v'));
+  'G1.port.omegaRef' = 'T1b.port_a.omegaRef';
+  'G1.port.omegaRef' = 'L1.port.omegaRef';
+  'G2.port.omegaRef' = 'T2.port_b.omegaRef';
+  'G2.port.omegaRef' = 'L2.port.omegaRef';
+  'G2.port.v'.re = 'T2.port_b.v'.re;
+  'G2.port.v'.re = 'L2.port.v'.re;
+  'G2.port.v'.im = 'T2.port_b.v'.im;
+  'G2.port.v'.im = 'L2.port.v'.im;
+  'G1.port.v'.re = 'T1b.port_a.v'.re;
+  'G1.port.v'.re = 'T1a.port_a.v'.re;
+  'G1.port.v'.re = 'L1.port.v'.re;
+  'G1.port.v'.im = 'T1b.port_a.v'.im;
+  'G1.port.v'.im = 'T1a.port_a.v'.im;
+  'G1.port.v'.im = 'L1.port.v'.im;
+  'T1b.port_b.omegaRef' = 'T2.port_a.omegaRef';
+  'T1b.port_b.omegaRef' = 'T1a.port_b.omegaRef';
+  'T1b.port_b.v'.re = 'T2.port_a.v'.re;
+  'T1b.port_b.v'.re = 'T1a.port_b.v'.re;
+  'T1b.port_b.v'.im = 'T2.port_a.v'.im;
+  'T1b.port_b.v'.im = 'T1a.port_b.v'.im;
+  'T2.port_b.i'.re + 'L2.port.i'.re + 'G2.port.i'.re = 0.0;
+  'T2.port_b.i'.im + 'L2.port.i'.im + 'G2.port.i'.im = 0.0;
+  'T1b.port_a.i'.re + 'T1a.port_a.i'.re + 'L1.port.i'.re + 'G1.port.i'.re = 0.0;
+  'T1b.port_a.i'.im + 'T1a.port_a.i'.im + 'L1.port.i'.im + 'G1.port.i'.im = 0.0;
+  'T2.port_a.i'.re + 'T1b.port_b.i'.re + 'T1a.port_b.i'.re = 0.0;
+  'T2.port_a.i'.im + 'T1b.port_b.i'.im + 'T1a.port_b.i'.im = 0.0;
+  'T2.port_b_int.i'.re = 0.0;
+  'T2.port_b_int.i'.im = 0.0;
+  der('G1.theta') = ('G1.omega' - 'G1.port.omegaRef') * 314.1592653589793;
+  'G1.Ta' * 'G1.omega' * der('G1.omega') = 'G1.Ps' + 'G1.Pc' - 'G1.Pe';
+  'G1.port.v' = 'Modelica.ComplexMath.fromPolar'('G1.V', 'G1.theta');
+  'G1.Pe' = (-'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('G1.port.v', 'Modelica.ComplexMath.conj'('G1.port.i'))[field: re]);
+  'G1.Pc' = (-('G1.omega' - 1.0) / 'G1.droop');
+  'G1.port.omegaRef' = 'G1.omega';
+  der('G2.theta') = ('G2.omega' - 'G2.port.omegaRef') * 314.1592653589793;
+  'G2.Ta' * 'G2.omega' * der('G2.omega') = 'G2.Ps' + 'G2.Pc' - 'G2.Pe';
+  'G2.port.v' = 'Modelica.ComplexMath.fromPolar'('G2.V', 'G2.theta');
+  'G2.Pe' = (-'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('G2.port.v', 'Modelica.ComplexMath.conj'('G2.port.i'))[field: re]);
+  'G2.Pc' = (-('G2.omega' - 1.0) / 'G2.droop');
+  'G2.port.omegaRef' = 'G2.omega';
+  'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('L1.port.v', 'Modelica.ComplexMath.conj'('L1.port.i')) = 'Complex.'constructor'.fromReal'('L1.P', 'L1.Q');
+  'Modelica.SIunits.ComplexPerUnit.'*'.multiply'('L2.port.v', 'Modelica.ComplexMath.conj'('L2.port.i')) = 'Complex.'constructor'.fromReal'('L2.P', 'L2.Q');
+  'Modelica.SIunits.ComplexPerUnit.'+''('T1a.port_a.i', 'T1a.port_b.i') = 'Complex.'constructor'.fromReal'(0.0, 0.0);
+  'T1a.port_a.i' = 'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T1a.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T1a.port_a.v', 'T1a.port_b.v'));
 
   when 'T1a.open' then
-    'T1a.closed' = /*Equality*/false;
-    'T1a.B_act' = /*Equality*/0.0;
+    'T1a.closed' = false;
+    'T1a.B_act' = 0.0;
   elsewhen 'T1a.close' then
-    'T1a.closed' = /*Equality*/true;
-    'T1a.B_act' = /*Equality*/'T1a.B';
+    'T1a.closed' = true;
+    'T1a.B_act' = 'T1a.B';
   end when;
 
-  'T1a.port_a.omegaRef' = /*Equality*/'T1a.port_b.omegaRef';
-  'Modelica.SIunits.ComplexPerUnit.'+''('T1b.port_a.i', 'T1b.port_b.i') = /*Equality*/'Complex.'constructor'.fromReal'(0.0, 0.0);
-  'T1b.port_a.i' = /*Equality*/'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T1b.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T1b.port_a.v', 'T1b.port_b.v'));
+  'T1a.port_a.omegaRef' = 'T1a.port_b.omegaRef';
+  'Modelica.SIunits.ComplexPerUnit.'+''('T1b.port_a.i', 'T1b.port_b.i') = 'Complex.'constructor'.fromReal'(0.0, 0.0);
+  'T1b.port_a.i' = 'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T1b.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T1b.port_a.v', 'T1b.port_b.v'));
 
   when 'T1b.open' then
-    'T1b.closed' = /*Equality*/false;
-    'T1b.B_act' = /*Equality*/0.0;
+    'T1b.closed' = false;
+    'T1b.B_act' = 0.0;
   elsewhen 'T1b.close' then
-    'T1b.closed' = /*Equality*/true;
-    'T1b.B_act' = /*Equality*/'T1b.B';
+    'T1b.closed' = true;
+    'T1b.B_act' = 'T1b.B';
   end when;
 
-  'T1b.port_a.omegaRef' = /*Equality*/'T1b.port_b.omegaRef';
-  'Modelica.SIunits.ComplexPerUnit.'+''('T2.port_a.i', 'T2.port_b_int.i') = /*Equality*/'Complex.'constructor'.fromReal'(0.0, 0.0);
-  'T2.port_a.i' = /*Equality*/'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T2.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T2.port_a.v', 'T2.port_b_int.v'));
+  'T1b.port_a.omegaRef' = 'T1b.port_b.omegaRef';
+  'Modelica.SIunits.ComplexPerUnit.'+''('T2.port_a.i', 'T2.port_b_int.i') = 'Complex.'constructor'.fromReal'(0.0, 0.0);
+  'T2.port_a.i' = 'Complex.'*'.multiply'('Complex.'constructor'.fromReal'(0.0, 'T2.B_act'), 'Modelica.SIunits.ComplexPerUnit.'-'.subtract'('T2.port_a.v', 'T2.port_b_int.v'));
 
   when 'T2.open' then
-    'T2.closed' = /*Equality*/false;
-    'T2.B_act' = /*Equality*/0.0;
+    'T2.closed' = false;
+    'T2.B_act' = 0.0;
   elsewhen 'T2.close' then
-    'T2.closed' = /*Equality*/true;
-    'T2.B_act' = /*Equality*/'T2.B';
+    'T2.closed' = true;
+    'T2.B_act' = 'T2.B';
   end when;
 
-  'T2.port_a.omegaRef' = /*Equality*/'T2.port_b_int.omegaRef';
+  'T2.port_a.omegaRef' = 'T2.port_b_int.omegaRef';
 end 'DynamicOverconstrainedConnectors.System4';
 "
 
