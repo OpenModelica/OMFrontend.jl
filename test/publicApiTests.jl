@@ -179,6 +179,11 @@ end
           sprint(showerror, typing)[length("ModelicaError: ") + 1:end] * "\nCheck of M failed with 1 error(s)."
   end
 
+  @testset "CLI version: read from the package's Project.toml" begin
+    #= src/API/cli.jl finds Project.toml relative to its own directory; a move of the file must update the path. =#
+    @test OMFrontend._PACKAGE_VERSION == string(pkgversion(OMFrontend))
+  end
+
   @testset "setFlags: each flag, on a small model" begin
     #= Debug flags. =#
     @test occursin("Real x = k * time", _flatWith("model M parameter Real k = 2; Real x = k * time; end M;"))

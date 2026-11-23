@@ -34,7 +34,7 @@
 */ =#
 
 #= -----------------------------------------------------------------------------
-   Compact REPL display for the large NewFrontend types.
+   Compact REPL display for the large Frontend types.
 
    Inspecting an InstNode / Expression / ModelicaType / Component / etc. at the
    REPL triggers Julia's default `show_default`, which recursively prints
@@ -54,7 +54,7 @@
    `FLAT_MODEL` retains its flat-Modelica string display, registered in
    OMFrontend.jl alongside the rest of the public API.
 
-   This file is included from OMFrontend.jl AFTER main.jl, so the `Frontend`
+   This file is included from OMFrontend.jl AFTER Frontend/Frontend.jl, so the `Frontend`
    module and its abstract supertypes are already defined.
    ----------------------------------------------------------------------- =#
 

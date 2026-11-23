@@ -779,7 +779,7 @@ struct ModifierImpl{T}
   info::Union{Nothing, SourceInfo}
 end
 
-include("../NewFrontend/NFModTable.jl")
+include("../Frontend/NFModTable.jl")
 
 """A modifier (see `ModifierImpl`)."""
 const Modifier = ModifierImpl{ModTable.Tree}

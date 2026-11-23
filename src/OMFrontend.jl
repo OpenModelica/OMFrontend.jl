@@ -52,9 +52,6 @@ const OMParser = OpenModelicaParser
 import PrecompileTools
 import Serialization
 
-#= This file defines additional utility macros. =#
-include("util.jl")
-
 #= OMFrontend's root directory, wherever it is loaded from (lib/ holds the builtin
    library and the bundled MSL). Base.find_package resolves a package name only where
    the active environment lists the package directly: with only OM or OMBackend in
@@ -68,7 +65,7 @@ packageRoot()::String = something(pkgdir(@__MODULE__), normpath(joinpath(@__DIR_
   This cache is initialized when the module is loaded.
 """
 const NFModelicaBuiltinCache = Dict()
-#= The builtin library is parsed into the package image (precompilation.jl): a change to it
+#= The builtin library is parsed into the package image (Precompilation/precompilation.jl): a change to it
    recompiles the package. =#
 include_dependency(joinpath(@__DIR__, "..", "lib", "NFModelicaBuiltin.mo"))
 #= The bundled MSL files too: the precompile workload parses MSL 4.1.0 into LIBRARY_CACHE, which the package image
@@ -136,7 +133,7 @@ function __init__()
   return nothing
 end
 
-include("main.jl")
+include("Frontend/Frontend.jl")
 #=Internal modules=#
 import .Frontend.Flags
 import .Frontend.FlagsUtil
@@ -2354,10 +2351,10 @@ Base.show(io::IO, ::MIME"text/plain", t::Tuple{OMFrontend.Frontend.FLAT_MODEL, O
   print(io, "\nFunctions:\n", string(last(t)))
 end
 
-#= Compact REPL display for heavy NewFrontend abstract types lives here so
-   it does not clutter the main API surface. See compactShow.jl for the
+#= Compact REPL display for heavy Frontend abstract types lives here so
+   it does not clutter the main API surface. See API/compactShow.jl for the
    `verboseShow!` toggle and the big-hammer Base.show overrides. =#
-include("compactShow.jl")
+include("API/compactShow.jl")
 
 """
 ```
@@ -2407,10 +2404,10 @@ function removeQuotesFromFlatModelica(fmStr::String)
   return String(take!(buffer))
 end
 
-include("componentGraphics.jl")
-include("GUI_API.jl")
-include("cli.jl")
-include("precompilation.jl")
+include("API/componentGraphics.jl")
+include("API/GUI_API.jl")
+include("API/cli.jl")
+include("Precompilation/precompilation.jl")
 
 """
     exportJSON(FM; output_dir=".", base_name, hierarchy=true, flat=true,

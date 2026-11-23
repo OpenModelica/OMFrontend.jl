@@ -1,7 +1,7 @@
 # Frontend files
 
 This folder contains all the files required to run the frontend.
-They are included into the compiler by the main.jl file in the src folder above it.
+They are included into the compiler by Frontend.jl, next to them.
 
 
 ## A note on optimization

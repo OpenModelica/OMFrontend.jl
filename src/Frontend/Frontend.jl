@@ -52,8 +52,6 @@ import ..SCode
 import PrecompileTools
 import ConstructionBase
 import Base.@nospecializeinfer
-#= Import the execstat macro from the enclosing module..=#
-import ..@EXECSTAT
 
 """Utility functions."""
 function toString(vec::Vector{T}) where {T}
@@ -78,31 +76,31 @@ end
 
 #= Top level functionality =#
 
-include("./Util/Pointer.jl")
-include("./Util/System.jl")
-include("./Util/Gettext.jl")
-include("./Util/ErrorTypes.jl")
-include("./Util/ErrorExt.jl")
-include("./Util/Error.jl")
+include("../Util/Pointer.jl")
+include("../Util/System.jl")
+include("../Util/Gettext.jl")
+include("../Util/ErrorTypes.jl")
+include("../Util/ErrorExt.jl")
+include("../Util/Error.jl")
 import .P_Pointer
 const Pointer = P_Pointer.Pointer
-include("./Util/Mutable.jl")
-include("./Util/utilityMacros.jl")
-include("./Util/UnorderedMap.jl")
+include("../Util/Mutable.jl")
+include("../Util/utilityMacros.jl")
+include("../Util/UnorderedMap.jl")
 import .P_UnorderedMap
 const UnorderedMap = P_UnorderedMap
-include("./Util/UnorderedSet.jl")
+include("../Util/UnorderedSet.jl")
 import .P_UnorderedSet
 const UnorderedSet = P_UnorderedSet
 #= Include various utility structures =#
-include("./Util/Global.jl")
-include("./Util/Settings.jl")
-include("./Util/Print.jl")
-include("./Util/Util.jl")
-include("./Util/Lapack.jl")
-include("./Util/StringUtil.jl")
-include("./Util/Flags.jl")
-include("./Util/FlagsUtil.jl")
+include("../Util/Global.jl")
+include("../Util/Settings.jl")
+include("../Util/Print.jl")
+include("../Util/Util.jl")
+include("../Util/Lapack.jl")
+include("../Util/StringUtil.jl")
+include("../Util/Flags.jl")
+include("../Util/FlagsUtil.jl")
 #= omc's Config, as far as the frontend asks it. The language standard is the latest (omc's
    default), so Modelica 3.3's synchronous features are allowed (Clock, hold, sample, ...). =#
 module Config
@@ -126,115 +124,115 @@ module Config
   languageStandardAtLeast(std::Int)::Bool = getLanguageStandard() >= std
   languageStandardAtMost(std::Int)::Bool = getLanguageStandard() <= std
 end
-include("./Util/ExecStat.jl")
-include("./Util/IOStreamExt.jl")
-include("./Util/IOStream.jl")
-include("./AbsynUtil.jl")
-include("./SCodeUtil.jl")
-include("./SCodeDump.jl")
-include("./AbsynToSCode.jl")
+include("../Util/ExecStat.jl")
+include("../Util/IOStreamExt.jl")
+include("../Util/IOStream.jl")
+include("../Absyn/AbsynUtil.jl")
+include("../SCode/SCodeUtil.jl")
+include("../SCode/SCodeDump.jl")
+include("../SCode/AbsynToSCode.jl")
 #= Include interfaces and aliases New Frontend=#
-include("./FrontendInterfaces/NFInterfaces.jl")
-include("./FrontendInterfaces/NFAlias.jl")
-include("./NewFrontend/NFPerfHelpers.jl")
+include("../FrontendInterfaces/NFInterfaces.jl")
+include("../FrontendInterfaces/NFAlias.jl")
+include("NFPerfHelpers.jl")
 #= Other modules =#
-include("./NewFrontend/NFExpression.jl")
-include("./NewFrontend/NFType.jl")
-include("./NewFrontend/NFComplexType.jl")
-include("./NewFrontend/NFPrefixes.jl")
-include("./FrontendInterfaces/FlatInterfaces.jl")
-include("./NewFrontend/NFComponent.jl")
-include("./NewFrontend/NFImport.jl")
-include("./NewFrontend/LookupTree.jl")
-include("./NewFrontend/DuplicateTree.jl")
-include("./NewFrontend/NFClassTree.jl")
-include("./NewFrontend/NFEquation.jl")
+include("NFExpression.jl")
+include("NFType.jl")
+include("NFComplexType.jl")
+include("NFPrefixes.jl")
+include("../FrontendInterfaces/FlatInterfaces.jl")
+include("NFComponent.jl")
+include("NFImport.jl")
+include("LookupTree.jl")
+include("DuplicateTree.jl")
+include("NFClassTree.jl")
+include("NFEquation.jl")
 
-include("./NewFrontend/NFInstNode.jl")
-include("./NewFrontend/NFSections.jl")
-include("./NewFrontend/NFRecord.jl")
-include("./NewFrontend/NFOperatorOverloading.jl")
-include("./NewFrontend/NFComponentRef.jl")
-include("./NewFrontend/NFBinding.jl")
-include("./NewFrontend/NFModifier.jl")
-include("./NewFrontend/NFCeval.jl")
-include("./NewFrontend/NFDimension.jl")
-include("./NewFrontend/NFTyping.jl")
+include("NFInstNode.jl")
+include("NFSections.jl")
+include("NFRecord.jl")
+include("NFOperatorOverloading.jl")
+include("NFComponentRef.jl")
+include("NFBinding.jl")
+include("NFModifier.jl")
+include("NFCeval.jl")
+include("NFDimension.jl")
+include("NFTyping.jl")
 
-include("./NewFrontend/NFScalarize.jl")
+include("NFScalarize.jl")
 
-include("./NewFrontend/NFClass.jl")
-include("./NewFrontend/NFExpressionIterator.jl")
-include("./NewFrontend/NFInstUtil.jl")
-include("./NewFrontend/NFInst.jl")
-include("./NewFrontend/NFAlgorithm.jl")
-include("./NewFrontend/NFStatement.jl")
-include("./NewFrontend/NFVariable.jl")
-include("./NewFrontend/NFFlatModel.jl")
-include("./NewFrontend/NFConnector.jl")
-include("./NewFrontend/NFConnection.jl")
-include("./NewFrontend/NFConnections.jl")
+include("NFClass.jl")
+include("NFExpressionIterator.jl")
+include("NFInstUtil.jl")
+include("NFInst.jl")
+include("NFAlgorithm.jl")
+include("NFStatement.jl")
+include("NFVariable.jl")
+include("NFFlatModel.jl")
+include("NFConnector.jl")
+include("NFConnection.jl")
+include("NFConnections.jl")
 
-include("./NewFrontend/NFConnectionSets.jl")
+include("NFConnectionSets.jl")
 
-include("./NewFrontend/NFCardinalityTable.jl")
+include("NFCardinalityTable.jl")
 
-include("./NewFrontend/NFConnectEquations.jl")
+include("NFConnectEquations.jl")
 import .NFCardinalityTable
-include("./NewFrontend/NFFunctionDerivative.jl")
+include("NFFunctionDerivative.jl")
 
-include("./NewFrontend/NFFunction.jl")
+include("NFFunction.jl")
 
-include("./NewFrontend/NFSubscript.jl")
+include("NFSubscript.jl")
 
-include("./NewFrontend/NFFlatten.jl")
+include("NFFlatten.jl")
 
-include("./NewFrontend/NFRestriction.jl")
+include("NFRestriction.jl")
 
-include("./NewFrontend/NFLookup.jl")
+include("NFLookup.jl")
 
-include("./NewFrontend/NFLookupState.jl")
+include("NFLookupState.jl")
 
 @exportAll
 #= Overconstrained connectors =#
-include("./NewFrontend/OCCGraph.jl")
+include("OCCGraph.jl")
 @exportAll
-include("./NewFrontend/NFBuiltinFuncs.jl")
-include("./NewFrontend/NFBuiltin.jl")
+include("NFBuiltinFuncs.jl")
+include("NFBuiltin.jl")
 #import ..NFBuiltin
-include("./NewFrontend/BindingExpression.jl")
+include("BindingExpression.jl")
 
-include("./Util/ModelicaExternalC.jl")
-include("./NewFrontend/NFEvalFunction.jl")
-include("./NewFrontend/NFEvalFunctionExt.jl")
+include("../Util/ModelicaExternalC.jl")
+include("NFEvalFunction.jl")
+include("NFEvalFunctionExt.jl")
 
-include("./NewFrontend/NFCall.jl")
+include("NFCall.jl")
 
-include("./NewFrontend/NFBuiltinCall.jl")
+include("NFBuiltinCall.jl")
 
-include("./NewFrontend/NFOperator.jl")
+include("NFOperator.jl")
 #= after NFOperator.jl: its methods dispatch on OPERATOR =#
-include("./NewFrontend/NFRerollConnects.jl")
+include("NFRerollConnects.jl")
 
-include("./NewFrontend/NFTypeCheck.jl")
+include("NFTypeCheck.jl")
 
-include("./NewFrontend/NFExpandableConnectors.jl")
+include("NFExpandableConnectors.jl")
 
-include("./NewFrontend/NFEvalConstants.jl")
+include("NFEvalConstants.jl")
 
-include("./NewFrontend/NFExpandExp.jl")
+include("NFExpandExp.jl")
 
-include("./NewFrontend/NFSimplifyModel.jl")
-include("./NewFrontend/NFSimplifyExp.jl")
-include("./NewFrontend/NFPackage.jl")
+include("NFSimplifyModel.jl")
+include("NFSimplifyExp.jl")
+include("NFPackage.jl")
 #= Model verification =#
-include("./NewFrontend/NFVerifyModel.jl")
-include("./NewFrontend/checkModel.jl")
-include("./NewFrontend/NFInline.jl")
+include("NFVerifyModel.jl")
+include("checkModel.jl")
+include("NFInline.jl")
 #=  Builtin functions =#
-include("./NewFrontend/NFRangeIterator.jl")
+include("NFRangeIterator.jl")
 
 #= JSON export of FLAT_MODEL (structural-mode components and templates). =#
-include("./Export/StructuralModeJSON.jl")
+include("../Export/StructuralModeJSON.jl")
 
 end

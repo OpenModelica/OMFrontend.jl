@@ -73,7 +73,7 @@ end
 # without calling Base.find_package (whose Project.toml-parsing path is
 # itself unresolvable under --trim=safe).
 const _PACKAGE_VERSION = let
-    pfile = joinpath(@__DIR__, "..", "Project.toml")
+    pfile = joinpath(@__DIR__, "..", "..", "Project.toml")
     ver = "unknown"
     if isfile(pfile)
         for line in eachline(pfile)

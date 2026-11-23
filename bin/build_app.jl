@@ -3,7 +3,7 @@
 
   The output is a directory tree containing `bin/OMFrontend(.exe)` plus the
   shared libraries it needs at runtime. The binary's entry point is
-  `OMFrontend.julia_main` (defined in src/cli.jl).
+  `OMFrontend.julia_main` (defined in src/API/cli.jl).
 
   Output directory:
     OMFRONTEND_APP_DIR  -- defaults to <repo-root>/OMFrontend-app

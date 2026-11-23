@@ -119,3 +119,25 @@ macro shareUnchanged(orig, ctor_call)
         end
     end
 end
+
+"""Whether the debug flag `execstat` is set (`setFlags(execstat = true)`): the gate of `@EXECSTAT`."""
+_execstat()::Bool = Flags.isSet(Flags.EXEC_STAT)
+
+"""
+    @EXECSTAT "label" expr
+
+Wraps `expr` in `@time` when the debug flag `execstat` is set; otherwise the
+expression is evaluated with no instrumentation. The runtime check reads the
+flags once per call site, so use it on coarse phase boundaries, not in tight
+inner loops.
+"""
+macro EXECSTAT(msg, expr)
+  return quote
+    if $(_execstat)()
+      @time $(esc(msg)) __result = $(esc(expr))
+      __result
+    else
+      $(esc(expr))
+    end
+  end
+end

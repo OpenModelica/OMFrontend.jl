@@ -45,7 +45,7 @@ lets a session started HERE (OMFrontend.jl) pick up the design-side work.
   is emitted `restCref::NFComponentRef` (abstract) but is always a
   `NFComponentRefData`; concretize it (`src/CodeGen.jl:4690-4699`).
 - **Design work owed HERE (OMFrontend.jl, free to redesign):**
-  1. This repo's `NFComponentRef` (`src/NewFrontend/NFComponentRef.jl:45`) has an
+  1. This repo's `NFComponentRef` (`src/Frontend/NFComponentRef.jl:45`) has an
      extra `COMPONENT_REF_STRING(name, restCref)` variant whose disjoint payload
      BLOCKS the prefix rule that lets the translator compact the OMC version.
      Drop/merge STRING into the CREF/EMPTY/WILD shape to make it compactable, OR
@@ -90,7 +90,7 @@ before editing the real types.
 
 ### LookupTree backed by `Dict` instead of an AVL tree (2026-06-14)
 
-`src/NewFrontend/LookupTree.jl` was converted from a hand-rolled mutable AVL
+`src/Frontend/LookupTree.jl` was converted from a hand-rolled mutable AVL
 (`NODE`/`LEAF`/`EMPTY` nodes) to `const Tree = Dict{Key,Value}` (`Key=String`,
 `Value=Entry`). The public interface is unchanged — same module, same function
 signatures (`new`/`add`/`get`/`getOpt`/`hasKey`/`fold`/`map`/`listValues`/… and
@@ -170,7 +170,7 @@ separate `EQSYSTEM` per submodel (index reduction runs per component, no backend
 change).
 - Flag `Flags.NF_SEPARATE_INSTANTIATION` index 186 in `src/Util/Flags.jl`; also
   appended to `allDebugFlags` in `src/Util/FlagsUtil.jl` (must stay index-sorted).
-- Decision site `flattenComponent` in `src/NewFrontend/NFFlatten.jl`. An
+- Decision site `flattenComponent` in `src/Frontend/NFFlatten.jl`. An
   `isTopLevel::Bool` kwarg is threaded `flatten`(true) -> `flattenClass`(false) ->
   `flattenComponent`. Split when
   `isStructuralMode || (isTopLevel && Flags.isSet(NF_SEPARATE_INSTANTIATION))`;
@@ -194,7 +194,7 @@ change).
 ### Revise caveat in the warm REPL (this session)
 Revise tracked edits to `src/OMFrontend.jl` and `src/Export/StructuralModeJSON.jl`
 but NOT a new `const` in `src/Util/Flags.jl` nor signature edits in
-`src/NewFrontend/NFFlatten.jl` (`Revise.errors()` empty, `revise(throw=true)` ok,
+`src/Frontend/NFFlatten.jl` (`Revise.errors()` empty, `revise(throw=true)` ok,
 yet `flatten` kept old kwargs). Restart-free workarounds:
 - New flag: `@eval OMFrontend.Frontend.Flags const NF_... = DEBUG_FLAG(idx, name,
   default, Gettext.gettext(desc))` (description type is `Gettext.TranslatableContent`);
@@ -218,7 +218,7 @@ to reject it too but with an ugly internal assertion
 :2691).
 - Root cause: `Error.LOOKUP_IN_PARTIAL_CLASS` (Error.jl:891, message 107) was
   defined in the port but NEVER wired into the lookup path.
-- Fix: in `lookupCrefInNode` (`src/NewFrontend/NFLookup.jl`, the qualified-cref
+- Fix: in `lookupCrefInNode` (`src/Frontend/NFLookup.jl`, the qualified-cref
   recursion into a package), after `scope = instPackage(node)`, guard
   `if node isa CLASS_NODE && isPartial(scope)` ->
   `Error.addSourceMessageAndFail(Error.LOOKUP_IN_PARTIAL_CLASS, list(scopeName(scope)), sourceInfo())`.
@@ -801,7 +801,7 @@ far away as DUPLICATE_ELEMENTS_NOT_IDENTICAL on inherited duplicates of the
 PartialShape family (color/height/shapeType with bindings from two different
 usage contexts mixed into one tree).
 
-Fix: `componentApply` (src/NewFrontend/NFInstNode.jl) does copy-on-write when
+Fix: `componentApply` (src/Frontend/NFInstNode.jl) does copy-on-write when
 the new payload is a TYPE_ATTRIBUTE — rebuild the node with a fresh cell via
 `withComponent` instead of `updateComponent!`; applyModifier's callers already
 thread the rebuilt node back into the tree pointer (`P_Pointer.update` /
@@ -843,7 +843,7 @@ report is suspect.
 ### Final root cause: in-place map! on the SHARED DuplicateTree children vectors (2026-07-09, Fable)
 
 The actual bug behind every threaded DoublePendulum failure:
-`replaceDuplicates2/3/4` (src/NewFrontend/NFClassTree.jl) resolved duplicate
+`replaceDuplicates2/3/4` (src/Frontend/NFClassTree.jl) resolved duplicate
 entries with `map!(f, entry.children, entry.children)` — IN PLACE — while the
 `children` vectors belong to the duplicates tree that `ClassTree.instantiate`
 REUSES for every instance of a class (`dups` is passed through at the
@@ -919,14 +919,14 @@ Suites green both modes (361/361 serial 1m37s, parallel 55.4s).
 ## Parallel typing slice: per-node claims, and where the shared state actually was (2026-07-09, Fable)
 
 Typing is now fanned out at the root `typeComponents` call (`typeClass` passes
-`fanOut = true`, `src/NewFrontend/NFTyping.jl`), with the same worker-token
+`fanOut = true`, `src/Frontend/NFTyping.jl`), with the same worker-token
 scheme as instantiation. Unlike instantiation, typing one component routinely
 reaches INTO other nodes (cref typing at `NFTyping.jl` `typeCrefDim`, binding
 evaluation in `NFCeval.evalComponentBinding`, structural-param marking in
 `NFInst.markStructuralParamsComp`, function typing in
 `NFFunction.typeNodeCache`), so loop-splitting alone is unsound. The mechanism
 that makes it sound is **per-node claim locks**: a sharded registry
-`_TYPE_CLAIMS` in `src/NewFrontend/NFInst.jl` keyed by `_refId(node)` (payload
+`_TYPE_CLAIMS` in `src/Frontend/NFInst.jl` keyed by `_refId(node)` (payload
 cell id), reentrant, acquired along dependency edges only. Valid models have an
 acyclic dependency relation (a cycle is already a fatal recursion error
 serially), so the wait-for graph cannot deadlock. Lock ORDER vs
@@ -971,9 +971,9 @@ largest serial phase.
 ## resolveConnections 3x: exceptions as control flow in the union-find (2026-07-09, Fable)
 
 EngineV6 `resolveConnections` went 2.2 s -> 0.66 s (fresh serial process, sub-step
-timers now in `src/NewFrontend/NFFlatten.jl` behind the `execstat` flag). The whole
+timers now in `src/Frontend/NFFlatten.jl` behind the `execstat` flag). The whole
 win came from one defect: `ConnectionSets.find`
-(`src/NewFrontend/NFConnectionSets.jl`) looked up the entry with
+(`src/Frontend/NFConnectionSets.jl`) looked up the entry with
 `sets.elements[entry]` inside try/catch and used the KeyError as the "not
 found" branch. Every first-seen connector paid a thrown+caught exception; the
 fix is a plain `get(dict, entry, 0)` sentinel.
@@ -995,7 +995,7 @@ Entry hash with a structural one (attempted, then deliberately reverted):
    the suite green while every fresh process failed. When touching nested
    frontend submodules, gate with a fresh process, not the warm REPL.
 
-`hash(::ComponentRef, ::Int)` in `src/NewFrontend/NFComponentRef.jl` is now
+`hash(::ComponentRef, ::Int)` in `src/Frontend/NFComponentRef.jl` is now
 structural (name + subscripts per level, no string rendering); it feeds the
 `NFHashTableCG` bucket placement, which is order-neutral (BaseHashTable
 iterates its insertion-ordered value array). The remaining sub-step cost is
@@ -1011,7 +1011,7 @@ Verified: fresh-process suites 361/361 serial and 361/361 parallel
 `NFHashTableCG` / `NFHashTable` / `NFHashTable3` (about 2400 lines of ported
 BaseHashTable closure-tuple machinery, used only by `NFOCConnectionGraph`) are
 now ~45-line modules backed by `Dict{CrefHashKey, V}`. `CrefHashKey`
-(`src/NewFrontend/NFComponentRef.jl`) wraps a cref with structural
+(`src/Frontend/NFComponentRef.jl`) wraps a cref with structural
 hash/equality (`hashStructural` / `isEqual`). The graph walk itself had the
 same exception-as-control-flow disease as ConnectionSets.find, seven times
 over: `canonical` threw once per union-find root hit, `connectComponents`
@@ -1046,7 +1046,7 @@ above: 361/361 fresh `julia -t 8` (parallel by default) and 361/361 fresh
 ## Nested parallel typing: release claims before descending (2026-07-09, Fable)
 
 Typing now fans out at EVERY class-tree level, not just the root. Two
-mechanisms make this deadlock-free, both in `src/NewFrontend/NFInst.jl` /
+mechanisms make this deadlock-free, both in `src/Frontend/NFInst.jl` /
 `NFTyping.jl`:
 
 1. **Claim-scope split.** `typeComponentNode` types the component's own
@@ -1076,7 +1076,7 @@ The other catch sites are legitimate fallbacks.
 
 ## Connections-operator evaluation: gate the rebuild-map, flag the usage (2026-07-09, Fable)
 
-`evalConnectionsOperators` (`src/NewFrontend/NFOCConnectionGraph.jl`) mapped a
+`evalConnectionsOperators` (`src/Frontend/NFOCConnectionGraph.jl`) mapped a
 5-argument helper over every expression node of every equation via the generic
 rebuilding `map`. Bisection facts worth keeping: EngineV6 has ~80k recursive
 expression nodes and only ~1.8k call nodes; the generic map with a nontrivial
@@ -1114,7 +1114,7 @@ replacement equations EAGERLY for every overconstrained connection — EngineV6:
 the handful of edges the spanning tree breaks ever need them. Measured split
 before the fix: crefs walk 0.03 s, generation 0.75 s.
 
-Fix (`src/NewFrontend/NFOCConnectionGraph.jl`,
+Fix (`src/Frontend/NFOCConnectionGraph.jl`,
 `handleOverconstrainedConnections`): every edge gets a fresh EMPTY equation
 vector; the generation inputs are remembered in an
 `IdDict{Vector{Equation}, inputs}` keyed by that vector's identity; after
@@ -1139,14 +1139,14 @@ oc:evalOperators (0.21 s, generic-traversal floor) the largest piece.
 FullRobot (MSL 4.0.0) hung forever in resolveConnections. Two distinct bugs:
 
 1. **Pre-existing (commit 3f1e6a5): self-append loops in
-   `addElementsToFlatTree`** (`src/NewFrontend/NFClassTree.jl`): `for e in
+   `addElementsToFlatTree`** (`src/Frontend/NFClassTree.jl`): `for e in
    cls_arr; push!(cls_arr, e); end` — iterating a vector while appending to it
    never terminates. A garbled port of OMC's Array.appendList; fixed by
    appending the new elements to COPIES of the arrays (also stops mutating the
    input tree). Diagnosed via `kill -USR1` + force-SIGINT stacks; profile
    pinned the exact line.
 2. **Our regression (immutable-InstNode rewrite): `IdSet{Connector}` in
-   `elaborateExpandableSet`** (`src/NewFrontend/NFExpandableConnectors.jl`).
+   `elaborateExpandableSet`** (`src/Frontend/NFExpandableConnectors.jl`).
    IdSet keys by objectid; objectid of a deeply IMMUTABLE value content-hashes
    everything reachable, and after the immutability flip a Connector reaches
    the whole instance graph. Every push! became a whole-graph hash: tiny

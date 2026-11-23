@@ -7,7 +7,7 @@ name: Build Binary
 #             start it with `julia --sysimage=<file> --project=<env>`.
 #   app       Self-contained executable directory built via create_app.
 #             Entry point is OMFrontend.julia_main (a small CLI defined in
-#             src/cli.jl). Run as `bin/OMFrontend [command] [options]`.
+#             src/API/cli.jl). Run as `bin/OMFrontend [command] [options]`.
 #   both      Build both artifacts in the same job.
 #
 # Trigger from the Actions UI ("Run workflow").

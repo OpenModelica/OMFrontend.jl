@@ -59,13 +59,13 @@ See [Getting started](@ref) for a longer walk-through and the
 
 | Path                 | Purpose                                        |
 |----------------------|------------------------------------------------|
-| `src/OMFrontend.jl`  | Top-level module: re-exports, precompilation.  |
-| `src/NewFrontend/`   | Modern instantiation pipeline (NF*).           |
-| `src/Util/`          | Hash maps, AVL trees, flag handling, etc.      |
-| `src/AbsynToSCode.jl`| Absyn -> SCode lowering.                       |
-| `src/AbsynUtil.jl`   | Absyn helpers and traversals.                  |
-| `src/SCodeUtil.jl`   | SCode helpers and traversals.                  |
-| `src/main.jl`        | The `Frontend` module: includes the NF files.  |
+| `src/OMFrontend.jl`        | The module `OMFrontend`: the public API.             |
+| `src/Frontend/`            | The module `Frontend` (`Frontend.jl`): instantiation, typing, flattening (NF*). |
+| `src/SCode/`               | SCode, Absyn -> SCode lowering, SCode helpers.       |
+| `src/Absyn/`               | Absyn helpers and traversals.                        |
+| `src/Util/`                | Flags, errors, hash maps, AVL trees, macros.         |
+| `src/API/`                 | GUI API, component graphics, command line, display.  |
+| `src/Precompilation/`      | The precompile workload and statements.              |
 
 ## Index
 
