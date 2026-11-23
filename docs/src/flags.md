@@ -19,7 +19,7 @@ flag (`test/publicApiTests.jl`) and that this page lists each one.
 ## Debug flags
 
 | Flag | Default | Effect |
-|---|---|---|
+|:--|:--|:--|
 | `evaluateAllParameters` | `false` | Evaluates all parameters, not only structural ones: `x = k * time` becomes `x = 2.0 * time`. |
 | `nfEvalConstArgFuncs` | `true` | Evaluates functions called with constant arguments: `f(2)` becomes its value. |
 | `inlineFunctions` | `true` | Inlines functions with `annotation(Inline = true)`. |
@@ -37,7 +37,7 @@ Each translation sets `nfScalarize`, `nfExpandOperations` and `nfExpandFuncArgs`
 ## Options
 
 | Flag | Default | Effect |
-|---|---|---|
+|:--|:--|:--|
 | `std` | `"latest"` | The Modelica version: `"1.x"`, `"2.x"`, `"3.0"` to `"3.6"`, `"latest"`, `"experimental"`. `"experimental"` allows `promote`. |
 | `flowThreshold` | `1.0e-7` | The smallest flow rate in the mixing equations of `inStream`: `OMCPositiveMax(-m, flowThreshold)`. |
 | `evalLoopLimit` | `100000` | The most loop iterations in the evaluation of a function call; beyond it the call stays in the model. |
@@ -51,7 +51,7 @@ Each translation sets `nfScalarize`, `nfExpandOperations` and `nfExpandFuncArgs`
 Read when OMFrontend loads.
 
 | Variable | Default | Effect |
-|---|---|---|
+|:--|:--|:--|
 | `OMFRONTEND_PARALLEL_INST` | `true` | Instantiates sibling components in parallel when Julia has threads. |
 | `OMFRONTEND_CACHE_INST` | `true` | Instantiates a class once for its identical scalar components, within one translation. |
 | `OMFRONTEND_NO_PRECOMPILE_WORKLOAD` | unset | Set: precompilation runs no models (OM.jl sets it; its own workload runs the frontend). |

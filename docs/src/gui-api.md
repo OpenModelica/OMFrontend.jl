@@ -12,32 +12,32 @@ delegates. It is experimental: its names may change in a minor release, and its 
 ## Types
 
 ```@docs
-OMFrontend.GUI_API.SourceSpan
-OMFrontend.GUI_API.TextPatch
-OMFrontend.GUI_API.ValidationResult
-OMFrontend.GUI_API.OperationResult
-OMFrontend.GUI_API.SaveResult
-OMFrontend.GUI_API.DiagramNode
-OMFrontend.GUI_API.DiagramConnection
-OMFrontend.GUI_API.DiagramModel
-OMFrontend.GUI_API.ModelSession
+SourceSpan
+TextPatch
+ValidationResult
+OperationResult
+SaveResult
+DiagramNode
+DiagramConnection
+DiagramModel
+ModelSession
 ```
 
 ## Functions
 
 ```@docs
-OMFrontend.GUI_API.setExecutionDelegates!
-OMFrontend.GUI_API.loadModel
-OMFrontend.GUI_API.validateModel
-OMFrontend.GUI_API.getDiagram
-OMFrontend.GUI_API.updateComponentPlacement
-OMFrontend.GUI_API.createConnection
-OMFrontend.GUI_API.updateConnectionAnnotation
-OMFrontend.GUI_API.deleteConnection
-OMFrontend.GUI_API.saveModel
-OMFrontend.GUI_API.compileModel
-OMFrontend.GUI_API.simulateModel
-OMFrontend.GUI_API.exportFlatModelica
+setExecutionDelegates!
+loadModel
+validateModel
+getDiagram
+updateComponentPlacement
+createConnection
+updateConnectionAnnotation
+deleteConnection
+saveModel
+compileModel
+simulateModel
+exportFlatModelica
 ```
 
 ## Index

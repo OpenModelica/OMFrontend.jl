@@ -9,6 +9,7 @@ DocMeta.setdocmeta!(
     :DocTestSetup,
     :(using OMFrontend; using OMFrontend.GUI_API);
     recursive = true,
+    warn = false,  # the call above set it for GUI_API too (recursive)
 )
 
 makedocs(
