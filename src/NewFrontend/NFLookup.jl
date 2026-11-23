@@ -64,7 +64,16 @@ function lookupComponent(cref::Absyn.ComponentRef, scope::InstNode #= The scope 
   local foundCref::ComponentRef
   local nodeVar::InstNode
   local stateRef = Ref{LookupState}(LOOKUP_STATE_BEGIN())
-  foundCref = lookupCref(cref, scope, scopeRef, stateRef)
+  #= A name not found is the model's error (omc lookupComponent): the lookup only fails. =#
+  local found::Bool = false
+  try
+    foundCref = lookupCref(cref, scope, scopeRef, stateRef)
+    found = true
+  catch e
+    e isa MetaModelica.MetaModelicaException || rethrow()
+  end
+  found || Error.addSourceMessageAndFail(Error.LOOKUP_VARIABLE_ERROR,
+                                         list(AbsynUtil.printComponentRefStr(cref), scopeName(scope)), info)
   local state = stateRef.x
   if state isa LOOKUP_STATE_ERROR
     @error "Failed to lookup" toString(scope)
@@ -700,13 +709,7 @@ function lookupSimpleCref(crefName::String,
             scopeRef.x = topScope(scope)
             return (node, cref)
           end
-          msg = ErrorTypes.MESSAGE(
-            555,
-            ErrorTypes.SCRIPTING(),
-            ErrorTypes.WARNING(),
-            Gettext.gettext("LookupSimpleCref: Reached empty node while looking for $crefName\n"),
-          )::ErrorTypes.Message
-          Error.addSourceMessageAndFail(msg, list(crefName),sourceInfo())
+          fail()
         end
       end
       if is_import
