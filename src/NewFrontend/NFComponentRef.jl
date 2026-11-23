@@ -1179,16 +1179,16 @@ function isModel(cref::ComponentRef)
 end
 
 function mergeSubscripts(subscripts::List{Subscript}, cref::ComponentRef; applyToScope = false, backend = false)
-  (new_subscripts, cref) = mergeSubscripts2(subscripts, cref, applyToScope = applyToScope, backend = backend)
+  local (new_subscripts, merged) = mergeSubscripts2(subscripts, cref, applyToScope = applyToScope, backend = backend)
   if ! listEmpty(new_subscripts)
     Error.assertion(false, getInstanceName() + " failed because the subscripts "
-                    + toString(subscripts, toString) + " could not be fully merged onto "
-                    + toString(old_cref) + ".\nResult: " + toString(cref)
-                    + " with leftover: " + List.toString(new_subscripts, Subscript.toString) + ".",
+                    + toStringList(subscripts) + " could not be fully merged onto "
+                    + toString(cref) + ".\nResult: " + toString(merged)
+                    + " with leftover: " + toStringList(new_subscripts) + ".",
                     sourceInfo())
     fail()
   end
-  return cref
+  return merged
 end
 
 function mergeSubscripts2(subscripts::List{Subscript},

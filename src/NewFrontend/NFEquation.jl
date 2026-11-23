@@ -390,7 +390,7 @@ function replaceIteratorList(eql::Vector{Equation}, iterator::InstNode, @nospeci
   mapExpList(eql, (@nospecialize(expArg::Expression),) -> replaceIterator(expArg, iterator, value))
 end
 
-isConnect(@nospecialize(eq::Equation))::Bool = isvariant(eq, CONNECT)
+isConnect(@nospecialize(eq::Equation))::Bool = isvariant(eq, EQUATION_CONNECT)
 
 function containsList(eql::Vector{Equation}, func::PredFn)::Bool
   local res::Bool = false

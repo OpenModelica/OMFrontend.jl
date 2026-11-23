@@ -721,7 +721,7 @@ function expandClassDerived(element::SCode.Element, definition::SCode.ClassDef, 
   @match Cons{InstNode}(ext_node, _) = lookupBaseClassName(AbsynUtil.typeSpecPath(ty), parent(node), info)
   #= Check that the class isn't extending itself, i.e. class A = A. =#
   if referenceEq(ext_node, node)
-    Error.addSourceMessage(Error.RECURSIVE_SHORT_CLASS_DEFINITION, list(name(node), Dump.unparseTypeSpec(ty)), info)
+    Error.addSourceMessage(Error.RECURSIVE_SHORT_CLASS_DEFINITION, list(name(node), AbsynUtil.typeSpecString(ty)), info)
     fail()
   end
    ext_node = expand(ext_node)
@@ -3255,7 +3255,7 @@ function instEEquation(@nospecialize(scodeEq::SCode.EEquation), @nospecialize(sc
           Error.addSourceMessage(Error.CONNECT_IN_INITIAL_EQUATION, nil, info)
           fail()
         elseif flagSet(origin, ORIGIN_WHEN)
-          Error.addSourceMessage(Error.CONNECT_IN_WHEN, list(Dump.printComponentRefStr(scodeEq.crefLeft), Dump.printComponentRefStr(scodeEq.crefRight)), info)
+          Error.addSourceMessage(Error.CONNECT_IN_WHEN, list(AbsynUtil.printComponentRefStr(scodeEq.crefLeft), AbsynUtil.printComponentRefStr(scodeEq.crefRight)), info)
           fail()
         end
         exp1 = instConnectorCref(scodeEq.crefLeft, scope, info)

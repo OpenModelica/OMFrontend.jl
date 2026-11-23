@@ -283,15 +283,9 @@ function typeBindingPayload!(
   checkBindingEach(c.binding)
   local originFlag = setFlag(origin, ORIGIN_BINDING)
   local typedBinding::Binding = typeBinding(binding, originFlag, tyRef, varRef)
-  handleBindingError(binding)
-  if !componentDisabled
-    typedBinding = matchBinding(typedBinding, c.ty, nameStr, node)
-    handleBindingError(typedBinding)
-  end
+  typedBinding = matchBinding(typedBinding, c.ty, nameStr, node)
+  typedBinding = handleBindingError(typedBinding, binding, c)
   comp_var = checkComponentBindingVariability(nameStr, c, typedBinding, origin)
-  if comp_var == 404
-    handleBindingError(binding)
-  end
   attrs = c.attributes
   if comp_var != attrs.variability
     @assign attrs.variability = comp_var
@@ -317,14 +311,15 @@ function typeComponentBindingRef2_typeAttr(
   return updateComponent!(c, node)
 end
 
-function handleBindingError(binding)
-  if isvariant(binding, BINDING_ERROR)
-    if isBound(c.condition)
-      binding = INVALID_BINDING(binding, ErrorExt.getCheckpointMessages())
-    else
-      fail()
-    end
-  end
+"""
+`typed`, or for a binding matchBinding could not match (`BINDING_ERROR`) the untyped `binding` as an
+`INVALID_BINDING` when `c` is conditional (its error shows if the component is not deleted); otherwise
+typing fails (omc typeComponentBinding).
+"""
+function handleBindingError(typed::Binding, binding::Binding, c::Component)::Binding
+  isvariant(typed, BINDING_ERROR) || return typed
+  isBound(c.condition) || fail()
+  return INVALID_BINDING(binding, ErrorExt.getCheckpointMessages())
 end
 
 @noinline function typeComponentBinding(inComponent::InstNode, origin::ORIGIN_Type)
@@ -434,15 +429,11 @@ function typeComponentBinding2_typed(
     checkBindingEach(c.binding)
     local originFlag = setFlag(origin, ORIGIN_BINDING)
     local typedBinding::Binding = typeBinding(binding, originFlag)
-    handleBindingError(binding)
     #if !(Config.getGraphicsExpMode() && stringEq(nameStr, "graphics")) TODO
     typedBinding = matchBinding(typedBinding, c.ty, nameStr, node)
-    handleBindingError(typedBinding)
+    typedBinding = handleBindingError(typedBinding, binding, c)
     #end
     comp_var = checkComponentBindingVariability(nameStr, c, typedBinding, origin)
-    if comp_var == 404
-      handleBindingError(binding)
-    end
     attrs = c.attributes
     if comp_var != attrs.variability
       attrs.variability = comp_var

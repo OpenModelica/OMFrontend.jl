@@ -227,10 +227,9 @@ end
 
 function getNumErrorMessages()::Int
   local num::Int = 0
-  for m in _messages()
-    if typeof(m.id) === Severity.ERROR
-      num += 1
-    end
+  for e in _messages()
+    (e isa AbstractVector && length(e) >= 3) || continue
+    e[1].severity isa ErrorTypes.ERROR && (num += 1)
   end
   return num
 end

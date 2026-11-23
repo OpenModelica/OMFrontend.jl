@@ -92,7 +92,7 @@ function lookupConnector(cref::Absyn.ComponentRef, scope::InstNode #= The scope 
   foundScope = scopeRef.x
   state = stateRef.x
   if state isa LOOKUP_STATE_ERROR
-    Error.addSourceMessageAndFail(Error.LOOKUP_VARIABLE_ERROR, list(Dump.printComponentRefStr(cref), scopeName(scope)), info)
+    Error.addSourceMessageAndFail(Error.LOOKUP_VARIABLE_ERROR, list(AbsynUtil.printComponentRefStr(cref), scopeName(scope)), info)
   end
   nodeVar = node(foundCref)
   state = fixTypenameState(nodeVar, state)

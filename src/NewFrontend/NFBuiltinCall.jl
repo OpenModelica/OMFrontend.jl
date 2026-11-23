@@ -1673,7 +1673,7 @@ end
                     @assign arg2 = STRING_EXPRESSION("")
                   end
                   fn = Base.first(typeRefCache(fn_ref))
-                  assert(listLength(arrayDims(ty1)) == listLength(arrayDims(ty2)), "the first two parameters need to have the same size")
+                  Error.assertion(listLength(arrayDims(ty1)) == listLength(arrayDims(ty2)), "the first two parameters need to have the same size", info)
                   @assign ty = TYPE_ARRAY(TYPE_INTEGER(), arrayDims(ty1))
                   @assign callExp = CALL_EXPRESSION(makeTypedCall(fn, Expression[arg1, arg2], var, ty))
                   (callExp, ty, var)

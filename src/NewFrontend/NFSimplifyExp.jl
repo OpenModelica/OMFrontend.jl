@@ -278,9 +278,7 @@ function simplifyCall2(call::Call)
   if isEvalFailure(outExp)
     if Flags.isSet(Flags.FAILTRACE)
       ErrorExt.delCheckpoint(getInstanceName())
-      Debug.traceln(
-        "- " + getInstanceName() + " failed to evaluate " + toString(call) + "\\n",
-      )
+      println("- " + getInstanceName() + " failed to evaluate " + toString(call))
     else
       ErrorExt.rollBack(getInstanceName())
     end

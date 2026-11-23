@@ -655,7 +655,7 @@ function checkComponentStreamAttribute(
     if !(isReal(ety) || isComplex(ety))
       Error.addSourceMessageAndFail(
         Error.NON_REAL_FLOW_OR_STREAM,
-        list(ConnectortoString(cty), name(component)),
+        list(toString(cty), name(component)),
         InstNode_info(component),
       )
     end
@@ -2265,7 +2265,7 @@ function typeArrayRef(
         Error.addSourceMessage(
           Error.NF_ARRAY_TYPE_MISMATCH,
           list(
-            string(n),
+            string(i),
             toString(exp),
             toString(ty2),
             toString(ty1),
