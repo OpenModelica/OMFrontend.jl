@@ -132,7 +132,7 @@ function getInputIndex(nameArg::String, fn::MODELICA_FUNCTION, info::SourceInfo)
     if name(i) == nameArg
       return index
     end
-    @assign index = index + 1
+    index = index + 1
   end
   Error.addSourceMessage(
     Error.INVALID_FUNCTION_DERIVATIVE_INPUT,
@@ -178,8 +178,8 @@ function getDerivativeAttributes(
            binding = SOME(Absyn.CREF(componentRef = Absyn.CREF_IDENT(name = id))),
          ),
        ) => begin
-         @assign index = getInputIndex(id, fn, info)
-         @assign conditions = _cons((index, id, DERIVATIVE_CONDITION_NO_DERIVATIVE), conditions)
+         index = getInputIndex(id, fn, info)
+         conditions = _cons((index, id, DERIVATIVE_CONDITION_NO_DERIVATIVE), conditions)
          ()
        end
 
@@ -189,8 +189,8 @@ function getDerivativeAttributes(
            binding = SOME(Absyn.CREF(componentRef = Absyn.CREF_IDENT(name = id))),
          ),
        ) => begin
-         @assign index = getInputIndex(id, fn, info)
-         @assign conditions = _cons((index, id, DERIVATIVE_CONDITION_ZERO_DERIVATIVE), conditions)
+         index = getInputIndex(id, fn, info)
+         conditions = _cons((index, id, DERIVATIVE_CONDITION_ZERO_DERIVATIVE), conditions)
          ()
        end
 
@@ -211,7 +211,7 @@ function getDerivativeAttributes(
      end
   end
   if isEmpty(order)
-    @assign order = INTEGER_EXPRESSION(1)
+    order = INTEGER_EXPRESSION(1)
   end
   return (order, conditions)
 end
@@ -224,7 +224,7 @@ function instDerivativeMod(
   fnDers::List{<:FUNCTION_DER},
 )::List{FUNCTION_DER}
 
-  @assign fnDers = begin
+  fnDers = begin
     local attrs::List{SCode.NAMEMOD}
     local acref::Absyn.ComponentRef
     local der_node::InstNode

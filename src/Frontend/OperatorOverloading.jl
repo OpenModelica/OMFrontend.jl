@@ -70,7 +70,7 @@ function instOperatorFunctions(node::InstNode, ::SourceInfo)::InstNode
   local allfuncs::Vector{MODELICA_FUNCTION} = MODELICA_FUNCTION[]
   local funcs::Vector{MODELICA_FUNCTION}
   checkOperatorRestrictions(node)
-  @assign tree = classTree(getClass(node))
+  tree = classTree(getClass(node))
    @match tree begin
      CLASS_TREE_FLAT_TREE(classes = mclss) => begin
        for op in mclss
@@ -160,18 +160,18 @@ function patchOperatorRecordConstructorBinding(fn::MODELICA_FUNCTION)::MODELICA_
   if listLength(fn.outputs) != 1
     return fn
   end
-  @assign output_node = listHead(fn.outputs)
-  @assign output_comp = component(output_node)
-  @assign output_binding = getBinding(output_comp)
+  output_node = listHead(fn.outputs)
+  output_comp = component(output_node)
+  output_binding = getBinding(output_comp)
   if !isBound(output_binding)
     return fn
   end
-  @assign output_binding = mapExp(
+  output_binding = mapExp(
     output_binding,
     (e) -> patchOperatorRecordConstructorBinding_traverser(e, fn),
   )
-  @assign output_comp = setBinding(output_binding, output_comp)
-  @assign output_node = updateComponent!(output_comp, output_node)
+  output_comp = setBinding(output_binding, output_comp)
+  output_node = updateComponent!(output_comp, output_node)
   return fn
 end
 
@@ -192,8 +192,8 @@ function checkOperatorConstructorOutput(
     )
     fail()
   end
-  @assign output_node = listHead(fn.outputs)
-  @assign output_ty = classScope(output_node)
+  output_node = listHead(fn.outputs)
+  output_ty = classScope(output_node)
   return if !isSame(output_ty, recordNode)
     Error.addSourceMessage(
       Error.OPERATOR_OVERLOADING_INVALID_OUTPUT_TYPE,

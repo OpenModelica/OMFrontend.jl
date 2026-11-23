@@ -295,7 +295,7 @@ function lookupLocalCref(cref::Absyn.ComponentRef, scope::InstNode #= The scope 
     @matchcontinue cref begin
       Absyn.CREF_IDENT(__)  => begin
          (node, foundScope) = lookupLocalSimpleCref(cref.name, scope)
-        @assign state = nodeState(node)
+        state = nodeState(node)
         (fromAbsyn(node, cref.subscripts), foundScope, state)
       end
 

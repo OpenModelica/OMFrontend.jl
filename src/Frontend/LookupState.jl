@@ -269,8 +269,8 @@ function next(
   if checkAccessViolations
     checkProtection(node, currentState)
   end
-  @assign entry_ty = nodeState(node)
-  @assign nextState = next2(entry_ty, currentState, node)
+  entry_ty = nodeState(node)
+  nextState = next2(entry_ty, currentState, node)
   return nextState
 end
 
@@ -423,7 +423,7 @@ isError(state::LookupState)::Bool = isvariant(state, LOOKUP_STATE_ERROR)
 
       (LOOKUP_STATE_COMP_FUNC(__), _) => begin
         #= Found a function via a component, but didn't expect a function. =#
-        @assign name_str = toString(lookupName)
+        name_str = toString(lookupName)
         Error.addSourceMessage(Error.FOUND_FUNC_NAME_VIA_COMP_NONCALL, list(name_str), info)
         fail()
       end
@@ -442,15 +442,15 @@ isError(state::LookupState)::Bool = isvariant(state, LOOKUP_STATE_ERROR)
       (LOOKUP_STATE_ERROR(errorState = LOOKUP_STATE_COMP_FUNC(__)), LOOKUP_STATE_FUNC(__)) => begin
         #= Invalid form when looking for a function via a component, only
            c.C1...Cn.f is allowed. =#
-        @assign name_str = name(node)
-        @assign info2 = InstNode_info(node)
+        name_str = name(node)
+        info2 = InstNode_info(node)
         Error.addSourceMessage(Error.NON_CLASS_IN_COMP_FUNC_NAME, list(name_str), info2)
         fail()
       end
 
       (LOOKUP_STATE_ERROR(errorState = LOOKUP_STATE_COMP_FUNC(__)), LOOKUP_STATE_COMP(__)) => begin
         #= Found class when looking up a composite component name. =#
-        @assign name_str = name(node)
+        name_str = name(node)
         Error.addSourceMessage(
           Error.CLASS_IN_COMPOSITE_COMP_NAME,
           list(name_str, toString(lookupName)),
@@ -461,7 +461,7 @@ isError(state::LookupState)::Bool = isvariant(state, LOOKUP_STATE_ERROR)
 
       (LOOKUP_STATE_ERROR(errorState = LOOKUP_STATE_COMP_FUNC(__)), _) => begin
         #= Found class via composite component name when actually looking for a class. =#
-        @assign name_str = name(node)
+        name_str = name(node)
         Error.addSourceMessage(
           Error.LOOKUP_CLASS_VIA_COMP_COMP,
           list(name_str, toString(lookupName)),
@@ -472,7 +472,7 @@ isError(state::LookupState)::Bool = isvariant(state, LOOKUP_STATE_ERROR)
 
       (LOOKUP_STATE_ERROR(errorState = LOOKUP_STATE_COMP_COMP(__)), LOOKUP_STATE_COMP(__)) => begin
         #= Found class when looking up a composite component name. =#
-        @assign name_str = name(node)
+        name_str = name(node)
         Error.addSourceMessage(
           Error.CLASS_IN_COMPOSITE_COMP_NAME,
           list(name_str, toString(lookupName)),
@@ -483,7 +483,7 @@ isError(state::LookupState)::Bool = isvariant(state, LOOKUP_STATE_ERROR)
 
       (LOOKUP_STATE_ERROR(errorState = LOOKUP_STATE_COMP_COMP(__)), _) => begin
         #= Found class via composite component name when actually looking for a class. =#
-        @assign name_str = name(node)
+        name_str = name(node)
         Error.addSourceMessage(
           Error.LOOKUP_CLASS_VIA_COMP_COMP,
           list(name_str, toString(lookupName)),
@@ -560,7 +560,7 @@ end
 
 function isCallableComponent(node::InstNode)::Bool
   local callable::Bool
-  @assign callable = isFunction(getClass(node))
+  callable = isFunction(getClass(node))
   return callable
 end
 

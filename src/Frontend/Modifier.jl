@@ -48,7 +48,7 @@ end
 
 function toString(scope::ModifierScope)
   local string::String
-  @assign string = begin
+  string = begin
     @match scope begin
       COMPONENT(__) => begin
         "component " + scope.name
@@ -68,7 +68,7 @@ end
 
 function name(scope::ModifierScope)
   local name::String
-  @assign name = begin
+  name = begin
     @match scope begin
       COMPONENT(__) => begin
         scope.name
@@ -86,7 +86,7 @@ end
 
 function fromElement(element::SCode.Element)
   local scope::ModifierScope
-  @assign scope = begin
+  scope = begin
     @match element begin
       SCode.COMPONENT(__) => begin
         COMPONENT(element.name)
@@ -124,7 +124,7 @@ function toFlatString(mod::Modifier, printName::Bool = true)
             "= "
           end
         end
-        @assign binding_str = toFlatString(mod.binding, binding_sep)
+        binding_str = toFlatString(mod.binding, binding_sep)
         if printName
           mod.name + subs_str + binding_str
         else
@@ -142,27 +142,27 @@ end
 
 function toString(mod::Modifier, printName::Bool = true)
   local string::String
-  @assign string = begin
+  string = begin
     local submods::List{Modifier}
     local subs_str::String
     local binding_str::String
     local binding_sep::String
     @match mod begin
       MODIFIER_MODIFIER(__) => begin
-        @assign submods = ModTable.listValues(mod.subModifiers)
+        submods = ModTable.listValues(mod.subModifiers)
         if !listEmpty(submods)
-          @assign subs_str =
+          subs_str =
             "(" + stringDelimitList(list(toString(s) for s in submods), ", ") + ")"
-          @assign binding_sep = " = "
+          binding_sep = " = "
         else
-          @assign subs_str = ""
-          @assign binding_sep = if printName
+          subs_str = ""
+          binding_sep = if printName
             " = "
           else
             "= "
           end
         end
-        @assign binding_str = toString(mod.binding, binding_sep)
+        binding_str = toString(mod.binding, binding_sep)
         if printName
           mod.name + subs_str + binding_str
         else

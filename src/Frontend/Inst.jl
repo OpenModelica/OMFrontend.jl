@@ -212,7 +212,7 @@ inlined function bodies (nothing: no wrapping).
 function simplifyAndCollect(flat_model::FLAT_MODEL, name::String, top = nothing)::Tuple{FLAT_MODEL, FunctionTree}
   local funcs::FunctionTree
   #= Do unit checking =#
-  #TODO  @assign flat_model = UnitCheck.checkUnits(flat_model)
+  #TODO  flat_model = UnitCheck.checkUnits(flat_model)
   flat_model = inlineSimpleCalls(flat_model, top)
   dumpFlatModel(flat_model, string(name, "_", "afterInlining"))
   @EXECSTAT "Simplify" flat_model = simplifyFlatModel(flat_model)
@@ -1462,7 +1462,7 @@ function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMo
       end
     end
   else
-    @assign new_cls = begin
+    new_cls = begin
       @match (orig_cls, rdcl_cls) begin
         (PARTIAL_BUILTIN(__), _)  => begin
           redeclareEnum(rdcl_cls, orig_cls, prefs, outerMod, redeclareNode, originalNode)
@@ -1492,7 +1492,7 @@ function redeclareEnum(::Class, originalClass::Class, prefixes::PREFIXES, outerM
   expand(redeclareNode)
   local redeclaredClass::Class = getClass(redeclareNode)
 
-  @assign redeclaredClass = begin
+  redeclaredClass = begin
     local lits1::List{String}
     local lits2::List{String}
     @match (redeclaredClass, originalClass) begin
@@ -2036,11 +2036,11 @@ function mergeRedeclaredClassPrefixes(origPrefs::PREFIXES, redeclPrefs::PREFIXES
   local repl::SCode.Replaceable
 
   if referenceEq(origPrefs, DEFAULT_PREFIXES)
-    @assign prefs = redeclPrefs
+    prefs = redeclPrefs
   else
     @match PREFIXES(innerOuter = io) = origPrefs
     @match PREFIXES(enc, par, fin, rio, repl) = redeclPrefs
-    @assign io = begin
+    io = begin
       @match (io, rio) begin
         (Absyn.NOT_INNER_OUTER(__), _)  => begin
           rio
@@ -2068,7 +2068,7 @@ function mergeRedeclaredClassPrefixes(origPrefs::PREFIXES, redeclPrefs::PREFIXES
         end
       end
     end
-    @assign prefs = PREFIXES(enc, par, fin, io, repl)
+    prefs = PREFIXES(enc, par, fin, io, repl)
   end
   prefs
 end
@@ -3078,12 +3078,12 @@ function instPartEvalFunction(func::Absyn.ComponentRef, funcArgs::Absyn.Function
   local args::List{Expression}
   local arg_names::List{String}
   @match Absyn.FUNCTIONARGS(argNames = nargs) = funcArgs
-  @assign outExp = instCref(func, scope, info)
+  outExp = instCref(func, scope, info)
   if ! listEmpty(nargs)
-    @assign fn_ref = toCref(outExp)
-    @assign args = list(instExp(arg.argValue, scope, info) for arg in nargs)
-    @assign arg_names = list(arg.argName for arg in nargs)
-    @assign outExp = PARTIAL_FUNCTION_APPLICATION_EXPRESSION(fn_ref, args, arg_names, TYPE_UNKNOWN())
+    fn_ref = toCref(outExp)
+    args = list(instExp(arg.argValue, scope, info) for arg in nargs)
+    arg_names = list(arg.argName for arg in nargs)
+    outExp = PARTIAL_FUNCTION_APPLICATION_EXPRESSION(fn_ref, args, arg_names, TYPE_UNKNOWN())
   end
   outExp
 end
@@ -3092,7 +3092,7 @@ function instSections(node::InstNode, scope::InstNode, sections::Sections, isFun
                       connectBreaks::ConnectBreaks = NO_CONNECT_BREAKS) ::Sections
   local el::SCode.Element = definition(node)
   local def::SCode.ClassDef
-  @assign sections = begin
+  sections = begin
     @match el begin
       SCode.CLASS(classDef = SCode.PARTS(__))  => begin
         instSections2(el.classDef, scope, sections, isFunction, connectBreaks)
@@ -3161,15 +3161,15 @@ function instExternalDecl(extDecl::SCode.EXTERNALDECL, scope::InstNode) ::Sectio
   local info::SourceInfo
   @match extDecl begin
     SCode.EXTERNALDECL(__)  => begin
-      @assign info = InstNode_info(scope)
-      @assign nameVar = Util.getOptionOrDefault(extDecl.funcName, name(scope))
-      @assign lang = Util.getOptionOrDefault(extDecl.lang, "C")
+      info = InstNode_info(scope)
+      nameVar = Util.getOptionOrDefault(extDecl.funcName, name(scope))
+      lang = Util.getOptionOrDefault(extDecl.lang, "C")
       checkExternalDeclLanguage(lang, info)
-      @assign args = list(instExp(arg, scope, info) for arg in extDecl.args)
+      args = list(instExp(arg, scope, info) for arg in extDecl.args)
       if isSome(extDecl.output_)
         (ret_cref, _) = lookupLocalComponent(Util.getOption(extDecl.output_), scope, info)
       else
-        @assign ret_cref = COMPONENT_REF_EMPTY()
+        ret_cref = COMPONENT_REF_EMPTY()
       end
       SECTIONS_EXTERNAL(nameVar, args, ret_cref, lang, extDecl.annotation_, isSome(extDecl.funcName))
     end
@@ -3215,7 +3215,7 @@ function instEquation(scodeEq::SCode.EQUATION, scope::InstNode, origin::ORIGIN_T
   local instEq::Equation
   local eq::SCode.EEquation
   @match SCode.EQUATION(eEquation = eq) = scodeEq
-  @assign instEq = instEEquation(eq, scope, origin)
+  instEq = instEEquation(eq, scope, origin)
   instEq
 end
 
@@ -3230,7 +3230,7 @@ end
 
 function instEEquation(@nospecialize(scodeEq::SCode.EEquation), @nospecialize(scope::InstNode), origin::ORIGIN_Type)
   local instEq::Equation
-  @assign instEq = begin
+  instEq = begin
     local exp1::Expression
     local exp2::Expression
     local exp3::Expression
@@ -3338,7 +3338,7 @@ function instEEquation(@nospecialize(scodeEq::SCode.EEquation), @nospecialize(sc
       end
 
       SCode.EQ_TERMINATE(info = info)  => begin
-        @assign exp1 = instExp(scodeEq.message, scope, info)
+        exp1 = instExp(scodeEq.message, scope, info)
         EQUATION_TERMINATE(exp1, makeSource(scodeEq.comment, info))
       end
 
@@ -3353,7 +3353,7 @@ function instEEquation(@nospecialize(scodeEq::SCode.EEquation), @nospecialize(sc
       end
 
       SCode.EQ_NORETCALL(info = info)  => begin
-        @assign exp1 = instExp(scodeEq.exp, scope, info)
+        exp1 = instExp(scodeEq.exp, scope, info)
         EQUATION_NORETCALL(exp1, makeSource(scodeEq.comment, info))
       end
 
@@ -3487,7 +3487,7 @@ function insertGeneratedInners(node::InstNode, topScope::InstNode)
           Error.addSourceMessage(Error.MISSING_INNER_MESSAGE, list(System.unescapedString(msgExp.value)), InstNode_info(n))
         end
       end
-      @assign inner_comps = Cons{Pointer{InstNode}}(P_Pointer.create(n), inner_comps)
+      inner_comps = Cons{Pointer{InstNode}}(P_Pointer.create(n), inner_comps)
     end
   end
   if ! listEmpty(inner_comps)
@@ -3672,43 +3672,43 @@ function isExpressionNotFixed(@nospecialize(exp::Expression); requireFinal::Bool
   local isNotFixed::Bool
 
   try
-  @assign isNotFixed = begin
+  isNotFixed = begin
     local nodeVar::InstNode
     local c::Component
     local var::VariabilityType
     @match exp begin
       CREF_EXPRESSION(__)  => begin
-        @assign nodeVar = node(exp.cref)
+        nodeVar = node(exp.cref)
         if isComponent(nodeVar)
-          @assign c = component(nodeVar)
-          @assign var = variability(c)
+          c = component(nodeVar)
+          var = variability(c)
           if var <= Variability.STRUCTURAL_PARAMETER
-            @assign isNotFixed = false
+            isNotFixed = false
           elseif var == Variability.PARAMETER && (! requireFinal || isFinal(c)) && ! isExternalObject(c) && getFixedAttribute(c)
-            @assign isNotFixed = isComponentBindingNotFixed(c, nodeVar, requireFinal, maxDepth - 1)
+            isNotFixed = isComponentBindingNotFixed(c, nodeVar, requireFinal, maxDepth - 1)
           else
-            @assign isNotFixed = true
+            isNotFixed = true
           end
         else
-          @assign isNotFixed = true
+          isNotFixed = true
         end
         isNotFixed || containsShallow(exp, (@nospecialize(x::Expression),) -> isExpressionNotFixed(x; requireFinal = requireFinal, maxDepth = maxDepth))
       end
 
       SIZE_EXPRESSION(__)  => begin
         if isSome(exp.dimIndex)
-          @assign isNotFixed = isExpressionNotFixed(Util.getOption(exp.dimIndex), requireFinal = requireFinal, maxDepth = maxDepth)
+          isNotFixed = isExpressionNotFixed(Util.getOption(exp.dimIndex), requireFinal = requireFinal, maxDepth = maxDepth)
         else
-          @assign isNotFixed = false
+          isNotFixed = false
         end
         isNotFixed
       end
 
       CALL_EXPRESSION(__)  => begin
         if isImpure(exp.call) || isExternal(exp.call)
-          @assign isNotFixed = true
+          isNotFixed = true
         else
-          @assign isNotFixed = containsShallow(exp, (@nospecialize(x::Expression),) -> isExpressionNotFixed(x; requireFinal = requireFinal, maxDepth = maxDepth))
+          isNotFixed = containsShallow(exp, (@nospecialize(x::Expression),) -> isExpressionNotFixed(x; requireFinal = requireFinal, maxDepth = maxDepth))
         end
         isNotFixed
       end

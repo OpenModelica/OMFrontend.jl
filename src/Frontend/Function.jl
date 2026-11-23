@@ -143,13 +143,13 @@ function foldExpParameter(node::InstNode, foldFn::FT, arg::ArgT, ::Type{ArgT})::
   local comp::Component
   local cls::Class
 
-  @assign comp = component(node)
-  @assign arg = foldExp(getBinding(comp), foldFn, arg, ArgT)
+  comp = component(node)
+  arg = foldExp(getBinding(comp), foldFn, arg, ArgT)
    @match comp begin
      TYPED_COMPONENT(__) => begin
-       @assign arg = foldDims(comp.ty, (dim::Dimension, acc::ArgT) -> foldExp(dim, foldFn, acc, ArgT), arg, ArgT)
-       @assign cls = getClass(comp.classInst)
-       @assign arg = foldComponents(classTree(cls), (node::InstNode, acc::ArgT) -> foldExpParameter(node, foldFn, acc, ArgT), arg, ArgT)
+       arg = foldDims(comp.ty, (dim::Dimension, acc::ArgT) -> foldExp(dim, foldFn, acc, ArgT), arg, ArgT)
+       cls = getClass(comp.classInst)
+       arg = foldComponents(classTree(cls), (node::InstNode, acc::ArgT) -> foldExpParameter(node, foldFn, acc, ArgT), arg, ArgT)
        ()
      end
 
@@ -171,12 +171,12 @@ function foldExp(
 
   local cls::Class
 
-  @assign cls = getClass(fn.node)
+  cls = getClass(fn.node)
   if mapParameters
-    @assign arg = foldComponents(classTree(cls), (node::InstNode, acc::ArgT) -> foldExpParameter(node, foldFn, acc, ArgT), arg, ArgT)
+    arg = foldComponents(classTree(cls), (node::InstNode, acc::ArgT) -> foldExpParameter(node, foldFn, acc, ArgT), arg, ArgT)
   end
   if mapBody
-    @assign arg = P_Sections.Sections.foldExp(getSections(cls), foldFn, arg, ArgT)
+    arg = P_Sections.Sections.foldExp(getSections(cls), foldFn, arg, ArgT)
   end
   return arg
 end
@@ -318,9 +318,9 @@ end
 function isSubscriptableBuiltin(fn::MODELICA_FUNCTION)::Bool
   local scalarBuiltin::Bool
   if !isBuiltin(fn)
-    @assign scalarBuiltin = false
+    scalarBuiltin = false
   else
-    @assign scalarBuiltin = begin
+    scalarBuiltin = begin
       @match AbsynUtil.pathFirstIdent(nameConsiderBuiltin(fn)) begin
         "change" => begin
           true
@@ -352,13 +352,13 @@ function isSpecialBuiltin(fn::MODELICA_FUNCTION)::Bool
   local special::Bool
   local path::Absyn.Path
   if !isBuiltin(fn)
-    @assign special = false
+    special = false
   else
-    @assign path = nameConsiderBuiltin(fn)
+    path = nameConsiderBuiltin(fn)
     if !AbsynUtil.pathIsIdent(path)
-      @assign special = false
+      special = false
     else
-      @assign special = begin
+      special = begin
         @match AbsynUtil.pathFirstIdent(path) begin
           "array" => begin
             true
@@ -577,12 +577,12 @@ function applyPartialApplicationArg(
         )
         fail()
       end
-      @assign outInputs = listAppend(listReverseInPlace(outInputs), rest_inputs)
-      @assign outSlots = listAppend(listReverseInPlace(outSlots), rest_slots)
+      outInputs = listAppend(listReverseInPlace(outInputs), rest_inputs)
+      outSlots = listAppend(listReverseInPlace(outSlots), rest_slots)
       return (argExp, outInputs, outSlots)
     end
-    @assign outInputs = _cons(i, outInputs)
-    @assign outSlots = _cons(s, outSlots)
+    outInputs = _cons(i, outInputs)
+    outSlots = _cons(s, outSlots)
   end
   Error.addSourceMessage(
     Error.NO_SUCH_INPUT_PARAMETER,
@@ -622,10 +622,10 @@ function typePartialApplication(
   #= TODO: Handle overloaded functions? =#
   fns = typeRefCache(fn_ref)
   fn = fns[1]
-  @assign inputs = fn.inputs
-  @assign slots = fn.slots
-  @assign rest_names = arg_names
-  @assign variability = if isImpure(fn) || isOMImpure(fn)
+  inputs = fn.inputs
+  slots = fn.slots
+  rest_names = arg_names
+  variability = if isImpure(fn) || isOMImpure(fn)
     Variability.PARAMETER
   else
     Variability.CONSTANT
@@ -635,13 +635,13 @@ function typePartialApplication(
     @match _cons(arg_name, rest_names) = rest_names
      (arg, inputs, slots) =
       applyPartialApplicationArg(arg_name, arg, arg_ty, inputs, slots, fn, info)
-    @assign ty_args = _cons(box(arg), ty_args)
-    @assign variability = variabilityMax(variability, arg_var)
+    ty_args = _cons(box(arg), ty_args)
+    variability = variabilityMax(variability, arg_var)
   end
   @assign fn.inputs = inputs
   @assign fn.slots = slots
-  @assign ty = TYPE_FUNCTION(fn, FunctionType.FUNCTIONAL_VARIABLE)
-  @assign exp = PARTIAL_FUNCTION_APPLICATION_EXPRESSION(
+  ty = TYPE_FUNCTION(fn, FunctionType.FUNCTIONAL_VARIABLE)
+  exp = PARTIAL_FUNCTION_APPLICATION_EXPRESSION(
     fn_ref,
     listReverseInPlace(ty_args),
     arg_names,
@@ -653,8 +653,8 @@ end
 function boxFunctionParameter(compNode::InstNode)
   local comp::Component
 
-  @assign comp = component(compNode)
-  @assign comp = setType(box(getType(comp)), comp)
+  comp = component(compNode)
+  comp = setType(box(getType(comp)), comp)
   return updateComponent!(comp, compNode)
 end
 
@@ -984,7 +984,7 @@ function matchArgVectorized(
   end
   #= Check that the argument and the input parameter are type compatible when
      the dimensions to vectorize over has been removed from the argument's type. =#
-  @assign rest_ty = liftArrayLeftList(arrayElementType(argTy), rest_dims)
+  rest_ty = liftArrayLeftList(arrayElementType(argTy), rest_dims)
   (argExp, argTy, matchKind) =
     matchTypes(rest_ty, inputTy, argExp, #=allowUnknown=# false)
   return (argExp, argTy, vectArg, vectDims, matchKind)
@@ -1016,7 +1016,7 @@ function matchArgs(
   for (i,arg) in enumerate(args)
     (arg_exp, arg_ty, arg_var) = arg
     @match _cons(input_node, inputs) = inputs
-    @assign comp = component(input_node)
+    comp = component(input_node)
     #= A record's default constructor takes values of any variability: its inputs are the
        fields, whose parameter prefix is not the input's (Buildings' ClimaticConstants.Generic
        built from a function's locals). =#
@@ -1198,7 +1198,7 @@ end
 function fillDefaultSlot(slot::SLOT, slots::Vector{<:SLOT}, info::SourceInfo)::TypedArg
   local outArg::TypedArg
 
-  @assign outArg = begin
+  outArg = begin
     @match slot begin
       SLOT(arg = SOME(outArg)) => begin
         outArg
@@ -1276,7 +1276,7 @@ function fillNamedArg(
      Positional arguments fill the slots from the start of the array, so
      searching backwards will generally be a bit more efficient. =#
   for i = arrayLength(slots):(-1):1
-    @assign s = slots[i]
+    s = slots[i]
      (argName, argExp, ty, var) = inArg
     if s.name == argName
       if !named(s)
@@ -1294,7 +1294,7 @@ function fillNamedArg(
   #= Slot doesn't allow named argument (used for some builtin functions).
      TODO: Improve the error message, should mention function name.
      No slot could be found. =#
-  @assign matching = false
+  matching = false
   #= A slot with the given name couldn't be found. This means it doesn't
      exist, or we removed it when handling positional argument. We need to
      search through all slots to be sure. =#
@@ -1484,7 +1484,7 @@ end
 function typeString(fn::MODELICA_FUNCTION)::String
   local str::String
 
-  @assign str = ListUtil.toString(
+  str = ListUtil.toString(
     fn.inputs,
     paramTypeString,
     AbsynUtil.pathString(name(fn)) + "<function>",
@@ -1522,14 +1522,14 @@ function signatureString(fn::MODELICA_FUNCTION, printTypes::Bool = true)::String
   local ty::ModelicaType
 
   for s in fn.slots
-    @assign input_str = ""
-    @assign c = component(listHead(inputs))
-    @assign inputs = listRest(inputs)
+    input_str = ""
+    c = component(listHead(inputs))
+    inputs = listRest(inputs)
     if isSome(s.default)
       @match SOME(def_exp) = s.default
-      @assign input_str = " = " + toString(def_exp)::String
+      input_str = " = " + toString(def_exp)::String
     end
-    @assign input_str = (s.name::String) + (input_str::String)
+    input_str = (s.name::String) + (input_str::String)
     if printTypes && isTyped(c)
       ty = getType(c)
       var_s = unparseVariability(variability(c), ty)
@@ -1676,8 +1676,8 @@ function instFunction2(
     local sub_fnNode::InstNode
     @match def begin
       SCode.CLASS(__) where {(SCodeUtil.isOperatorRecord(def))} => begin
-        @assign fnNode = instFunction3(fnNode)
-        @assign fnNode = instConstructor(fnPath, fnNode, info)
+        fnNode = instFunction3(fnNode)
+        fnNode = instConstructor(fnPath, fnNode, info)
         (fnNode, false)
       end
 
@@ -1850,7 +1850,7 @@ end
 
 function instFunctionNode2(node::InstNode)::InstNode
   local cache::CachedData
-  @assign cache = getFuncCache(node)
+  cache = getFuncCache(node)
    @match cache begin
      C_FUNCTION(__) => begin
        ()
@@ -1895,7 +1895,7 @@ function instFunctionRef2(
         (fn_node, cache.specialBuiltin)
       end
       _ => begin
-        @assign parent =
+        parent =
           if isRedeclare(node(fn_ref)) ||
              isSimple(fn_ref)
             EMPTY_NODE()
@@ -1968,14 +1968,14 @@ function new(path::Absyn.Path, node::InstNode)::MODELICA_FUNCTION
   local status::FunctionStatus
 
   (inputs, outputs, locals) = collectParams(node)
-  @assign attr = makeAttributes(node, inputs, outputs)
+  attr = makeAttributes(node, inputs, outputs)
   #= Make sure builtin functions aren't added to the function tree. =#
-  @assign status = if isBuiltinAttr(attr)
+  status = if isBuiltinAttr(attr)
     FUNCTION_STATUS_COLLECTED
   else
     FUNCTION_STATUS_INITIAL
   end
-  @assign fn = MODELICA_FUNCTION(
+  fn = MODELICA_FUNCTION(
     path,
     node,
     inputs,
@@ -2148,9 +2148,9 @@ function mergeFunctionAnnotations(comments::List{<:SCode.COMMENT})::SCode.COMMEN
 
   for cmt in comments
     if isNone(comment)
-      @assign comment = cmt.comment
+      comment = cmt.comment
     end
-    @assign mod = begin
+    mod = begin
       @match cmt begin
         SCode.COMMENT(annotation_ = SOME(SCode.ANNOTATION(modification = mod2))) => begin
           SCodeUtil.mergeModifiers(mod2, mod)
@@ -2162,7 +2162,7 @@ function mergeFunctionAnnotations(comments::List{<:SCode.COMMENT})::SCode.COMMEN
       end
     end
   end
-  @assign outComment = begin
+  outComment = begin
     @match mod begin
       SCode.NOMOD(__) => begin
         SCode.COMMENT(NONE(), comment)
@@ -2232,8 +2232,8 @@ function paramDirection(@nospecialize(componentArg::InstNode))::DirectionType
     direction = direction,
     innerOuter = io,
   ) = getAttributes(component(componentArg))
-  @assign vis = visibility(componentArg)
-  @assign var = variability(component(componentArg))
+  vis = visibility(componentArg)
+  var = variability(component(componentArg))
   #= Function components may not be connectors. =#
   if isFlowOrStream(cty)
     Error.addSourceMessage(
@@ -2294,26 +2294,26 @@ function collectParams(
   #   getInstanceName() + " got non-class node",
   #   sourceInfo(),
   # ) TODO
-  @assign cls = getClass(node)
+  cls = getClass(node)
    @match cls begin
      INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps)) =>
        begin
          for i = arrayLength(comps):(-1):1
-           @assign n = comps[i]
+           n = comps[i]
             @match paramDirection(n) begin
               Direction.INPUT => begin
                 #= Sort the components based on their direction. =#
-                @assign inputs = _cons(n, inputs)
+                inputs = _cons(n, inputs)
                 ()
               end
 
               Direction.OUTPUT => begin
-                @assign outputs = _cons(n, outputs)
+                outputs = _cons(n, outputs)
                 ()
               end
 
               Direction.NONE => begin
-                @assign locals = _cons(n, locals)
+                locals = _cons(n, locals)
                 ()
               end
             end

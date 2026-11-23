@@ -254,7 +254,7 @@ function whenEquationIfCrefs(
       checkCrefSetEquality(crefs1, crefs2, Error.WHEN_IF_VARIABLE_MISMATCH, source)
     end
   end
-  @assign crefs = listAppend(crefs1, crefs)
+  crefs = listAppend(crefs1, crefs)
   return crefs
 end
 
@@ -262,7 +262,7 @@ function whenEquationEqualityCrefs(
   lhsExp::Expression,
   crefs::List{<:ComponentRef},
 )::List{ComponentRef}
-  @assign crefs = begin
+  crefs = begin
     @match lhsExp begin
       CREF_EXPRESSION(__) => begin
         Cons{ComponentRef}(lhsExp.cref, crefs)
@@ -283,7 +283,7 @@ end
 function whenEquationBranchCrefs(eql::Union{List{<:Equation}, Vector{<:Equation}})::List{ComponentRef}
   local crefs::List{ComponentRef} = nil
   for eq in eql
-    @assign crefs = begin
+    crefs = begin
       @match eq begin
         EQUATION_EQUALITY(__) => begin
           whenEquationEqualityCrefs(eq.lhs, crefs)
@@ -324,7 +324,7 @@ function verifyWhenEquation(
     return
   end
   @match EQUATION_BRANCH(body = body) <| rest_branches = branches
-  @assign crefs1 = whenEquationBranchCrefs(body)
+  crefs1 = whenEquationBranchCrefs(body)
   #=TODO: Should the return be here or is it a translation error =#
   return for branch in rest_branches
     @match EQUATION_BRANCH(body = body) = branch

@@ -131,11 +131,11 @@ MetaModelica.compacted_tag_info(::typeof(TYPE_ENUMERATION))  = (ModelicaType, :t
 function subscriptedTypeName(expType::ModelicaType, subscriptTypes::List{<:ModelicaType})::String
   local str::String
   local strl::List{String}
-  @assign strl = list(toString(t) for t in subscriptTypes)
-  @assign strl = _cons("_", strl)
-  @assign strl = _cons(toString(expType), strl)
-  @assign strl = _cons("subscript", strl)
-  @assign str = stringAppendList(strl)
+  strl = list(toString(t) for t in subscriptTypes)
+  strl = _cons("_", strl)
+  strl = _cons(toString(expType), strl)
+  strl = _cons("subscript", strl)
+  str = stringAppendList(strl)
   return str
 end
 
@@ -143,9 +143,9 @@ function sizeType(arrayTy::ModelicaType)::ModelicaType
   local sizeTy::ModelicaType
 
   if isUnknown(arrayTy)
-    @assign sizeTy = TYPE_UNKNOWN()
+    sizeTy = TYPE_UNKNOWN()
   else
-    @assign sizeTy = TYPE_ARRAY(
+    sizeTy = TYPE_ARRAY(
       TYPE_INTEGER(),
       list(fromInteger(dimensionCount(arrayTy))),
     )
@@ -187,7 +187,7 @@ function enumSize(ty::ModelicaType)::Int
   local size::Int
   local literals::List{String}
   @match TYPE_ENUMERATION(literals = literals) = ty
-  @assign size = listLength(literals)
+  size = listLength(literals)
   return size
 end
 
@@ -200,7 +200,7 @@ end
 function recordFields(recordType::ModelicaType)::List{Field}
   local fields::List{Field}
 
-  @assign fields = begin
+  fields = begin
     @match recordType begin
       TYPE_COMPLEX(complexTy = COMPLEX_RECORD(fields = fields)) => begin
         fields
@@ -265,14 +265,14 @@ end
   local equal::Bool
 
   if referenceEq(ty1, ty2)
-    @assign equal = true
+    equal = true
     return equal
   end
   if valueConstructor(ty1) != valueConstructor(ty2)
-    @assign equal = false
+    equal = false
     return equal
   end
-  @assign equal = begin
+  equal = begin
     local names1::List{String}
     local names2::List{String}
     @match (ty1, ty2) begin
@@ -323,10 +323,10 @@ function subscript(ty::ModelicaType, subs::List{<:Subscript})::ModelicaType
   if listEmpty(subs) || isUnknown(ty)
     return ty
   end
-  @assign dims = arrayDims(ty)
+  dims = arrayDims(ty)
   for sub in subs
     @match Cons{Dimension}(dim, dims) = dims
-    @assign subbed_dims = begin
+    subbed_dims = begin
       @match sub begin
         SUBSCRIPT_INDEX(__) => begin
           subbed_dims
@@ -596,7 +596,7 @@ end
 
 function foldDims(ty::ModelicaType, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
 
-  @assign arg = begin
+  arg = begin
     @match ty begin
       TYPE_ARRAY(__) => begin
         for d in ty.dimensions
@@ -1142,9 +1142,9 @@ function unliftArray(ty::ModelicaType)::ModelicaType
 
   @match TYPE_ARRAY(el_ty, Cons{Dimension}(_, dims)) = ty
   if listEmpty(dims)
-    @assign ty = el_ty
+    ty = el_ty
   else
-    @assign ty = TYPE_ARRAY(el_ty, dims)
+    ty = TYPE_ARRAY(el_ty, dims)
   end
   return ty
 end

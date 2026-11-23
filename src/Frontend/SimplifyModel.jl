@@ -118,7 +118,7 @@ function simplifyDimension(dim::Dimension)::Dimension
   local e::Expression
   @match dim begin
     DIMENSION_EXP(__) => begin
-      @assign e = simplify(dim.exp)
+      e = simplify(dim.exp)
       if referenceEq(e, dim.exp)
         dim
       else
@@ -161,7 +161,7 @@ function simplifyEquation(@nospecialize(eq::Equation), equations::Vector{Equatio
       end
 
       EQUATION_ARRAY_EQUALITY(__) => begin
-        @assign ty = mapDims(eq.ty, simplifyDimension)
+        ty = mapDims(eq.ty, simplifyDimension)
         if !isEmptyArray(ty)
           rhs = simplify(eq.rhs)
           rhs = removeEmptyFunctionArguments(rhs)
@@ -480,7 +480,7 @@ function simplifyIfEqBranches(
               return elements
             end
           elseif !isFalse(cond)
-            @assign accum = push!(accum, makeBranch(cond, simplifyEquations(body)))
+            accum = push!(accum, makeBranch(cond, simplifyEquations(body)))
           end
           #= If it's the first branch, remove the if and keep only the branch body.
              Otherwise just discard the rest of the branches.
@@ -494,7 +494,7 @@ function simplifyIfEqBranches(
           ),
         ) => begin
           if var <= Variability.STRUCTURAL_PARAMETER
-            @assign cond = evalExp(cond)
+            cond = evalExp(cond)
           end
           #= An invalid branch that can't be removed will trigger the errors
              stored in it. =#

@@ -188,12 +188,12 @@ function makeRecordExp(clsNode::InstNode)::Union{Nothing, Expression}
   local ty::ModelicaType
   local ty_node::InstNode
   local fields::Vector{InstNode}
-  @assign cls = getClass(clsNode)
+  cls = getClass(clsNode)
   #= (A nested @match bound ty in MetaModelica's scope, an UndefVarError that getImplicitBinding
      swallowed: a record input never got its fields' defaults; omc RecordBinding8.) =#
   ty = getType(cls, clsNode)
   @match TYPE_COMPLEX(complexTy = COMPLEX_RECORD(ty_node)) = ty
-  @assign fields = getComponents(classTree(cls))
+  fields = getComponents(classTree(cls))
   local args::Vector{Expression} = Expression[]
   sizehint!(args, length(fields))
   for f in fields
@@ -544,9 +544,9 @@ function isIdentical(cls1::Class, cls2::Class)::Bool
   local identical::Bool
 
   if referenceEq(cls1, cls2)
-    @assign identical = true
+    identical = true
   else
-    @assign identical = begin
+    identical = begin
       @match (cls1, cls2) begin
         (EXPANDED_CLASS(__), EXPANDED_CLASS(__)) => begin
           isEqual(cls1.prefixes, cls2.prefixes) &&

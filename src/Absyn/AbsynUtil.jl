@@ -88,14 +88,14 @@ function printComponentRefStr(cr::ComponentRef)::String
     end
 
     CREF_QUAL(s1, _, child) => begin
-      @assign s2 = printComponentRefStr(child)
-      @assign s1 = s1 + "." + s2
+      s2 = printComponentRefStr(child)
+      s1 = s1 + "." + s2
       s1
     end
 
     CREF_FULLYQUALIFIED(child) => begin
-      @assign s2 = printComponentRefStr(child)
-      @assign s1 = "." + s2
+      s2 = printComponentRefStr(child)
+      s1 = "." + s2
       s1
     end
 
@@ -113,7 +113,7 @@ end
 function pathEqual(inPath1::Path, inPath2::Path)::Bool
   local outBoolean::Bool
 
-  @assign outBoolean = begin
+  outBoolean = begin
     local id1::String
     local id2::String
     local res::Bool
@@ -134,7 +134,7 @@ function pathEqual(inPath1::Path, inPath2::Path)::Bool
       end
 
       (QUALIFIED(id1, path1), QUALIFIED(id2, path2)) => begin
-        @assign res = if stringEq(id1, id2)
+        res = if stringEq(id1, id2)
           pathEqual(path1, path2)
         else
           false
@@ -219,7 +219,7 @@ function pathString(
   local b::Bool
 
   #= First, calculate the length of the string to be generated =#
-  @assign p1 = if usefq
+  p1 = if usefq
     path
   else
     makeNotFullyQualified(path)
@@ -228,7 +228,7 @@ function pathString(
     @match p1 begin
       IDENT(__) => begin
         #= Do not allocate memory if we're just going to copy the only identifier =#
-        @assign s = p1.name
+        s = p1.name
         return s
         ()
       end
@@ -237,10 +237,10 @@ function pathString(
       end
     end
   end
-  @assign p2 = p1
-  @assign b = true
+  p2 = p1
+  b = true
   while b
-    @assign (p2, len, count, b) = begin
+    (p2, len, count, b) = begin
       @match p2 begin
         IDENT(__) => begin
           (p2, len + 1, count + stringLength(p2.name), false)
@@ -256,7 +256,7 @@ function pathString(
       end
     end
   end
-  @assign s = pathStringWork(p1, (len - 1) * dlen + count, delimiter, dlen, reverse)
+  s = pathStringWork(p1, (len - 1) * dlen + count, delimiter, dlen, reverse)
   return s
 end
 
@@ -308,7 +308,7 @@ end
 function pathCompare(ip1::Path, ip2::Path)::Int
   local o::Int
 
-  @assign o = begin
+  o = begin
     local p1::Path
     local p2::Path
     local i1::String
@@ -327,8 +327,8 @@ function pathCompare(ip1::Path, ip2::Path)::Int
       end
 
       (QUALIFIED(i1, p1), QUALIFIED(i2, p2)) => begin
-        @assign o = stringCompare(i1, i2)
-        @assign o = if o == 0
+        o = stringCompare(i1, i2)
+        o = if o == 0
           pathCompare(p1, p2)
         else
           o
@@ -355,7 +355,7 @@ end
 function pathCompareNoQual(ip1::Path, ip2::Path)::Int
   local o::Int
 
-  @assign o = begin
+  o = begin
     local p1::Path
     local p2::Path
     local i1::String
@@ -370,8 +370,8 @@ function pathCompareNoQual(ip1::Path, ip2::Path)::Int
       end
 
       (QUALIFIED(i1, p1), QUALIFIED(i2, p2)) => begin
-        @assign o = stringCompare(i1, i2)
-        @assign o = if o == 0
+        o = stringCompare(i1, i2)
+        o = if o == 0
           pathCompare(p1, p2)
         else
           o
@@ -421,7 +421,7 @@ function stringListPath(paths::List{<:String})::Path
     end
 
     str <| rest_str => begin
-      @assign p = stringListPath(rest_str)
+      p = stringListPath(rest_str)
       QUALIFIED(str, p)
     end
   end
@@ -450,7 +450,7 @@ end
 """Returns the last ident (after last dot) in a path"""
 function pathLast(path::Path)::Path
 
-  @assign path = begin
+  path = begin
     local p::Path
     @match path begin
       QUALIFIED(path = p) => begin
@@ -492,7 +492,7 @@ end
 function pathToStringList(path::Path)::List{String}
   local outPaths::List{String}
 
-  @assign outPaths = listReverse(pathToStringListWork(path, nil))
+  outPaths = listReverse(pathToStringListWork(path, nil))
   return outPaths
 end
 
@@ -530,7 +530,7 @@ function joinPaths(inPath1::Path, inPath2::Path)::Path
     end
 
     (QUALIFIED(name = str, path = p), p2) => begin
-      @assign p_1 = joinPaths(p, p2)
+      p_1 = joinPaths(p, p2)
       QUALIFIED(str, p_1)
     end
 
@@ -559,12 +559,12 @@ function crefToPath(inComponentRef::ComponentRef)::Path
     end
 
     CREF_QUAL(name = i, subscripts = nil(), componentRef = c) => begin
-      @assign p = crefToPath(c)
+      p = crefToPath(c)
       QUALIFIED(i, p)
     end
 
     CREF_FULLYQUALIFIED(componentRef = c) => begin
-      @assign p = crefToPath(c)
+      p = crefToPath(c)
       FULLYQUALIFIED(p)
     end
   end
@@ -582,12 +582,12 @@ function pathToCref(inPath::Path)::ComponentRef
     end
 
     QUALIFIED(name = i, path = p) => begin
-      @assign c = pathToCref(p)
+      c = pathToCref(p)
       CREF_QUAL(i, nil, c)
     end
 
     FULLYQUALIFIED(p) => begin
-      @assign c = pathToCref(p)
+      c = pathToCref(p)
       crefMakeFullyQualified(c)
     end
   end
@@ -650,7 +650,7 @@ end
 function expEqual(exp1::Exp, exp2::Exp)::Bool
   local equal::Bool
 
-  @assign equal = begin
+  equal = begin
     local b::Bool
     local x::Exp
     local y::Exp
@@ -659,12 +659,12 @@ function expEqual(exp1::Exp, exp2::Exp)::Bool
     #= real vs. integer =#
     @matchcontinue (exp1, exp2) begin
       (INTEGER(i), REAL(r)) => begin
-        @assign b = realEq(intReal(i), System.stringReal(r))
+        b = realEq(intReal(i), System.stringReal(r))
         b
       end
 
       (REAL(r), INTEGER(i)) => begin
-        @assign b = realEq(intReal(i), System.stringReal(r))
+        b = realEq(intReal(i), System.stringReal(r))
         b
       end
 
@@ -751,7 +751,7 @@ isOutput(inDirection::Direction)::Bool = isvariant(inDirection, OUTPUT) || isvar
 function importName(inImport::Import)::Ident
   local outName::Ident
 
-  @assign outName = begin
+  outName = begin
     local name::Ident
     local path::Path
     #= Named import has a given name, 'import D = A.B.C' => D. =#
@@ -805,15 +805,15 @@ function mergeAnnotations2(
   for mod in newmods
     @match MODIFICATION(path = p) = mod
     try
-      @assign mod2 = ListUtil.find(res, (p) -> isModificationOfPath(path = p))
-      @assign mod1 = subModsInSameOrder(mod2, mod)
+      mod2 = ListUtil.find(res, (p) -> isModificationOfPath(path = p))
+      mod1 = subModsInSameOrder(mod2, mod)
       @match (res, true) =
         ListUtil.replaceOnTrue(mod1, res, (p) -> isModificationOfPath(path = p), ElementArg)
     catch
-      @assign res = _cons(mod, res)
+      res = _cons(mod, res)
     end
   end
-  @assign res = listReverse(res)
+  res = listReverse(res)
   return res
 end
 
@@ -856,16 +856,16 @@ function subModsInSameOrder(oldmod::ElementArg, newmod::ElementArg)::ElementArg
     ) => begin
       #= mod1
          Delete all items from args2 that are not in args1 =#
-      @assign res = nil
+      res = nil
       for arg1 in args1
         @match MODIFICATION(path = p) = arg1
         if ListUtil.exist(args2, (p) -> isModificationOfPath(path = p))
-          @assign res = _cons(arg1, res)
+          res = _cons(arg1, res)
         end
       end
-      @assign res = listReverse(res)
+      res = listReverse(res)
       #= Merge the annotations =#
-      @assign res = mergeAnnotations2(res, args2)
+      res = mergeAnnotations2(res, args2)
       @assign arg2.modification = SOME(CLASSMOD(res, eq2))
       arg2
     end
@@ -875,14 +875,14 @@ end
 function typeSpecString(inTs::TypeSpec)::String
   local outStr::String
 
-  @assign outStr = Absyn.dumpTypeSpec(inTs)
+  outStr = Absyn.dumpTypeSpec(inTs)
   return outStr
 end
 
 function crefString(inCr::ComponentRef)::String
   local outStr::String
 
-  @assign outStr = Absyn.dumpCref(inCr)
+  outStr = Absyn.dumpCref(inCr)
   return outStr
 end
 

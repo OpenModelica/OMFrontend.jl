@@ -147,7 +147,7 @@ function makeArrayExp(posArgs::Union{List{<:Expression}, Vector{<:Expression}}, 
     fail()
   end
   local posArgsList = posArgs isa Vector ? list(posArgs...) : posArgs
-  @assign arrayExp = makeArray(TYPE_UNKNOWN(), posArgsList)
+  arrayExp = makeArray(TYPE_UNKNOWN(), posArgsList)
   arrayExp
 end
 
@@ -327,10 +327,10 @@ function typeBuiltinStringCall(call::Call, origin::ORIGIN_Type, info::SourceInfo
 
   local ty_call::Call
 
-  @assign ty_call = matchTypedNormalCall(call, origin, info)
-  @assign ty = typeOf(ty_call)
-  @assign var = variability(ty_call)
-  @assign callExp = CALL_EXPRESSION(ty_call)
+  ty_call = matchTypedNormalCall(call, origin, info)
+  ty = typeOf(ty_call)
+  var = variability(ty_call)
+  callExp = CALL_EXPRESSION(ty_call)
   (callExp, ty, var)
 end
 
@@ -381,9 +381,9 @@ function typeDiscreteCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::T
   local ty::ModelicaType
   local callExp::Expression
   local argtycall::Call
-  @assign argtycall = typeMatchNormalCall(call, origin, info)
-  @assign ty = typeOf(argtycall)
-  @assign callExp = CALL_EXPRESSION(unboxArgs(argtycall))
+  argtycall = typeMatchNormalCall(call, origin, info)
+  ty = typeOf(argtycall)
+  callExp = CALL_EXPRESSION(unboxArgs(argtycall))
   (callExp, ty, var)
 end
 
@@ -405,7 +405,7 @@ function typeNdimsCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tupl
   #= The number of dimensions an expression has is always known,
      so we might as well evaluate the ndims call here. =#
    (_, arg_ty, _) = typeExp(args[1], origin, info)
-  @assign callExp = INTEGER_EXPRESSION(dimensionCount(arg_ty))
+  callExp = INTEGER_EXPRESSION(dimensionCount(arg_ty))
   (callExp, ty, variability)
 end
 
@@ -423,7 +423,7 @@ function typeChangeCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
   local callExp::Expression
 
    (callExp, ty, variability) = typePreChangeCall("change", call, origin, info)
-  @assign ty = setArrayElementType(ty, TYPE_BOOLEAN())
+  ty = setArrayElementType(ty, TYPE_BOOLEAN())
   (callExp, ty, variability)
 end
 
@@ -683,7 +683,7 @@ function typeProductCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tu
     Error.addSourceMessageAndFail(Error.NO_MATCHING_FUNCTION_FOUND_NFINST, list(toString(call), "product(Any[:, ...]) => Any"), info)
   end
    (arg, ty, variability) = typeExp(args[1], origin, info)
-  @assign ty = arrayElementType(ty)
+  ty = arrayElementType(ty)
   res = typeRefCache(fn_ref)
   fn = Base.first(res)
   callExp = CALL_EXPRESSION(makeTypedCall(fn, Expression[arg], variability, ty))
@@ -908,16 +908,16 @@ function typeScalarCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tup
     end
   end
    (arg, expanded) = expand(arg)
-  @assign ty = arrayElementType(ty)
+  ty = arrayElementType(ty)
   if expanded
     local elements::List{Expression} = arrayScalarElements(arg)
     if listLength(elements) != 1
       Error.assertion(false, getInstanceName() * " failed to expand scalar(" * toString(arg) * ") correctly", info)
     end
-    @assign callExp = listHead(elements)
+    callExp = listHead(elements)
   else
     @match Base.first(fn) = typeRefCache(fn_ref)
-    @assign callExp = CALL(makeTypedCall(fn, Expression[arg], variability, ty))
+    callExp = CALL(makeTypedCall(fn, Expression[arg], variability, ty))
   end
   (callExp, ty, variability)
 end
@@ -1067,7 +1067,7 @@ function typeSymmetricCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::
     Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list("1", toString(fn_ref), "", toString(arg), toString(ty), "Any[n, n]"), info)
   end
   @match [fn] = typeRefCache(fn_ref)
-  @assign callExp = CALL_EXPRESSION(makeTypedCall(fn, Expression[arg], variability, ty))
+  callExp = CALL_EXPRESSION(makeTypedCall(fn, Expression[arg], variability, ty))
   (callExp, ty, variability)
 end
 
@@ -1445,7 +1445,7 @@ function typeUniqueRootCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) :
       Error.addSourceMessageAndFail(Error.NO_SUCH_PARAMETER, list(toString(fn_ref), name), info)
     end
   end
-  @assign args_len = length(args)
+  args_len = length(args)
   if args_len < 1 || args_len > 2
     Error.addSourceMessageAndFail(Error.NO_MATCHING_FUNCTION_FOUND_NFINST, list(toString(call), toString(fn_ref) + "(Connector, String = \\\\)"), info)
   end
@@ -1456,17 +1456,17 @@ function typeUniqueRootCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) :
    (arg1, ty) = typeExp(arg1, origin, info)
   checkConnectionsArgument(arg1, ty, fn_ref, 1, info)
   if args_len == 2
-    @assign arg2 = args[1]
+    arg2 = args[1]
      (arg2, ty) = typeExp(arg2, origin, info)
     if ! isString(ty)
       Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list("2", toString(fn_ref), "", toString(arg2), toString(ty), "String"), info)
     end
   else
-    @assign arg2 = STRING_EXPRESSION("")
+    arg2 = STRING_EXPRESSION("")
   end
   fn = Base.first(typeRefCache(fn_ref))
-  @assign ty = TYPE_NORETCALL()
-  @assign callExp = CALL_EXPRESSION(makeTypedCall(fn, Expression[arg1, arg2], var, ty))
+  ty = TYPE_NORETCALL()
+  callExp = CALL_EXPRESSION(makeTypedCall(fn, Expression[arg1, arg2], var, ty))
   (callExp, ty, var)
 end
 
@@ -1508,7 +1508,7 @@ end
 #                      Error.addSourceMessageAndFail(Error.NO_SUCH_PARAMETER, list(toString(fn_ref), name), info) TODO
                     end
                   end
-                  @assign args_len = length(args)
+                  args_len = length(args)
                   if args_len < 2 || args_len > 3
                     Error.addSourceMessageAndFail(Error.NO_MATCHING_FUNCTION_FOUND_NFINST, list(toString(call), toString(fn_ref) + "(Connector, Connector, String = \\\\)"), info)
                   end
@@ -1521,18 +1521,18 @@ end
                    (arg2, ty2) = typeExp(arg2, origin, info)
                   checkConnectionsArgument(arg2, ty2, fn_ref, 1, info)
                   if args_len == 3
-                    @assign arg3 = args[1]
+                    arg3 = args[1]
                      (_, ty3) = typeExp(arg3, origin, info)
                     if ! isString(ty3)
                       Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list("3", toString(fn_ref), "", toString(arg2), toString(ty3), "String"), info)
                     end
                   else
-                    @assign arg2 = STRING_EXPRESSION("")
+                    arg2 = STRING_EXPRESSION("")
                   end
                   fn = Base.first(typeRefCache(fn_ref))
                   Error.assertion(listLength(arrayDims(ty1)) == listLength(arrayDims(ty2)), "the first two parameters need to have the same size", info)
-                  @assign ty = TYPE_ARRAY(TYPE_INTEGER(), arrayDims(ty1))
-                  @assign callExp = CALL_EXPRESSION(makeTypedCall(fn, Expression[arg1, arg2], var, ty))
+                  ty = TYPE_ARRAY(TYPE_INTEGER(), arrayDims(ty1))
+                  callExp = CALL_EXPRESSION(makeTypedCall(fn, Expression[arg1, arg2], var, ty))
                   (callExp, ty, var)
                 end
 
@@ -1550,7 +1550,7 @@ function checkConnectionsArgument(@nospecialize(arg::Expression), ty::ModelicaTy
          @match arg.cref begin
            COMPONENT_REF_CREF(node = node, origin = Origin.CREF, restCref = COMPONENT_REF_CREF(ty = ty2, origin = Origin.CREF))  => begin
              #= check form A.R =#
-             @assign ty2 = begin
+             ty2 = begin
                @match ty2 begin
                  TYPE_ARRAY(__) where (listLength(subscriptsAllFlat(arg.cref)) == listLength(ty2.dimensions))  => begin
                    ty2.elementType
@@ -1566,7 +1566,7 @@ function checkConnectionsArgument(@nospecialize(arg::Expression), ty::ModelicaTy
 
            COMPONENT_REF_CREF(node = node, ty = ty2)  => begin
              #= adrpo #5821, allow for R only instead of A.R and issue a warning =#
-             @assign ty2 = begin
+             ty2 = begin
                @match ty2 begin
                  TYPE_ARRAY(__) where (listLength(subscriptsAllFlat(arg.cref)) == listLength(ty2.dimensions))  => begin
                    ty2.elementType
@@ -1724,7 +1724,7 @@ function typeSampleCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tupl
       ([(e, t, v), (e1, TYPE_REAL(__), v1) ],  _) where{isempty(namedArgs)}  => begin
         #= sample(start, Real interval) - the usual stuff =#
         if valueEq(t, TYPE_INTEGER())
-          @assign e = CAST_EXPRESSION(TYPE_REAL(), e)
+          e = CAST_EXPRESSION(TYPE_REAL(), e)
         end
         ty_call = makeTypedCall(normalSample, Expression[e, e1], Variability.PARAMETER, TYPE_BOOLEAN())
         (CALL_EXPRESSION(ty_call), TYPE_BOOLEAN(), Variability.PARAMETER)
@@ -1733,21 +1733,21 @@ function typeSampleCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tupl
       ([(e, t, v)], [("interval", e1, TYPE_REAL(__), v1)])  => begin
         #= sample(start, Real interval = value) - the usual stuff =#
         if valueEq(t, TYPE_INTEGER())
-          @assign e = CAST_EXPRESSION(TYPE_REAL(), e)
+          e = CAST_EXPRESSION(TYPE_REAL(), e)
         end
-        @assign ty_call = makeTypedCall(normalSample, Expression[e, e1], Variability.PARAMETER, TYPE_BOOLEAN())
+        ty_call = makeTypedCall(normalSample, Expression[e, e1], Variability.PARAMETER, TYPE_BOOLEAN())
         (CALL_EXPRESSION(ty_call), TYPE_BOOLEAN(), Variability.PARAMETER)
       end
 
       ([(e, t, v)],  _) where (isempty(namedArgs) && Config.synchronousFeaturesAllowed())  => begin
         #= sample(u) - inferred clock =#
-        @assign ty_call = makeTypedCall(clockedSample, Expression[e, CLKCONST_EXPRESSION(INFERRED_CLOCK())], v, t)
+        ty_call = makeTypedCall(clockedSample, Expression[e, CLKCONST_EXPRESSION(INFERRED_CLOCK())], v, t)
         (CALL_EXPRESSION(ty_call), t, v)
       end
 
       ([(e, t, v), (e1, TYPE_CLOCK(__), v1)],  _) where (isempty(namedArgs) && Config.synchronousFeaturesAllowed())  => begin
         #= sample(u, c) - specified clock =#
-        @assign ty_call = makeTypedCall(clockedSample, Expression[e, e1], v, t)
+        ty_call = makeTypedCall(clockedSample, Expression[e, e1], v, t)
         (CALL_EXPRESSION(ty_call), t, v)
       end
 
@@ -1786,7 +1786,7 @@ function typeActualInStreamCall(name::String, call::Call, origin::ORIGIN_Type, i
   (arg, ty, var) = typeExp(args[1], origin, info)
   (arg, _) = expand(arg)
   fn = Base.first(typeRefCache(fn_ref))
-  @assign callExp = typeActualInStreamCall2(name, fn, arg, var, info)
+  callExp = typeActualInStreamCall2(name, fn, arg, var, info)
   (callExp, ty, Variability.CONTINUOUS)
 end
 
@@ -1795,7 +1795,7 @@ function typeActualInStreamCall2(name::String, fn::MODELICA_FUNCTION, @nospecial
   local arg_node::InstNode
   @match arg begin
     CREF_EXPRESSION(__)  => begin
-      @assign arg_node = node(arg.cref)
+      arg_node = node(arg.cref)
       #= The argument of actualStream/inStream must be a stream variable. =#
       if ! isComponent(arg_node) || ! isStream(connectorType(component(arg_node)))
         Error.addSourceMessageAndFail(Error.NON_STREAM_OPERAND_IN_STREAM_OPERATOR, list(toString(arg.cref), name), info)
@@ -1852,19 +1852,19 @@ function typeDynamicSelectCall(name::String, call::Call, origin::ORIGIN_Type, in
   try
      (arg2, _, var2) = typeExp(expDynamic, origin, info)
   catch
-    @assign variability = var1
-    @assign callExp = arg1
+    variability = var1
+    callExp = arg1
     return (callExp, ty, variability)
   end
   (arg2, _) = expand(arg2)
-  @assign ty = ty1
-  @assign variability = var2
+  ty = ty1
+  variability = var2
   fn = Base.first(typeRefCache(fn_ref))
   if Flags.isSet(Flags.NF_API_DYNAMIC_SELECT)
-    @assign callExp = CALL_EXPRESSION(makeTypedCall(fn, Expression[arg1, arg2], variability, ty1))
+    callExp = CALL_EXPRESSION(makeTypedCall(fn, Expression[arg1, arg2], variability, ty1))
   else
-    @assign variability = var1
-    @assign callExp = arg1
+    variability = var1
+    callExp = arg1
   end
   (callExp, ty, variability)
 end

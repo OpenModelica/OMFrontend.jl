@@ -510,7 +510,7 @@ end
 function symbol(op::OPERATOR, spacing::String = " ")::String
   local symbol::String
 
-  @assign symbol = begin
+  symbol = begin
     @match op.op begin
       Op.ADD => begin
         "+"
@@ -659,7 +659,7 @@ function symbol(op::OPERATOR, spacing::String = " ")::String
       end
     end
   end
-  @assign symbol = spacing + symbol + spacing
+  symbol = spacing + symbol + spacing
   return symbol
 end
 

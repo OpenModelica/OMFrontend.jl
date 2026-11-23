@@ -58,7 +58,7 @@ end
 function printImportError(imp1::Import, imp2::Import)
   local err_msg::ErrorTypes.Message
   Error.addSourceMessage(Error.ERROR_FROM_HERE, nil, Import_info(imp1))
-  @assign err_msg = begin
+  err_msg = begin
     @match imp2 begin
       UNRESOLVED_IMPORT(__) => begin
         Error.MULTIPLE_QUALIFIED_IMPORTS_WITH_SAME_NAME
@@ -111,7 +111,7 @@ function instQualified(
   local node::InstNode
   local outImport::Import
 
-  @assign node = begin
+  node = begin
     @match imp begin
       Absyn.NAMED_IMPORT(__) => begin
         lookupImport(imp.path, scope, info)
@@ -122,7 +122,7 @@ function instQualified(
       end
     end
   end
-  @assign outImport = RESOLVED_IMPORT(node, info)
+  outImport = RESOLVED_IMPORT(node, info)
   return (outImport, node)
 end
 

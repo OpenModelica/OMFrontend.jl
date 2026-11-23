@@ -117,7 +117,7 @@ end
 function restrString(inRestriction::SCode.Restriction)::String
   local outString::String
 
-  @assign outString = begin
+  outString = begin
     @match inRestriction begin
       SCode.R_CLASS(__) => begin
         "class"

@@ -132,13 +132,13 @@ function toStream(
     s = IOStream_M.append(s, ")")
   end
   if isBound(var.binding)
-    @assign s = IOStream_M.append(s, " = ")
+    s = IOStream_M.append(s, " = ")
     if printBindingType
-      @assign s = IOStream_M.append(s, "(")
-      @assign s = IOStream_M.append(s, toString(getType(var.binding)))
-      @assign s = IOStream_M.append(s, ") ")
+      s = IOStream_M.append(s, "(")
+      s = IOStream_M.append(s, toString(getType(var.binding)))
+      s = IOStream_M.append(s, ") ")
     end
-    @assign s = IOStream_M.append(s, toString(var.binding))
+    s = IOStream_M.append(s, toString(var.binding))
   end
   return s
 end
@@ -176,8 +176,8 @@ end
 function isDeleted(variable::VARIABLE)::Bool
   local deleted::Bool
   local node::InstNode
-  @assign node = node(variable.name)
-  @assign deleted =
+  node = node(variable.name)
+  deleted =
     isComponent(node) && isDeleted(component(node))
   return deleted
 end

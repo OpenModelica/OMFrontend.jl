@@ -188,15 +188,15 @@ function toStreamList(
   local first::Bool = true
 
   for stmt in stmtl
-    @assign multi_line = isMultiLine(stmt)
+    multi_line = isMultiLine(stmt)
     if first
-      @assign first = false
+      first = false
     elseif prev_multi_line || multi_line
-      @assign s = IOStream_M.append(s, "\\n")
+      s = IOStream_M.append(s, "\\n")
     end
-    @assign prev_multi_line = multi_line
-    @assign s = toStream(stmt, indent, s)
-    @assign s = IOStream_M.append(s, ";\\n")
+    prev_multi_line = multi_line
+    s = toStream(stmt, indent, s)
+    s = IOStream_M.append(s, ";\\n")
   end
   #= Improve human parsability by separating statements that spans multiple
      lines (like if-statements) with newlines. =#
@@ -207,8 +207,8 @@ function toStream(stmt::Statement, indent::String, s)
 
   local str::String
 
-  @assign s = IOStream_M.append(s, indent)
-  @assign s = begin
+  s = IOStream_M.append(s, indent)
+  s = begin
     @match stmt begin
       ALG_ASSIGNMENT(__) => begin
         s = IOStream_M.append(s, toString(stmt.lhs))
@@ -601,7 +601,7 @@ function makeAssignment(
 )::Statement
   local stmt::Statement
 
-  @assign stmt = ALG_ASSIGNMENT(lhs, rhs, ty, src)
+  stmt = ALG_ASSIGNMENT(lhs, rhs, ty, src)
   return stmt
 end
 

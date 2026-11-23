@@ -97,7 +97,7 @@ function create(streamName::String, streamType::IOStreamType)::IOSTREAM
     local bufferID::Int
     @match (streamName, streamType) begin
       (_, FILE(fileName)) => begin
-        @assign fileID = IOStreamExt.createFile(fileName)
+        fileID = IOStreamExt.createFile(fileName)
         IOSTREAM(streamName, streamType, FILE_DATA(fileID))
       end
 
@@ -106,7 +106,7 @@ function create(streamName::String, streamType::IOStreamType)::IOSTREAM
       end
 
       (_, BUFFER(__)) => begin
-        @assign bufferID = IOStreamExt.createBuffer()
+        bufferID = IOStreamExt.createBuffer()
         IOSTREAM(streamName, streamType, BUFFER_DATA(bufferID))
       end
 
@@ -162,7 +162,7 @@ end
 
 function close(inStream::IOSTREAM)::IOSTREAM
   local outStream::IOSTREAM
-  @assign outStream = begin
+  outStream = begin
     local fileID::Int
     local fStream::IOSTREAM
     @matchcontinue inStream begin
@@ -180,7 +180,7 @@ function close(inStream::IOSTREAM)::IOSTREAM
 end
 
 function delete(inStream::IOSTREAM)
-  return @assign _ = begin
+  return _ = begin
     local fileID::Int
     local bufferID::Int
     @match inStream begin
@@ -206,7 +206,7 @@ end
 
 function clear(inStream::IOSTREAM)::IOSTREAM
   local outStream::IOSTREAM
-  @assign outStream = begin
+  outStream = begin
     local fileID::Int
     local bufferID::Int
     local fStream::IOSTREAM
@@ -263,7 +263,7 @@ end
   Use IOStream.stdOutput, IOStream.stdError constants
 """
 function print(inStream::IOSTREAM, whereToPrint::Int)
-  return @assign _ = begin
+  return _ = begin
     local listData::List{String}
     local fileID::Int
     local bufferID::Int

@@ -127,7 +127,7 @@ function collect(flatModel::FLAT_MODEL)::Tuple{FLAT_MODEL, CONNECTIONS}
           FACE_INSIDE,
           var.info,
         )
-        @assign conns = addFlow(c1, conns)
+        conns = addFlow(c1, conns)
       else
         #= Not scalarizing: an array flow variable, also one whose dimensions are on a prefix
            part (r.p.i of a component array r), is added per element like the connects
@@ -135,7 +135,7 @@ function collect(flatModel::FLAT_MODEL)::Tuple{FLAT_MODEL, CONNECTIONS}
         local elty = arrayElementType(var.ty)
         for cr in _expandArrayParts(var.name)
           c1 = fromFacedCref(cr, elty, FACE_INSIDE, var.info)
-          @assign conns = addFlow(c1, conns)
+          conns = addFlow(c1, conns)
         end
       end
     end

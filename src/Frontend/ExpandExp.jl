@@ -128,9 +128,9 @@ function makeLBinaryOp(@nospecialize(exp1::Expression), op::OPERATOR, @nospecial
 
   if isScalarLiteral(exp1) &&
      isScalarLiteral(exp2)
-    @assign exp = evalLogicBinaryOp(exp1, op, exp2)
+    exp = evalLogicBinaryOp(exp1, op, exp2)
   else
-    @assign exp = LBINARY_EXPRESSION(exp1, op, exp2)
+    exp = LBINARY_EXPRESSION(exp1, op, exp2)
   end
   return exp
 end
@@ -150,13 +150,13 @@ function expandLogicalBinary(@nospecialize(exp::Expression))::Tuple{Expression, 
        (exp2, expanded) = expand(exp2)
     end
     if expanded
-      @assign outExp = expandBinaryElementWise2(exp1, op, exp2, makeLBinaryOp)
+      outExp = expandBinaryElementWise2(exp1, op, exp2, makeLBinaryOp)
     else
-      @assign outExp = exp
+      outExp = exp
     end
   else
-    @assign outExp = exp
-    @assign expanded = true
+    outExp = exp
+    expanded = true
   end
   return (outExp, expanded)
 end
@@ -176,7 +176,7 @@ end
 
 function expandBinaryPowMatrix2(@nospecialize(matrix::Expression), n::Int)::Expression
   local exp::Expression
-  @assign exp = begin
+  exp = begin
     @match n begin
       1 => begin
         matrix
@@ -188,13 +188,13 @@ function expandBinaryPowMatrix2(@nospecialize(matrix::Expression), n::Int)::Expr
         #= A^1 = A
            A^2 = A * A
            A^n = A^m * A^m where n = 2*m =#
-        @assign exp = expandBinaryPowMatrix2(matrix, intDiv(n, 2))
+        exp = expandBinaryPowMatrix2(matrix, intDiv(n, 2))
         makeBinaryMatrixProduct(exp, exp)
       end
 
       _ => begin
         #= A^n = A * A^(n-1) =#
-        @assign exp = expandBinaryPowMatrix2(matrix, n - 1)
+        exp = expandBinaryPowMatrix2(matrix, n - 1)
         makeBinaryMatrixProduct(matrix, exp)
       end
     end
@@ -216,7 +216,7 @@ function expandBinaryPowMatrix(@nospecialize(exp::Expression))::Tuple{Expression
     @match exp2 begin
       INTEGER_EXPRESSION(0) => begin
         #= a ^ 0 = identity(size(a, 1)) =#
-        @assign n =
+        n =
           size(listHead(arrayDims(typeOf(
             op,
           ))))
@@ -227,7 +227,7 @@ function expandBinaryPowMatrix(@nospecialize(exp::Expression))::Tuple{Expression
         #= a ^ n where n is a literal value. =#
          (exp1, expanded) = expand(exp1)
         if expanded
-          @assign outExp = expandBinaryPowMatrix2(exp1, n)
+          outExp = expandBinaryPowMatrix2(exp1, n)
         end
         (outExp, expanded)
       end
@@ -266,7 +266,7 @@ function makeBinaryMatrixProduct(@nospecialize(exp1::Expression), @nospecialize(
      since we can do row-row multiplications instead of row-column. =#
   @match ARRAY_EXPRESSION(TYPE_ARRAY(dimensions = p <| _), expl2) =
     transposeArray(exp2)
-  @assign mat_ty = TYPE_ARRAY(ty, list(n, p))
+  mat_ty = TYPE_ARRAY(ty, list(n, p))
   if isempty(expl2)
     exp = makeZero(mat_ty)
   else
@@ -298,9 +298,9 @@ function expandBinaryMatrixProduct(@nospecialize(exp::Expression))::Tuple{Expres
      (exp2, expanded) = expand(exp2)
   end
   if expanded
-    @assign outExp = makeBinaryMatrixProduct(exp1, exp2)
+    outExp = makeBinaryMatrixProduct(exp1, exp2)
   else
-    @assign outExp = exp
+    outExp = exp
   end
   return (outExp, expanded)
 end
@@ -338,9 +338,9 @@ function expandBinaryDotProduct(@nospecialize(exp::Expression))::Tuple{Expressio
      (exp2, expanded) = expand(exp2)
   end
   if expanded
-    @assign outExp = makeScalarProduct(exp1, exp2)
+    outExp = makeScalarProduct(exp1, exp2)
   else
-    @assign outExp = exp
+    outExp = exp
   end
   return (outExp, expanded)
 end
@@ -399,20 +399,20 @@ function expandBinaryVectorMatrix(@nospecialize(exp::Expression))::Tuple{Express
   if expanded
     @match ARRAY_EXPRESSION(TYPE_ARRAY(ty, _cons(m, _)), expl) =
       transposeArray(exp2)
-    @assign ty = TYPE_ARRAY(ty, list(m))
+    ty = TYPE_ARRAY(ty, list(m))
     if isempty(expl)
-      @assign outExp = makeZero(ty)
+      outExp = makeZero(ty)
     else
        (exp1, expanded) = expand(exp1)
       if expanded
         expl = Expression[makeScalarProduct(exp1, e2) for e2 in expl]
         outExp = makeArray(ty, expl)
       else
-        @assign outExp = exp
+        outExp = exp
       end
     end
   else
-    @assign outExp = exp
+    outExp = exp
   end
   #= c[i] = a * b[:, i] for i in 1:m =#
   return (outExp, expanded)
@@ -576,7 +576,7 @@ function expandBinary(@nospecialize(exp::Expression), op::OPERATOR)::Tuple{Expre
     end
   end
   if !expanded
-    @assign outExp = exp
+    outExp = exp
   end
   return (outExp, expanded)
 end
@@ -585,14 +585,14 @@ function expandSize(@nospecialize(exp::Expression))::Tuple{Expression, Bool}
   local expanded::Bool = true
   local outExp::Expression
 
-  @assign outExp = begin
+  outExp = begin
     local dims::Int
     local e::Expression
     local ty::ModelicaType
     @match exp begin
       SIZE_EXPRESSION(exp = e, dimIndex = NONE()) => begin
-        @assign ty = typeOf(e)
-        @assign dims = dimensionCount(ty)
+        ty = typeOf(e)
+        dims = dimensionCount(ty)
         local expl_vec = Expression[
           SIZE_EXPRESSION(e, SOME(INTEGER_EXPRESSION(i)))
           for i = 1:dims
@@ -683,7 +683,7 @@ function expandBuiltinGeneric2(
   attr::CALL_ATTR
 )::Expression
 
-  @assign exp = begin
+  exp = begin
     local expl::Vector{Expression}
     @match exp begin
       ARRAY_EXPRESSION(literal = true) => begin
@@ -727,7 +727,7 @@ function expandBuiltinTranspose(@nospecialize(arg::Expression))::Tuple{Expressio
 
    (outExp, expanded) = expand(arg)
   if expanded
-    @assign outExp = transposeArray(outExp)
+    outExp = transposeArray(outExp)
   end
   return (outExp, expanded)
 end
@@ -873,7 +873,7 @@ function expandTypename(ty::ModelicaType)::Expression
     end
 
     TYPE_ARRAY(elementType = TYPE_ENUMERATION(__)) => begin
-      @assign lits = makeEnumLiterals(ty.elementType)
+      lits = makeEnumLiterals(ty.elementType)
       makeArray(ty, lits; literal=true)
     end
 

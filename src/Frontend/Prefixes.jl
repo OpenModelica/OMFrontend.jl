@@ -164,7 +164,7 @@ end
 function isUndeclared(cty::T)::Bool where {T <: Integer}
   local isExpandableElement::Bool
 
-  @assign isExpandableElement = intBitAnd(cty, ConnectorType.UNDECLARED_MASK) > 0
+  isExpandableElement = intBitAnd(cty, ConnectorType.UNDECLARED_MASK) > 0
   return isExpandableElement
 end
 
@@ -197,11 +197,11 @@ function unparse(cty::T)::String where {T <: Integer}
   local str::String
 
   if intBitAnd(cty, ConnectorType.FLOW) > 0
-    @assign str = "flow "
+    str = "flow "
   elseif intBitAnd(cty, ConnectorType.STREAM) > 0
-    @assign str = "stream "
+    str = "stream "
   else
-    @assign str = ""
+    str = ""
   end
   return str
 end
@@ -211,27 +211,27 @@ function toDebugString(cty::T)::String where {T <: Integer}
   local strl::List{String} = nil
   suffix = "(Number:$cty)"
   if intBitAnd(cty, ConnectorType.POTENTIAL) > 0
-    @assign strl = _cons("potential $suffix", strl)
+    strl = _cons("potential $suffix", strl)
   end
   if intBitAnd(cty, ConnectorType.FLOW) > 0
-    @assign strl = _cons("flow $suffix", strl)
+    strl = _cons("flow $suffix", strl)
   end
   if intBitAnd(cty, ConnectorType.STREAM) > 0
-    @assign strl = _cons("stream $suffix", strl)
+    strl = _cons("stream $suffix", strl)
   end
   if intBitAnd(cty, ConnectorType.POTENTIALLY_PRESENT) > 0
-    @assign strl = _cons("potentially present $suffix", strl)
+    strl = _cons("potentially present $suffix", strl)
   end
   if intBitAnd(cty, ConnectorType.VIRTUAL) > 0
-    @assign strl = _cons("virtual $suffix", strl)
+    strl = _cons("virtual $suffix", strl)
   end
   if intBitAnd(cty, ConnectorType.CONNECTOR) > 0
-    @assign strl = _cons("connector $suffix", strl)
+    strl = _cons("connector $suffix", strl)
   end
   if intBitAnd(cty, ConnectorType.EXPANDABLE) > 0
-    @assign strl = _cons("expandable $suffix", strl)
+    strl = _cons("expandable $suffix", strl)
   end
-  @assign str = stringDelimitList(strl, " ")
+  str = stringDelimitList(strl, " ")
   return str
 end
 
@@ -346,11 +346,11 @@ function mergeParallelism(
   local par
 
   if outerPar == Parallelism.NON_PARALLEL
-    @assign par = innerPar
+    par = innerPar
   elseif innerPar == Parallelism.NON_PARALLEL
-    @assign par = outerPar
+    par = outerPar
   elseif innerPar == outerPar
-    @assign par = innerPar
+    par = innerPar
   else
     printPrefixError(parallelismString(outerPar), parallelismString(innerPar), node)
   end
@@ -359,7 +359,7 @@ end
 
 function variabilityFromSCode(scodeVar::SCode.Variability)
   local var
-  @assign var = begin
+  var = begin
     @match scodeVar begin
       SCode.CONST(__) => begin
         Variability.CONSTANT
@@ -464,7 +464,7 @@ end
 function effectiveVariability(inVar)
   local outVar
 
-  @assign outVar = begin
+  outVar = begin
     @match inVar begin
       Variability.STRUCTURAL_PARAMETER => begin
         Variability.PARAMETER
@@ -489,7 +489,7 @@ end
 function directionFromSCode(scodeDir::Absyn.Direction)
   local dir
 
-  @assign dir = begin
+  dir = begin
     @match scodeDir begin
       Absyn.INPUT(__) => begin
         Direction.INPUT
@@ -548,11 +548,11 @@ function mergeDirection(
   local dir
 
   if outerDir == Direction.NONE
-    @assign dir = innerDir
+    dir = innerDir
   elseif innerDir == Direction.NONE
-    @assign dir = outerDir
+    dir = outerDir
   elseif allowSame && outerDir == innerDir
-    @assign dir = innerDir
+    dir = innerDir
   else
     printPrefixError(directionString(outerDir), directionString(innerDir), node)
   end
@@ -561,7 +561,7 @@ end
 
 function innerOuterFromSCode(scodeIO::Absyn.InnerOuter)
   local io
-  @assign io = begin
+  io = begin
     @match scodeIO begin
       Absyn.NOT_INNER_OUTER(__) => begin
         InnerOuter.NOT_INNER_OUTER

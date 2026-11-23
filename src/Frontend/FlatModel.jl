@@ -214,10 +214,10 @@ function collectFunctionFlatTypes(fn::MODELICA_FUNCTION, types::TypeTree)::TypeT
 end
 
 function collectExpFlatTypes_traverse(exp::Expression, types::TypeTree)::TypeTree
-  @assign types = begin
+  types = begin
     @match exp begin
       SUBSCRIPTED_EXP_EXPRESSION(__) => begin
-        @assign types = collectSubscriptedFlatType(exp.exp, exp.subscripts, exp.ty, types)
+        types = collectSubscriptedFlatType(exp.exp, exp.subscripts, exp.ty, types)
         types
       end
 
@@ -231,7 +231,7 @@ end
 
 function collectExpFlatTypes(exp::Expression, types::TypeTree)::TypeTree
 
-  @assign types = fold(exp, collectExpFlatTypes_traverse, types, TypeTree)
+  types = fold(exp, collectExpFlatTypes_traverse, types, TypeTree)
   return types
 end
 
@@ -303,7 +303,7 @@ end
 
 function collectAlgorithmFlatTypes(alg::ALGORITHM, types::TypeTree)::TypeTree
 
-  @assign types = ArrayUtil.fold(alg.statements, collectStatementFlatTypes, types, TypeTree)
+  types = ArrayUtil.fold(alg.statements, collectStatementFlatTypes, types, TypeTree)
   return types
 end
 

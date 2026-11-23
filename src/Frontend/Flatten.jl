@@ -492,7 +492,7 @@ function deleteComponent(compNode::InstNode)
   if isInnerOuterNode(compNode)
     return compNode
   end
-  @assign comp = component(compNode)
+  comp = component(compNode)
   compNode = updateComponent!(DELETED_COMPONENT(comp), compNode)
   deleteClassComponents(classInstance(comp))
   return compNode
@@ -1265,7 +1265,7 @@ function subscriptBindingOpt(
   local ty::ModelicaType
   if isSome(binding)
     @match SOME(b) = binding
-    @assign binding = begin
+    binding = begin
       @match b begin
         TYPED_BINDING(bindingExp = exp, bindingType = ty) => begin
           bindingExp = applySubscripts(subscripts, exp)
@@ -2133,7 +2133,7 @@ end
 
 function collectBindingFuncs(binding::Binding, funcs::FunctionTree)::FunctionTree
   if isExplicitlyBound(binding)
-    @assign funcs = collectExpFuncs(getTypedExp(binding), funcs)
+    funcs = collectExpFuncs(getTypedExp(binding), funcs)
   end
   return funcs
 end
@@ -2157,14 +2157,14 @@ function collectTypeFuncs(ty::ModelicaType, funcs::FunctionTree)::FunctionTree
        complexTy = COMPLEX_EXTERNAL_OBJECT(constructor = con, destructor = de),
      ) => begin
        #= Collect external object structors. =#
-       @assign funcs = collectStructor(con, funcs)
-       @assign funcs = collectStructor(de, funcs)
+       funcs = collectStructor(con, funcs)
+       funcs = collectStructor(de, funcs)
        ()
      end
 
      TYPE_COMPLEX(complexTy = COMPLEX_RECORD(constructor = con)) => begin
        #= Collect record constructors. =#
-       @assign funcs = collectStructor(con, funcs)
+       funcs = collectStructor(con, funcs)
        ()
      end
      _ => begin

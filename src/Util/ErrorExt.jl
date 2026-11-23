@@ -104,7 +104,7 @@ end
 function messageTypeStr(inMessageType::ErrorTypes.MessageType)::String
   local outString::String
 
-  @assign outString = begin
+  outString = begin
     @match inMessageType begin
       ErrorTypes.SYNTAX(__) => begin
         "SYNTAX"
@@ -139,7 +139,7 @@ end
 """
 function severityStr(inSeverity::ErrorTypes.Severity)::String
   local outString::String
-  @assign outString = begin
+  outString = begin
     @match inSeverity begin
       ErrorTypes.INTERNAL(__) => begin
         "Internal error"
@@ -167,7 +167,7 @@ end
 """
 function infoStr(info::SourceInfo)::String
   local str::String
-  @assign str = begin
+  str = begin
     local filename::String
     local info_str::String
     local line_start::Int
@@ -182,7 +182,7 @@ function infoStr(info::SourceInfo)::String
         lineNumberEnd = line_end,
         columnNumberEnd = col_end,
       ) => begin
-        @assign info_str =
+        info_str =
           "[" +
           "file:" * filename +
           ":" +

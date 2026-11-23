@@ -41,7 +41,7 @@ using OpenModelicaParser.Absyn: Exp, Path #, Subscript
 
 function foldExpList(dims::List{Dimension}, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
   for dim in dims
-    @assign arg = foldExp(dim, func, arg, ArgT)
+    arg = foldExp(dim, func, arg, ArgT)
   end
   return arg
 end
@@ -74,7 +74,7 @@ end
     end
 
     DIMENSION_EXP(exp = e1) => begin
-      @assign e2 = map(e1, func)
+      e2 = map(e1, func)
       if referenceEq(e1, e2)
         dim
       else
@@ -327,7 +327,7 @@ end
 function isEqualKnown(dim1::Dimension, dim2::Dimension)::Bool
   local isEqual::Bool
 
-  @assign isEqual = begin
+  isEqual = begin
     @match (dim1, dim2) begin
       (DIMENSION_UNKNOWN(__), _) => begin
         false

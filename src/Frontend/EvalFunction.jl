@@ -423,20 +423,20 @@ function addMutableReplacement(node::InstNode, repl::ReplTree.Tree)::ReplTree.Tr
 
   local repl_exp::Expression
 
-  @assign repl_exp = getBindingExp(node, repl)
-  @assign repl_exp = makeMutable(repl_exp)
-  @assign repl = ReplTree.add(repl, node, repl_exp)
+  repl_exp = getBindingExp(node, repl)
+  repl_exp = makeMutable(repl_exp)
+  repl = ReplTree.add(repl, node, repl_exp)
   return repl
 end
 
 function getBindingExp(node::InstNode, repl::ReplTree.Tree)::Expression
   local bindingExp::Expression
   local binding::Binding
-  @assign binding = getBinding(component(node))
+  binding = getBinding(component(node))
   if isBound(binding)
-    @assign bindingExp = getBindingExp(getExp(binding))
+    bindingExp = getBindingExp(getExp(binding))
   else
-    @assign bindingExp = buildBinding(node, repl)
+    bindingExp = buildBinding(node, repl)
   end
   return bindingExp
 end
@@ -550,7 +550,7 @@ function addInputReplacement(
 )::ReplTree.Tree
 
   #= Passed by value: a record argument must not bring the caller's cells along. =#
-  @assign repl = ReplTree.add(repl, node, detachCells(argument))
+  repl = ReplTree.add(repl, node, detachCells(argument))
   return repl
 end
 
@@ -676,7 +676,7 @@ function applyReplacementCref(
   local parent::InstNode
   local nodeVar::InstNode
   #=  Explode the cref into a list of parts in reverse order. =#
-  @assign cref_parts = toListReverse(cref)
+  cref_parts = toListReverse(cref)
   #= Leading scope qualifiers never carry replacements; the replacement tree
      is keyed on component nodes, so start the lookup at the first CREF part. =#
   while !listEmpty(cref_parts) && listHead(cref_parts).origin == Origin.SCOPE
@@ -684,29 +684,29 @@ function applyReplacementCref(
   end
   #= If the list is empty it's probably an iterator or _, which shouldn't be replaced. =#
   if listEmpty(cref_parts)
-    @assign outExp = exp
+    outExp = exp
   else
-    @assign parent = node(listHead(cref_parts))
+    parent = node(listHead(cref_parts))
     local repl_exp = ReplTree.tryGet(repl, parent)
     if repl_exp !== nothing
       outExp = repl_exp
     else
-      @assign outExp = exp
+      outExp = exp
       return outExp
     end
-    @assign outExp = applySubscripts(
+    outExp = applySubscripts(
       getSubscripts(listHead(cref_parts)),
       outExp,
     )
-    @assign cref_parts = listRest(cref_parts)
+    cref_parts = listRest(cref_parts)
     if !listEmpty(cref_parts)
       try
         for cr in cref_parts
-          @assign nodeVar = node(cr)
-          @assign outExp = makeImmutable(outExp)
-          @assign outExp =
+          nodeVar = node(cr)
+          outExp = makeImmutable(outExp)
+          outExp =
             recordElement(name(nodeVar), outExp)
-          @assign outExp = applySubscripts(
+          outExp = applySubscripts(
             getSubscripts(cr),
             outExp,
           )
@@ -1179,9 +1179,9 @@ function isKnownExternalFunc(name::String, ann::Option{<:SCode.ANNOTATION})::Boo
   local isKnown::Bool
 
   if isKnownLibrary(ann)
-    @assign isKnown = true
+    isKnown = true
   else
-    @assign isKnown = begin
+    isKnown = begin
       @match name begin
         "OpenModelica_regex" => begin
           true
@@ -1204,10 +1204,10 @@ function isKnownLibrary(extAnnotation::Option{<:SCode.ANNOTATION})::Bool
 
   if isSome(extAnnotation)
     @match SOME(ann) = extAnnotation
-    @assign oexp =
+    oexp =
       SCodeUtil.getModifierBinding(SCodeUtil.lookupNamedAnnotation(ann, "Library"))
     if isSome(oexp)
-      @assign isKnown = isKnownLibraryExp(Util.getOption(oexp))
+      isKnown = isKnownLibraryExp(Util.getOption(oexp))
     end
   end
   return isKnown
@@ -1307,7 +1307,7 @@ function evaluateKnownExternal(name::String, args::List{<:Expression})::Expressi
     end
 
     ("ModelicaInternal_stat", STRING_EXPRESSION(s1) <| nil()) => begin
-      @assign i = ModelicaExternalC.File_stat(s1)
+      i = ModelicaExternalC.File_stat(s1)
       listGet(FILE_TYPE_LITERALS, i)
     end
 
@@ -1321,7 +1321,7 @@ function evaluateKnownExternal(name::String, args::List{<:Expression})::Expressi
       STRING_EXPRESSION(s1) <|
       STRING_EXPRESSION(s2) <| BOOLEAN_EXPRESSION(b) <| nil(),
     ) => begin
-      @assign i = ModelicaExternalC.Strings_compare(s1, s2, b)
+      i = ModelicaExternalC.Strings_compare(s1, s2, b)
       listGet(COMPARE_LITERALS, i)
     end
 
@@ -1450,10 +1450,10 @@ function evaluateOpenModelicaRegex(args::List{<:Expression})::Expression
     BOOLEAN_EXPRESSION(extended) <|
     BOOLEAN_EXPRESSION(insensitive) <| nil() => begin
        (n, strs) = System.regex(str, re, i, extended, insensitive)
-      @assign expl = list(STRING_EXPRESSION(s) for s in strs)
-      @assign strs_ty =
+      expl = list(STRING_EXPRESSION(s) for s in strs)
+      strs_ty =
         TYPE_ARRAY(TYPE_STRING(), list(fromInteger(i)))
-      @assign strs_exp = makeArray(strs_ty, expl; literal=true)
+      strs_exp = makeArray(strs_ty, expl; literal=true)
       TUPLE_EXPRESSION(
         TYPE_TUPLE(list(TYPE_INTEGER(), strs_ty), NONE()),
         list(INTEGER_EXPRESSION(n), strs_exp),
@@ -1480,21 +1480,21 @@ function evaluateModelicaIO_readRealMatrix(
   local matrix::Matrix{Float64}
   local ty::ModelicaType
 
-  @assign matrix = ModelicaExternalC.ModelicaIO_readRealMatrix(
+  matrix = ModelicaExternalC.ModelicaIO_readRealMatrix(
     fileName,
     matrixName,
     nrow,
     ncol,
     verboseRead,
   )
-  @assign ty = TYPE_ARRAY(TYPE_REAL(), list(fromInteger(ncol)))
+  ty = TYPE_ARRAY(TYPE_REAL(), list(fromInteger(ncol)))
   local rowsV = Expression[]
   for r = 1:nrow
     local rowV = Expression[REAL_EXPRESSION(matrix[r, c]) for c in 1:ncol]
     push!(rowsV, ARRAY_EXPRESSION(ty, rowV, literal = true))
   end
-  @assign ty = liftArrayLeft(ty, fromInteger(nrow))
-  @assign result = ARRAY_EXPRESSION(ty, rowsV, literal = true)
+  ty = liftArrayLeft(ty, fromInteger(nrow))
+  result = ARRAY_EXPRESSION(ty, rowsV, literal = true)
   return result
 end
 
@@ -1509,13 +1509,13 @@ function evaluateExternal2(
   local repl::ReplTree.Tree
   local ext_args::List{Expression}
 
-  @assign repl = createReplacements(fn, args)
-  @assign ext_args = list(
+  repl = createReplacements(fn, args)
+  ext_args = list(
     map(e, (@nospecialize(subexp::Expression),) -> applyReplacements2(repl, subexp, false))
     for e in extArgs
   )
   evaluateExternal3(name, ext_args) || return EVAL_FAILED
-  @assign result = createResult(repl, fn.outputs)
+  result = createResult(repl, fn.outputs)
   return result
 end
 

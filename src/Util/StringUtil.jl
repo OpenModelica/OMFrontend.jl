@@ -67,15 +67,15 @@ function rfindChar(
   local start_pos::Int
   local end_pos::Int
 
-  @assign start_pos = if inStartPos > 0
+  start_pos = if inStartPos > 0
     min(inStartPos, len)
   else
     len
   end
-  @assign end_pos = max(inEndPos, 1)
+  end_pos = max(inEndPos, 1)
   for i = start_pos:(-1):end_pos
     if stringGetNoBoundsChecking(inString, i) == inChar
-      @assign outIndex = i
+      outIndex = i
       break
     end
   end
@@ -135,46 +135,46 @@ function wordWrap(
   #= Check that the wrap length is larger than the delimiter, otherwise just
      return the string as it is. =#
   if stringLength(inDelimiter) >= inWrapLength - 1
-    @assign outStrings = list(inString)
+    outStrings = list(inString)
     return outStrings
   end
   #= Split the string at newlines. =#
-  @assign lines = System.strtok(inString, "\\n")
+  lines = System.strtok(inString, "\\n")
   #= Calculate the length of each line, excluding the delimiter. =#
-  @assign line_len = inWrapLength - stringLength(inDelimiter) - 1
+  line_len = inWrapLength - stringLength(inDelimiter) - 1
   #= The gap size is how many characters a line may be shorter than the sought
      after line length. =#
-  @assign gap_size = max(realInt(realMul(line_len, inRaggedness)), 0)
+  gap_size = max(realInt(realMul(line_len, inRaggedness)), 0)
   #= Wrap each line separately. =#
   for line in lines
     while end_pos < stringLength(line)
-      @assign next_char = stringGetNoBoundsChecking(line, end_pos + 1)
+      next_char = stringGetNoBoundsChecking(line, end_pos + 1)
       if next_char != CHAR_SPACE && next_char != CHAR_DASH
-        @assign pos = rfindChar(line, CHAR_SPACE, end_pos, end_pos - gap_size)
+        pos = rfindChar(line, CHAR_SPACE, end_pos, end_pos - gap_size)
         if pos != NO_POS
-          @assign str = substring(line, start_pos, pos - 1)
-          @assign start_pos = pos + 1
+          str = substring(line, start_pos, pos - 1)
+          start_pos = pos + 1
         else
-          @assign pos = rfindChar(line, CHAR_DASH, end_pos, start_pos + gap_size)
+          pos = rfindChar(line, CHAR_DASH, end_pos, start_pos + gap_size)
           if pos > 1
-            @assign char = stringGetNoBoundsChecking(line, pos - 1)
-            @assign pos = if isAlpha(char) && isAlpha(next_char)
+            char = stringGetNoBoundsChecking(line, pos - 1)
+            pos = if isAlpha(char) && isAlpha(next_char)
               pos
             else
               NO_POS
             end
           end
           if pos != NO_POS
-            @assign str = substring(line, start_pos, pos)
-            @assign start_pos = pos + 1
+            str = substring(line, start_pos, pos)
+            start_pos = pos + 1
           else
-            @assign str = substring(line, start_pos, end_pos - 1) + "-"
-            @assign start_pos = end_pos
+            str = substring(line, start_pos, end_pos - 1) + "-"
+            start_pos = end_pos
           end
         end
       else
-        @assign str = substring(line, start_pos, end_pos)
-        @assign start_pos = end_pos + (
+        str = substring(line, start_pos, end_pos)
+        start_pos = end_pos + (
           if next_char == CHAR_SPACE
             2
           else
@@ -182,17 +182,17 @@ function wordWrap(
           end
         )
       end
-      @assign outStrings = _cons(delim + str, outStrings)
-      @assign end_pos = start_pos + line_len
-      @assign delim = inDelimiter
+      outStrings = _cons(delim + str, outStrings)
+      end_pos = start_pos + line_len
+      delim = inDelimiter
     end
     if start_pos < stringLength(line)
-      @assign str = delim + substring(line, start_pos, stringLength(line))
-      @assign outStrings = _cons(str, outStrings)
+      str = delim + substring(line, start_pos, stringLength(line))
+      outStrings = _cons(str, outStrings)
     end
-    @assign start_pos = 1
-    @assign end_pos = line_len
-    @assign delim = inDelimiter
+    start_pos = 1
+    end_pos = line_len
+    delim = inDelimiter
   end
   #= If the next character isn't a space or dash, search backwards for a space.
      A space was found, break the string here.
@@ -205,7 +205,7 @@ function wordWrap(
      Add the string to the list and continue with the rest of the line.
      Add any remainder of the line to the list.
      Continue with the next line. =#
-  @assign outStrings = listReverseInPlace(outStrings)
+  outStrings = listReverseInPlace(outStrings)
   return outStrings
 end
 
@@ -219,7 +219,7 @@ function repeat(str::String, n::Int)::String
   for i = 0:(n - 1)
     System.stringAllocatorStringCopy(ext, str, len * i)
   end
-  @assign res = System.stringAllocatorResult(ext, res)
+  res = System.stringAllocatorResult(ext, res)
   return res
 end
 

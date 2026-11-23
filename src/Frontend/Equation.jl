@@ -212,15 +212,15 @@ function toStreamList(
   local multi_line::Bool
   local first::Bool = true
   for eq in eql
-    @assign multi_line = isMultiLine(eq)
+    multi_line = isMultiLine(eq)
     if first
-      @assign first = false
+      first = false
     elseif prev_multi_line || multi_line
-      @assign s = IOStream_M.append(s, "\\n")
+      s = IOStream_M.append(s, "\\n")
     end
-    @assign prev_multi_line = multi_line
-    @assign s = toStream(eq, indent, s)
-    @assign s = IOStream_M.append(s, ";\\n")
+    prev_multi_line = multi_line
+    s = toStream(eq, indent, s)
+    s = IOStream_M.append(s, ";\\n")
   end
   return s
 end

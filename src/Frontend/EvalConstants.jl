@@ -55,7 +55,7 @@ end
 
 function evaluateVariable(var::VARIABLE, constVariability::VariabilityType)::VARIABLE
   local binding::Binding
-  @assign binding = evaluateBinding(
+  binding = evaluateBinding(
     var.binding,
     variability(var) <= constVariability,
     constVariability,
@@ -81,18 +81,18 @@ function evaluateBinding(
   local exp::Expression
   local eexp::Expression
   if isBound(binding)
-    @assign exp = getTypedExp(binding)
+    exp = getTypedExp(binding)
     if structural
       #= A structural parameter not evaluated in earlier stages (Evaluate=true) is not critical
          to evaluate: kept as it is when it can't be (omc tryEvalExp; CevalBinding10, an external
          function). A constant must be. =#
-      @assign eexp = variability > Variability.CONSTANT ?
+      eexp = variability > Variability.CONSTANT ?
         tryEvalExp(exp, EVALTARGET_ATTRIBUTE(binding)) : evalExp(exp, EVALTARGET_ATTRIBUTE(binding))
     else
-      @assign eexp = evaluateExp(exp, constVariability)
+      eexp = evaluateExp(exp, constVariability)
     end
     if !referenceEq(exp, eexp)
-      @assign binding = setTypedExp(eexp, binding)
+      binding = setTypedExp(eexp, binding)
     end
   end
   return binding
@@ -107,10 +107,10 @@ function evaluateTypeAttribute(
   local sbinding::Binding
   local structural::Bool
    (name, binding) = attribute
-  @assign structural = name == "fixed" || name == "stateSelect"
-  @assign sbinding = evaluateBinding(binding, structural, constVariability)
+  structural = name == "fixed" || name == "stateSelect"
+  sbinding = evaluateBinding(binding, structural, constVariability)
   if !referenceEq(binding, sbinding)
-    @assign attribute = (name, sbinding)
+    attribute = (name, sbinding)
   end
   return attribute
 end
@@ -178,10 +178,10 @@ function evaluateExpTraverser(
              dimensionCount(value) > dimensionCount(ty)
             value = outExp
           end
-          @assign outExp = value
-          @assign outChanged = true
+          outExp = value
+          outChanged = true
         elseif outChanged
-          @assign outExp = CREF_EXPRESSION(
+          outExp = CREF_EXPRESSION(
             getSubscriptedType(cref),
             cref,
           )
@@ -201,7 +201,7 @@ function evaluateExpTraverser(
       end
     end
   end
-  @assign outChanged = changed || outChanged
+  outChanged = changed || outChanged
   return (outExp, outChanged)
 end
 
@@ -482,7 +482,7 @@ function evaluateFuncExpTraverser(
             e.cref,
           )
         else
-          @assign outExp = e
+          outExp = e
         end
         outExp
       end

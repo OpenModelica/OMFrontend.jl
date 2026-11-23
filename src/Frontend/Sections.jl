@@ -99,7 +99,7 @@ function apply(
 end
 
 function foldExp(sections::Sections, foldFn::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
-  @assign arg = begin
+  arg = begin
     @match sections begin
       SECTIONS(__) => begin
         arg = foldExpList(sections.equations, foldFn, arg, ArgT)
@@ -259,7 +259,7 @@ function prependAlgorithm(
   isInitial::Bool = false,
 )::Sections
 
-  @assign sections = begin
+  sections = begin
     @match sections begin
       SECTIONS(__) => begin
         #= Vectors, appended as in prependEquation. =#

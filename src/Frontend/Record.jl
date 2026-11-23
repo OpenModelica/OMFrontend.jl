@@ -122,7 +122,7 @@ function instDefaultConstructor(
     ),
     false,
   )
-  @assign node = node
+  node = node
 end
 
 function collectRecordParams(
@@ -135,7 +135,7 @@ function collectRecordParams(
   local comps::Vector{InstNode}
   local pcomps::Vector{Pointer{InstNode}}
   local tree::ClassTree
-  @assign tree = classTree(getClass(recNode))
+  tree = classTree(getClass(recNode))
    @match tree begin
      CLASS_TREE_FLAT_TREE(components = comps) => begin
        for i = arrayLength(comps):(-1):1
@@ -189,9 +189,9 @@ end
 function collectRecordFields(recNode::InstNode)::List{Field}
   local fields::List{Field}
   local tree::ClassTree
-  @assign tree = classTree(getClass(recNode))
-  @assign fields = foldComponents(tree, collectRecordField, nil, List{Field})
-  @assign fields = listReverseInPlace(fields)
+  tree = classTree(getClass(recNode))
+  fields = foldComponents(tree, collectRecordField, nil, List{Field})
+  fields = listReverseInPlace(fields)
   return fields
 end
 
