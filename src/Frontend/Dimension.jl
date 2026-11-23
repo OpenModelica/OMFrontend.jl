@@ -41,22 +41,16 @@ using OpenModelicaParser.Absyn: Exp, Path #, Subscript
 
 function foldExpList(dims::List{Dimension}, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
   for dim in dims
-    @assign arg = foldExp(dim, func, arg, ArgT)
+    arg = foldExp(dim, func, arg, ArgT)
   end
   return arg
 end
 
 function foldExp(dim::Dimension, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
   @match dim begin
-    DIMENSION_UNTYPED(__) => begin
-      fold(dim.dimension, func, arg, ArgT)
-    end
-    DIMENSION_EXP(__) => begin
-      fold(dim.exp, func, arg, ArgT)
-    end
-    _ => begin
-      arg
-    end
+    DIMENSION_UNTYPED(__) => fold(dim.dimension, func, arg, ArgT)
+    DIMENSION_EXP(__) => fold(dim.exp, func, arg, ArgT)
+    _ => arg
   end
 end
 
@@ -74,7 +68,7 @@ end
     end
 
     DIMENSION_EXP(exp = e1) => begin
-      @assign e2 = map(e1, func)
+      e2 = map(e1, func)
       if referenceEq(e1, e2)
         dim
       else
@@ -82,34 +76,22 @@ end
       end
     end
 
-    _ => begin
-      dim
-    end
+    _ => dim
   end
 end
 
 function variability(dim::Dimension)::VariabilityType
 
   @match dim begin
-    DIMENSION_INTEGER(__) => begin
-      dim.var
-    end
+    DIMENSION_INTEGER(__) => dim.var
 
-    DIMENSION_BOOLEAN(__) => begin
-      Variability.CONSTANT
-    end
+    DIMENSION_BOOLEAN(__) => Variability.CONSTANT
 
-    DIMENSION_ENUM(__) => begin
-      Variability.CONSTANT
-    end
+    DIMENSION_ENUM(__) => Variability.CONSTANT
 
-    DIMENSION_EXP(__) => begin
-      dim.var
-    end
+    DIMENSION_EXP(__) => dim.var
 
-    DIMENSION_UNKNOWN(__) => begin
-      Variability.CONTINUOUS
-    end
+    DIMENSION_UNKNOWN(__) => Variability.CONTINUOUS
   end
 end
 
@@ -125,21 +107,13 @@ function sizeExp(dim::Dimension)::Expression
 
   local ty::ModelicaType
   @match dim begin
-    DIMENSION_INTEGER(__) => begin
-      INTEGER_EXPRESSION(dim.size)
-    end
+    DIMENSION_INTEGER(__) => INTEGER_EXPRESSION(dim.size)
 
-    DIMENSION_BOOLEAN(__) => begin
-      INTEGER_EXPRESSION(2)
-    end
+    DIMENSION_BOOLEAN(__) => INTEGER_EXPRESSION(2)
 
-    DIMENSION_ENUM(enumType = ty && TYPE_ENUMERATION(__)) => begin
-      INTEGER_EXPRESSION(listLength(ty.literals))
-    end
+    DIMENSION_ENUM(enumType = ty && TYPE_ENUMERATION(__)) => INTEGER_EXPRESSION(listLength(ty.literals))
 
-    DIMENSION_EXP(__) => begin
-      dim.exp
-    end
+    DIMENSION_EXP(__) => dim.exp
   end
 end
 
@@ -148,26 +122,18 @@ function endExp(dim::Dimension, cref::ComponentRef, index::Int)::Expression
 
   local ty::ModelicaType
   @match dim begin
-    DIMENSION_INTEGER(__) => begin
-      INTEGER_EXPRESSION(dim.size)
-    end
+    DIMENSION_INTEGER(__) => INTEGER_EXPRESSION(dim.size)
 
-    DIMENSION_BOOLEAN(__) => begin
-      BOOLEAN_EXPRESSION(true)
-    end
+    DIMENSION_BOOLEAN(__) => BOOLEAN_EXPRESSION(true)
 
-    DIMENSION_ENUM(enumType = ty && TYPE_ENUMERATION(__)) => begin
-      makeEnumLiteral(ty, listLength(ty.literals))
-    end
+    DIMENSION_ENUM(enumType = ty && TYPE_ENUMERATION(__)) => makeEnumLiteral(ty, listLength(ty.literals))
 
     #= The dimension's expression may name a record field (V_flow[n] of a function's record
        input: pressure.n), which the function's replacements do not know: size() of the
        array instead (Buildings.Fluid.Movers.BaseClasses.Euler.power: pressure.V_flow[end]).
        Not a ragged one (its values over the enclosing arrays of components, typeDimensionUntyped):
        size() of the element's array. =#
-    DIMENSION_EXP(__) where {isLiteral(dim.exp) && !(dim.exp isa ARRAY_EXPRESSION)} => begin
-      dim.exp
-    end
+    DIMENSION_EXP(__) where {isLiteral(dim.exp) && !(dim.exp isa ARRAY_EXPRESSION)} => dim.exp
 
     DIMENSION_EXP(__) || DIMENSION_UNKNOWN(__) => begin
       SIZE_EXPRESSION(
@@ -191,29 +157,17 @@ function toString(dim::Dimension)::String
 
   local ty::ModelicaType
   @match dim begin
-    DIMENSION_INTEGER(__) => begin
-      string(dim.size)
-    end
+    DIMENSION_INTEGER(__) => string(dim.size)
 
-    DIMENSION_BOOLEAN(__) => begin
-      "Boolean"
-    end
+    DIMENSION_BOOLEAN(__) => "Boolean"
 
-    DIMENSION_ENUM(enumType = ty && TYPE_ENUMERATION(__)) => begin
-      AbsynUtil.pathString(ty.typePath)
-    end
+    DIMENSION_ENUM(enumType = ty && TYPE_ENUMERATION(__)) => AbsynUtil.pathString(ty.typePath)
 
-    DIMENSION_EXP(__) => begin
-      toString(dim.exp)
-    end
+    DIMENSION_EXP(__) => toString(dim.exp)
 
-    DIMENSION_UNKNOWN(__) => begin
-      ":"
-    end
+    DIMENSION_UNKNOWN(__) => ":"
 
-    DIMENSION_UNTYPED(__) => begin
-      toString(dim.dimension)
-    end
+    DIMENSION_UNTYPED(__) => toString(dim.dimension)
   end
 end
 
@@ -224,81 +178,47 @@ function toFlatString(dim::Dimension)::String
 
   local ty::ModelicaType
   @match dim begin
-    DIMENSION_INTEGER(__) => begin
-      string(dim.size)
-    end
+    DIMENSION_INTEGER(__) => string(dim.size)
 
-    DIMENSION_BOOLEAN(__) => begin
-      "Boolean"
-    end
+    DIMENSION_BOOLEAN(__) => "Boolean"
 
-    DIMENSION_ENUM(enumType = ty && TYPE_ENUMERATION(__)) => begin
-      AbsynUtil.pathString(ty.typePath)
-    end
+    DIMENSION_ENUM(enumType = ty && TYPE_ENUMERATION(__)) => AbsynUtil.pathString(ty.typePath)
 
-    DIMENSION_EXP(__) => begin
-      toFlatString(dim.exp)
-    end
+    DIMENSION_EXP(__) => toFlatString(dim.exp)
 
-    DIMENSION_UNKNOWN(__) => begin
-      ":"
-    end
+    DIMENSION_UNKNOWN(__) => ":"
 
-    DIMENSION_UNTYPED(__) => begin
-      toString(dim.dimension)
-    end
+    DIMENSION_UNTYPED(__) => toString(dim.dimension)
   end
 end
 
 """Returns the expected type of a subscript for the given dimension."""
 function subscriptType(dim::Dimension)::ModelicaType
   @match dim begin
-    DIMENSION_INTEGER(__) => begin
-      TYPE_INTEGER()
-    end
-    DIMENSION_BOOLEAN(__) => begin
-      TYPE_BOOLEAN()
-    end
-    DIMENSION_ENUM(__) => begin
-      dim.enumType
-    end
+    DIMENSION_INTEGER(__) => TYPE_INTEGER()
+    DIMENSION_BOOLEAN(__) => TYPE_BOOLEAN()
+    DIMENSION_ENUM(__) => dim.enumType
     #= A ragged dimension's values are its elements' sizes (typeDimensionUntyped). =#
-    DIMENSION_EXP(__) => begin
-      arrayElementType(typeOf(dim.exp))
-    end
-    _ => begin
-      TYPE_UNKNOWN()
-    end
+    DIMENSION_EXP(__) => arrayElementType(typeOf(dim.exp))
+    _ => TYPE_UNKNOWN()
   end
 end
 
 function isOne(dim::Dimension)::Bool
 
   @match dim begin
-    DIMENSION_INTEGER(__) => begin
-      dim.size == 1
-    end
-    DIMENSION_ENUM(__) => begin
-      enumSize(dim.enumType) == 1
-    end
+    DIMENSION_INTEGER(__) => dim.size == 1
+    DIMENSION_ENUM(__) => enumSize(dim.enumType) == 1
 
-    _ => begin
-      false
-    end
+    _ => false
   end
 end
 
 function isZero(dim::Dimension)::Bool
   @match dim begin
-    DIMENSION_INTEGER(__) => begin
-      dim.size == 0
-    end
-    DIMENSION_ENUM(__) => begin
-      enumSize(dim.enumType) == 0
-    end
-    _ => begin
-      false
-    end
+    DIMENSION_INTEGER(__) => dim.size == 0
+    DIMENSION_ENUM(__) => enumSize(dim.enumType) == 0
+    _ => false
   end
 end
 
@@ -306,52 +226,30 @@ isUnknown(dim::Dimension)::Bool = isvariant(dim, DIMENSION_UNKNOWN)
 
 function isKnown(dim::Dimension, allowExp::Bool = false)::Bool
   @match dim begin
-    DIMENSION_INTEGER(__) => begin
-      true
-    end
-    DIMENSION_BOOLEAN(__) => begin
-      true
-    end
-    DIMENSION_ENUM(__) => begin
-      true
-    end
-    DIMENSION_EXP(__) => begin
-      allowExp
-    end
-    _ => begin
-      false
-    end
+    DIMENSION_INTEGER(__) => true
+    DIMENSION_BOOLEAN(__) => true
+    DIMENSION_ENUM(__) => true
+    DIMENSION_EXP(__) => allowExp
+    _ => false
   end
 end
 
 function isEqualKnown(dim1::Dimension, dim2::Dimension)::Bool
   local isEqual::Bool
 
-  @assign isEqual = begin
+  isEqual = begin
     @match (dim1, dim2) begin
-      (DIMENSION_UNKNOWN(__), _) => begin
-        false
-      end
+      (DIMENSION_UNKNOWN(__), _) => false
 
-      (_, DIMENSION_UNKNOWN(__)) => begin
-        false
-      end
+      (_, DIMENSION_UNKNOWN(__)) => false
 
-      (DIMENSION_EXP(__), DIMENSION_EXP(__)) => begin
-        isEqual(dim1.exp, dim2.exp)
-      end
+      (DIMENSION_EXP(__), DIMENSION_EXP(__)) => isEqual(dim1.exp, dim2.exp)
 
-      (DIMENSION_EXP(__), _) => begin
-        false
-      end
+      (DIMENSION_EXP(__), _) => false
 
-      (_, DIMENSION_EXP(__)) => begin
-        false
-      end
+      (_, DIMENSION_EXP(__)) => false
 
-      _ => begin
-        size(dim1) == size(dim2)
-      end
+      _ => size(dim1) == size(dim2)
     end
   end
   return isEqual
@@ -359,56 +257,32 @@ end
 
 function isEqual(dim1::Dimension, dim2::Dimension)::Bool
   @match (dim1, dim2) begin
-    (DIMENSION_UNKNOWN(__), _) => begin
-      true
-    end
-    (_, DIMENSION_UNKNOWN(__)) => begin
-      true
-    end
-    (DIMENSION_EXP(__), DIMENSION_EXP(__)) => begin
-      isEqual(dim1.exp, dim2.exp)
-    end
-    (DIMENSION_EXP(__), _) => begin
-      true
-    end
-    (_, DIMENSION_EXP(__)) => begin
-      true
-    end
-    _ => begin
-      size(dim1) == size(dim2)
-    end
+    (DIMENSION_UNKNOWN(__), _) => true
+    (_, DIMENSION_UNKNOWN(__)) => true
+    (DIMENSION_EXP(__), DIMENSION_EXP(__)) => isEqual(dim1.exp, dim2.exp)
+    (DIMENSION_EXP(__), _) => true
+    (_, DIMENSION_EXP(__)) => true
+    _ => size(dim1) == size(dim2)
   end
 end
 
 function size(dim::Dimension)::Int
   local ty::ModelicaType
   @match dim begin
-    DIMENSION_INTEGER(__) => begin
-      dim.size
-    end
+    DIMENSION_INTEGER(__) => dim.size
 
-    DIMENSION_BOOLEAN(__) => begin
-      2
-    end
-    DIMENSION_ENUM(enumType = ty && TYPE_ENUMERATION(__)) => begin
-      listLength(ty.literals)
-    end
+    DIMENSION_BOOLEAN(__) => 2
+    DIMENSION_ENUM(enumType = ty && TYPE_ENUMERATION(__)) => listLength(ty.literals)
   end
 end
 
 function add(a::Dimension, b::Dimension)::Dimension
   @match (a, b) begin
-    (DIMENSION_UNKNOWN(__), _) => begin
-      DIMENSION_UNKNOWN()
-    end
+    (DIMENSION_UNKNOWN(__), _) => DIMENSION_UNKNOWN()
 
-    (_, DIMENSION_UNKNOWN(__)) => begin
-      DIMENSION_UNKNOWN()
-    end
+    (_, DIMENSION_UNKNOWN(__)) => DIMENSION_UNKNOWN()
 
-    (DIMENSION_INTEGER(__), DIMENSION_INTEGER(__)) => begin
-      DIMENSION_INTEGER(a.size + b.size, variabilityMax(a.var, b.var))
-    end
+    (DIMENSION_INTEGER(__), DIMENSION_INTEGER(__)) => DIMENSION_INTEGER(a.size + b.size, variabilityMax(a.var, b.var))
 
     (DIMENSION_INTEGER(__), DIMENSION_EXP(__)) => begin
       DIMENSION_EXP(
@@ -443,9 +317,7 @@ function add(a::Dimension, b::Dimension)::Dimension
       )
     end
 
-    _ => begin
-      DIMENSION_UNKNOWN()
-    end
+    _ => DIMENSION_UNKNOWN()
   end
 end
 
@@ -462,18 +334,12 @@ end
 function fromExp(@nospecialize(exp::Expression), var::VariabilityType)::Dimension
   local ty::ModelicaType
   @match exp begin
-    INTEGER_EXPRESSION(__) => begin
-      DIMENSION_INTEGER(exp.value, var)
-    end
+    INTEGER_EXPRESSION(__) => DIMENSION_INTEGER(exp.value, var)
     TYPENAME_EXPRESSION(ty = TYPE_ARRAY(elementType = ty)) => begin
       begin
         @match ty begin
-          TYPE_BOOLEAN(__) => begin
-            DIMENSION_BOOLEAN()
-          end
-          TYPE_ENUMERATION(__) => begin
-            DIMENSION_ENUM(ty)
-          end
+          TYPE_BOOLEAN(__) => DIMENSION_BOOLEAN()
+          TYPE_ENUMERATION(__) => DIMENSION_ENUM(ty)
           _ => begin
             Error.assertion(
               false,
@@ -485,9 +351,7 @@ function fromExp(@nospecialize(exp::Expression), var::VariabilityType)::Dimensio
         end
       end
     end
-    _ => begin
-      DIMENSION_EXP(exp, var)
-    end
+    _ => DIMENSION_EXP(exp, var)
   end
 end
 

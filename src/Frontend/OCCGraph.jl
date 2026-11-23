@@ -834,9 +834,7 @@ function isOverconstrainedCref(cref::ComponentRef) ::Bool
       COMPONENT_REF_CREF(node = node, origin = Origin.CREF, restCref = rest)  => begin
         isOverdetermined(getClass(node)) || isOverconstrainedCref(rest)
       end
-      _  => begin
-        false
-      end
+      _ => false
     end
   end
   b
@@ -922,47 +920,27 @@ function identifyConnectionsOperator(functionName::Absyn.Path)::ConnectionsOpera
     Absyn.QUALIFIED(name = "Connections", path = Absyn.IDENT(name = name))  => begin
       begin
         @match name begin
-          "branch"  => begin
-            CONNECTIONS_OPERATOR_BRANCH
-          end
+          "branch" => CONNECTIONS_OPERATOR_BRANCH
 
-          "root"  => begin
-            CONNECTIONS_OPERATOR_ROOT
-          end
+          "root" => CONNECTIONS_OPERATOR_ROOT
 
-          "potentialRoot"  => begin
-            CONNECTIONS_OPERATOR_POTENTIAL_ROOT
-          end
+          "potentialRoot" => CONNECTIONS_OPERATOR_POTENTIAL_ROOT
 
-          "isRoot"  => begin
-            CONNECTIONS_OPERATOR_IS_ROOT
-          end
+          "isRoot" => CONNECTIONS_OPERATOR_IS_ROOT
 
-          "rooted"  => begin
-            CONNECTIONS_OPERATOR_ROOTED
-          end
+          "rooted" => CONNECTIONS_OPERATOR_ROOTED
 
-          "uniqueRoot"  => begin
-            CONNECTIONS_OPERATOR_UNIQUE_ROOT
-          end
+          "uniqueRoot" => CONNECTIONS_OPERATOR_UNIQUE_ROOT
 
-          "uniqueRootIndices"  => begin
-            CONNECTIONS_OPERATOR_UNIQUE_ROOT_INDICES
-          end
+          "uniqueRootIndices" => CONNECTIONS_OPERATOR_UNIQUE_ROOT_INDICES
 
-          _  => begin
-            CONNECTIONS_OPERATOR_NONE
-          end
+          _ => CONNECTIONS_OPERATOR_NONE
         end
       end
     end
 
-    Absyn.IDENT(name = "rooted")  => begin
-      CONNECTIONS_OPERATOR_ROOTED
-    end
+    Absyn.IDENT(name = "rooted") => CONNECTIONS_OPERATOR_ROOTED
 
-    _  => begin
-      CONNECTIONS_OPERATOR_NONE
-    end
+    _ => CONNECTIONS_OPERATOR_NONE
   end
 end

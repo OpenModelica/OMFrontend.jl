@@ -158,9 +158,7 @@ function enumerateComponents2(
       ()
     end
 
-    _ => begin
-      ()
-    end
+    _ => ()
   end
   return components
 end
@@ -214,9 +212,7 @@ function checkDuplicates(tree::ClassTree)
         ()
       end
 
-      _ => begin
-        ()
-      end
+      _ => ()
     end
   end
 end
@@ -240,42 +236,26 @@ end
 
 function componentCount(tree::ClassTree)
   @match tree begin
-    CLASS_TREE_PARTIAL_TREE(__) => begin
-      length(tree.components) - length(tree.exts)
-    end
+    CLASS_TREE_PARTIAL_TREE(__) => length(tree.components) - length(tree.exts)
 
-    CLASS_TREE_EXPANDED_TREE(__) => begin
-      length(tree.components) - length(tree.exts)
-    end
+    CLASS_TREE_EXPANDED_TREE(__) => length(tree.components) - length(tree.exts)
 
-    CLASS_TREE_INSTANTIATED_TREE(__) => begin
-      length(tree.components)
-    end
+    CLASS_TREE_INSTANTIATED_TREE(__) => length(tree.components)
 
-    CLASS_TREE_FLAT_TREE(__) => begin
-      length(tree.components)
-    end
+    CLASS_TREE_FLAT_TREE(__) => length(tree.components)
   end
 end
 
 function classCount(tree::ClassTree)::Int
 
   @match tree begin
-    CLASS_TREE_PARTIAL_TREE(__) => begin
-      arrayLength(tree.classes)
-    end
+    CLASS_TREE_PARTIAL_TREE(__) => arrayLength(tree.classes)
 
-    CLASS_TREE_EXPANDED_TREE(__) => begin
-      arrayLength(tree.classes)
-    end
+    CLASS_TREE_EXPANDED_TREE(__) => arrayLength(tree.classes)
 
-    CLASS_TREE_INSTANTIATED_TREE(__) => begin
-      arrayLength(tree.classes)
-    end
+    CLASS_TREE_INSTANTIATED_TREE(__) => arrayLength(tree.classes)
 
-    CLASS_TREE_FLAT_TREE(__) => begin
-      arrayLength(tree.classes)
-    end
+    CLASS_TREE_FLAT_TREE(__) => arrayLength(tree.classes)
   end
 end
 
@@ -310,9 +290,7 @@ function foldComponents(tree::ClassTree, func::FT, arg::ArgT, ::Type{ArgT})::Arg
       ()
     end
 
-    _ => begin
-      ()
-    end
+    _ => ()
   end
   return arg
 end
@@ -554,21 +532,13 @@ end
 function nthComponent(index::Int, tree::ClassTree)::InstNode
 
   @match tree begin
-    CLASS_TREE_PARTIAL_TREE(__) => begin
-      arrayGet(tree.components, index)
-    end
+    CLASS_TREE_PARTIAL_TREE(__) => arrayGet(tree.components, index)
 
-    CLASS_TREE_EXPANDED_TREE(__) => begin
-      arrayGet(tree.components, index)
-    end
+    CLASS_TREE_EXPANDED_TREE(__) => arrayGet(tree.components, index)
 
-    CLASS_TREE_INSTANTIATED_TREE(__) => begin
-      P_Pointer.access(arrayGet(tree.components, index))
-    end
+    CLASS_TREE_INSTANTIATED_TREE(__) => P_Pointer.access(arrayGet(tree.components, index))
 
-    CLASS_TREE_FLAT_TREE(__) => begin
-      arrayGet(tree.components, index)
-    end
+    CLASS_TREE_FLAT_TREE(__) => arrayGet(tree.components, index)
   end
 end
 
@@ -632,9 +602,7 @@ function flattenLookupTree2(
       )
     end
 
-    _ => begin
-      entry
-    end
+    _ => entry
   end
 end
 
@@ -767,9 +735,7 @@ function flatten(tree::ClassTree)::ClassTree
         CLASS_TREE_FLAT_TREE(ltree, clss, comps, tree.imports, tree.duplicates)
       end
 
-      _ => begin
-        tree
-      end
+      _ => tree
     end
   end
   return tree
@@ -821,9 +787,7 @@ function replaceDuplicates(tree::ClassTree)
       local treeDuplicates = DuplicateTree.map(tree.duplicates, (name, entry) -> replaceDuplicates2(name, entry, tree))
       CLASS_TREE_INSTANTIATED_TREE(tree.tree, tree.classes, tree.components, tree.localComponents, tree.exts, tree.imports, treeDuplicates)
     end
-    _ => begin
-      tree
-    end
+    _ => tree
   end
 end
 
@@ -836,9 +800,7 @@ function mapRedeclareChains(tree::ClassTree, func::FuncT)
       )
       ()
     end
-    _ => begin
-      ()
-    end
+    _ => ()
   end
 end
 
@@ -852,9 +814,7 @@ function mapRedeclareChains(tree::ClassTree, func::Function, instLevel::Int)
       )
       ()
     end
-    _ => begin
-      ()
-    end
+    _ => ()
   end
 end
 
@@ -875,9 +835,7 @@ function clone(tree::ClassTree)::ClassTree
       )
     end
 
-    _ => begin
-      tree
-    end
+    _ => tree
   end
 end
 
@@ -1540,9 +1498,7 @@ function checkOuterClass(outerCls::InstNode)
   return if isOnlyOuter(outerCls)
     def = SCodeUtil.getClassDef(definition(outerCls))
     @match def begin
-      SCode.DERIVED(modifications = SCode.NOMOD(__)) => begin
-        ()
-      end
+      SCode.DERIVED(modifications = SCode.NOMOD(__)) => ()
 
       SCode.DERIVED(__) => begin
         #= Outer short class definition without mod is ok.
@@ -1715,10 +1671,8 @@ function enumerateDuplicates4(
 )::Tuple{List{Int}, List{Int}}
 
   @match entry begin
-    LookupTree.CLASS(__) => begin
-      #= classes := entry.index :: classes; =#
-      ()
-    end
+    #= classes := entry.index :: classes; =#
+    LookupTree.CLASS(__) => ()
 
     LookupTree.COMPONENT(__) => begin
       components = Cons{Int}(entry.index, components)
@@ -1796,13 +1750,9 @@ function offsetDuplicate(
 )::LookupTree.Entry
 
   @match entry begin
-    LookupTree.CLASS(__) => begin
-      LookupTree.CLASS(entry.index + classOffset)
-    end
+    LookupTree.CLASS(__) => LookupTree.CLASS(entry.index + classOffset)
 
-    LookupTree.COMPONENT(__) => begin
-      LookupTree.COMPONENT(entry.index + componentOffset)
-    end
+    LookupTree.COMPONENT(__) => LookupTree.COMPONENT(entry.index + componentOffset)
   end
 end
 
@@ -1932,9 +1882,7 @@ function addInheritedElement(
       ()
     end
 
-    _ => begin
-      ()
-    end
+    _ => ()
   end
   #=  Ignore IMPORT, since imports aren't inherited. =#
   return tree
@@ -1962,13 +1910,9 @@ function expandExtends(
   cls_tree = classTree(getClass(extendsNode))
   (ext_tree, ext_dups) = begin
     @match cls_tree begin
-      CLASS_TREE_EXPANDED_TREE(__) => begin
-        (cls_tree.tree, cls_tree.duplicates)
-      end
+      CLASS_TREE_EXPANDED_TREE(__) => (cls_tree.tree, cls_tree.duplicates)
 
-      CLASS_TREE_FLAT_TREE(__) => begin
-        (cls_tree.tree, cls_tree.duplicates)
-      end
+      CLASS_TREE_FLAT_TREE(__) => (cls_tree.tree, cls_tree.duplicates)
 
       _ => begin
         #= Not expanded (omc returns the tree unchanged). =#
@@ -2037,9 +1981,7 @@ function countInheritedElements(
       ()
     end
 
-    _ => begin
-      ()
-    end
+    _ => ()
   end
   return (classCount, componentCount)
 end
@@ -2070,9 +2012,7 @@ function countElements(elements::List{<:SCode.Element})::Tuple{Int, Int, Int}
         ()
       end
 
-      _ => begin
-        ()
-      end
+      _ => ()
     end
   end
   return (classCount, compCount, extCount)
@@ -2099,16 +2039,10 @@ end
 
 function resolveComponent(index::Int, tree::ClassTree)::InstNode
   @match tree begin
-    CLASS_TREE_INSTANTIATED_TREE(__) => begin
-      P_Pointer.access(arrayGet(tree.components, index))
-    end
+    CLASS_TREE_INSTANTIATED_TREE(__) => P_Pointer.access(arrayGet(tree.components, index))
 
-    CLASS_TREE_FLAT_TREE(__) => begin
-      tree.components[index]
-    end
-    CLASS_TREE_EXPANDED_TREE(__) => begin
-      tree.components[index]
-    end
+    CLASS_TREE_FLAT_TREE(__) => tree.components[index]
+    CLASS_TREE_EXPANDED_TREE(__) => tree.components[index]
   end
 end
 
@@ -2192,12 +2126,8 @@ function resolveEntry(entry::LookupTree.Entry, tree::ClassTree)
   local isImported::Bool = false
   local element::InstNode
   element =  @match entry begin
-    LookupTree.CLASS(__) => begin
-      resolveClass(entry.index, tree)
-    end
-    LookupTree.COMPONENT(__) => begin
-      resolveComponent(entry.index, tree)
-    end
+    LookupTree.CLASS(__) => resolveClass(entry.index, tree)
+    LookupTree.COMPONENT(__) => resolveComponent(entry.index, tree)
     LookupTree.IMPORT(__) => begin
       isImported = true
       resolveImport(entry.index, tree)
@@ -2213,18 +2143,10 @@ end
 """Resolves a lookup tree entry to an inst node, dropping the import flag."""
 function resolveEntryNode(entry::LookupTree.Entry, tree::ClassTree)::InstNode
   return @match entry begin
-    LookupTree.CLASS(__) => begin
-      resolveClass(entry.index, tree)
-    end
-    LookupTree.COMPONENT(__) => begin
-      resolveComponent(entry.index, tree)
-    end
-    LookupTree.IMPORT(__) => begin
-      resolveImport(entry.index, tree)
-    end
-    _ => begin
-      EMPTY_NODE()
-    end
+    LookupTree.CLASS(__) => resolveClass(entry.index, tree)
+    LookupTree.COMPONENT(__) => resolveComponent(entry.index, tree)
+    LookupTree.IMPORT(__) => resolveImport(entry.index, tree)
+    _ => EMPTY_NODE()
   end
 end
 
@@ -2278,13 +2200,9 @@ function addImportConflict(
               oldEntry
             end
 
-            (UNRESOLVED_IMPORT(__), _) => begin
-              newEntry
-            end
+            (UNRESOLVED_IMPORT(__), _) => newEntry
 
-            _ => begin
-              oldEntry
-            end
+            _ => oldEntry
           end
         end
         #= Qualified import overwrites an unqualified.
@@ -2292,9 +2210,7 @@ function addImportConflict(
         entry
       end
 
-      _ => begin
-        oldEntry
-      end
+      _ => oldEntry
     end
   end
   #= Other elements overwrite an imported name. =#
@@ -2348,9 +2264,7 @@ function findLocalConflictElement(entry::LookupTree.Entry, classTree::ClassTree)
     local i::Int
     #= For classes we can just use the normal resolveClass function. =#
     @match entry begin
-      LookupTree.CLASS(__) => begin
-        resolveClass(entry.index, classTree)
-      end
+      LookupTree.CLASS(__) => resolveClass(entry.index, classTree)
 
       LookupTree.COMPONENT(__) => begin
         #= Components are more complicated, since they are given indices based
@@ -2363,9 +2277,7 @@ function findLocalConflictElement(entry::LookupTree.Entry, classTree::ClassTree)
         for c in comps
           i = begin
             @match c begin
-              COMPONENT_NODE(__) => begin
-                i + 1
-              end
+              COMPONENT_NODE(__) => i + 1
 
               REF_NODE(__) => begin
                 (_, i) = countInheritedElements(exts[c.index], 0, i)
@@ -2405,9 +2317,7 @@ function addLocalElementConflict(
   local n1::InstNode
   local n2::InstNode
   @match (newEntry, oldEntry) begin
-    (_, LookupTree.IMPORT(__)) => begin
-      newEntry
-    end
+    (_, LookupTree.IMPORT(__)) => newEntry
     _ => begin
       #= Local elements overwrite imported elements with same name.
          Otherwise we have two local elements with the same name, which is an error. =#
@@ -2472,9 +2382,7 @@ function instExtendsComps(
       end
       ()
     end
-    _ => begin
-      ()
-    end
+    _ => ()
   end
   return index #= The first free index in comps =#
 end

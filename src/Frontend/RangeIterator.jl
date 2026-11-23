@@ -121,9 +121,7 @@ which packages adding comparison methods invalidated with its callers at each lo
 """
 function hasNext(iterator::RangeIterator)::Bool
   @match iterator begin
-    RANGEITERATOR_INT_RANGE(__) => begin
-      (iterator.current::Int) <= (iterator.last::Int)
-    end
+    RANGEITERATOR_INT_RANGE(__) => (iterator.current::Int) <= (iterator.last::Int)
     RANGEITERATOR_INT_STEP_RANGE(__) => begin
       if (iterator.stepsize::Int) > 0
         (iterator.current::Int) <= (iterator.last::Int)
@@ -131,12 +129,8 @@ function hasNext(iterator::RangeIterator)::Bool
         (iterator.current::Int) >= (iterator.last::Int)
       end
     end
-    RANGEITERATOR_REAL_RANGE(__) => begin
-      (iterator.current::Int) < (iterator.steps::Int)
-    end
-    RANGEITERATOR_ARRAY_RANGE(__) => begin
-      !listEmpty(iterator.values)
-    end
+    RANGEITERATOR_REAL_RANGE(__) => (iterator.current::Int) < (iterator.steps::Int)
+    RANGEITERATOR_ARRAY_RANGE(__) => !listEmpty(iterator.values)
     RANGEITERATOR_INVALID_RANGE(__) => begin
       Error.assertion(
         false,
@@ -198,9 +192,7 @@ end
 function fromDim(dim::Dimension)::RangeIterator
   local ty::ModelicaType
   @match dim begin
-    DIMENSION_INTEGER(__) => begin
-      RANGEITERATOR_INT_RANGE(1, dim.size)
-    end
+    DIMENSION_INTEGER(__) => RANGEITERATOR_INT_RANGE(1, dim.size)
 
     DIMENSION_BOOLEAN(__) => begin
       RANGEITERATOR_ARRAY_RANGE(list(
@@ -215,9 +207,7 @@ function fromDim(dim::Dimension)::RangeIterator
 
     #= RangeIterator_fromExp: fromExp is Subscript's in this namespace (a SUBSCRIPT_UNTYPED
        where an iterator was expected) =#
-    DIMENSION_EXP(__) => begin
-      RangeIterator_fromExp(dim.exp)
-    end
+    DIMENSION_EXP(__) => RangeIterator_fromExp(dim.exp)
 
     _ => begin
       Error.assertion(false, getInstanceName() + " got unknown dim", sourceInfo())
@@ -243,41 +233,31 @@ function RangeIterator_fromExp(@nospecialize(exp::Expression))::RangeIterator
   local literals::List{String}
   local values::List{Expression}
   @match exp begin
-    ARRAY_EXPRESSION(__) => begin
-      RANGEITERATOR_ARRAY_RANGE(arrayList(exp.elements))
-    end
+    ARRAY_EXPRESSION(__) => RANGEITERATOR_ARRAY_RANGE(arrayList(exp.elements))
 
     RANGE_EXPRESSION(
       start = INTEGER_EXPRESSION(istart),
       step = SOME(INTEGER_EXPRESSION(istep)),
       stop = INTEGER_EXPRESSION(istop),
-    ) => begin
-      RANGEITERATOR_INT_STEP_RANGE(istart, istep, istop)
-    end
+    ) => RANGEITERATOR_INT_STEP_RANGE(istart, istep, istop)
 
     RANGE_EXPRESSION(
       start = INTEGER_EXPRESSION(istart),
       step = NONE(),
       stop = INTEGER_EXPRESSION(istop),
-    ) => begin
-      RANGEITERATOR_INT_RANGE(istart, istop)
-    end
+    ) => RANGEITERATOR_INT_RANGE(istart, istop)
 
     RANGE_EXPRESSION(
       start = REAL_EXPRESSION(rstart),
       step = SOME(REAL_EXPRESSION(rstep)),
       stop = REAL_EXPRESSION(rstop),
-    ) => begin
-      RANGEITERATOR_REAL_RANGE(rstart, rstep, 0, Util.realRangeSize(rstart, rstep, rstop))
-    end
+    ) => RANGEITERATOR_REAL_RANGE(rstart, rstep, 0, Util.realRangeSize(rstart, rstep, rstop))
 
     RANGE_EXPRESSION(
       start = REAL_EXPRESSION(rstart),
       step = NONE(),
       stop = REAL_EXPRESSION(rstop),
-    ) => begin
-      RANGEITERATOR_REAL_RANGE(rstart, 1.0, 0, Util.realRangeSize(rstart, 1.0, rstop))
-    end
+    ) => RANGEITERATOR_REAL_RANGE(rstart, 1.0, 0, Util.realRangeSize(rstart, 1.0, rstop))
 
     #= false:true, true:true, false:false, or empty (true:false), as omc. =#
     RANGE_EXPRESSION(
@@ -328,9 +308,7 @@ function RangeIterator_fromExp(@nospecialize(exp::Expression))::RangeIterator
       RANGEITERATOR_ARRAY_RANGE(values)
     end
 
-    _ => begin
-      RANGEITERATOR_INVALID_RANGE(exp)
-    end
+    _ => RANGEITERATOR_INVALID_RANGE(exp)
   end
 end
 

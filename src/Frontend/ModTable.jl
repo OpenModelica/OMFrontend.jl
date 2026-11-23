@@ -112,9 +112,7 @@ function add(
     local key_comp::Int
     #= Empty tree. =#
     @match tree begin
-      EMPTY(__) => begin
-        LEAF(inKey, inValue)
-      end
+      EMPTY(__) => LEAF(inKey, inValue)
 
       NODE(key = key) => begin
          key_comp = keyCompare(inKey, key)
@@ -169,9 +167,7 @@ function add(
     local key_comp::Int
     #= Empty tree. =#
     @match tree begin
-      EMPTY(__) => begin
-        LEAF(inKey, inValue)
-      end
+      EMPTY(__) => LEAF(inKey, inValue)
 
       NODE(key = key) => begin
          key_comp = keyCompare(inKey, key)
@@ -227,9 +223,7 @@ end
 function join(tree::Tree, treeToJoin::Tree, scope::ModifierScope, prefix::List{String})::Tree
    tree = begin
     @match treeToJoin begin
-      EMPTY(__) => begin
-        tree
-      end
+      EMPTY(__) => tree
       NODE(__) => begin
          tree = add(tree, treeToJoin.key, treeToJoin.value, scope, prefix)
          tree = join(tree, treeToJoin.left, scope, prefix)
@@ -237,9 +231,7 @@ function join(tree::Tree, treeToJoin::Tree, scope::ModifierScope, prefix::List{S
         tree
       end
 
-      LEAF(__) => begin
-        add(tree, treeToJoin.key, treeToJoin.value, scope, prefix)
-      end
+      LEAF(__) => add(tree, treeToJoin.key, treeToJoin.value, scope, prefix)
     end
   end
   return tree

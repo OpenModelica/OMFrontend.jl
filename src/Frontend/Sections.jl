@@ -60,12 +60,8 @@ end
 
 function isEmpty(sections::Sections)
   @match sections begin
-    SECTIONS_EMPTY(__) => begin
-      true
-    end
-    _ => begin
-      false
-    end
+    SECTIONS_EMPTY(__) => true
+    _ => false
   end
 end
 
@@ -92,14 +88,12 @@ function apply(
       end
       nothing
     end
-    _ => begin
-      nothing
-    end
+    _ => nothing
   end
 end
 
 function foldExp(sections::Sections, foldFn::FT, arg::ArgT, ::Type{ArgT})::ArgT where {FT<:Function, ArgT}
-  @assign arg = begin
+  arg = begin
     @match sections begin
       SECTIONS(__) => begin
         arg = foldExpList(sections.equations, foldFn, arg, ArgT)
@@ -114,9 +108,7 @@ function foldExp(sections::Sections, foldFn::FT, arg::ArgT, ::Type{ArgT})::ArgT 
         end
         arg
       end
-      _ => begin
-        arg
-      end
+      _ => arg
     end
   end
   return arg
@@ -143,9 +135,7 @@ function mapExp(sections::Sections, mapFn::MapFn)::Sections
         sections.args = list(mapFn(e) for e in sections.args)
         sections
       end
-      _ => begin
-        sections
-      end
+      _ => sections
     end
   end
   return sections
@@ -172,9 +162,7 @@ function map1(
       sections = SECTIONS(eq, ieq, alg, ialg)
       ()
     end
-    _ => begin
-      ()
-    end
+    _ => ()
   end
   return sections
 end
@@ -199,22 +187,16 @@ function map(
       sections = SECTIONS(eq, ieq, alg, ialg)
       ()
     end
-    _ => begin
-      ()
-    end
+    _ => ()
   end
   return sections
 end
 
 function join(sections1::Sections, sections2::Sections)::Sections
   @match (sections1, sections2) begin
-    (SECTIONS_EMPTY(__), _) => begin
-      sections2
-    end
+    (SECTIONS_EMPTY(__), _) => sections2
 
-    (_, SECTIONS_EMPTY(__)) => begin
-      sections1
-    end
+    (_, SECTIONS_EMPTY(__)) => sections1
 
     (SECTIONS(__), SECTIONS(__)) => begin
       SECTIONS(
@@ -245,9 +227,7 @@ function append(
         )
       end
 
-      _ => begin
-        SECTIONS(equations, initialEquations, algorithms, initialAlgorithms)
-      end
+      _ => SECTIONS(equations, initialEquations, algorithms, initialAlgorithms)
     end
   end
   return sections
@@ -259,7 +239,7 @@ function prependAlgorithm(
   isInitial::Bool = false,
 )::Sections
 
-  @assign sections = begin
+  sections = begin
     @match sections begin
       SECTIONS(__) => begin
         #= Vectors, appended as in prependEquation. =#

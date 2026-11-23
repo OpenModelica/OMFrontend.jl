@@ -175,9 +175,7 @@ function translateOperatorDef(
         (SCode.PARTS(els, nil, nil, nil, nil, nil, nil, NONE()), cmt)
       end
 
-      _ => begin
-        fail()
-      end
+      _ => fail()
     end
   end
   return (outOperDef, cmt)
@@ -214,90 +212,50 @@ function translateRestriction(
         end
       end
 
-      (_, Absyn.R_FUNCTION(Absyn.FR_OPERATOR_FUNCTION(__))) => begin
-        SCode.R_FUNCTION(SCode.FR_OPERATOR_FUNCTION())
-      end
+      (_, Absyn.R_FUNCTION(Absyn.FR_OPERATOR_FUNCTION(__))) => SCode.R_FUNCTION(SCode.FR_OPERATOR_FUNCTION())
 
-      (_, Absyn.R_FUNCTION(Absyn.FR_PARALLEL_FUNCTION(__))) => begin
-        SCode.R_FUNCTION(SCode.FR_PARALLEL_FUNCTION())
-      end
+      (_, Absyn.R_FUNCTION(Absyn.FR_PARALLEL_FUNCTION(__))) => SCode.R_FUNCTION(SCode.FR_PARALLEL_FUNCTION())
 
-      (_, Absyn.R_FUNCTION(Absyn.FR_KERNEL_FUNCTION(__))) => begin
-        SCode.R_FUNCTION(SCode.FR_KERNEL_FUNCTION())
-      end
+      (_, Absyn.R_FUNCTION(Absyn.FR_KERNEL_FUNCTION(__))) => SCode.R_FUNCTION(SCode.FR_KERNEL_FUNCTION())
 
-      (_, Absyn.R_CLASS(__)) => begin
-        SCode.R_CLASS()
-      end
+      (_, Absyn.R_CLASS(__)) => SCode.R_CLASS()
 
-      (_, Absyn.R_OPTIMIZATION(__)) => begin
-        SCode.R_OPTIMIZATION()
-      end
+      (_, Absyn.R_OPTIMIZATION(__)) => SCode.R_OPTIMIZATION()
 
-      (_, Absyn.R_MODEL(__)) => begin
-        SCode.R_MODEL()
-      end
+      (_, Absyn.R_MODEL(__)) => SCode.R_MODEL()
 
-      (_, Absyn.R_RECORD(__)) => begin
-        SCode.R_RECORD(false)
-      end
+      (_, Absyn.R_RECORD(__)) => SCode.R_RECORD(false)
 
-      (_, Absyn.R_OPERATOR_RECORD(__)) => begin
-        SCode.R_RECORD(true)
-      end
+      (_, Absyn.R_OPERATOR_RECORD(__)) => SCode.R_RECORD(true)
 
-      (_, Absyn.R_BLOCK(__)) => begin
-        SCode.R_BLOCK()
-      end
+      (_, Absyn.R_BLOCK(__)) => SCode.R_BLOCK()
 
-      (_, Absyn.R_CONNECTOR(__)) => begin
-        SCode.R_CONNECTOR(false)
-      end
+      (_, Absyn.R_CONNECTOR(__)) => SCode.R_CONNECTOR(false)
 
       (_, Absyn.R_EXP_CONNECTOR(__)) => begin
         System.setHasExpandableConnectors(true)
         SCode.R_CONNECTOR(true)
       end
 
-      (_, Absyn.R_OPERATOR(__)) => begin
-        SCode.R_OPERATOR()
-      end
+      (_, Absyn.R_OPERATOR(__)) => SCode.R_OPERATOR()
 
-      (_, Absyn.R_TYPE(__)) => begin
-        SCode.R_TYPE()
-      end
+      (_, Absyn.R_TYPE(__)) => SCode.R_TYPE()
 
-      (_, Absyn.R_PACKAGE(__)) => begin
-        SCode.R_PACKAGE()
-      end
+      (_, Absyn.R_PACKAGE(__)) => SCode.R_PACKAGE()
 
-      (_, Absyn.R_ENUMERATION(__)) => begin
-        SCode.R_ENUMERATION()
-      end
+      (_, Absyn.R_ENUMERATION(__)) => SCode.R_ENUMERATION()
 
-      (_, Absyn.R_PREDEFINED_INTEGER(__)) => begin
-        SCode.R_PREDEFINED_INTEGER()
-      end
+      (_, Absyn.R_PREDEFINED_INTEGER(__)) => SCode.R_PREDEFINED_INTEGER()
 
-      (_, Absyn.R_PREDEFINED_REAL(__)) => begin
-        SCode.R_PREDEFINED_REAL()
-      end
+      (_, Absyn.R_PREDEFINED_REAL(__)) => SCode.R_PREDEFINED_REAL()
 
-      (_, Absyn.R_PREDEFINED_STRING(__)) => begin
-        SCode.R_PREDEFINED_STRING()
-      end
+      (_, Absyn.R_PREDEFINED_STRING(__)) => SCode.R_PREDEFINED_STRING()
 
-      (_, Absyn.R_PREDEFINED_BOOLEAN(__)) => begin
-        SCode.R_PREDEFINED_BOOLEAN()
-      end
+      (_, Absyn.R_PREDEFINED_BOOLEAN(__)) => SCode.R_PREDEFINED_BOOLEAN()
 
-      (_, Absyn.R_PREDEFINED_CLOCK(__)) => begin
-        SCode.R_PREDEFINED_CLOCK()
-      end
+      (_, Absyn.R_PREDEFINED_CLOCK(__)) => SCode.R_PREDEFINED_CLOCK()
 
-      (_, Absyn.R_PREDEFINED_ENUMERATION(__)) => begin
-        SCode.R_PREDEFINED_ENUMERATION()
-      end
+      (_, Absyn.R_PREDEFINED_ENUMERATION(__)) => SCode.R_PREDEFINED_ENUMERATION()
 
       (_, Absyn.R_METARECORD(name, index, singleton, moved, typeVars)) => begin
         SCode.R_METARECORD(name, index, singleton, moved, typeVars)
@@ -308,9 +266,7 @@ function translateRestriction(
           SCode.R_UNIONTYPE(typeVars)
         end
 
-      (_, Absyn.R_UNIONTYPE(__)) => begin
-        SCode.R_UNIONTYPE(nil)
-      end
+      (_, Absyn.R_UNIONTYPE(__)) => SCode.R_UNIONTYPE(nil)
     end
   end
   #= BTH
@@ -335,9 +291,7 @@ function containsExternalFuncDecl(inClass::Absyn.Class)::Bool
     local file_info::SourceInfo
     local ann::List{Absyn.Annotation}
     @match inClass begin
-      Absyn.CLASS(body = Absyn.PARTS(classParts = Absyn.EXTERNAL(__) <| _)) => begin
-        true
-      end
+      Absyn.CLASS(body = Absyn.PARTS(classParts = Absyn.EXTERNAL(__) <| _)) => true
 
       Absyn.CLASS(
         name = a,
@@ -359,9 +313,7 @@ function containsExternalFuncDecl(inClass::Absyn.Class)::Bool
         ))
       end
 
-      Absyn.CLASS(body = Absyn.CLASS_EXTENDS(parts = Absyn.EXTERNAL(__) <| _)) => begin
-        true
-      end
+      Absyn.CLASS(body = Absyn.CLASS_EXTENDS(parts = Absyn.EXTERNAL(__) <| _)) => true
 
       Absyn.CLASS(
         name = a,
@@ -383,9 +335,7 @@ function containsExternalFuncDecl(inClass::Absyn.Class)::Bool
         ))
       end
 
-      _ => begin
-        false
-      end
+      _ => false
     end
   end
   #= /* adrpo: handling also the case model extends X external ... end X; */
@@ -426,22 +376,14 @@ end
 function translateConnectorType(inFlow::Bool, inStream::Bool)::SCode.ConnectorType
 
    @match (inFlow, inStream) begin
-     (false, false) => begin
-       SCode.POTENTIAL()
-     end
+     (false, false) => SCode.POTENTIAL()
 
-     (true, false) => begin
-       SCode.FLOW()
-     end
+     (true, false) => SCode.FLOW()
 
-     (false, true) => begin
-       SCode.STREAM()
-     end
+     (false, true) => SCode.STREAM()
 
-     (true, true) => begin
-       #=  Both flow and stream is not allowed by the grammar, so this shouldn't be  possible. =#
-       fail()
-     end
+     #=  Both flow and stream is not allowed by the grammar, so this shouldn't be  possible. =#
+     (true, true) => fail()
    end
 end
 
@@ -515,17 +457,11 @@ function translateClassdef(
       ) => begin
          typeVars = begin
           @match re begin
-            SCode.R_METARECORD(__) => begin
-              ListUtil.union(typeVars, re.typeVars, String)
-            end
+            SCode.R_METARECORD(__) => ListUtil.union(typeVars, re.typeVars, String)
 
-            SCode.R_UNIONTYPE(__) => begin
-              ListUtil.union(typeVars, re.typeVars, String)
-            end
+            SCode.R_UNIONTYPE(__) => ListUtil.union(typeVars, re.typeVars, String)
 
-            _ => begin
-              typeVars
-            end
+            _ => typeVars
           end
         end
          tvels = ListUtil.map1(typeVars, makeTypeVarElement, info, SCode.Element)
@@ -596,9 +532,7 @@ function translateClassdef(
         (SCode.PDER(path, vars), scodeCmt)
       end
 
-      _ => begin
-        fail()
-      end
+      _ => fail()
     end
   end
   return (outClassDef, outComment)
@@ -626,9 +560,7 @@ function translateAlternativeExternalAnnotation(
     local ann::Option{SCode.ANNOTATION}
     #= none =#
     @match (decl, comment) begin
-      (NONE(), _) => begin
-        NONE()
-      end
+      (NONE(), _) => NONE()
 
       (
         SOME(SCode.EXTERNALDECL(name, l, out, a, ann1)),
@@ -657,9 +589,7 @@ function translateEnumlist(
    local cmt::SCode.COMMENT
    local rest::List{Absyn.EnumLiteral}
    @match inAbsynEnumLiteralLst begin
-     nil() => begin
-       nil
-     end
+     nil() => nil
 
      Absyn.ENUMLITERAL(id, cmtOpt) <| rest => begin
         cmt = translateComment(cmtOpt)
@@ -681,9 +611,7 @@ function translateClassdefElements(
     local es::List{Absyn.ElementItem}
     local rest::List{Absyn.ClassPart}
     @match inAbsynClassPartLst begin
-      nil() => begin
-        nil
-      end
+      nil() => nil
 
       Absyn.PUBLIC(contents = es) <| rest => begin
          es_1 = translateEitemlist(es, SCode.PUBLIC())
@@ -699,9 +627,7 @@ function translateClassdefElements(
         els
       end
 
-      _ <| rest => begin
-        translateClassdefElements(rest)
-      end
+      _ <| rest => translateClassdefElements(rest)
     end
   end
   #= /* ignore all other than PUBLIC and PROTECTED, i.e. elements */ =#
@@ -721,9 +647,7 @@ function translateClassdefEquations(
     local eql::List{Absyn.EquationItem}
     local rest::List{Absyn.ClassPart}
     @match inAbsynClassPartLst begin
-      nil() => begin
-        nil
-      end
+      nil() => nil
 
       Absyn.EQUATIONS(contents = eql) <| rest => begin
          eql_1 = translateEquations(eql, false)
@@ -755,9 +679,7 @@ function translateClassdefInitialequations(
     local eql::List{Absyn.EquationItem}
     local rest::List{Absyn.ClassPart}
     @match inAbsynClassPartLst begin
-      nil() => begin
-        nil
-      end
+      nil() => nil
 
       Absyn.INITIALEQUATIONS(contents = eql) <| rest => begin
          eql_1 = translateEquations(eql, true)
@@ -789,9 +711,7 @@ function translateClassdefAlgorithms(
     local al::List{Absyn.AlgorithmItem}
     local rest::List{Absyn.ClassPart}
     @match inAbsynClassPartLst begin
-      nil() => begin
-        nil
-      end
+      nil() => nil
 
       Absyn.ALGORITHMS(contents = al) <| rest => begin
          al_1 = translateClassdefAlgorithmitems(al)
@@ -805,9 +725,7 @@ function translateClassdefAlgorithms(
         als
       end
 
-      _ => begin
-        fail()
-      end
+      _ => fail()
     end
   end
   #= /* ignore everthing other than algorithms */ =#
@@ -826,9 +744,7 @@ function translateClassdefConstraints(
     local consts::List{Absyn.Exp}
     local rest::List{Absyn.ClassPart}
     @match inAbsynClassPartLst begin
-      nil() => begin
-        nil
-      end
+      nil() => nil
 
       Absyn.CONSTRAINTS(contents = consts) <| rest => begin
          cos = translateClassdefConstraints(rest)
@@ -841,9 +757,7 @@ function translateClassdefConstraints(
         cos
       end
 
-      _ => begin
-        fail()
-      end
+      _ => fail()
     end
   end
   #= /* ignore everthing other than Constraints */ =#
@@ -863,9 +777,7 @@ function translateClassdefInitialalgorithms(
     local al::List{Absyn.AlgorithmItem}
     local rest::List{Absyn.ClassPart}
     @match inAbsynClassPartLst begin
-      nil() => begin
-        nil
-      end
+      nil() => nil
 
       Absyn.INITIALALGORITHMS(contents = al) <| rest => begin
          stmts = translateClassdefAlgorithmitems(al)
@@ -918,9 +830,7 @@ function translateClassdefAlgorithmItem(inAlgorithm::Absyn.AlgorithmItem)::SCode
     local e2::Absyn.Exp
     local e3::Absyn.Exp
     @match alg begin
-      Absyn.ALG_ASSIGN(__) => begin
-        SCode.ALG_ASSIGN(alg.assignComponent, alg.value, comment, info)
-      end
+      Absyn.ALG_ASSIGN(__) => SCode.ALG_ASSIGN(alg.assignComponent, alg.value, comment, info)
 
       Absyn.ALG_IF(__) => begin
          body = translateClassdefAlgorithmitems(alg.trueBranch)
@@ -966,16 +876,12 @@ function translateClassdefAlgorithmItem(inAlgorithm::Absyn.AlgorithmItem)::SCode
       Absyn.ALG_NORETCALL(
         functionCall = Absyn.CREF_IDENT(name = "assert"),
         functionArgs = Absyn.FUNCTIONARGS(args = e1 <| e2 <| nil(), argNames = nil()),
-      ) => begin
-        SCode.ALG_ASSERT(e1, e2, ASSERTION_LEVEL_ERROR, comment, info)
-      end
+      ) => SCode.ALG_ASSERT(e1, e2, ASSERTION_LEVEL_ERROR, comment, info)
 
       Absyn.ALG_NORETCALL(
         functionCall = Absyn.CREF_IDENT(name = "assert"),
         functionArgs = Absyn.FUNCTIONARGS(args = e1 <| e2 <| e3 <| nil(), argNames = nil()),
-      ) => begin
-        SCode.ALG_ASSERT(e1, e2, e3, comment, info)
-      end
+      ) => SCode.ALG_ASSERT(e1, e2, e3, comment, info)
 
       Absyn.ALG_NORETCALL(
         functionCall = Absyn.CREF_IDENT(name = "assert"),
@@ -983,23 +889,17 @@ function translateClassdefAlgorithmItem(inAlgorithm::Absyn.AlgorithmItem)::SCode
           args = e1 <| e2 <| nil(),
           argNames = Absyn.NAMEDARG("level", e3) <| nil(),
         ),
-      ) => begin
-        SCode.ALG_ASSERT(e1, e2, e3, comment, info)
-      end
+      ) => SCode.ALG_ASSERT(e1, e2, e3, comment, info)
 
       Absyn.ALG_NORETCALL(
         functionCall = Absyn.CREF_IDENT(name = "terminate"),
         functionArgs = Absyn.FUNCTIONARGS(args = e1 <| nil(), argNames = nil()),
-      ) => begin
-        SCode.ALG_TERMINATE(e1, comment, info)
-      end
+      ) => SCode.ALG_TERMINATE(e1, comment, info)
 
       Absyn.ALG_NORETCALL(
         functionCall = Absyn.CREF_IDENT(name = "reinit"),
         functionArgs = Absyn.FUNCTIONARGS(args = e1 <| e2 <| nil(), argNames = nil()),
-      ) => begin
-        SCode.ALG_REINIT(e1, e2, comment, info)
-      end
+      ) => SCode.ALG_REINIT(e1, e2, comment, info)
 
       Absyn.ALG_NORETCALL(__) => begin
         #= assert(condition, message)
@@ -1020,17 +920,11 @@ function translateClassdefAlgorithmItem(inAlgorithm::Absyn.AlgorithmItem)::SCode
         SCode.ALG_TRY(body, else_body, comment, info)
       end
 
-      Absyn.ALG_RETURN(__) => begin
-        SCode.ALG_RETURN(comment, info)
-      end
+      Absyn.ALG_RETURN(__) => SCode.ALG_RETURN(comment, info)
 
-      Absyn.ALG_BREAK(__) => begin
-        SCode.ALG_BREAK(comment, info)
-      end
+      Absyn.ALG_BREAK(__) => SCode.ALG_BREAK(comment, info)
 
-      Absyn.ALG_CONTINUE(__) => begin
-        SCode.ALG_CONTINUE(comment, info)
-      end
+      Absyn.ALG_CONTINUE(__) => SCode.ALG_CONTINUE(comment, info)
     end
   end
   return outStatement
@@ -1048,9 +942,7 @@ function translateAlgBranches(
    outBranches = list(
     begin
       @match branch begin
-        (condition, body) => begin
-          (condition, translateClassdefAlgorithmitems(body))
-        end
+        (condition, body) => (condition, translateClassdefAlgorithmitems(body))
       end
     end for branch in inBranches
   )
@@ -1084,9 +976,7 @@ function translateClassdefExternaldecls(
        res
      end
 
-     nil() => begin
-       NONE()
-     end
+     nil() => NONE()
    end
 end
 
@@ -1139,9 +1029,7 @@ function translateEitemlistSerial(
           ()
         end
 
-        _ => begin
-          ()
-        end
+        _ => ()
       end
     end
   end
@@ -1203,9 +1091,7 @@ function translateAnnotation(inAnnotation::Absyn.Annotation)::Option{SCode.ANNOT
    local args::List{Absyn.ElementArg}
    local m::SCode.Mod
    @match inAnnotation begin
-     Absyn.ANNOTATION(elementArgs = nil()) => begin
-       NONE()
-     end
+     Absyn.ANNOTATION(elementArgs = nil()) => NONE()
 
      Absyn.ANNOTATION(elementArgs = args) => begin
         m = translateMod(
@@ -1229,13 +1115,9 @@ function translateAnnotationOpt(
 
    local ann::Absyn.Annotation
    @match absynAnnotation begin
-     SOME(ann) => begin
-       translateAnnotation(ann)
-     end
+     SOME(ann) => translateAnnotation(ann)
 
-     _ => begin
-       NONE()
-     end
+     _ => NONE()
    end
 end
 
@@ -1297,17 +1179,11 @@ function translateDefineunitParam(
    local arg::String
    local args::List{Absyn.NamedArg}
    @match (inArgs, inArg) begin
-     (Absyn.NAMEDARG(name, Absyn.STRING(str)) <| _, arg) where {(name == arg)} => begin
-       SOME(str)
-     end
+     (Absyn.NAMEDARG(name, Absyn.STRING(str)) <| _, arg) where {(name == arg)} => SOME(str)
 
-     (nil(), _) => begin
-       NONE()
-     end
+     (nil(), _) => NONE()
 
-     (_ <| args, arg) => begin
-       translateDefineunitParam(args, arg)
-     end
+     (_ <| args, arg) => translateDefineunitParam(args, arg)
    end
 end
 
@@ -1328,13 +1204,9 @@ function translateDefineunitParam2(
        SOME(r)
      end
 
-     (nil(), _) => begin
-       NONE()
-     end
+     (nil(), _) => NONE()
 
-     (_ <| args, arg) => begin
-       translateDefineunitParam2(args, arg)
-     end
+     (_ <| args, arg) => translateDefineunitParam2(args, arg)
    end
 end
 
@@ -1527,9 +1399,7 @@ function translateElementspec(
        list(SCode.EXTENDS(path, vis, mod, ann, info))
      end
 
-     (_, _, _, _, _, Absyn.COMPONENTS(components = nil()), _) => begin
-       nil
-     end
+     (_, _, _, _, _, Absyn.COMPONENTS(components = nil()), _) => nil
 
      (
        _,
@@ -1636,9 +1506,7 @@ function translateElementspec(
        xs_1
      end
 
-     _ => begin
-       fail()
-     end
+     _ => fail()
    end
 end
 
@@ -1658,21 +1526,15 @@ function translateImports(
        translateImports(Absyn.NAMED_IMPORT(name, p), visibility, info)
      end
 
-     (Absyn.QUAL_IMPORT(Absyn.FULLYQUALIFIED(p)), _, _) => begin
-       translateImports(Absyn.QUAL_IMPORT(p), visibility, info)
-     end
+     (Absyn.QUAL_IMPORT(Absyn.FULLYQUALIFIED(p)), _, _) => translateImports(Absyn.QUAL_IMPORT(p), visibility, info)
 
-     (Absyn.UNQUAL_IMPORT(Absyn.FULLYQUALIFIED(p)), _, _) => begin
-       translateImports(Absyn.UNQUAL_IMPORT(p), visibility, info)
-     end
+     (Absyn.UNQUAL_IMPORT(Absyn.FULLYQUALIFIED(p)), _, _) => translateImports(Absyn.UNQUAL_IMPORT(p), visibility, info)
 
      (Absyn.GROUP_IMPORT(prefix = p, groups = groups), _, _) => begin
        ListUtil.map3(groups, translateGroupImport, p, visibility, info, SCode.Element)
      end
 
-     _ => begin
-       list(SCode.IMPORT(imp, visibility, info))
-     end
+     _ => list(SCode.IMPORT(imp, visibility, info))
    end
 end
 
@@ -1709,9 +1571,7 @@ end
 function setHasInnerOuterDefinitionsHandler(io::Absyn.InnerOuter)
    _ = begin
     @match io begin
-      Absyn.NOT_INNER_OUTER(__) => begin
-        ()
-      end
+      Absyn.NOT_INNER_OUTER(__) => ()
 
       _ => begin
         System.setHasInnerOuterDefinitions(true)
@@ -1730,9 +1590,7 @@ end
 function setHasStreamConnectorsHandler(streamPrefix::Bool)
    _ = begin
     @match streamPrefix begin
-      false => begin
-        ()
-      end
+      false => ()
 
       true => begin
         System.setHasStreamConnectors(true)
@@ -1756,21 +1614,13 @@ function translateRedeclarekeywords(
 
    (outIsReplaceable, outIsRedeclared) = begin
     @match inRedeclKeywords begin
-      SOME(Absyn.REDECLARE(__)) => begin
-        (false, true)
-      end
+      SOME(Absyn.REDECLARE(__)) => (false, true)
 
-      SOME(Absyn.REPLACEABLE(__)) => begin
-        (true, false)
-      end
+      SOME(Absyn.REPLACEABLE(__)) => (true, false)
 
-      SOME(Absyn.REDECLARE_REPLACEABLE(__)) => begin
-        (true, true)
-      end
+      SOME(Absyn.REDECLARE_REPLACEABLE(__)) => (true, true)
 
-      _ => begin
-        (false, false)
-      end
+      _ => (false, false)
     end
   end
   return (outIsReplaceable, outIsRedeclared)
@@ -1802,9 +1652,7 @@ function translateConstrainClass(
        SOME(SCode.CONSTRAINCLASS(cc_path, cc_mod, cc_cmt))
      end
 
-     _ => begin
-       NONE()
-     end
+     _ => NONE()
    end
 end
 
@@ -1812,17 +1660,11 @@ end
 function translateParallelism(inParallelism::Absyn.Parallelism)::SCode.Parallelism
 
    @match inParallelism begin
-     Absyn.PARGLOBAL(__) => begin
-       SCode.PARGLOBAL()
-     end
+     Absyn.PARGLOBAL(__) => SCode.PARGLOBAL()
 
-     Absyn.PARLOCAL(__) => begin
-       SCode.PARLOCAL()
-     end
+     Absyn.PARLOCAL(__) => SCode.PARLOCAL()
 
-     Absyn.NON_PARALLEL(__) => begin
-       SCode.NON_PARALLEL()
-     end
+     Absyn.NON_PARALLEL(__) => SCode.NON_PARALLEL()
    end
 end
 
@@ -1830,21 +1672,13 @@ end
 function translateVariability(inVariability::Absyn.Variability)::SCode.Variability
 
    @match inVariability begin
-     Absyn.VAR(__) => begin
-       SCode.VAR()
-     end
+     Absyn.VAR(__) => SCode.VAR()
 
-     Absyn.DISCRETE(__) => begin
-       SCode.DISCRETE()
-     end
+     Absyn.DISCRETE(__) => SCode.DISCRETE()
 
-     Absyn.PARAM(__) => begin
-       SCode.PARAM()
-     end
+     Absyn.PARAM(__) => SCode.PARAM()
 
-     Absyn.CONST(__) => begin
-       SCode.CONST()
-     end
+     Absyn.CONST(__) => SCode.CONST()
    end
 end
 
@@ -1871,13 +1705,9 @@ function translateEquations(
       end
     end for eq in inAbsynEquationItemLst if begin
       @match eq begin
-        Absyn.EQUATIONITEM(__) => begin
-          true
-        end
+        Absyn.EQUATIONITEM(__) => true
 
-        _ => begin
-          false
-        end
+        _ => false
       end
     end
   )
@@ -1900,9 +1730,7 @@ function translateEEquations(
     local com::SCode.COMMENT
     local info::SourceInfo
     @match (inAbsynEquationItemLst, inIsInitial) begin
-      (nil(), _) => begin
-        nil
-      end
+      (nil(), _) => nil
 
       (Absyn.EQUATIONITEM(equation_ = e, comment = acom, info = info) <| es, _) => begin
          (com, info) = translateCommentWithLineInfoChanges(acom, info)
@@ -1911,9 +1739,7 @@ function translateEEquations(
         _cons(e_1, es_1)
       end
 
-      (Absyn.EQUATIONITEMCOMMENT(__) <| es, _) => begin
-        translateEEquations(es, inIsInitial)
-      end
+      (Absyn.EQUATIONITEMCOMMENT(__) <| es, _) => translateEEquations(es, inIsInitial)
     end
   end
   #= fprintln(Flags.TRANSLATE, \"translating equation: \" + Dump.unparseEquationStr(0, e)); =#
@@ -1943,13 +1769,9 @@ function getInfoAnnotationOrDefault(comment::SCode.COMMENT, default::SourceInfo)
          annotation_ = SOME(SCode.ANNOTATION(modification = SCode.MOD(subModLst = lst))),
        ),
        _,
-     ) => begin
-       getInfoAnnotationOrDefault2(lst, default)
-     end
+     ) => getInfoAnnotationOrDefault2(lst, default)
 
-     _ => begin
-       default
-     end
+     _ => default
    end
 end
 
@@ -1962,9 +1784,7 @@ function getInfoAnnotationOrDefault2(
    local fileName::String
    local line::Int
    @match (lst, default) begin
-     (nil(), _) => begin
-       default
-     end
+     (nil(), _) => default
 
      (
        SCode.NAMEMOD(
@@ -1976,13 +1796,9 @@ function getInfoAnnotationOrDefault2(
          ),
        ) <| _,
        _,
-     ) => begin
-       SOURCEINFO(fileName, false, line, 0, line, 0, 0.0)
-     end
+     ) => SOURCEINFO(fileName, false, line, 0, line, 0, 0.0)
 
-     (_ <| rest, _) => begin
-       getInfoAnnotationOrDefault2(rest, default)
-     end
+     (_ <| rest, _) => getInfoAnnotationOrDefault2(rest, default)
    end
 end
 
@@ -1993,9 +1809,7 @@ function translateComment(inComment::Option{<:Absyn.Comment})::SCode.COMMENT
    local ann::Option{SCode.ANNOTATION}
    local ostr::Option{String}
    @match inComment begin
-     NONE() => begin
-       SCode.noComment
-     end
+     NONE() => SCode.noComment
 
      SOME(Absyn.COMMENT(absann, ostr)) => begin
         ann = translateAnnotationOpt(absann)
@@ -2016,9 +1830,7 @@ function translateCommentList(
    local ann::Option{SCode.ANNOTATION}
    local ostr::Option{String}
    @match (inAnns, inString) begin
-     (nil(), _) => begin
-       SCode.COMMENT(NONE(), inString)
-     end
+     (nil(), _) => SCode.COMMENT(NONE(), inString)
 
      (absann <| nil(), _) => begin
         ann = translateAnnotation(absann)
@@ -2071,9 +1883,7 @@ function translateEquation(
        SCode.EQ_WHEN(inEquation.whenExp, body, branches, inComment, inInfo)
      end
 
-     Absyn.EQ_EQUALS(__) => begin
-       SCode.EQ_EQUALS(inEquation.leftSide, inEquation.rightSide, inComment, inInfo)
-     end
+     Absyn.EQ_EQUALS(__) => SCode.EQ_EQUALS(inEquation.leftSide, inEquation.rightSide, inComment, inInfo)
 
      Absyn.EQ_PDE(__) => begin
        SCode.EQ_PDE(
@@ -2105,16 +1915,12 @@ function translateEquation(
      Absyn.EQ_NORETCALL(
        functionName = Absyn.CREF_IDENT(name = "assert"),
        functionArgs = Absyn.FUNCTIONARGS(args = e1 <| e2 <| nil(), argNames = nil()),
-     ) => begin
-       SCode.EQ_ASSERT(e1, e2, ASSERTION_LEVEL_ERROR, inComment, inInfo)
-     end
+     ) => SCode.EQ_ASSERT(e1, e2, ASSERTION_LEVEL_ERROR, inComment, inInfo)
 
      Absyn.EQ_NORETCALL(
        functionName = Absyn.CREF_IDENT(name = "assert"),
        functionArgs = Absyn.FUNCTIONARGS(args = e1 <| e2 <| e3 <| nil(), argNames = nil()),
-     ) => begin
-       SCode.EQ_ASSERT(e1, e2, e3, inComment, inInfo)
-     end
+     ) => SCode.EQ_ASSERT(e1, e2, e3, inComment, inInfo)
 
      Absyn.EQ_NORETCALL(
        functionName = Absyn.CREF_IDENT(name = "assert"),
@@ -2122,23 +1928,17 @@ function translateEquation(
          args = e1 <| e2 <| nil(),
          argNames = Absyn.NAMEDARG("level", e3) <| nil(),
        ),
-     ) => begin
-       SCode.EQ_ASSERT(e1, e2, e3, inComment, inInfo)
-     end
+     ) => SCode.EQ_ASSERT(e1, e2, e3, inComment, inInfo)
 
      Absyn.EQ_NORETCALL(
        functionName = Absyn.CREF_IDENT(name = "terminate"),
        functionArgs = Absyn.FUNCTIONARGS(args = e1 <| nil(), argNames = nil()),
-     ) => begin
-       SCode.EQ_TERMINATE(e1, inComment, inInfo)
-     end
+     ) => SCode.EQ_TERMINATE(e1, inComment, inInfo)
 
      Absyn.EQ_NORETCALL(
        functionName = Absyn.CREF_IDENT(name = "reinit"),
        functionArgs = Absyn.FUNCTIONARGS(args = e1 <| e2 <| nil(), argNames = nil()),
-     ) => begin
-       SCode.EQ_REINIT(e1, e2, inComment, inInfo)
-     end
+     ) => SCode.EQ_REINIT(e1, e2, inComment, inInfo)
 
      Absyn.EQ_NORETCALL(__) => begin
        SCode.EQ_NORETCALL(
@@ -2208,13 +2008,9 @@ function translateMod(
 
    (args, eqmod) = begin
     @match inMod begin
-      SOME(Absyn.CLASSMOD(elementArgLst = args, eqMod = eqmod)) => begin
-        (args, eqmod)
-      end
+      SOME(Absyn.CLASSMOD(elementArgLst = args, eqMod = eqmod)) => (args, eqmod)
 
-      _ => begin
-        (nil, Absyn.NOMOD())
-      end
+      _ => (nil, Absyn.NOMOD())
     end
   end
    subs = if listEmpty(args)
@@ -2224,24 +2020,16 @@ function translateMod(
   end
    binding = begin
     @match eqmod begin
-      Absyn.EQMOD(__) => begin
-        SOME(eqmod.exp)
-      end
+      Absyn.EQMOD(__) => SOME(eqmod.exp)
 
-      _ => begin
-        NONE()
-      end
+      _ => NONE()
     end
   end
    outMod = begin
     @match (subs, binding, finalPrefix, eachPrefix) begin
-      (nil(), NONE(), SCode.NOT_FINAL(__), SCode.NOT_EACH(__)) => begin
-        SCode.NOMOD()
-      end
+      (nil(), NONE(), SCode.NOT_FINAL(__), SCode.NOT_EACH(__)) => SCode.NOMOD()
 
-      _ => begin
-        SCode.MOD(finalPrefix, eachPrefix, subs, binding, info)
-      end
+      _ => SCode.MOD(finalPrefix, eachPrefix, subs, binding, info)
     end
   end
   return outMod
@@ -2321,9 +2109,7 @@ function translateSub(inPath::Absyn.Path, inMod::SCode.Mod, info::SourceInfo)::S
    local sub::SCode.NAMEMOD
    #= Then the normal rules =#
    @match (inPath, inMod, info) begin
-     (Absyn.IDENT(name = i), mod, _) => begin
-       SCode.NAMEMOD(i, mod)
-     end
+     (Absyn.IDENT(name = i), mod, _) => SCode.NAMEMOD(i, mod)
 
      (Absyn.QUALIFIED(name = i, path = path), mod, _) => begin
         sub = translateSub(path, mod, info)
@@ -2380,13 +2166,9 @@ end
 function translateEach(inAEach::Absyn.Each)::SCode.Each
 
    @match inAEach begin
-     Absyn.EACH(__) => begin
-       SCode.EACH()
-     end
+     Absyn.EACH(__) => SCode.EACH()
 
-     Absyn.NON_EACH(__) => begin
-       SCode.NOT_EACH()
-     end
+     Absyn.NON_EACH(__) => SCode.NOT_EACH()
    end
 end
 
@@ -2395,9 +2177,7 @@ function checkTypeSpec(ts::Absyn.TypeSpec, info::SourceInfo)
     local tss::List{Absyn.TypeSpec}
     local ts2::Absyn.TypeSpec
     @match (ts, info) begin
-      (Absyn.TPATH(__), _) => begin
-        ()
-      end
+      (Absyn.TPATH(__), _) => ()
 
       (Absyn.TCOMPLEX(path = Absyn.IDENT("tuple"), typeSpecs = ts2 <| nil()), _) => begin
          str = AbsynUtil.typeSpecString(ts)

@@ -108,9 +108,7 @@ function add(
      local key_comp::Int
      #= Empty tree. =#
     @match tree begin
-      EMPTY(__) => begin
-        LEAF(inKey, inValue)
-      end
+      EMPTY(__) => LEAF(inKey, inValue)
 
       NODE(key = key) => begin
          key_comp = keyCompare(inKey, key)

@@ -88,9 +88,7 @@ function inlineCallExp(callExp::Expression)::Expression
         callExp
       end
     end
-    _ => begin
-      callExp
-    end
+    _ => callExp
   end
 end
 
@@ -249,9 +247,7 @@ function inlineCall(call::Call, top = nothing)::Expression
         top === nothing ? outExp : _noEventRelations(outExp, top)
       end
 
-      _ => begin
-        CALL_EXPRESSION(call)
-      end
+      _ => CALL_EXPRESSION(call)
     end
   end
   return exp
@@ -370,9 +366,7 @@ function replaceDimExp(dim::Dimension, node::InstNode, value::Expression)::Dimen
         )
         fromExp(exp, dim.var)
       end
-      _ => begin
-        dim
-      end
+      _ => dim
     end
   end
   return dim
@@ -393,12 +387,8 @@ function getOutputExp(stmt::Statement, outputNode::InstNode, call::Call)::Expres
     ) where {(
       refEqual(outputNode, cr_node) &&
       !isFromCref(rest_cr)
-    )} => begin
-      stmt.rhs
-    end
-    _ => begin
-      CALL_EXPRESSION(call)
-    end
+    )} => stmt.rhs
+    _ => CALL_EXPRESSION(call)
   end
 end
 

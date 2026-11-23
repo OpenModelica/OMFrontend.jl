@@ -39,7 +39,7 @@ using ExportAll
 
 function toString(conn::CONNECTION)::String
   local str::String
-  @assign str =
+  str =
     "connect(" +
     #=Connector.=#toString(conn.lhs) +
     ", " +
@@ -50,7 +50,7 @@ end
 
 function Base.string(conn::CONNECTION)::String
   local str::String
-  @assign str =
+  str =
     "connect(" +
     #=Connector.=#toString(conn.lhs) +
     ", " +

@@ -56,9 +56,9 @@ function elaborate(
   #= Create a graph from the connections. Expandable connectors connect to
      expandable connectors, while virtual/potentially present connectors connect
      to the expandable connector they belong to. =#
-  @assign csets =
+  csets =
     ConnectionSets.emptySets(listLength(expandable_conns) + listLength(undeclared_conns))
-  @assign csets = addExpandableConnectorsToSets(expandable_conns, csets)
+  csets = addExpandableConnectorsToSets(expandable_conns, csets)
    (undeclared_conns, csets) =
     ListUtil.mapFold(undeclared_conns, addUndeclaredConnectorToSets, csets, CONNECTION, ConnectionSets.Sets)
   #= Extract the sets of connected connectors. =#
@@ -113,7 +113,7 @@ function sortConnections(
     is_expandable2 = isExpandable(c2.cty)
     if is_expandable1 || is_expandable2
       if is_expandable1 && is_expandable2
-        @assign expandableConnections = _cons(conn, expandableConnections)
+        expandableConnections = _cons(conn, expandableConnections)
       else
         Error.addSourceMessageAndFail(
           Error.EXPANDABLE_NON_EXPANDABLE_CONNECTION,
@@ -140,15 +140,15 @@ function sortConnections(
           c1.source,
         )
       else
-        @assign undeclaredConnections = _cons(conn, undeclaredConnections)
+        undeclaredConnections = _cons(conn, undeclaredConnections)
       end
     else
-      @assign normalConnections = _cons(conn, normalConnections)
+      normalConnections = _cons(conn, normalConnections)
     end
   end
   #= An expandable connector may only connect to another expandable connector.
      Both sides can't be undeclared, one must be a declared component. =#
-  @assign normalConnections = listReverseInPlace(normalConnections)
+  normalConnections = listReverseInPlace(normalConnections)
   return (expandableConnections, undeclaredConnections, normalConnections)
 end
 
@@ -160,8 +160,8 @@ function addExpandableConnectorsToSets(
   local c2::CONNECTOR
   for conn in conns
     @match CONNECTION(lhs = c1, rhs = c2) = conn
-    @assign csets = addConnectionToSets(c1, c2, csets)
-    @assign csets = addNestedExpandableConnectorsToSets(c1, c2, csets)
+    csets = addConnectionToSets(c1, c2, csets)
+    csets = addNestedExpandableConnectorsToSets(c1, c2, csets)
   end
   return csets
 end
@@ -176,8 +176,8 @@ function addNestedExpandableConnectorsToSets(
   local ecl2::List{CONNECTOR}
   local oec::Option{CONNECTOR}
 
-  @assign ecl1 = getExpandableConnectorsInConnector(c1)
-  @assign ecl2 = getExpandableConnectorsInConnector(c2)
+  ecl1 = getExpandableConnectorsInConnector(c1)
+  ecl2 = getExpandableConnectorsInConnector(c2)
   if listEmpty(ecl1) && listEmpty(ecl2)
     return csets
   end
@@ -190,7 +190,7 @@ function addNestedExpandableConnectorsToSets(
       conns = _cons(CONNECTION(ec1, Util.getOption(oec)), conns)
     end
   end
-  @assign csets = addExpandableConnectorsToSets(conns, csets)
+  csets = addExpandableConnectorsToSets(conns, csets)
   return csets
 end
 
@@ -210,11 +210,11 @@ function getExpandableConnectorsInConnector(c1::CONNECTOR)::List{CONNECTOR}
           complexTy = COMPLEX_EXPANDABLE_CONNECTOR(expandableConnectors = nodes),
         ),
       ) => begin
-        @assign ecl = nil
+        ecl = nil
         for n in nodes
-          @assign ty = getType(n)
-          @assign name = prefixCref(n, ty, nil, par_name)
-          @assign ecl = _cons(
+          ty = getType(n)
+          name = prefixCref(n, ty, nil, par_name)
+          ecl = _cons(
             fromCref(
               name,
               ty,
@@ -226,9 +226,7 @@ function getExpandableConnectorsInConnector(c1::CONNECTOR)::List{CONNECTOR}
         ecl
       end
 
-      _ => begin
-        nil
-      end
+      _ => nil
     end
   end
   return ecl
@@ -248,20 +246,20 @@ function addUndeclaredConnectorToSets(
   #= Figure out which connector to add, and create a virtual connector if necessary. =#
   if isUndeclared(c1.cty)
     if isVirtual(c1.cty)
-      @assign c1 = makeVirtualConnector(c1, c2)
-      @assign conn = CONNECTION(c1, c2)
+      c1 = makeVirtualConnector(c1, c2)
+      conn = CONNECTION(c1, c2)
     end
-    @assign c = c1
+    c = c1
   else
     if isVirtual(c2.cty)
-      @assign c2 = makeVirtualConnector(c2, c1)
-      @assign conn = CONNECTION(c1, c2)
+      c2 = makeVirtualConnector(c2, c1)
+      conn = CONNECTION(c1, c2)
     end
-    @assign c = c2
+    c = c2
   end
   #= Create a parent connector for the undeclared connector, i.e. the expandable
      connector it should be added to. The type here is wrong, but it doesn't matter. =#
-  @assign ec = CONNECTOR(
+  ec = CONNECTOR(
     rest(c.name),
     c.ty,
     c.face,
@@ -269,7 +267,7 @@ function addUndeclaredConnectorToSets(
     c.source,
   )
   #= Add a connection between the undeclared connector and the expandable connector. =#
-  @assign csets = addConnectionToSets(c, ec, csets)
+  csets = addConnectionToSets(c, ec, csets)
   return (conn, csets)
 end
 
@@ -480,7 +478,7 @@ function updateUndeclaredConnection(
   conns::List{<:CONNECTION},
 )::List{CONNECTION}
 
-  @assign conns = _cons(conn, conns)
+  conns = _cons(conn, conns)
   return conns
 end
 

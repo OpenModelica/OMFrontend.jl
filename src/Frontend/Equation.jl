@@ -35,18 +35,10 @@
 
 @nospecializeinfer function isMultiLine(@nospecialize(eq::Equation))::Bool
    @match eq begin
-     EQUATION_FOR(__) => begin
-       true
-     end
-     EQUATION_IF(__) => begin
-       true
-     end
-     EQUATION_WHEN(__) => begin
-       true
-     end
-     _ => begin
-       false
-     end
+     EQUATION_FOR(__) => true
+     EQUATION_IF(__) => true
+     EQUATION_WHEN(__) => true
+     _ => false
    end
 end
 
@@ -191,13 +183,9 @@ end
         s
       end
 
-      EQUATION_NORETCALL(__) => begin
-        IOStream_M.append(s, toFlatString(eq.exp))
-      end
+      EQUATION_NORETCALL(__) => IOStream_M.append(s, toFlatString(eq.exp))
 
-      _ => begin
-        IOStream_M.append(s, "#UNKNOWN EQUATION#")
-      end
+      _ => IOStream_M.append(s, "#UNKNOWN EQUATION#")
     end
   end
   return s
@@ -212,15 +200,15 @@ function toStreamList(
   local multi_line::Bool
   local first::Bool = true
   for eq in eql
-    @assign multi_line = isMultiLine(eq)
+    multi_line = isMultiLine(eq)
     if first
-      @assign first = false
+      first = false
     elseif prev_multi_line || multi_line
-      @assign s = IOStream_M.append(s, "\\n")
+      s = IOStream_M.append(s, "\\n")
     end
-    @assign prev_multi_line = multi_line
-    @assign s = toStream(eq, indent, s)
-    @assign s = IOStream_M.append(s, ";\\n")
+    prev_multi_line = multi_line
+    s = toStream(eq, indent, s)
+    s = IOStream_M.append(s, ";\\n")
   end
   return s
 end
@@ -354,13 +342,9 @@ end
         s
       end
 
-      EQUATION_NORETCALL(__) => begin
-        IOStream_M.append(s, toString(eq.exp))
-      end
+      EQUATION_NORETCALL(__) => IOStream_M.append(s, toString(eq.exp))
 
-      _ => begin
-        IOStream_M.append(s, "#UNKNOWN EQUATION#")
-      end
+      _ => IOStream_M.append(s, "#UNKNOWN EQUATION#")
     end
   end
   return s
@@ -411,9 +395,7 @@ end
   end
   res = begin
     @match eq begin
-      EQUATION_FOR(__) => begin
-        containsList(eq.body, func)
-      end
+      EQUATION_FOR(__) => containsList(eq.body, func)
       EQUATION_IF(__) => begin
         for b in eq.branches
           @match b begin
@@ -425,9 +407,7 @@ end
               ()
             end
 
-            _ => begin
-              ()
-            end
+            _ => ()
           end
         end
         false
@@ -443,17 +423,13 @@ end
               ()
             end
 
-            _ => begin
-              ()
-            end
+            _ => ()
           end
         end
         false
       end
 
-      _ => begin
-        false
-      end
+      _ => false
     end
   end
   return res
@@ -496,9 +472,7 @@ end
               ()
             end
 
-            _ => begin
-              ()
-            end
+            _ => ()
           end
        end
        ()
@@ -513,9 +487,7 @@ end
              ()
            end
 
-           _ => begin
-             ()
-           end
+           _ => ()
          end
        end
        ()
@@ -544,9 +516,7 @@ end
        ()
      end
 
-     _ => begin
-       ()
-     end
+     _ => ()
    end
   return arg
 end
@@ -568,9 +538,7 @@ function mapExpBranch(branch::EquationBranch, func::MapExpFn)::EquationBranch
         eql = mapExpList(branch.body, func)
         EQUATION_BRANCH(cond, branch.conditionVar, eql)
       end
-      _ => begin
-        branch
-      end
+      _ => branch
     end
   end
   return branch
@@ -672,9 +640,7 @@ end
         end
       end
 
-      _ => begin
-        eq
-      end
+      _ => eq
     end
   end
   return eq
@@ -745,9 +711,7 @@ Applies the function `func` to `eq`
         end for b in eq.branches]
       EQUATION_WHEN(eqBranches, eq.source)
     end
-    _ => begin
-      eq
-    end
+    _ => eq
   end
   eq = func(eq)
   return eq
@@ -772,9 +736,7 @@ end
               ()
             end
 
-            _ => begin
-              ()
-            end
+            _ => ()
           end
        end
        ()
@@ -790,17 +752,13 @@ end
               ()
             end
 
-            _ => begin
-              ()
-            end
+            _ => ()
           end
        end
        ()
      end
 
-     _ => begin
-       ()
-     end
+     _ => ()
    end
   return func(eq)
 end
@@ -818,43 +776,19 @@ end
 
 @nospecializeinfer function source(@nospecialize(eq::Equation))::SourceInfo
    @match eq begin
-     EQUATION_EQUALITY(__) => begin
-       eq.source
-     end
-     EQUATION_CREF_EQUALITY(__) => begin
-       eq.source
-     end
-     EQUATION_ARRAY_EQUALITY(__) => begin
-       eq.source
-     end
-     EQUATION_CONNECT(__) => begin
-       eq.source
-     end
-     EQUATION_FOR(__) => begin
-       eq.source
-     end
-     EQUATION_IF(__) => begin
-       eq.source
-     end
-     EQUATION_WHEN(__) => begin
-       eq.source
-     end
-     EQUATION_ASSERT(__) => begin
-       eq.source
-     end
-     EQUATION_TERMINATE(__) => begin
-       eq.source
-     end
-     EQUATION_REINIT(__) => begin
-       eq.source
-     end
-     EQUATION_NORETCALL(__) => begin
-       eq.source
-     end
+     EQUATION_EQUALITY(__) => eq.source
+     EQUATION_CREF_EQUALITY(__) => eq.source
+     EQUATION_ARRAY_EQUALITY(__) => eq.source
+     EQUATION_CONNECT(__) => eq.source
+     EQUATION_FOR(__) => eq.source
+     EQUATION_IF(__) => eq.source
+     EQUATION_WHEN(__) => eq.source
+     EQUATION_ASSERT(__) => eq.source
+     EQUATION_TERMINATE(__) => eq.source
+     EQUATION_REINIT(__) => eq.source
+     EQUATION_NORETCALL(__) => eq.source
      #= checkDeletedVarRefs reads every equation's source (an agentic model's MatchFailure) =#
-     EQUATION_RECONFIGURE(__) => begin
-       eq.source
-     end
+     EQUATION_RECONFIGURE(__) => eq.source
    end
 end
 
@@ -893,9 +827,7 @@ function triggerErrors(branch::EquationBranch)
         @error "Invalid branch detected. Branch was: " * toString(branch)
         fail()
       end
-      _ => begin
-        ()
-      end
+      _ => ()
     end
   end
 end
@@ -913,9 +845,7 @@ function toFlatStream(branch::EquationBranch,
         s = toFlatStreamList(branch.body, indent + "  ", s)
         s
       end
-      EQUATION_INVALID_BRANCH(__) => begin
-        toFlatStream(branch.branch, indent, s)
-      end
+      EQUATION_INVALID_BRANCH(__) => toFlatStream(branch.branch, indent, s)
     end
   end
   return s
@@ -930,9 +860,7 @@ function toStream(branch::EquationBranch, indent::String, s)
         s = toStreamList(branch.body, indent + "  ", s)
         s
       end
-      EQUATION_INVALID_BRANCH(__) => begin
-        toStream(branch.branch, indent, s)
-      end
+      EQUATION_INVALID_BRANCH(__) => toStream(branch.branch, indent, s)
     end
   end
   return s

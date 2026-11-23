@@ -58,15 +58,11 @@ end
 function printImportError(imp1::Import, imp2::Import)
   local err_msg::ErrorTypes.Message
   Error.addSourceMessage(Error.ERROR_FROM_HERE, nil, Import_info(imp1))
-  @assign err_msg = begin
+  err_msg = begin
     @match imp2 begin
-      UNRESOLVED_IMPORT(__) => begin
-        Error.MULTIPLE_QUALIFIED_IMPORTS_WITH_SAME_NAME
-      end
+      UNRESOLVED_IMPORT(__) => Error.MULTIPLE_QUALIFIED_IMPORTS_WITH_SAME_NAME
 
-      RESOLVED_IMPORT(__) => begin
-        Error.IMPORT_SEVERAL_NAMES
-      end
+      RESOLVED_IMPORT(__) => Error.IMPORT_SEVERAL_NAMES
     end
   end
   return Error.addSourceMessage(err_msg, list(name(imp2)), Import_info(imp2))
@@ -111,18 +107,14 @@ function instQualified(
   local node::InstNode
   local outImport::Import
 
-  @assign node = begin
+  node = begin
     @match imp begin
-      Absyn.NAMED_IMPORT(__) => begin
-        lookupImport(imp.path, scope, info)
-      end
+      Absyn.NAMED_IMPORT(__) => lookupImport(imp.path, scope, info)
 
-      Absyn.QUAL_IMPORT(__) => begin
-        lookupImport(imp.path, scope, info)
-      end
+      Absyn.QUAL_IMPORT(__) => lookupImport(imp.path, scope, info)
     end
   end
-  @assign outImport = RESOLVED_IMPORT(node, info)
+  outImport = RESOLVED_IMPORT(node, info)
   return (outImport, node)
 end
 
@@ -155,25 +147,17 @@ end
 
 function Import_info(imp::Import)::SourceInfo
   @match imp begin
-    UNRESOLVED_IMPORT(__) => begin
-      imp.info
-    end
+    UNRESOLVED_IMPORT(__) => imp.info
 
-    RESOLVED_IMPORT(__) => begin
-      imp.info
-    end
+    RESOLVED_IMPORT(__) => imp.info
   end
 end
 
 function name(imp::Import)::String
   local importName = begin
     @match imp begin
-      UNRESOLVED_IMPORT(__) => begin
-        AbsynUtil.importName(imp.imp)
-      end
-      RESOLVED_IMPORT(__) => begin
-        name(imp.node)
-      end
+      UNRESOLVED_IMPORT(__) => AbsynUtil.importName(imp.imp)
+      RESOLVED_IMPORT(__) => name(imp.node)
     end
   end::String
   return importName

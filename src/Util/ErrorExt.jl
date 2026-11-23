@@ -104,31 +104,19 @@ end
 function messageTypeStr(inMessageType::ErrorTypes.MessageType)::String
   local outString::String
 
-  @assign outString = begin
+  outString = begin
     @match inMessageType begin
-      ErrorTypes.SYNTAX(__) => begin
-        "SYNTAX"
-      end
+      ErrorTypes.SYNTAX(__) => "SYNTAX"
 
-      ErrorTypes.GRAMMAR(__) => begin
-        "GRAMMAR"
-      end
+      ErrorTypes.GRAMMAR(__) => "GRAMMAR"
 
-      ErrorTypes.TRANSLATION(__) => begin
-        "TRANSLATION"
-      end
+      ErrorTypes.TRANSLATION(__) => "TRANSLATION"
 
-      ErrorTypes.SYMBOLIC(__) => begin
-        "SYMBOLIC"
-      end
+      ErrorTypes.SYMBOLIC(__) => "SYMBOLIC"
 
-      ErrorTypes.SIMULATION(__) => begin
-        "SIMULATION"
-      end
+      ErrorTypes.SIMULATION(__) => "SIMULATION"
 
-      ErrorTypes.SCRIPTING(__) => begin
-        "SCRIPTING"
-      end
+      ErrorTypes.SCRIPTING(__) => "SCRIPTING"
     end
   end
   return outString
@@ -139,23 +127,15 @@ end
 """
 function severityStr(inSeverity::ErrorTypes.Severity)::String
   local outString::String
-  @assign outString = begin
+  outString = begin
     @match inSeverity begin
-      ErrorTypes.INTERNAL(__) => begin
-        "Internal error"
-      end
+      ErrorTypes.INTERNAL(__) => "Internal error"
 
-      ErrorTypes.ERROR(__) => begin
-        "Error"
-      end
+      ErrorTypes.ERROR(__) => "Error"
 
-      ErrorTypes.WARNING(__) => begin
-        "Warning"
-      end
+      ErrorTypes.WARNING(__) => "Warning"
 
-      ErrorTypes.NOTIFICATION(__) => begin
-        "Notification"
-      end
+      ErrorTypes.NOTIFICATION(__) => "Notification"
     end
   end
   return outString
@@ -167,7 +147,7 @@ end
 """
 function infoStr(info::SourceInfo)::String
   local str::String
-  @assign str = begin
+  str = begin
     local filename::String
     local info_str::String
     local line_start::Int
@@ -182,7 +162,7 @@ function infoStr(info::SourceInfo)::String
         lineNumberEnd = line_end,
         columnNumberEnd = col_end,
       ) => begin
-        @assign info_str =
+        info_str =
           "[" +
           "file:" * filename +
           ":" +

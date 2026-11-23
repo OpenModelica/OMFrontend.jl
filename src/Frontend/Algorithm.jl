@@ -35,7 +35,7 @@
 
 function toString(alg::ALGORITHM)::String
   local str::String
-  @assign str = toStringList(alg.statements)
+  str = toStringList(alg.statements)
   return str
 end
 

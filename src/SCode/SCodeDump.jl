@@ -117,119 +117,63 @@ end
 function restrString(inRestriction::SCode.Restriction)::String
   local outString::String
 
-  @assign outString = begin
+  outString = begin
     @match inRestriction begin
-      SCode.R_CLASS(__) => begin
-        "class"
-      end
+      SCode.R_CLASS(__) => "class"
 
-      SCode.R_OPTIMIZATION(__) => begin
-        "optimization"
-      end
+      SCode.R_OPTIMIZATION(__) => "optimization"
 
-      SCode.R_MODEL(__) => begin
-        "model"
-      end
+      SCode.R_MODEL(__) => "model"
 
-      SCode.R_RECORD(false) => begin
-        "record"
-      end
+      SCode.R_RECORD(false) => "record"
 
-      SCode.R_RECORD(true) => begin
-        "operator record"
-      end
+      SCode.R_RECORD(true) => "operator record"
 
-      SCode.R_BLOCK(__) => begin
-        "block"
-      end
+      SCode.R_BLOCK(__) => "block"
 
-      SCode.R_CONNECTOR(false) => begin
-        "connector"
-      end
+      SCode.R_CONNECTOR(false) => "connector"
 
-      SCode.R_CONNECTOR(true) => begin
-        "expandable connector"
-      end
+      SCode.R_CONNECTOR(true) => "expandable connector"
 
-      SCode.R_OPERATOR(__) => begin
-        "operator"
-      end
+      SCode.R_OPERATOR(__) => "operator"
 
-      SCode.R_FUNCTION(SCode.FR_NORMAL_FUNCTION(false)) => begin
-        "pure function"
-      end
+      SCode.R_FUNCTION(SCode.FR_NORMAL_FUNCTION(false)) => "pure function"
 
-      SCode.R_FUNCTION(SCode.FR_NORMAL_FUNCTION(true)) => begin
-        "impure function"
-      end
+      SCode.R_FUNCTION(SCode.FR_NORMAL_FUNCTION(true)) => "impure function"
 
-      SCode.R_FUNCTION(SCode.FR_OPERATOR_FUNCTION(__)) => begin
-        "operator function"
-      end
+      SCode.R_FUNCTION(SCode.FR_OPERATOR_FUNCTION(__)) => "operator function"
 
-      SCode.R_FUNCTION(SCode.FR_EXTERNAL_FUNCTION(false)) => begin
-        "pure external function"
-      end
+      SCode.R_FUNCTION(SCode.FR_EXTERNAL_FUNCTION(false)) => "pure external function"
 
-      SCode.R_FUNCTION(SCode.FR_EXTERNAL_FUNCTION(true)) => begin
-        "impure external function"
-      end
+      SCode.R_FUNCTION(SCode.FR_EXTERNAL_FUNCTION(true)) => "impure external function"
 
-      SCode.R_FUNCTION(SCode.FR_RECORD_CONSTRUCTOR(__)) => begin
-        "record constructor"
-      end
+      SCode.R_FUNCTION(SCode.FR_RECORD_CONSTRUCTOR(__)) => "record constructor"
 
-      SCode.R_FUNCTION(SCode.FR_PARALLEL_FUNCTION(__)) => begin
-        "parallel function"
-      end
+      SCode.R_FUNCTION(SCode.FR_PARALLEL_FUNCTION(__)) => "parallel function"
 
-      SCode.R_FUNCTION(SCode.FR_KERNEL_FUNCTION(__)) => begin
-        "kernel function"
-      end
+      SCode.R_FUNCTION(SCode.FR_KERNEL_FUNCTION(__)) => "kernel function"
 
-      SCode.R_TYPE(__) => begin
-        "type"
-      end
+      SCode.R_TYPE(__) => "type"
 
-      SCode.R_PACKAGE(__) => begin
-        "package"
-      end
+      SCode.R_PACKAGE(__) => "package"
 
-      SCode.R_ENUMERATION(__) => begin
-        "enumeration"
-      end
+      SCode.R_ENUMERATION(__) => "enumeration"
 
-      SCode.R_METARECORD(__) => begin
-        "metarecord " + AbsynUtil.pathString(inRestriction.name)
-      end
+      SCode.R_METARECORD(__) => "metarecord " + AbsynUtil.pathString(inRestriction.name)
 
-      SCode.R_UNIONTYPE(__) => begin
-        "uniontype"
-      end
+      SCode.R_UNIONTYPE(__) => "uniontype"
 
-      SCode.R_PREDEFINED_INTEGER(__) => begin
-        "Integer"
-      end
+      SCode.R_PREDEFINED_INTEGER(__) => "Integer"
 
-      SCode.R_PREDEFINED_REAL(__) => begin
-        "Real"
-      end
+      SCode.R_PREDEFINED_REAL(__) => "Real"
 
-      SCode.R_PREDEFINED_STRING(__) => begin
-        "String"
-      end
+      SCode.R_PREDEFINED_STRING(__) => "String"
 
-      SCode.R_PREDEFINED_BOOLEAN(__) => begin
-        "Boolean"
-      end
+      SCode.R_PREDEFINED_BOOLEAN(__) => "Boolean"
 
-      SCode.R_PREDEFINED_CLOCK(__) => begin
-        "Clock"
-      end
+      SCode.R_PREDEFINED_CLOCK(__) => "Clock"
 
-      SCode.R_PREDEFINED_ENUMERATION(__) => begin
-        "enumeration"
-      end
+      SCode.R_PREDEFINED_ENUMERATION(__) => "enumeration"
     end
   end
   #= predefined types
@@ -257,21 +201,13 @@ end
 function variabilityString(inVariability::SCode.Variability)::String
 
   @match inVariability begin
-    SCode.VAR(__) => begin
-      "VAR"
-    end
+    SCode.VAR(__) => "VAR"
 
-    SCode.DISCRETE(__) => begin
-      "DISCRETE"
-    end
+    SCode.DISCRETE(__) => "DISCRETE"
 
-    SCode.PARAM(__) => begin
-      "PARAM"
-    end
+    SCode.PARAM(__) => "PARAM"
 
-    SCode.CONST(__) => begin
-      "CONST"
-    end
+    SCode.CONST(__) => "CONST"
   end
 end
 
@@ -279,17 +215,11 @@ end
 function parallelismString(inParallelism::SCode.Parallelism)::String
 
   @match inParallelism begin
-    SCode.PARGLOBAL(__) => begin
-      "PARGLOBAL"
-    end
+    SCode.PARGLOBAL(__) => "PARGLOBAL"
 
-    SCode.PARLOCAL(__) => begin
-      "PARLOCAL"
-    end
+    SCode.PARLOCAL(__) => "PARLOCAL"
 
-    SCode.NON_PARALLEL(__) => begin
-      "NON_PARALLEL"
-    end
+    SCode.NON_PARALLEL(__) => "NON_PARALLEL"
   end
 end
 
@@ -297,21 +227,13 @@ end
 function unparseVariability(inVariability::SCode.Variability)::String
 
   @match inVariability begin
-    SCode.VAR(__) => begin
-      ""
-    end
+    SCode.VAR(__) => ""
 
-    SCode.DISCRETE(__) => begin
-      "discrete"
-    end
+    SCode.DISCRETE(__) => "discrete"
 
-    SCode.PARAM(__) => begin
-      "parameter"
-    end
+    SCode.PARAM(__) => "parameter"
 
-    SCode.CONST(__) => begin
-      "constant"
-    end
+    SCode.CONST(__) => "constant"
   end
 end
 

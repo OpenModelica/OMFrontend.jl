@@ -129,9 +129,7 @@ function fromExp(
 )::List{CONNECTOR}
   conns = begin
     @match exp begin
-      CREF_EXPRESSION(__) => begin
-        Cons{CONNECTOR}(fromCref(exp.cref, exp.ty, source), conns)
-      end
+      CREF_EXPRESSION(__) => Cons{CONNECTOR}(fromCref(exp.cref, exp.ty, source), conns)
       ARRAY_EXPRESSION(__) => begin
         #= Lets do it in reverse order to keep the test output the same. =#
         for i in reverse(eachindex(exp.elements))
@@ -286,9 +284,7 @@ function splitImpl(
         conns
       end
 
-      _ => begin
-        Cons{CONNECTOR}(CONNECTOR(name, liftArrayLeftList(ty, dims), face, cty, source), conns)
-      end
+      _ => Cons{CONNECTOR}(CONNECTOR(name, liftArrayLeftList(ty, dims), face, cty, source), conns)
     end
   end
   return conns
@@ -303,9 +299,7 @@ function crefFace(cref::ComponentRef)::Face
   local face::Face
   face = begin
     @match cref begin
-      COMPONENT_REF_CREF(restCref = COMPONENT_REF_EMPTY(__)) => begin
-        FACE_OUTSIDE
-      end
+      COMPONENT_REF_CREF(restCref = COMPONENT_REF_EMPTY(__)) => FACE_OUTSIDE
 
       _ => begin
         if isConnector(node(firstNonScope(

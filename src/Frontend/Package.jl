@@ -93,7 +93,7 @@ function _withValueBinding(var::VARIABLE)::VARIABLE
 end
 
 function collectVariableConstants(var::VARIABLE, constants::Constants)::Constants
-  @assign constants = collectBindingConstants(var.binding, constants)
+  constants = collectBindingConstants(var.binding, constants)
   #= TODO: The component's attributes (i.e. start, etc) might also contain
      package constants. =#
   return constants
@@ -101,13 +101,13 @@ end
 
 function collectBindingConstants(binding::Binding, constants::Constants)::Constants
   if isExplicitlyBound(binding)
-    @assign constants = collectExpConstants(getTypedExp(binding), constants)
+    constants = collectExpConstants(getTypedExp(binding), constants)
   end
   return constants
 end
 
 function collectExpConstants(exp::Expression, constants::Constants)::Constants
-  @assign constants =
+  constants =
     fold(exp, collectExpConstants_traverser, constants, Constants)
   return constants
 end
@@ -122,22 +122,20 @@ function collectExpConstants_traverser(@nospecialize(exp::Expression), @nospecia
            if typedNode !== cref.node
              @assign cref.node = typedNode
            end
-           @assign constants = ConstantsSetImpl.add(
+           constants = ConstantsSetImpl.add(
              constants,
              stripSubscriptsAll(cref),
              0,
              ConstantsSetImpl.addConflictKeep,
            )
-           @assign constants = collectBindingConstants(
+           constants = collectBindingConstants(
              getBinding(component(typedNode)),
              constants,
            )
          end
          ()
        end
-     _ => begin
-       ()
-     end
+     _ => ()
    end
   return constants
 end
@@ -152,41 +150,37 @@ function collectFuncConstants(
   local comps::Vector{InstNode}
   local sections::Sections
 
-  @assign cls = getClass(func.node)
+  cls = getClass(func.node)
    @match cls begin
      INSTANCED_CLASS(
        elements = CLASS_TREE_FLAT_TREE(components = comps),
        sections = sections,
      ) => begin
        for c in comps
-         @assign constants = collectBindingConstants(
+         constants = collectBindingConstants(
            getBinding(component(c)),
            constants,
          )
        end
         @match sections begin
           SECTIONS(__) => begin
-            @assign constants = foldExpList(sections.algorithms, collectExpConstants, constants, Constants)
+            constants = foldExpList(sections.algorithms, collectExpConstants, constants, Constants)
             ()
           end
 
           SECTIONS_EXTERNAL(__) => begin
             for arg in sections.args
-              @assign constants = collectExpConstants(arg, constants)
+              constants = collectExpConstants(arg, constants)
             end
             ()
           end
 
-          _ => begin
-            ()
-          end
+          _ => ()
         end
        ()
      end
 
-     _ => begin
-       ()
-     end
+     _ => ()
    end
   return constants
 end

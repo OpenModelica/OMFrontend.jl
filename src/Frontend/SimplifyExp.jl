@@ -56,47 +56,31 @@
         end
       end
 
-      RANGE_EXPRESSION(__) => begin
-        simplifyRange(exp)
-      end
+      RANGE_EXPRESSION(__) => simplifyRange(exp)
 
       RECORD_EXPRESSION(__) => begin
         simplifyRecord(exp)
         exp
       end
 
-      CALL_EXPRESSION(__) => begin
-        simplifyCall(exp)
-      end
+      CALL_EXPRESSION(__) => simplifyCall(exp)
 
-      SIZE_EXPRESSION(__) => begin
-        simplifySize(exp)
-      end
+      SIZE_EXPRESSION(__) => simplifySize(exp)
 
       BINARY_EXPRESSION(__) => begin
         seb = simplifyBinary(exp)
         seb
       end
 
-      UNARY_EXPRESSION(__) => begin
-        simplifyUnary(exp)
-      end
+      UNARY_EXPRESSION(__) => simplifyUnary(exp)
 
-      LBINARY_EXPRESSION(__) => begin
-        simplifyLogicBinary(exp)
-      end
+      LBINARY_EXPRESSION(__) => simplifyLogicBinary(exp)
 
-      LUNARY_EXPRESSION(__) => begin
-        simplifyLogicUnary(exp)
-      end
+      LUNARY_EXPRESSION(__) => simplifyLogicUnary(exp)
 
-      RELATION_EXPRESSION(__) => begin
-        simplifyRelation(exp)
-      end
+      RELATION_EXPRESSION(__) => simplifyRelation(exp)
 
-      IF_EXPRESSION(__) => begin
-        simplifyIf(exp)
-      end
+      IF_EXPRESSION(__) => simplifyIf(exp)
 
       CAST_EXPRESSION(__) => begin
         local se = simplify(exp.exp)
@@ -109,25 +93,17 @@
         referenceEq(se, exp.exp) ? exp : UNBOX_EXPRESSION(se, exp.ty)
       end
 
-      SUBSCRIPTED_EXP_EXPRESSION(__) => begin
-        simplifySubscriptedExp(exp)
-      end
+      SUBSCRIPTED_EXP_EXPRESSION(__) => simplifySubscriptedExp(exp)
 
-      TUPLE_ELEMENT_EXPRESSION(__) => begin
-        simplifyTupleElement(exp)
-      end
+      TUPLE_ELEMENT_EXPRESSION(__) => simplifyTupleElement(exp)
 
       BOX_EXPRESSION(__) => begin
         local se = simplify(exp.exp)
         referenceEq(se, exp.exp) ? exp : BOX_EXPRESSION(se)
       end
 
-      MUTABLE_EXPRESSION(__) => begin
-        simplify(P_Pointer.access(exp.exp))
-      end
-      _ => begin
-        exp
-      end
+      MUTABLE_EXPRESSION(__) => simplify(P_Pointer.access(exp.exp))
+      _ => exp
     end
   end
   return tmp
@@ -137,13 +113,9 @@ function simplifyOpt(exp::Option{<:Expression})
   local e::Expression
    exp = begin
     @match exp begin
-      SOME(e) => begin
-        SOME(simplify(e))
-      end
+      SOME(e) => SOME(simplify(e))
 
-      _ => begin
-        exp
-      end
+      _ => exp
     end
   end
   return exp
@@ -244,9 +216,7 @@ end
         callExp
       end
 
-      TYPED_ARRAY_CONSTRUCTOR(__) => begin
-        simplifyArrayConstructor(call)
-      end
+      TYPED_ARRAY_CONSTRUCTOR(__) => simplifyArrayConstructor(call)
 
       TYPED_REDUCTION(__) => begin
         @assign call.exp = simplify(call.exp)
@@ -255,9 +225,7 @@ end
         CALL_EXPRESSION(call)
       end
 
-      _ => begin
-        callExp
-      end
+      _ => callExp
     end
   end
   return callExp
@@ -303,18 +271,10 @@ function simplify(
         (exp, _) = expandBuiltinCat(args, call)
         isEvalFailure(exp) ? CALL_EXPRESSION(call) : exp
       end
-      "sum" => begin
-        simplifySumProduct(Base.first(args), call, #=isSum=# true)
-      end
-      "product" => begin
-        simplifySumProduct(Base.first(args), call, #=isSum=# false)
-      end
-      "transpose" => begin
-        simplifyTranspose(Base.first(args), call)
-      end
-      _ => begin
-        CALL_EXPRESSION(call)
-      end
+      "sum" => simplifySumProduct(Base.first(args), call, #=isSum=# true)
+      "product" => simplifySumProduct(Base.first(args), call, #=isSum=# false)
+      "transpose" => simplifyTranspose(Base.first(args), call)
+      _ => CALL_EXPRESSION(call)
     end
   end
   return exp
@@ -367,12 +327,8 @@ function simplifyTranspose(arg::Expression, call::Call)
     @match e begin
       ARRAY_EXPRESSION(
         __,
-      ) where {(ArrayUtil.all(e.elements, isArray))} => begin
-        transposeArray(e)
-      end
-      _ => begin
-        CALL_EXPRESSION(call)
-      end
+      ) where {(ArrayUtil.all(e.elements, isArray))} => transposeArray(e)
+      _ => CALL_EXPRESSION(call)
     end
   end
   return exp
@@ -511,29 +467,17 @@ end
   else
     outExp = begin
       @match op.op begin
-        Op.ADD => begin
-          simplifyBinaryAdd(exp1, op, exp2, orig)
-        end
+        Op.ADD => simplifyBinaryAdd(exp1, op, exp2, orig)
 
-        Op.SUB => begin
-          simplifyBinarySub(exp1, op, exp2, orig)
-        end
+        Op.SUB => simplifyBinarySub(exp1, op, exp2, orig)
 
-        Op.MUL => begin
-          simplifyBinaryMul(exp1, op, exp2, false, orig)
-        end
+        Op.MUL => simplifyBinaryMul(exp1, op, exp2, false, orig)
 
-        Op.DIV => begin
-          simplifyBinaryDiv(exp1, op, exp2, orig)
-        end
+        Op.DIV => simplifyBinaryDiv(exp1, op, exp2, orig)
 
-        Op.POW => begin
-          simplifyBinaryPow(exp1, op, exp2, orig)
-        end
+        Op.POW => simplifyBinaryPow(exp1, op, exp2, orig)
 
-        _ => begin
-          reuseBinary(orig, exp1, op, exp2)
-        end
+        _ => reuseBinary(orig, exp1, op, exp2)
       end
     end
   end
@@ -598,21 +542,13 @@ end
 
    outExp = begin
     @match exp1 begin
-      INTEGER_EXPRESSION(value = 0) => begin
-        exp1
-      end
+      INTEGER_EXPRESSION(value = 0) => exp1
 
-      REAL_EXPRESSION(value = 0.0) => begin
-        exp1
-      end
+      REAL_EXPRESSION(value = 0.0) => exp1
 
-      INTEGER_EXPRESSION(value = 1) => begin
-        exp2
-      end
+      INTEGER_EXPRESSION(value = 1) => exp2
 
-      REAL_EXPRESSION(value = 1.0) => begin
-        exp2
-      end
+      REAL_EXPRESSION(value = 1.0) => exp2
 
       _ => begin
         if switched
@@ -698,13 +634,9 @@ end
    se2 = simplify(e2)
    binaryExp = begin
     @match op.op begin
-      Op.AND => begin
-        simplifyLogicBinaryAnd(se1, op, se2, binaryExp)
-      end
+      Op.AND => simplifyLogicBinaryAnd(se1, op, se2, binaryExp)
 
-      Op.OR => begin
-        simplifyLogicBinaryOr(se1, op, se2, binaryExp)
-      end
+      Op.OR => simplifyLogicBinaryOr(se1, op, se2, binaryExp)
     end
   end
   return binaryExp
@@ -743,29 +675,19 @@ end
    exp = begin
     #= false and e => false =#
     @match (exp1, exp2) begin
-      (BOOLEAN_EXPRESSION(false), _) => begin
-        exp1
-      end
+      (BOOLEAN_EXPRESSION(false), _) => exp1
 
-      (_, BOOLEAN_EXPRESSION(false)) => begin
-        exp2
-      end
+      (_, BOOLEAN_EXPRESSION(false)) => exp2
 
-      (BOOLEAN_EXPRESSION(true), _) => begin
-        exp2
-      end
+      (BOOLEAN_EXPRESSION(true), _) => exp2
 
-      (_, BOOLEAN_EXPRESSION(true)) => begin
-        exp1
-      end
+      (_, BOOLEAN_EXPRESSION(true)) => exp1
 
       (ARRAY_EXPRESSION(__), ARRAY_EXPRESSION(__)) => begin
         _logicArrayBinary(simplifyLogicBinaryAnd, exp1::ARRAY_EXPRESSION, op, exp2::ARRAY_EXPRESSION)
       end
 
-      _ => begin
-        reuseLBinary(orig, exp1, op, exp2)
-      end
+      _ => reuseLBinary(orig, exp1, op, exp2)
     end
   end
   return exp
@@ -777,29 +699,19 @@ end
    exp = begin
     #= true or e => true =#
     @match (exp1, exp2) begin
-      (BOOLEAN_EXPRESSION(true), _) => begin
-        exp1
-      end
+      (BOOLEAN_EXPRESSION(true), _) => exp1
 
-      (_, BOOLEAN_EXPRESSION(true)) => begin
-        exp2
-      end
+      (_, BOOLEAN_EXPRESSION(true)) => exp2
 
-      (BOOLEAN_EXPRESSION(false), _) => begin
-        exp2
-      end
+      (BOOLEAN_EXPRESSION(false), _) => exp2
 
-      (_, BOOLEAN_EXPRESSION(false)) => begin
-        exp1
-      end
+      (_, BOOLEAN_EXPRESSION(false)) => exp1
 
       (ARRAY_EXPRESSION(__), ARRAY_EXPRESSION(__)) => begin
         _logicArrayBinary(simplifyLogicBinaryOr, exp1::ARRAY_EXPRESSION, op, exp2::ARRAY_EXPRESSION)
       end
 
-      _ => begin
-        reuseLBinary(orig, exp1, op, exp2)
-      end
+      _ => reuseLBinary(orig, exp1, op, exp2)
     end
   end
   return exp
@@ -880,9 +792,7 @@ end
   castExp = begin
     local ety::ModelicaType
     @match (ty, exp) begin
-      (TYPE_REAL(__), INTEGER_EXPRESSION(__)) => begin
-        REAL_EXPRESSION(intReal(exp.value))
-      end
+      (TYPE_REAL(__), INTEGER_EXPRESSION(__)) => REAL_EXPRESSION(intReal(exp.value))
       (TYPE_ARRAY(elementType = TYPE_REAL(__)), ARRAY_EXPRESSION(__)) =>
         begin
           ety = unliftArray(ty)
@@ -890,9 +800,7 @@ end
           expTy = setArrayElementType(exp.ty, arrayElementType(ty))
           ARRAY_EXPRESSION(expTy, expElements, exp.literal)
         end
-      _ => begin
-        CAST_EXPRESSION(ty, exp)
-      end
+      _ => CAST_EXPRESSION(ty, exp)
     end
   end
   return castExp

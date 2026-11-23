@@ -719,21 +719,13 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
         push!(equations, EQUATION_ARRAY_EQUALITY(eq.lhs, eq.rhs, eq.ty, eq.source))
       end
 
-      EQUATION_CONNECT(__) => begin
-        equations
-      end
+      EQUATION_CONNECT(__) => equations
 
-      EQUATION_IF(__) => begin
-        scalarizeIfEquation(eq.branches, eq.source, equations)
-      end
+      EQUATION_IF(__) => scalarizeIfEquation(eq.branches, eq.source, equations)
 
-      EQUATION_WHEN(__) => begin
-        scalarizeWhenEquation(eq.branches, eq.source, equations)
-      end
+      EQUATION_WHEN(__) => scalarizeWhenEquation(eq.branches, eq.source, equations)
 
-      _ => begin
-        push!(equations, eq)
-      end
+      _ => push!(equations, eq)
     end
   end
   return equations
@@ -825,12 +817,8 @@ function scalarizeStatement(stmt::Statement, statements::Vector{Statement})
           ),
         )
       end
-      ALG_IF(__) => begin
-        scalarizeIfStatement(stmt.branches, stmt.source, statements)
-      end
-      ALG_WHEN(__) => begin
-        scalarizeWhenStatement(stmt.branches, stmt.source, statements)
-      end
+      ALG_IF(__) => scalarizeIfStatement(stmt.branches, stmt.source, statements)
+      ALG_WHEN(__) => scalarizeWhenStatement(stmt.branches, stmt.source, statements)
       ALG_WHILE(__) => begin
         push!(
           statements,
@@ -841,9 +829,7 @@ function scalarizeStatement(stmt::Statement, statements::Vector{Statement})
           ),
         )
       end
-      _ => begin
-        push!(statements, stmt)#_cons(stmt, statements)
-      end
+      _ => push!(statements, stmt)#_cons(stmt, statements)
     end
   end
   return statements

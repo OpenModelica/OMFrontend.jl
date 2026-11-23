@@ -74,12 +74,8 @@ positional(slot::SLOT)::Bool = slot.ty == SLOT_TYPE_POSITIONAL || slot.ty == SLO
 function isExactVectorized(mk::FunctionMatchKind)::Bool
 
   @match mk begin
-    VECTORIZED_MATCH_KIND(baseMatch = EXACT_MATCH_KIND(__)) => begin
-      true
-    end
-    _ => begin
-      false
-    end
+    VECTORIZED_MATCH_KIND(baseMatch = EXACT_MATCH_KIND(__)) => true
+    _ => false
   end
 end
 
@@ -143,19 +139,17 @@ function foldExpParameter(node::InstNode, foldFn::FT, arg::ArgT, ::Type{ArgT})::
   local comp::Component
   local cls::Class
 
-  @assign comp = component(node)
-  @assign arg = foldExp(getBinding(comp), foldFn, arg, ArgT)
+  comp = component(node)
+  arg = foldExp(getBinding(comp), foldFn, arg, ArgT)
    @match comp begin
      TYPED_COMPONENT(__) => begin
-       @assign arg = foldDims(comp.ty, (dim::Dimension, acc::ArgT) -> foldExp(dim, foldFn, acc, ArgT), arg, ArgT)
-       @assign cls = getClass(comp.classInst)
-       @assign arg = foldComponents(classTree(cls), (node::InstNode, acc::ArgT) -> foldExpParameter(node, foldFn, acc, ArgT), arg, ArgT)
+       arg = foldDims(comp.ty, (dim::Dimension, acc::ArgT) -> foldExp(dim, foldFn, acc, ArgT), arg, ArgT)
+       cls = getClass(comp.classInst)
+       arg = foldComponents(classTree(cls), (node::InstNode, acc::ArgT) -> foldExpParameter(node, foldFn, acc, ArgT), arg, ArgT)
        ()
      end
 
-     _ => begin
-       ()
-     end
+     _ => ()
    end
   return arg
 end
@@ -171,12 +165,12 @@ function foldExp(
 
   local cls::Class
 
-  @assign cls = getClass(fn.node)
+  cls = getClass(fn.node)
   if mapParameters
-    @assign arg = foldComponents(classTree(cls), (node::InstNode, acc::ArgT) -> foldExpParameter(node, foldFn, acc, ArgT), arg, ArgT)
+    arg = foldComponents(classTree(cls), (node::InstNode, acc::ArgT) -> foldExpParameter(node, foldFn, acc, ArgT), arg, ArgT)
   end
   if mapBody
-    @assign arg = P_Sections.Sections.foldExp(getSections(cls), foldFn, arg, ArgT)
+    arg = P_Sections.Sections.foldExp(getSections(cls), foldFn, arg, ArgT)
   end
   return arg
 end
@@ -211,9 +205,7 @@ function mapExpParameter(node::InstNode, mapFn::MapFunc)
       ()
     end
 
-    _ => begin
-      ()
-    end
+    _ => ()
   end
   if dirty
     node = updateComponent!(comp, node)
@@ -272,12 +264,8 @@ end
 
 function isDefaultRecordConstructor(fn::MODELICA_FUNCTION)::Bool
   @match restriction(getClass(fn.node)) begin
-    RESTRICTION_RECORD_CONSTRUCTOR(__) => begin
-      true
-    end
-    _ => begin
-      false
-    end
+    RESTRICTION_RECORD_CONSTRUCTOR(__) => true
+    _ => false
   end
 end
 
@@ -318,25 +306,17 @@ end
 function isSubscriptableBuiltin(fn::MODELICA_FUNCTION)::Bool
   local scalarBuiltin::Bool
   if !isBuiltin(fn)
-    @assign scalarBuiltin = false
+    scalarBuiltin = false
   else
-    @assign scalarBuiltin = begin
+    scalarBuiltin = begin
       @match AbsynUtil.pathFirstIdent(nameConsiderBuiltin(fn)) begin
-        "change" => begin
-          true
-        end
+        "change" => true
 
-        "der" => begin
-          true
-        end
+        "der" => true
 
-        "pre" => begin
-          true
-        end
+        "pre" => true
 
-        _ => begin
-          false
-        end
+        _ => false
       end
     end
   end
@@ -352,177 +332,97 @@ function isSpecialBuiltin(fn::MODELICA_FUNCTION)::Bool
   local special::Bool
   local path::Absyn.Path
   if !isBuiltin(fn)
-    @assign special = false
+    special = false
   else
-    @assign path = nameConsiderBuiltin(fn)
+    path = nameConsiderBuiltin(fn)
     if !AbsynUtil.pathIsIdent(path)
-      @assign special = false
+      special = false
     else
-      @assign special = begin
+      special = begin
         @match AbsynUtil.pathFirstIdent(path) begin
-          "array" => begin
-            true
-          end
+          "array" => true
 
-          "actualStream" => begin
-            true
-          end
+          "actualStream" => true
 
-          "branch" => begin
-            true
-          end
+          "branch" => true
 
-          "cardinality" => begin
-            true
-          end
+          "cardinality" => true
 
-          "cat" => begin
-            true
-          end
+          "cat" => true
 
-          "change" => begin
-            true
-          end
+          "change" => true
 
-          "der" => begin
-            true
-          end
+          "der" => true
 
-          "diagonal" => begin
-            true
-          end
+          "diagonal" => true
 
-          "edge" => begin
-            true
-          end
+          "edge" => true
 
-          "fill" => begin
-            true
-          end
+          "fill" => true
 
-          "getInstanceName" => begin
-            true
-          end
+          "getInstanceName" => true
 
-          "initial" => begin
-            true
-          end
+          "initial" => true
 
-          "inStream" => begin
-            true
-          end
+          "inStream" => true
 
-          "isRoot" => begin
-            true
-          end
+          "isRoot" => true
 
-          "matrix" => begin
-            true
-          end
+          "matrix" => true
 
-          "max" => begin
-            true
-          end
+          "max" => true
 
-          "min" => begin
-            true
-          end
+          "min" => true
 
-          "ndims" => begin
-            true
-          end
+          "ndims" => true
 
-          "noEvent" => begin
-            true
-          end
+          "noEvent" => true
 
-          "ones" => begin
-            true
-          end
+          "ones" => true
 
-          "potentialRoot" => begin
-            true
-          end
+          "potentialRoot" => true
 
-          "pre" => begin
-            true
-          end
+          "pre" => true
 
-          "product" => begin
-            true
-          end
+          "product" => true
 
-          "promote" => begin
-            true
-          end
+          "promote" => true
 
-          "pure" => begin
-            true
-          end
+          "pure" => true
 
-          "root" => begin
-            true
-          end
+          "root" => true
 
-          "rooted" => begin
-            true
-          end
+          "rooted" => true
 
-          "uniqueRoot" => begin
-            true
-          end
+          "uniqueRoot" => true
 
-          "uniqueRootIndices" => begin
-            true
-          end
+          "uniqueRootIndices" => true
 
-          "scalar" => begin
-            true
-          end
+          "scalar" => true
 
-          "size" => begin
-            true
-          end
+          "size" => true
 
-          "smooth" => begin
-            true
-          end
+          "smooth" => true
 
-          "sum" => begin
-            true
-          end
+          "sum" => true
 
-          "symmetric" => begin
-            true
-          end
+          "symmetric" => true
 
-          "terminal" => begin
-            true
-          end
+          "terminal" => true
 
-          "transpose" => begin
-            true
-          end
+          "transpose" => true
 
-          "vector" => begin
-            true
-          end
+          "vector" => true
 
-          "zeros" => begin
-            true
-          end
+          "zeros" => true
 
-          "sample" => begin
-            true
-          end
+          "sample" => true
           #= Extensions  =#
           "initialStructuralState" => true
           "structuralTransition" => true
           "recompilation" => true
           "agentic_recompilation" => true
-          _ => begin
-            false
-          end
+          _ => false
         end
       end
     end
@@ -577,12 +477,12 @@ function applyPartialApplicationArg(
         )
         fail()
       end
-      @assign outInputs = listAppend(listReverseInPlace(outInputs), rest_inputs)
-      @assign outSlots = listAppend(listReverseInPlace(outSlots), rest_slots)
+      outInputs = listAppend(listReverseInPlace(outInputs), rest_inputs)
+      outSlots = listAppend(listReverseInPlace(outSlots), rest_slots)
       return (argExp, outInputs, outSlots)
     end
-    @assign outInputs = _cons(i, outInputs)
-    @assign outSlots = _cons(s, outSlots)
+    outInputs = _cons(i, outInputs)
+    outSlots = _cons(s, outSlots)
   end
   Error.addSourceMessage(
     Error.NO_SUCH_INPUT_PARAMETER,
@@ -622,10 +522,10 @@ function typePartialApplication(
   #= TODO: Handle overloaded functions? =#
   fns = typeRefCache(fn_ref)
   fn = fns[1]
-  @assign inputs = fn.inputs
-  @assign slots = fn.slots
-  @assign rest_names = arg_names
-  @assign variability = if isImpure(fn) || isOMImpure(fn)
+  inputs = fn.inputs
+  slots = fn.slots
+  rest_names = arg_names
+  variability = if isImpure(fn) || isOMImpure(fn)
     Variability.PARAMETER
   else
     Variability.CONSTANT
@@ -635,13 +535,13 @@ function typePartialApplication(
     @match _cons(arg_name, rest_names) = rest_names
      (arg, inputs, slots) =
       applyPartialApplicationArg(arg_name, arg, arg_ty, inputs, slots, fn, info)
-    @assign ty_args = _cons(box(arg), ty_args)
-    @assign variability = variabilityMax(variability, arg_var)
+    ty_args = _cons(box(arg), ty_args)
+    variability = variabilityMax(variability, arg_var)
   end
   @assign fn.inputs = inputs
   @assign fn.slots = slots
-  @assign ty = TYPE_FUNCTION(fn, FunctionType.FUNCTIONAL_VARIABLE)
-  @assign exp = PARTIAL_FUNCTION_APPLICATION_EXPRESSION(
+  ty = TYPE_FUNCTION(fn, FunctionType.FUNCTIONAL_VARIABLE)
+  exp = PARTIAL_FUNCTION_APPLICATION_EXPRESSION(
     fn_ref,
     listReverseInPlace(ty_args),
     arg_names,
@@ -653,8 +553,8 @@ end
 function boxFunctionParameter(compNode::InstNode)
   local comp::Component
 
-  @assign comp = component(compNode)
-  @assign comp = setType(box(getType(comp)), comp)
+  comp = component(compNode)
+  comp = setType(box(getType(comp)), comp)
   return updateComponent!(comp, compNode)
 end
 
@@ -840,9 +740,7 @@ end
 """
 function typeRefCache(functionRef::ComponentRef)::Vector{MODELICA_FUNCTION}
   @match functionRef begin
-    COMPONENT_REF_CREF(__) => begin
-      typeNodeCache(functionRef.node)
-    end
+    COMPONENT_REF_CREF(__) => typeNodeCache(functionRef.node)
     _ => begin
       Error.assertion(
         false,
@@ -856,12 +754,8 @@ end
 
 function isTyped(fn::MODELICA_FUNCTION)::Bool
   @match fn.returnType begin
-    TYPE_UNKNOWN(__) => begin
-      false
-    end
-    _ => begin
-      true
-    end
+    TYPE_UNKNOWN(__) => false
+    _ => true
   end
 end
 
@@ -984,7 +878,7 @@ function matchArgVectorized(
   end
   #= Check that the argument and the input parameter are type compatible when
      the dimensions to vectorize over has been removed from the argument's type. =#
-  @assign rest_ty = liftArrayLeftList(arrayElementType(argTy), rest_dims)
+  rest_ty = liftArrayLeftList(arrayElementType(argTy), rest_dims)
   (argExp, argTy, matchKind) =
     matchTypes(rest_ty, inputTy, argExp, #=allowUnknown=# false)
   return (argExp, argTy, vectArg, vectDims, matchKind)
@@ -1016,7 +910,7 @@ function matchArgs(
   for (i,arg) in enumerate(args)
     (arg_exp, arg_ty, arg_var) = arg
     @match _cons(input_node, inputs) = inputs
-    @assign comp = component(input_node)
+    comp = component(input_node)
     #= A record's default constructor takes values of any variability: its inputs are the
        fields, whose parameter prefix is not the input's (Buildings' ClimaticConstants.Generic
        built from a function's locals). =#
@@ -1127,9 +1021,7 @@ function evaluateSlotExp_traverser(
         exp
       end
     end
-    _ => begin
-      exp
-    end
+    _ => exp
   end
 end
 
@@ -1198,15 +1090,11 @@ end
 function fillDefaultSlot(slot::SLOT, slots::Vector{<:SLOT}, info::SourceInfo)::TypedArg
   local outArg::TypedArg
 
-  @assign outArg = begin
+  outArg = begin
     @match slot begin
-      SLOT(arg = SOME(outArg)) => begin
-        outArg
-      end
+      SLOT(arg = SOME(outArg)) => outArg
 
-      SLOT(default = SOME(_)) => begin
-        fillDefaultSlot2(slot, slots, info)
-      end
+      SLOT(default = SOME(_)) => fillDefaultSlot2(slot, slots, info)
 
       _ => begin
         #= Slot already filled by function argument.
@@ -1232,9 +1120,7 @@ function collectArgs(slots::Vector{<:SLOT}, info::SourceInfo)::Tuple{Vector{Type
     @match SLOT(name = name, default = default, arg = arg) = s
     @matchcontinue arg begin
       #=  Use the argument from the call if one was given. =#
-      SOME(a) => begin
-        push!(args, a)
-      end
+      SOME(a) => push!(args, a)
       #= Otherwise, try to fill the slot with its default argument. No default: fillDefaultSlot's message
          without its failure (a throw outside a cheap-throw scope records a backtrace; overload candidates
          without the argument are common, 28 per MSL Fluid ThreeTanks). =#
@@ -1276,7 +1162,7 @@ function fillNamedArg(
      Positional arguments fill the slots from the start of the array, so
      searching backwards will generally be a bit more efficient. =#
   for i = arrayLength(slots):(-1):1
-    @assign s = slots[i]
+    s = slots[i]
      (argName, argExp, ty, var) = inArg
     if s.name == argName
       if !named(s)
@@ -1294,7 +1180,7 @@ function fillNamedArg(
   #= Slot doesn't allow named argument (used for some builtin functions).
      TODO: Improve the error message, should mention function name.
      No slot could be found. =#
-  @assign matching = false
+  matching = false
   #= A slot with the given name couldn't be found. This means it doesn't
      exist, or we removed it when handling positional argument. We need to
      search through all slots to be sure. =#
@@ -1484,7 +1370,7 @@ end
 function typeString(fn::MODELICA_FUNCTION)::String
   local str::String
 
-  @assign str = ListUtil.toString(
+  str = ListUtil.toString(
     fn.inputs,
     paramTypeString,
     AbsynUtil.pathString(name(fn)) + "<function>",
@@ -1522,14 +1408,14 @@ function signatureString(fn::MODELICA_FUNCTION, printTypes::Bool = true)::String
   local ty::ModelicaType
 
   for s in fn.slots
-    @assign input_str = ""
-    @assign c = component(listHead(inputs))
-    @assign inputs = listRest(inputs)
+    input_str = ""
+    c = component(listHead(inputs))
+    inputs = listRest(inputs)
     if isSome(s.default)
       @match SOME(def_exp) = s.default
-      @assign input_str = " = " + toString(def_exp)::String
+      input_str = " = " + toString(def_exp)::String
     end
-    @assign input_str = (s.name::String) + (input_str::String)
+    input_str = (s.name::String) + (input_str::String)
     if printTypes && isTyped(c)
       ty = getType(c)
       var_s = unparseVariability(variability(c), ty)
@@ -1622,9 +1508,7 @@ function mapCachedFuncs(inNode::InstNode, mapFn::MapFn)
         cache
       end
 
-      _ => begin
-        fail()
-      end
+      _ => fail()
     end
   end
   return setFuncCache(cls_node, cache)
@@ -1636,12 +1520,8 @@ function getCachedFuncs(inNode::InstNode)
   cache = getFuncCache(classScope(inNode))
   outFuncs = begin
     @match cache begin
-      C_FUNCTION(__) => begin
-        cache.funcs
-      end
-      _ => begin
-        fail()
-      end
+      C_FUNCTION(__) => cache.funcs
+      _ => fail()
     end
   end
   return outFuncs
@@ -1676,8 +1556,8 @@ function instFunction2(
     local sub_fnNode::InstNode
     @match def begin
       SCode.CLASS(__) where {(SCodeUtil.isOperatorRecord(def))} => begin
-        @assign fnNode = instFunction3(fnNode)
-        @assign fnNode = instConstructor(fnPath, fnNode, info)
+        fnNode = instFunction3(fnNode)
+        fnNode = instConstructor(fnPath, fnNode, info)
         (fnNode, false)
       end
 
@@ -1850,11 +1730,9 @@ end
 
 function instFunctionNode2(node::InstNode)::InstNode
   local cache::CachedData
-  @assign cache = getFuncCache(node)
+  cache = getFuncCache(node)
    @match cache begin
-     C_FUNCTION(__) => begin
-       ()
-     end
+     C_FUNCTION(__) => ()
      _ => begin
        (node, _) =
          instFunction2(scopePath(node), node, InstNode_info(node))#info(node))
@@ -1891,11 +1769,9 @@ function instFunctionRef2(
   #=  Check if a cached instantiation of this function already exists. =#
   return begin
     @match cache begin
-      C_FUNCTION(__) => begin
-        (fn_node, cache.specialBuiltin)
-      end
+      C_FUNCTION(__) => (fn_node, cache.specialBuiltin)
       _ => begin
-        @assign parent =
+        parent =
           if isRedeclare(node(fn_ref)) ||
              isSimple(fn_ref)
             EMPTY_NODE()
@@ -1968,14 +1844,14 @@ function new(path::Absyn.Path, node::InstNode)::MODELICA_FUNCTION
   local status::FunctionStatus
 
   (inputs, outputs, locals) = collectParams(node)
-  @assign attr = makeAttributes(node, inputs, outputs)
+  attr = makeAttributes(node, inputs, outputs)
   #= Make sure builtin functions aren't added to the function tree. =#
-  @assign status = if isBuiltinAttr(attr)
+  status = if isBuiltinAttr(attr)
     FUNCTION_STATUS_COLLECTED
   else
     FUNCTION_STATUS_INITIAL
   end
-  @assign fn = MODELICA_FUNCTION(
+  fn = MODELICA_FUNCTION(
     path,
     node,
     inputs,
@@ -1993,81 +1869,43 @@ end
 
 function isValidParamState(cls::InstNode)::Bool
   @match restriction(getClass(cls)) begin
-    RESTRICTION_RECORD(__) => begin
-      true
-    end
-    RESTRICTION_TYPE(__) => begin
-      true
-    end
-    RESTRICTION_OPERATOR(__) => begin
-      true
-    end
-    RESTRICTION_FUNCTION(__) => begin
-      true
-    end
+    RESTRICTION_RECORD(__) => true
+    RESTRICTION_TYPE(__) => true
+    RESTRICTION_OPERATOR(__) => true
+    RESTRICTION_FUNCTION(__) => true
 
-    RESTRICTION_EXTERNAL_OBJECT(__) => begin
-      true
-    end
-    _ => begin
-      false
-    end
+    RESTRICTION_EXTERNAL_OBJECT(__) => true
+    _ => false
   end
 end
 
 function isValidParamType(ty::ModelicaType)::Bool
   @match ty begin
-    TYPE_INTEGER(__) => begin
-      true
-    end
+    TYPE_INTEGER(__) => true
 
-    TYPE_REAL(__) => begin
-      true
-    end
+    TYPE_REAL(__) => true
 
-    TYPE_STRING(__) => begin
-      true
-    end
+    TYPE_STRING(__) => true
 
-    TYPE_BOOLEAN(__) => begin
-      true
-    end
+    TYPE_BOOLEAN(__) => true
 
-    TYPE_CLOCK(__) => begin
-      true
-    end
+    TYPE_CLOCK(__) => true
 
-    TYPE_ENUMERATION(__) => begin
-      true
-    end
+    TYPE_ENUMERATION(__) => true
 
-    TYPE_ENUMERATION_ANY(__) => begin
-      true
-    end
+    TYPE_ENUMERATION_ANY(__) => true
 
-    TYPE_POLYMORPHIC(__) => begin
-      true
-    end
+    TYPE_POLYMORPHIC(__) => true
 
-    TYPE_ARRAY(__) => begin
-      isValidParamType(ty.elementType)
-    end
+    TYPE_ARRAY(__) => isValidParamType(ty.elementType)
 
-    TYPE_COMPLEX(__) => begin
-      isValidParamState(ty.cls)
-    end
+    TYPE_COMPLEX(__) => isValidParamState(ty.cls)
 
-    TYPE_FUNCTION(__) => begin
-      true
-    end
+    TYPE_FUNCTION(__) => true
 
-    TYPE_METABOXED(__) => begin
-      isValidParamType(ty.ty)
-    end
+    TYPE_METABOXED(__) => isValidParamType(ty.ty)
 
-    _ => begin
-      false
-    end
+    _ => false
   end
 end
 
@@ -2148,29 +1986,21 @@ function mergeFunctionAnnotations(comments::List{<:SCode.COMMENT})::SCode.COMMEN
 
   for cmt in comments
     if isNone(comment)
-      @assign comment = cmt.comment
+      comment = cmt.comment
     end
-    @assign mod = begin
+    mod = begin
       @match cmt begin
-        SCode.COMMENT(annotation_ = SOME(SCode.ANNOTATION(modification = mod2))) => begin
-          SCodeUtil.mergeModifiers(mod2, mod)
-        end
+        SCode.COMMENT(annotation_ = SOME(SCode.ANNOTATION(modification = mod2))) => SCodeUtil.mergeModifiers(mod2, mod)
 
-        _ => begin
-          mod
-        end
+        _ => mod
       end
     end
   end
-  @assign outComment = begin
+  outComment = begin
     @match mod begin
-      SCode.NOMOD(__) => begin
-        SCode.COMMENT(NONE(), comment)
-      end
+      SCode.NOMOD(__) => SCode.COMMENT(NONE(), comment)
 
-      _ => begin
-        SCode.COMMENT(SOME(SCode.ANNOTATION(mod)), comment)
-      end
+      _ => SCode.COMMENT(SOME(SCode.ANNOTATION(mod)), comment)
     end
   end
   return outComment
@@ -2232,8 +2062,8 @@ function paramDirection(@nospecialize(componentArg::InstNode))::DirectionType
     direction = direction,
     innerOuter = io,
   ) = getAttributes(component(componentArg))
-  @assign vis = visibility(componentArg)
-  @assign var = variability(component(componentArg))
+  vis = visibility(componentArg)
+  var = variability(component(componentArg))
   #= Function components may not be connectors. =#
   if isFlowOrStream(cty)
     Error.addSourceMessage(
@@ -2294,26 +2124,26 @@ function collectParams(
   #   getInstanceName() + " got non-class node",
   #   sourceInfo(),
   # ) TODO
-  @assign cls = getClass(node)
+  cls = getClass(node)
    @match cls begin
      INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = comps)) =>
        begin
          for i = arrayLength(comps):(-1):1
-           @assign n = comps[i]
+           n = comps[i]
             @match paramDirection(n) begin
               Direction.INPUT => begin
                 #= Sort the components based on their direction. =#
-                @assign inputs = _cons(n, inputs)
+                inputs = _cons(n, inputs)
                 ()
               end
 
               Direction.OUTPUT => begin
-                @assign outputs = _cons(n, outputs)
+                outputs = _cons(n, outputs)
                 ()
               end
 
               Direction.NONE => begin
-                @assign locals = _cons(n, locals)
+                locals = _cons(n, locals)
                 ()
               end
             end
@@ -2349,12 +2179,8 @@ function getBody2(node::InstNode)
     @match cls begin
       INSTANCED_CLASS(
         sections = SECTIONS(algorithms = [fn_body,]),
-      ) => begin
-        fn_body.statements
-      end
-      INSTANCED_CLASS(sections = SECTIONS_EMPTY(__)) => begin
-        []#Was nil
-      end
+      ) => fn_body.statements
+      INSTANCED_CLASS(sections = SECTIONS_EMPTY(__)) => []#Was nil
       INSTANCED_CLASS(
         sections = SECTIONS(algorithms) where length(algorithms) > 1,
       ) => begin
@@ -2365,9 +2191,7 @@ function getBody2(node::InstNode)
         )
         fail()
       end
-      TYPED_DERIVED(__) => begin
-        getBody2(cls.baseClass)
-      end
+      TYPED_DERIVED(__) => getBody2(cls.baseClass)
       _ => begin
         #Error.assertion(false, getInstanceName() + " got unknown function", sourceInfo())
         @error "Got a unknown function for " * toString(node) * ", $(isExternalFunction(getClass(node)))"
@@ -2384,17 +2208,13 @@ function makeReturnType(fn::MODELICA_FUNCTION)::ModelicaType
   ret_tyl = list(getType(o) for o in fn.outputs)
   returnType = begin
     @match ret_tyl begin
-      nil() => begin
-        TYPE_NORETCALL()
-      end
+      nil() => TYPE_NORETCALL()
 
       returnType <| nil() => begin
         returnType
       end
 
-      _ => begin
-        TYPE_TUPLE(ret_tyl, NONE())
-      end
+      _ => TYPE_TUPLE(ret_tyl, NONE())
     end
   end
   return returnType

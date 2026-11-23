@@ -83,9 +83,7 @@ function verifyEquationBounds(eq::Equation)
       checkSubscriptBounds(eq.lhs, info)
       checkSubscriptBounds(eq.rhs, info)
     end
-    EQUATION_FOR(__) => begin
-      isSome(eq.range) && checkSubscriptBounds(Util.getOption(eq.range), info)
-    end
+    EQUATION_FOR(__) => isSome(eq.range) && checkSubscriptBounds(Util.getOption(eq.range), info)
     EQUATION_IF(__) || EQUATION_WHEN(__) => begin
       for b in eq.branches
         @match b begin
@@ -254,7 +252,7 @@ function whenEquationIfCrefs(
       checkCrefSetEquality(crefs1, crefs2, Error.WHEN_IF_VARIABLE_MISMATCH, source)
     end
   end
-  @assign crefs = listAppend(crefs1, crefs)
+  crefs = listAppend(crefs1, crefs)
   return crefs
 end
 
@@ -262,15 +260,11 @@ function whenEquationEqualityCrefs(
   lhsExp::Expression,
   crefs::List{<:ComponentRef},
 )::List{ComponentRef}
-  @assign crefs = begin
+  crefs = begin
     @match lhsExp begin
-      CREF_EXPRESSION(__) => begin
-        Cons{ComponentRef}(lhsExp.cref, crefs)
-      end
+      CREF_EXPRESSION(__) => Cons{ComponentRef}(lhsExp.cref, crefs)
 
-      TUPLE_EXPRESSION(__) => begin
-        ListUtil.fold(lhsExp.elements, whenEquationEqualityCrefs, crefs, List{ComponentRef})
-      end
+      TUPLE_EXPRESSION(__) => ListUtil.fold(lhsExp.elements, whenEquationEqualityCrefs, crefs, List{ComponentRef})
     end
   end
   return crefs
@@ -283,25 +277,15 @@ end
 function whenEquationBranchCrefs(eql::Union{List{<:Equation}, Vector{<:Equation}})::List{ComponentRef}
   local crefs::List{ComponentRef} = nil
   for eq in eql
-    @assign crefs = begin
+    crefs = begin
       @match eq begin
-        EQUATION_EQUALITY(__) => begin
-          whenEquationEqualityCrefs(eq.lhs, crefs)
-        end
-        EQUATION_CREF_EQUALITY(__) => begin
-          Cons{ComponentRef}(eq.lhs, crefs)
-        end
-        EQUATION_ARRAY_EQUALITY(__) => begin
-          whenEquationEqualityCrefs(eq.lhs, crefs)
-        end
+        EQUATION_EQUALITY(__) => whenEquationEqualityCrefs(eq.lhs, crefs)
+        EQUATION_CREF_EQUALITY(__) => Cons{ComponentRef}(eq.lhs, crefs)
+        EQUATION_ARRAY_EQUALITY(__) => whenEquationEqualityCrefs(eq.lhs, crefs)
         #= A reinit is not an equation for a variable: the branches of a
            when-equation need not reinit the same states (as OpenModelica). =#
-        EQUATION_IF(__) => begin
-          whenEquationIfCrefs(eq.branches, eq.source, crefs)
-        end
-        _ => begin
-          crefs
-        end
+        EQUATION_IF(__) => whenEquationIfCrefs(eq.branches, eq.source, crefs)
+        _ => crefs
       end
     end
   end
@@ -324,7 +308,7 @@ function verifyWhenEquation(
     return
   end
   @match EQUATION_BRANCH(body = body) <| rest_branches = branches
-  @assign crefs1 = whenEquationBranchCrefs(body)
+  crefs1 = whenEquationBranchCrefs(body)
   #=TODO: Should the return be here or is it a translation error =#
   return for branch in rest_branches
     @match EQUATION_BRANCH(body = body) = branch
@@ -345,9 +329,7 @@ function verifyEquation(eq::Equation)
         verifyWhenEquation(arrayList(eq.branches), eq.source)
         ()
       end
-      _ => begin
-        ()
-      end
+      _ => ()
     end
   end
 end

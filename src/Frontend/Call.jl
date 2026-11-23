@@ -96,9 +96,7 @@ function retype(call::Call)::Call
        ()
      end
 
-     _ => begin
-       ()
-     end
+     _ => ()
    end
   return call
 end
@@ -109,24 +107,14 @@ function isVectorizeable(call::Call)::Bool
     TYPED_CALL(fn = MODELICA_FUNCTION(path = Absyn.IDENT(name = name))) => begin
       begin
         @match name begin #TODO add other special functions here.
-          "der" => begin
-            false
-          end
-          "pre" => begin
-            false
-          end
-          "previous" => begin
-            false
-          end
-          _ => begin
-            true
-          end
+          "der" => false
+          "pre" => false
+          "previous" => false
+          _ => true
         end
       end
     end
-    _ => begin
-      true
-    end
+    _ => true
   end
 end
 
@@ -177,9 +165,7 @@ function typedString(call::Call)::String
        name + "(" + arg_str + ")"
      end
 
-     _ => begin
-       toString(call)
-     end
+     _ => toString(call)
    end
 end
 
@@ -366,12 +352,8 @@ end
 
 function arguments(call::Call)::Vector{Expression}
    @match call begin
-     UNTYPED_CALL(__) => begin
-       call.arguments
-     end
-     TYPED_CALL(__) => begin
-       call.arguments
-     end
+     UNTYPED_CALL(__) => call.arguments
+     TYPED_CALL(__) => call.arguments
      #= The constructor's or reduction's expression (omc Call.arguments). =#
      UNTYPED_ARRAY_CONSTRUCTOR(__) || TYPED_ARRAY_CONSTRUCTOR(__) || UNTYPED_REDUCTION(__) || TYPED_REDUCTION(__) => begin
        Expression[call.exp]
@@ -382,41 +364,21 @@ end
 const ARRAY_IDENTIFIER = Absyn.IDENT("array")
 function functionName(call::Call)::Absyn.Path
   @match call begin
-    UNTYPED_CALL(__) => begin
-      toPath(call.ref)
-    end
-    ARG_TYPED_CALL(__) => begin
-      toPath(call.ref)
-    end
-    TYPED_CALL(__) => begin
-      name(call.fn)
-    end
-    UNTYPED_ARRAY_CONSTRUCTOR(__) => begin
-      ARRAY_IDENTIFIER
-    end
-    TYPED_ARRAY_CONSTRUCTOR(__) => begin
-      ARRAY_IDENTIFIER
-    end
-    UNTYPED_REDUCTION(__) => begin
-      toPath(call.ref)
-    end
-    TYPED_REDUCTION(__) => begin
-      name(call.fn)
-    end
+    UNTYPED_CALL(__) => toPath(call.ref)
+    ARG_TYPED_CALL(__) => toPath(call.ref)
+    TYPED_CALL(__) => name(call.fn)
+    UNTYPED_ARRAY_CONSTRUCTOR(__) => ARRAY_IDENTIFIER
+    TYPED_ARRAY_CONSTRUCTOR(__) => ARRAY_IDENTIFIER
+    UNTYPED_REDUCTION(__) => toPath(call.ref)
+    TYPED_REDUCTION(__) => name(call.fn)
   end
 end
 
 function typedFunction(call::Call)::MODELICA_FUNCTION
    @match call begin
-     TYPED_CALL(__) => begin
-       call.fn
-     end
-     TYPED_ARRAY_CONSTRUCTOR(__) => begin
-       BuiltinFuncs.ARRAY_FUNC
-     end
-     TYPED_REDUCTION(__) => begin
-       call.fn
-     end
+     TYPED_CALL(__) => call.fn
+     TYPED_ARRAY_CONSTRUCTOR(__) => BuiltinFuncs.ARRAY_FUNC
+     TYPED_REDUCTION(__) => call.fn
      _ => begin
        Error.assertion(false, getInstanceName() + " got untyped function", sourceInfo())
        fail()
@@ -435,29 +397,17 @@ end
 function isRecordConstructor(call::Call)::Bool
 
    @match call begin
-     UNTYPED_CALL(__) => begin
-       SCodeUtil.isRecord(definition(node(call.ref)))
-     end
-     TYPED_CALL(__) => begin
-       SCodeUtil.isRecord(definition(call.fn.node))
-     end
-     _ => begin
-       false
-     end
+     UNTYPED_CALL(__) => SCodeUtil.isRecord(definition(node(call.ref)))
+     TYPED_CALL(__) => SCodeUtil.isRecord(definition(call.fn.node))
+     _ => false
    end
 end
 
 function isImpure(call::Call)::Bool
   @match call begin
-    UNTYPED_CALL(__) => begin
-      isImpure(Base.first(getRefCache(call.ref)))
-    end
-    TYPED_CALL(__) => begin
-      isImpure(call.fn) || isOMImpure(call.fn)
-    end
-    _ => begin
-      false
-    end
+    UNTYPED_CALL(__) => isImpure(Base.first(getRefCache(call.ref)))
+    TYPED_CALL(__) => isImpure(call.fn) || isOMImpure(call.fn)
+    _ => false
   end
 end
 
@@ -467,18 +417,10 @@ end
 
 function isExternal(call::Call)::Bool
   @match call begin
-    UNTYPED_CALL(__) => begin
-      isExternalFunction(getClass(node(call.ref)))
-    end
-    ARG_TYPED_CALL(__) => begin
-      isExternalFunction(getClass(node(call.ref)))
-    end
-    TYPED_CALL(__) => begin
-      isExternal(call.fn) #Changed from just returning true johti17 2023-03-26
-    end
-    _ => begin
-      false
-    end
+    UNTYPED_CALL(__) => isExternalFunction(getClass(node(call.ref)))
+    ARG_TYPED_CALL(__) => isExternalFunction(getClass(node(call.ref)))
+    TYPED_CALL(__) => isExternal(call.fn) #Changed from just returning true johti17 2023-03-26
+    _ => false
   end
 end
 
@@ -575,12 +517,8 @@ end
 
 function typeOf(call::Call)::ModelicaType
    @match call begin
-     TYPED_CALL(__) || TYPED_ARRAY_CONSTRUCTOR(__) ||  TYPED_REDUCTION(__) =>  begin
-       call.ty
-     end
-     _ => begin
-       TYPE_UNKNOWN()
-     end
+     TYPED_CALL(__) || TYPED_ARRAY_CONSTRUCTOR(__) ||  TYPED_REDUCTION(__) => call.ty
+     _ => TYPE_UNKNOWN()
    end
 end
 
@@ -783,12 +721,8 @@ function instantiate(
   info::SourceInfo
 )::Expression
    @match functionArgs begin
-     Absyn.FUNCTIONARGS(__) => begin
-       instNormalCall(functionName, functionArgs, scope, info)
-     end
-     Absyn.FOR_ITER_FARG(__) => begin
-       instIteratorCall(functionName, functionArgs, scope, info)
-     end
+     Absyn.FUNCTIONARGS(__) => instNormalCall(functionName, functionArgs, scope, info)
+     Absyn.FOR_ITER_FARG(__) => instIteratorCall(functionName, functionArgs, scope, info)
      _ => begin
        Error.assertion(false, getInstanceName() + " got unknown call type", sourceInfo())
        fail()
@@ -823,37 +757,21 @@ function getSpecialReturnType(fn::MODELICA_FUNCTION, args::Vector{Expression})::
        ))))
      end
 
-     Absyn.IDENT("previous") => begin
-       typeOf(unbox(Base.first(args)))
-     end
+     Absyn.IDENT("previous") => typeOf(unbox(Base.first(args)))
 
-     Absyn.IDENT("shiftSample") => begin
-       typeOf(unbox(Base.first(args)))
-     end
+     Absyn.IDENT("shiftSample") => typeOf(unbox(Base.first(args)))
 
-     Absyn.IDENT("backSample") => begin
-       typeOf(unbox(Base.first(args)))
-     end
+     Absyn.IDENT("backSample") => typeOf(unbox(Base.first(args)))
 
-     Absyn.IDENT("hold") => begin
-       typeOf(unbox(Base.first(args)))
-     end
+     Absyn.IDENT("hold") => typeOf(unbox(Base.first(args)))
 
-     Absyn.IDENT("superSample") => begin
-       typeOf(unbox(Base.first(args)))
-     end
+     Absyn.IDENT("superSample") => typeOf(unbox(Base.first(args)))
 
-     Absyn.IDENT("subSample") => begin
-       typeOf(unbox(Base.first(args)))
-     end
+     Absyn.IDENT("subSample") => typeOf(unbox(Base.first(args)))
 
-     Absyn.IDENT("DynamicSelect") => begin
-       typeOf(unbox(Base.first(args)))
-     end
+     Absyn.IDENT("DynamicSelect") => typeOf(unbox(Base.first(args)))
 
-     _ => begin
-       resolvePolymorphicReturnType(fn, args, fn.returnType)
-     end
+     _ => resolvePolymorphicReturnType(fn, args, fn.returnType)
    end
 end
 
@@ -901,9 +819,7 @@ function evaluateCallTypeDimExp(@nospecialize(exp::Expression), ptree::Parameter
         e
       end
     end
-    _ => begin
-      exp
-    end
+    _ => exp
   end
 end
 
@@ -949,9 +865,7 @@ function evaluateCallTypeDim(
         fromExp(exp, Variability.CONSTANT)
       end
 
-      _ => begin
-        dim
-      end
+      _ => dim
     end
   end
   return (dim, ptree)
@@ -993,9 +907,7 @@ function evaluateCallType(
           ty
         end
       end
-      _ => begin
-        ty
-      end
+      _ => ty
     end
   end
   return (ty, ptree)
@@ -1025,12 +937,8 @@ function isVectorized(call::Call)::Bool
   local vectorized::Bool
    vectorized = begin
     @match call begin
-      TYPED_ARRAY_CONSTRUCTOR(exp = CALL_EXPRESSION(__)) => begin
-        stringGet(name(Util.tuple21(listHead(call.iters))), 1) == 36
-      end
-      _ => begin
-        false
-      end
+      TYPED_ARRAY_CONSTRUCTOR(exp = CALL_EXPRESSION(__)) => stringGet(name(Util.tuple21(listHead(call.iters))), 1) == 36
+      _ => false
     end
   end
   #= A call is considered to be vectorized if the first iterator has a name
@@ -1261,9 +1169,7 @@ function reductionFoldExpression(
             reductionVar,
           )))
         end
-        _ => begin
-          NONE()
-        end
+        _ => NONE()
       end
     end
   else
@@ -1285,21 +1191,13 @@ function reductionFoldExpression(
           ))
         end
 
-        "array" => begin
-          NONE()
-        end
+        "array" => NONE()
 
-        "array" => begin
-          NONE()
-        end
+        "array" => NONE()
 
-        "list" => begin
-          NONE()
-        end
+        "list" => NONE()
 
-        "listReverse" => begin
-          NONE()
-        end
+        "listReverse" => NONE()
 
         _ => begin
           SOME(CALL_EXPRESSION(makeTypedCall(
@@ -1326,21 +1224,13 @@ function reductionDefaultValue(fn::MODELICA_FUNCTION, ty::ModelicaType)::Option{
   else
      defaultValue = begin
       @match AbsynUtil.pathFirstIdent(name(fn)) begin
-        "sum" => begin
-          SOME(makeZero(ty))
-        end
+        "sum" => SOME(makeZero(ty))
 
-        "product" => begin
-          SOME(makeOne(ty))
-        end
+        "product" => SOME(makeOne(ty))
 
-        "min" => begin
-          SOME(makeMaxValue(ty))
-        end
+        "min" => SOME(makeMaxValue(ty))
 
-        "max" => begin
-          SOME(makeMinValue(ty))
-        end
+        "max" => SOME(makeMinValue(ty))
 
         _ => begin
           Error.addSourceMessage(
@@ -1556,12 +1446,8 @@ function instIteratorCall(
      change it to just array here so we can handle array constructors uniformly. =#
    fn_name = begin
     @match functionName begin
-      Absyn.CREF_IDENT("\$array") => begin
-        Absyn.CREF_IDENT("array", nil)
-      end
-      _ => begin
-        functionName
-      end
+      Absyn.CREF_IDENT("\$array") => Absyn.CREF_IDENT("array", nil)
+      _ => functionName
     end
   end
   (exp, iters) = instIteratorCallArgs(functionArgs, scope, info)
@@ -1632,9 +1518,7 @@ function instNormalCall(
     if false #Config.getGraphicsExpMode() && stringEq(name, "DynamicSelect") #TODO =#
       callExp = begin
         @match functionArgs begin
-          Absyn.FUNCTIONARGS(__) => begin
-            instExp(listHead(functionArgs.args), scope, info)
-          end
+          Absyn.FUNCTIONARGS(__) => instExp(listHead(functionArgs.args), scope, info)
         end
       end
       return callExp
@@ -1647,12 +1531,8 @@ function instNormalCall(
      return just the first part of DynamicSelect =#
   callExp = begin
     @match name begin
-      "size" => begin
-        makeSizeExp(args, named_args, info)
-      end
-      "array" => begin
-        makeArrayExp(args, named_args, info)
-      end
+      "size" => makeSizeExp(args, named_args, info)
+      "array" => makeArrayExp(args, named_args, info)
       _ => begin
         #= size creates Expression.SIZE instead of Expression.CALL.
            array() call with no iterators creates Expression.ARRAY instead of Expression.CALL.

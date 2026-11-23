@@ -4725,7 +4725,7 @@ end
 function printErrorsNoWarning()::String
   local res::String
 
-  @assign res = ErrorExt.printErrorsNoWarning()
+  res = ErrorExt.printErrorsNoWarning()
   return res
 end
 
@@ -4738,7 +4738,7 @@ end
 function getNumMessages()::Int
   local num::Int
 
-  @assign num = ErrorExt.getNumMessages()
+  num = ErrorExt.getNumMessages()
   return num
 end
 
@@ -4758,7 +4758,7 @@ end
 """
 function getMessages()::List{ErrorTypes.TotalMessage}
   local res::List{ErrorTypes.TotalMessage}
-  @assign res = ErrorExt.getMessages()
+  res = ErrorExt.getMessages()
   return res
 end
 
@@ -4768,9 +4768,7 @@ end
 """
 function assertion(b::Bool, message::String, info::SourceInfo)
   @match (b, message, info) begin
-    (true, _, _) => begin
-      ()
-    end
+    (true, _, _) => ()
     _ => begin
       addSourceMessage(INTERNAL_ERROR, list(message), info)
       fail()
@@ -4790,9 +4788,7 @@ function assertionOrAddSourceMessage(
   inInfo::SourceInfo,
   )
   @match (inCond, inErrorMsg, inMessageTokens, inInfo) begin
-    (true, _, _, _) => begin
-      ()
-    end
+    (true, _, _, _) => ()
 
     _ => begin
       addSourceMessage(inErrorMsg, inMessageTokens, inInfo)
@@ -4803,15 +4799,11 @@ function assertionOrAddSourceMessage(
 end
 
 function failOnErrorMsg(inMessage::ErrorTypes.Message)
-  return @assign _ = begin
+  return _ = begin
     @match inMessage begin
-      ErrorTypes.MESSAGE(severity = ErrorTypes.ERROR(__)) => begin
-        fail()
-      end
+      ErrorTypes.MESSAGE(severity = ErrorTypes.ERROR(__)) => fail()
 
-      _ => begin
-        ()
-      end
+      _ => ()
     end
   end
 end

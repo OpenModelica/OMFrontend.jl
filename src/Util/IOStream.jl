@@ -97,22 +97,18 @@ function create(streamName::String, streamType::IOStreamType)::IOSTREAM
     local bufferID::Int
     @match (streamName, streamType) begin
       (_, FILE(fileName)) => begin
-        @assign fileID = IOStreamExt.createFile(fileName)
+        fileID = IOStreamExt.createFile(fileName)
         IOSTREAM(streamName, streamType, FILE_DATA(fileID))
       end
 
-      (_, LIST(__)) => begin
-        IOSTREAM(streamName, streamType, LIST_DATA(nil))
-      end
+      (_, LIST(__)) => IOSTREAM(streamName, streamType, LIST_DATA(nil))
 
       (_, BUFFER(__)) => begin
-        @assign bufferID = IOStreamExt.createBuffer()
+        bufferID = IOStreamExt.createBuffer()
         IOSTREAM(streamName, streamType, BUFFER_DATA(bufferID))
       end
 
-      (_, JULIA_BUFFER(__)) => begin
-        IOSTREAM(streamName, streamType, JULIA_BUFFER_DATA(IOBuffer()))
-      end
+      (_, JULIA_BUFFER(__)) => IOSTREAM(streamName, streamType, JULIA_BUFFER_DATA(IOBuffer()))
 
     end
   end
@@ -162,7 +158,7 @@ end
 
 function close(inStream::IOSTREAM)::IOSTREAM
   local outStream::IOSTREAM
-  @assign outStream = begin
+  outStream = begin
     local fileID::Int
     local fStream::IOSTREAM
     @matchcontinue inStream begin
@@ -170,9 +166,7 @@ function close(inStream::IOSTREAM)::IOSTREAM
         IOStreamExt.closeFile(fileID)
         fStream
       end
-      _ => begin
-        inStream
-      end
+      _ => inStream
     end
   end
   #= close does nothing for list or buffer streams =#
@@ -180,7 +174,7 @@ function close(inStream::IOSTREAM)::IOSTREAM
 end
 
 function delete(inStream::IOSTREAM)
-  return @assign _ = begin
+  return _ = begin
     local fileID::Int
     local bufferID::Int
     @match inStream begin
@@ -189,24 +183,20 @@ function delete(inStream::IOSTREAM)
         ()
       end
 
-      IOSTREAM(data = LIST_DATA(__)) => begin
-        ()
-      end
+      IOSTREAM(data = LIST_DATA(__)) => ()
 
       IOSTREAM(data = BUFFER_DATA(bufferID)) => begin
         IOStreamExt.deleteBuffer(bufferID)
         ()
       end
-      _ => begin
-        ()
-      end
+      _ => ()
     end
   end
 end
 
 function clear(inStream::IOSTREAM)::IOSTREAM
   local outStream::IOSTREAM
-  @assign outStream = begin
+  outStream = begin
     local fileID::Int
     local bufferID::Int
     local fStream::IOSTREAM
@@ -218,9 +208,7 @@ function clear(inStream::IOSTREAM)::IOSTREAM
         IOStreamExt.clearFile(fileID)
         fStream
       end
-      IOSTREAM(name, ty, _) => begin
-        IOSTREAM(name, ty, LIST_DATA(nil))
-      end
+      IOSTREAM(name, ty, _) => IOSTREAM(name, ty, LIST_DATA(nil))
       bStream && IOSTREAM(data = BUFFER_DATA(bufferID)) => begin
         IOStreamExt.clearBuffer(bufferID)
         bStream
@@ -249,9 +237,7 @@ function string(inStream::IOSTREAM)::String
         str = IOStreamExt.readBuffer(bufferID)
         str
       end
-      IOSTREAM(data = JULIA_BUFFER_DATA(jlBuffer)) => begin
-        String(take!(jlBuffer))
-      end
+      IOSTREAM(data = JULIA_BUFFER_DATA(jlBuffer)) => String(take!(jlBuffer))
     end
   end
   return string
@@ -263,7 +249,7 @@ end
   Use IOStream.stdOutput, IOStream.stdError constants
 """
 function print(inStream::IOSTREAM, whereToPrint::Int)
-  return @assign _ = begin
+  return _ = begin
     local listData::List{String}
     local fileID::Int
     local bufferID::Int
