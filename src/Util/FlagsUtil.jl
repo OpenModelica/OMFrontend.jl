@@ -47,7 +47,6 @@ import ..Global
 import ..ListUtil
 import ..Print
 import ..Settings
-import ..StringUtil
 import ..System
 import ..Util
 import ..Gettext

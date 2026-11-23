@@ -87,18 +87,11 @@ import .P_Pointer
 const Pointer = P_Pointer.Pointer
 include("../Util/Mutable.jl")
 include("../Util/utilityMacros.jl")
-include("../Util/UnorderedMap.jl")
-import .P_UnorderedMap
-const UnorderedMap = P_UnorderedMap
-include("../Util/UnorderedSet.jl")
-import .P_UnorderedSet
-const UnorderedSet = P_UnorderedSet
 #= Include various utility structures =#
 include("../Util/Global.jl")
 include("../Util/Settings.jl")
 include("../Util/Print.jl")
 include("../Util/Util.jl")
-include("../Util/StringUtil.jl")
 include("../Util/Flags.jl")
 include("../Util/FlagsUtil.jl")
 #= omc's Config, as far as the frontend asks it. The language standard is the latest (omc's
