@@ -801,7 +801,7 @@ function generateEqualityConstraintEquation(clhs::ComponentRef,
             end
             local argLst::List{Expression} = Cons{Expression}(REAL_EXPRESSION(0.0), ListUtil.map(arrayDims(ty), sizeExp, Expression))
             expLHS = CALL_EXPRESSION(UNTYPED_CALL(fcref_lhs, listArray(argLst), Expression[], fn_node_lhs))
-            (expLHS, ty, var) = typeExp(expLHS, origin, source)
+            (expLHS, ty, _) = typeExp(expLHS, origin, source)
             replaceEq = EQUATION_EQUALITY(expRHS, expLHS, ty, source)
             eqsEqualityConstraint = [replaceEq]
             return eqsEqualityConstraint
