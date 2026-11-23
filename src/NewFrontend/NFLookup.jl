@@ -677,6 +677,8 @@ function lookupSimpleCref(crefName::String,
   local is_import::Bool
   #= omc lookupSimpleCref's inEnclosingScope: found after leaving a non-implicit scope. =#
   local in_enclosing::Bool = false
+  #= Whether a library named crefName was loaded into the top scope (omc lookupSimpleCref, loadLibraries). =#
+  local loaded::Bool = false
   #= First try the normal scope chain. Local declarations shadow builtins. =#
   for _ in 1:Global.recursionDepthLimit
     try
@@ -708,6 +710,15 @@ function lookupSimpleCref(crefName::String,
             stateRef.x = state
             scopeRef.x = topScope(scope)
             return (node, cref)
+          end
+          #= Not a builtin either: a library of that name (Modelica.Constants.pi), loaded into the top
+             scope and looked up there again, as lookupSimpleName does for class names. =#
+          if !loaded
+            loaded = true
+            if loadLibrary(crefName, topScope(scope))
+              foundScope = topScope(scope)
+              continue
+            end
           end
           fail()
         end

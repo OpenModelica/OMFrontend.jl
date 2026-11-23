@@ -298,49 +298,49 @@ function printFoundWrongTypeError(
   fail()
 end
 
-"""Returns the string representation of a LookupState, with translation."""
+"""Returns the string representation of a LookupState."""
 function lookupStateString(state::LookupState)::String
   @match state begin
     LOOKUP_STATE_BEGIN(__) => begin
       "<begin>"
     end
     LOOKUP_STATE_COMP(__) => begin
-      System.gettext("component")
+      "component"
     end
 
     LOOKUP_STATE_COMP_COMP(__) => begin
-      System.gettext("component")
+      "component"
     end
 
     LOOKUP_STATE_COMP_CLASS(__) => begin
-      System.gettext("class")
+      "class"
     end
 
     LOOKUP_STATE_COMP_FUNC(__) => begin
-      System.gettext("function")
+      "function"
     end
 
     LOOKUP_STATE_PACKAGE(__) => begin
-      System.gettext("package")
+      "package"
     end
 
     LOOKUP_STATE_CLASS(__) => begin
-      System.gettext("class")
+      "class"
     end
 
     LOOKUP_STATE_FUNC(__) => begin
-      System.gettext("function")
+      "function"
     end
 
     LOOKUP_STATE_PREDEF_COMP(__) => begin
-      System.gettext("component")
+      "component"
     end
 
     LOOKUP_STATE_PREDEF_CLASS(__) => begin
-      System.gettext("class")
+      "class"
     end
     _ => begin
-      System.gettext("error")
+      "error"
     end
   end
 end

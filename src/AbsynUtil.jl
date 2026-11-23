@@ -49,21 +49,6 @@ import ..Frontend.System
 
 const dummyInfo = SOURCEINFO("", false, 0, 0, 0, 0, 0.0)::Info
 
-#= stefan =#
-
-#= stefan =#
-
-#= stefan =#
-
-#= stefan =#
-
-#= stefan =#
-
-#= stefan =#
-
-#= stefan =#
-
-#= stefan =#
 
 """
   The ElementSpec type contains the name of the element, and this function

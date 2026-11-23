@@ -329,7 +329,7 @@ map-tree family (AvlTreeString/StringString/CRToInt) — same playbook.
 
 ## OMFrontend instantiate/Simplify allocation profile + what is (not) reducible (2026-07-05)
 
-Per-phase alloc breakdown of the flatten pipeline via `OMFrontend.ENABLE_EXECSTAT[]=true`
+Per-phase alloc breakdown of the flatten pipeline via `OMFrontend.setFlags(execstat = true)` (was `ENABLE_EXECSTAT`, removed in 3.1.0)
 (wraps each `@EXECSTAT` phase in `@time`). DoublePendulum, ~2.55M allocs total:
 Simplify 895k (35%) > instantiate 489k (19%) > typeClass 331k (13%) > scalarize
 317k (12%) > instExpressions 206k > resolveConnections 147k > evaluate 76k >
@@ -971,7 +971,7 @@ largest serial phase.
 ## resolveConnections 3x: exceptions as control flow in the union-find (2026-07-09, Fable)
 
 EngineV6 `resolveConnections` went 2.2 s -> 0.66 s (fresh serial process, sub-step
-timers now in `src/NewFrontend/NFFlatten.jl` behind `ENABLE_EXECSTAT`). The whole
+timers now in `src/NewFrontend/NFFlatten.jl` behind the `execstat` flag). The whole
 win came from one defect: `ConnectionSets.find`
 (`src/NewFrontend/NFConnectionSets.jl`) looked up the entry with
 `sets.elements[entry]` inside try/catch and used the KeyError as the "not
@@ -1030,7 +1030,7 @@ during PRECOMPILE and the Ref value is serialized; a later process with a
 different environment silently gets the stale baked value. This made
 `OMFRONTEND_PARALLEL_INST=true julia -t 8` run SERIAL after an env-less
 precompile. Fix: re-read every env-derived flag in `OMFrontend.__init__`
-(`src/OMFrontend.jl`): `PARALLEL_INST`, `CACHE_INST`, `ENABLE_EXECSTAT`.
+(`src/OMFrontend.jl`): `PARALLEL_INST`, `CACHE_INST`.
 Runtime `Ref` flips are unaffected. When adding an env-gated flag, wire it
 into `__init__` or it only works by precompile luck.
 

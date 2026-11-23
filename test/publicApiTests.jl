@@ -27,6 +27,23 @@ function _raisedAndPrinted(f::F)::Tuple{Any, String} where {F <: Function}
   return (raised, printed)
 end
 
+"""
+The flat model of class `M` in `model`, or its error messages, with `flags` set (`setFlags`); the flags are restored
+after.
+"""
+function _flatWith(model::String; flags...)::String
+  local saved::OMFrontend.Frontend.Flags.Flag = OMFrontend.Frontend.FlagsUtil.backupFlags()
+  try
+    OMFrontend.setFlags(; flags...)
+    return string(OMFrontend.instantiate("M"; string = model))
+  catch e
+    e isa OMFrontend.ModelicaError || rethrow()
+    return join(e.messages, "\n")
+  finally
+    OMFrontend.Frontend.FlagsUtil.saveFlags(saved)
+  end
+end
+
 @testset "Public API" begin
   @testset "instantiate: a string, a file, a class of a library" begin
     local fm::OMFrontend.FlatModelica = OMFrontend.instantiate(string = DECAY_MODEL)
@@ -162,15 +179,83 @@ end
           sprint(showerror, typing)[length("ModelicaError: ") + 1:end] * "\nCheck of M failed with 1 error(s)."
   end
 
-  @testset "setDebugFlags: omc's -d= flags" begin
-    OMFrontend.setDebugFlags("execstat")
-    local (_, printed) = try
-      _raisedAndPrinted(() -> OMFrontend.instantiate(string = DECAY_MODEL))
-    finally
-      OMFrontend.setDebugFlags("-execstat")
-    end
-    @test occursin("Execstat Instantiation -> time: ", printed)
+  @testset "setFlags: each flag, on a small model" begin
+    #= Debug flags. =#
+    @test occursin("Real x = k * time", _flatWith("model M parameter Real k = 2; Real x = k * time; end M;"))
+    @test occursin("Real x = 2.0 * time",
+                   _flatWith("model M parameter Real k = 2; Real x = k * time; end M;"; evaluateAllParameters = true))
+    local f::String = "function f input Real a; output Real b; algorithm b := a + 1; end f; model M Real y = f(2) * time; end M;"
+    @test occursin("Real y = 3.0 * time", _flatWith(f))
+    @test occursin("Real y = 'f'(2.0) * time", _flatWith(f; nfEvalConstArgFuncs = false))
+    local g::String = "function g input Real a; output Real b; algorithm b := 2 * a; annotation(Inline = true); end g; " *
+                      "model M Real y = g(time); end M;"
+    @test occursin("Real y = 2.0 * time", _flatWith(g))
+    @test occursin("Real y = 'g'(time)", _flatWith(g; inlineFunctions = false))
+    @test occursin("Type mismatch in equation x = true", _flatWith("model M Real x; equation x = true; end M;"))
+    @test occursin("x = 1.0;", _flatWith("model M Real x; equation x = true; end M;"; nfAPI = true))
+    local dynamic::String = "model M Real x = DynamicSelect(1.0, time); end M;"
+    @test occursin("Real x = 1.0;", _flatWith(dynamic; nfAPI = true))
+    @test occursin("DynamicSelect(1.0, time)", _flatWith(dynamic; nfAPI = true, nfAPIDynamicSelect = true))
+    local assertFails::String = "function h input Real a; output Real b; algorithm assert(a > 10, \"small\"); b := a; end h; " *
+                                "model M Real y = h(2) * time; end M;"
+    @test occursin("- NFSimplifyExp.simplifyCall failed to evaluate h(2.0)",
+                   last(_raisedAndPrinted(() -> _flatWith(assertFails; failtrace = true))))
+    local overconstrained::String = """
+      record R Real x;
+        function equalityConstraint input R a; input R b; output Real r[1]; algorithm r := {a.x - b.x}; end equalityConstraint;
+      end R;
+      connector C R r; flow Real f; end C;
+      model M C a, b; equation Connections.root(a.r); connect(a, b); a.r.x = time; a.f = 1; end M;
+      """
+    @test occursin("- addConnection(a.r, b.r)\nRoots: a.r\n", last(_raisedAndPrinted(() -> _flatWith(overconstrained; cgraph = true))))
+    local printed::String = last(_raisedAndPrinted(() -> _flatWith(replace(DECAY_MODEL, "Decay" => "M"); execstat = true)))
+    @test occursin("Execstat Instantiation -> time: ", printed) && occursin("resolveConnections: ", printed)
+    local dumps::String = joinpath(OMFrontend.Frontend.logDir(), "frontend", "flat")
+    isdir(dumps) && rm(dumps; recursive = true)
+    _flatWith(replace(DECAY_MODEL, "Decay" => "M"); nfDumpFlat = true)
+    @test "M_afterFlatten.mo" in readdir(dumps)
+    #= Options. =#
+    local promote::String = "model M Real x[2, 1] = promote({time, 2 * time}, 2); end M;"
+    @test occursin("requires the --std=experimental flag", _flatWith(promote))
+    @test occursin("'x[2,1]' = 2.0 * time", _flatWith(promote; std = "experimental"))
+    local stream::String = """
+      connector P Real p; flow Real m; stream Real h; end P;
+      model S P port; parameter Real h0; equation port.p = 1; port.h = h0; end S;
+      model M S a(h0 = 1), b(h0 = 2), c(h0 = 3); Real hmix = inStream(a.port.h);
+      equation connect(a.port, b.port); connect(a.port, c.port); a.port.m = time; b.port.m = 1 - time; end M;
+      """
+    @test occursin("OMCPositiveMax((-'b.port.m'), 1.0e-7)", _flatWith(stream))
+    @test occursin("OMCPositiveMax((-'b.port.m'), 0.001)", _flatWith(stream; flowThreshold = 1e-3))
+    local loop::String = "function s input Integer n; output Integer t = 0; algorithm for i in 1:n loop t := t + i; end for; " *
+                         "end s; model M Real y = s(200) * time; end M;"
+    @test occursin("Real y = 20100.0 * time", _flatWith(loop))
+    @test occursin("Real y = 's'(200) * time", _flatWith(loop; evalLoopLimit = 100))
+    local recursion::String = "function r input Integer n; output Integer t; algorithm t := if n <= 0 then 0 else r(n - 1) + 1; " *
+                              "end r; model M Real y = r(50) * time; end M;"
+    @test occursin("Real y = 50.0 * time", _flatWith(recursion))
+    @test occursin("Real y = 'r'(50) * time", _flatWith(recursion; evalRecursionLimit = 10))
+    local reinit::String = "model M Real x(start = 1); equation der(x) = -x; algorithm when x < 0.5 then reinit(x, 1); end when; end M;"
+    @test occursin("Operator reinit may not be used in an algorithm section", _flatWith(reinit))
+    @test occursin("reinit(x, 1.0);", _flatWith(reinit; allowNonStandardModelica = ["reinitInAlgorithms"]))
+    local annotated::String = replace(reinit, "end M;" =>
+      "annotation(__OpenModelica_commandLineOptions = \"--allowNonStandardModelica=reinitInAlgorithms\"); end M;")
+    @test occursin("reinit(x, 1.0);", _flatWith(annotated))
+    @test occursin("Operator reinit may not be used", _flatWith(annotated; ignoreCommandLineOptionsAnnotation = true))
+    local piModel::String = "model M Real x = Modelica.Constants.pi * time; end M;"
+    @test occursin("Real x = 3.141592653589793 * time", _flatWith(piModel))
+    @test occursin("Variable Modelica.Constants.pi not found in scope M", _flatWith(piModel; loadMissingLibraries = false))
+    #= Wrong names and values change no flag. =#
+    @test_throws ArgumentError OMFrontend.setFlags(execstat = true, foo = 1)
     @test !OMFrontend.Frontend.Flags.isSet(OMFrontend.Frontend.Flags.EXEC_STAT)
+    @test_throws ArgumentError OMFrontend.setFlags(execstat = 1)
+    @test_throws ArgumentError OMFrontend.setFlags(evalLoopLimit = 1.5)
+    @test_throws ArgumentError OMFrontend.setFlags(std = "4.0")
+    @test_throws ArgumentError OMFrontend.setFlags(allowNonStandardModelica = ["protectedAccess"])
+    @test_throws ArgumentError OMFrontend.setFlags(nfScalarize = false)
+    #= The documentation lists every flag (docs/src/flags.md). =#
+    local page::String = read(joinpath(@__DIR__, "..", "docs", "src", "flags.md"), String)
+    @test all(n -> occursin("| `$(n)` |", page),
+              (OMFrontend._flagNames(OMFrontend._debugFlags())..., OMFrontend._flagNames(OMFrontend._options())...))
   end
 
   @testset "debug!: the internal failure, the messages on stderr" begin

@@ -205,8 +205,8 @@ end
             "DynamicSelect",
             AbsynUtil.pathString(nameConsiderBuiltin(call.fn)),
           )
-             callExp = simplify(listHead(args))
-            return
+            #= The static expression, the first argument (args is a Vector). =#
+            return simplify(args[1])
           end
         end
         args = mapPreservingEq(args, simplify)
@@ -278,7 +278,8 @@ function simplifyCall2(call::Call)
   if isEvalFailure(outExp)
     if Flags.isSet(Flags.FAILTRACE)
       ErrorExt.delCheckpoint(getInstanceName())
-      println("- " + getInstanceName() + " failed to evaluate " + toString(call))
+      #= omc's getInstanceName() is this function's name; MetaModelica's returns a placeholder. =#
+      println("- NFSimplifyExp.simplifyCall failed to evaluate " + toString(call))
     else
       ErrorExt.rollBack(getInstanceName())
     end

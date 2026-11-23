@@ -44,7 +44,6 @@ using ExportAll
 #= Forward declarations for uniontypes until Julia adds support for mutual recursion =#
 
 @UniontypeDecl Status
-@UniontypeDecl DateTime
 
 const FuncType = Function
 const CompareFunc = Function
@@ -55,18 +54,6 @@ const FuncT = Function
   @Record SUCCESS begin
   end
   @Record FAILURE begin
-  end
-end
-
-@Uniontype DateTime begin
-  @Record DATETIME begin
-
-    sec::Int
-    min::Int
-    hour::Int
-    mday::Int
-    mon::Int
-    year::Int
   end
 end
 
@@ -476,21 +463,6 @@ function xmlEscape(s1::String)::String
   return s2
 end
 
-function getCurrentDateTime()::DateTime
-  local dt::DateTime
-
-  local sec::Int
-  local min::Int
-  local hour::Int
-  local mday::Int
-  local mon::Int
-  local year::Int
-
-   (sec, min, hour, mday, mon, year) = System.getCurrentDateTime()
-   dt = DATETIME(sec, min, hour, mday, mon, year)
-  return dt
-end
-
 function id(inValue::T) where {T}
   local outValue::T = inValue
   return outValue
@@ -724,53 +696,6 @@ function realRangeSize(
   outSize = floor(Int, steps) + 1
   outSize = max(outSize, 0)
   return outSize
-end
-
-function createDirectoryTreeH(
-  inString::String,
-  parentDir::String,
-  parentDirExists::Bool,
-)::Bool
-  local outBool::Bool
-
-   outBool = begin
-    local b::Bool
-    @matchcontinue parentDirExists begin
-      _ => begin
-        @match true = stringEqual(parentDir, System.dirname(parentDir))
-         b = System.createDirectory(inString)
-        b
-      end
-
-      true => begin
-         b = System.createDirectory(inString)
-        b
-      end
-
-      false => begin
-        @match true = createDirectoryTree(parentDir)
-         b = System.createDirectory(inString)
-        b
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outBool
-end
-
-function createDirectoryTree(inString::String)::Bool
-  local outBool::Bool
-
-  local parentDir::String
-  local parentDirExists::Bool
-
-   parentDir = System.dirname(inString)
-   parentDirExists = System.directoryExists(parentDir)
-   outBool = createDirectoryTreeH(inString, parentDir, parentDirExists)
-  return outBool
 end
 
 """Create an iterator or the like with a unique name"""

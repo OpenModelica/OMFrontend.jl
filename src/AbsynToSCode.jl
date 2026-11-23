@@ -1109,9 +1109,7 @@ function translateEitemlist(
   # The AbsynToSCode parallel branch is proven race-free (each task produces a
   # self-contained `SCode.Element` and the only shared writes are idempotent
   # ratchet-to-true flags in `GLOBAL_MEMORY`). It is therefore unconditionally
-  # enabled — gated only by thread count and the per-task threshold. The
-  # `Flags.NF_PARALLEL` debug flag is reserved for opt-in parallelism in
-  # later phases (instantiate, etc.) where correctness is not yet proven.
+  # enabled — gated only by thread count and the per-task threshold.
   if Threads.nthreads() >= 2
     local arr::Vector{Absyn.ElementItem} = listArray(inAbsynElementItemLst)
     if length(arr) >= NF_PARALLEL_EITEM_THRESHOLD

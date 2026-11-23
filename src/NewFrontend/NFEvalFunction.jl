@@ -90,15 +90,11 @@ function _evalStmtExp(@nospecialize(exp::Expression), target::EvalTarget)::Expre
   return r isa EVAL_FAILURE ? r : getBindingExp(r)
 end
 
-const _EVAL_RECURSION_LIMIT_CACHE = Ref{Int}(-1)
-@inline function _evalRecursionLimit()::Int
-  local v::Int = _EVAL_RECURSION_LIMIT_CACHE[]
-  if v < 0
-    v = Int(Flags.getConfigInt(Flags.EVAL_RECURSION_LIMIT))
-    _EVAL_RECURSION_LIMIT_CACHE[] = v
-  end
-  return v
-end
+"""
+The option `evalRecursionLimit`, read at each evaluation (177 ns): a value cached in a `Ref` was baked into the
+package image at precompilation (256) and ignored `setFlags` and the model's annotation.
+"""
+_evalRecursionLimit()::Int = Int(Flags.getConfigInt(Flags.EVAL_RECURSION_LIMIT))
 
 """The value of a call of `fn` with evaluated arguments, or `EVAL_FAILED` (messages reported)."""
 function evaluate(fn::MODELICA_FUNCTION, args::Vector{Expression})::Expression

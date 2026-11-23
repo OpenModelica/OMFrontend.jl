@@ -33,24 +33,20 @@
 *
 */ =#
 
-"""
-Per-phase timing gate for `@EXECSTAT`. Initialized from
-`ENV["ENABLE_EXECSTAT"]` at module load; flip at runtime via
-`OMFrontend.ENABLE_EXECSTAT[] = true / false` to avoid a Julia restart.
-"""
-const ENABLE_EXECSTAT = Ref{Bool}(get(ENV, "ENABLE_EXECSTAT", "false") == "true")
+"""Whether the debug flag `execstat` is set (`setFlags(execstat = true)`): the gate of `@EXECSTAT`."""
+_execstat()::Bool = Frontend.Flags.isSet(Frontend.Flags.EXEC_STAT)
 
 """
     @EXECSTAT "label" expr
 
-Wraps `expr` in `@time` when `ENABLE_EXECSTAT[]` is true; otherwise the
-expression is evaluated with no instrumentation. The runtime check costs
-one boolean load and one branch per call site, so use it on coarse phase
-boundaries, not in tight inner loops.
+Wraps `expr` in `@time` when the debug flag `execstat` is set; otherwise the
+expression is evaluated with no instrumentation. The runtime check reads the
+flags once per call site, so use it on coarse phase boundaries, not in tight
+inner loops.
 """
 macro EXECSTAT(msg, expr)
   return quote
-    if $(ENABLE_EXECSTAT)[]
+    if $(_execstat)()
       @time $(esc(msg)) __result = $(esc(expr))
       __result
     else

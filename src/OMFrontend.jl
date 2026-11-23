@@ -133,7 +133,6 @@ function __init__()
   Frontend.PARALLEL_INST[] = get(ENV, "OMFRONTEND_PARALLEL_INST", "true") == "true"
   Frontend.LIBRARY_LOADER[] = _loadLibraryOnDemand
   Frontend.CACHE_INST[] = get(ENV, "OMFRONTEND_CACHE_INST", "true") == "true"
-  ENABLE_EXECSTAT[] = get(ENV, "ENABLE_EXECSTAT", "false") == "true"
   return nothing
 end
 
@@ -156,7 +155,7 @@ The functions and types for users: section "Public API" of the documentation (do
 """
 const USER_API = (:instantiate, :flatModelica, :check, :classNames, :source, :description, :documentation,
                   :variables, :parameters, :exportJSON, :componentGraphics, :installLibrary, :libraries,
-                  :FlatModelica, :CheckResult, :ModelicaError, :debug!)
+                  :setFlags, :FlatModelica, :CheckResult, :ModelicaError, :debug!)
 
 """
 The developer functions: the steps `instantiate` runs, the library cache and the older entry points. Section
@@ -166,8 +165,7 @@ function, name it here and list it in that section.
 const DEVELOPER_API = (:parseFile, :translateToSCode, :instantiateSCodeToFM, :flattenModel, :flattenModelWithMSL,
                        :flattenModelWithLibraries, :loadMSL, :loadBundledMSL, :loadLibrary, :loadPackageDirectory,
                        :loadInstalledLibrary, :toFlatModelica, :toString, :exportSCodeRepresentationToFile,
-                       :setDebugFlags, :enableDumpDebug, :disableDumpDebug, :removeQuotesFromFlatModelica,
-                       :julia_main)
+                       :enableDumpDebug, :disableDumpDebug, :removeQuotesFromFlatModelica, :julia_main)
 
 eval(Expr(:public, USER_API..., DEVELOPER_API...))
 
@@ -2173,23 +2171,117 @@ function flattenModelWithLibraries(modelName::String,
 end
 
 """
-    setDebugFlags(flags::String) -> Nothing
+    setFlags(; flags...) -> Nothing
 
-Set omc's debug flags, as omc's `-d=` option and `setDebugFlags` call do: names separated by commas, a `-` before a
-name turns it off. `"execstat"` prints the time and the memory allocated after each instantiation phase,
-`"failtrace"` the internal failures, `"cgraph"` the connection graph of overconstrained connectors,
-`"nfDumpFlat"` writes the flat model between phases to files (`enableDumpDebug`).
+Set flags of the frontend by name: a debug flag to `true` or `false`, an option to a value of its type (an integer,
+a number, a string, a vector of strings). The flags hold in the Julia session until they are set again. The page
+[Flags](@ref) lists them with their defaults. An unknown name or a value of the wrong type raises an
+`ArgumentError`, and then no flag changes.
 
 # Example
 ```julia
-OMFrontend.setDebugFlags("execstat")
-OMFrontend.instantiate("Modelica.Blocks.Examples.PID_Controller")   # prints Execstat lines
-OMFrontend.setDebugFlags("-execstat")
+OMFrontend.setFlags(execstat = true)    # prints the time and memory of each instantiation phase
+OMFrontend.instantiate("Modelica.Blocks.Examples.PID_Controller")
+OMFrontend.setFlags(execstat = false)
+OMFrontend.setFlags(evaluateAllParameters = true, evalLoopLimit = 10^6)
 ```
 """
-function setDebugFlags(flags::String)::Nothing
-  Frontend.FlagsUtil.readArgs(list("-d=" * flags))
+function setFlags(; flags...)::Nothing
+  local debugFlags::Vector{Flags.DebugFlag} = _debugFlags()
+  local options::Vector{Flags.ConfigFlag} = _options()
+  local debugValues::Vector{Pair{Flags.DebugFlag, Bool}} = Pair{Flags.DebugFlag, Bool}[]
+  local optionValues::Vector{Pair{Flags.ConfigFlag, Flags.FlagData}} = Pair{Flags.ConfigFlag, Flags.FlagData}[]
+  #= Every name and value is checked before a flag changes. =#
+  for key::Symbol in keys(flags)
+    local name::String = String(key)
+    local value::Any = flags[key]
+    local i::Int = _flagIndex(debugFlags, name)
+    local j::Int = _flagIndex(options, name)
+    if haskey(_ARGUMENT_FLAGS, name)
+      throw(ArgumentError("each translation sets $(name) from its arguments: $(_ARGUMENT_FLAGS[name])"))
+    elseif i > 0
+      value isa Bool || throw(ArgumentError("the debug flag $(name) is true or false, not $(repr(value))"))
+      push!(debugValues, debugFlags[i] => value)
+    elseif j > 0
+      push!(optionValues, options[j] => _optionValue(options[j], value))
+    else
+      throw(ArgumentError("unknown flag $(name). Debug flags: $(Base.join(_flagNames(debugFlags), ", ")). " *
+                          "Options: $(Base.join(_flagNames(options), ", "))."))
+    end
+  end
+  for p::Pair{Flags.DebugFlag, Bool} in debugValues
+    FlagsUtil.set(p.first, p.second)
+  end
+  for p::Pair{Flags.ConfigFlag, Flags.FlagData} in optionValues
+    FlagsUtil.setConfigValue(p.first, p.second)
+  end
   return nothing
+end
+
+"""Debug flags each translation sets from its arguments; `setFlags` names the argument."""
+const _ARGUMENT_FLAGS = Dict{String, String}("nfScalarize" => "instantiate(...; scalarize = false)",
+  "nfExpandOperations" => "instantiate(...; scalarize = false)", "nfExpandFuncArgs" => "instantiate(...; scalarize = false)",
+  "nfSeparateInstantiation" => "instantiateSCodeToFM(...; separateInstantiation = true)")
+
+"""The debug flags `setFlags` sets: omc's debug flags in OMFrontend (`FlagsUtil.allDebugFlags`) but the argument flags."""
+function _debugFlags()::Vector{Flags.DebugFlag}
+  return Flags.DebugFlag[f for f in FlagsUtil.allDebugFlags if !haskey(_ARGUMENT_FLAGS, f.name)]
+end
+
+"""
+The options `setFlags` sets: omc's configuration flags in OMFrontend (`FlagsUtil.allConfigFlags`) but `debug`, which
+the debug flags are, and the internal `checkModel`.
+"""
+function _options()::Vector{Flags.ConfigFlag}
+  return Flags.ConfigFlag[f for f in FlagsUtil.allConfigFlags if f.name != "debug" && f.visibility isa Flags.EXTERNAL]
+end
+
+"""The position of the flag named `name` among `flags`, 0 if none has that name."""
+function _flagIndex(flags::Vector{T}, name::String)::Int where {T <: Union{Flags.DebugFlag, Flags.ConfigFlag}}
+  for i::Int in eachindex(flags)
+    flags[i].name == name && return i
+  end
+  return 0
+end
+
+"""The names of `flags`."""
+function _flagNames(flags::Vector{T})::Vector{String} where {T <: Union{Flags.DebugFlag, Flags.ConfigFlag}}
+  return String[f.name for f in flags]
+end
+
+"""The values option `option` takes when it lists them (`allowNonStandardModelica`), else none."""
+function _optionValues(option::Flags.ConfigFlag)::Vector{String}
+  option.validOptions === nothing && return String[]
+  return collect(String, FlagsUtil.getValidStringOptions(Frontend.Util.getOption(option.validOptions)))
+end
+
+"""`value` as option `option` stores it; an `ArgumentError` when it is not of the option's type or values."""
+function _optionValue(option::Flags.ConfigFlag, value::Any)::Flags.FlagData
+  local default::Flags.FlagData = option.defaultValue
+  local name::String = option.name
+  if default isa Flags.BOOL_FLAG && value isa Bool
+    return Flags.BOOL_FLAG(value)
+  elseif default isa Flags.INT_FLAG && value isa Integer && !(value isa Bool)
+    return Flags.INT_FLAG(Int(value))
+  elseif default isa Flags.REAL_FLAG && value isa Real && !(value isa Bool)
+    return Flags.REAL_FLAG(Float64(value))
+  elseif default isa Flags.ENUM_FLAG
+    local names::Vector{String} = String[first(v) for v in default.validValues]
+    for v::Tuple{String, Integer} in default.validValues
+      value == first(v) && return Flags.ENUM_FLAG(Int(last(v)), default.validValues)
+    end
+    throw(ArgumentError("the option $(name) is one of $(Base.join(repr.(names), ", ")), not $(repr(value))"))
+  elseif default isa Flags.STRING_LIST_FLAG && value isa AbstractVector{<:AbstractString}
+    local valid::Vector{String} = _optionValues(option)
+    for v::AbstractString in value
+      isempty(valid) || v in valid ||
+        throw(ArgumentError("the option $(name) takes $(Base.join(repr.(valid), ", ")), not $(repr(v))"))
+    end
+    return Flags.STRING_LIST_FLAG(list(String.(value)...))
+  end
+  local expected::String = default isa Flags.BOOL_FLAG ? "true or false" : default isa Flags.INT_FLAG ?
+    "an integer" : default isa Flags.REAL_FLAG ? "a number" : "a vector of strings"
+  throw(ArgumentError("the option $(name) takes $(expected), not $(repr(value))"))
 end
 
 """
