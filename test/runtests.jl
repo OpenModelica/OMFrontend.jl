@@ -74,6 +74,7 @@ end
   include("listVectorTests.jl")
   include("evalCatTests.jl")
   include("logicArrayTests.jl")
+  include("builtinCallTests.jl")
   include("modifierMergeTests.jl")
   include("flatModelicaFunctionTests.jl")
   include("lapackEvalTests.jl")

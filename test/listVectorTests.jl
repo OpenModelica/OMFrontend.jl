@@ -49,15 +49,6 @@ end
     @test occursin(r"'m\[1,2\]' = 'subscript[^']*'\(matrix\([^)]*\),1,2\);", flat)
   end
 
-  @testset "scalar() of an array of unknown size in a function (typeScalarCall, not expanded)" begin
-    local flat::String = string(OMFrontend.instantiate("S"; string = """
-      model S
-        function g input Real a[:]; output Real y; algorithm y := scalar(a); end g;
-        Real z = g({time});
-      end S;"""))
-    @test occursin("y := scalar(a);", flat)
-  end
-
   @testset "a range subscripted with a literal slice (applySubscriptRange)" begin
     local r::F.Expression = F.applySubscript(slice24, F.makeRange(I(1), F.NONE(), I(5)), ImmutableList.nil)
     @test r isa F.ARRAY_EXPRESSION && F.toString(r) == "{2, 4}"

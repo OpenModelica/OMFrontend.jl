@@ -38,13 +38,13 @@
 
 """Whether the untyped `call` is to a builtin function with its own typing rules (`typeSpecial`)."""
 function needSpecialHandling(call::Call)::Bool
-  if !(isvariant(call, UNTYPED_CALL))
-    Error.assertion(false, getInstanceName() + " got unknown call: " + toString(call), sourceInfo())
-    fail()
+  return @match call begin
+    UNTYPED_CALL(__) => getFuncCache(classScope(node(call.ref))).specialBuiltin
+    _ => begin
+      Error.assertion(false, getInstanceName() + " got unknown call: " + toString(call), sourceInfo())
+      fail()
+    end
   end
-  local special::Bool
-  @match C_FUNCTION(specialBuiltin = special) = getFuncCache(classScope(node(call.ref)))
-  return special
 end
 
 """
@@ -186,11 +186,12 @@ function _catCommonType(tys::Vector{ModelicaType})::ModelicaType
   local zero::Expression = INTEGER_EXPRESSION(0)
   local common::ModelicaType = TYPE_UNKNOWN()
   for ty::ModelicaType in tys
-    if isvariant(common, TYPE_UNKNOWN)
-      common = ty
-    else
-      local (_, _, matched::ModelicaType, mk::MatchKindType) = matchExpressions(zero, ty, zero, common)
-      isCompatibleMatch(mk) && (common = matched)
+    common = @match common begin
+      TYPE_UNKNOWN(__) => ty
+      _ => begin
+        local (_, _, matched::ModelicaType, mk::MatchKindType) = matchExpressions(zero, ty, zero, common)
+        isCompatibleMatch(mk) ? matched : common
+      end
     end
   end
   return common
@@ -396,13 +397,14 @@ function typeDiagonalCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tu
   local (fnRef::ComponentRef, args::Vector{Expression}) =
     _untypedArgs(call, "diagonal", 1:1, "diagonal(Any[n]) => Any[n, n]", info)
   local (arg::Expression, ty::ModelicaType, var::VariabilityType) = typeExp(args[1], origin, info)
-  if !(isvariant(ty, TYPE_ARRAY) && listLength(ty.dimensions) == 1)
-    Error.addSourceMessage(Error.ARG_TYPE_MISMATCH, list("1", toString(fnRef), "", toString(arg), toString(ty), "Any[:]"),
-                           info)
-    fail()
+  local resTy::ModelicaType = @match ty begin
+    TYPE_ARRAY(elementType = el, dimensions = _cons(dim, nil)) => TYPE_ARRAY(el, list(dim, dim))
+    _ => begin
+      Error.addSourceMessage(Error.ARG_TYPE_MISMATCH,
+                             list("1", toString(fnRef), "", toString(arg), toString(ty), "Any[:]"), info)
+      fail()
+    end
   end
-  local dim::Dimension = listHead(ty.dimensions)
-  local resTy::ModelicaType = TYPE_ARRAY(ty.elementType, list(dim, dim))
   return (_unaryCall(fnRef, arg, var, resTy), resTy, var)
 end
 
@@ -727,16 +729,14 @@ function typeTransposeCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::T
   local (fnRef::ComponentRef, args::Vector{Expression}) =
     _untypedArgs(call, "transpose", 1:1, "transpose(Any[n, m, ...]) => Any[m, n, ...]", info)
   local (arg::Expression, ty::ModelicaType, var::VariabilityType) = typeExp(args[1], origin, info)
-  if !(isvariant(ty, TYPE_ARRAY) && listLength(ty.dimensions) >= 2)
-    Error.addSourceMessage(Error.ARG_TYPE_MISMATCH,
-                           list("1", toString(fnRef), "", toString(arg), toString(ty), "Any[:, :, ...]"), info)
-    fail()
+  local resTy::ModelicaType = @match ty begin
+    TYPE_ARRAY(elementType = el, dimensions = _cons(dim1, _cons(dim2, rest))) => TYPE_ARRAY(el, _cons(dim2, _cons(dim1, rest)))
+    _ => begin
+      Error.addSourceMessage(Error.ARG_TYPE_MISMATCH,
+                             list("1", toString(fnRef), "", toString(arg), toString(ty), "Any[:, :, ...]"), info)
+      fail()
+    end
   end
-  local dim1::Dimension
-  local dim2::Dimension
-  local rest::List{Dimension}
-  @match _cons(dim1, _cons(dim2, rest)) = ty.dimensions
-  local resTy::ModelicaType = TYPE_ARRAY(ty.elementType, _cons(dim2, _cons(dim1, rest)))
   return (_unaryCall(fnRef, arg, var, resTy), resTy, var)
 end
 
@@ -964,10 +964,10 @@ end
 
 """The element type of `ty` when `cref`'s subscripts select one element of it; otherwise `ty`."""
 function _subscriptedType(cref::ComponentRef, ty::ModelicaType)::ModelicaType
-  if isvariant(ty, TYPE_ARRAY) && listLength(subscriptsAllFlat(cref)) == listLength(ty.dimensions)
-    return ty.elementType
+  return @match ty begin
+    TYPE_ARRAY(elementType = el, dimensions = dims) where (listLength(subscriptsAllFlat(cref)) == listLength(dims)) => el
+    _ => ty
   end
-  return ty
 end
 
 """
