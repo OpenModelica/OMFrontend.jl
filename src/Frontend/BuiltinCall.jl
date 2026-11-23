@@ -431,7 +431,7 @@ function makeCatExpRef(n::Int,
   #= We have all except dimension n having equal sizes; with matching types =#
   ty = resTy
   res = pushfirst!(res, INTEGER_EXPRESSION(n))
-  callExp = CALL_EXPRESSION(makeTypedCall(NFBuiltinFuncs.CAT, res, variability, resTy))
+  callExp = CALL_EXPRESSION(makeTypedCall(BuiltinFuncs.CAT, res, variability, resTy))
   tyRef.x = ty
   callExp
 end
@@ -994,7 +994,7 @@ function typeFillCall2(fnRef::ComponentRef,
   callExp = evaluated ? evalBuiltinFill(ty_args) : EVAL_FAILED
   #= Not evaluated, or dimensions that did not evaluate to integers: the call. =#
   if isEvalFailure(callExp)
-    callExp = CALL_EXPRESSION(makeTypedCall(NFBuiltinFuncs.FILL_FUNC, ty_args, variability, ty))
+    callExp = CALL_EXPRESSION(makeTypedCall(BuiltinFuncs.FILL_FUNC, ty_args, variability, ty))
   end
   (callExp, ty, variability)
 end

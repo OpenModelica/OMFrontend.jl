@@ -3282,7 +3282,7 @@ function getRangeTypeInt(
           variability(step_exp),
         )
         @assign dim_exp = CALL_EXPRESSION(makeTypedCall(
-          NFBuiltinFuncs.DIV_INT,
+          BuiltinFuncs.DIV_INT,
           Expression[dim_exp, step_exp],
           var,
         ))
@@ -3293,7 +3293,7 @@ function getRangeTypeInt(
         INTEGER_EXPRESSION(1),
       )
       dim_exp = CALL_EXPRESSION(makeTypedCall(
-        NFBuiltinFuncs.MAX_INT,
+        BuiltinFuncs.MAX_INT,
         Expression[dim_exp, INTEGER_EXPRESSION(0)],
         var,
       ))
@@ -3374,12 +3374,12 @@ function getRangeTypeReal(
         )
       end
       dim_exp = CALL_EXPRESSION(makeTypedCall(
-        NFBuiltinFuncs.FLOOR,
+        BuiltinFuncs.FLOOR,
         Expression[dim_exp],
         var,
       ))
       dim_exp = CALL_EXPRESSION(makeTypedCall(
-        NFBuiltinFuncs.INTEGER_REAL,
+        BuiltinFuncs.INTEGER_REAL,
         Expression[dim_exp],
         var,
       ))

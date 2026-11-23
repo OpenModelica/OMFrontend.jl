@@ -60,7 +60,7 @@ See [Getting started](@ref) for a longer walk-through and the
 | Path                 | Purpose                                        |
 |:---------------------|:-----------------------------------------------|
 | `src/OMFrontend.jl`        | The module `OMFrontend`: the public API.             |
-| `src/Frontend/`            | The module `Frontend` (`Frontend.jl`): instantiation, typing, flattening (NF*). |
+| `src/Frontend/`            | The module `Frontend` (`Frontend.jl`): instantiation, typing, flattening.     |
 | `src/SCode/`               | SCode, Absyn -> SCode lowering, SCode helpers.       |
 | `src/Absyn/`               | Absyn helpers and traversals.                        |
 | `src/Util/`                | Flags, errors, hash maps, AVL trees, macros.         |

@@ -1,5 +1,5 @@
 #=
-Tests for the algorithm-level for-loop unroller in NFFlatten.jl.
+Tests for the algorithm-level for-loop unroller in Flatten.jl.
 
 The unroller fires when:
   - the `ALG_FOR` has a present range that evaluates to a literal integer

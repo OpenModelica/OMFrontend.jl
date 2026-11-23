@@ -537,7 +537,7 @@ function lookupFirstIdent(name::String, scope::InstNode, lookupStateRef::Ref{Loo
       selfReference = self
     end
   end
-  if node !== nothing && node === NFBuiltin.BUILTIN_DICT[name]
+  if node !== nothing && node === Builtin.BUILTIN_DICT[name]
     state = LOOKUP_STATE_PREDEF_CLASS()
   elseif node !== nothing
     state = nodeState(node)
@@ -640,8 +640,8 @@ end
 
 @noinline function lookupSimpleBuiltinName(name::String)
   local builtin::InstNode
-  if  name in keys(NFBuiltin.BUILTIN_DICT)
-    return builtin = NFBuiltin.BUILTIN_DICT[name]
+  if  name in keys(Builtin.BUILTIN_DICT)
+    return builtin = Builtin.BUILTIN_DICT[name]
   else
     return nothing
   end
@@ -652,8 +652,8 @@ function lookupSimpleBuiltinCref(name::String, subs::List{T}) where {T}
   local cref::ComponentRef
   local node::InstNode
   #@info "Looking up $name in lookupSimpleBuiltinCref"
-  if name in keys(NFBuiltin.BUILTIN_CREF_DICT)
-    (node, cref, state) = NFBuiltin.BUILTIN_CREF_DICT[name]
+  if name in keys(Builtin.BUILTIN_CREF_DICT)
+    (node, cref, state) = Builtin.BUILTIN_CREF_DICT[name]
   else
     return nothing
   end

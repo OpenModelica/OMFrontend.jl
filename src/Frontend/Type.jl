@@ -40,7 +40,7 @@ struct FunctionTypeStruct
 end
 const FunctionType = FunctionTypeStruct(1, 2, 3)
 
-#= The ModelicaType struct and its ModelicaTypeTag enum are in FrontendInterfaces/NFInterfaces.jl (see
+#= The ModelicaType struct and its ModelicaTypeTag enum are in FrontendInterfaces/Interfaces.jl (see
    `ModelicaTypeImpl`). Here: its `TYPE_*` constructors (nullary types are shared singletons), the
    `@match` registrations and the functions on types. A variant is tested with `isvariant(x, TYPE_*)`. =#
 

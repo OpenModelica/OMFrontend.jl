@@ -34,7 +34,7 @@
 */ =#
 
 #= Names for the function arguments of the higher-order functions (map, fold, apply). Each type has one name,
-   defined with the type (FrontendInterfaces/NFInterfaces.jl and Frontend/*.jl). =#
+   defined with the type (FrontendInterfaces/Interfaces.jl and Frontend/*.jl). =#
 
 const ApplyFn = Function
 const ApplyFunc = Function

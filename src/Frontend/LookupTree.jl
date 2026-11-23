@@ -78,7 +78,7 @@ keyStr(key::Key)::String = key
 
 @inline _sortedKeys(tree::Tree) = sort!(collect(keys(tree)); lt = (a, b) -> keyCompare(a, b) < 0)
 
-# Constructor shims so literal trees built in NFBuiltin (NODE/LEAF/EMPTY) compose
+# Constructor shims so literal trees built in Builtin (NODE/LEAF/EMPTY) compose
 # into a Dict without change. The height argument is ignored.
 EMPTY()::Tree = Dict{Key, Value}()
 LEAF(key::Key, value::Value)::Tree = Dict{Key, Value}(key => value)

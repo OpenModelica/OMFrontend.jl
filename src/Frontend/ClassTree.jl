@@ -1259,7 +1259,7 @@ function fromEnumeration(
   local comp::InstNode
   local ltree::LookupTree.Tree
   comps = arrayCreateNoInit(listLength(literals) + attr_count, EMPTY_NODE())
-  ltree = NFBuiltin.GET_ENUM_LOOKUP_TREE()
+  ltree = Builtin.GET_ENUM_LOOKUP_TREE()
   arrayUpdateNoBoundsChecking(
     comps,
     1,

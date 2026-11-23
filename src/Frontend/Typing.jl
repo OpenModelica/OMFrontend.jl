@@ -3325,7 +3325,7 @@ function typeEquationAssert(eq::Equation, origin::ORIGIN_Type)
   )
   e3 = typeOperatorArg(
     eq.level,
-    NFBuiltin.ASSERTIONLEVEL_TYPE,
+    Builtin.ASSERTIONLEVEL_TYPE,
     next_origin,
     "assert",
     "level",
@@ -3610,7 +3610,7 @@ end
         )
         e3 = typeOperatorArg(
           st.level,
-          NFBuiltin.ASSERTIONLEVEL_TYPE,
+          Builtin.ASSERTIONLEVEL_TYPE,
           next_origin,
           "assert",
           "level",

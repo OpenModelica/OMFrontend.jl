@@ -1,8 +1,8 @@
-// Models exercising the algorithm-level for-loop unroller in NFFlatten.jl.
+// Models exercising the algorithm-level for-loop unroller in Flatten.jl.
 
 // `when` inside `for` in a normal algorithm section is forbidden by the
 // Modelica spec; OMFrontend rejects this at SCode->FM instantiation
-// (NFStatement.jl:813-822, INVALID_WHEN_STATEMENT_CONTEXT). The model is
+// (Statement.jl:813-822, INVALID_WHEN_STATEMENT_CONTEXT). The model is
 // here to lock that rejection in place.
 model AlgorithmForOfWhen
   Real x[2](each start = 0.0);

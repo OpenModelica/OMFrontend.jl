@@ -87,7 +87,7 @@ function instUnqualified(
   node = lookupImport(path, scope, info)
   node = instPackage(node)
   tree = classTree(getClass(node))
-  #= Explicit isvariant: this file is included before NFClassTree.jl registers
+  #= Explicit isvariant: this file is included before ClassTree.jl registers
      compacted_tag_info(CLASS_TREE_FLAT_TREE), so a `@match` pattern here expands
      to a plain `isa` (which fails on the compacted constructor function). =#
   if isvariant(tree, CLASS_TREE_FLAT_TREE)

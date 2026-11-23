@@ -78,7 +78,6 @@ function generateEquations(sets::Vector{<:List{<:CONNECTOR}})
   return equations
 end
 
-const CardinalityTable = NFCardinalityTable
 
 function evaluateOperators(
   @nospecialize(exp::Expression),
@@ -274,7 +273,7 @@ function makeEqualityAssert(
     @assign exp =
       BINARY_EXPRESSION(lhs_exp, makeSub(ty), rhs_exp)
     @assign exp = CALL_EXPRESSION(makeTypedCall(
-      NFBuiltinFuncs.ABS_REAL,
+      BuiltinFuncs.ABS_REAL,
       Expression[exp],
       variability(exp),
     ))
@@ -291,7 +290,7 @@ function makeEqualityAssert(
      somewhat valid we use 'abs(lhs - rhs) <= 0' instead.
      For any other type, generate assertion for 'lhs == rhs'. =#
   @assign equalityAssert =
-    EQUATION_ASSERT(exp, EQ_ASSERT_STR, NFBuiltin.ASSERTIONLEVEL_ERROR, source)
+    EQUATION_ASSERT(exp, EQ_ASSERT_STR, Builtin.ASSERTIONLEVEL_ERROR, source)
   return equalityAssert
 end
 
@@ -733,7 +732,7 @@ function makeInStreamCall(@nospecialize(streamExp::Expression))::Expression
   local inStreamCall::Expression
 
   @assign inStreamCall = CALL_EXPRESSION(makeTypedCall(
-    NFBuiltinFuncs.IN_STREAM,
+    BuiltinFuncs.IN_STREAM,
     Expression[streamExp],
     variability(streamExp),
   ))
@@ -771,7 +770,7 @@ function makePositiveMaxCall(
     @assign flow_threshold = flowThreshold
   end
   @assign positiveMaxCall = CALL_EXPRESSION(makeTypedCall(
-    NFBuiltinFuncs.POSITIVE_MAX_REAL,
+    BuiltinFuncs.POSITIVE_MAX_REAL,
     Expression[flowExp, flow_threshold],
     variability(element),
   ))
@@ -1179,7 +1178,7 @@ function makeSmoothCall(@nospecialize(arg::Expression), order::Int)::Expression
   local callExp::Expression
 
   @assign callExp = CALL_EXPRESSION(makeTypedCall(
-    NFBuiltinFuncs.SMOOTH,
+    BuiltinFuncs.SMOOTH,
     Expression[INTEGER_EXPRESSION(order), arg],
     variability(arg),
   ))

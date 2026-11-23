@@ -5,14 +5,14 @@ Project continuity notes. Append verified, high-confidence findings only.
 ## Dimension migrated to @T_Uniontype (2026-07-11)
 
 The hand-written Dimension tagged struct in
-`src/FrontendInterfaces/NFInterfaces.jl` (enum `DimensionTag`/`DT_*`,
+`src/FrontendInterfaces/Interfaces.jl` (enum `DimensionTag`/`DT_*`,
 `DimensionImpl`, `_dimension` builder, per-variant ctors, tag registrations,
 `valueConstructor`) is now a single `@T_Uniontype NFDimension` declaration
 (macro in `MetaModelica.jl/src/union.jl`; generates the field-union tagged
 struct, `@match` registrations, `variantof`, `valueConstructor`,
 `setproperties`). Concrete type is now `NFDimensionImpl`; updated the only
 two external references: `NFType.dimensions::List{NFDimensionImpl}`
-(NFInterfaces.jl) and `const Dimension = NFDimensionImpl` (NFAlias.jl:50).
+(Interfaces.jl) and `const Dimension = NFDimensionImpl` (Alias.jl:50).
 Struct layout, defaults (`var=Int8(0)`, `size=0`, `isProcessing=false`) and
 tag ordinals are unchanged. Verified: full OMFrontend suite 363/363 +
 precompile MSL flatten workload. Remaining hand-written blocks in
@@ -45,13 +45,13 @@ lets a session started HERE (OMFrontend.jl) pick up the design-side work.
   is emitted `restCref::NFComponentRef` (abstract) but is always a
   `NFComponentRefData`; concretize it (`src/CodeGen.jl:4690-4699`).
 - **Design work owed HERE (OMFrontend.jl, free to redesign):**
-  1. This repo's `NFComponentRef` (`src/Frontend/NFComponentRef.jl:45`) has an
+  1. This repo's `NFComponentRef` (`src/Frontend/ComponentRef.jl:45`) has an
      extra `COMPONENT_REF_STRING(name, restCref)` variant whose disjoint payload
      BLOCKS the prefix rule that lets the translator compact the OMC version.
      Drop/merge STRING into the CREF/EMPTY/WILD shape to make it compactable, OR
      use a union-of-fields generalization (Finding 4).
-  2. Hot disjoint types `NFExpression` (`NFExpression.jl:56`, ~2222 refs) and
-     `NFType` (`NFType.jl:43`, ~1066 refs) only benefit via the union-of-fields
+  2. Hot disjoint types `NFExpression` (`Expression.jl:56`, ~2222 refs) and
+     `NFType` (`Type.jl:43`, ~1066 refs) only benefit via the union-of-fields
      generalization; prototype on NFComponentRef first, measure cref-walk
      dispatch elimination, then decide.
 - **The 100-model pipeline goal is NOT here** — it lives in
@@ -94,10 +94,10 @@ before editing the real types.
 (`NODE`/`LEAF`/`EMPTY` nodes) to `const Tree = Dict{Key,Value}` (`Key=String`,
 `Value=Entry`). The public interface is unchanged — same module, same function
 signatures (`new`/`add`/`get`/`getOpt`/`hasKey`/`fold`/`map`/`listValues`/… and
-the `Entry` constructors), so all callers (`NFClassTree`, `NFBuiltin`,
+the `Entry` constructors), so all callers (`NFClassTree`, `Builtin`,
 `NFClass`, `DuplicateTree`) compile unmodified. The raw `NODE`/`LEAF`/`EMPTY`
-constructions in `NFBuiltin` literal trees are preserved via **constructor
-shims** that build/merge `Dict`s (height arg ignored), so `NFBuiltin` needed
+constructions in `Builtin` literal trees are preserved via **constructor
+shims** that build/merge `Dict`s (height arg ignored), so `Builtin` needed
 zero edits.
 
 Key correctness invariant: every iteration function (`fold`, `toList`,
@@ -120,7 +120,7 @@ gate by flat-diff + suite) generalizes to the other ported AVL trees that are
 lookup-only: `NodeTree`, `TypeTreeImpl`, `FunctionTreeImpl`, `ReplTree`,
 `ParameterTreeImpl`, `DuplicateTree`. `ConstantsSetImpl` is NOT safe to
 naive-swap — its `listKeys()` order sets flat-variable prepend order
-(`NFPackage.jl:76-77`); convert only with an explicit sort to preserve order.
+(`Package.jl:76-77`); convert only with an explicit sort to preserve order.
 
 ### Shared `baseDictTreeCode.jl` template + NodeTree/ParameterTreeImpl (2026-06-14)
 
@@ -129,8 +129,8 @@ textually included into a tree submodule that has defined `const Key`/`const
 Value`; `Tree = Dict{Key,Value}`; lookup/insert use the key's `hash`/`isequal`;
 `keyCompare` and `addConflictDefault` are reassignable globals the includer
 overrides after the include (mirrors the AVL template); iteration sorts by
-`keyCompare` for deterministic order. `NodeTree` (NFInstNode.jl) and
-`ParameterTreeImpl` (NFCall.jl) switched their include from `baseAvlTreeCode.jl`
+`keyCompare` for deterministic order. `NodeTree` (InstNode.jl) and
+`ParameterTreeImpl` (Call.jl) switched their include from `baseAvlTreeCode.jl`
 to `baseDictTreeCode.jl`. Verified flat-identical (md5 767d2bed) + suite
 305/1/0. **Allocation-neutral on fullRobot** (220.8 vs 220.6 MiB) — NodeTree is
 built once (C_TOP_SCOPE inner/outer) and ParameterTreeImpl is function-eval-only,
@@ -170,7 +170,7 @@ separate `EQSYSTEM` per submodel (index reduction runs per component, no backend
 change).
 - Flag `Flags.NF_SEPARATE_INSTANTIATION` index 186 in `src/Util/Flags.jl`; also
   appended to `allDebugFlags` in `src/Util/FlagsUtil.jl` (must stay index-sorted).
-- Decision site `flattenComponent` in `src/Frontend/NFFlatten.jl`. An
+- Decision site `flattenComponent` in `src/Frontend/Flatten.jl`. An
   `isTopLevel::Bool` kwarg is threaded `flatten`(true) -> `flattenClass`(false) ->
   `flattenComponent`. Split when
   `isStructuralMode || (isTopLevel && Flags.isSet(NF_SEPARATE_INSTANTIATION))`;
@@ -194,7 +194,7 @@ change).
 ### Revise caveat in the warm REPL (this session)
 Revise tracked edits to `src/OMFrontend.jl` and `src/Export/StructuralModeJSON.jl`
 but NOT a new `const` in `src/Util/Flags.jl` nor signature edits in
-`src/Frontend/NFFlatten.jl` (`Revise.errors()` empty, `revise(throw=true)` ok,
+`src/Frontend/Flatten.jl` (`Revise.errors()` empty, `revise(throw=true)` ok,
 yet `flatten` kept old kwargs). Restart-free workarounds:
 - New flag: `@eval OMFrontend.Frontend.Flags const NF_... = DEBUG_FLAG(idx, name,
   default, Gettext.gettext(desc))` (description type is `Gettext.TranslatableContent`);
@@ -203,7 +203,7 @@ yet `flatten` kept old kwargs). Restart-free workarounds:
   `arrayGet(arr, index)` -> BoundsError until the Vector is regrown).
 - Changed functions: `Meta.parseall` the file and `Core.eval` only the target
   `:function` exprs into `OMFrontend.Frontend` (avoids re-running the
-  `FunctionTreeImpl` module block at the top of NFFlatten.jl).
+  `FunctionTreeImpl` module block at the top of Flatten.jl).
 Authoritative gate is still a FRESH-process full `runtests.jl` (AGENTS.md); the
 warm-session pass used the force-eval workaround.
 
@@ -218,11 +218,11 @@ to reject it too but with an ugly internal assertion
 :2691).
 - Root cause: `Error.LOOKUP_IN_PARTIAL_CLASS` (Error.jl:891, message 107) was
   defined in the port but NEVER wired into the lookup path.
-- Fix: in `lookupCrefInNode` (`src/Frontend/NFLookup.jl`, the qualified-cref
+- Fix: in `lookupCrefInNode` (`src/Frontend/Lookup.jl`, the qualified-cref
   recursion into a package), after `scope = instPackage(node)`, guard
   `if node isa CLASS_NODE && isPartial(scope)` ->
   `Error.addSourceMessageAndFail(Error.LOOKUP_IN_PARTIAL_CLASS, list(scopeName(scope)), sourceInfo())`.
-  Used `sourceInfo()` (as at NFLookup.jl:684) because `lookupCref` has no `info`
+  Used `sourceInfo()` (as at Lookup.jl:684) because `lookupCref` has no `info`
   param to thread (threading would cascade through many callers); message text
   matches OMC, only the bracketed location points at compiler source.
 - Why it does NOT break MSL/redeclared partials: a redeclared `Medium`/`P`
@@ -247,7 +247,7 @@ frontend types. All gated by full `runtests.jl` (361 Pass) + MetaModelica
 
 ### Migration playbook (mutable AVL / recursive tree -> @CUniontype)
 Verified on DuplicateTree (`NFClassTree`/`DuplicateTree.jl`) and ModTable
-(`NFModTable.jl`), which share the `NODE(key,value,height,left,right)/LEAF(key,
+(`ModTable.jl`), which share the `NODE(key,value,height,left,right)/LEAF(key,
 value)/EMPTY()` shape (a prefix chain: EMPTY K=0, LEAF K=2, NODE K=5):
 1. Type decl `abstract type + mutable NODE/LEAF + EMPTY` -> `@CUniontype Tree
    begin EMPTY(); LEAF(...); NODE(...) end` (empties first so the shared field
@@ -263,8 +263,8 @@ value)/EMPTY()` shape (a prefix chain: EMPTY K=0, LEAF K=2, NODE K=5):
 5. AUDIT CALLERS for "rebuild-but-discard": functional map/add returns a NEW tree;
    a caller that discarded the result and relied on in-place mutation silently
    loses the update. This is a REAL latent bug the migration exposes — found +
-   fixed `replaceDuplicates` (`NFClassTree.jl:831`) which computed a rebuilt tree
-   then `return tree` (the original). ModTable callers (`NFModifier.jl:221,354`)
+   fixed `replaceDuplicates` (`ClassTree.jl:831`) which computed a rebuilt tree
+   then `return tree` (the original). ModTable callers (`Modifier.jl:221,354`)
    already used results functionally.
 
 ### Macro fixes made to @CUniontype (all gated by MetaModelica 216 Pass)
@@ -291,8 +291,8 @@ the `@CUniontype` registration compiles its cref patterns as record patterns ->
 runtime `evaluated_fieldnames(CONSTRUCTOR)` MethodError (the variant is a
 function, not a type). Self-contained modules (DuplicateTree, ModTable) are
 immune (macro + matches in one file). For NFComponentRef (matched in ~15 files),
-moved its include (`main.jl`) to just before `NFCeval.jl` (the first cref
-matcher; abstract type is forward-declared in `NFInterfaces.jl` so field-type
+moved its include (`main.jl`) to just before `Ceval.jl` (the first cref
+matcher; abstract type is forward-declared in `Interfaces.jl` so field-type
 deps are fine). Qualified patterns (`Mod.NODE(...)`) also fall back to the record
 path (`T isa Symbol` is false) — so keep cross-module variant matching out, or
 the type must resolve.
@@ -344,10 +344,10 @@ the VARIABLE rebuild is tiny). Always MEASURE a candidate fix against the target
 model's phase @time, not the .mem bytes.
 
 ### Instantiate allocations are largely IRREDUCIBLE (load-bearing sharing model)
-`instantiate` (`NFClassTree.jl:946`) allocates, per element: one node + one
+`instantiate` (`ClassTree.jl:946`) allocates, per element: one node + one
 `Pointer{InstNode}` cell + `Vector{Pointer}` slices. This is load-bearing:
-`old_comps` (`NFClassTree.jl:1006`) is the SHARED expanded-class-definition
-component array — `clone` (`NFInstNode.jl:388`) only clones CLASS_NODEs, returns
+`old_comps` (`ClassTree.jl:1006`) is the SHARED expanded-class-definition
+component array — `clone` (`InstNode.jl:388`) only clones CLASS_NODEs, returns
 COMPONENT_NODEs unchanged, so every instantiation of a class SHARES its definition's
 component nodes. The fresh `comps` array at `:1037` + `setParentAndReplaceComponent`
 copy exist because each instance needs its own `parent`. Mutating `c.parent` in place
@@ -355,22 +355,22 @@ copy exist because each instance needs its own `parent`. Mutating `c.parent` in 
 The safe subset (unmodified TYPE_ATTRIBUTE nodes) is ALREADY shared via
 `SHARE_ATTRS`/`FROZEN_ATTR_NODES` (`:1086`). InstNode redesign / `@CUniontype` are
 both wrong here (mutable, aliased, parametric, identity-based; the box-on-share `cls`
-hybrid `NFInstNode.jl:130-150` is a real, keep-it optimization).
+hybrid `InstNode.jl:130-150` is a real, keep-it optimization).
 
 ### Simplify allocations are INTRINSIC (already reuse-aware)
-The expression simplifier (`NFSimplifyExp.jl`) already uses `referenceEq` reuse
+The expression simplifier (`SimplifyExp.jl`) already uses `referenceEq` reuse
 (`:163-165,:796,:815`), so DoublePendulum's 895k Simplify allocs are genuine
 simplifications rebuilding CHANGED nodes, not wasteful re-creation. No cheap win.
 
 ### Verified small wins applied this session (all 361/361, zero downside)
-- `NFSimplifyModel.jl:59` `simplifyVariable`: reuse `var` when `referenceEq(varBinding,
+- `SimplifyModel.jl:59` `simplifyVariable`: reuse `var` when `referenceEq(varBinding,
   var.binding)` instead of always rebuilding VARIABLE. Correct (simplifyTypeAttributes
   mutates in place). ~invisible on DoublePendulum, real for variable-heavy models.
-- `NFClassTree.jl` `newEmptyClassTree`/`newEmptyFlatClassTree` replacing
-  `deepcopy(EMPTY_*_TREE)` at `NFClassTree.jl:904`, `NFInst.jl:652` (cold paths:
+- `ClassTree.jl` `newEmptyClassTree`/`newEmptyFlatClassTree` replacing
+  `deepcopy(EMPTY_*_TREE)` at `ClassTree.jl:904`, `Inst.jl:652` (cold paths:
   record constructors + external objects). deepcopy walks the whole graph; the fields
   are empty arrays + empty subtrees so a plain constructor call is equivalent.
-- `lookupElementNode` (`NFClassTree.jl`): node-only sibling of `lookupElement` (no
+- `lookupElementNode` (`ClassTree.jl`): node-only sibling of `lookupElement` (no
   `ENTRY_INFO` wrapper) for the ~10 callers that ignore `isImport`. −5.4k allocs on
   DoublePendulum. The HOT lookups (`NFLookup` cref resolution) genuinely USE isImport
   and keep `ENTRY_INFO`, so the wrapper alloc there is irreducible.
@@ -388,7 +388,7 @@ Correction to the note above. On DoublePendulum the `Simplify` phase is ~47% of
 frontend allocations (1.63M of 3.45M). That cost is NOT immutable-tree rebuild.
 Comprehensive `referenceEq` reuse added to every `simplify` reconstructor
 (cref, subscripts, array, binary/unary/logic-binary/call-args, if, box, cast, unbox
-in `NFSimplifyExp.jl` + `simplifySubscripts`/`simplifyList`) reduced the total by
+in `SimplifyExp.jl` + `simplifySubscripts`/`simplifyList`) reduced the total by
 under 1% (DoublePendulum 3,448,441 -> 3,424,825). So the equation/expression
 reconstruction was never the bottleneck.
 
@@ -411,7 +411,7 @@ measure the true first-pass cost.
 Fix shipped: a per-model constant-fold memo in `simplifyCall2`
 (`const CONST_FOLD_CACHE = Dict{String,Expression}()`, keyed on
 `toString(CALL_EXPRESSION(call))`, written only on successful `evalCall`,
-`empty!`'d at the top of `simplifyFlatModel` in `NFSimplifyModel.jl`). Symmetric
+`empty!`'d at the top of `simplifyFlatModel` in `SimplifyModel.jl`). Symmetric
 models recompute identical constant folds once instead of once per binding.
 DoublePendulum 3,424,825 -> 2,635,025 (-23.6% total / -47% of Simplify);
 CauerLowPass and CoupledClutches unchanged (no repeated folds -> no benefit, no
@@ -420,7 +420,7 @@ harm). Gate: frontend 361/361 with cache + reuse enabled.
 Remaining lever (not done): the SINGLE-fold cost (~780k allocs to evaluate one
 constant `from_nxy`) is a `NFCeval` efficiency problem, not simplify. The cache
 only removes the DUPLICATE folds. Reducing the first fold needs a leaner constant
-array/function evaluator in `NFCeval.jl` (evalCall/ceval/evalArrayConstructor).
+array/function evaluator in `Ceval.jl` (evalCall/ceval/evalArrayConstructor).
 
 Measurement metric here: `instantiateSCodeToFM(name, LIB; scalarize=true)` alloc
 count via `@timed` + `Base.gc_alloc_count`, min over 10 runs. MultiBody
@@ -431,14 +431,14 @@ lighter (70k-130k) and const-fold-cache-neutral.
 
 Follow-up to the const-fold note above. The single-fold cost (evaluating one
 `from_nxy(constvec,constvec)` at ~780k allocs) was NOT intrinsic. Root cause was
-in `NFCeval.jl` `evalExp_impl`, the `MUTABLE_EXPRESSION` arm: it evaluated a
+in `Ceval.jl` `evalExp_impl`, the `MUTABLE_EXPRESSION` arm: it evaluated a
 function local/output variable's mutable cell but discarded the result. Function
 locals reference each other (a dependency DAG), so a local referenced N times had
 its whole binding subtree re-evaluated N times -> the DAG expanded into a tree and
 re-evaluated combinatorially. One `from_nxy` fold: evalCall ~8835x, evaluateNormal
 ~4418x, for only 7 distinct evaluations.
 
-Fix (`NFCeval.jl` MUTABLE_EXPRESSION arm): after evaluating the cell, write the
+Fix (`Ceval.jl` MUTABLE_EXPRESSION arm): after evaluating the cell, write the
 value back into the pointer (`P_Pointer.update`) when it changed. Repeated
 references then read the cached value. Scoped to one function evaluation (the cell
 is rebuilt per call by `createReplacements`); algorithm assignments overwrite the
@@ -477,7 +477,7 @@ intrinsic. Evidence:
   work-calls / 207 distinct defs -- i.e. ~230 expansions on ~210 defs, NOT 9,169.
   The `NOT_INSTANTIATED` guard in `partialInstClass` already caches it.
 - So the 9,169 `instClass` calls do not re-expand; they CLONE the shared
-  expanded definition (`instantiate` in NFClassTree.jl:946). Each component needs
+  expanded definition (`instantiate` in ClassTree.jl:946). Each component needs
   its own instance nodes (per-instance parent pointers, modifiers, types), so the
   clone is necessary and per-instance. That is the 484k.
 
@@ -525,8 +525,8 @@ Done:
 - `Component` variants (TYPE_ATTRIBUTE, TYPED_COMPONENT, UNTYPED_COMPONENT, COMPONENT_DEF)
   immutable. Commit b7fa722. +~5% allocs on component-heavy models.
 - `Class` variants (INSTANCED_BUILTIN, INSTANCED_CLASS, EXPANDED_DERIVED, EXPANDED_CLASS,
-  PARTIAL_BUILTIN, PARTIAL_CLASS) immutable. Setters in NFClass.jl (setPrefixes,
-  setRestriction, setType, setModifier) + NFTyping.jl (cls.ty) + NFInst.jl instExtends
+  PARTIAL_BUILTIN, PARTIAL_CLASS) immutable. Setters in Class.jl (setPrefixes,
+  setRestriction, setType, setModifier) + Typing.jl (cls.ty) + Inst.jl instExtends
   (cls.baseClass) converted to @assign.
 
 Migration gotchas learned:
@@ -579,22 +579,22 @@ Mechanics that made the ~920 call sites mostly unchanged:
 
 Structural gotcha (cost several restarts): NFType is forward-declared
 `@UniontypeDecl NFType` (= `abstract type NFType`) in FrontendInterfaces/
-NFInterfaces.jl:81, and `const M_Type = NFType` (NFAlias.jl) binds to it BEFORE
-NFType.jl (line 154) loads (NFExpression.jl:153 needs `::NFType`). A concrete
+Interfaces.jl:81, and `const M_Type = NFType` (Alias.jl) binds to it BEFORE
+Type.jl (line 154) loads (Expression.jl:153 needs `::NFType`). A concrete
 struct cannot be forward-declared, so the struct+enum must be DEFINED at the
-forward-decl site (NFInterfaces.jl:81), using the RAW interface type names
+forward-decl site (Interfaces.jl:81), using the RAW interface type names
 (M_Function/InstNode/NFComplexType/NFDimension -- the ComplexType/Dimension
 aliases are not bound yet there). Constructors/singletons/registrations/methods
-stay in NFType.jl.
+stay in Type.jl.
 
 THE load-bearing correctness fix -- `valueConstructor`: MetaModelica's generic
 `valueConstructor(v) = hash(typeof(v))` discriminates uniontype variants by their
 runtime TYPE. With one concrete NFType struct, `typeof` is `NFType` for EVERY
 variant, so guards like `if valueConstructor(actual) != valueConstructor(expected)`
-(NFTypeCheck array-vs-scalar cast routing, NFType.jl:316, NFClassTree.jl:1585)
+(NFTypeCheck array-vs-scalar cast routing, Type.jl:316, ClassTree.jl:1585)
 silently collapse -> mismatched pairs skip the cast path and fall into the
 array-only matcher (MatchFailure). Fix: `MetaModelica.valueConstructor(v::NFType)
-= Int(v.tag)` (in NFType.jl). ANY future hand-written compacted uniontype needs
+= Int(v.tag)` (in Type.jl). ANY future hand-written compacted uniontype needs
 its own tag-based valueConstructor method. This is the #1 thing to check when a
 single-struct compaction "loads fine but flattens wrong."
 
@@ -628,10 +628,10 @@ mandatory `MetaModelica.valueConstructor(v::InstNodeType) = Int(v.tag)`.
 MUCH smoother than NFType (loaded first try, no straggler cycles) because:
 - Surface was smaller (120 sites vs 920; 5 isa vs 16; 0 phantom-param structs;
   0 typed consts; 0 bareword-as-value).
-- InstNodeType is referenced ONLY in NFInstNode.jl + NFInst.jl (both at/after the
-  NFInstNode include), so the @UniontypeDecl forward-decls (NFInterfaces.jl:53 AND
-  NFInstNode.jl:36) were NOT load-bearing -- just removed them and defined the
-  concrete struct in-place at the top of NFInstNode.jl (no forward-decl-site
+- InstNodeType is referenced ONLY in InstNode.jl + Inst.jl (both at/after the
+  NFInstNode include), so the @UniontypeDecl forward-decls (Interfaces.jl:53 AND
+  InstNode.jl:36) were NOT load-bearing -- just removed them and defined the
+  concrete struct in-place at the top of InstNode.jl (no forward-decl-site
   gymnastics like NFType needed). Kept `@UniontypeDecl InstNode` (37) since
   InstNodeType.parent references the still-abstract InstNode.
 - All NFType lessons applied upfront (valueConstructor, isa->isvariant).
@@ -649,7 +649,7 @@ Collapsed the 9 InstNode variants (EMPTY/VAR/EXP/IMPLICIT_SCOPE/NAME/REF/
 INNER_OUTER/COMPONENT/CLASS) into ONE mutable tagged struct + @enum InstNodeTag,
 so every ::InstNode annotation is concrete. KEPT MUTABLE for Step 1 (identity/
 pooling/box-on-share preserved; in-place mutations untouched). Both InstNodeType
-and InstNode structs live at the forward-decl site (NFInterfaces.jl) BEFORE the
+and InstNode structs live at the forward-decl site (Interfaces.jl) BEFORE the
 NFType struct, because NFType.cls::InstNode references InstNode. Mutual recursion
 broken by typing InstNodeType.parent::Any. Payload leaf slots (cls/definition/
 exp/caches) are Any to keep NFInterfaces dependency-light; graph-spine slots
@@ -705,7 +705,7 @@ outerNode, visibility, parent, caches) and concrete field types (no Any): varPoi
 ::Union{Vector{CachedData},Nothing}. InstNodeType.definition also concretized;
 InstNodeType.parent stays Any (breaks the InstNodeType<->InstNode field cycle).
 The 5 mutated fields (name, component, nodeType, definition, cls) stay non-const.
-Verified 361/361 (2m07s). Only NFInterfaces.jl changed vs commit d92d570.
+Verified 361/361 (2m07s). Only Interfaces.jl changed vs commit d92d570.
 
 ## Tagged-union conversions: registration ordering gotcha (2026-07-06)
 When collapsing a @Uniontype into a single concrete tagged struct (Component,
@@ -743,7 +743,7 @@ fixed; suite back to green (see per-fix locations below, verified by full
    `setParentAndReplaceComponent` passes `_compVal` for a fresh cell (unique
    instance); shell rebuilds (setParent/setNodeType/withName) pass the cell
    through. Helpers `_compVal`/`_compSet!`/`_compRef` in
-   `src/FrontendInterfaces/NFInterfaces.jl` next to the cls versions.
+   `src/FrontendInterfaces/Interfaces.jl` next to the cls versions.
 
 2. **Never reparent instantiated-tree children to the component instance.**
    `reparentInstantiatedClass` (added during the rewrite) rewired class-tree
@@ -756,7 +756,7 @@ fixed; suite back to green (see per-fix locations below, verified by full
    (parent chains + full SCode definitions), no short-circuit. Symptom:
    MultiBody.Parts.Fixed "hung" (10+ min in `refCompare` under ReplTree
    lookups; also `NFInline._bodyInfo` per-call-site keys). Fix: `_refId(node)`
-   (`NFInterfaces.jl`) returns `objectid` of the payload CELL
+   (`Interfaces.jl`) returns `objectid` of the payload CELL
    (component/cls/varPointer) — O(1), stable across shell rebuilds, equal
    exactly when two shells alias one instance. Used by `refCompare`,
    `refEqual` (cell `===`), `NFInline._bodyInfo`, lookup-cache key.
@@ -767,14 +767,14 @@ fixed; suite back to green (see per-fix locations below, verified by full
    node graph cyclic; `Base.show_default` has no cycle detection, so any
    accidental print (Test.jl showing a failure value) spins forever (symptom:
    suite "hangs" right after printing a test-error trace). Fix: compact
-   `Base.show(io, ::InstNode)` in `NFInterfaces.jl` printing tag+name only.
+   `Base.show(io, ::InstNode)` in `Interfaces.jl` printing tag+name only.
 
 Also fixed while here: local-variable shadowing of the `node(cref)` accessor
-in `collectExpConstants_traverser` (`NFPackage.jl:130`, "InstNode not
+in `collectExpConstants_traverser` (`Package.jl:130`, "InstNode not
 callable" on Fluid HeatingSystem) — a rename hazard to watch whenever the
 functional rewrite introduces `local node =` into functions that also call
 the `node(...)` accessor. Restored HEAD order in `typeComponentNode`
-(`NFTyping.jl`): mark the component TYPED before typing children; cell writes
+(`Typing.jl`): mark the component TYPED before typing children; cell writes
 make the late classInst update cheap.
 
 Debug technique: when a warm run "hangs", `kill -USR1 <julia-pid>` dumps all
@@ -801,7 +801,7 @@ far away as DUPLICATE_ELEMENTS_NOT_IDENTICAL on inherited duplicates of the
 PartialShape family (color/height/shapeType with bindings from two different
 usage contexts mixed into one tree).
 
-Fix: `componentApply` (src/Frontend/NFInstNode.jl) does copy-on-write when
+Fix: `componentApply` (src/Frontend/InstNode.jl) does copy-on-write when
 the new payload is a TYPE_ATTRIBUTE — rebuild the node with a fresh cell via
 `withComponent` instead of `updateComponent!`; applyModifier's callers already
 thread the rebuilt node back into the tree pointer (`P_Pointer.update` /
@@ -843,7 +843,7 @@ report is suspect.
 ### Final root cause: in-place map! on the SHARED DuplicateTree children vectors (2026-07-09, Fable)
 
 The actual bug behind every threaded DoublePendulum failure:
-`replaceDuplicates2/3/4` (src/Frontend/NFClassTree.jl) resolved duplicate
+`replaceDuplicates2/3/4` (src/Frontend/ClassTree.jl) resolved duplicate
 entries with `map!(f, entry.children, entry.children)` — IN PLACE — while the
 `children` vectors belong to the duplicates tree that `ClassTree.instantiate`
 REUSES for every instance of a class (`dups` is passed through at the
@@ -919,14 +919,14 @@ Suites green both modes (361/361 serial 1m37s, parallel 55.4s).
 ## Parallel typing slice: per-node claims, and where the shared state actually was (2026-07-09, Fable)
 
 Typing is now fanned out at the root `typeComponents` call (`typeClass` passes
-`fanOut = true`, `src/Frontend/NFTyping.jl`), with the same worker-token
+`fanOut = true`, `src/Frontend/Typing.jl`), with the same worker-token
 scheme as instantiation. Unlike instantiation, typing one component routinely
-reaches INTO other nodes (cref typing at `NFTyping.jl` `typeCrefDim`, binding
+reaches INTO other nodes (cref typing at `Typing.jl` `typeCrefDim`, binding
 evaluation in `NFCeval.evalComponentBinding`, structural-param marking in
 `NFInst.markStructuralParamsComp`, function typing in
 `NFFunction.typeNodeCache`), so loop-splitting alone is unsound. The mechanism
 that makes it sound is **per-node claim locks**: a sharded registry
-`_TYPE_CLAIMS` in `src/Frontend/NFInst.jl` keyed by `_refId(node)` (payload
+`_TYPE_CLAIMS` in `src/Frontend/Inst.jl` keyed by `_refId(node)` (payload
 cell id), reentrant, acquired along dependency edges only. Valid models have an
 acyclic dependency relation (a cycle is already a fatal recursion error
 serially), so the wait-for graph cannot deadlock. Lock ORDER vs
@@ -940,7 +940,7 @@ Three rounds of failures pinned the real shared state; all three are load-bearin
    clones; `typeClassType` (`EXPANDED_DERIVED` dims + `updateClass` collapse)
    and `typeComponents` (`TYPED_DERIVED` base-chain collapse) mutate class
    payloads shared by many components. Fix: claim `_refId(clsNode)` in both
-   (`NFTyping.jl` wrappers `typeClassType`/`typeComponents`). Failure signature
+   (`Typing.jl` wrappers `typeClassType`/`typeComponents`). Failure signature
    without the claim: spurious `CYCLIC_DIMENSIONS` from the
    `DIMENSION_UNTYPED(isProcessing = true)` marker observed cross-task
    (MultiBody BodyShape and friends).
@@ -971,9 +971,9 @@ largest serial phase.
 ## resolveConnections 3x: exceptions as control flow in the union-find (2026-07-09, Fable)
 
 EngineV6 `resolveConnections` went 2.2 s -> 0.66 s (fresh serial process, sub-step
-timers now in `src/Frontend/NFFlatten.jl` behind the `execstat` flag). The whole
+timers now in `src/Frontend/Flatten.jl` behind the `execstat` flag). The whole
 win came from one defect: `ConnectionSets.find`
-(`src/Frontend/NFConnectionSets.jl`) looked up the entry with
+(`src/Frontend/ConnectionSets.jl`) looked up the entry with
 `sets.elements[entry]` inside try/catch and used the KeyError as the "not
 found" branch. Every first-seen connector paid a thrown+caught exception; the
 fix is a plain `get(dict, entry, 0)` sentinel.
@@ -995,7 +995,7 @@ Entry hash with a structural one (attempted, then deliberately reverted):
    the suite green while every fresh process failed. When touching nested
    frontend submodules, gate with a fresh process, not the warm REPL.
 
-`hash(::ComponentRef, ::Int)` in `src/Frontend/NFComponentRef.jl` is now
+`hash(::ComponentRef, ::Int)` in `src/Frontend/ComponentRef.jl` is now
 structural (name + subscripts per level, no string rendering); it feeds the
 `NFHashTableCG` bucket placement, which is order-neutral (BaseHashTable
 iterates its insertion-ordered value array). The remaining sub-step cost is
@@ -1011,7 +1011,7 @@ Verified: fresh-process suites 361/361 serial and 361/361 parallel
 `NFHashTableCG` / `NFHashTable` / `NFHashTable3` (about 2400 lines of ported
 BaseHashTable closure-tuple machinery, used only by `NFOCConnectionGraph`) are
 now ~45-line modules backed by `Dict{CrefHashKey, V}`. `CrefHashKey`
-(`src/Frontend/NFComponentRef.jl`) wraps a cref with structural
+(`src/Frontend/ComponentRef.jl`) wraps a cref with structural
 hash/equality (`hashStructural` / `isEqual`). The graph walk itself had the
 same exception-as-control-flow disease as ConnectionSets.find, seven times
 over: `canonical` threw once per union-find root hit, `connectComponents`
@@ -1046,8 +1046,8 @@ above: 361/361 fresh `julia -t 8` (parallel by default) and 361/361 fresh
 ## Nested parallel typing: release claims before descending (2026-07-09, Fable)
 
 Typing now fans out at EVERY class-tree level, not just the root. Two
-mechanisms make this deadlock-free, both in `src/Frontend/NFInst.jl` /
-`NFTyping.jl`:
+mechanisms make this deadlock-free, both in `src/Frontend/Inst.jl` /
+`Typing.jl`:
 
 1. **Claim-scope split.** `typeComponentNode` types the component's own
    payload (dimensions, type, `setType`) under its claim via
@@ -1070,13 +1070,13 @@ resolveConnections 0.60 s. Suites 361/361 both `-t 8` (parallel by default)
 and `-t 1`.
 
 Remaining exception-as-control-flow candidates surveyed and deferred (moderate
-heat only): `tryEvalExp` (`NFCeval.jl`, throws once per non-constant RHS in
+heat only): `tryEvalExp` (`Ceval.jl`, throws once per non-constant RHS in
 scalarize) and the `start`-attribute lookup in `evalComponentStartBinding`.
 The other catch sites are legitimate fallbacks.
 
 ## Connections-operator evaluation: gate the rebuild-map, flag the usage (2026-07-09, Fable)
 
-`evalConnectionsOperators` (`src/Frontend/NFOCConnectionGraph.jl`) mapped a
+`evalConnectionsOperators` (`src/Frontend/OCCGraph.jl`) mapped a
 5-argument helper over every expression node of every equation via the generic
 rebuilding `map`. Bisection facts worth keeping: EngineV6 has ~80k recursive
 expression nodes and only ~1.8k call nodes; the generic map with a nontrivial
@@ -1114,7 +1114,7 @@ replacement equations EAGERLY for every overconstrained connection — EngineV6:
 the handful of edges the spanning tree breaks ever need them. Measured split
 before the fix: crefs walk 0.03 s, generation 0.75 s.
 
-Fix (`src/Frontend/NFOCConnectionGraph.jl`,
+Fix (`src/Frontend/OCCGraph.jl`,
 `handleOverconstrainedConnections`): every edge gets a fresh EMPTY equation
 vector; the generation inputs are remembered in an
 `IdDict{Vector{Equation}, inputs}` keyed by that vector's identity; after
@@ -1139,14 +1139,14 @@ oc:evalOperators (0.21 s, generic-traversal floor) the largest piece.
 FullRobot (MSL 4.0.0) hung forever in resolveConnections. Two distinct bugs:
 
 1. **Pre-existing (commit 3f1e6a5): self-append loops in
-   `addElementsToFlatTree`** (`src/Frontend/NFClassTree.jl`): `for e in
+   `addElementsToFlatTree`** (`src/Frontend/ClassTree.jl`): `for e in
    cls_arr; push!(cls_arr, e); end` — iterating a vector while appending to it
    never terminates. A garbled port of OMC's Array.appendList; fixed by
    appending the new elements to COPIES of the arrays (also stops mutating the
    input tree). Diagnosed via `kill -USR1` + force-SIGINT stacks; profile
    pinned the exact line.
 2. **Our regression (immutable-InstNode rewrite): `IdSet{Connector}` in
-   `elaborateExpandableSet`** (`src/Frontend/NFExpandableConnectors.jl`).
+   `elaborateExpandableSet`** (`src/Frontend/ExpandableConnectors.jl`).
    IdSet keys by objectid; objectid of a deeply IMMUTABLE value content-hashes
    everything reachable, and after the immutability flip a Connector reaches
    the whole instance graph. Every push! became a whole-graph hash: tiny
@@ -1330,13 +1330,13 @@ Attribution:
   OneWayClutch, trajectory tests) reach it. Fixed by recursing into subscript
   inner exprs (commit fe90c87). Revalidation: 0 resolveConstantIfExp errors.
 - **1 of 10 — include-order compaction bug (pre-existing)**: EngineTest export
-  hit `NFImport.jl:104` `@match tree begin CLASS_TREE_FLAT_TREE(__) ... end`
-  which expanded to a plain `isa` because NFImport.jl (main.jl:158) is included
-  BEFORE NFClassTree.jl (:162) registers
+  hit `Import.jl:104` `@match tree begin CLASS_TREE_FLAT_TREE(__) ... end`
+  which expanded to a plain `isa` because Import.jl (main.jl:158) is included
+  BEFORE ClassTree.jl (:162) registers
   `compacted_tag_info(CLASS_TREE_FLAT_TREE)`. `@match` compaction detection runs
   at MACRO-EXPANSION time, so a pattern on a compacted type in a file loaded
   before its registration silently falls back to `isa` (which throws on the
-  constructor function). Fixed with explicit `isvariant` (matches NFInst.jl).
+  constructor function). Fixed with explicit `isvariant` (matches Inst.jl).
   NFImport is the ONLY frontend file included before NFClassTree that matches a
   ClassTree variant.
 - **2 of 10 — pre-existing solver convergence, NOT regressions**:

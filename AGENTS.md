@@ -14,11 +14,11 @@ The package is intentionally low-level. End users typically invoke it through OM
 - `src/Frontend/Frontend.jl` — inner module `Frontend`. The pipeline lives here. It includes everything under `src/Util/`, `src/Absyn/`, `src/SCode/` (but `SCode.jl`), `src/FrontendInterfaces/`, and the NF files next to it in `src/Frontend/`.
 - `src/Util/` — generic utilities ported from MetaModelica (Pointer, the AVL tree code `baseAvlTreeCode.jl`, ErrorExt, etc.). Submodules of `Frontend`.
 - `src/FrontendInterfaces/` — `NFAlias`, `NFInterfaces` thin wrappers and re-exports.
-- `src/Frontend/` — the actual NF port (~77 files, prefix `NF`). The hot path lives here. Notable files:
-  - `NFFlatten.jl`, `NFInst.jl`, `NFTyping.jl`, `NFEvalConstants.jl` — pipeline phases.
-  - `NFClassTree.jl`, `NFClass.jl`, `NFComponent.jl`, `NFInstNode.jl` — class and component representation.
-  - `NFExpression.jl`, `NFSubscript.jl`, `NFCall.jl`, `NFBinding.jl` — expression, call, and binding ASTs.
-  - `NFPerfHelpers.jl` — `mapPreservingEq` and `reuseIfRefEqual` performance helpers.
+- `src/Frontend/` — the port of omc's NF frontend (69 files; omc's `NFLookup.mo` is `Lookup.jl`). The hot path lives here. Notable files:
+  - `Flatten.jl`, `Inst.jl`, `Typing.jl`, `EvalConstants.jl` — pipeline phases.
+  - `ClassTree.jl`, `Class.jl`, `Component.jl`, `InstNode.jl` — class and component representation.
+  - `Expression.jl`, `Subscript.jl`, `Call.jl`, `Binding.jl` — expression, call, and binding ASTs.
+  - `PerfHelpers.jl` — `mapPreservingEq` and `reuseIfRefEqual` performance helpers.
 - `src/SCode/` — the module `OMFrontend.SCode`, formerly the package SCode.jl; inside the package they are imported relatively (`import ..SCode`).
 - `src/SCode/AbsynToSCode.jl`, `src/SCode/SCodeUtil.jl`, `src/SCode/SCodeDump.jl`, `src/Absyn/AbsynUtil.jl` — Absyn and SCode helpers used during translation.
 - `src/API/GUI_API.jl` — the API for graphical editors (not part of the core flatten path).
@@ -53,8 +53,8 @@ Workflow:
 Repository convention: when discussing "frontend perf", the headline number is allocation count of the flatten pipeline measured this way. Do not report wall-clock time as the headline. Report allocation count and bytes, and only mention wall time if it correlates.
 
 Hot allocation sources to scrutinise in the `instantiate` path:
-- `Pointer.create(...)` calls inside per-component loops (`src/Frontend/NFClassTree.jl:1020, 1023, 1044, 1076`). One allocation per component per pass.
-- `pushfirst!` and `prepend!([x], list)` patterns. Both are O(N) per call and produce O(N²) total allocations. See `src/Frontend/NFClassTree.jl:1077` and `:808` for prior fixes.
+- `Pointer.create(...)` calls inside per-component loops (`src/Frontend/ClassTree.jl:1020, 1023, 1044, 1076`). One allocation per component per pass.
+- `pushfirst!` and `prepend!([x], list)` patterns. Both are O(N) per call and produce O(N²) total allocations. See `src/Frontend/ClassTree.jl:1077` and `:808` for prior fixes.
 - `Cons{T}(head, tail)` accumulators in `MetaModelica.list` chains. Each cons cell is a heap allocation. Converting to `Vector{T}` with `push!` plus a final `reverse!` collapses N small allocations into one Vector allocation.
 - Eager string concatenation in error paths. `getInstanceName() + " miscounted ..." + name(clsNode)` allocates the message string even when the assert does not fire. Wrap in a guarded branch where the cost matters.
 
@@ -84,7 +84,7 @@ Caveats: this only helps when the captured/stored state can be given a concrete 
 ## Types and Naming
 
 The frontend's types are plain Julia structs, written out and documented where they are defined (no macro generates
-them). The interface types that other files hold are in `src/FrontendInterfaces/NFInterfaces.jl`, in load order.
+them). The interface types that other files hold are in `src/FrontendInterfaces/Interfaces.jl`, in load order.
 
 Naming (maintainer's rule):
 - **A tagged struct** (one struct for all variants, a `tag` field): CamelCase. `ModelicaType`, `ComponentRef`,
@@ -112,16 +112,16 @@ package, `Frontend` and all its submodules (`ModTable`, `LookupTree`, the hash a
 
 ## Helper Pattern Caveats
 
-The helpers `mapPreservingEq` and `reuseIfRefEqual` live in `src/Frontend/NFPerfHelpers.jl` and are loaded at the top level of module `Frontend` via `src/Frontend/Frontend.jl`.
+The helpers `mapPreservingEq` and `reuseIfRefEqual` live in `src/Frontend/PerfHelpers.jl` and are loaded at the top level of module `Frontend` via `src/Frontend/Frontend.jl`.
 
 ### `reuseIfRefEqual` and parametric wrapper types
 
 `reuseIfRefEqual(unchanged, orig, new, makeNew)` is safe ONLY when `unchanged` and `makeNew(new)` produce values of the same concrete (non-parametric) type, so the inferred `Union` return widens to a single concrete type at the caller.
 
 - Sites where this is true and the helper helps: `CALL_EXPRESSION`, `CREF_EXPRESSION`, `ALG_TERMINATE`, `ALG_NORETCALL`.
-- Sites where it is NOT, and the helper boxes and explodes allocations 2–3×: every `SUBSCRIPT_INDEX{T <: Expression}` and `SUBSCRIPT_UNTYPED{T <: Expression}` pattern in `src/Frontend/NFSubscript.jl`. Keep the inline `if referenceEq(...) ... end` shape there.
+- Sites where it is NOT, and the helper boxes and explodes allocations 2–3×: every `SUBSCRIPT_INDEX{T <: Expression}` and `SUBSCRIPT_UNTYPED{T <: Expression}` pattern in `src/Frontend/Subscript.jl`. Keep the inline `if referenceEq(...) ... end` shape there.
 
-Empirical finding: applying the helper to `mapShallowExp` and `mapExp` in `NFSubscript.jl` increased one representative flatten run from roughly 8 M to roughly 22 M allocations. Reverting brought it back. Rule of thumb: before refactoring an arm to use `reuseIfRefEqual`, check whether the wrapper struct is parametric (`struct X{T <: Y}`). If yes, leave the inline pattern alone.
+Empirical finding: applying the helper to `mapShallowExp` and `mapExp` in `Subscript.jl` increased one representative flatten run from roughly 8 M to roughly 22 M allocations. Reverting brought it back. Rule of thumb: before refactoring an arm to use `reuseIfRefEqual`, check whether the wrapper struct is parametric (`struct X{T <: Y}`). If yes, leave the inline pattern alone.
 
 ### Helper visibility from submodules
 
@@ -186,7 +186,7 @@ The repository maintainer may override this on a per-task basis with an explicit
 - For OMFrontend perf claims, report allocation count and bytes, not wall time. See "Performance Metric" above.
 - Do not speculate about why something happened. If a log file or test output exists, read it. Say "I do not know yet, let me check" instead of guessing.
 - Do not restart a live Julia REPL unless asked. Use `Revise.retry()` first. Restarting throws away minutes of warm precompile.
-- Reference files by repo-relative path with line number where applicable, for example `src/Frontend/NFFlatten.jl:2089`.
+- Reference files by repo-relative path with line number where applicable, for example `src/Frontend/Flatten.jl:2089`.
 
 ## Pointers Outside This Repository
 

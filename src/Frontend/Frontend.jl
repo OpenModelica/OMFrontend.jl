@@ -132,105 +132,105 @@ include("../SCode/SCodeUtil.jl")
 include("../SCode/SCodeDump.jl")
 include("../SCode/AbsynToSCode.jl")
 #= Include interfaces and aliases New Frontend=#
-include("../FrontendInterfaces/NFInterfaces.jl")
-include("../FrontendInterfaces/NFAlias.jl")
-include("NFPerfHelpers.jl")
+include("../FrontendInterfaces/Interfaces.jl")
+include("../FrontendInterfaces/Alias.jl")
+include("PerfHelpers.jl")
 #= Other modules =#
-include("NFExpression.jl")
-include("NFType.jl")
-include("NFComplexType.jl")
-include("NFPrefixes.jl")
+include("Expression.jl")
+include("Type.jl")
+include("ComplexType.jl")
+include("Prefixes.jl")
 include("../FrontendInterfaces/FlatInterfaces.jl")
-include("NFComponent.jl")
-include("NFImport.jl")
+include("Component.jl")
+include("Import.jl")
 include("LookupTree.jl")
 include("DuplicateTree.jl")
-include("NFClassTree.jl")
-include("NFEquation.jl")
+include("ClassTree.jl")
+include("Equation.jl")
 
-include("NFInstNode.jl")
-include("NFSections.jl")
-include("NFRecord.jl")
-include("NFOperatorOverloading.jl")
-include("NFComponentRef.jl")
-include("NFBinding.jl")
-include("NFModifier.jl")
-include("NFCeval.jl")
-include("NFDimension.jl")
-include("NFTyping.jl")
+include("InstNode.jl")
+include("Sections.jl")
+include("Record.jl")
+include("OperatorOverloading.jl")
+include("ComponentRef.jl")
+include("Binding.jl")
+include("Modifier.jl")
+include("Ceval.jl")
+include("Dimension.jl")
+include("Typing.jl")
 
-include("NFScalarize.jl")
+include("Scalarize.jl")
 
-include("NFClass.jl")
-include("NFExpressionIterator.jl")
-include("NFInstUtil.jl")
-include("NFInst.jl")
-include("NFAlgorithm.jl")
-include("NFStatement.jl")
-include("NFVariable.jl")
-include("NFFlatModel.jl")
-include("NFConnector.jl")
-include("NFConnection.jl")
-include("NFConnections.jl")
+include("Class.jl")
+include("ExpressionIterator.jl")
+include("InstUtil.jl")
+include("Inst.jl")
+include("Algorithm.jl")
+include("Statement.jl")
+include("Variable.jl")
+include("FlatModel.jl")
+include("Connector.jl")
+include("Connection.jl")
+include("Connections.jl")
 
-include("NFConnectionSets.jl")
+include("ConnectionSets.jl")
 
-include("NFCardinalityTable.jl")
+include("CardinalityTable.jl")
 
-include("NFConnectEquations.jl")
-import .NFCardinalityTable
-include("NFFunctionDerivative.jl")
+include("ConnectEquations.jl")
+import .CardinalityTable
+include("FunctionDerivative.jl")
 
-include("NFFunction.jl")
+include("Function.jl")
 
-include("NFSubscript.jl")
+include("Subscript.jl")
 
-include("NFFlatten.jl")
+include("Flatten.jl")
 
-include("NFRestriction.jl")
+include("Restriction.jl")
 
-include("NFLookup.jl")
+include("Lookup.jl")
 
-include("NFLookupState.jl")
+include("LookupState.jl")
 
 @exportAll
 #= Overconstrained connectors =#
 include("OCCGraph.jl")
 @exportAll
-include("NFBuiltinFuncs.jl")
-include("NFBuiltin.jl")
-#import ..NFBuiltin
+include("BuiltinFuncs.jl")
+include("Builtin.jl")
+#import ..Builtin
 include("BindingExpression.jl")
 
 include("../Util/ModelicaExternalC.jl")
-include("NFEvalFunction.jl")
-include("NFEvalFunctionExt.jl")
+include("EvalFunction.jl")
+include("EvalFunctionExt.jl")
 
-include("NFCall.jl")
+include("Call.jl")
 
-include("NFBuiltinCall.jl")
+include("BuiltinCall.jl")
 
-include("NFOperator.jl")
-#= after NFOperator.jl: its methods dispatch on OPERATOR =#
-include("NFRerollConnects.jl")
+include("Operator.jl")
+#= after Operator.jl: its methods dispatch on OPERATOR =#
+include("RerollConnects.jl")
 
-include("NFTypeCheck.jl")
+include("TypeCheck.jl")
 
-include("NFExpandableConnectors.jl")
+include("ExpandableConnectors.jl")
 
-include("NFEvalConstants.jl")
+include("EvalConstants.jl")
 
-include("NFExpandExp.jl")
+include("ExpandExp.jl")
 
-include("NFSimplifyModel.jl")
-include("NFSimplifyExp.jl")
-include("NFPackage.jl")
+include("SimplifyModel.jl")
+include("SimplifyExp.jl")
+include("Package.jl")
 #= Model verification =#
-include("NFVerifyModel.jl")
+include("VerifyModel.jl")
 include("checkModel.jl")
-include("NFInline.jl")
+include("Inline.jl")
 #=  Builtin functions =#
-include("NFRangeIterator.jl")
+include("RangeIterator.jl")
 
 #= JSON export of FLAT_MODEL (structural-mode components and templates). =#
 include("../Export/StructuralModeJSON.jl")

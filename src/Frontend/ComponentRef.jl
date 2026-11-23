@@ -42,7 +42,7 @@ end
 
 const Origin::ORIGIN_STRUCT = ORIGIN_STRUCT(1,2,3)
 
-#= The ComponentRef struct and its constructors are in FrontendInterfaces/NFInterfaces.jl. =#
+#= The ComponentRef struct and its constructors are in FrontendInterfaces/Interfaces.jl. =#
 
 function isComplexArray2(cref::ComponentRef)::Bool
    @match cref begin

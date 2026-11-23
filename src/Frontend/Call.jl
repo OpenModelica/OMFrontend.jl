@@ -207,7 +207,7 @@ function toFlatString(call::Call; inFunction = false)
         if isVectorized(call)
            str = toFlatString(devectorizeCall(call); inFunction = inFunction)
         else
-          nameVar = AbsynUtil.pathString(name(NFBuiltinFuncs.ARRAY_FUNC))
+          nameVar = AbsynUtil.pathString(name(BuiltinFuncs.ARRAY_FUNC))
            arg_str = toFlatString(call.exp; inFunction = inFunction)
            c = stringDelimitList(
             list(
@@ -289,7 +289,7 @@ function toString(call::Call)::String
      end
 
      UNTYPED_ARRAY_CONSTRUCTOR(__) => begin
-       nameStr = AbsynUtil.pathString(name(NFBuiltinFuncs.ARRAY_FUNC))
+       nameStr = AbsynUtil.pathString(name(BuiltinFuncs.ARRAY_FUNC))
        arg_str = toString(call.exp)
        c = stringDelimitList(
          list(
@@ -328,7 +328,7 @@ function toString(call::Call)::String
      end
 
      TYPED_ARRAY_CONSTRUCTOR(__) => begin
-       nameStr = AbsynUtil.pathString(name(NFBuiltinFuncs.ARRAY_FUNC))
+       nameStr = AbsynUtil.pathString(name(BuiltinFuncs.ARRAY_FUNC))
        arg_str = toString(call.exp)
        c = stringDelimitList(
          list(
@@ -412,7 +412,7 @@ function typedFunction(call::Call)::MODELICA_FUNCTION
        call.fn
      end
      TYPED_ARRAY_CONSTRUCTOR(__) => begin
-       NFBuiltinFuncs.ARRAY_FUNC
+       BuiltinFuncs.ARRAY_FUNC
      end
      TYPED_REDUCTION(__) => begin
        call.fn

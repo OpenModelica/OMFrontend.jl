@@ -506,7 +506,7 @@ function enumIndexExp(@nospecialize(enumExp::Expression)) ::Expression
      end
 
      _  => begin
-       CALL_EXPRESSION(makeTypedCall(NFBuiltinFuncs.INTEGER_ENUM, Expression[enumExp], variability(enumExp)))
+       CALL_EXPRESSION(makeTypedCall(BuiltinFuncs.INTEGER_ENUM, Expression[enumExp], variability(enumExp)))
      end
    end
 end
@@ -718,7 +718,7 @@ function promote2(@nospecialize(exp::Expression), isArray::Bool, dims::Int, type
         if expanded
            outExp = promote2(outExp, true, dims, types)
         else
-          outExp = CALL_EXPRESSION(makeTypedCall(NFBuiltinFuncs.PROMOTE,
+          outExp = CALL_EXPRESSION(makeTypedCall(BuiltinFuncs.PROMOTE,
                                                  Expression[exp, INTEGER_EXPRESSION(dims)],
                                                  variability(exp), listHead(types)))
         end

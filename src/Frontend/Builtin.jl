@@ -33,7 +33,7 @@
 *
 */ =#
 
-module NFBuiltin
+module Builtin
 
 using MetaModelica
 import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
@@ -794,35 +794,35 @@ const TIME_CREF =
 Contains the builtin class nodes of the compiler.
 """
 const BUILTIN_DICT = Dict{String, InstNode}(
-  "Real" => NFBuiltin.REAL_NODE,
-  "Integer" => NFBuiltin.INTEGER_NODE,
-  "Boolean" => NFBuiltin.BOOLEAN_NODE,
-  "String" => NFBuiltin.STRING_NODE,
-  "Clock" => NFBuiltin.CLOCK_NODE,
-  "polymorphic" => NFBuiltin.POLYMORPHIC_NODE)
+  "Real" => Builtin.REAL_NODE,
+  "Integer" => Builtin.INTEGER_NODE,
+  "Boolean" => Builtin.BOOLEAN_NODE,
+  "String" => Builtin.STRING_NODE,
+  "Clock" => Builtin.CLOCK_NODE,
+  "polymorphic" => Builtin.POLYMORPHIC_NODE)
 
 import ..LOOKUP_STATE_PREDEF_CLASS
 import ..LOOKUP_STATE_PREDEF_COMP
 import ..LOOKUP_STATE_FUNC
 
-import ..NFBuiltinFuncs
+import ..BuiltinFuncs
 
 const BUILTIN_CREF_DICT = Dict{String, Tuple}(
   "time"  =>
-    (NFBuiltin.TIME, NFBuiltin.TIME_CREF, LOOKUP_STATE_PREDEF_COMP())
+    (Builtin.TIME, Builtin.TIME_CREF, LOOKUP_STATE_PREDEF_COMP())
   ,
   "Boolean"  =>
-    (NFBuiltin.BOOLEAN_NODE, NFBuiltin.BOOLEAN_CREF, LOOKUP_STATE_PREDEF_CLASS())
+    (Builtin.BOOLEAN_NODE, Builtin.BOOLEAN_CREF, LOOKUP_STATE_PREDEF_CLASS())
   ,
   "Integer"  =>
-    (NFBuiltinFuncs.INTEGER_NODE, NFBuiltinFuncs.INTEGER_CREF, LOOKUP_STATE_FUNC())
+    (BuiltinFuncs.INTEGER_NODE, BuiltinFuncs.INTEGER_CREF, LOOKUP_STATE_FUNC())
   ,
   "String"  =>
-    (NFBuiltinFuncs.STRING_NODE, NFBuiltinFuncs.STRING_CREF, LOOKUP_STATE_FUNC())
+    (BuiltinFuncs.STRING_NODE, BuiltinFuncs.STRING_CREF, LOOKUP_STATE_FUNC())
   ,
   #=Shoulld have a check to see if synchronos features are to be available or not. =#
   "Clock"   =>
-    (NFBuiltinFuncs.CLOCK_NODE, NFBuiltinFuncs.CLOCK_CREF, LOOKUP_STATE_FUNC()))
+    (BuiltinFuncs.CLOCK_NODE, BuiltinFuncs.CLOCK_CREF, LOOKUP_STATE_FUNC()))
 
 @exportAll()
 end

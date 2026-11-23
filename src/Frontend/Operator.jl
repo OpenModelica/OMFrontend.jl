@@ -116,7 +116,7 @@ const Op = OpStruct(
 
 const OpType = Int
 
-#= OPERATOR is defined in FrontendInterfaces/NFInterfaces.jl, before the expressions that hold one. =#
+#= OPERATOR is defined in FrontendInterfaces/Interfaces.jl, before the expressions that hold one. =#
 
 function negate(op::OPERATOR)::OPERATOR
   local outOp::OPERATOR

@@ -34,11 +34,11 @@
 */ =#
 
 #= InstNodeType and InstNode are single concrete tagged structs defined at the
-   forward-declaration site (FrontendInterfaces/NFInterfaces.jl). Their
+   forward-declaration site (FrontendInterfaces/Interfaces.jl). Their
    constructors / singletons / @match registrations / methods follow here. =#
 
 #= InstNodeType/InstNode constructors, singletons, @match registrations and
-   box-on-share helpers are defined in FrontendInterfaces/NFInterfaces.jl (before
+   box-on-share helpers are defined in FrontendInterfaces/Interfaces.jl (before
    any file that @matches these variants). Methods follow below. =#
 
 module NodeTree

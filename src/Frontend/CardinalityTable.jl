@@ -33,7 +33,7 @@
 *
 */ =#
 
-module NFCardinalityTable
+module CardinalityTable
 
 import ..System
 import ..Util

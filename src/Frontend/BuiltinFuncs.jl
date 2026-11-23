@@ -33,7 +33,7 @@
 *
 */ =#
 
-module NFBuiltinFuncs
+module BuiltinFuncs
 
 import ..AbsynUtil
 import OpenModelicaParser.Absyn

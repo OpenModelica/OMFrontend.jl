@@ -60,8 +60,8 @@ const VariabilityType = Int8
 #= InstNodeType and InstNode as single concrete tagged structs (hand-written;
    variants are field-disjoint so @CUniontype does not apply). Defined at this
    forward-declaration site (before ModelicaType, which has cls::InstNode) because both
-   are referenced by files loaded before NFInstNode.jl. Constructors, singletons,
-   @match registrations and methods live in NFInstNode.jl. The graph spine
+   are referenced by files loaded before InstNode.jl. Constructors, singletons,
+   @match registrations and methods live in InstNode.jl. The graph spine
    (parentScope/parent/inner/outer/locals::InstNode, nodeType::InstNodeType,
    component::Component) is concrete; leaf payloads (cls/definition/exp/caches)
    stay loosely typed to keep this site dependency-light. InstNodeType.parent is
@@ -138,7 +138,7 @@ MetaModelica.compacted_tag_info(::typeof(ROOT_CLASS))       = (InstNodeType, :ta
 MetaModelica.compacted_tag_info(::typeof(REDECLARED_COMP))  = (InstNodeType, :tag, INTY_REDECLARED_COMP, (:parent,))
 MetaModelica.compacted_tag_info(::typeof(REDECLARED_CLASS)) = (InstNodeType, :tag, INTY_REDECLARED_CLASS, (:parent, :originalType))
 
-# One concrete struct -> discriminate by tag (see NFType.jl valueConstructor note).
+# One concrete struct -> discriminate by tag (see Type.jl valueConstructor note).
 MetaModelica.valueConstructor(v::InstNodeType) = Int(v.tag)
 
 # Full-field builder (defaults for the slots a given variant does not use).
@@ -321,7 +321,7 @@ end
     ModelicaTypeImpl{F}
 
 The type struct, used as `ModelicaType = ModelicaTypeImpl{MODELICA_FUNCTION}` (defined below `MODELICA_FUNCTION`).
-One tagged struct for all variants (`tag`); constructors, `@match` registrations and methods are in NFType.jl.
+One tagged struct for all variants (`tag`); constructors, `@match` registrations and methods are in Type.jl.
 
 A function type (`TYPE_FUNCTION`) holds its function and a function holds its return type: Julia has no forward
 declaration of a concrete struct, so the function's type is a parameter here and `MODELICA_FUNCTION` names
@@ -389,7 +389,7 @@ const TypedArg = Tuple{A,B,C} where {A,B,C}
 
 An input of a function as a call fills it: its `name`, which arguments it takes (`ty`, a `SlotType`), its
 `default` value, the argument matched to it (`arg`), its position (`index`), and whether its default is being or
-has been evaluated (`evalStatus`, a `SlotEvalStatus`). Functions on slots are in NFFunction.jl.
+has been evaluated (`evalStatus`, a `SlotEvalStatus`). Functions on slots are in Function.jl.
 """
 struct SLOT
   name::String
@@ -405,7 +405,7 @@ end
 
 A `derivative` annotation of a function: `derivativeFn` is the derivative of `derivedFn` of order `order`;
 `conditions` are its `zeroDerivative`/`noDerivative` inputs `(index, name, DerivativeCondition)`. Functions on it are
-in NFFunctionDerivative.jl.
+in FunctionDerivative.jl.
 """
 struct FUNCTION_DER
   derivativeFn::InstNode
@@ -497,7 +497,7 @@ const ModelicaType = ModelicaTypeImpl{MODELICA_FUNCTION}
     OPERATOR(ty, op)
 
 A unary, binary, logical or relational operator: `op` is one of the `Op` values (`Op.ADD`, `Op.MUL_EW`, ...), `ty`
-the type it operates on. Functions on operators are in NFOperator.jl.
+the type it operates on. Functions on operators are in Operator.jl.
 """
 struct OPERATOR
   ty::ModelicaType
@@ -516,7 +516,7 @@ A component reference (`a.b[1].c`): one tagged struct for all variants (`tag`).
   parts before it (`COMPONENT_REF_EMPTY()` for the first). Read from the last part to the first.
 
 A variant's fields are the first ones of the struct; for `WILD` and `EMPTY` the others stay `#undef` (never read).
-Defined here, before the structs that hold one (`Call`, `Equation`). Functions on crefs are in NFComponentRef.jl.
+Defined here, before the structs that hold one (`Call`, `Equation`). Functions on crefs are in ComponentRef.jl.
 """
 struct ComponentRef
   tag::ComponentRefTag
@@ -779,7 +779,7 @@ struct ModifierImpl{T}
   info::Union{Nothing, SourceInfo}
 end
 
-include("../Frontend/NFModTable.jl")
+include("../Frontend/ModTable.jl")
 
 """A modifier (see `ModifierImpl`)."""
 const Modifier = ModifierImpl{ModTable.Tree}

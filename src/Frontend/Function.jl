@@ -67,7 +67,7 @@ named(slot::SLOT)::Bool = slot.ty == SLOT_TYPE_NAMED || slot.ty == SLOT_TYPE_GEN
 """True if the slot accepts a positional argument."""
 positional(slot::SLOT)::Bool = slot.ty == SLOT_TYPE_POSITIONAL || slot.ty == SLOT_TYPE_GENERIC
 
-#= SLOT is defined in FrontendInterfaces/NFInterfaces.jl, before MODELICA_FUNCTION. =#
+#= SLOT is defined in FrontendInterfaces/Interfaces.jl, before MODELICA_FUNCTION. =#
 
 @UniontypeDecl FunctionMatchKind
 

@@ -33,7 +33,7 @@
 *
 */ =#
 
-#= FUNCTION_DER is defined in FrontendInterfaces/NFInterfaces.jl, before MODELICA_FUNCTION. =#
+#= FUNCTION_DER is defined in FrontendInterfaces/Interfaces.jl, before MODELICA_FUNCTION. =#
 
 #import ..SCodeUtil
 #import ..SCodeDump
