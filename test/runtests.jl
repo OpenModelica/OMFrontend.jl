@@ -76,6 +76,7 @@ end
   include("logicArrayTests.jl")
   include("modifierMergeTests.jl")
   include("flatModelicaFunctionTests.jl")
+  include("lapackEvalTests.jl")
 
   # GUI_API tests are gated behind the OMFRONTEND_TEST_GUI_API env var while
   # an outstanding compileModel/isfile mismatch is being investigated. Set

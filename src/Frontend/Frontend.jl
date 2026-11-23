@@ -51,6 +51,7 @@ import ..ListUtil
 import ..SCode
 import PrecompileTools
 import ConstructionBase
+import LinearAlgebra
 import Base.@nospecializeinfer
 
 """Utility functions."""
@@ -97,7 +98,6 @@ include("../Util/Global.jl")
 include("../Util/Settings.jl")
 include("../Util/Print.jl")
 include("../Util/Util.jl")
-include("../Util/Lapack.jl")
 include("../Util/StringUtil.jl")
 include("../Util/Flags.jl")
 include("../Util/FlagsUtil.jl")

@@ -4624,35 +4624,8 @@ function makeRange(@nospecialize(start::Expression), step::Option{T}, @nospecial
   return RANGE_EXPRESSION(rangeTy, start, step, stop)
 end
 
-function makeRealMatrix(values::List{<:List{<:AbstractFloat}}) ::Expression
-  local exp::Expression
-  local ty::ModelicaType
-  local expl::Vector{Expression}
-  if listEmpty(values)
-     ty = TYPE_ARRAY(TYPE_REAL(), list(fromInteger(0), DIMENSION_UNKNOWN()))
-     exp = makeEmptyArray(ty)
-  else
-     ty = TYPE_ARRAY(TYPE_REAL(), list(fromInteger(listLength(listHead(values)))))
-     expl = Expression[makeArray(ty, Expression[REAL_EXPRESSION(v) for v in row], literal = true) for row in values]
-     ty = liftArrayLeft(ty, fromInteger(length(expl)))
-     exp = makeArray(ty, expl, literal = true)
-  end
-  exp
-end
 
-function makeRealArray(values::List{AbstractFloat})
-  local exp::Expression
-   exp = makeArray(TYPE_ARRAY(TYPE_REAL(), list(fromInteger(listLength(values)))), Expression[REAL_EXPRESSION(v) for v in values]; literal = true)
-  exp
-end
 
-function makeIntegerArray(values::List{Int})
-  local exp::Expression
-  exp = makeArray(TYPE_ARRAY(TYPE_INTEGER(),
-                             list(fromInteger(listLength(values)))), Expression[INTEGER_EXPRESSION(v) for v in values]
-                   ; literal = true)
-  exp
-end
 
 function makeEmptyArray(ty::ModelicaType)
   local outExp::Expression

@@ -33,782 +33,360 @@
 *
 */ =#
 
-#= LAPACK routines called by the frontend's function evaluation (omc: NFEvalFunctionExt.mo):
-   the external call's arguments evaluated, Lapack's routine called, its outputs assigned. =#
+#= LAPACK routines the frontend evaluates when a binding it must evaluate calls an 'external "FORTRAN 77"' function
+   (omc: NFEvalFunctionExt.mo). Each Lapack_<routine> reads the call's arguments in Fortran's order, runs Julia's LAPACK
+   (LinearAlgebra.LAPACK) on the leading blocks the sizes give, and assigns the outputs back. A matrix is read as its
+   leading-dimension block (`lda` x columns) and LAPACK works on the first rows of it, as in Fortran. Routines LAPACK
+   has deprecated run as their successors: dgegv as dggev, dgelsx as dgelsy, dgeqpf as dgeqp3, dgbsv as dgbtrf with
+   dgbtrs. The workspace arguments (work, lwork) are not used. =#
 
-#= The external call's arguments, as many as the routine takes (omc matches the list's shape). =#
+const LAPACK = LinearAlgebra.LAPACK
+
+"""The external call's arguments, `n` of them (fails for another count)."""
 function _extArgs(args::List{<:Expression}, n::Int)::Vector{Expression}
-  local v = Base.collect(Expression, args)
+  local v::Vector{Expression} = Base.collect(Expression, args)
   length(v) == n || fail()
   return v
 end
 
-function Lapack_dgeev(args::List{<:Expression})
-  local jobvl::Expression
-  local jobvr::Expression
-  local n::Expression
-  local a::Expression
-  local lda::Expression
-  local ldvl::Expression
-  local ldvr::Expression
-  local work::Expression
-  local lwork::Expression
-  local wr::Expression
-  local wi::Expression
-  local vl::Expression
-  local vr::Expression
-  local info::Expression
-  local INFO::Int
-  local LDA::Int
-  local LDVL::Int
-  local LDVR::Int
-  local LWORK::Int
-  local N::Int
-  local JOBVL::String
-  local JOBVR::String
-  local A::List{List{AbstractFloat}}
-  local VL::List{List{AbstractFloat}}
-  local VR::List{List{AbstractFloat}}
-  local WORK::List{AbstractFloat}
-  local WR::List{AbstractFloat}
-  local WI::List{AbstractFloat}
-
-  (jobvl, jobvr, n, a, lda, wr, wi, vl, ldvl, vr, ldvr, work, lwork, info) = _extArgs(args, 14)
-  @assign JOBVL = evaluateExtStringArg(jobvl)
-  @assign JOBVR = evaluateExtStringArg(jobvr)
-  @assign N = evaluateExtIntArg(n)
-  @assign A = evaluateExtRealMatrixArg(a)
-  @assign LDA = evaluateExtIntArg(lda)
-  @assign LDVL = evaluateExtIntArg(ldvl)
-  @assign LDVR = evaluateExtIntArg(ldvr)
-  @assign WORK = evaluateExtRealArrayArg(work)
-  @assign LWORK = evaluateExtIntArg(lwork)
-   (A, WR, WI, VL, VR, WORK, INFO) =
-    Lapack.dgeev(JOBVL, JOBVR, N, A, LDA, LDVL, LDVR, WORK, LWORK)
-  assignVariableExt(a, makeRealMatrix(A))
-  assignVariable(wr, makeRealArray(WR))
-  assignVariable(wi, makeRealArray(WI))
-  assignVariableExt(vl, makeRealMatrix(VL))
-  assignVariableExt(vr, makeRealMatrix(VR))
-  assignVariable(work, makeRealArray(WORK))
-  return assignVariable(info, makeInteger(INFO))
+"""The value of an evaluated scalar; an empty argument is 0."""
+function _number(@nospecialize(e::Expression))::Float64
+  e isa REAL_EXPRESSION && return e.value
+  e isa INTEGER_EXPRESSION && return Float64(e.value)
+  e isa EMPTY_EXPRESSION && return 0.0
+  return fail()
 end
 
-function Lapack_dgegv(args::List{<:Expression})
-  local jobvl::Expression
-  local jobvr::Expression
-  local n::Expression
-  local a::Expression
-  local lda::Expression
-  local b::Expression
-  local ldb::Expression
-  local alphar::Expression
-  local alphai::Expression
-  local beta::Expression
-  local vl::Expression
-  local ldvl::Expression
-  local vr::Expression
-  local ldvr::Expression
-  local work::Expression
-  local lwork::Expression
-  local info::Expression
-  local JOBVL::String
-  local JOBVR::String
-  local N::Int
-  local LDA::Int
-  local LDB::Int
-  local LDVL::Int
-  local LDVR::Int
-  local LWORK::Int
-  local INFO::Int
-  local A::List{List{AbstractFloat}}
-  local B::List{List{AbstractFloat}}
-  local VL::List{List{AbstractFloat}}
-  local VR::List{List{AbstractFloat}}
-  local WORK::List{AbstractFloat}
-  local ALPHAR::List{AbstractFloat}
-  local ALPHAI::List{AbstractFloat}
-  local BETA::List{AbstractFloat}
-
-  (jobvl, jobvr, n, a, lda, b, ldb, alphar, alphai, beta, vl, ldvl, vr, ldvr, work, lwork, info) = _extArgs(args, 17)
-  @assign JOBVL = evaluateExtStringArg(jobvl)
-  @assign JOBVR = evaluateExtStringArg(jobvr)
-  @assign N = evaluateExtIntArg(n)
-  @assign A = evaluateExtRealMatrixArg(a)
-  @assign LDA = evaluateExtIntArg(lda)
-  @assign B = evaluateExtRealMatrixArg(b)
-  @assign LDB = evaluateExtIntArg(ldb)
-  @assign LDVL = evaluateExtIntArg(ldvl)
-  @assign LDVR = evaluateExtIntArg(ldvr)
-  @assign WORK = evaluateExtRealArrayArg(work)
-  @assign LWORK = evaluateExtIntArg(lwork)
-   (ALPHAR, ALPHAI, BETA, VL, VR, WORK, INFO) =
-    Lapack.dgegv(JOBVL, JOBVR, N, A, LDA, B, LDB, LDVL, LDVR, WORK, LWORK)
-  assignVariable(alphar, makeRealArray(ALPHAR))
-  assignVariable(alphai, makeRealArray(ALPHAI))
-  assignVariable(beta, makeRealArray(BETA))
-  assignVariableExt(vl, makeRealMatrix(VL))
-  assignVariableExt(vr, makeRealMatrix(VR))
-  assignVariable(work, makeRealArray(WORK))
-  return assignVariable(info, makeInteger(INFO))
+"""The elements of an evaluated array argument."""
+function _elements(@nospecialize(arg::Expression))::Vector{Expression}
+  local e::Expression = evalExp(arg)
+  e isa ARRAY_EXPRESSION || fail()
+  return e.elements
 end
 
-function Lapack_dgels(args::List{<:Expression})
-  local trans::Expression
-  local m::Expression
-  local n::Expression
-  local nrhs::Expression
-  local a::Expression
-  local lda::Expression
-  local b::Expression
-  local ldb::Expression
-  local work::Expression
-  local lwork::Expression
-  local info::Expression
-  local TRANS::String
-  local M::Int
-  local N::Int
-  local NRHS::Int
-  local LDA::Int
-  local LDB::Int
-  local LWORK::Int
-  local INFO::Int
-  local A::List{List{AbstractFloat}}
-  local B::List{List{AbstractFloat}}
-  local WORK::List{AbstractFloat}
+extInt(@nospecialize(arg::Expression))::Int = Int(_number(evalExp(arg)))
+extReal(@nospecialize(arg::Expression))::Float64 = _number(evalExp(arg))
 
-  (trans, m, n, nrhs, a, lda, b, ldb, work, lwork, info) = _extArgs(args, 11)
-  @assign TRANS = evaluateExtStringArg(trans)
-  @assign M = evaluateExtIntArg(m)
-  @assign N = evaluateExtIntArg(n)
-  @assign NRHS = evaluateExtIntArg(nrhs)
-  @assign A = evaluateExtRealMatrixArg(a)
-  @assign LDA = evaluateExtIntArg(lda)
-  @assign B = evaluateExtRealMatrixArg(b)
-  @assign LDB = evaluateExtIntArg(ldb)
-  @assign WORK = evaluateExtRealArrayArg(work)
-  @assign LWORK = evaluateExtIntArg(lwork)
-   (A, B, WORK, INFO) = Lapack.dgels(TRANS, M, N, NRHS, A, LDA, B, LDB, WORK, LWORK)
-  assignVariableExt(a, makeRealMatrix(A))
-  assignVariableExt(b, makeRealMatrix(B))
-  assignVariable(work, makeRealArray(WORK))
-  return assignVariable(info, makeInteger(INFO))
+"""The first character of a string argument (a job or trans flag); 'N' for an empty one."""
+function extChar(@nospecialize(arg::Expression))::Char
+  local e::Expression = evalExp(arg)
+  return e isa STRING_EXPRESSION && !isempty(e.value) ? e.value[1] : 'N'
 end
 
-function Lapack_dgelsx(args::List{<:Expression})
-  local m::Expression
-  local n::Expression
-  local nrhs::Expression
-  local a::Expression
-  local lda::Expression
-  local b::Expression
-  local ldb::Expression
-  local jpvt::Expression
-  local rcond::Expression
-  local rank::Expression
-  local work::Expression
-  local info::Expression
-  local M::Int
-  local N::Int
-  local NRHS::Int
-  local LDA::Int
-  local LDB::Int
-  local RANK::Int
-  local INFO::Int
-  local A::List{List{AbstractFloat}}
-  local B::List{List{AbstractFloat}}
-  local JPVT::List{Int}
-  local RCOND::AbstractFloat
-  local WORK::List{AbstractFloat}
-
-  if listLength(args) == 12
-    (m, n, nrhs, a, lda, b, ldb, jpvt, rcond, rank, work, info) = _extArgs(args, 12)
-  else
-    (m, n, nrhs, a, lda, b, ldb, jpvt, rcond, rank, work, _, info) = _extArgs(args, 13)
+"""A vector argument with `n` elements (cut, or padded with zeros)."""
+function extVector(@nospecialize(arg::Expression), n::Int)::Vector{Float64}
+  local v::Vector{Float64} = zeros(max(n, 0))
+  for (i::Int, e::Expression) in enumerate(_elements(arg))
+    i > n && break
+    v[i] = _number(e)
   end
-  #= Some older versions of the MSL calls dgelsx with an extra lwork argument. =#
-  @assign M = evaluateExtIntArg(m)
-  @assign N = evaluateExtIntArg(n)
-  @assign NRHS = evaluateExtIntArg(nrhs)
-  @assign A = evaluateExtRealMatrixArg(a)
-  @assign LDA = evaluateExtIntArg(lda)
-  @assign B = evaluateExtRealMatrixArg(b)
-  @assign LDB = evaluateExtIntArg(ldb)
-  @assign JPVT = evaluateExtIntArrayArg(jpvt)
-  @assign RCOND = evaluateExtRealArg(rcond)
-  @assign WORK = evaluateExtRealArrayArg(work)
-   (A, B, JPVT, RANK, INFO) =
-    Lapack.dgelsx(M, N, NRHS, A, LDA, B, LDB, JPVT, RCOND, WORK)
-  assignVariableExt(a, makeRealMatrix(A))
-  assignVariableExt(b, makeRealMatrix(B))
-  assignVariable(jpvt, makeIntegerArray(JPVT))
-  assignVariable(rank, makeInteger(RANK))
-  return assignVariable(info, makeInteger(INFO))
+  return v
 end
 
-function Lapack_dgelsy(args::List{<:Expression})
-  local m::Expression
-  local n::Expression
-  local nrhs::Expression
-  local a::Expression
-  local lda::Expression
-  local b::Expression
-  local ldb::Expression
-  local jpvt::Expression
-  local rcond::Expression
-  local rank::Expression
-  local work::Expression
-  local lwork::Expression
-  local info::Expression
-  local M::Int
-  local N::Int
-  local NRHS::Int
-  local LDA::Int
-  local LDB::Int
-  local RANK::Int
-  local LWORK::Int
-  local INFO::Int
-  local A::List{List{AbstractFloat}}
-  local B::List{List{AbstractFloat}}
-  local JPVT::List{Int}
-  local RCOND::AbstractFloat
-  local WORK::List{AbstractFloat}
+extIntVector(@nospecialize(arg::Expression), n::Int)::Vector{Int} = Int.(extVector(arg, n))
 
-  (m, n, nrhs, a, lda, b, ldb, jpvt, rcond, rank, work, lwork, info) = _extArgs(args, 13)
-  @assign M = evaluateExtIntArg(m)
-  @assign N = evaluateExtIntArg(n)
-  @assign NRHS = evaluateExtIntArg(nrhs)
-  @assign A = evaluateExtRealMatrixArg(a)
-  @assign LDA = evaluateExtIntArg(lda)
-  @assign B = evaluateExtRealMatrixArg(b)
-  @assign LDB = evaluateExtIntArg(ldb)
-  @assign JPVT = evaluateExtIntArrayArg(jpvt)
-  @assign RCOND = evaluateExtRealArg(rcond)
-  @assign WORK = evaluateExtRealArrayArg(work)
-  @assign LWORK = evaluateExtIntArg(lwork)
-   (A, B, JPVT, RANK, WORK, INFO) =
-    Lapack.dgelsy(M, N, NRHS, A, LDA, B, LDB, JPVT, RCOND, WORK, LWORK)
-  assignVariableExt(a, makeRealMatrix(A))
-  assignVariableExt(b, makeRealMatrix(B))
-  assignVariable(jpvt, makeIntegerArray(JPVT))
-  assignVariable(rank, makeInteger(RANK))
-  assignVariable(work, makeRealArray(WORK))
-  return assignVariable(info, makeInteger(INFO))
-end
-
-function Lapack_dgesv(args::List{<:Expression})
-  local n::Expression
-  local nrhs::Expression
-  local a::Expression
-  local lda::Expression
-  local ipiv::Expression
-  local b::Expression
-  local ldb::Expression
-  local info::Expression
-  local N::Int
-  local NRHS::Int
-  local LDA::Int
-  local LDB::Int
-  local INFO::Int
-  local A::List{List{AbstractFloat}}
-  local B::List{List{AbstractFloat}}
-  local IPIV::List{Int}
-
-  (n, nrhs, a, lda, ipiv, b, ldb, info) = _extArgs(args, 8)
-  @assign N = evaluateExtIntArg(n)
-  @assign NRHS = evaluateExtIntArg(nrhs)
-  @assign A = evaluateExtRealMatrixArg(a)
-  @assign LDA = evaluateExtIntArg(lda)
-  @assign B = evaluateExtRealMatrixArg(b)
-  @assign LDB = evaluateExtIntArg(ldb)
-   (A, IPIV, B, INFO) = Lapack.dgesv(N, NRHS, A, LDA, B, LDB)
-  assignVariableExt(a, makeRealMatrix(A))
-  assignVariable(ipiv, makeIntegerArray(IPIV))
-  assignVariableExt(b, makeRealMatrix(B))
-  return assignVariable(info, makeInteger(INFO))
-end
-
-function Lapack_dgglse(args::List{<:Expression})
-  local m::Expression
-  local n::Expression
-  local p::Expression
-  local a::Expression
-  local lda::Expression
-  local b::Expression
-  local ldb::Expression
-  local c::Expression
-  local d::Expression
-  local x::Expression
-  local work::Expression
-  local lwork::Expression
-  local info::Expression
-  local M::Int
-  local N::Int
-  local P::Int
-  local LDA::Int
-  local LDB::Int
-  local LWORK::Int
-  local INFO::Int
-  local A::List{List{AbstractFloat}}
-  local B::List{List{AbstractFloat}}
-  local C::List{AbstractFloat}
-  local D::List{AbstractFloat}
-  local WORK::List{AbstractFloat}
-  local X::List{AbstractFloat}
-
-  (m, n, p, a, lda, b, ldb, c, d, x, work, lwork, info) = _extArgs(args, 13)
-  @assign M = evaluateExtIntArg(m)
-  @assign N = evaluateExtIntArg(n)
-  @assign P = evaluateExtIntArg(p)
-  @assign A = evaluateExtRealMatrixArg(a)
-  @assign LDA = evaluateExtIntArg(lda)
-  @assign B = evaluateExtRealMatrixArg(b)
-  @assign LDB = evaluateExtIntArg(ldb)
-  @assign C = evaluateExtRealArrayArg(c)
-  @assign D = evaluateExtRealArrayArg(d)
-  @assign WORK = evaluateExtRealArrayArg(work)
-  @assign LWORK = evaluateExtIntArg(lwork)
-   (A, B, C, D, X, WORK, INFO) =
-    Lapack.dgglse(M, N, P, A, LDA, B, LDB, C, D, WORK, LWORK)
-  assignVariableExt(a, makeRealMatrix(A))
-  assignVariableExt(b, makeRealMatrix(B))
-  assignVariable(c, makeRealArray(C))
-  assignVariable(d, makeRealArray(D))
-  assignVariable(x, makeRealArray(X))
-  assignVariable(work, makeRealArray(WORK))
-  return assignVariable(info, makeInteger(INFO))
-end
-
-function Lapack_dgtsv(args::List{<:Expression})
-  local n::Expression
-  local nrhs::Expression
-  local dl::Expression
-  local d::Expression
-  local du::Expression
-  local b::Expression
-  local ldb::Expression
-  local info::Expression
-  local N::Int
-  local NRHS::Int
-  local LDB::Int
-  local INFO::Int
-  local DL::List{AbstractFloat}
-  local D::List{AbstractFloat}
-  local DU::List{AbstractFloat}
-  local B::List{List{AbstractFloat}}
-
-  (n, nrhs, dl, d, du, b, ldb, info) = _extArgs(args, 8)
-  @assign N = evaluateExtIntArg(n)
-  @assign NRHS = evaluateExtIntArg(nrhs)
-  @assign DL = evaluateExtRealArrayArg(dl)
-  @assign D = evaluateExtRealArrayArg(d)
-  @assign DU = evaluateExtRealArrayArg(du)
-  @assign B = evaluateExtRealMatrixArg(b)
-  @assign LDB = evaluateExtIntArg(ldb)
-   (DL, D, DU, B, INFO) = Lapack.dgtsv(N, NRHS, DL, D, DU, B, LDB)
-  assignVariable(dl, makeRealArray(DL))
-  assignVariable(d, makeRealArray(D))
-  assignVariable(du, makeRealArray(DU))
-  assignVariableExt(b, makeRealMatrix(B))
-  return assignVariable(info, makeInteger(INFO))
-end
-
-function Lapack_dgbsv(args::List{<:Expression})
-  local n::Expression
-  local kl::Expression
-  local ku::Expression
-  local nrhs::Expression
-  local ab::Expression
-  local ldab::Expression
-  local ipiv::Expression
-  local b::Expression
-  local ldb::Expression
-  local info::Expression
-  local N::Int
-  local KL::Int
-  local KU::Int
-  local NRHS::Int
-  local LDAB::Int
-  local LDB::Int
-  local INFO::Int
-  local AB::List{List{AbstractFloat}}
-  local B::List{List{AbstractFloat}}
-  local IPIV::List{Int}
-
-  (n, kl, ku, nrhs, ab, ldab, ipiv, b, ldb, info) = _extArgs(args, 10)
-  @assign N = evaluateExtIntArg(n)
-  @assign KL = evaluateExtIntArg(kl)
-  @assign KU = evaluateExtIntArg(ku)
-  @assign NRHS = evaluateExtIntArg(nrhs)
-  @assign AB = evaluateExtRealMatrixArg(ab)
-  @assign LDAB = evaluateExtIntArg(ldab)
-  @assign B = evaluateExtRealMatrixArg(b)
-  @assign LDB = evaluateExtIntArg(ldb)
-   (AB, IPIV, B, INFO) = Lapack.dgbsv(N, KL, KU, NRHS, AB, LDAB, B, LDB)
-  assignVariableExt(ab, makeRealMatrix(AB))
-  assignVariable(ipiv, makeIntegerArray(IPIV))
-  assignVariableExt(b, makeRealMatrix(B))
-  return assignVariable(info, makeInteger(INFO))
-end
-
-function Lapack_dgesvd(args::List{<:Expression})
-  local jobu::Expression
-  local jobvt::Expression
-  local m::Expression
-  local n::Expression
-  local a::Expression
-  local lda::Expression
-  local s::Expression
-  local u::Expression
-  local ldu::Expression
-  local vt::Expression
-  local ldvt::Expression
-  local work::Expression
-  local lwork::Expression
-  local info::Expression
-  local JOBU::String
-  local JOBVT::String
-  local M::Int
-  local N::Int
-  local LDA::Int
-  local LDU::Int
-  local LDVT::Int
-  local LWORK::Int
-  local INFO::Int
-  local A::List{List{AbstractFloat}}
-  local U::List{List{AbstractFloat}}
-  local VT::List{List{AbstractFloat}}
-  local S::List{AbstractFloat}
-  local WORK::List{AbstractFloat}
-
-  (jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, info) = _extArgs(args, 14)
-  @assign JOBU = evaluateExtStringArg(jobu)
-  @assign JOBVT = evaluateExtStringArg(jobvt)
-  @assign M = evaluateExtIntArg(m)
-  @assign N = evaluateExtIntArg(n)
-  @assign A = evaluateExtRealMatrixArg(a)
-  @assign LDA = evaluateExtIntArg(lda)
-  @assign LDU = evaluateExtIntArg(ldu)
-  @assign LDVT = evaluateExtIntArg(ldvt)
-  @assign WORK = evaluateExtRealArrayArg(work)
-  @assign LWORK = evaluateExtIntArg(lwork)
-   (A, S, U, VT, WORK, INFO) =
-    Lapack.dgesvd(JOBU, JOBVT, M, N, A, LDA, LDU, LDVT, WORK, LWORK)
-  assignVariableExt(a, makeRealMatrix(A))
-  assignVariable(s, makeRealArray(S))
-  assignVariableExt(u, makeRealMatrix(U))
-  assignVariableExt(vt, makeRealMatrix(VT))
-  assignVariable(work, makeRealArray(WORK))
-  return assignVariable(info, makeInteger(INFO))
-end
-
-function Lapack_dgetrf(args::List{<:Expression})
-  local m::Expression
-  local n::Expression
-  local a::Expression
-  local lda::Expression
-  local ipiv::Expression
-  local info::Expression
-  local M::Int
-  local N::Int
-  local LDA::Int
-  local INFO::Int
-  local A::List{List{AbstractFloat}}
-  local IPIV::List{Int}
-
-  (m, n, a, lda, ipiv, info) = _extArgs(args, 6)
-  @assign M = evaluateExtIntArg(m)
-  @assign N = evaluateExtIntArg(n)
-  @assign A = evaluateExtRealMatrixArg(a)
-  @assign LDA = evaluateExtIntArg(lda)
-   (A, IPIV, INFO) = Lapack.dgetrf(M, N, A, LDA)
-  assignVariableExt(a, makeRealMatrix(A))
-  assignVariable(ipiv, makeIntegerArray(IPIV))
-  return assignVariable(info, makeInteger(INFO))
-end
-
-function Lapack_dgetrs(args::List{<:Expression})
-  local trans::Expression
-  local n::Expression
-  local nrhs::Expression
-  local a::Expression
-  local lda::Expression
-  local ipiv::Expression
-  local b::Expression
-  local ldb::Expression
-  local info::Expression
-  local TRANS::String
-  local N::Int
-  local NRHS::Int
-  local LDA::Int
-  local LDB::Int
-  local INFO::Int
-  local A::List{List{AbstractFloat}}
-  local B::List{List{AbstractFloat}}
-  local IPIV::List{Int}
-
-  (trans, n, nrhs, a, lda, ipiv, b, ldb, info) = _extArgs(args, 9)
-  @assign TRANS = evaluateExtStringArg(trans)
-  @assign N = evaluateExtIntArg(n)
-  @assign NRHS = evaluateExtIntArg(nrhs)
-  @assign A = evaluateExtRealMatrixArg(a)
-  @assign LDA = evaluateExtIntArg(lda)
-  @assign IPIV = evaluateExtIntArrayArg(ipiv)
-  @assign B = evaluateExtRealMatrixArg(b)
-  @assign LDB = evaluateExtIntArg(ldb)
-   (B, INFO) = Lapack.dgetrs(TRANS, N, NRHS, A, LDA, IPIV, B, LDB)
-  assignVariableExt(b, makeRealMatrix(B))
-  return assignVariable(info, makeInteger(INFO))
-end
-
-function Lapack_dgetri(args::List{<:Expression})
-  local n::Expression
-  local a::Expression
-  local lda::Expression
-  local ipiv::Expression
-  local work::Expression
-  local lwork::Expression
-  local info::Expression
-  local N::Int
-  local LDA::Int
-  local LWORK::Int
-  local INFO::Int
-  local A::List{List{AbstractFloat}}
-  local IPIV::List{Int}
-  local WORK::List{AbstractFloat}
-
-  (n, a, lda, ipiv, work, lwork, info) = _extArgs(args, 7)
-  @assign N = evaluateExtIntArg(n)
-  @assign A = evaluateExtRealMatrixArg(a)
-  @assign LDA = evaluateExtIntArg(lda)
-  @assign IPIV = evaluateExtIntArrayArg(ipiv)
-  @assign WORK = evaluateExtRealArrayArg(work)
-  @assign LWORK = evaluateExtIntArg(lwork)
-   (A, WORK, INFO) = Lapack.dgetri(N, A, LDA, IPIV, WORK, LWORK)
-  assignVariableExt(a, makeRealMatrix(A))
-  assignVariable(work, makeRealArray(WORK))
-  return assignVariable(info, makeInteger(INFO))
-end
-
-function Lapack_dgeqpf(args::List{<:Expression})
-  local m::Expression
-  local n::Expression
-  local a::Expression
-  local lda::Expression
-  local jpvt::Expression
-  local tau::Expression
-  local work::Expression
-  local info::Expression
-  local M::Int
-  local N::Int
-  local LDA::Int
-  local INFO::Int
-  local A::List{List{AbstractFloat}}
-  local JPVT::List{Int}
-  local WORK::List{AbstractFloat}
-  local TAU::List{AbstractFloat}
-
-  (m, n, a, lda, jpvt, tau, work, info) = _extArgs(args, 8)
-  @assign M = evaluateExtIntArg(m)
-  @assign N = evaluateExtIntArg(n)
-  @assign A = evaluateExtRealMatrixArg(a)
-  @assign LDA = evaluateExtIntArg(lda)
-  @assign JPVT = evaluateExtIntArrayArg(jpvt)
-  @assign WORK = evaluateExtRealArrayArg(work)
-   (A, JPVT, TAU, INFO) = Lapack.dgeqpf(M, N, A, LDA, JPVT, WORK)
-  assignVariableExt(a, makeRealMatrix(A))
-  assignVariable(jpvt, makeIntegerArray(JPVT))
-  assignVariable(tau, makeRealArray(TAU))
-  return assignVariable(info, makeInteger(INFO))
-end
-
-function Lapack_dorgqr(args::List{<:Expression})
-  local m::Expression
-  local n::Expression
-  local k::Expression
-  local a::Expression
-  local lda::Expression
-  local tau::Expression
-  local work::Expression
-  local lwork::Expression
-  local info::Expression
-  local M::Int
-  local N::Int
-  local K::Int
-  local LDA::Int
-  local LWORK::Int
-  local INFO::Int
-  local A::List{List{AbstractFloat}}
-  local TAU::List{AbstractFloat}
-  local WORK::List{AbstractFloat}
-
-  (m, n, k, a, lda, tau, work, lwork, info) = _extArgs(args, 9)
-  @assign M = evaluateExtIntArg(m)
-  @assign N = evaluateExtIntArg(n)
-  @assign K = evaluateExtIntArg(k)
-  @assign A = evaluateExtRealMatrixArg(a)
-  @assign LDA = evaluateExtIntArg(lda)
-  @assign TAU = evaluateExtRealArrayArg(tau)
-  @assign WORK = evaluateExtRealArrayArg(work)
-  @assign LWORK = evaluateExtIntArg(lwork)
-   (A, WORK, INFO) = Lapack.dorgqr(M, N, K, A, LDA, TAU, WORK, LWORK)
-  assignVariableExt(a, makeRealMatrix(A))
-  assignVariable(work, makeRealArray(WORK))
-  return assignVariable(info, makeInteger(INFO))
-end
-
-function Lapack_dhseqr(args::List{<:Expression})
-  local job::Expression
-  local compz::Expression
-  local n::Expression
-  local ilo::Expression
-  local ihi::Expression
-  local h::Expression
-  local ldh::Expression
-  local wr::Expression
-  local wi::Expression
-  local z::Expression
-  local ldz::Expression
-  local work::Expression
-  local lwork::Expression
-  local info::Expression
-  local H::List{List{AbstractFloat}}
-  local Z::List{List{AbstractFloat}}
-  local WR::List{AbstractFloat}
-  local WI::List{AbstractFloat}
-  local WORK::List{AbstractFloat}
-  local INFO::Int
-
-  (job, compz, n, ilo, ihi, h, ldh, wr, wi, z, ldz, work, lwork, info) = _extArgs(args, 14)
-  (H, WR, WI, Z, WORK, INFO) = Lapack.dhseqr(evaluateExtStringArg(job), evaluateExtStringArg(compz),
-    evaluateExtIntArg(n), evaluateExtIntArg(ilo), evaluateExtIntArg(ihi), evaluateExtRealMatrixArg(h),
-    evaluateExtIntArg(ldh), evaluateExtRealMatrixArg(z), evaluateExtIntArg(ldz),
-    evaluateExtRealArrayArg(work), evaluateExtIntArg(lwork))
-  assignVariableExt(h, makeRealMatrix(H))
-  assignVariable(wr, makeRealArray(WR))
-  assignVariable(wi, makeRealArray(WI))
-  assignVariableExt(z, makeRealMatrix(Z))
-  assignVariable(work, makeRealArray(WORK))
-  return assignVariable(info, makeInteger(INFO))
-end
-
-function evaluateExtIntArg(@nospecialize(arg::Expression))::Int
-  local value::Int = getExtIntValue(evalExp(arg))
-  return value
-end
-
-function getExtIntValue(@nospecialize(exp::Expression))::Int
-
-  @match exp begin
-    INTEGER_EXPRESSION(__) => begin
-      exp.value
-    end
-
-    EMPTY_EXPRESSION(__) => begin
-      0
+"""A matrix argument as `rows` x `cols` (cut, or padded with zeros); a vector is one column."""
+function extMatrix(@nospecialize(arg::Expression), rows::Int, cols::Int)::Matrix{Float64}
+  local m::Matrix{Float64} = zeros(max(rows, 0), max(cols, 0))
+  for (i::Int, row::Expression) in enumerate(_elements(arg))
+    i > rows && break
+    if row isa ARRAY_EXPRESSION
+      for (j::Int, e::Expression) in enumerate(row.elements)
+        j > cols && break
+        m[i, j] = _number(e)
+      end
+    elseif cols >= 1
+      m[i, 1] = _number(row)
     end
   end
+  return m
 end
 
-function evaluateExtRealArg(@nospecialize(arg::Expression))::AbstractFloat
-  local value::AbstractFloat = getExtRealValue(evalExp(arg))
-  return value
+"""The sizes of an evaluated array (empty for a scalar)."""
+function _shape(@nospecialize(e::Expression))::Vector{Int}
+  e isa ARRAY_EXPRESSION || return Int[]
+  return isempty(e.elements) ? [0] : [length(e.elements); _shape(e.elements[1])]
 end
 
-function getExtRealValue(@nospecialize(exp::Expression))::AbstractFloat
+"""Element `(i, j)` of `m` as a literal (zero outside `m`)."""
+function _scalarExp(m::AbstractMatrix{T}, i::Int, j::Int)::Expression where {T <: Union{Float64, Int}}
+  local x::T = i <= Base.size(m, 1) && j <= Base.size(m, 2) ? m[i, j] : zero(T)
+  return T === Int ? INTEGER_EXPRESSION(x) : REAL_EXPRESSION(x)
+end
 
-  @match exp begin
-    REAL_EXPRESSION(__) => begin
-      exp.value
-    end
-
-    EMPTY_EXPRESSION(__) => begin
-      0.0
-    end
+"""`m` as a literal array of size `dims` (one or two sizes; cut, or padded with zeros)."""
+function _arrayExp(m::AbstractMatrix{T}, dims::Vector{Int})::Expression where {T <: Union{Float64, Int}}
+  local elementTy::ModelicaType = T === Int ? TYPE_INTEGER() : TYPE_REAL()
+  local vectorTy::ModelicaType = TYPE_ARRAY(elementTy, list(fromInteger(last(dims))))
+  if length(dims) == 1
+    return makeArray(vectorTy, Expression[_scalarExp(m, i, 1) for i in 1:dims[1]]; literal = true)
   end
-end
-
-function evaluateExtStringArg(@nospecialize(arg::Expression))::String
-  local value::String = getExtStringValue(evalExp(arg))
-  return value
-end
-
-function getExtStringValue(@nospecialize(exp::Expression))::String
-
-  @match exp begin
-    STRING_EXPRESSION(__) => begin
-      exp.value
-    end
-
-    EMPTY_EXPRESSION(__) => begin
-      ""
-    end
-  end
-end
-
-function evaluateExtIntArrayArg(@nospecialize(arg::Expression))::List{Int}
-  local value::List{Int} = nil
-  for e in Iterators.reverse(arrayElements(evalExp(arg)))
-    value = Cons{Int}(getExtIntValue(e), value)
-  end
-  return value
-end
-
-function evaluateExtRealArrayArg(@nospecialize(arg::Expression))::List{AbstractFloat}
-  return _extRealList(arrayElements(evalExp(arg)))
-end
-
-function _extRealList(expl::Vector{Expression})::List{AbstractFloat}
-  local value::List{AbstractFloat} = nil
-  for e in Iterators.reverse(expl)
-    value = Cons{AbstractFloat}(getExtRealValue(e), value)
-  end
-  return value
-end
-
-#= A matrix argument as a list of rows; a vector is a matrix of one column (some external
-   functions do not tell them apart). =#
-function evaluateExtRealMatrixArg(@nospecialize(arg::Expression))::List{List{AbstractFloat}}
-  local value::List{List{AbstractFloat}} = nil
-  local array = evalExp(arg)
-  array isa ARRAY_EXPRESSION || fail()
-  local vector = dimensionCount(array.ty) == 1
-  for e in Iterators.reverse(array.elements)
-    local row = vector ? Cons{AbstractFloat}(getExtRealValue(e), nil) : _extRealList(arrayElements(e))
-    value = Cons{List{AbstractFloat}}(row, value)
-  end
-  return value
+  local rows::Vector{Expression} = Expression[
+    makeArray(vectorTy, Expression[_scalarExp(m, i, j) for j in 1:dims[2]]; literal = true) for i in 1:dims[1]]
+  return makeArray(TYPE_ARRAY(elementTy, list(fromInteger(dims[1]), fromInteger(dims[2]))), rows; literal = true)
 end
 
 """
-  Some external functions doesn't differentiate between vector and matrices, so
-  we might get back a Nx1 matrix when expecting a vector. In that case it needs
-  to be converted back into a vector before assigning the variable. Otherwise
-  this function just calls assignVariable, so it's only needed for matrix
-  arguments.
+Assign `value` to the external call's variable `var`. An array is given the variable's size: a matrix assigned to a
+vector variable gives its first column (some routines do not tell vectors from n x 1 matrices).
 """
-function assignVariableExt(@nospecialize(variable::Expression), @nospecialize(value::Expression))
-  local exp::Expression
-
-  @assign exp = begin
-    @match (typeOf(variable), value) begin
-      (
-        TYPE_ARRAY(dimensions = _ <| nil()),
-        ARRAY_EXPRESSION(ty = TYPE_ARRAY(dimensions = _ <| _ <| nil())),
-      ) => begin
-        makeArray(
-          unliftArray(value.ty),
-          Expression[arrayScalarElement(e) for e in value.elements],
-          literal = true,
-        )
-      end
-
-      _ => begin
-        value
-      end
-    end
-  end
-  #= Vector variable, matrix value => convert value to vector. =#
-  return assignVariable(variable, exp)
+function assignExt!(@nospecialize(var::Expression), value::Integer)::Nothing
+  assignVariable(var, INTEGER_EXPRESSION(Int(value)))
+  return nothing
 end
 
+function assignExt!(@nospecialize(var::Expression),
+                    value::AbstractVecOrMat{T})::Nothing where {T <: Union{Float64, Int}}
+  local m::AbstractMatrix{T} = value isa AbstractVector ? reshape(value, :, 1) : value
+  local dims::Vector{Int} = _shape(evalExp(var))
+  isempty(dims) && (dims = value isa AbstractVector ? [length(value)] : collect(Base.size(m)))
+  assignVariable(var, _arrayExp(m, dims))
+  return nothing
+end
+
+"""LAPACK's info for an exception of a LAPACK call (the index it reports); other exceptions are rethrown."""
+function _infoOf(e::Exception)::Int
+  e isa LinearAlgebra.LAPACKException && return Int(e.info)
+  e isa LinearAlgebra.SingularException && return Int(e.info)
+  rethrow()
+end
+
+function Lapack_dgeev(args::List{<:Expression})::Nothing
+  local (jobvl::Expression, jobvr::Expression, n::Expression, a::Expression, lda::Expression, wr::Expression,
+         wi::Expression, vl::Expression, _, vr::Expression, _, _, _, info::Expression) = _extArgs(args, 14)
+  local N::Int = extInt(n)
+  local A::Matrix{Float64} = extMatrix(a, extInt(lda), N)
+  local INFO::Int = 0
+  local (WR::Vector{Float64}, WI::Vector{Float64}, VL::Matrix{Float64}, VR::Matrix{Float64}) = try
+    LAPACK.geev!(extChar(jobvl), extChar(jobvr), view(A, 1:N, :))
+  catch e
+    INFO = _infoOf(e)
+    (zeros(N), zeros(N), zeros(N, N), zeros(N, N))
+  end
+  assignExt!(a, A); assignExt!(wr, WR); assignExt!(wi, WI); assignExt!(vl, VL); assignExt!(vr, VR)
+  return assignExt!(info, INFO)
+end
+
+function Lapack_dgegv(args::List{<:Expression})::Nothing
+  local (jobvl::Expression, jobvr::Expression, n::Expression, a::Expression, lda::Expression, b::Expression,
+         ldb::Expression, alphar::Expression, alphai::Expression, beta::Expression, vl::Expression, _, vr::Expression,
+         _, _, _, info::Expression) = _extArgs(args, 17)
+  local N::Int = extInt(n)
+  local A::Matrix{Float64} = extMatrix(a, extInt(lda), N)
+  local B::Matrix{Float64} = extMatrix(b, extInt(ldb), N)
+  local INFO::Int = 0
+  local (AR::Vector{Float64}, AI::Vector{Float64}, BETA::Vector{Float64}, VL::Matrix{Float64},
+         VR::Matrix{Float64}) = try
+    LAPACK.ggev!(extChar(jobvl), extChar(jobvr), view(A, 1:N, :), view(B, 1:N, :))
+  catch e
+    INFO = _infoOf(e)
+    (zeros(N), zeros(N), zeros(N), zeros(N, N), zeros(N, N))
+  end
+  assignExt!(alphar, AR); assignExt!(alphai, AI); assignExt!(beta, BETA); assignExt!(vl, VL); assignExt!(vr, VR)
+  return assignExt!(info, INFO)
+end
+
+function Lapack_dgels(args::List{<:Expression})::Nothing
+  local (trans::Expression, m::Expression, n::Expression, nrhs::Expression, a::Expression, lda::Expression,
+         b::Expression, ldb::Expression, _, _, info::Expression) = _extArgs(args, 11)
+  local (TRANS::Char, M::Int, N::Int) = (extChar(trans), extInt(m), extInt(n))
+  local A::Matrix{Float64} = extMatrix(a, extInt(lda), N)
+  local B::Matrix{Float64} = extMatrix(b, extInt(ldb), extInt(nrhs))
+  #= B holds the right-hand sides in its first M (N if transposed) rows and the solution in its first N (M). =#
+  local INFO::Int = try
+    LAPACK.gels!(TRANS, view(A, 1:M, :), view(B, 1:(TRANS == 'N' ? M : N), :))
+    0
+  catch e
+    _infoOf(e)
+  end
+  assignExt!(a, A); assignExt!(b, B)
+  return assignExt!(info, INFO)
+end
+
+"""dgelsy and dgelsx (`lwork` given or not): the minimum-norm least squares solution and the rank."""
+function _gelsy(m::Expression, n::Expression, nrhs::Expression, a::Expression, lda::Expression, b::Expression,
+                ldb::Expression, rcond::Expression, rank::Expression, info::Expression)::Nothing
+  local (M::Int, N::Int) = (extInt(m), extInt(n))
+  local A::Matrix{Float64} = extMatrix(a, extInt(lda), N)
+  local B::Matrix{Float64} = extMatrix(b, extInt(ldb), extInt(nrhs))
+  local INFO::Int = 0
+  local (X::Matrix{Float64}, RANK::Int) = try
+    LAPACK.gelsy!(view(A, 1:M, :), B[1:M, :], extReal(rcond))
+  catch e
+    INFO = _infoOf(e)
+    (zeros(N, Base.size(B, 2)), 0)
+  end
+  B[1:N, :] = X
+  assignExt!(a, A); assignExt!(b, B); assignExt!(rank, RANK)
+  return assignExt!(info, INFO)
+end
+
+function Lapack_dgelsx(args::List{<:Expression})::Nothing
+  #= Older MSL versions pass an lwork argument too. =#
+  local v::Vector{Expression} = _extArgs(args, listLength(args) == 12 ? 12 : 13)
+  return _gelsy(v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[9], v[10], v[end])
+end
+
+function Lapack_dgelsy(args::List{<:Expression})::Nothing
+  local (m::Expression, n::Expression, nrhs::Expression, a::Expression, lda::Expression, b::Expression, ldb::Expression,
+         _, rcond::Expression, rank::Expression, _, _, info::Expression) = _extArgs(args, 13)
+  return _gelsy(m, n, nrhs, a, lda, b, ldb, rcond, rank, info)
+end
+
+function Lapack_dgesv(args::List{<:Expression})::Nothing
+  local (n::Expression, nrhs::Expression, a::Expression, lda::Expression, ipiv::Expression, b::Expression,
+         ldb::Expression, info::Expression) = _extArgs(args, 8)
+  local N::Int = extInt(n)
+  local A::Matrix{Float64} = extMatrix(a, extInt(lda), N)
+  local B::Matrix{Float64} = extMatrix(b, extInt(ldb), extInt(nrhs))
+  local IPIV::Vector{Int} = zeros(Int, N)
+  local INFO::Int = LAPACK.getrf!(view(A, 1:N, :), IPIV; check = false)[3]
+  INFO == 0 && LAPACK.getrs!('N', view(A, 1:N, :), IPIV, view(B, 1:N, :))
+  assignExt!(a, A); assignExt!(ipiv, IPIV); assignExt!(b, B)
+  return assignExt!(info, INFO)
+end
+
+function Lapack_dgglse(args::List{<:Expression})::Nothing
+  local (m::Expression, n::Expression, p::Expression, a::Expression, lda::Expression, b::Expression, ldb::Expression,
+         c::Expression, d::Expression, x::Expression, _, _, info::Expression) = _extArgs(args, 13)
+  local (M::Int, N::Int, P::Int) = (extInt(m), extInt(n), extInt(p))
+  local A::Matrix{Float64} = extMatrix(a, extInt(lda), N)
+  local B::Matrix{Float64} = extMatrix(b, extInt(ldb), N)
+  local (C::Vector{Float64}, D::Vector{Float64}) = (extVector(c, M), extVector(d, P))
+  local INFO::Int = 0
+  local X::Vector{Float64} = try
+    LAPACK.gglse!(view(A, 1:M, :), C, view(B, 1:P, :), D)[1]
+  catch e
+    INFO = _infoOf(e)
+    zeros(N)
+  end
+  assignExt!(a, A); assignExt!(b, B); assignExt!(c, C); assignExt!(d, D); assignExt!(x, X)
+  return assignExt!(info, INFO)
+end
+
+function Lapack_dgtsv(args::List{<:Expression})::Nothing
+  local (n::Expression, nrhs::Expression, dl::Expression, d::Expression, du::Expression, b::Expression, ldb::Expression,
+         info::Expression) = _extArgs(args, 8)
+  local N::Int = extInt(n)
+  local (DL::Vector{Float64}, D::Vector{Float64}, DU::Vector{Float64}) =
+    (extVector(dl, N - 1), extVector(d, N), extVector(du, N - 1))
+  local B::Matrix{Float64} = extMatrix(b, extInt(ldb), extInt(nrhs))
+  local INFO::Int = try
+    LAPACK.gtsv!(DL, D, DU, view(B, 1:N, :))
+    0
+  catch e
+    _infoOf(e)
+  end
+  assignExt!(dl, DL); assignExt!(d, D); assignExt!(du, DU); assignExt!(b, B)
+  return assignExt!(info, INFO)
+end
+
+function Lapack_dgbsv(args::List{<:Expression})::Nothing
+  local (n::Expression, kl::Expression, ku::Expression, nrhs::Expression, ab::Expression, ldab::Expression,
+         ipiv::Expression, b::Expression, ldb::Expression, info::Expression) = _extArgs(args, 10)
+  local (N::Int, KL::Int, KU::Int) = (extInt(n), extInt(kl), extInt(ku))
+  local AB::Matrix{Float64} = extMatrix(ab, extInt(ldab), N)
+  local B::Matrix{Float64} = extMatrix(b, extInt(ldb), extInt(nrhs))
+  local IPIV::Vector{Int} = zeros(Int, N)
+  local INFO::Int = try
+    copyto!(IPIV, LAPACK.gbtrf!(KL, KU, N, AB)[2])
+    LAPACK.gbtrs!('N', KL, KU, N, AB, IPIV, view(B, 1:N, :))
+    0
+  catch e
+    _infoOf(e)
+  end
+  assignExt!(ab, AB); assignExt!(ipiv, IPIV); assignExt!(b, B)
+  return assignExt!(info, INFO)
+end
+
+function Lapack_dgesvd(args::List{<:Expression})::Nothing
+  local (jobu::Expression, jobvt::Expression, m::Expression, n::Expression, a::Expression, lda::Expression,
+         s::Expression, u::Expression, _, vt::Expression, _, _, _, info::Expression) = _extArgs(args, 14)
+  local (M::Int, N::Int) = (extInt(m), extInt(n))
+  local A::Matrix{Float64} = extMatrix(a, extInt(lda), N)
+  local INFO::Int = 0
+  local (U::Matrix{Float64}, S::Vector{Float64}, VT::Matrix{Float64}) = try
+    LAPACK.gesvd!(extChar(jobu), extChar(jobvt), view(A, 1:M, :))
+  catch e
+    INFO = _infoOf(e)
+    (zeros(M, M), zeros(min(M, N)), zeros(N, N))
+  end
+  assignExt!(a, A); assignExt!(s, S); assignExt!(u, U); assignExt!(vt, VT)
+  return assignExt!(info, INFO)
+end
+
+function Lapack_dgetrf(args::List{<:Expression})::Nothing
+  local (m::Expression, n::Expression, a::Expression, lda::Expression, ipiv::Expression,
+         info::Expression) = _extArgs(args, 6)
+  local (M::Int, N::Int) = (extInt(m), extInt(n))
+  local A::Matrix{Float64} = extMatrix(a, extInt(lda), N)
+  local IPIV::Vector{Int} = zeros(Int, min(M, N))
+  local INFO::Int = LAPACK.getrf!(view(A, 1:M, :), IPIV; check = false)[3]
+  assignExt!(a, A); assignExt!(ipiv, IPIV)
+  return assignExt!(info, INFO)
+end
+
+function Lapack_dgetrs(args::List{<:Expression})::Nothing
+  local (trans::Expression, n::Expression, nrhs::Expression, a::Expression, lda::Expression, ipiv::Expression,
+         b::Expression, ldb::Expression, info::Expression) = _extArgs(args, 9)
+  local N::Int = extInt(n)
+  local A::Matrix{Float64} = extMatrix(a, extInt(lda), N)
+  local B::Matrix{Float64} = extMatrix(b, extInt(ldb), extInt(nrhs))
+  LAPACK.getrs!(extChar(trans), view(A, 1:N, :), extIntVector(ipiv, N), view(B, 1:N, :))
+  assignExt!(b, B)
+  return assignExt!(info, 0)
+end
+
+function Lapack_dgetri(args::List{<:Expression})::Nothing
+  local (n::Expression, a::Expression, lda::Expression, ipiv::Expression, _, _, info::Expression) = _extArgs(args, 7)
+  local N::Int = extInt(n)
+  local A::Matrix{Float64} = extMatrix(a, extInt(lda), N)
+  local INFO::Int = try
+    LAPACK.getri!(view(A, 1:N, :), extIntVector(ipiv, N))
+    0
+  catch e
+    _infoOf(e)
+  end
+  assignExt!(a, A)
+  return assignExt!(info, INFO)
+end
+
+function Lapack_dgeqpf(args::List{<:Expression})::Nothing
+  local (m::Expression, n::Expression, a::Expression, lda::Expression, jpvt::Expression, tau::Expression, _,
+         info::Expression) = _extArgs(args, 8)
+  local (M::Int, N::Int) = (extInt(m), extInt(n))
+  local A::Matrix{Float64} = extMatrix(a, extInt(lda), N)
+  local JPVT::Vector{Int} = extIntVector(jpvt, N)
+  local TAU::Vector{Float64} = zeros(min(M, N))
+  LAPACK.geqp3!(view(A, 1:M, :), JPVT, TAU)
+  assignExt!(a, A); assignExt!(jpvt, JPVT); assignExt!(tau, TAU)
+  return assignExt!(info, 0)
+end
+
+function Lapack_dorgqr(args::List{<:Expression})::Nothing
+  local (m::Expression, n::Expression, k::Expression, a::Expression, lda::Expression, tau::Expression, _, _,
+         info::Expression) = _extArgs(args, 9)
+  local (M::Int, K::Int) = (extInt(m), extInt(k))
+  local A::Matrix{Float64} = extMatrix(a, extInt(lda), extInt(n))
+  LAPACK.orgqr!(view(A, 1:M, :), extVector(tau, K), K)
+  assignExt!(a, A)
+  return assignExt!(info, 0)
+end
+
+function Lapack_dhseqr(args::List{<:Expression})::Nothing
+  local (job::Expression, compz::Expression, n::Expression, ilo::Expression, ihi::Expression, h::Expression,
+         ldh::Expression, wr::Expression, wi::Expression, z::Expression, ldz::Expression, _, _,
+         info::Expression) = _extArgs(args, 14)
+  local N::Int = extInt(n)
+  local H::Matrix{Float64} = extMatrix(h, extInt(ldh), N)
+  local Z::Matrix{Float64} = extMatrix(z, extInt(ldz), N)
+  local INFO::Int = 0
+  local W::Vector{ComplexF64} = try
+    LAPACK.hseqr!(extChar(job), extChar(compz), extInt(ilo), extInt(ihi), view(H, 1:N, :), view(Z, 1:N, :))[3]
+  catch e
+    INFO = _infoOf(e)
+    zeros(ComplexF64, N)
+  end
+  assignExt!(h, H); assignExt!(wr, real.(W)); assignExt!(wi, imag.(W)); assignExt!(z, Z)
+  return assignExt!(info, INFO)
+end
