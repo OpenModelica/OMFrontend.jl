@@ -51,7 +51,6 @@ function typeMatrixCommaRef(
   local ty1::ModelicaType
   local ty2::ModelicaType
   local ty3::ModelicaType
-  local tys::List{ModelicaType} = nil
   local tys2::Vector{ModelicaType} = Vector{ModelicaType}(undef, length(elements))
   local n::Int = 2
   local pos::Int

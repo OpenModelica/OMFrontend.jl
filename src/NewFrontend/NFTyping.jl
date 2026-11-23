@@ -785,7 +785,6 @@ function typeDimension2(
    dimension = begin
     local exp::Expression
     local oexp::Option{Expression}
-    local var::VariabilityType
     local dim::Dimension
     local b::Binding
     local ty_err::TypingError
@@ -1372,7 +1371,6 @@ function typeExp2(
     local e1::Expression
     local var1::VariabilityType
     local ty1::ModelicaType
-    local cref::ComponentRef
     local next_origin::ORIGIN_Type
     @match exp begin
       INTEGER_EXPRESSION(__) => begin
@@ -1780,7 +1778,6 @@ function typeCrefDim2(cref::ComponentRef,
   local error::TypingError = NO_ERROR()
   local dim::Dimension
   local crl::Vector{ComponentRef}
-  local subs::List{Subscript}
   local index::Int
   local dim_count::Int
   local dim_total::Int = 0
@@ -1917,7 +1914,6 @@ end
   typeRef::Ref{ModelicaType},
   nodeVariabilityTypeRef::Ref{VariabilityType},
 )::CREF_EXPRESSION
-  local variability::VariabilityType
   local ty::ModelicaType
   local exp::Expression
   local cr::ComponentRef
@@ -2378,7 +2374,6 @@ end
   local step_ty::ModelicaType
   local stop_ty::ModelicaType
   local ostep_exp::Option{Expression}
-  local ostep_ty::Option{ModelicaType}
   local start_var::VariabilityType
   local step_var::VariabilityType
   local stop_var::VariabilityType
@@ -3207,11 +3202,9 @@ end
 
 @nospecializeinfer function typeEquation2(@nospecialize(eq::Equation), origin::ORIGIN_Type)::Equation
    eq = begin
-    local cond::Expression
     local e1::Expression
     local e2::Expression
     local body::Vector{Equation}
-    local iterator::InstNode
     local next_origin::Int
     local info::SourceInfo
     @match eq begin
@@ -3527,7 +3520,6 @@ end
     local sts1::Vector{Statement}
     local body::Vector{Statement}
     local tybrs::Vector{Tuple{Expression, Vector{Statement}}}
-    local iterator::InstNode
     local mk::MatchKindType
     local next_origin::ORIGIN_Type
     local cond_origin::ORIGIN_Type

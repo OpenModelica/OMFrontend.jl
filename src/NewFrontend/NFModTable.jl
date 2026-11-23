@@ -215,7 +215,6 @@ function fromVector(
   prefix::List{String}
   )::Tree #= Used to resolve conflicts. =#
   local tree::Tree = EMPTY()
-  local key::Key
   for (key, val) in zip(inKeys, inValues)
     tree = add(tree, key, val, scope, prefix)
   end

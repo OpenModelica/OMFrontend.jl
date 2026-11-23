@@ -109,8 +109,6 @@ New implementation
 """
 function appendReversedList(inStringLst::List{<:String})::String
   local lstAsArr::Vector{String} = reverse(listArray(inStringLst))
-  local tmp::String = ""
-  local outString::String = ""
   buffer = IOBuffer()
   map(lstAsArr) do x
     print(buffer, x)

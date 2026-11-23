@@ -524,7 +524,6 @@ end
 """
 function appendList!(arr::Vector{T}, lst::Cons{T}) where {T}
   local arr_len::ModelicaInteger = length(arr)
-  local e::T
   if arr_len == 0
     arr = listArray(lst)
   else
@@ -684,7 +683,6 @@ end
 function reverse(inArray::Vector{T})  where {T}
   local outArray::Vector{T}
   local size::ModelicaInteger
-  local i::ModelicaInteger
   local elem1::T
   local elem2::T
   outArray = inArray

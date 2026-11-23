@@ -583,7 +583,6 @@ function scalarizeEquation(@nospecialize(eq::Equation), equations::Vector{Equati
     local rhs::Expression
     local ty::ModelicaType
     local src::SourceInfo
-    local info::SourceInfo
     @match eq begin
 
       EQUATION_EQUALITY(

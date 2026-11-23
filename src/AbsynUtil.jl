@@ -814,7 +814,6 @@ function mergeAnnotations2(
 )::List{ElementArg}
   local res::List{ElementArg} = listReverse(oldmods)
 
-  local p::Path
   local mod1::ElementArg
   local mod2::ElementArg
 
@@ -856,7 +855,6 @@ function subModsInSameOrder(oldmod::ElementArg, newmod::ElementArg)::ElementArg
   local res::List{ElementArg}
   local arg2::ElementArg
   local eq2::EqMod
-  local p::Path
   #= mod1 or mod2 has no submods =#
   @match (oldmod, newmod) begin
     (_, MODIFICATION(modification = NONE())) => begin

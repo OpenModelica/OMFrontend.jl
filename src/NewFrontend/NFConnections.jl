@@ -106,7 +106,6 @@ end
 function collect(flatModel::FLAT_MODEL)::Tuple{FLAT_MODEL, CONNECTIONS}
   local conns::CONNECTIONS = new()
   local comp::Component
-  local cr::ComponentRef
   local lhs::ComponentRef
   local rhs::ComponentRef
   local c1::CONNECTOR

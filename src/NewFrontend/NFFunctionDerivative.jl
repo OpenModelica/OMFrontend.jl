@@ -282,7 +282,6 @@ end
 
 function toSubMod(fnDer::FUNCTION_DER) ::SCode.NAMEMOD
   local subMod::SCode.NAMEMOD
-  local tpl::Tuple{Integer, String, DerivativeCondition}
   local condition::DerivativeCondition
   local id::String
   local mod::SCode.Mod

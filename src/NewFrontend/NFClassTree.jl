@@ -1619,7 +1619,6 @@ function replaceDuplicates2(
   tree::ClassTree,
 )::DuplicateTree.Entry
   local kept
-  local node_ptr::Pointer{InstNode}
   node_ptr = resolveEntryPtr(entry.entry, tree)
     if entry.ty == DuplicateTree.EntryType.REDECLARE
         kept = P_Pointer.access(resolveEntryPtr(entry.entry, tree))

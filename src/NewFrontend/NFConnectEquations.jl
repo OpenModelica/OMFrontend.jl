@@ -351,7 +351,6 @@ end
 function unrollFlowForLoop(forLoop::Equation,
                            prefix::ComponentRef,
                            equations::Vector{Equation})
-  local iter::InstNode
   local body::Vector{Equation}
   local unrolled_body::Vector{Equation}
   local range::Expression
@@ -467,7 +466,6 @@ function generateStreamEquations(
   local cr2::ComponentRef
   local src::SourceInfo
   local src1::SourceInfo
-  local src2::SourceInfo
   local cref1::Expression
   local cref2::Expression
   local e1::Expression
@@ -813,7 +811,6 @@ function evaluateOperatorReductionExp(
   local outExp::Expression
 
   local call::Call
-  local fn::MODELICA_FUNCTION
   local ty::ModelicaType
   local arg::Expression
   local iter_exp::Expression

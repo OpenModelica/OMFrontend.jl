@@ -160,10 +160,6 @@ end
 function stringDelimitListPrintBuf(inStringLst::List{<:String}, inDelimiter::String)
   return  _ = begin
     local f::String
-    local delim::String
-    local str1::String
-    local str2::String
-    local str::String
     local r::List{String}
     @matchcontinue inStringLst begin
       nil() => begin
@@ -203,8 +199,6 @@ function stringDelimitListAndSeparate2(
 )
   return  _ = begin
     local s::String
-    local str1::String
-    local str::String
     local f::String
     local sep1::String
     local sep2::String

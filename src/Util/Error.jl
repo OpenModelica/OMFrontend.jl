@@ -4825,7 +4825,6 @@ end
   Used to make an internal error
 """
 function addInternalError(message::String, info::SourceInfo)
-  local filename::String
 
   # return if Testsuite.isRunning()
   #   @match SOURCEINFO(fileName = filename) = info

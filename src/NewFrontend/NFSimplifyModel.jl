@@ -153,7 +153,6 @@ end
 function simplifyEquation(@nospecialize(eq::Equation), equations::Vector{Equation})
   equations = begin
     local e::Expression
-    local lhs::Expression
     local rhs::Expression
     local ty::ModelicaType
     @match eq begin
@@ -295,7 +294,6 @@ function simplifyStatement(stmt::Statement, statements::Vector{Statement})
     local e::Expression
     local ty::ModelicaType
     local dim::Dimension
-    local body::Vector{Statement}
     @match stmt begin
       ALG_ASSIGNMENT(__) => begin
         simplifyAssignment(stmt, statements)

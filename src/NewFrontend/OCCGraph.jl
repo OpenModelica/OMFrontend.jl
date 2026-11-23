@@ -743,13 +743,10 @@ function generateEqualityConstraintEquation(clhs::ComponentRef,
                                             origin::ORIGIN_Type,
                                             source::SourceInfo)::Vector{Equation}
   local eqsEqualityConstraint::Vector{Equation} = Equation[]
-  local c1::CONNECTOR
   local c2::CONNECTOR
-  local cc1::CONNECTOR
   local cc2::CONNECTOR
   local cl1::List{CONNECTOR}
   local cl2::List{CONNECTOR}
-  local eql::Vector{Equation} = Equation[]
   local expLHS::Expression
   local expRHS::Expression
   local fcref_lhs::ComponentRef
@@ -766,7 +763,6 @@ function generateEqualityConstraintEquation(clhs::ComponentRef,
   local ty1::ModelicaType
   local ty2::ModelicaType
   local ty::ModelicaType
-  local var::VariabilityType
   if ! System.getHasOverconstrainedConnectors()
     return eqsEqualityConstraint
   end

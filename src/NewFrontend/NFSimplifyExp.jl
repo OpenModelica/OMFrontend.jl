@@ -902,7 +902,6 @@ end
 @nospecializeinfer function simplifySubscriptedExp(@nospecialize(subscriptedExp::Expression); split = false)
   local e::Expression
   local subs::List{Subscript}
-  local ty::ModelicaType
   @match SUBSCRIPTED_EXP_EXPRESSION(e, subs, ty) = subscriptedExp
   subscriptedExp = simplify(e)
   subs = simplifyList(subs, arrayDims(typeOf(e)))

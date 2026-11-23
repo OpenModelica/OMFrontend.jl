@@ -511,9 +511,6 @@ function expandExtends(ext::InstNode, builtinExt::InstNode = EMPTY_NODE()) ::Tup
   local base_nodes::List{InstNode}
   local scope::InstNode
   local base_node::InstNode
-  local vis::SCode.Visibility
-  local smod::SCode.Mod
-  local ann::Option{SCode.ANNOTATION}
   local info::SourceInfo
   if isEmpty(ext)
     return (ext, builtinExt)

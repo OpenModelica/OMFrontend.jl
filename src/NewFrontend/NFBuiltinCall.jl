@@ -350,7 +350,6 @@ function makeCatExpRef(n::Int,
       end
     end
   end
-  local mLst::List{Int} = nil
   maxn = 0
   for d in dimsLst
     maxn = max(maxn, listLength(d))
@@ -854,7 +853,6 @@ function typePromoteCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tu
   local variability::VariabilityType
   local ty::ModelicaType
   local callExp::Expression
-  local fn_ref::ComponentRef
   local args::Vector{Expression}
   local named_args::Vector{NamedArg}
   local exp_arg::Expression
@@ -963,7 +961,6 @@ function typeFillCall2(fnRef::ComponentRef,
   local ty_args::Vector{Expression}
   local arg_var::VariabilityType
   local arg_ty::ModelicaType
-  local fn::MODELICA_FUNCTION
   local dims::List{Dimension}
   local evaluated::Bool
 
@@ -1162,14 +1159,12 @@ function typeCatCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{
   local variability::VariabilityType
   local ty::ModelicaType
   local callExp::Expression
-  local fn_ref::ComponentRef
   local args::Vector{Expression}
   local res::Vector{Expression}
   local named_args::Vector{NamedArg}
   local tys::Vector{ModelicaType}
   local arg::Expression
   local var::VariabilityType
-  local mk::MatchKindType
   local n::Int
   @match UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) = call
   assertNoNamedParams("cat", named_args, info)
@@ -1850,7 +1845,6 @@ function typeSampleCall(call::Call, origin::ORIGIN_Type, info::SourceInfo)::Tupl
   local e1::Expression
   local t::ModelicaType
   local v::VariabilityType
-  local v1::VariabilityType
   local fn_ref::ComponentRef
   local normalSample::MODELICA_FUNCTION
   local clockedSample::MODELICA_FUNCTION
@@ -1986,7 +1980,6 @@ function typeDynamicSelectCall(name::String, call::Call, origin::ORIGIN_Type, in
   local var2::VariabilityType
   local fn::MODELICA_FUNCTION
   local ty1::ModelicaType
-  local ty2::ModelicaType
   local expStatic::Expression
   local expDynamic::Expression
 

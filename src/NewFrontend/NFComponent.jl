@@ -222,7 +222,6 @@ end
 
 function getFixedAttribute(component::Component)
   local fixed::Bool
-  local typeAttrs::List{Modifier} = nil
   local binding::Binding
   #=  for parameters the default is fixed = true =#
   fixed = isParameter(component) || isStructuralParameter(component)

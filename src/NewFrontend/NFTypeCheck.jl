@@ -557,10 +557,8 @@ function checkOverloadedBinaryArrayMul(
   local valid::Bool
   local dims1::List{Dimension}
   local dims2::List{Dimension}
-  local dim11::Dimension
   local dim12::Dimension
   local dim21::Dimension
-  local dim22::Dimension
 
   @assign dims1 = arrayDims(type1)
   @assign dims2 = arrayDims(type2)
@@ -1064,7 +1062,6 @@ function implicitConstructAndMatch(
   local outType::ModelicaType
   local outExp::Expression
 
-  local inputs::List{InstNode}
   local in1::InstNode
   local in2::InstNode
   local operfn::MODELICA_FUNCTION
@@ -1632,7 +1629,6 @@ function checkUnaryOperation(
   local unaryType::ModelicaType
   local unaryExp::Expression
 
-  local valid::Bool = true
   local op::OPERATOR
 
   if isComplex(arrayElementType(type1))
@@ -2504,11 +2500,9 @@ function matchComplexTypes(
   local enode::InstNode
   local comps1::Vector{InstNode}
   local comps2::Vector{InstNode}
-  local ty::ModelicaType
   local cty1::ComplexType
   local cty2::ComplexType
   local e::Expression
-  local elements::Vector{Expression}
   local elementsV::Vector{Expression}
   local mk::MatchKindType
   local comp1::Component

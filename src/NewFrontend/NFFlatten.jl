@@ -2176,7 +2176,6 @@ end
 
 function collectStructor(node::InstNode, funcs::FunctionTree)::FunctionTree
   local cache::CachedData
-  local fn::List{MODELICA_FUNCTION}
   cache = getFuncCache(node)
    @match cache begin
      C_FUNCTION(__) => begin
@@ -2344,7 +2343,6 @@ function collectExpFuncs(exp::Expression, funcs::FunctionTree)::FunctionTree
 end
 
 function collectExpFuncs_traverse(exp::Expression, funcs::FunctionTree)::FunctionTree
-   local fn::MODELICA_FUNCTION
    @match exp begin
      CALL_EXPRESSION(__) => begin
        funcs = flattenFunction(typedFunction(exp.call), funcs)

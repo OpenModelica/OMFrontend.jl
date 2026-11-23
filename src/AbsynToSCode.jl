@@ -66,7 +66,6 @@ const ASSERTION_LEVEL_ERROR =
 function translateAbsyn2SCode(inProgram::Absyn.Program)
   local outProgram::SCode.Program
    outProgram = begin
-    local sp::SCode.Program
     local inClasses::List{Absyn.Class}
     @match inProgram begin
       _ => begin
@@ -169,7 +168,6 @@ function translateOperatorDef(
     local els::List{SCode.Element}
     local parts::List{Absyn.ClassPart}
     local aann::List{Absyn.Annotation}
-    local ann::Option{SCode.ANNOTATION}
     @match (inClassDef, operatorName, info) begin
       (Absyn.PARTS(classParts = parts, ann = aann, comment = cmtString), _, _) => begin
          els = translateClassdefElements(parts)
@@ -790,7 +788,6 @@ function translateClassdefAlgorithms(
     local al_1::List{SCode.Statement}
     local al::List{Absyn.AlgorithmItem}
     local rest::List{Absyn.ClassPart}
-    local cp::Absyn.ClassPart
     @match inAbsynClassPartLst begin
       nil() => begin
         nil
@@ -828,7 +825,6 @@ function translateClassdefConstraints(
     local cos_1::List{SCode.CONSTRAINTS}
     local consts::List{Absyn.Exp}
     local rest::List{Absyn.ClassPart}
-    local cp::Absyn.ClassPart
     @match inAbsynClassPartLst begin
       nil() => begin
         nil
@@ -1133,7 +1129,6 @@ function translateEitemlistSerial(
 
   local l::List{SCode.Element} = nil
   local es::List{Absyn.ElementItem} = inAbsynElementItemLst
-  local ei::Absyn.ElementItem
   local e::Absyn.Element
 
   for ei in es
@@ -2401,7 +2396,6 @@ function checkTypeSpec(ts::Absyn.TypeSpec, info::SourceInfo)
    _ = begin
     local tss::List{Absyn.TypeSpec}
     local ts2::Absyn.TypeSpec
-    local str::String
     @match (ts, info) begin
       (Absyn.TPATH(__), _) => begin
         ()

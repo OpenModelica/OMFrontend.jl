@@ -126,7 +126,6 @@ function append(inStream::IOSTREAM, inString::String)::IOSTREAM
     local fileID::Int
     local bufferID::Int
     local fStream::IOSTREAM
-    local lStream::IOSTREAM
     local bStream::IOSTREAM
     local streamName::String
     local streamType::IOStreamType
@@ -164,12 +163,8 @@ end
 function close(inStream::IOSTREAM)::IOSTREAM
   local outStream::IOSTREAM
   @assign outStream = begin
-    local listData::List{String}
     local fileID::Int
-    local bufferID::Int
     local fStream::IOSTREAM
-    local lStream::IOSTREAM
-    local bStream::IOSTREAM
     @matchcontinue inStream begin
       fStream && IOSTREAM(data = FILE_DATA(fileID)) => begin
         IOStreamExt.closeFile(fileID)
@@ -186,12 +181,8 @@ end
 
 function delete(inStream::IOSTREAM)
   return @assign _ = begin
-    local listData::List{String}
     local fileID::Int
     local bufferID::Int
-    local fStream::IOSTREAM
-    local lStream::IOSTREAM
-    local bStream::IOSTREAM
     @match inStream begin
       IOSTREAM(data = FILE_DATA(fileID)) => begin
         IOStreamExt.deleteFile(fileID)
@@ -216,14 +207,11 @@ end
 function clear(inStream::IOSTREAM)::IOSTREAM
   local outStream::IOSTREAM
   @assign outStream = begin
-    local listData::List{String}
     local fileID::Int
     local bufferID::Int
     local fStream::IOSTREAM
-    local lStream::IOSTREAM
     local bStream::IOSTREAM
     local name::String
-    local data::IOStreamData
     local ty::IOStreamType
     @matchcontinue inStream begin
       fStream && IOSTREAM(data = FILE_DATA(fileID)) => begin
@@ -247,9 +235,6 @@ function string(inStream::IOSTREAM)::String
     local listData::List{String}
     local fileID::Int
     local bufferID::Int
-    local fStream::IOSTREAM
-    local lStream::IOSTREAM
-    local bStream::IOSTREAM
     local str::String
     @match inStream begin
       IOSTREAM(data = FILE_DATA(fileID)) => begin
@@ -282,9 +267,6 @@ function print(inStream::IOSTREAM, whereToPrint::Int)
     local listData::List{String}
     local fileID::Int
     local bufferID::Int
-    local fStream::IOSTREAM
-    local lStream::IOSTREAM
-    local bStream::IOSTREAM
     @match (inStream, whereToPrint) begin
       (IOSTREAM(data = FILE_DATA(fileID)), _) => begin
         IOStreamExt.printFile(fileID, whereToPrint)

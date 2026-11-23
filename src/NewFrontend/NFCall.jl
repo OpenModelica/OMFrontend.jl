@@ -81,7 +81,6 @@ end
 
 function retype(call::Call)::Call
 
-   local ty::ModelicaType
    local dims::List{Dimension}
    @match call begin
      TYPED_ARRAY_CONSTRUCTOR(__) => begin
@@ -189,7 +188,6 @@ function toFlatString(call::Call; inFunction = false)
   local nameVar::String
   local arg_str::String
   local c::String
-  local iters::List{InstNode}
    str = begin
     @match call begin
       TYPED_CALL(__) => begin
@@ -255,7 +253,6 @@ function toString(call::Call)::String
   local nameStr::String
   local arg_str::String
   local c::String
-  local iters::List{InstNode}
 
    @match call begin
      UNTYPED_CALL(__) => begin

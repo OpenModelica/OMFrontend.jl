@@ -114,7 +114,6 @@ function bindingExpMap2(@nospecialize(exp::Expression), evalFunc::EvalFunc, most
   local exp_ty::ModelicaType
   local bind_ty::ModelicaType
   local dims::List{Dimension}
-  local e::Expression
   local parents::List{InstNode}
   local is_each::Bool
   @match BINDING_EXP(exp = e, expType = exp_ty, parents = parents, isEach = is_each) = mostPropagatedExp
@@ -2713,10 +2712,7 @@ end
   outCall = begin
     local targs::Vector{TypedArg}
     local tnargs::Vector{TypedNamedArg}
-    local s::String
     local e::Expression
-    local t::ModelicaType
-    local v::VariabilityType
     local iters::List{Tuple{InstNode, Expression}}
     local default_exp::Option{Expression}
     local fold_exp::Tuple{Option{Expression}, String, String}
@@ -4159,7 +4155,6 @@ end
 The array expression with the dimensions `inDims` whose elements, in row-major order, are `inExps`.
 """
 function arrayFromVector(inExps::Vector{Expression}, elemTy::ModelicaType, inDims::List{Dimension})::Expression
-  local outExp::Expression
   outExp = arrayFromVectorImpl(inExps, elemTy, listReverse(inDims))
 end
 

@@ -224,7 +224,6 @@ function Variable_fromCrefNoBinding(cref::ComponentRef)::VARIABLE
   local nodeVar::InstNode
   local comp::Component
   local ty::ModelicaType
-  local binding::Binding
   local vis::VisibilityType
   local attr::Attributes
   local cmt::Option{SCode.COMMENT}
