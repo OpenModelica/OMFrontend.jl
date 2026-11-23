@@ -1,0 +1,2070 @@
+#= /*
+* This file is part of OpenModelica.
+*
+* Copyright (c) 1998-2026, Open Source Modelica Consortium (OSMC),
+* c/o Linköpings universitet, Department of Computer and Information Science,
+* SE-58183 Linköping, Sweden.
+*
+* All rights reserved.
+*
+* THIS PROGRAM IS PROVIDED UNDER THE TERMS OF AGPL VERSION 3 LICENSE OR
+* THIS OSMC PUBLIC LICENSE (OSMC-PL) VERSION 1.8.
+* ANY USE, REPRODUCTION OR DISTRIBUTION OF THIS PROGRAM CONSTITUTES
+* RECIPIENT'S ACCEPTANCE OF THE OSMC PUBLIC LICENSE OR THE GNU AGPL
+* VERSION 3, ACCORDING TO RECIPIENTS CHOICE.
+*
+* The OpenModelica software and the OSMC (Open Source Modelica Consortium)
+* Public License (OSMC-PL) are obtained from OSMC, either from the above
+* address, from the URLs:
+* http://www.openmodelica.org or
+* https://github.com/OpenModelica/ or
+* http://www.ida.liu.se/projects/OpenModelica,
+* and in the OpenModelica distribution.
+*
+* GNU AGPL version 3 is obtained from:
+* https://www.gnu.org/licenses/licenses.html#GPL
+*
+* This program is distributed WITHOUT ANY WARRANTY; without
+* even the implied warranty of MERCHANTABILITY or FITNESS
+* FOR A PARTICULAR PURPOSE, EXCEPT AS EXPRESSLY SET FORTH
+* IN THE BY RECIPIENT SELECTED SUBSIDIARY LICENSE CONDITIONS OF OSMC-PL.
+*
+* See the full OSMC Public License conditions for more details.
+*
+*/ =#
+
+#= InstNodeType and InstNode are single concrete tagged structs defined at the
+   forward-declaration site (FrontendInterfaces/Interfaces.jl). Their
+   constructors / singletons / @match registrations / methods follow here. =#
+
+#= InstNodeType/InstNode constructors, singletons, @match registrations and
+   box-on-share helpers are defined in FrontendInterfaces/Interfaces.jl (before
+   any file that @matches these variants). Methods follow below. =#
+
+module NodeTree
+
+import ..Frontend.InstNode
+
+using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
+using ExportAll
+const Key = String
+const Value = InstNode
+include("../Util/baseDictTreeCode.jl")
+
+keyCompare(inKey1::Key, inKey2::Key)::Int = stringCompare(inKey1, inKey2)
+const addConflictDefault = addConflictFail
+
+@exportAll()
+end
+const CACHE_STATE_NOT_INSTANTIATED = -1
+const CACHE_STATE_PROCESSING = 0
+const CACHE_STATE_PARTIALLY_INSTANTIATED = 2
+const CACHE_STATE_INSTANTIATED = 3
+
+abstract type CachedData end
+
+struct C_TOP_SCOPE <: CachedData
+  addedInner::NodeTree.Tree
+  rootClass::InstNode
+end
+
+mutable struct C_FUNCTION <: CachedData
+  funcs::Vector{MODELICA_FUNCTION}
+  typed::Bool
+  specialBuiltin::Bool
+end
+
+struct C_PACKAGE <: CachedData
+  instance::InstNode
+  state::Ref{Int}
+end
+
+struct C_NO_CACHE <: CachedData
+end
+
+const NUMBER_OF_CACHES::Int = 3
+
+function setInnerOuterCache(in_caches::Vector{<:CachedData}, in_cache::CachedData)
+  local out_caches::Vector{CachedData} = arrayUpdate(in_caches, 3, in_cache)
+  out_caches
+end
+
+function getInnerOuterCache(in_caches::Vector{<:CachedData})
+  local out_cache::CachedData = arrayGet(in_caches, 3)
+  out_cache
+end
+
+function clearPackageCache(in_caches::Vector{<:CachedData})
+  local out_caches::Vector{CachedData} = arrayUpdate(in_caches, 2, C_NO_CACHE())
+  out_caches
+end
+
+function setPackageCache(in_caches::Vector{<:CachedData}, in_cache::CachedData)
+  in_caches[2] = in_cache
+  in_caches
+end
+
+function getPackageCache(in_caches::Vector{<:CachedData})
+  local out_cache::CachedData = arrayGet(in_caches, 2)
+  out_cache
+end
+
+function setFuncCache(in_caches::Vector{<:CachedData}, in_cache::C_FUNCTION)
+  local in_caches[1] = in_cache
+end
+
+function getFuncCache(in_caches::Vector{<:CachedData})
+#  #@debug in_caches
+  local out_cache::CachedData = arrayGet(in_caches, 1)
+  out_cache
+end
+
+function addFunc(fn::MODELICA_FUNCTION, specialBuiltin::Bool, caches::Vector{<:CachedData})
+  local func_cache::CachedData
+   func_cache = getFuncCache(caches)
+   func_cache = begin
+    @match func_cache begin
+      C_NO_CACHE(__)  => begin
+        C_FUNCTION(MODELICA_FUNCTION[fn], false, specialBuiltin)
+      end
+
+      C_FUNCTION(__)  => begin
+        C_FUNCTION(Base.append!(func_cache.funcs, MODELICA_FUNCTION[fn]), false, func_cache.specialBuiltin || specialBuiltin)
+      end
+
+      _  => begin
+        #= Append to end so the error messages are ordered properly. =#
+        Error.assertion(false, getInstanceName() + ": Invalid cache for function", sourceInfo())
+        fail()
+      end
+    end
+   end
+  setFuncCache(caches, func_cache)
+end
+
+function initFunc(caches::Vector{<:CachedData})
+  local func_cache::CachedData
+   func_cache = getFuncCache(caches)
+   func_cache = begin
+    @match func_cache begin
+      C_NO_CACHE(__)  => begin
+        C_FUNCTION(MODELICA_FUNCTION[], false, false)
+      end
+      C_FUNCTION(__)  => begin
+        func_cache
+      end
+    end
+  end
+  setFuncCache(caches, func_cache)
+end
+
+function empty()
+  local cache::Vector{CachedData} = arrayCreate(NUMBER_OF_CACHES, C_NO_CACHE())
+  cache
+end
+
+function hasBinding(@nospecialize(node::InstNode))
+  local hb::Bool
+  hb = begin
+    @match node begin
+      COMPONENT_NODE(__)  => begin
+        hasBinding(_compVal(node)) || hasBinding(derivedParent(node))
+      end
+      _  => begin
+        false
+      end
+    end
+  end
+  hb
+end
+
+"""
+  Given a node returns the section belonging to the class of the node.
+"""
+function getSections(node::InstNode)
+  local cls = getClass(node)
+  return @match cls begin
+    INSTANCED_CLASS() => cls.sections
+    TYPED_DERIVED() =>  getSections(cls.baseClass)
+    _ => begin
+      Error.assertion(false, getInstanceName() + " did not get an instanced class", sourceInfo());
+      fail()
+    end
+  end
+end
+
+"""
+Returns true if a node is an instance of a model.
+"""
+function isModel(node::InstNode)
+  local r::Bool
+  r = begin
+    @match node begin
+      CLASS_NODE(__)  => begin
+        isModel(restriction(_clsVal(node)))
+      end
+      COMPONENT_NODE(__)  => begin
+        isModel(classInstance(_compVal(node)))
+      end
+      _  => begin
+        false
+      end
+    end
+  end
+  r
+end
+
+"""
+  Returns true if the node is an instance of a record
+"""
+function isRecord(@nospecialize(node::InstNode))
+  local isRec::Bool
+   isRec = begin
+    @match node begin
+      CLASS_NODE(__)  => begin
+        isRecord(restriction(_clsVal(node)))
+      end
+      COMPONENT_NODE(__)  => begin
+        isRecord(classInstance(_compVal(node)))
+      end
+    end
+  end
+  isRec
+end
+
+@inline function withComponent(node::InstNode, component::Union{Component,ComponentCell})::InstNode
+  COMPONENT_NODE(node.name, node.visibility, component, node.parent, node.nodeType)
+end
+
+@inline function withClassPayload(node::InstNode, cls)::InstNode
+  CLASS_NODE(node.name, node.definition, node.visibility, cls,
+             node.caches, node.parentScope, node.nodeType)
+end
+
+@inline function withDefinition(node::InstNode, definition::SCode.Element)::InstNode
+  CLASS_NODE(node.name, definition, node.visibility, node.cls,
+             node.caches, node.parentScope, node.nodeType)
+end
+
+@inline function withVisibility(node::InstNode, visibility::VisibilityType)::InstNode
+  if isvariant(node, CLASS_NODE)
+    return CLASS_NODE(node.name, node.definition, visibility, node.cls,
+                      node.caches, node.parentScope, node.nodeType)
+  elseif isvariant(node, COMPONENT_NODE)
+    return COMPONENT_NODE(node.name, visibility, node.component,
+                          node.parent, node.nodeType)
+  else
+    return node
+  end
+end
+
+@inline function withName(newName::String, node::InstNode)::InstNode
+  if isvariant(node, CLASS_NODE)
+    return CLASS_NODE(newName, node.definition, node.visibility, node.cls,
+                      node.caches, node.parentScope, node.nodeType)
+  elseif isvariant(node, COMPONENT_NODE)
+    return COMPONENT_NODE(newName, node.visibility, node.component,
+                          node.parent, node.nodeType)
+  elseif isvariant(node, VAR_NODE)
+    return VAR_NODE(newName, node.varPointer)
+  elseif isvariant(node, NAME_NODE)
+    return NAME_NODE(newName)
+  else
+    return node
+  end
+end
+
+"""
+  Shares the instance payload cell of the src node with the destination node,
+  so updates through either node are observed by both (component and class
+  aliasing, e.g. redeclare and derived/base classes).
+"""
+function copyInstancePtr(srcNode::InstNode,
+                         dstNode::InstNode)
+  dstNode = @match srcNode begin
+    COMPONENT_NODE(__) where isvariant(dstNode, COMPONENT_NODE)  => begin
+      withComponent(dstNode, _compRef(srcNode))
+    end
+    CLASS_NODE(__) where isvariant(dstNode, CLASS_NODE) => begin
+      withClassPayload(dstNode, _clsRef(srcNode))
+    end
+    _ => begin
+      dstNode
+    end
+  end
+  dstNode
+end
+
+function getComments(node::InstNode, accumCmts::List{<:SCode.COMMENT} = nil)
+  local cmts::List{SCode.COMMENT}
+
+   cmts = begin
+    local cmt::SCode.COMMENT
+    @match node begin
+      CLASS_NODE(definition = SCode.CLASS(cmt = cmt))  => begin
+        Cons{SCode.COMMENT}(cmt, getDerivedComments(_clsVal(node), accumCmts))
+      end
+      _  => begin
+        accumCmts
+      end
+    end
+  end
+  cmts
+end
+
+"""!NB should be assign here!"""
+function clone(@nospecialize(node::InstNode))
+  local cls::Class
+  local clonedNode::InstNode
+  clonedNode = if isvariant(node, CLASS_NODE)
+    cls = _clsVal(node)
+    cls = classTreeApply(cls, clone)
+    CLASS_NODE(node.name,
+                            node.definition,
+                            node.visibility,
+                            cls,
+                            empty(),
+                            node.parentScope,
+                            node.nodeType)
+  else
+    node
+  end
+  return clonedNode
+end
+
+function isPartial(node::InstNode)
+  local isPartial::Bool
+   isPartial = begin
+    @match node begin
+      CLASS_NODE(__)  => begin
+        SCodeUtil.isPartial(node.definition)
+      end
+      _  => begin
+        false
+      end
+    end
+  end
+  isPartial
+end
+
+#= Whether a class node is an enumeration type (`type E = enumeration(...)`, or a short class of
+   one); omc InstNode.isEnumerationType. =#
+function isEnumerationType(node::InstNode)::Bool
+  return @match node begin
+    CLASS_NODE(__) => isEnumeration(getType(P_Pointer.access(node.cls), node))
+    _ => false
+  end
+end
+
+"""
+omc InstNode.isEncapsulated.
+"""
+function isEncapsulated(node::InstNode)::Bool
+  return @match node begin
+    CLASS_NODE(__) => isEncapsulated(getClass(node))
+    COMPONENT_NODE(__) => isEncapsulated(getClass(node))
+    _ => false
+  end
+end
+
+function isBuiltin(node::InstNode)
+  local isBuiltin::Bool
+   isBuiltin = begin
+    @match node begin
+      CLASS_NODE(nodeType = BUILTIN_CLASS(__))  => begin
+        true
+      end
+      _  => begin
+        false
+      end
+    end
+  end
+  isBuiltin
+end
+
+function setModifier(mod::Modifier, node::InstNode)
+  node = @match node begin
+    CLASS_NODE(__)  => begin
+      updateClass(setModifier(mod, _clsVal(node)), node)
+    end
+    COMPONENT_NODE(__)  => begin
+      updateComponent!(mergeModifier(mod, _compVal(node)), node)
+    end
+    _  => begin
+      node
+    end
+  end
+  node
+end
+
+function mergeModifier(mod::Modifier, node::InstNode)
+  node = @match node begin
+    CLASS_NODE(__)  => begin
+      updateClass(mergeModifier(mod, _clsVal(node)), node)
+    end
+    COMPONENT_NODE(__) => begin
+      updateComponent!(mergeModifier(mod, _compVal(node)), node)
+    end
+    _  => begin
+      node
+    end
+  end
+  node
+end
+
+function getModifier(node::InstNode)
+  return if isvariant(node, CLASS_NODE)
+    getModifier(_clsVal(node))
+  elseif isvariant(node, COMPONENT_NODE)
+    getModifier(_compVal(node))
+  else
+    MODIFIER_NOMOD()
+  end
+end
+
+function protectComponent(comp::InstNode)
+  comp = @match comp begin
+    COMPONENT_NODE(visibility = Visibility.PUBLIC)  => begin
+      withVisibility(comp, Visibility.PROTECTED)
+    end
+    _  => begin
+      comp
+    end
+  end
+  comp
+end
+
+function protectClass(cls::InstNode)
+  cls = @match cls begin
+    CLASS_NODE(visibility = Visibility.PUBLIC)  => begin
+      withVisibility(cls, Visibility.PROTECTED)
+    end
+    _  => begin
+      cls
+    end
+  end
+  cls
+end
+
+function isProtected(node::InstNode)
+  local isProtected::Bool
+
+   isProtected = begin
+    @match node begin
+      CLASS_NODE(visibility = Visibility.PROTECTED)  => begin
+        true
+      end
+
+      COMPONENT_NODE(visibility = Visibility.PROTECTED)  => begin
+        true
+      end
+
+      _  => begin
+        false
+      end
+    end
+  end
+  isProtected
+end
+
+function visibility(node::InstNode)
+  local vis::VisibilityType
+
+   vis = begin
+    @match node begin
+      CLASS_NODE(__)  => begin
+        node.visibility
+      end
+
+      COMPONENT_NODE(__)  => begin
+        node.visibility
+      end
+
+      _  => begin
+        Visibility.PUBLIC
+      end
+    end
+  end
+  vis
+end
+
+function isProtectedBaseClass(node::InstNode)
+  local isProtected::Bool
+
+   isProtected = begin
+    @match node begin
+      CLASS_NODE(nodeType = BASE_CLASS(definition = SCode.EXTENDS(visibility = SCode.PROTECTED(__))))  => begin
+        true
+      end
+
+      _  => begin
+        false
+      end
+    end
+  end
+  isProtected
+end
+
+function isRedeclare(node::InstNode)
+  local isRedcl::Bool
+   isRedcl = begin
+    @match node begin
+      CLASS_NODE(__)  => begin
+        SCodeUtil.isElementRedeclare(definition(node))
+      end
+
+      COMPONENT_NODE(__)  => begin
+        isRedeclare(_compVal(node))
+      end
+
+      _  => begin
+        false
+      end
+    end
+  end
+return isRedcl
+end
+
+function toFlatStream(node::InstNode, s)
+   s = begin
+    @match node begin
+      CLASS_NODE(__)  => begin
+        toFlatStream(_clsVal(node), node, s)
+      end
+      _  => begin
+        IOStream.append(s, toFlatString(node))
+      end
+    end
+  end
+  s
+end
+
+function toFlatString(node::InstNode; inFunction = false)
+  local name::String
+   name = begin
+    @match node begin
+      COMPONENT_NODE(__)  => begin
+        toFlatString(node.name, _compVal(node); inFunction = inFunction)
+      end
+      CLASS_NODE(__)  => begin
+        toFlatString(_clsVal(node), node)
+      end
+      _  => begin
+        name(node)
+      end
+    end
+  end
+  name
+end
+
+function toString(node::InstNode)
+  local n::String
+   n = begin
+    @match node begin
+      COMPONENT_NODE(__)  => begin
+        toString(node.name, _compVal(node))
+      end
+      CLASS_NODE(__)  => begin
+        "CLASS_NODE: " * node.name
+      end
+      _  => begin
+        name(node)
+      end
+    end
+  end
+  n
+end
+
+function checkIdentical(node1::InstNode, node2::InstNode)
+  local n1::InstNode = resolveOuter(node1)
+  local n2::InstNode = resolveOuter(node2)
+  if referenceEq(n1, n2)
+    return
+  end
+  local identical::Bool = if isvariant(n1, CLASS_NODE) && isvariant(n2, CLASS_NODE)
+    isIdentical(getClass(n1), getClass(n2))
+  elseif isvariant(n1, COMPONENT_NODE) && isvariant(n2, COMPONENT_NODE)
+    isIdentical(component(n1), component(n2))
+  else
+    false
+  end
+  if !identical
+    Error.addMultiSourceMessage(Error.DUPLICATE_ELEMENTS_NOT_IDENTICAL, list(toString(n1), toString(n2)), list(InstNode_info(n1), InstNode_info(n2)))
+    fail()
+  end
+  return
+end
+
+function isSame(node1::InstNode, node2::InstNode)
+  local same::Bool = false
+  local n1::InstNode = resolveOuter(node1)
+  local n2::InstNode = resolveOuter(node2)
+  if referenceEq(n1, n2)
+     same = true
+    return same
+  elseif stringEqual(name(n1), name(n2))
+     same = true
+    return same
+  end
+  #= TODO: This is not enough. We need a better way. =#
+  same
+end
+
+function nameEqual(node1::InstNode, node2::InstNode)
+  local equal::Bool = name(node1) == name(node2)
+  equal
+end
+
+function refCompare(node1::InstNode, node2::InstNode)
+  #= Order by payload-cell identity: O(1), stable across node shell rebuilds,
+     and equal exactly when two shells alias the same instance cell. =#
+  local t1 = _refId(node1)
+  local t2 = _refId(node2)
+  return Int(t1 < t2 ? -1 : (t1 > t2))
+end
+
+"""
+  Returns true if two nodes references the same class or component,
+  otherwise false.
+"""
+function refEqual(node1::InstNode, node2::InstNode)
+  local refEqualIs::Bool
+  refEqualIs = begin
+    @match (node1, node2) begin
+      (CLASS_NODE(__), CLASS_NODE(__))  => begin
+        _clsRef(node1) === _clsRef(node2)
+      end
+      (COMPONENT_NODE(__), COMPONENT_NODE(__))  => begin
+        _compRef(node1) === _compRef(node2)
+      end
+      (VAR_NODE(__), VAR_NODE(__))  => begin
+        referenceEq(P_Pointer.access(node1.varPointer), P_Pointer.access(node2.varPointer))
+      end
+      _  => begin
+        false
+      end
+    end
+  end
+  #= Other nodes like ref nodes might be equal, but we neither know nor care. =#
+  refEqualIs
+end
+
+function addIterator(iterator::InstNode, scope::InstNode)
+  scope = begin
+    @match scope begin
+      IMPLICIT_SCOPE(__)  => begin
+        IMPLICIT_SCOPE(scope, pushfirst!(scope.locals, iterator))
+      end
+    end
+  end
+  scope
+end
+
+"""
+  Returns the first parent of the node that's not an implicit scope, or the
+  node itself if it's not an implicit scope.
+"""
+function explicitScope(node::InstNode)
+  local scope::InstNode
+  scope = begin
+    @match node begin
+      IMPLICIT_SCOPE(__)  => begin
+        explicitScope(node.parentScope)
+      end
+      _  => begin
+        node
+      end
+    end
+  end
+  scope
+end
+
+function openImplicitScope(scope::InstNode)
+  scope = begin
+    @match scope begin
+      IMPLICIT_SCOPE(__)  => begin
+        scope
+      end
+      _  => begin
+        IMPLICIT_SCOPE(scope, InstNode[])
+      end
+    end
+  end
+  scope
+end
+
+function setInnerOuterCache(node::InstNode, in_out_cache::CachedData)
+   @match node begin
+     CLASS_NODE(__)  => begin
+       setInnerOuterCache(node.caches, in_out_cache)
+       ()
+     end
+
+     _  => begin
+       Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+       fail()
+     end
+   end
+  node
+end
+
+function getInnerOuterCache(inNode::InstNode)
+  local pack_cache::CachedData
+   pack_cache = begin
+    @match inNode begin
+      CLASS_NODE(__)  => begin
+        getInnerOuterCache(inNode.caches)
+      end
+      _  => begin
+        Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+        fail()
+      end
+    end
+  end
+  pack_cache
+end
+
+function clearPackageCache(node::InstNode)
+   @match node begin
+     CLASS_NODE(__)  => begin
+       clearPackageCache(node.caches)
+       ()
+     end
+
+     _  => begin
+       Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+       fail()
+     end
+   end
+  node
+end
+
+function setPackageCache(node::InstNode, in_pack_cache::CachedData)
+   @match node begin
+     CLASS_NODE(__)  => begin
+       setPackageCache(node.caches, in_pack_cache)
+       ()
+     end
+
+     _  => begin
+       Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+       fail()
+     end
+   end
+  node
+end
+
+function getPackageCache(inNode::InstNode)
+  local pack_cache::CachedData
+
+   pack_cache = begin
+    @match inNode begin
+      CLASS_NODE(__)  => begin
+        getPackageCache(inNode.caches)
+      end
+
+      _  => begin
+        Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+        fail()
+      end
+    end
+  end
+  pack_cache
+end
+
+function setFuncCache(node::InstNode, in_func_cache::CachedData)
+   @match node begin
+     CLASS_NODE(__)  => begin
+       setFuncCache(node.caches, in_func_cache)
+       ()
+     end
+     _  => begin
+       #Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+       @error "Error in set func cache"
+       fail()
+     end
+   end
+  node
+end
+
+function getFuncCache(inNode::InstNode)
+  local func_cache::CachedData
+   func_cache = begin
+    @match inNode begin
+      CLASS_NODE(__)  => begin
+        getFuncCache(inNode.caches)
+      end
+      _  => begin
+        Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+        fail()
+      end
+    end
+  end
+  func_cache
+end
+
+function cacheAddFunc(node::InstNode, fn::MODELICA_FUNCTION, specialBuiltin::Bool)
+   @match node begin
+     CLASS_NODE(__)  => begin
+       addFunc(fn, specialBuiltin, node.caches)
+       ()
+     end
+     _  => begin
+       Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+       fail()
+     end
+   end
+  node
+end
+
+function cacheInitFunc(node::InstNode)
+   @match node begin
+     CLASS_NODE(__)  => begin
+       initFunc(node.caches)
+       ()
+     end
+
+     _  => begin
+       Error.assertion(false, getInstanceName() + " got node without cache", sourceInfo())
+       fail()
+     end
+   end
+  node
+end
+
+resolveOuter(node::InstNode) = isvariant(node, INNER_OUTER_NODE) ? node.outerNode : node
+
+function resolveInner(node::InstNode)
+  local innerNode::InstNode
+
+   innerNode = begin
+    @match node begin
+      INNER_OUTER_NODE(__)  => begin
+        node.innerNode
+      end
+
+      _  => begin
+        node
+      end
+    end
+  end
+  innerNode
+end
+
+function isInnerOuterNode(node::InstNode)
+  #@debug "is inner outer node?"
+  local isIO::Bool
+   isIO = begin
+    @match node begin
+      INNER_OUTER_NODE(__)  => begin
+        true
+      end
+      _  => begin
+        false
+      end
+    end
+  end
+  isIO
+end
+
+function isOnlyOuter(node::InstNode)
+  local isOuter::Bool
+
+   isOuter = begin
+    @match node begin
+      COMPONENT_NODE(__)  => begin
+        isOnlyOuter(_compVal(node))
+      end
+
+      CLASS_NODE(__)  => begin
+        AbsynUtil.isOnlyOuter(SCodeUtil.prefixesInnerOuter(SCodeUtil.elementPrefixes(node.definition)))
+      end
+
+      INNER_OUTER_NODE(__)  => begin
+        isOnlyOuter(node.outerNode)
+      end
+
+      _  => begin
+        false
+      end
+    end
+  end
+  isOuter
+end
+
+function isOuter(node::InstNode)
+  #= Locals named after the function shadowed the function itself in
+     MetaModelica lowering and broke the recursive cases: every dispatch on
+     COMPONENT_NODE / INNER_OUTER_NODE went to UndefVarError, was swallowed
+     by the @match fallthrough, and the function silently returned false.
+     `lookupInner` relied on `isInner` returning true for the user's inner
+     declaration; with the shadow it always returned false, so the
+     outer-component path generated a fresh synthetic inner with class
+     defaults instead of binding to the user's `inner Holder h(...)`. =#
+  local _result::Bool = begin
+    @match node begin
+      COMPONENT_NODE(__)  => begin
+        isOuter(_compVal(node))
+      end
+
+      CLASS_NODE(__)  => begin
+        AbsynUtil.isOuter(SCodeUtil.prefixesInnerOuter(SCodeUtil.elementPrefixes(node.definition)))
+      end
+
+      INNER_OUTER_NODE(__)  => begin
+        isOuter(node.outerNode)
+      end
+
+      _  => begin
+        false
+      end
+    end
+  end
+  _result
+end
+
+function isInner(node::InstNode)
+  #= See isOuter — same self-shadowing bug, same fix. =#
+  local _result::Bool = begin
+    @match node begin
+      COMPONENT_NODE(__)  => begin
+        isInner(_compVal(node))
+      end
+
+      CLASS_NODE(__)  => begin
+        AbsynUtil.isInner(SCodeUtil.prefixesInnerOuter(SCodeUtil.elementPrefixes(node.definition)))
+      end
+
+      INNER_OUTER_NODE(__)  => begin
+        isInner(node.outerNode)
+      end
+
+      _  => begin
+        false
+      end
+    end
+  end
+  _result
+end
+
+function isOutput(node::InstNode)
+  local res::Bool
+
+   res = begin
+    @match node begin
+      COMPONENT_NODE(__)  => begin
+        isOutput(_compVal(node))
+      end
+
+      _  => begin
+        false
+      end
+    end
+  end
+  res
+end
+
+function isInput(node::InstNode)
+  local res::Bool
+
+   res = begin
+    @match node begin
+      COMPONENT_NODE(__)  => begin
+        isInput(_compVal(node))
+      end
+
+      _  => begin
+        false
+      end
+    end
+  end
+  res
+end
+
+function scopePathClass(node::InstNode, ty::InstNodeType, includeRoot::Bool, accumPath::Absyn.Path)
+  local path::Absyn.Path
+
+   path = begin
+    @match ty begin
+      NORMAL_CLASS(__)  => begin
+        scopePath2(classParent(node), includeRoot, Absyn.QUALIFIED(className(node), accumPath))
+      end
+
+      BASE_CLASS(__)  => begin
+        scopePath2(ty.parent, includeRoot, accumPath)
+      end
+
+      DERIVED_CLASS(__)  => begin
+        scopePathClass(node, ty.ty, includeRoot, accumPath)
+      end
+
+      BUILTIN_CLASS(__)  => begin
+        Absyn.QUALIFIED(className(node), accumPath)
+      end
+
+      TOP_SCOPE(__)  => begin
+        accumPath
+      end
+
+      ROOT_CLASS(__)  => begin
+        #= An instantiated function is a root too; a class inside it (a protected package's
+           function) keeps the function's path, or two functions' `Internal.f` collide (the
+           MSL Media T_h and T_ps, each with its own OneNonLinearEquation package). =#
+        if includeRoot || SCodeUtil.isFunction(definition(node))
+          scopePath2(classParent(node), includeRoot, Absyn.QUALIFIED(className(node), accumPath))
+        else
+          accumPath
+        end
+      end
+
+      REDECLARED_CLASS(__)  => begin
+        scopePath2(ty.parent, includeRoot, Absyn.QUALIFIED(className(node), accumPath))
+      end
+
+      _  => begin
+        Error.assertion(false, getInstanceName() + " got unknown node type", sourceInfo())
+        fail()
+      end
+    end
+  end
+  path
+end
+
+function scopePath2(node::InstNode, includeRoot::Bool, accumPath::Absyn.Path)
+  local path::Absyn.Path
+
+   path = begin
+    @match node begin
+      CLASS_NODE(__)  => begin
+        scopePathClass(node, node.nodeType, includeRoot, accumPath)
+      end
+
+      COMPONENT_NODE(__)  => begin
+        scopePath2(node.parent, includeRoot, Absyn.QUALIFIED(node.name, accumPath))
+      end
+
+      _  => begin
+        accumPath
+      end
+    end
+  end
+  path
+end
+
+function scopePath(node::InstNode; includeRoot::Bool = false #= Whether to include the root class name or not. =#)
+  local path::Absyn.Path
+
+   path = begin
+    local it::InstNodeType
+    @match node begin
+      CLASS_NODE(nodeType = it)  => begin
+        begin
+          @match it begin
+            BASE_CLASS(__)  => begin
+              scopePath(it.parent; includeRoot = includeRoot)
+            end
+
+            _  => begin
+              scopePath2(node.parentScope, includeRoot, Absyn.IDENT(node.name))
+            end
+          end
+        end
+      end
+
+      COMPONENT_NODE(__)  => begin
+        scopePath2(node.parent, includeRoot, Absyn.IDENT(node.name))
+      end
+
+      IMPLICIT_SCOPE(__)  => begin
+        scopePath(node.parentScope; includeRoot = includeRoot)
+      end
+
+      _  => begin
+        Absyn.IDENT(name(node))
+      end
+    end
+  end
+  #= For debugging. =#
+  path
+end
+
+function scopeListClass!(clsNode::InstNode,
+                         ty::InstNodeType,
+                         includeRoot::Bool,
+                         accumScopes::List{InstNode})
+  local scopes::List{InstNode}
+  while true
+    @match ty begin
+      NORMAL_CLASS(__)  => begin
+        accumScopes = scopeList!(parent(clsNode), includeRoot, Cons{InstNode}(clsNode, accumScopes))
+        break
+      end
+      BASE_CLASS(__)  => begin
+        accumScopes = scopeList!(ty.parent, includeRoot, accumScopes)
+        break
+      end
+      DERIVED_CLASS(__)  => begin
+        ty = ty.ty
+        continue
+      end
+      BUILTIN_CLASS(__)  => begin
+        accumScopes = Cons{InstNode}(clsNode, accumScopes)
+        break
+      end
+      TOP_SCOPE(__)  => begin
+        break
+      end
+      ROOT_CLASS(__)  => begin
+        #= A function root ends the scope list (a function's locals are named from it), unlike
+           scopePathClass, which continues through it for the names of classes inside. =#
+        accumScopes = if includeRoot
+          accumScopes = scopeList!(parent(clsNode),
+                                   includeRoot, Cons{InstNode}(clsNode, accumScopes))
+        else
+          accumScopes
+        end
+        break
+      end
+      REDECLARED_CLASS(__)  => begin
+        accumScopes = scopeList!(ty.parent, includeRoot, Cons{InstNode}(getDerivedNode(clsNode), accumScopes))
+        break
+      end
+      _  => begin
+        Error.assertion(false, getInstanceName() + " got unknown node type", sourceInfo())
+        fail()
+      end
+    end
+  end
+  scopes = accumScopes
+  return scopes
+end
+
+function scopeListClass(clsNode::InstNode, ty::InstNodeType, includeRoot::Bool, accumScopes::List{<:InstNode} = nil)
+  local scopes::List{InstNode}
+
+   scopes = begin
+    @match ty begin
+      NORMAL_CLASS(__)  => begin
+        scopeList(parent(clsNode), includeRoot, Cons{InstNode}(clsNode, accumScopes))
+      end
+
+      BASE_CLASS(__)  => begin
+        scopeList(ty.parent, includeRoot, accumScopes)
+      end
+
+      DERIVED_CLASS(__)  => begin
+        scopeListClass(clsNode, ty.ty, includeRoot, accumScopes)
+      end
+
+      BUILTIN_CLASS(__)  => begin
+        Cons{InstNode}(clsNode, accumScopes)
+      end
+
+      TOP_SCOPE(__)  => begin
+        accumScopes
+      end
+
+      ROOT_CLASS(__)  => begin
+        if includeRoot
+          scopeList(parent(clsNode), includeRoot, Cons{InstNode}(clsNode, accumScopes))
+        else
+          accumScopes
+        end
+      end
+
+      REDECLARED_CLASS(__)  => begin
+        scopeList(ty.parent, includeRoot, Cons{InstNode}(getDerivedNode(clsNode), accumScopes))
+      end
+
+      _  => begin
+        Error.assertion(false, getInstanceName() + " got unknown node type", sourceInfo())
+        fail()
+      end
+    end
+  end
+  scopes
+end
+
+function scopeList(@nospecialize(node::InstNode), includeRoot::Bool, accumScopes::List{<:InstNode} = nil)
+  scopeList(node, includeRoot = includeRoot, accumScopes = accumScopes)
+end
+
+function scopeList(@nospecialize(node::InstNode); includeRoot::Bool = false #= Whether to include the root class name or not. =#, accumScopes::List{<:InstNode} = nil)
+  local scopes::List{InstNode}
+
+   scopes = begin
+    local parent::InstNode
+    @match node begin
+      CLASS_NODE(__)  => begin
+        scopeListClass(node, node.nodeType, includeRoot, accumScopes)
+      end
+
+      COMPONENT_NODE(parent = EMPTY_NODE(__))  => begin
+        accumScopes
+      end
+
+      COMPONENT_NODE(nodeType = REDECLARED_COMP(parent = parent))  => begin
+        scopeList(parent, includeRoot, Cons{InstNode}(node, accumScopes))
+      end
+
+      COMPONENT_NODE(__)  => begin
+        scopeList(node.parent, includeRoot, Cons{InstNode}(node, accumScopes))
+      end
+
+      IMPLICIT_SCOPE(__)  => begin
+        scopeList(node.parentScope, includeRoot, accumScopes)
+      end
+
+      _  => begin
+        accumScopes
+      end
+    end
+  end
+  scopes
+end
+
+"""
+    Iterative implementation of ```scopeList```
+"""
+function scopeList!(@nospecialize(node::InstNode), includeRoot::Bool = false, accumScopes::List{InstNode} = nil)
+  local parent::InstNode
+  if isvariant(node, CLASS_NODE)
+    accumScopes = scopeListClass!(node, node.nodeType, includeRoot, accumScopes)
+    return accumScopes
+  end
+  if isvariant(node, COMPONENT_NODE) && isvariant(node.parent, EMPTY_NODE)
+    return nil
+  end
+  local scopes::Cons{InstNode}
+  while true
+    @match node begin
+      COMPONENT_NODE(nodeType = REDECLARED_COMP(parent = parent))  => begin
+        node = parent
+        accumScopes = Cons{InstNode}(node, accumScopes)
+      end
+      COMPONENT_NODE(__)  => begin
+        accumScopes = Cons{InstNode}(node, accumScopes)
+        node = node.parent
+      end
+      IMPLICIT_SCOPE(__)  => begin
+        accumScopes = Cons{InstNode}(node, accumScopes)
+        node = node.parentScope
+      end
+      _  => begin
+        break
+      end
+    end
+  end
+  scopes = accumScopes
+  return scopes
+end
+
+function componentApply(node::T, func::Function, arg::ArgT)::T  where {T <: InstNode, ArgT}
+  @match node begin
+    COMPONENT_NODE(__)  => begin
+      node = updateComponent!(func(arg::ArgT, _compVal(node)), node)
+    end
+  end
+  node
+end
+
+function classApply(node::InstNode, func::FuncType, arg::ArgT)  where {ArgT}
+  node = @match node begin
+    CLASS_NODE(__)  => begin
+      updateClass(func(arg, _clsVal(node)), node)
+    end
+    _ => begin
+      node
+    end
+  end
+  node
+end
+
+function getType(node::InstNode)
+  local ty::ModelicaType
+   ty = begin
+    @match node begin
+      CLASS_NODE(__)  => begin
+        getType(_clsVal(node), node)
+      end
+
+      COMPONENT_NODE(__)  => begin
+        getType(_compVal(node))
+      end
+
+      VAR_NODE(__)  => begin
+        P_Pointer.access(node.varPointer).ty
+      end
+    end
+  end
+  ty
+end
+
+function InstNode_info(node::InstNode)
+  local infoV::SourceInfo
+
+   infoV = begin
+    local ty::InstNodeType
+    @matchcontinue node begin
+      CLASS_NODE(nodeType = ty && BASE_CLASS(__))  => begin
+        SCodeUtil.elementInfo(ty.definition)
+      end
+
+      CLASS_NODE(__)  => begin
+        SCodeUtil.elementInfo(node.definition)
+      end
+
+      COMPONENT_NODE(__)  => begin
+        Component_info(_compVal(node))
+      end
+
+      COMPONENT_NODE(__)  => begin
+        InstNode_info(node.parent)
+      end
+      _  => begin
+        AbsynUtil.dummyInfo
+      end
+    end
+  end
+  infoV
+end
+
+function setDefinition(definition::SCode.Element, node::InstNode)
+  node = @match node begin
+    CLASS_NODE(__)  => begin
+      withDefinition(node, definition)
+    end
+    _ => begin
+      node
+    end
+  end
+  node
+end
+
+function definition(node::InstNode)
+  local def::SCode.Element
+  def = if isvariant(node, CLASS_NODE)
+    node.definition
+  elseif isvariant(node, COMPONENT_NODE)
+    definition(_compVal(node))
+  else
+    fail()
+  end
+  return def
+end
+
+function setNodeType(@nospecialize(nodeType::InstNodeType),
+                     @nospecialize(node::InstNode))
+
+  local newNode = if isvariant(node, COMPONENT_NODE)
+    COMPONENT_NODE(node.name,
+                                node.visibility,
+                                node.component,
+                                node.parent,
+                                nodeType)
+  elseif isvariant(node, CLASS_NODE)
+    local newCls = isvariant(nodeType, DERIVED_CLASS) ? _clsRef(node) : node.cls
+    tmp = CLASS_NODE(node.name,
+                                  node.definition,
+                                  node.visibility,
+                                  newCls,
+                                  node.caches,
+                                  node.parentScope,
+                                  nodeType)
+    tmp
+  else
+    node
+  end
+  newNode
+end
+
+function nodeType(node::InstNode)
+  local nodeType::InstNodeType
+   nodeType = begin
+    @match node begin
+      CLASS_NODE(__)  => begin
+        node.nodeType
+      end
+      COMPONENT_NODE(__)  => begin
+        node.nodeType
+      end
+    end
+  end
+  nodeType
+end
+
+"""TODO: Investigate how to integrate these..."""
+function replaceClass(cls::Class, node::InstNode)
+  if isvariant(node, CLASS_NODE)
+    return withClassPayload(node, cls)
+  end
+  return node
+end
+
+"""
+Creates a new component node holding the supplied component value.
+"""
+function replaceComponent(component::Component, node::InstNode)::InstNode
+  return withComponent(node, component)
+end
+
+"""
+Combined setParent + replaceComponent in a single allocation: returns a new
+COMPONENT_NODE with `parent` set and a fresh payload cell holding the current
+component value (a unique instance, not an alias of `node`).
+"""
+@inline function setParentAndReplaceComponent(parent::InstNode, node::InstNode)::InstNode
+  newComponent(node.name,
+               node.visibility,
+               _compVal(node),
+               parent,
+               node.nodeType)
+end
+
+# Share immutable, unmodified TYPE_ATTRIBUTE template nodes across instances
+# instead of copying them per instance. Enabled by default; disable with
+# OMFRONTEND_SHARE_ATTRS=false. Only attributes with no instance modifier are
+# shared. Mutators rebuild component nodes instead of modifying them in place.
+const SHARE_ATTRS = Base.RefValue{Bool}(get(ENV, "OMFRONTEND_SHARE_ATTRS", "true") == "true")
+
+function updateComponent!(component::Component, node::InstNode)
+   node = begin
+    @match node begin
+      COMPONENT_NODE(__)  => begin
+        _compSet!(node, component)
+      end
+    end
+  end
+  node
+end
+
+"""
+The component of a component node: a `ComponentImpl` (`Component`'s only subtype; as the concrete type, so that its
+fields' reads are inferred and calls on them are not dynamic, 2026-11-18).
+"""
+function component(node::InstNode)::ComponentImpl
+   @match node begin
+     COMPONENT_NODE(__)  => begin
+       _compVal(node)::ComponentImpl
+     end
+   end
+end
+
+function updateClass(cls::Class, node::InstNode)
+   node = begin
+    @match node begin
+      CLASS_NODE(__)  => begin
+        if node.cls isa ClassCell
+          _clsSet!(node, cls)
+          node
+        else
+          withClassPayload(node, cls)
+        end
+      end
+    end
+  end
+  node
+end
+
+function getDerivedNode(node::InstNode)
+  local derived::InstNode
+   derived = begin
+    @match node begin
+      CLASS_NODE(nodeType = BASE_CLASS(parent = derived))  => begin
+        getDerivedNode(derived)
+      end
+      _  => begin
+        node
+      end
+    end
+  end
+  derived
+end
+
+function getClass(node::InstNode)
+  return if isvariant(node, CLASS_NODE)
+    _clsVal(node)
+  elseif  isvariant(node, COMPONENT_NODE)
+    getClass(classInstance(_compVal(node)))
+  elseif isvariant(node, INNER_OUTER_NODE)
+    getClass(node.innerNode)
+  else
+    return node#fail()
+  end
+end
+
+function setParent(@nospecialize(parent::InstNode), node::InstNode)::InstNode
+  if isvariant(node, CLASS_NODE)
+    node.parentScope === parent && return node
+    return CLASS_NODE(node.name, node.definition, node.visibility, node.cls,
+                      node.caches, parent, node.nodeType)
+  elseif isvariant(node, COMPONENT_NODE)
+    parent !== node.parent &&
+      (node = COMPONENT_NODE(node.name, node.visibility, node.component, parent, node.nodeType))
+    return node
+  else
+    return IMPLICIT_SCOPE(parent, node.locals)
+  end
+end
+
+function topScope(node::InstNode)
+  local ts::InstNode
+   ts = begin
+    @match node begin
+      CLASS_NODE(nodeType = TOP_SCOPE(__))  => begin
+        node
+      end
+      _  => begin
+        topScope(parentScope(node))
+      end
+    end
+  end
+  ts
+end
+
+function classScope(node::InstNode)
+  local scope::InstNode
+   scope = begin
+    @match node begin
+      COMPONENT_NODE(__)  => begin
+        classInstance(_compVal(node))
+      end
+      _  => begin
+        node
+      end
+    end
+  end
+  scope
+end
+
+"""
+Returns the parent scope of a node. In the case of a class this is simply
+the enclosing class. In the case of a component it is the enclosing class of
+the component's type.
+
+The parent scope, a redeclared class's being the one of the class it replaces (omc
+parentScope(node, ignoreRedeclare = true)).
+"""
+function parentScope(@nospecialize(node::InstNode), ignoreRedeclare::Bool)
+  ignoreRedeclare || return parentScope(node)
+  return @match node begin
+    CLASS_NODE(nodeType = REDECLARED_CLASS(parent = scope)) => scope
+    _ => parentScope(node)
+  end
+end
+
+function parentScope(@nospecialize(node::InstNode))
+  local scope::InstNode
+  scope = begin
+    @match node begin
+      CLASS_NODE(nodeType = DERIVED_CLASS(__))  => begin
+        #= As in OpenModelica's NFInstNode.parentScope: lastBaseClass returns the
+           node itself once the class has been flattened (an infinite loop, e.g.
+           `connector C = A;` as the root class), and builtin types have no parent. =#
+        local base = lastBaseClass(node)
+        if isBuiltin(base)
+          topScope(node.parentScope)
+        elseif base === node
+          node.parentScope
+        else
+          parentScope(base)
+        end
+      end
+      CLASS_NODE(__)  => begin
+        node.parentScope
+      end
+
+      COMPONENT_NODE(__)  => begin
+        parentScope(classInstance(_compVal(node)))
+      end
+
+      IMPLICIT_SCOPE(__)  => begin
+        node.parentScope
+      end
+    end
+  end
+  scope
+end
+
+function rootTypeParent(nodeType::InstNodeType, node::InstNode)
+  local parentVar::InstNode
+   parentVar = begin
+    @match nodeType begin
+      ROOT_CLASS(__) where (! isEmpty(nodeType.parent))  => begin
+        nodeType.parent
+      end
+      DERIVED_CLASS(__)  => begin
+        rootTypeParent(nodeType.ty, node)
+      end
+      _  => begin
+        parent(node)
+      end
+    end
+  end
+  parentVar
+end
+
+function rootParent(node::InstNode)
+  local parent::InstNode
+   parent = begin
+    @match node begin
+      CLASS_NODE(__)  => begin
+        rootTypeParent(node.nodeType, node)
+      end
+      _  => begin
+        parent(node)
+      end
+    end
+  end
+  parent
+end
+
+function derivedParent(node::InstNode)
+  local parent::InstNode
+   parent = begin
+    @match node begin
+      CLASS_NODE(__)  => begin
+        getDerivedNode(node.parentScope)
+      end
+      COMPONENT_NODE(__)  => begin
+        getDerivedNode(node.parent)
+      end
+      IMPLICIT_SCOPE(__)  => begin
+        getDerivedNode(node.parentScope)
+      end
+      _  => begin
+        EMPTY_NODE()
+      end
+    end
+  end
+  parent
+end
+
+function classParent(node::InstNode)
+  local parent::InstNode
+  @match CLASS_NODE(parentScope = parent) = node
+  parent
+end
+
+function explicitParent(node::InstNode)
+  local parentNode::InstNode = explicitScope(parent(node))
+  parentNode
+end
+
+function parent(node::InstNode)
+  local parent::InstNode
+   parent = begin
+    @match node begin
+      CLASS_NODE(__)  => begin
+        node.parentScope
+      end
+      COMPONENT_NODE(__)  => begin
+        #@debug "node was: $(node.name)"
+        node.parent
+      end
+      IMPLICIT_SCOPE(__)  => begin
+        node.parentScope
+      end
+      _  => begin
+        EMPTY_NODE()
+      end
+    end
+  end
+  parent
+end
+
+function rename(name::String, node::InstNode)
+  withName(name, node)
+end
+
+"""Returns the type of node the given node is as a string."""
+function typeName(node::InstNode)
+  local name::String
+   name = begin
+    @match node begin
+      CLASS_NODE(__)  => begin
+        "class"
+      end
+
+      COMPONENT_NODE(__)  => begin
+        "component"
+      end
+
+      INNER_OUTER_NODE(__)  => begin
+        typeName(node.innerNode)
+      end
+
+      REF_NODE(__)  => begin
+        "ref node"
+      end
+
+      NAME_NODE(__)  => begin
+        "name node"
+      end
+
+      VAR_NODE(__)  => begin
+        "var node"
+      end
+
+      IMPLICIT_SCOPE(__)  => begin
+        "implicit scope"
+      end
+
+      EMPTY_NODE(__)  => begin
+        "empty node"
+      end
+    end
+  end
+  name
+end
+
+"""
+Returns the name of a scope, which in the case of a component is the name
+of the component's type, and for a class simply the name of the class.
+"""
+function scopeName(node::InstNode)
+  local outName::String = name(classScope(explicitScope(node)))
+  outName
+end
+
+function className(node::InstNode)
+  local name::String
+  @match CLASS_NODE(name = name) = node
+  name
+end
+
+function name(@nospecialize(node::InstNode))
+  local nameVar::String
+   nameVar = begin
+    @match node begin
+      CLASS_NODE(__)  => begin
+        node.name
+      end
+      COMPONENT_NODE(__)  => begin
+        node.name
+      end
+      INNER_OUTER_NODE(__)  => begin
+        name(node.innerNode)
+      end
+      VAR_NODE(__)  => begin
+        node.name
+      end
+      REF_NODE(__)  => begin
+        "REF[" + string(node.index) + "]"
+      end
+      NAME_NODE(__)  => begin
+        node.name
+      end
+      IMPLICIT_SCOPE(__)  => begin
+        "IMPLICIT"
+      end
+      EXP_NODE(__)  => begin
+        "EXP(" + toString(node.exp) + ")"
+      end
+      EMPTY_NODE(__)  => begin
+        "EMPTY"
+      end
+    end
+  end
+  return nameVar
+end
+
+function isOperator(node::InstNode)
+  local op::Bool
+   op = begin
+    @match node begin
+      CLASS_NODE(__)  => begin
+        SCodeUtil.isOperator(node.definition)
+      end
+      INNER_OUTER_NODE(__)  => begin
+        isOperator(node.innerNode)
+      end
+      _  => begin
+        false
+      end
+    end
+  end
+  op
+end
+
+function isExpandableConnector(node::InstNode)
+  local isConnector::Bool
+   isConnector = begin
+    @match node begin
+      COMPONENT_NODE(__)  => begin
+        isExpandableConnector(component(node))
+      end
+
+      _  => begin
+        false
+      end
+    end
+  end
+  isConnector
+end
+
+function isConnector(node::InstNode)
+  local isConnectorBool::Bool
+
+   isConnectorBool = begin
+    @match node begin
+      COMPONENT_NODE(__)  => begin
+        isConnector(component(node))
+      end
+
+      NAME_NODE(__)  => begin
+        true
+      end
+
+      _  => begin
+        false
+      end
+    end
+  end
+  isConnectorBool
+end
+
+function isName(node::InstNode)
+  local isName::Bool
+
+   isName = begin
+    @match node begin
+      NAME_NODE(__)  => begin
+        true
+      end
+
+      _  => begin
+        false
+      end
+    end
+  end
+  isName
+end
+
+function isEmpty(node::InstNode)
+  local isEmpty::Bool
+   isEmpty = begin
+    @match node begin
+      EMPTY_NODE(__)  => begin
+        true
+      end
+      _  => begin
+        false
+      end
+    end
+  end
+  isEmpty
+end
+
+function isReplaceable(node::InstNode)
+  repl = @match node begin
+    CLASS_NODE(__) => SCodeUtil.isElementReplaceable(node.definition)
+    COMPONENT_NODE(__) => begin
+      local comp = _compVal(node)
+      isDefinition(comp) && SCodeUtil.isElementReplaceable(definition(comp))
+    end
+    _ => false
+  end
+  return repl
+end
+
+function isComponent(node::InstNode)::Bool
+  @match node begin
+    COMPONENT_NODE(__)  => begin
+      true
+    end
+
+    INNER_OUTER_NODE(__)  => begin
+      isComponent(node.innerNode)
+    end
+
+    _  => begin
+      false
+    end
+  end
+end
+
+function isFunction(node::InstNode)
+  local isFunc::Bool
+
+   isFunc = begin
+    @match node begin
+      CLASS_NODE(__)  => begin
+        isFunction(_clsVal(node))
+      end
+
+      _  => begin
+        false
+      end
+    end
+  end
+  isFunc
+end
+
+#= A redeclared class counts as user-defined when the class it replaced was. =#
+function isUserdefinedClassType(ty)::Bool
+  isvariant(ty, NORMAL_CLASS) && return true
+  isvariant(ty, BASE_CLASS) && return true
+  isvariant(ty, DERIVED_CLASS) && return true
+  isvariant(ty, REDECLARED_CLASS) && return isUserdefinedClassType(ty.originalType)
+  return false
+end
+
+function isUserdefinedClass(node::InstNode)
+  local isUserdefined::Bool
+
+   isUserdefined = begin
+    @match node begin
+      CLASS_NODE(__)  => begin
+        begin
+          @match node.nodeType begin
+            NORMAL_CLASS(__)  => begin
+              true
+            end
+
+            BASE_CLASS(__)  => begin
+              true
+            end
+
+            DERIVED_CLASS(__)  => begin
+              true
+            end
+
+            REDECLARED_CLASS(__)  => begin
+              isUserdefinedClassType(node.nodeType.originalType)
+            end
+
+            _  => begin
+              false
+            end
+          end
+        end
+      end
+
+      _  => begin
+        false
+      end
+    end
+  end
+  isUserdefined
+end
+
+"""
+omc InstNode.isExtends: the node of an extends clause.
+"""
+function isExtends(node::InstNode)::Bool
+  return @match node begin
+    CLASS_NODE(definition = SCode.EXTENDS(__)) => true
+    CLASS_NODE(nodeType = BASE_CLASS(definition = SCode.EXTENDS(__))) => true
+    _ => false
+  end
+end
+
+function isBaseClass(node::InstNode)
+  local isBaseClass::Bool
+
+   isBaseClass = begin
+    @match node begin
+      CLASS_NODE(nodeType = BASE_CLASS(__))  => begin
+        true
+      end
+
+      _  => begin
+        false
+      end
+    end
+  end
+  isBaseClass
+end
+
+function isClass(node::InstNode)
+  local res::Bool
+
+   res = begin
+    @match node begin
+      CLASS_NODE(__)  => begin
+        true
+      end
+
+      INNER_OUTER_NODE(__)  => begin
+        isClass(node.innerNode)
+      end
+
+      _  => begin
+        false
+      end
+    end
+  end
+  res
+end
+
+function fromComponent(name::String, component::Component, parent::InstNode)
+  local node::InstNode
+
+   node = COMPONENT_NODE(name, Visibility.PUBLIC, component, parent, NORMAL_COMP())
+  node
+end
+
+function newExtends(definition::SCode.Element, parent::InstNode)
+  local node::InstNode
+
+  local base_path::Absyn.Path
+  local name::String
+  local vis::SCode.Visibility
+
+  @match SCode.EXTENDS(baseClassPath = base_path, visibility = vis) = definition
+  name = AbsynUtil.pathLastIdent(base_path)
+  node = CLASS_NODE(name, definition, visibilityFromSCode(vis), NOT_INSTANTIATED(), #=P_CachedData.=#
+                    empty(), parent, BASE_CLASS(parent, definition))
+  node
+end
+
+function newComponent(definition::SCode.Element, parent::InstNode = EMPTY_NODE())
+  local node::InstNode
+  local name::String
+  local vis::SCode.Visibility
+  @match SCode.COMPONENT(name = name, prefixes = SCode.PREFIXES(visibility = vis)) = definition
+   node = COMPONENT_NODE(name, visibilityFromSCode(vis), new(definition), parent, NORMAL_COMP())
+  node
+end
+
+function newComponent(name::String,
+                      visibility::VisibilityType,
+                      component::Component,
+                      parent::InstNode,
+                      nodeType::InstNodeType)::InstNode
+  COMPONENT_NODE(name, visibility, component, parent, nodeType)
+end
+
+function newClass(definition::SCode.Element, parent::InstNode, nodeType::InstNodeType = NORMAL_CLASS())
+  local vis::SCode.Visibility
+  @match SCode.CLASS(_, SCode.PREFIXES(vis)) = definition
+  local v = visibilityFromSCode(vis)
+  local node = CLASS_NODE(definition.name, definition, v, NOT_INSTANTIATED(), empty(), parent, nodeType)
+  node
+end
+
+function new(definition::SCode.Element, parent::InstNode)
+  local node::InstNode
+   node = begin
+    @match definition begin
+      SCode.CLASS(__)  => begin
+        newClass(definition, parent)
+      end
+      SCode.COMPONENT(__)  => begin
+        newComponent(definition, parent)
+      end
+    end
+  end
+  node
+end
+
+function newIterator(name::String, ty::ModelicaType, info::SourceInfo)
+  local iterator = fromComponent(name, newIterator(ty, info), EMPTY_NODE())
+  return iterator
+end
+
+function newIndexedIterator(index::Int, ty::ModelicaType, info)
+  newIterator("\$i" + string(index), ty, info);
+end

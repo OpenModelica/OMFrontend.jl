@@ -524,7 +524,6 @@ end
 """
 function appendList!(arr::Vector{T}, lst::Cons{T}) where {T}
   local arr_len::ModelicaInteger = length(arr)
-  local e::T
   if arr_len == 0
     arr = listArray(lst)
   else
@@ -539,7 +538,7 @@ function appendList!(arr::Vector{T}, lst::Cons{T}) where {T}
   arr
 end
 
-function appendList!(arr::Vector{T}, lst::Nil) where {T}
+function appendList!(arr::Vector{T}, ::Nil) where {T}
   return arr
 end
 
@@ -548,7 +547,7 @@ Returns true if the given predicate function returns true for all elements in
 the given Vector.
 """
 function all(inList::Vector{T}, inFunc::F) where {T, F<:Function}
-  local outResult::Bool = false
+  local outResult::Bool
   for e in inList
     if ! inFunc(e)
       outResult = false
@@ -684,7 +683,6 @@ end
 function reverse(inArray::Vector{T})  where {T}
   local outArray::Vector{T}
   local size::ModelicaInteger
-  local i::ModelicaInteger
   local elem1::T
   local elem2::T
   outArray = inArray
@@ -764,15 +762,15 @@ julia> split([1, 2, 5, 7], 2) => ([1, 2], [5, 7])
 ```
 """
 function split(inArr::Vector{T},  inPosition::Int) where {T}
-  local outArr1 = T[]
-  local outArr2 = T[]
+  local outArr1
+  local outArr2
   local pos::Int
   local a1 = T[]
   local a2 = Base.copy(inArr)
   local e::T
   @match true = inPosition >= 0
   pos = inPosition
-  for i in 1:pos
+  for _ in 1:pos
     e = popfirst!(a2)
     push!(a1, e)
   end
@@ -800,7 +798,7 @@ function partition(inV::Vector{T}, inPartitionLength::ModelicaInteger)  where {T
   end #Else proceed
   #= Declare local vars =#
   local vWork::Vector = inV
-  for i in 1:div(vLength, inPartitionLength)
+  for _ in 1:div(vLength, inPartitionLength)
     (part, vWork) = split(vWork, inPartitionLength)
     push!(outPartitions, part)
   end
@@ -835,7 +833,6 @@ function transposeArray(arr::Vector{Vector{T}}) where {T}
   local outArr = Vector{Vector{T}}(undef, M)
   for i in 1:M
     col = Vector{T}(undef, N)
-    local cntr = 0
     for j in 1:N
       col[j] = arr[j][i]
     end

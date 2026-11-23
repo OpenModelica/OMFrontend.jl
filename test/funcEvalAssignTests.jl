@@ -1,5 +1,5 @@
 #=
-Assignments in functions evaluated at compile time (NFEvalFunction.jl) must change
+Assignments in functions evaluated at compile time (EvalFunction.jl) must change
 only their target (Models/FuncEvalAssign.mo):
 - rect: a non-square unbound output filled element by element;
 - rows: zeros() then element writes (fill repeats one row);

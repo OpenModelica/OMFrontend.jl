@@ -44,7 +44,6 @@ using ExportAll
 #= Forward declarations for uniontypes until Julia adds support for mutual recursion =#
 
 @UniontypeDecl Status
-@UniontypeDecl DateTime
 
 const FuncType = Function
 const CompareFunc = Function
@@ -55,18 +54,6 @@ const FuncT = Function
   @Record SUCCESS begin
   end
   @Record FAILURE begin
-  end
-end
-
-@Uniontype DateTime begin
-  @Record DATETIME begin
-
-    sec::Int
-    min::Int
-    hour::Int
-    mday::Int
-    mon::Int
-    year::Int
   end
 end
 
@@ -160,10 +147,6 @@ end
 function stringDelimitListPrintBuf(inStringLst::List{<:String}, inDelimiter::String)
   return  _ = begin
     local f::String
-    local delim::String
-    local str1::String
-    local str2::String
-    local str::String
     local r::List{String}
     @matchcontinue inStringLst begin
       nil() => begin
@@ -203,8 +186,6 @@ function stringDelimitListAndSeparate2(
 )
   return  _ = begin
     local s::String
-    local str1::String
-    local str::String
     local f::String
     local sep1::String
     local sep2::String
@@ -308,7 +289,6 @@ function applyOption(inOption::Option{TI}, inFunc::FuncType) where {TI}
 
    outOption = begin
     local ival::TI
-    local oval
     @match inOption begin
       SOME(ival) => begin
         SOME(inFunc(ival))
@@ -356,7 +336,7 @@ end
 function makeQuotedIdentifier(str::String)
   local qi = Base.replace(str, "\\"=> "\\\\")
   qi = Base.replace(qi, "'" => "\\'")
-  qi = string("'", qi, "'")
+  return string("'", qi, "'")
 end
 
 """ Returns an option value if SOME, otherwise fails """
@@ -483,21 +463,6 @@ function xmlEscape(s1::String)::String
   return s2
 end
 
-function getCurrentDateTime()::DateTime
-  local dt::DateTime
-
-  local sec::Int
-  local min::Int
-  local hour::Int
-  local mday::Int
-  local mon::Int
-  local year::Int
-
-   (sec, min, hour, mday, mon, year) = System.getCurrentDateTime()
-   dt = DATETIME(sec, min, hour, mday, mon, year)
-  return dt
-end
-
 function id(inValue::T) where {T}
   local outValue::T = inValue
   return outValue
@@ -614,7 +579,7 @@ function stringPadRight(inString::String, inPadWidth::Int, inPadString::String):
 
    pad_length = inPadWidth - stringLength(inString)
   if pad_length > 0
-     pad_str = stringAppendList(list(inPadString for i = 1:pad_length))
+     pad_str = stringAppendList(list(inPadString for _ = 1:pad_length))
      outString = inString + pad_str
   else
      outString = inString
@@ -635,7 +600,7 @@ function stringPadLeft(inString::String, inPadWidth::Int, inPadString::String)::
 
    pad_length = inPadWidth - stringLength(inString)
   if pad_length > 0
-     pad_str = stringAppendList(list(inPadString for i = 1:pad_length))
+     pad_str = stringAppendList(list(inPadString for _ = 1:pad_length))
      outString = pad_str + inString
   else
      outString = inString
@@ -713,7 +678,7 @@ function swap(cond::Bool, in1, in2)
   return (out1, out2)
 end
 
-function replace(replaced::T, arg::T) where {T}
+function replace(::T, arg::T) where {T}
   local outArg::T = arg
   return outArg
 end
@@ -731,53 +696,6 @@ function realRangeSize(
   outSize = floor(Int, steps) + 1
   outSize = max(outSize, 0)
   return outSize
-end
-
-function createDirectoryTreeH(
-  inString::String,
-  parentDir::String,
-  parentDirExists::Bool,
-)::Bool
-  local outBool::Bool
-
-   outBool = begin
-    local b::Bool
-    @matchcontinue parentDirExists begin
-      _ => begin
-        @match true = stringEqual(parentDir, System.dirname(parentDir))
-         b = System.createDirectory(inString)
-        b
-      end
-
-      true => begin
-         b = System.createDirectory(inString)
-        b
-      end
-
-      false => begin
-        @match true = createDirectoryTree(parentDir)
-         b = System.createDirectory(inString)
-        b
-      end
-
-      _ => begin
-        false
-      end
-    end
-  end
-  return outBool
-end
-
-function createDirectoryTree(inString::String)::Bool
-  local outBool::Bool
-
-  local parentDir::String
-  local parentDirExists::Bool
-
-   parentDir = System.dirname(inString)
-   parentDirExists = System.directoryExists(parentDir)
-   outBool = createDirectoryTreeH(inString, parentDir, parentDirExists)
-  return outBool
 end
 
 """Create an iterator or the like with a unique name"""
@@ -824,7 +742,7 @@ function referenceCompare(ref1::T1, ref2::T2) where {T1, T2}
   else
     t1 = UInt64(unsafe_pointer_from_objref(ref1))
     t2 = UInt64(unsafe_pointer_from_objref(ref2))
-    result = Int((t1 < t2) ? -1 : (t1 > t2))
+    Int((t1 < t2) ? -1 : (t1 > t2))
   end
   return result
 end

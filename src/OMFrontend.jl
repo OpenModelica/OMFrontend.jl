@@ -52,9 +52,6 @@ const OMParser = OpenModelicaParser
 import PrecompileTools
 import Serialization
 
-#= This file defines additional utility macros. =#
-include("util.jl")
-
 #= OMFrontend's root directory, wherever it is loaded from (lib/ holds the builtin
    library and the bundled MSL). Base.find_package resolves a package name only where
    the active environment lists the package directly: with only OM or OMBackend in
@@ -68,7 +65,7 @@ packageRoot()::String = something(pkgdir(@__MODULE__), normpath(joinpath(@__DIR_
   This cache is initialized when the module is loaded.
 """
 const NFModelicaBuiltinCache = Dict()
-#= The builtin library is parsed into the package image (precompilation.jl): a change to it
+#= The builtin library is parsed into the package image (Precompilation/precompilation.jl): a change to it
    recompiles the package. =#
 include_dependency(joinpath(@__DIR__, "..", "lib", "NFModelicaBuiltin.mo"))
 #= The bundled MSL files too: the precompile workload parses MSL 4.1.0 into LIBRARY_CACHE, which the package image
@@ -133,15 +130,604 @@ function __init__()
   Frontend.PARALLEL_INST[] = get(ENV, "OMFRONTEND_PARALLEL_INST", "true") == "true"
   Frontend.LIBRARY_LOADER[] = _loadLibraryOnDemand
   Frontend.CACHE_INST[] = get(ENV, "OMFRONTEND_CACHE_INST", "true") == "true"
-  ENABLE_EXECSTAT[] = get(ENV, "ENABLE_EXECSTAT", "false") == "true"
   return nothing
 end
 
-include("main.jl")
+include("Frontend/Frontend.jl")
 #=Internal modules=#
 import .Frontend.Flags
 import .Frontend.FlagsUtil
 import .Frontend.StructuralModeJSON
+
+#= ---------------------------------------------------------------------------------------------------------------
+   Public API: translate Modelica to flat Modelica with named arguments. Quiet by default (warnings only), a model
+   that cannot be translated raises a short ModelicaError; OMFrontend.debug!(true) is the developer mode. The
+   pipeline functions (parseFile, translateToSCode, instantiateSCodeToFM, flattenModelWithLibraries, ...) follow
+   further down.
+   --------------------------------------------------------------------------------------------------------------- =#
+
+"""
+The functions and types for users: section "Public API" of the documentation (docs/src/api.md). A name is `public`
+(Julia's REPL help marks the others as internal); the tests check that the documentation lists it in that section.
+"""
+const USER_API = (:instantiate, :flatModelica, :check, :classNames, :source, :description, :documentation,
+                  :variables, :parameters, :exportJSON, :componentGraphics, :installLibrary, :libraries,
+                  :setFlags, :FlatModelica, :CheckResult, :ModelicaError, :debug!)
+
+"""
+The developer functions: the steps `instantiate` runs, the library cache and the older entry points. Section
+"Pipeline API (developers)" of the documentation, after the user functions. To mark a function as a developer
+function, name it here and list it in that section.
+"""
+const DEVELOPER_API = (:parseFile, :translateToSCode, :instantiateSCodeToFM, :flattenModel, :flattenModelWithMSL,
+                       :flattenModelWithLibraries, :loadMSL, :loadBundledMSL, :loadLibrary, :loadPackageDirectory,
+                       :loadInstalledLibrary, :toFlatModelica, :toString, :exportSCodeRepresentationToFile,
+                       :enableDumpDebug, :disableDumpDebug, :removeQuotesFromFlatModelica, :julia_main)
+
+eval(Expr(:public, USER_API..., DEVELOPER_API...))
+
+"""Developer mode (`debug!`)."""
+const DEBUG = Ref(false)
+
+"""
+    OMFrontend.debug!(on::Bool = true) -> Bool
+
+Developer mode for `instantiate`, `flatModelica` and `classNames`. Off (the default): they log only warnings, and a
+model that cannot be translated raises a short `ModelicaError` with the model's messages. On: library loading logs
+its progress, and a failure is rethrown with its Julia stack trace (MetaModelica failures with backtraces), after
+the model's messages on `stderr`. Returns the new setting.
+"""
+function debug!(on::Bool = true)::Bool
+  DEBUG[] = on
+  return on
+end
+
+"""
+    ModelicaError <: Exception
+
+A model the frontend cannot translate: a syntax error, a type error, an unknown class. `messages` holds the
+frontend's messages, one per entry, each `file:line:column: Severity: text` (as omc's, the severity `Error`,
+`Warning` or `Notification`). `text` is the Modelica text of the `string` argument, `""` for a file. Shown, each
+message is followed by its source line with a `^` under the column. `OMFrontend.debug!(true)` shows the Julia stack
+trace of the failure instead.
+"""
+struct ModelicaError <: Exception
+  messages::Vector{String}
+  text::String
+end
+
+ModelicaError(messages::Vector{String}) = ModelicaError(messages, "")
+
+function Base.showerror(io::IO, e::ModelicaError)
+  print(io, "ModelicaError: ")
+  _showMessages(io, e.messages, e.text)
+  return nothing
+end
+
+"""
+Print `messages` one after another, each followed by its source line and a `^` under its column when the line can
+be read (from `text` for `<string>`, else from the file).
+"""
+function _showMessages(io::IO, messages::Vector{String}, text::String)::Nothing
+  for (i, m) in enumerate(messages)
+    i > 1 && println(io)
+    print(io, m)
+    local snippet::String = _sourceSnippet(m, text)
+    isempty(snippet) || print(io, "\n", snippet)
+  end
+  return nothing
+end
+
+"""The lines of `text`, split at LF or CRLF (a file checked out on Windows), without the line endings."""
+_splitLines(text::String)::Vector{String} = String.(split(text, r"\r?\n"))
+
+"""The source line a message `file:line:column: ...` points at, indented, with a `^` under the column; `""` if the
+line cannot be read."""
+function _sourceSnippet(message::String, text::String)::String
+  local m::Union{Nothing, RegexMatch} = match(r"^(.+?):(\d+):(\d+): ", message)
+  m === nothing && return ""
+  local (file, line, column) = (String(m.captures[1]), parse(Int, m.captures[2]), parse(Int, m.captures[3]))
+  local lines::Vector{String} = String[]
+  if file == "<string>"
+    lines = _splitLines(text)
+  elseif isfile(file)
+    lines = readlines(file)
+  end
+  (1 <= line <= length(lines)) || return ""
+  local source::String = chomp(lines[line])
+  local before::Vector{Char} = collect(source)[1:min(max(column - 1, 0), length(source))]
+  return "  " * source * "\n  " * String(Char[c == '\t' ? '\t' : ' ' for c in before]) * "^"
+end
+
+"""
+    FlatModelica
+
+A class translated to flat Modelica (`instantiate`). `print(fm)` and `string(fm)` give the flat Modelica text; the
+REPL shows it after the translation's warnings (as comments). Fields: `name` (the class), `model` (the frontend's
+`FLAT_MODEL`), `functions` (the functions the model calls, a function tree), `warnings`.
+"""
+struct FlatModelica{T <: Frontend.FunctionTreeImpl.Tree}
+  name::String
+  model::Frontend.FLAT_MODEL
+  functions::T
+  warnings::Vector{String}
+end
+
+function Base.print(io::IO, fm::FlatModelica)
+  print(io, toFlatModelica(fm.model, fm.functions))
+  return nothing
+end
+
+function Base.show(io::IO, ::MIME"text/plain", fm::FlatModelica)
+  for w::String in fm.warnings
+    println(io, "// ", w)
+  end
+  print(io, fm)
+  return nothing
+end
+
+Base.show(io::IO, fm::FlatModelica) = print(io, "FlatModelica(\"", fm.name, "\")")
+
+"""
+    instantiate(model = ""; file = "", string = "", libraries = String[], modifiers = String[], scalarize = true)
+        -> FlatModelica
+
+Translate the Modelica class `model` to flat Modelica. The class is in `file` (a `.mo` file), in `string` (Modelica
+text), or with neither in one of the libraries. `model` can be left out when the file or string has one top-level
+class.
+
+`libraries`: the libraries the model uses, each a `.mo` file, a package directory, the name of an installed library
+(`installLibrary`), or `"Modelica"` / `"Modelica 3.2.3"` (the bundled Modelica Standard Library). A model that uses
+the Modelica Standard Library gets version 4.1.0 without naming it. `modifiers`: modifications of the class, as in
+`M(k = 3)` (`["k = 3", "x(start = 2)"]`). `scalarize = false` keeps arrays.
+
+The result shows as flat Modelica; a model that cannot be translated raises a `ModelicaError` with its messages.
+
+# Examples
+```julia
+fm = OMFrontend.instantiate(string = "model M Real x(start = 1); equation der(x) = -x; end M;")
+fm = OMFrontend.instantiate("HelloWorld"; file = "HelloWorld.mo")
+fm = OMFrontend.instantiate("Modelica.Blocks.Examples.PID_Controller")
+fm = OMFrontend.instantiate("MyLib.Examples.Test"; libraries = ["MyLib/package.mo"])
+fm = OMFrontend.instantiate("Modelica.Blocks.Examples.PID_Controller"; modifiers = ["driveAngle = 1.0"])
+```
+"""
+function instantiate(model::String = ""; file::String = "", string::String = "",
+                     libraries::Vector{String} = String[], modifiers::Vector{String} = String[],
+                     scalarize::Bool = true)::FlatModelica
+  return _userCall(() -> _instantiate(model, file, string, libraries, modifiers, scalarize), string)
+end
+
+"""
+    flatModelica(model = ""; file = "", string = "", libraries = String[], modifiers = String[], scalarize = true)
+        -> String
+
+The flat Modelica text of the class `model`: `instantiate` with the same arguments, as a string.
+
+# Example
+```julia
+print(OMFrontend.flatModelica("Modelica.Electrical.Analog.Examples.ChuaCircuit"))
+```
+"""
+function flatModelica(model::String = ""; file::String = "", string::String = "",
+                      libraries::Vector{String} = String[], modifiers::Vector{String} = String[],
+                      scalarize::Bool = true)::String
+  return Base.string(instantiate(model; file = file, string = string, libraries = libraries, modifiers = modifiers,
+                                 scalarize = scalarize))
+end
+
+"""
+    classNames(parent = ""; file = "", string = "", libraries = String[]) -> Vector{String}
+
+The names of the classes in `file` or `string` (or with neither, in `libraries` and the loaded libraries), in
+declaration order: the top-level classes, or with `parent` the classes declared in that class. The Modelica
+Standard Library is found without naming it, as in `instantiate`.
+
+# Examples
+```julia
+OMFrontend.classNames(file = "Plant.mo")
+OMFrontend.classNames("Modelica.Blocks.Examples")
+```
+"""
+function classNames(parent::String = ""; file::String = "", string::String = "",
+                    libraries::Vector{String} = String[])::Vector{String}
+  return _userCall(() -> _classNames(parent, file, string, libraries), string)
+end
+
+"""
+    variables(fm::FlatModelica) -> Vector{String}
+
+The names of the variables of a flat model, in its order (parameters and constants included).
+"""
+function variables(fm::FlatModelica)::Vector{String}
+  return String[Frontend.toString(v.name) for v in fm.model.variables]
+end
+
+"""
+    CheckResult
+
+The result of `check`. Fields: `name` (the class), `ok` (it translates), `equations` and `variables` (omc's
+checkModel counts; zero when the check failed), `messages` (errors and warnings, `file:line:column: Severity:
+text`), `text` (the `string` argument). Shows as omc's checkModel text after the messages, which show as in a
+`ModelicaError`.
+"""
+struct CheckResult
+  name::String
+  ok::Bool
+  equations::Int
+  variables::Int
+  messages::Vector{String}
+  text::String
+end
+
+function Base.show(io::IO, ::MIME"text/plain", r::CheckResult)
+  _showMessages(io, r.messages, r.text)
+  isempty(r.messages) || println(io)
+  local warnings::Int = count(m::String -> occursin(": Warning: ", m), r.messages)
+  local errors::Int = r.ok ? 0 : length(r.messages) - warnings
+  local counts::Vector{String} = String[]
+  warnings > 0 && push!(counts, "$(warnings) warning(s)")
+  errors > 0 && push!(counts, "$(errors) error(s)")
+  local with::String = isempty(counts) ? "" : " with " * join(counts, " and ")
+  if !r.ok
+    print(io, "Check of ", r.name, " failed", with, ".")
+    return nothing
+  end
+  println(io, "Check of ", r.name, " completed successfully", with, ".")
+  print(io, "Class ", r.name, " has ", r.equations, " equation(s) and ", r.variables, " variable(s).")
+  return nothing
+end
+
+Base.show(io::IO, r::CheckResult) =
+  print(io, "CheckResult(\"", r.name, "\", ", r.ok ? "$(r.equations) equations, $(r.variables) variables" : "failed", ")")
+
+"""
+    check(model = ""; file = "", string = "", libraries = String[]) -> CheckResult
+
+Check the class `model` as omc's `checkModel` does: translate it (arguments as for `instantiate`) and count its
+scalar equations and variables as omc does. A model the frontend cannot translate gives `ok == false` with the
+messages, no error; equal counts mean a balanced model.
+
+# Example
+```julia
+julia> OMFrontend.check(string = "model M Real x(start = 1); equation der(x) = -x; end M;")
+Check of M completed successfully.
+Class M has 1 equation(s) and 1 variable(s).
+```
+"""
+function check(model::String = ""; file::String = "", string::String = "",
+               libraries::Vector{String} = String[])::CheckResult
+  local fm::Union{Nothing, FlatModelica} = nothing
+  local messages::Vector{String} = String[]
+  try
+    fm = instantiate(model; file = file, string = string, libraries = libraries)
+  catch e
+    e isa ModelicaError || rethrow()
+    messages = e.messages
+  end
+  fm === nothing && return CheckResult(isempty(model) ? _sourceName(file, string) : model, false, 0, 0, messages, string)
+  local (equations, variables) = Frontend.checkModelCounts(fm.model)
+  return CheckResult(fm.name, true, equations, variables, fm.warnings, string)
+end
+
+"""
+    parameters(fm::FlatModelica) -> Vector{Pair{String, String}}
+
+The parameters and constants of a flat model, each name => its binding as Modelica text (`""` without one), in the
+model's order.
+
+# Example
+```julia
+julia> OMFrontend.parameters(OMFrontend.instantiate(string = "model M parameter Real k = 2; Real x = k * time; end M;"))
+1-element Vector{Pair{String, String}}:
+ "k" => "2.0"
+```
+"""
+function parameters(fm::FlatModelica)::Vector{Pair{String, String}}
+  local result::Vector{Pair{String, String}} = Pair{String, String}[]
+  for v::Frontend.VARIABLE in fm.model.variables
+    v.attributes.variability < Frontend.Variability.DISCRETE || continue
+    local value::String = Frontend.hasExp(v.binding) ? Frontend.toString(Frontend.getExp(v.binding)) : ""
+    push!(result, Frontend.toString(v.name) => value)
+  end
+  return result
+end
+
+"""
+    source(class; file = "", string = "", libraries = String[]) -> String
+
+The Modelica text of `class` as it is written in its file or `string`, e.g. the definition of a library class
+(`source("Modelica.Blocks.Continuous.PID")`). The class is found as in `classNames`.
+"""
+function source(class::String; file::String = "", string::String = "",
+                libraries::Vector{String} = String[])::String
+  return _userCall(() -> _source(_lookupClass(class, file, string, libraries), string), string)
+end
+
+"""
+    description(class; file = "", string = "", libraries = String[]) -> String
+
+The description string of `class` (`model M "this text"`), `""` without one.
+"""
+function description(class::String; file::String = "", string::String = "",
+                     libraries::Vector{String} = String[])::String
+  return _userCall(() -> _description(_lookupClass(class, file, string, libraries)), string)
+end
+
+"""
+    documentation(class; file = "", string = "", libraries = String[]) -> String
+
+The `info` text (HTML) of the `Documentation` annotation of `class`, `""` without one.
+"""
+function documentation(class::String; file::String = "", string::String = "",
+                       libraries::Vector{String} = String[])::String
+  return _userCall(() -> _documentationInfo(_lookupClass(class, file, string, libraries)), string)
+end
+
+"""
+Run `f` with only warnings logged (or as it is in developer mode). A `ModelicaError` it raises is raised again
+outside the catch, with `text` (the `string` argument, for the source lines it shows), so its stack trace starts
+here and has no internal exception under it.
+"""
+function _userCall(f::F, text::String) where {F <: Function}
+  DEBUG[] && return f()
+  local err::ModelicaError = ModelicaError(String[])
+  try
+    return Base.CoreLogging.with_logger(f, Base.CoreLogging.SimpleLogger(stderr, Base.CoreLogging.Warn))
+  catch e
+    e isa ModelicaError || rethrow()
+    err = ModelicaError(e.messages, text)
+  end
+  throw(err)
+end
+
+"""`instantiate` after its arguments are named: `text` is its `string`."""
+function _instantiate(model::String, file::String, text::String, libraries::Vector{String},
+                      modifiers::Vector{String}, scalarize::Bool)::FlatModelica
+  local own::SCode.Program = _sourceProgram(file, text)
+  local name::String = isempty(model) ? _onlyClass(own) : model
+  local program::SCode.Program = _withLibraries(own, String[_libraryKey(l) for l in libraries])
+  local target::String = name
+  if !isempty(modifiers)
+    #= The modified class is a short class definition `model T = name(modifiers);` beside it. =#
+    target = "OMFrontend_modified_" * replace(name, "." => "_")
+    local short::String = "model " * target * " = " * name * "(" * Base.join(modifiers, ", ") * ");"
+    program = listAppend(translateToSCode(_parseSource("", short)), program)
+  end
+  local (flatModel, funcs) = _instantiateProgram(target, program, scalarize, false, _instClassQuietly)
+  target == name || (flatModel = _renamed(flatModel, name))
+  local warnings::Vector{String} = Frontend.ErrorExt.messageLines(warningsOnly = true)
+  Frontend.Error.clearMessages()
+  return FlatModelica(name, flatModel, funcs, warnings)
+end
+
+"""`flat` with the name `name` (a modified class shows under the name of the class it modifies)."""
+function _renamed(flat::Frontend.FLAT_MODEL, name::String)::Frontend.FLAT_MODEL
+  return Frontend.FLAT_MODEL(name, flat.variables, flat.equations, flat.initialEquations, flat.algorithms,
+                             flat.initialAlgorithms, flat.structuralSubmodels, flat.scodeProgram, flat.comment)
+end
+
+"""
+The program of `file` or `text`, empty for neither. Both given or a missing file are `ArgumentError`s, a syntax
+error a `ModelicaError`.
+"""
+function _sourceProgram(file::String, text::String)::SCode.Program
+  !isempty(file) && !isempty(text) && throw(ArgumentError("give `file` or `string`, not both"))
+  isempty(file) && isempty(text) && return nil
+  !isempty(file) && !isfile(file) && throw(ArgumentError("no such file: $(file)"))
+  return translateToSCode(_parseSource(file, text))
+end
+
+"""The class in `file` or `text` if it has one, else the file's name or `"<string>"` (names a failed check)."""
+function _sourceName(file::String, text::String)::String
+  try
+    return _onlyClass(_sourceProgram(file, text))
+  catch e
+    (e isa ModelicaError || e isa ArgumentError) || rethrow()
+  end
+  return isempty(file) ? "<string>" : basename(file)
+end
+
+"""The syntax tree of `file`, else of `text`; a syntax error is a `ModelicaError` with the parser's message."""
+function _parseSource(file::String, text::String)::Absyn.Program
+  local message::String = ""
+  try
+    return isempty(file) ? OpenModelicaParser.parseString(text, "<string>") : OpenModelicaParser.parseFile(file)
+  catch e
+    (e isa OpenModelicaParser.ParseError && !DEBUG[]) || rethrow()
+    message = "$(e.fileName):$(e.line):$(e.column): Error: $(e.message)"
+  end
+  throw(ModelicaError([message]))
+end
+
+"""The name of the one top-level class of `program`; an `ArgumentError` naming them when there are none or several."""
+function _onlyClass(program::SCode.Program)::String
+  local names::Vector{String} = String[Frontend.SCodeUtil.elementName(c) for c in program]
+  length(names) == 1 && return names[1]
+  isempty(names) && throw(ArgumentError("no class to instantiate: name it, e.g. instantiate(\"Modelica.Blocks.Examples.PID_Controller\")"))
+  throw(ArgumentError("$(length(names)) classes ($(join(names, ", "))): name the one to instantiate, e.g. instantiate(\"$(names[1])\"; ...)"))
+end
+
+"""
+The cache key of the library `spec`, loaded if needed: a cache key, a package directory, a `.mo` file, `"Modelica"`
+or `"Modelica <version>"` (the bundled MSL; 4.1.0 without a version), or the name of an installed library.
+"""
+function _libraryKey(spec::String)::String
+  haskey(LIBRARY_CACHE, spec) && return spec
+  isdir(spec) && return loadPackageDirectory(spec)
+  (isfile(spec) && basename(spec) == "package.mo") && return loadPackageDirectory(dirname(abspath(spec)))
+  isfile(spec) && return loadLibrary(spec)
+  local m::Union{Nothing, RegexMatch} = match(r"^Modelica(?:\s+(\d+\.\d+\.\d+))?$", spec)
+  m === nothing || return loadBundledMSL(version = String(something(m.captures[1], "4.1.0")))
+  return loadInstalledLibrary(spec)
+end
+
+"""
+`own` with the cached libraries `keys` and the libraries they use (`libraryClosure`) appended, then the libraries
+loaded into the session (`withLoadedLibraries`).
+"""
+function _withLibraries(own::SCode.Program, keys::Vector{String})::SCode.Program
+  local explicit::Vector{String} = libraryClosure(keys)
+  local combined::SCode.Program = own
+  for key::String in explicit
+    haskey(LIBRARY_CACHE, key) || error("Library '$key' not loaded. Call loadInstalledLibrary or loadLibrary first.")
+    combined = listAppend(combined, LIBRARY_CACHE[key])
+  end
+  return withLoadedLibraries(combined, explicit)
+end
+
+"""
+Instantiate the class `name` of `inProgram` (with the builtin classes) by `inst` (`Frontend.instClassInProgramFM`
+or `_instClassQuietly`) under the flags of its `__OpenModelica_commandLineOptions` annotation. Returns
+`(flatModel, functions)`.
+"""
+function _instantiateProgram(name::String, inProgram::SCode.Program, scalarize::Bool, separateInstantiation::Bool,
+                             inst::F)::Tuple where {F <: Function}
+  Frontend.Global.initialize()
+  Frontend.FlagsUtil.set(Frontend.Flags.FRONTEND_SCALARIZE, scalarize)
+  Frontend.FlagsUtil.set(Frontend.Flags.NF_SEPARATE_INSTANTIATION, separateInstantiation)
+  local program::SCode.Program = listReverse(listAppend(NFModelicaBuiltinCache["NFModelicaBuiltin"], inProgram))
+  local path::Absyn.Path = Frontend.AbsynUtil.stringPath(name)
+  local oldFlags = applyCommandLineOptionsAnnotation(path, program)
+  local flatModel::Frontend.FLAT_MODEL
+  local funcs::Frontend.FunctionTreeImpl.Tree
+  try
+    (flatModel, funcs, _) = inst(path, program)
+  finally
+    oldFlags === nothing || Frontend.FlagsUtil.saveFlags(oldFlags)
+  end
+  keepRecompilationProgram!(flatModel, inProgram)
+  return (flatModel, funcs)
+end
+
+"""
+`Frontend.instClassInProgramFM` without its printing: the frontend's messages stay queued (the caller takes the
+warnings), and a failure is a `ModelicaError` with them. In developer mode the failure is rethrown with its
+backtrace, after the messages on `stderr`.
+"""
+function _instClassQuietly(path::Absyn.Path, program::SCode.Program)::Tuple
+  Frontend.Error.clearMessages()
+  if DEBUG[]
+    try
+      return Frontend.instClassInProgramFM2(path, program)
+    catch
+      foreach(l -> println(stderr, l), Frontend.ErrorExt.messageLines())
+      Frontend.Error.clearMessages()
+      rethrow()
+    end
+  end
+  local internal::String = ""
+  try
+    return MetaModelica.with_cheap_throws(() -> Frontend.instClassInProgramFM2(path, program))
+  catch e
+    e isa MetaModelica.MetaModelicaException || (internal = Base.string(nameof(typeof(e))))
+  end
+  local messages::Vector{String} = Frontend.ErrorExt.messageLines()
+  Frontend.Error.clearMessages()
+  if isempty(messages) || !isempty(internal)
+    push!(messages, "Internal error in the frontend$(isempty(internal) ? "" : " ($(internal))"): " *
+                    "OMFrontend.debug!(true) shows where.")
+  end
+  throw(ModelicaError(messages))
+end
+
+"""`classNames` after its arguments are named: `text` is its `string`."""
+function _classNames(parent::String, file::String, text::String, libraries::Vector{String})::Vector{String}
+  local program::SCode.Program = _withLibraries(_sourceProgram(file, text), String[_libraryKey(l) for l in libraries])
+  isempty(parent) && return unique!(String[Frontend.SCodeUtil.elementName(c) for c in program])
+  return String[c.name for c in _childClasses(_lookupClassIn(program, parent))]
+end
+
+"""The class `name` (dotted) of `file` or `text`, the `libraries` and the loaded libraries, as in `classNames`."""
+function _lookupClass(name::String, file::String, text::String, libraries::Vector{String})::SCode.Element
+  return _lookupClassIn(_withLibraries(_sourceProgram(file, text), String[_libraryKey(l) for l in libraries]), name)
+end
+
+"""The class `name` (dotted) of `program`; an `ArgumentError` if there is none."""
+function _lookupClassIn(program::SCode.Program, name::String)::SCode.Element
+  local names::Vector{String} = String.(split(name, '.'))
+  local cls::SCode.Element = _findClass(program, names[1], name)
+  for n::String in names[2:end]
+    cls = _findClass(_childClasses(cls), n, name)
+  end
+  return cls
+end
+
+"""
+The text of the class `cls` cut from its file (`text` for a class of the `string` argument) by its source position;
+the class printed from SCode if the file cannot be read.
+"""
+function _source(cls::SCode.Element, text::String)::String
+  local info::SourceInfo = cls.info
+  local lines::Vector{String} = String[]
+  if info.fileName == "<string>"
+    lines = _splitLines(text)
+  elseif isfile(info.fileName)
+    lines = _splitLines(read(info.fileName, String))
+  end
+  if info.lineNumberStart < 1 || info.lineNumberEnd > length(lines)
+    return Frontend.SCodeDump.unparseElementStr(cls)
+  end
+  local cut::Vector{String} = String[chomp(l) for l in lines[info.lineNumberStart:info.lineNumberEnd]]
+  local lastLine::Vector{Char} = collect(cut[end])
+  cut[end] = String(lastLine[1:min(info.columnNumberEnd, length(lastLine))])
+  local firstLine::Vector{Char} = collect(cut[1])
+  local indent::Int = max(info.columnNumberStart, 1) - 1
+  cut[1] = String(firstLine[indent + 1:end])
+  #= The class's lines without the indentation of its first line (a class nested in a package). =#
+  for i::Int in 2:length(cut)
+    local spaces::Int = something(findfirst(c::Char -> c != ' ', cut[i]), length(cut[i]) + 1) - 1
+    cut[i] = cut[i][min(spaces, indent) + 1:end]
+  end
+  local result::String = Base.join(cut, "\n")
+  return endswith(result, ";") ? result : result * ";"
+end
+
+"""The description string of the class `cls`, `""` without one."""
+function _description(cls::SCode.Element)::String
+  local comment::Option{String} = cls.cmt.comment
+  return isSome(comment) ? comment.value : ""
+end
+
+"""The `info` of the `Documentation` annotation of the class `cls`, unescaped; `""` without one."""
+function _documentationInfo(cls::SCode.Element)::String
+  local ann::Option{SCode.ANNOTATION} = cls.cmt.annotation_
+  isSome(ann) || return ""
+  local doc::SCode.Mod = Frontend.SCodeUtil.lookupAnnotation(ann.value, "Documentation")
+  doc isa SCode.MOD || return ""
+  for sm in doc.subModLst
+    if sm.ident == "info" && sm.mod isa SCode.MOD && isSome(sm.mod.binding) && sm.mod.binding.value isa Absyn.STRING
+      return unescape_string(sm.mod.binding.value.value)
+    end
+  end
+  return ""
+end
+
+"""The class `name` of `classes` (a library's top-level package loaded on demand, as in `instantiate`)."""
+function _findClass(classes::Union{SCode.Program, Vector{SCode.Element}}, name::String, parent::String)::SCode.Element
+  for c in classes
+    (c isa SCode.CLASS && c.name == name) && return c
+  end
+  local lib = classes isa SCode.Program ? _loadLibraryOnDemand(name) : nothing
+  if lib !== nothing
+    for c in lib
+      (c isa SCode.CLASS && c.name == name) && return c
+    end
+  end
+  throw(ArgumentError("no class $(parent): $(name) not found"))
+end
+
+"""The classes declared in the class `cls` (its parts, also those of a class extends)."""
+function _childClasses(cls::SCode.Element)::Vector{SCode.Element}
+  local def::SCode.ClassDef = cls.classDef
+  def isa SCode.CLASS_EXTENDS && (def = def.composition)
+  def isa SCode.PARTS || return SCode.Element[]
+  return SCode.Element[e for e in def.elementLst if e isa SCode.CLASS]
+end
+
+#= ---------------------------------------------------------------------------------------------------------------
+   Pipeline API (for developers): the steps instantiate runs, the library cache, and the older entry points.
+   --------------------------------------------------------------------------------------------------------------- =#
 
 """
 Parse a file, returns the syntax tree.
@@ -196,27 +782,10 @@ end
   <component>.<component_1>.<component_2>...
 """
 function instantiateSCodeToFM(elementToInstantiate::String,
-                              inProgram::SCode.Program; scalarize = true,
-                              separateInstantiation = false)
-  # initialize globals
-  Frontend.Global.initialize()
-  # make sure we have all the flags loaded!
-  #  Frontend.Flags.new(Flags.emptyFlags)
-  Frontend.FlagsUtil.set(Frontend.Flags.FRONTEND_SCALARIZE, scalarize)
-  Frontend.FlagsUtil.set(Frontend.Flags.NF_SEPARATE_INSTANTIATION, separateInstantiation)
-  local builtinSCode = NFModelicaBuiltinCache["NFModelicaBuiltin"]
-  local program = listReverse(listAppend(builtinSCode, inProgram))
-  local path = Frontend.AbsynUtil.stringPath(elementToInstantiate)
-  local old_flags = applyCommandLineOptionsAnnotation(path, program)
-  local flat_model
-  local funcs
-  try
-    (flat_model, funcs, inst_cls) = Frontend.instClassInProgramFM(path, program)
-  finally
-    old_flags === nothing || Frontend.FlagsUtil.saveFlags(old_flags)
-  end
-  keepRecompilationProgram!(flat_model, inProgram)
-  return (flat_model, funcs)
+                              inProgram::SCode.Program; scalarize::Bool = true,
+                              separateInstantiation::Bool = false)
+  return _instantiateProgram(elementToInstantiate, inProgram, scalarize, separateInstantiation,
+                             Frontend.instClassInProgramFM)
 end
 
 """
@@ -351,7 +920,7 @@ function writeFlatModelicaToFile(fm, fLst;
   else
     fmStr
   end
-  f = write(fileName, fmStr)
+  return write(fileName, fmStr)
 end
 
 """
@@ -395,7 +964,6 @@ function initLoadMSL(;MSL_Version = "MSL:3.2.3", forceReload::Bool = false)
     delete!(LIBRARY_CACHE, MSL_Version)
   end
   @time return loadMSL(MSL_Version = MSL_Version)
-  @info "MSL successfully Loaded"
 end
 
 """
@@ -431,9 +999,8 @@ function flattenModelWithMSL(modelName::String,
   local absynProgram = parseFile(fileName)
   local sCodeProgram = translateToSCode(absynProgram)
   #= Add builtin function to the program (model) and instantiate it =#
-  builtin = NFModelicaBuiltinCache["NFModelicaBuiltin"]
   program = listAppend(sCodeProgram, lib)
-  (FM, cache) = instantiateSCodeToFM(modelName, program; scalarize = scalarize)
+  return instantiateSCodeToFM(modelName, program; scalarize = scalarize)
 end
 
 """
@@ -458,7 +1025,7 @@ function flattenModelWithMSL(modelName::String;
     initLoadMSL(MSL_Version = MSL_Version)
   end
   local lib = LIBRARY_CACHE[mslKey]
-  (FM, cache) = instantiateSCodeToFM(modelName, lib; scalarize = scalarize)
+  return instantiateSCodeToFM(modelName, lib; scalarize = scalarize)
 end
 
 """
@@ -470,7 +1037,7 @@ function flattenModel(modelName::String, fileName::String; scalarize = true,
                       separateInstantiation = false)
   local absynProgram = parseFile(fileName)
   local sCodeProgram = translateToSCode(absynProgram)
-  (FM, cache) = instantiateSCodeToFM(modelName, sCodeProgram; scalarize = scalarize,
+  return instantiateSCodeToFM(modelName, sCodeProgram; scalarize = scalarize,
                                      separateInstantiation = separateInstantiation)
 end
 
@@ -497,12 +1064,14 @@ function loadMSL(; MSL_Version)
         return LIBRARY_CACHE[MSL_Version]
       end
       @info "Initial parsing of the MSL..."
-      @time local p = parseFile(pathToLib)
+      local t0::Float64 = time()
+      local p = parseFile(pathToLib)
+      @info "Parsed the MSL in $(round(time() - t0; digits = 1)) s"
       local scodeMSL = OMFrontend.translateToSCode(p)
       _storeLibrary!(MSL_Version, scodeMSL)
       _saveLibCache(MSL_Version, contentHash)
       return scodeMSL
-    catch e
+    catch
       @info "Failed loading the Modelica Standard Library. Valid versions are 3.2.3 and 4.1.0"
       @info "Continue instantiating the model until the next error."
     end
@@ -1489,7 +2058,7 @@ function _findPackageDirectory(clone::String, name::String, repo::String, tag::S
   isfile(joinpath(clone, name, "package.mo")) && return joinpath(clone, name)
   isfile(joinpath(clone, "package.mo")) && _packageName(joinpath(clone, "package.mo")) == name && return clone
   local candidates = String[]
-  for (root, dirs, files) in walkdir(clone)
+  for (root, _, files) in walkdir(clone)
     occursin(".git", root) && continue
     "package.mo" in files && push!(candidates, relpath(root, clone))
     length(candidates) >= 10 && break
@@ -1585,14 +2154,7 @@ function flattenModelWithLibraries(modelName::String,
     local absynProgram = parseFile(fileName)
     translateToSCode(absynProgram)
   end
-  local explicit::Vector{String} = libraryClosure(libraries)
-  for libKey in explicit
-    if !haskey(LIBRARY_CACHE, libKey)
-      error("Library '$libKey' not loaded. Call loadInstalledLibrary or loadLibrary first.")
-    end
-    combined = listAppend(combined, LIBRARY_CACHE[libKey])
-  end
-  combined = withLoadedLibraries(combined, explicit)
+  combined = _withLibraries(combined, libraries)
   local modelicaKey::Union{Nothing, String} = MSL ? loadedModelica() : nothing
   if modelicaKey !== nothing
     _checkMSLVersion(MSL_Version, modelicaKey)
@@ -1604,8 +2166,122 @@ function flattenModelWithLibraries(modelName::String,
     end
     combined = listAppend(combined, LIBRARY_CACHE[mslKey])
   end
-  (FM, cache) = instantiateSCodeToFM(modelName, combined; scalarize = scalarize,
+  return instantiateSCodeToFM(modelName, combined; scalarize = scalarize,
                                      separateInstantiation = separateInstantiation)
+end
+
+"""
+    setFlags(; flags...) -> Nothing
+
+Set flags of the frontend by name: a debug flag to `true` or `false`, an option to a value of its type (an integer,
+a number, a string, a vector of strings). The flags hold in the Julia session until they are set again. The page
+[Flags](@ref) lists them with their defaults. An unknown name or a value of the wrong type raises an
+`ArgumentError`, and then no flag changes.
+
+# Example
+```julia
+OMFrontend.setFlags(execstat = true)    # prints the time and memory of each instantiation phase
+OMFrontend.instantiate("Modelica.Blocks.Examples.PID_Controller")
+OMFrontend.setFlags(execstat = false)
+OMFrontend.setFlags(evaluateAllParameters = true, evalLoopLimit = 10^6)
+```
+"""
+function setFlags(; flags...)::Nothing
+  local debugFlags::Vector{Flags.DebugFlag} = _debugFlags()
+  local options::Vector{Flags.ConfigFlag} = _options()
+  local debugValues::Vector{Pair{Flags.DebugFlag, Bool}} = Pair{Flags.DebugFlag, Bool}[]
+  local optionValues::Vector{Pair{Flags.ConfigFlag, Flags.FlagData}} = Pair{Flags.ConfigFlag, Flags.FlagData}[]
+  #= Every name and value is checked before a flag changes. =#
+  for key::Symbol in keys(flags)
+    local name::String = String(key)
+    local value::Any = flags[key]
+    local i::Int = _flagIndex(debugFlags, name)
+    local j::Int = _flagIndex(options, name)
+    if haskey(_ARGUMENT_FLAGS, name)
+      throw(ArgumentError("each translation sets $(name) from its arguments: $(_ARGUMENT_FLAGS[name])"))
+    elseif i > 0
+      value isa Bool || throw(ArgumentError("the debug flag $(name) is true or false, not $(repr(value))"))
+      push!(debugValues, debugFlags[i] => value)
+    elseif j > 0
+      push!(optionValues, options[j] => _optionValue(options[j], value))
+    else
+      throw(ArgumentError("unknown flag $(name). Debug flags: $(Base.join(_flagNames(debugFlags), ", ")). " *
+                          "Options: $(Base.join(_flagNames(options), ", "))."))
+    end
+  end
+  for p::Pair{Flags.DebugFlag, Bool} in debugValues
+    FlagsUtil.set(p.first, p.second)
+  end
+  for p::Pair{Flags.ConfigFlag, Flags.FlagData} in optionValues
+    FlagsUtil.setConfigValue(p.first, p.second)
+  end
+  return nothing
+end
+
+"""Debug flags each translation sets from its arguments; `setFlags` names the argument."""
+const _ARGUMENT_FLAGS = Dict{String, String}("nfScalarize" => "instantiate(...; scalarize = false)",
+  "nfExpandOperations" => "instantiate(...; scalarize = false)", "nfExpandFuncArgs" => "instantiate(...; scalarize = false)",
+  "nfSeparateInstantiation" => "instantiateSCodeToFM(...; separateInstantiation = true)")
+
+"""The debug flags `setFlags` sets: omc's debug flags in OMFrontend (`FlagsUtil.allDebugFlags`) but the argument flags."""
+function _debugFlags()::Vector{Flags.DebugFlag}
+  return Flags.DebugFlag[f for f in FlagsUtil.allDebugFlags if !haskey(_ARGUMENT_FLAGS, f.name)]
+end
+
+"""
+The options `setFlags` sets: omc's configuration flags in OMFrontend (`FlagsUtil.allConfigFlags`) but `debug`, which
+the debug flags are, and the internal `checkModel`.
+"""
+function _options()::Vector{Flags.ConfigFlag}
+  return Flags.ConfigFlag[f for f in FlagsUtil.allConfigFlags if f.name != "debug" && f.visibility isa Flags.EXTERNAL]
+end
+
+"""The position of the flag named `name` among `flags`, 0 if none has that name."""
+function _flagIndex(flags::Vector{T}, name::String)::Int where {T <: Union{Flags.DebugFlag, Flags.ConfigFlag}}
+  for i::Int in eachindex(flags)
+    flags[i].name == name && return i
+  end
+  return 0
+end
+
+"""The names of `flags`."""
+function _flagNames(flags::Vector{T})::Vector{String} where {T <: Union{Flags.DebugFlag, Flags.ConfigFlag}}
+  return String[f.name for f in flags]
+end
+
+"""The values option `option` takes when it lists them (`allowNonStandardModelica`), else none."""
+function _optionValues(option::Flags.ConfigFlag)::Vector{String}
+  option.validOptions === nothing && return String[]
+  return collect(String, FlagsUtil.getValidStringOptions(Frontend.Util.getOption(option.validOptions)))
+end
+
+"""`value` as option `option` stores it; an `ArgumentError` when it is not of the option's type or values."""
+function _optionValue(option::Flags.ConfigFlag, value::Any)::Flags.FlagData
+  local default::Flags.FlagData = option.defaultValue
+  local name::String = option.name
+  if default isa Flags.BOOL_FLAG && value isa Bool
+    return Flags.BOOL_FLAG(value)
+  elseif default isa Flags.INT_FLAG && value isa Integer && !(value isa Bool)
+    return Flags.INT_FLAG(Int(value))
+  elseif default isa Flags.REAL_FLAG && value isa Real && !(value isa Bool)
+    return Flags.REAL_FLAG(Float64(value))
+  elseif default isa Flags.ENUM_FLAG
+    local names::Vector{String} = String[first(v) for v in default.validValues]
+    for v::Tuple{String, Integer} in default.validValues
+      value == first(v) && return Flags.ENUM_FLAG(Int(last(v)), default.validValues)
+    end
+    throw(ArgumentError("the option $(name) is one of $(Base.join(repr.(names), ", ")), not $(repr(value))"))
+  elseif default isa Flags.STRING_LIST_FLAG && value isa AbstractVector{<:AbstractString}
+    local valid::Vector{String} = _optionValues(option)
+    for v::AbstractString in value
+      isempty(valid) || v in valid ||
+        throw(ArgumentError("the option $(name) takes $(Base.join(repr.(valid), ", ")), not $(repr(v))"))
+    end
+    return Flags.STRING_LIST_FLAG(list(String.(value)...))
+  end
+  local expected::String = default isa Flags.BOOL_FLAG ? "true or false" : default isa Flags.INT_FLAG ?
+    "an integer" : default isa Flags.REAL_FLAG ? "a number" : "a vector of strings"
+  throw(ArgumentError("the option $(name) takes $(expected), not $(repr(value))"))
 end
 
 """
@@ -1678,10 +2354,10 @@ Base.show(io::IO, ::MIME"text/plain", t::Tuple{OMFrontend.Frontend.FLAT_MODEL, O
   print(io, "\nFunctions:\n", string(last(t)))
 end
 
-#= Compact REPL display for heavy NewFrontend abstract types lives here so
-   it does not clutter the main API surface. See compactShow.jl for the
+#= Compact REPL display for heavy Frontend abstract types lives here so
+   it does not clutter the main API surface. See API/compactShow.jl for the
    `verboseShow!` toggle and the big-hammer Base.show overrides. =#
-include("compactShow.jl")
+include("API/compactShow.jl")
 
 """
 ```
@@ -1698,12 +2374,6 @@ function removeQuotesFromFlatModelica(fmStr::String)
 
   local specialSymbols = ["'+'", "'*'", "'/'", "'-'", "'constructor'"]
 
-  function shouldBeQuoted(matchedString)
-    local reg = r"\["
-    local reg2 = r"\*|\+|-"
-    contains(matchedString.match, reg) || contains(matchedString.match, reg2)
-  end
-
   local buffer::IOBuffer = IOBuffer()
   if ! isascii(fmStr)
     @info "The model contains characters not in the ascii character encoding format.\nThe string was not modified."
@@ -1711,7 +2381,6 @@ function removeQuotesFromFlatModelica(fmStr::String)
   end
   local strs = split(fmStr, "\n")
   for str in strs
-    local replaced = false
     local mstr = str
     if (contains(mstr, "'"))
       local reg = r"'[^']*'"
@@ -1738,10 +2407,10 @@ function removeQuotesFromFlatModelica(fmStr::String)
   return String(take!(buffer))
 end
 
-include("componentGraphics.jl")
-include("GUI_API.jl")
-include("cli.jl")
-include("precompilation.jl")
+include("API/componentGraphics.jl")
+include("API/GUI_API.jl")
+include("API/cli.jl")
+include("Precompilation/precompilation.jl")
 
 """
     exportJSON(FM; output_dir=".", base_name, hierarchy=true, flat=true,
@@ -1754,6 +2423,14 @@ parameter overrides. See `StructuralModeJSON.exportJSON`.
 """
 exportJSON(fmOrTuple; kwargs...) =
   StructuralModeJSON.exportJSON(fmOrTuple; kwargs...)
+
+"""
+    exportJSON(fm::FlatModelica; output_dir = ".", base_name, hierarchy = true, flat = true, class_mapping = nothing)
+
+Export a model translated by `instantiate` as JSON: `<base>_hierarchy.json` (components grouped into class templates
+with their parameter overrides) and `<base>_flat.json` in `output_dir`.
+"""
+exportJSON(fm::FlatModelica; kwargs...) = StructuralModeJSON.exportJSON(fm.model; kwargs...)
 
 """
     exportJSON(modelName, fileName, library = "";

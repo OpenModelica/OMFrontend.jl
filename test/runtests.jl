@@ -58,6 +58,7 @@ end
   include("libraryDependencyTests.jl")
   include("loadedLibraryTests.jl")
   include("libraryInstallTests.jl")
+  include("publicApiTests.jl")
   @testset "Frontend sanitiy tests. Check if we can transform the abstract tree to SCode and that we are able to flatten without exceptions" begin
     @testset "Absyn -> SCode test" begin
       include("scodeSanityTest.jl")

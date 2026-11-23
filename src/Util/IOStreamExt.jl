@@ -39,37 +39,37 @@ using MetaModelica
 import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
 using ExportAll
 
-function createFile(fileName::String)::Int
+function createFile(::String)::Int
   local fileID::Int
 
   @error "TODO: Defined in the runtime"
   return fileID
 end
 
-function closeFile(fileID::Int)
+function closeFile(::Int)
   return @error "TODO: Defined in the runtime"
 end
 
-function deleteFile(fileID::Int)
+function deleteFile(::Int)
   return @error "TODO: Defined in the runtime"
 end
 
-function clearFile(fileID::Int)
+function clearFile(::Int)
   return @error "TODO: Defined in the runtime"
 end
 
-function appendFile(fileID::Int, inString::String)
+function appendFile(::Int, ::String)
   return @error "TODO: Defined in the runtime"
 end
 
-function readFile(fileID::Int)::String
+function readFile(::Int)::String
   local outString::String
 
   @error "TODO: Defined in the runtime"
   return outString
 end
 
-function printFile(fileID::Int, whereToPrint::Int) #= stdout:1, stderr:2 =#
+function printFile(::Int, ::Int) #= stdout:1, stderr:2 =#
   return @error "TODO: Defined in the runtime"
 end
 
@@ -80,26 +80,26 @@ function createBuffer()::Int
   return bufferID
 end
 
-function appendBuffer(bufferID::Int, inString::String)
+function appendBuffer(::Int, ::String)
   return @error "TODO: Defined in the runtime"
 end
 
-function deleteBuffer(bufferID::Int)
+function deleteBuffer(::Int)
   return @error "TODO: Defined in the runtime"
 end
 
-function clearBuffer(bufferID::Int)
+function clearBuffer(::Int)
   return @error "TODO: Defined in the runtime"
 end
 
-function readBuffer(bufferID::Int)::String
+function readBuffer(::Int)::String
   local outString::String
 
   @error "TODO: Defined in the runtime"
   return outString
 end
 
-function printBuffer(bufferID::Int, whereToPrint::Int) #= stdout:1, stderr:2 =#
+function printBuffer(::Int, ::Int) #= stdout:1, stderr:2 =#
   return @error "TODO: Defined in the runtime"
 end
 
@@ -109,16 +109,14 @@ New implementation
 """
 function appendReversedList(inStringLst::List{<:String})::String
   local lstAsArr::Vector{String} = reverse(listArray(inStringLst))
-  local tmp::String = ""
-  local outString::String = ""
   buffer = IOBuffer()
   map(lstAsArr) do x
     print(buffer, x)
   end
-  outSting = String(take!(buffer))
+  return String(take!(buffer))
 end
 
-function printReversedList(inStringLst::List{<:String}, whereToPrint::Int) #= stdout:1, stderr:2 =#
+function printReversedList(::List{<:String}, ::Int) #= stdout:1, stderr:2 =#
   return @error "TODO: Defined in the runtime"
 end
 

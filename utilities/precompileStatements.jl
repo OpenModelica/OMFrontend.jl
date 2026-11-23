@@ -2,7 +2,7 @@ using OMFrontend
 """The modules a statement may name: those loaded with OMFrontend, as when it precompiles."""
 const ROOTS = Set{Symbol}([nameof(m) for m in values(Base.loaded_modules)]) ∪ Set([:Base, :Core])
 
-"""The modules loaded with OMFrontend under their names, as `src/precompilation.jl` binds them."""
+"""The modules loaded with OMFrontend under their names, as `src/Precompilation/precompilation.jl` binds them."""
 module PrecompileNames
   import OMFrontend
   for m in values(Base.loaded_modules)
@@ -40,7 +40,7 @@ end
 
 """
 Turns `--trace-compile --trace-compile-timing` output of cold flattens (`utilities/coldFlatten.jl`) into
-`src/precompileStatements.txt`, the statements `src/precompilation.jl` runs while OMFrontend precompiles.
+`src/Precompilation/precompileStatements.txt`, the statements `src/Precompilation/precompilation.jl` runs while OMFrontend precompiles.
 
     julia --project=<env> utilities/precompileStatements.jl <out.txt> <trace.jl>...
 

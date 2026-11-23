@@ -3,7 +3,7 @@
 
   Loading OMFrontend already triggers a substantial workload via __init__
   (parses NFModelicaBuiltin, instantiates HelloWorld) and via the
-  PrecompileTools @compile_workload registered in src/precompilation.jl.
+  PrecompileTools @compile_workload registered in src/Precompilation/precompilation.jl.
   We additionally exercise the public entry points so they are traced
   with concrete input types and baked into the resulting sysimage.
 =#

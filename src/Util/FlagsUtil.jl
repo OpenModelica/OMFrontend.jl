@@ -61,9 +61,6 @@ const allDebugFlags = list(
   Flags.EXEC_STAT,
   Flags.CGRAPH,
   Flags.INLINE_FUNCTIONS,
-  Flags.DISABLE_SINGLE_FLOW_EQ,
-  Flags.INFO_XML_OPERATIONS,
-  Flags.VISUAL_XML,
   Flags.FRONTEND_SCALARIZE,
   Flags.NF_EVAL_CONST_ARG_FUNCS,
   Flags.NF_EXPAND_OPERATIONS,
@@ -71,7 +68,6 @@ const allDebugFlags = list(
   Flags.NF_API_DYNAMIC_SELECT,
   Flags.NF_EXPAND_FUNC_ARGS,
   Flags.NF_DUMP_FLAT,
-  Flags.NF_PARALLEL,
   Flags.NF_SEPARATE_INSTANTIATION,
 )::List
 
@@ -84,7 +80,6 @@ const allConfigFlags = list(
   Flags.LANGUAGE_STANDARD,
   Flags.CHECK_MODEL,
   Flags.FLOW_THRESHOLD,
-  Flags.USE_LOCAL_DIRECTION,
   Flags.IGNORE_COMMAND_LINE_OPTIONS_ANNOTATION,
   Flags.EVAL_LOOP_LIMIT,
   Flags.EVAL_RECURSION_LIMIT,
@@ -264,7 +259,6 @@ function readArgs(inArgs::List{<:String}) ::List{String}
   end
   #= Stop parsing arguments if -- is encountered. =#
   outArgs = ListUtil.append_reverse(outArgs, rest_args, String)
-  _ = ListUtil.map2(outArgs, System.iconv, "UTF-8", "UTF-8", String)
   #Error.assertionOrAddSourceMessage(numError == Error.getNumErrorMessages(), Error.UTF8_COMMAND_LINE_ARGS, nil, Util.dummyInfo)
   saveFlags(flags)
   outArgs

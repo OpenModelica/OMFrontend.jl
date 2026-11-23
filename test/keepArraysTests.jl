@@ -54,8 +54,8 @@ end
   local text = OMFrontend.toFlatModelica(OMFrontend.instantiateSCodeToFM("KeepArrays.ComponentArrayConnects", scode; scalarize = false))
   @test !occursin("connect(", text)
   #= the connects of the component array's elements, one for-equation (rerolled connection equations) =#
-  @test occursin("'t.g1.y'['\$i1'] = /*Equality*/'t.g2.u'['\$i1']", text) ||
-        occursin("'t.g2.u'['\$i1'] = /*Equality*/'t.g1.y'['\$i1']", text)
+  @test occursin("'t.g1.y'['\$i1'] = 't.g2.u'['\$i1']", text) ||
+        occursin("'t.g2.u'['\$i1'] = 't.g1.y'['\$i1']", text)
 end
 
 @testset "A parameter field of a component array read in its class: the reference kept" begin

@@ -177,87 +177,59 @@ const INLINE_FUNCTIONS =
     true,
     Gettext.gettext("Controls if function inlining should be performed."),
   )::DebugFlag
-const DISABLE_SINGLE_FLOW_EQ =
-  DEBUG_FLAG(
-    6,
-    "disableSingleFlowEq",
-    false,
-    Gettext.gettext("Disables the generation of single flow equations."),
-  )::DebugFlag
-const INFO_XML_OPERATIONS =
-  DEBUG_FLAG(
-    7,
-    "infoXmlOperations",
-    false,
-    Gettext.gettext("Enables output of the operations in the _info.xml file when translating models."),
-  )::DebugFlag
 
-const VISUAL_XML =
-  DEBUG_FLAG(
-    8,
-    "visxml",
-    false,
-    Gettext.gettext("Outputs a xml-file that contains information for visualization."),
-  )::DebugFlag
 const FRONTEND_SCALARIZE =
   DEBUG_FLAG(
-    9,
+    6,
     "nfScalarize",
     true,
     Gettext.gettext("Run scalarization in NF, default true."),
   )::DebugFlag
 const NF_EVAL_CONST_ARG_FUNCS =
   DEBUG_FLAG(
-    10,
+    7,
     "nfEvalConstArgFuncs",
     true,
     Gettext.gettext("Evaluate all functions with constant arguments in the new frontend."),
   )::DebugFlag
 const NF_EXPAND_OPERATIONS =
   DEBUG_FLAG(
-    11,
+    8,
     "nfExpandOperations",
     true,
     Gettext.gettext("Expand all unary/binary operations to scalar expressions in the new frontend."),
   )::DebugFlag
 const NF_API =
   DEBUG_FLAG(
-    12,
+    9,
     "nfAPI",
     false,
     Gettext.gettext("Enables experimental new instantiation use in the OMC API."),
   )::DebugFlag
 const NF_API_DYNAMIC_SELECT =
   DEBUG_FLAG(
-    13,
+    10,
     "nfAPIDynamicSelect",
     false,
     Gettext.gettext("Show DynamicSelect(static, dynamic) in annotations. Default to false and will select the first (static) expression"),
   )::DebugFlag
 const NF_EXPAND_FUNC_ARGS =
   DEBUG_FLAG(
-    14,
+    11,
     "nfExpandFuncArgs",
     false,
     Gettext.gettext("Expand all function arguments in the new frontend."),
   )::DebugFlag
 const NF_DUMP_FLAT =
   DEBUG_FLAG(
-    15,
+    12,
     "nfDumpFlat",
     false,
     Gettext.gettext("Dumps the flat model structure before generating the DAE."),
   )::DebugFlag
-const NF_PARALLEL =
-  DEBUG_FLAG(
-    16,
-    "nfParallel",
-    false,
-    Gettext.gettext("Opt-in parallelism for OMFrontend phases beyond Absyn-to-SCode (e.g. future parallel instantiation). The Absyn-to-SCode parallel branch is proven safe and runs unconditionally based on `Threads.nthreads()`; this flag does not control it. Reserved for opt-in branches whose correctness is not yet proven. Default off."),
-  )::DebugFlag
 const NF_SEPARATE_INSTANTIATION =
   DEBUG_FLAG(
-    17,
+    13,
     "nfSeparateInstantiation",
     false,
     Gettext.gettext("Flatten each top-level component into its own structural submodel so index reduction can run separately per component. Default off."),
@@ -325,19 +297,9 @@ const FLOW_THRESHOLD =
     NONE(),
     Gettext.gettext("Sets the minium threshold for stream flow rates"),
   )::ConfigFlag
-const USE_LOCAL_DIRECTION =
-  CONFIG_FLAG(
-    5,
-    "useLocalDirection",
-    NONE(),
-    EXTERNAL(),
-    BOOL_FLAG(false),
-    NONE(),
-    Gettext.gettext("Keeps the input/output prefix for all variables in the flat model, not only top-level ones."),
-  )::ConfigFlag
 const IGNORE_COMMAND_LINE_OPTIONS_ANNOTATION =
   CONFIG_FLAG(
-    6,
+    5,
     "ignoreCommandLineOptionsAnnotation",
     NONE(),
     EXTERNAL(),
@@ -347,7 +309,7 @@ const IGNORE_COMMAND_LINE_OPTIONS_ANNOTATION =
   )::ConfigFlag
 const EVAL_LOOP_LIMIT =
   CONFIG_FLAG(
-    7,
+    6,
     "evalLoopLimit",
     NONE(),
     EXTERNAL(),
@@ -357,7 +319,7 @@ const EVAL_LOOP_LIMIT =
   )::ConfigFlag
 const EVAL_RECURSION_LIMIT =
   CONFIG_FLAG(
-    8,
+    7,
     "evalRecursionLimit",
     NONE(),
     EXTERNAL(),
@@ -367,27 +329,23 @@ const EVAL_RECURSION_LIMIT =
   )::ConfigFlag
 const ALLOW_NON_STANDARD_MODELICA =
   CONFIG_FLAG(
-    9,
+    8,
     "allowNonStandardModelica",
     NONE(),
     EXTERNAL(),
     STRING_LIST_FLAG(nil),
     SOME(STRING_DESC_OPTION(list(
-      ("nonStdMultipleExternalDeclarations", Gettext.gettext("Allow several external declarations in functions.")),
       ("nonStdEnumerationAsIntegers", Gettext.gettext("Allow enumeration as integer without casting via Integer(Enum).")),
-      ("nonStdIntegersAsEnumeration", Gettext.gettext("Allow integer as enumeration without casting via Enum(Integer).")),
-      ("nonStdDifferentCaseFileVsClassName", Gettext.gettext("Allow directory or file with different case in the name than the contained class name.")),
       ("nonStdTopLevelOuter", Gettext.gettext("Allow top level outer.")),
-      ("protectedAccess", Gettext.gettext("Allow access of protected elements")),
       ("reinitInAlgorithms", Gettext.gettext("Allow reinit in algorithm sections")),
-      ("unbalancedModel", Gettext.gettext("Allow models to be locally unbalanced and to have unbalanced connectors")),
       ("implicitParameterStartAttribute", Gettext.gettext("Allow fixed parameters with no binding or start attribute")),
+      ("illegalConditionalContext", Gettext.gettext("Allow references to components removed by a false condition")),
     ))),
     Gettext.gettext("Flags to allow non-standard Modelica (omc)."),
   )::ConfigFlag
 const LOAD_MISSING_LIBRARIES =
   CONFIG_FLAG(
-    10,
+    9,
     "loadMissingLibraries",
     NONE(),
     EXTERNAL(),
@@ -399,7 +357,7 @@ const LOAD_MISSING_LIBRARIES =
 """
   Loads the flags with getGlobalRoot. Assumes flags have been loaded.
 """
-function getFlags(initialize::Bool = true)::Flag
+function getFlags(::Bool = true)::Flag
   local flags::Flag = getGlobalRoot(Global.flagsIndex)
   return flags
 end

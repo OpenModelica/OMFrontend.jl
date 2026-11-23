@@ -92,8 +92,8 @@ const OCC_GRAPH_SCODE = OMFrontend.translateToSCode(OCC_GRAPH_MODELS)
 _occFlat(model::String)::String =
   OMFrontend.toFlatModelica(first(OMFrontend.instantiateSCodeToFM("OCCGraph." * model, OCC_GRAPH_SCODE)), nil)
 
-"""`s` without spaces, quotes and `/*Equality*/`."""
-_occNorm(s::AbstractString)::String = replace(s, " " => "", "'" => "", "/*Equality*/" => "")
+"""`s` without spaces and quotes."""
+_occNorm(s::AbstractString)::String = replace(s, " " => "", "'" => "")
 
 """True if `flat` has a line that contains `s`, both normalized by `_occNorm`."""
 _occHas(flat::String, s::String)::Bool = any(l -> occursin(_occNorm(s), _occNorm(l)), split(flat, '\n'))

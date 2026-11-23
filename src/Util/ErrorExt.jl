@@ -83,17 +83,17 @@ end
 @inline _checkpoints() = _state().checkpointStack
 
 function addSourceMessage(
-  id::ErrorTypes.ErrorID,
-  msg_type::ErrorTypes.MessageType,
-  msg_severity::ErrorTypes.Severity,
-  sline::Int,
-  scol::Int,
-  eline::Int,
-  ecol::Int,
-  read_only::Bool,
-  filename::String,
-  msg::String,
-  tokens::List{<:String},
+  ::ErrorTypes.ErrorID,
+  ::ErrorTypes.MessageType,
+  ::ErrorTypes.Severity,
+  ::Int,
+  ::Int,
+  ::Int,
+  ::Int,
+  ::Bool,
+  ::String,
+  ::String,
+  ::List{<:String},
 )
   @warn "TODO: Defined in the runtime"
 end
@@ -221,16 +221,37 @@ function printMessagesStr(;warningsAsErrors::Bool = false,
   return String(take!(buffer))
 end
 
+"""
+The queued messages, one line each: `file:line:column: Severity: text` (no location for a message without a file).
+`warningsOnly` keeps the warnings.
+"""
+function messageLines(; warningsOnly::Bool = false)::Vector{String}
+  local lines::Vector{String} = String[]
+  for e in _messages()
+    (e isa AbstractVector && length(e) >= 3) || continue
+    local m::ErrorTypes.Message = e[1]
+    (warningsOnly && !(m.severity isa ErrorTypes.WARNING)) && continue
+    local msg::String = Gettext.translateContent(m.message)
+    for token in e[2]
+      msg = replace(msg, "%s" => token, count = 1)
+    end
+    local info::SourceInfo = e[3]
+    local loc::String = isempty(info.fileName) ? "" :
+      string(info.fileName, ":", info.lineNumberStart, ":", info.columnNumberStart, ": ")
+    push!(lines, string(loc, severityStr(m.severity), ": ", msg))
+  end
+  return lines
+end
+
 function getNumMessages()
   return length(_messages())
 end
 
 function getNumErrorMessages()::Int
   local num::Int = 0
-  for m in _messages()
-    if typeof(m.id) === Severity.ERROR
-      num += 1
-    end
+  for e in _messages()
+    (e isa AbstractVector && length(e) >= 3) || continue
+    e[1].severity isa ErrorTypes.ERROR && (num += 1)
   end
   return num
 end
@@ -274,7 +295,7 @@ end
   sets a checkpoint for the error messages, so error messages can be rolled back (i.e. deleted) up to this point
   A unique identifier for this checkpoint must be provided. It is checked when doing rollback or deletion
 """
-function setCheckpoint(id::String) #= uniqe identifier for the checkpoint (up to the programmer to guarantee uniqueness) =#
+function setCheckpoint(::String) #= uniqe identifier for the checkpoint (up to the programmer to guarantee uniqueness) =#
   local st = _state()
   push!(st.checkpointStack, length(st.sourceMessages))
   return nothing
@@ -285,7 +306,7 @@ Deletes the checkpoint at the top of the stack without
 removing the error messages issued since that checkpoint.
 If the checkpoint id doesn't match, the application exits with -1.
 """
-function delCheckpoint(id::String) #= unique identifier =#
+function delCheckpoint(::String) #= unique identifier =#
   local stk = _checkpoints()
   if !isempty(stk)
     pop!(stk)
@@ -304,7 +325,7 @@ end
   deleting all error messages added since that point in time. A unique identifier for the checkpoint must be provided
   The application will exit with return code -1 if this identifier does not match.
 """
-function rollBack(id::String) #= unique identifier =#
+function rollBack(::String) #= unique identifier =#
   local st = _state()
   if !isempty(st.checkpointStack)
     n = pop!(st.checkpointStack)
@@ -318,7 +339,7 @@ end
 const _POPPED_MESSAGES = Dict{Int, Any}()
 const _NEXT_POP_HANDLE = Ref(0)
 
-function setShowErrorMessages(inShow::Bool)
+function setShowErrorMessages(::Bool)
   return @warn "TODO: Defined in the runtime"
 end
 

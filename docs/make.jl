@@ -9,6 +9,7 @@ DocMeta.setdocmeta!(
     :DocTestSetup,
     :(using OMFrontend; using OMFrontend.GUI_API);
     recursive = true,
+    warn = false,  # the call above set it for GUI_API too (recursive)
 )
 
 makedocs(
@@ -26,6 +27,8 @@ makedocs(
         "Home" => "index.md",
         "Getting started" => "getting-started.md",
         "API reference" => "api.md",
+        "Flags" => "flags.md",
+        "GUI API (experimental)" => "gui-api.md",
         "Utilities" => "utilities.md",
     ],
     warnonly = [:missing_docs, :cross_references],

@@ -1,0 +1,193 @@
+#= /*
+* This file is part of OpenModelica.
+*
+* Copyright (c) 1998-2026, Open Source Modelica Consortium (OSMC),
+* c/o Linköpings universitet, Department of Computer and Information Science,
+* SE-58183 Linköping, Sweden.
+*
+* All rights reserved.
+*
+* THIS PROGRAM IS PROVIDED UNDER THE TERMS OF AGPL VERSION 3 LICENSE OR
+* THIS OSMC PUBLIC LICENSE (OSMC-PL) VERSION 1.8.
+* ANY USE, REPRODUCTION OR DISTRIBUTION OF THIS PROGRAM CONSTITUTES
+* RECIPIENT'S ACCEPTANCE OF THE OSMC PUBLIC LICENSE OR THE GNU AGPL
+* VERSION 3, ACCORDING TO RECIPIENTS CHOICE.
+*
+* The OpenModelica software and the OSMC (Open Source Modelica Consortium)
+* Public License (OSMC-PL) are obtained from OSMC, either from the above
+* address, from the URLs:
+* http://www.openmodelica.org or
+* https://github.com/OpenModelica/ or
+* http://www.ida.liu.se/projects/OpenModelica,
+* and in the OpenModelica distribution.
+*
+* GNU AGPL version 3 is obtained from:
+* https://www.gnu.org/licenses/licenses.html#GPL
+*
+* This program is distributed WITHOUT ANY WARRANTY; without
+* even the implied warranty of MERCHANTABILITY or FITNESS
+* FOR A PARTICULAR PURPOSE, EXCEPT AS EXPRESSLY SET FORTH
+* IN THE BY RECIPIENT SELECTED SUBSIDIARY LICENSE CONDITIONS OF OSMC-PL.
+*
+* See the full OSMC Public License conditions for more details.
+*
+*/ =#
+
+module ConstantsSetImpl
+import ..ComponentRef
+import ..compare as crefCompare
+import ..toString
+using MetaModelica
+import OpenModelicaParser.Absyn: SourceInfo, SOURCEINFO, sourceInfo
+using ExportAll
+#= Modelica extend clause =#
+const Key = ComponentRef
+const Value = Int
+include("../Util/baseAvlTreeCode.jl")
+keyCompare(inKey1::Key, inKey2::Key)::Int = crefCompare(inKey1, inKey2)
+keyStr(inKey::Key)::String = toString(inKey)
+valueStr(inValue::Value)::String = string(inValue)
+const addConflictDefault = addConflictFail
+@exportAll()
+end
+
+"""The package constants a model reads, as a set of crefs."""
+const Constants = ConstantsSetImpl.Tree
+
+"""
+    collectConstants(flatModel, functions) -> (FLAT_MODEL, FunctionTree)
+
+The package constants the model and its functions read that were not substituted with their values added to the
+model as variables, and the functions their bindings call added to `functions` (`collectFunctions` ran before they
+were variables of the model: with the arrays kept, `Modelica.Constants.pi = 2 * Modelica.Math.asin(1.0)` stays
+unevaluated and its backend found no `Modelica.Math.asin`).
+"""
+function collectConstants(flatModel::FLAT_MODEL, functions::FunctionTree)::Tuple{FLAT_MODEL, FunctionTree}
+  local vars::Vector{VARIABLE}
+  local constants::Constants
+  constants = ConstantsSetImpl.new()
+  constants =
+    ArrayUtil.fold(flatModel.variables, collectVariableConstants, constants, Constants)
+  constants =
+    foldExpList(flatModel.equations, collectExpConstants, constants, Constants)
+  constants = foldExpList(flatModel.initialEquations, collectExpConstants, constants, Constants)
+  constants =
+    foldExpList(flatModel.algorithms, collectExpConstants, constants, Constants)
+  constants = foldExpList(flatModel.initialAlgorithms, collectExpConstants, constants, Constants)
+  constants = FunctionTreeImpl.fold(functions, collectFuncConstants, constants, Constants)
+  vars = VARIABLE[_withValueBinding(Variable_fromCref(c)) for c in ConstantsSetImpl.listKeys(constants)]
+  functions = ArrayUtil.fold(vars, collectComponentFuncs, functions, FunctionTree)
+  @assign flatModel.variables = vcat(vars, flatModel.variables)
+#  execStat(getInstanceName()) TODO
+  return (flatModel, functions)
+end
+
+#= A collected constant's value as its binding: a record constant without a binding of its own
+   (`constant DataRecord CH4(name = "CH4", ...)`) has the one the constant evaluation built from
+   its fields (CEVAL_BINDING), which the conversion for the backend drops as temporary: the
+   backend got MSL SingleGasesData.CH4 without a value, while Medium.data[1] read it. =#
+function _withValueBinding(var::VARIABLE)::VARIABLE
+  isvariant(var.binding, CEVAL_BINDING) || return var
+  @assign var.binding = FLAT_BINDING(getBindingExp(var.binding.bindingExp), Variability.CONSTANT)
+  return var
+end
+
+function collectVariableConstants(var::VARIABLE, constants::Constants)::Constants
+  @assign constants = collectBindingConstants(var.binding, constants)
+  #= TODO: The component's attributes (i.e. start, etc) might also contain
+     package constants. =#
+  return constants
+end
+
+function collectBindingConstants(binding::Binding, constants::Constants)::Constants
+  if isExplicitlyBound(binding)
+    @assign constants = collectExpConstants(getTypedExp(binding), constants)
+  end
+  return constants
+end
+
+function collectExpConstants(exp::Expression, constants::Constants)::Constants
+  @assign constants =
+    fold(exp, collectExpConstants_traverser, constants, Constants)
+  return constants
+end
+
+function collectExpConstants_traverser(@nospecialize(exp::Expression), @nospecialize(constants::Constants))::Constants
+  local cref::ComponentRef
+   @match exp begin
+     CREF_EXPRESSION(cref = cref && COMPONENT_REF_CREF(__)) =>
+       begin
+         if isPackageConstant(cref) && !isFunctionPointerExp(exp)
+           local typedNode = typeComponentBinding(cref.node, ORIGIN_CLASS)
+           if typedNode !== cref.node
+             @assign cref.node = typedNode
+           end
+           @assign constants = ConstantsSetImpl.add(
+             constants,
+             stripSubscriptsAll(cref),
+             0,
+             ConstantsSetImpl.addConflictKeep,
+           )
+           @assign constants = collectBindingConstants(
+             getBinding(component(typedNode)),
+             constants,
+           )
+         end
+         ()
+       end
+     _ => begin
+       ()
+     end
+   end
+  return constants
+end
+
+function collectFuncConstants(
+  ::Absyn.Path,
+  func::MODELICA_FUNCTION,
+  constants::Constants,
+)::Constants
+
+  local cls::Class
+  local comps::Vector{InstNode}
+  local sections::Sections
+
+  @assign cls = getClass(func.node)
+   @match cls begin
+     INSTANCED_CLASS(
+       elements = CLASS_TREE_FLAT_TREE(components = comps),
+       sections = sections,
+     ) => begin
+       for c in comps
+         @assign constants = collectBindingConstants(
+           getBinding(component(c)),
+           constants,
+         )
+       end
+        @match sections begin
+          SECTIONS(__) => begin
+            @assign constants = foldExpList(sections.algorithms, collectExpConstants, constants, Constants)
+            ()
+          end
+
+          SECTIONS_EXTERNAL(__) => begin
+            for arg in sections.args
+              @assign constants = collectExpConstants(arg, constants)
+            end
+            ()
+          end
+
+          _ => begin
+            ()
+          end
+        end
+       ()
+     end
+
+     _ => begin
+       ()
+     end
+   end
+  return constants
+end
+

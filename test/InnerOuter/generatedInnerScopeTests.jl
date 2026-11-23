@@ -1,4 +1,4 @@
-#= Tests for inner/outer fixes in NFLookup.jl.
+#= Tests for inner/outer fixes in Lookup.jl.
    1. generateInner: qualify relative type paths before reparenting.
    2. resolveInnerCref: fix `node` variable shadowing + skip protection check for inner/outer.
 =#

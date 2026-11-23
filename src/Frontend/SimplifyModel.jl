@@ -1,0 +1,594 @@
+#= /*
+* This file is part of OpenModelica.
+*
+* Copyright (c) 1998-2026, Open Source Modelica Consortium (OSMC),
+* c/o Linköpings universitet, Department of Computer and Information Science,
+* SE-58183 Linköping, Sweden.
+*
+* All rights reserved.
+*
+* THIS PROGRAM IS PROVIDED UNDER THE TERMS OF AGPL VERSION 3 LICENSE OR
+* THIS OSMC PUBLIC LICENSE (OSMC-PL) VERSION 1.8.
+* ANY USE, REPRODUCTION OR DISTRIBUTION OF THIS PROGRAM CONSTITUTES
+* RECIPIENT'S ACCEPTANCE OF THE OSMC PUBLIC LICENSE OR THE GNU AGPL
+* VERSION 3, ACCORDING TO RECIPIENTS CHOICE.
+*
+* The OpenModelica software and the OSMC (Open Source Modelica Consortium)
+* Public License (OSMC-PL) are obtained from OSMC, either from the above
+* address, from the URLs:
+* http://www.openmodelica.org or
+* https://github.com/OpenModelica/ or
+* http://www.ida.liu.se/projects/OpenModelica,
+* and in the OpenModelica distribution.
+*
+* GNU AGPL version 3 is obtained from:
+* https://www.gnu.org/licenses/licenses.html#GPL
+*
+* This program is distributed WITHOUT ANY WARRANTY; without
+* even the implied warranty of MERCHANTABILITY or FITNESS
+* FOR A PARTICULAR PURPOSE, EXCEPT AS EXPRESSLY SET FORTH
+* IN THE BY RECIPIENT SELECTED SUBSIDIARY LICENSE CONDITIONS OF OSMC-PL.
+*
+* See the full OSMC Public License conditions for more details.
+*
+*/ =#
+
+const SimplifyFunc = Function
+const MakeElement = Function
+const MakeFunc = Function
+
+function simplifyFlatModel(flatModel::FLAT_MODEL)::FLAT_MODEL
+  #= Per-model cache so identical constant folds (e.g. the orientation matrices
+     of symmetric MultiBody bodies) are evaluated once, not once per binding. =#
+  empty!(CONST_FOLD_CACHE)
+  @assign begin
+    flatModel.variables = simplifyVariables(flatModel.variables)
+    flatModel.equations = simplifyEquations(flatModel.equations)
+    flatModel.initialEquations = simplifyEquations(flatModel.initialEquations)
+    flatModel.algorithms = simplifyAlgorithms(flatModel.algorithms)
+    flatModel.initialAlgorithms = simplifyAlgorithms(flatModel.initialAlgorithms)
+  end
+#  execStat(getInstanceName()) TODO
+  return flatModel
+end
+
+function simplifyVariables(variables::Vector{VARIABLE})
+  for (i, v) in enumerate(variables)
+    @inbounds variables[i] = simplifyVariable(v)
+  end
+  return variables
+end
+
+function simplifyVariable(var::VARIABLE)::VARIABLE
+  varBinding = simplifyBinding(var.binding)
+  #= simplifyTypeAttributes mutates the vector in place (same object), so the
+     only field that can change identity is the binding. Reuse var unchanged
+     when the binding did not simplify, to avoid rebuilding every VARIABLE. =#
+  simplifyTypeAttributes(var.typeAttributes)
+  if referenceEq(varBinding, var.binding)
+    return var
+  end
+  return VARIABLE(
+    var.name,
+    var.ty,
+    varBinding,
+    var.visibility,
+    var.attributes,
+    var.typeAttributes,
+    var.comment,
+    var.info
+  )
+end
+
+function simplifyBinding(binding::Binding)
+  local exp::Expression
+  local sexp::Expression
+  if isBound(binding)
+    exp = getTypedExp(binding)
+    sexp = simplify(exp)
+    sexp = removeEmptyFunctionArguments(sexp)
+    if !referenceEq(exp, sexp)
+      binding = setTypedExp(sexp, binding)
+    end
+  end
+  return binding
+end
+
+function simplifyTypeAttributes(typeAttributes)
+  for (i, a) in enumerate(typeAttributes)
+    @inbounds typeAttributes[i] = simplifyTypeAttribute(a)
+  end
+  return typeAttributes
+end
+
+function simplifyTypeAttribute(attribute::Tuple{<:String, Binding})::Tuple{String, Binding}
+  local name::String
+  local binding::Binding
+  local sbinding::Binding
+  (name, binding) = attribute
+  sbinding = simplifyBinding(binding)
+  if !referenceEq(binding, sbinding)
+    attribute = (name, sbinding)
+  end
+  return attribute
+end
+
+function simplifyDimension(dim::Dimension)::Dimension
+
+  local e::Expression
+  @match dim begin
+    DIMENSION_EXP(__) => begin
+      @assign e = simplify(dim.exp)
+      if referenceEq(e, dim.exp)
+        dim
+      else
+        fromExp(e, dim.var)
+      end
+    end
+    _ => begin
+      dim
+    end
+  end
+end
+
+function simplifyEquations(eql::Vector{Equation})
+  local outEql::Vector{Equation} = Equation[]
+  for eq in eql
+    outEql = simplifyEquation(eq, outEql)
+  end
+  outEql = outEql
+  return outEql
+end
+
+function simplifyBranch(b)
+  @match b begin
+    EQUATION_BRANCH(__) => begin
+      @assign b.condition = simplify(b.condition)
+      @assign b.body = simplifyEquations(b.body)
+      b
+    end
+  end
+end
+
+function simplifyEquation(@nospecialize(eq::Equation), equations::Vector{Equation})
+  equations = begin
+    local e::Expression
+    local rhs::Expression
+    local ty::ModelicaType
+    @match eq begin
+      EQUATION_EQUALITY(__) => begin
+        simplifyEqualityEquation(eq, equations)
+      end
+
+      EQUATION_ARRAY_EQUALITY(__) => begin
+        @assign ty = mapDims(eq.ty, simplifyDimension)
+        if !isEmptyArray(ty)
+          rhs = simplify(eq.rhs)
+          rhs = removeEmptyFunctionArguments(rhs)
+          push!(equations,
+                EQUATION_ARRAY_EQUALITY(eq.lhs, rhs, ty, eq.source))
+        end
+        equations
+      end
+
+      EQUATION_FOR(SOME(e)) => begin
+        body = simplifyEquations(eq.body)
+        if ! containsExpList(body, (x) -> containsIterator(x, eq.iterator))
+          # Remove the surrounding loop if the equations inside aren't using the iterator.
+          equations = ArrayUtil.append_reverse(body, equations)
+        else
+          @assign eq.range = simplifyOpt(eq.range)
+          @assign eq.body = body
+          push!(equations, eq)
+        end
+      end
+
+      EQUATION_IF(__) => begin
+        simplifyIfEqBranches(eq.branches, eq.source, equations)
+      end
+
+      EQUATION_WHEN(__) => begin
+        @assign eq.branches = EquationBranch[simplifyBranch(b) for b in eq.branches]
+        push!(equations, eq)
+      end
+
+      EQUATION_ASSERT(__) => begin
+        @assign eq.condition = simplify(eq.condition)
+        if isTrue(eq.condition)
+          equations
+        else
+          push!(equations, eq)
+        end
+      end
+
+      EQUATION_REINIT(__) => begin
+        @assign eq.reinitExp = simplify(eq.reinitExp)
+        push!(equations, eq)
+      end
+
+      EQUATION_NORETCALL(__) => begin
+        e = simplify(eq.exp)
+        if isCall(e)
+          @assign eq.exp = removeEmptyFunctionArguments(e)
+          push!(equations, eq)
+        end
+        equations
+      end
+
+      _ => begin
+        push!(equations, eq)
+      end
+    end
+  end
+  return equations
+end
+
+function simplifyEqualityEquation(eq::Equation, equations::Vector{Equation})
+  local lhs::Expression
+  local rhs::Expression
+  local ty::ModelicaType
+  local src::SourceInfo
+  if typeof(eq.rhs) == ARRAY_EXPRESSION
+    #= If it is an empty array we have no eq to compute. =#
+    if isEmptyArray(eq.rhs)
+      return equations
+    end
+  end
+  @match EQUATION_EQUALITY(lhs = lhs, rhs = rhs, ty = ty, source = src) = eq
+  ty = mapDims(ty, simplifyDimension)
+  if isEmptyArray(ty)
+    return equations
+  end
+  lhs = simplify(lhs)
+  lhs = removeEmptyTupleElements(lhs)
+  rhs = simplify(rhs)
+  rhs = removeEmptyFunctionArguments(rhs)
+  equations = begin
+    @match (lhs, rhs) begin
+      (TUPLE_EXPRESSION(__), TUPLE_EXPRESSION(__)) => begin
+        simplifyTupleElement(
+          lhs.elements,
+          rhs.elements,
+          ty,
+          src,
+          makeEquality,
+          equations,
+        )
+      end
+
+      _ => begin
+        push!(equations, EQUATION_EQUALITY(lhs, rhs, ty, src))
+      end
+    end
+  end
+  return equations
+end
+
+function simplifyAlgorithms(algs::Vector{ALGORITHM})
+  local outAlgs::Vector{ALGORITHM} = ALGORITHM[]
+  for alg in algs
+    alg = simplifyAlgorithm(alg)
+    if !isempty(alg.statements)
+      push!(outAlgs, alg)
+    end
+  end
+  return outAlgs
+end
+
+function simplifyAlgorithm(alg::ALGORITHM)::ALGORITHM
+
+  @assign alg.statements = simplifyStatements(alg.statements)
+  return alg
+end
+
+function simplifyStatements(stmts::Vector{Statement})
+  local outStmts::Vector{Statement} = Statement[]
+  for s in stmts
+    outStmts = simplifyStatement(s, outStmts)
+  end
+  return outStmts
+end
+
+function simplifyStatement(stmt::Statement, statements::Vector{Statement})
+  statements = begin
+    local e::Expression
+    local ty::ModelicaType
+    local dim::Dimension
+    @match stmt begin
+      ALG_ASSIGNMENT(__) => begin
+        simplifyAssignment(stmt, statements)
+      end
+      ALG_FOR(range = SOME(e)) => begin
+        ty = typeOf(e)
+        dim = nthDimension(ty, 1)
+        if !isZero(dim)
+          @assign stmt.range = SOME(simplify(e))
+          @assign stmt.body = simplifyStatements(stmt.body)
+          push!(statements, stmt)
+        end
+        statements
+      end
+      ALG_IF(__) => begin
+        simplifyIfStmtBranches(
+          stmt.branches,
+          stmt.source,
+          makeIf,
+          simplifyStatements,
+          statements,
+        )
+      end
+      ALG_WHEN(__) => begin
+        local branches::Vector{Tuple{Expression, Vector{Statement}}} = stmt.branches
+        local newBranches::Vector{Tuple{Expression, Vector{Statement}}} = Vector{Tuple{Expression, Vector{Statement}}}(undef, length(branches))
+        for i in eachindex(branches)
+          newBranches[i] = (simplify(branches[i][1]), simplifyStatements(branches[i][2]))
+        end
+        @assign stmt.branches = newBranches
+        push!(statements, stmt)
+      end
+      ALG_NORETCALL(__) => begin
+        e = simplify(stmt.exp)
+        if isCall(e)
+          @assign stmt.exp = removeEmptyFunctionArguments(e)
+          push!(statements, stmt)
+        end
+        statements
+      end
+      _ => begin
+        push!(statements, stmt)
+      end
+    end
+  end
+  return statements
+end
+
+function simplifyAssignment(stmt::Statement, statements::Vector{Statement})
+  local lhs::Expression
+  local rhs::Expression
+  local ty::ModelicaType
+  local src::SourceInfo
+  @match ALG_ASSIGNMENT(lhs = lhs, rhs = rhs, ty = ty, source = src) = stmt
+  ty = mapDims(ty, simplifyDimension)
+  if isEmptyArray(ty)
+    return statements
+  end
+  lhs = simplify(lhs)
+  lhs = removeEmptyTupleElements(lhs)
+  rhs = simplify(rhs)
+  rhs = removeEmptyFunctionArguments(rhs)
+  statements = begin
+    @match (lhs, rhs) begin
+      (TUPLE_EXPRESSION(__), TUPLE_EXPRESSION(__)) => begin
+        simplifyTupleElement(
+          lhs.elements,
+          rhs.elements,
+          ty,
+          src,
+          makeAssignment,
+          statements,
+        )
+      end
+      _ => begin
+        push!(statements, ALG_ASSIGNMENT(lhs, rhs, ty, src))
+      end
+    end
+  end
+  return statements
+end
+
+"""
+Helper function to simplifyEqualityEquation/simplifyAssignment.
+Handles Expression.TUPLE() := Expression.TUPLE() assignments by splitting
+them into a separate assignment statement for each pair of tuple elements.
+
+Statements (makeAssignment) or equations (makeEquality): typed for
+statements only, every tuple equation failed with a MethodError.
+"""
+function simplifyTupleElement(
+  lhsTuple::List{Expression},
+  rhsTuple::List{Expression},
+  ty::ModelicaType,
+  src::SourceInfo,
+  makeFn::MakeElement,
+  statements::Vector{E},
+) where {E <: Union{Statement, Equation}}
+  local rhs::Expression
+  local rest_rhs::List{Expression} = rhsTuple
+  local ety::ModelicaType
+  local rest_ty::List{ModelicaType}
+  @match TYPE_TUPLE(types = rest_ty) = ty
+  for lhs in lhsTuple
+    @match _cons(rhs, rest_rhs) = rest_rhs
+    @match _cons(ety, rest_ty) = rest_ty
+    if !isWildCref(lhs)
+      push!(statements, makeFn(lhs, rhs, ety, src))
+    end
+  end
+  return statements
+end
+
+"""Replaces tuple elements that have one or more zero dimensions with _."""
+function removeEmptyTupleElements(@nospecialize(exp::Expression))::Expression
+  local tyl::List{ModelicaType}
+  local rExp::Expression
+  rExp = @match exp begin
+    TUPLE_EXPRESSION(ty = TYPE_TUPLE(types = tyl)) => begin
+      local tup::TUPLE_EXPRESSION = exp
+      # A typed loop: a generator over the abstract elements compiled per element type.
+      local elems::Vector{Expression} = Expression[]
+      local rest::List{ModelicaType} = tyl
+      for e in tup.elements
+        listEmpty(rest) && break
+        local t::ModelicaType = listHead(rest)
+        rest = listRest(rest)
+        push!(elems, isEmptyArray(t) ? CREF_EXPRESSION(t, COMPONENT_REF_WILD()) : e)
+      end
+      TUPLE_EXPRESSION(tup.ty, arrayList(elems))
+    end
+    _ => begin
+      exp
+    end
+  end
+  return rExp
+end
+
+function removeEmptyFunctionArguments(@nospecialize(exp::Expression), isArg = false)
+  local outExp::Expression
+  local is_arg::Bool
+  if isArg
+    @match exp begin
+      CREF_EXPRESSION(__) where {isEmptyArray(exp.ty)} => begin
+        outExp = fillType(exp.ty, INTEGER_EXPRESSION(0))
+      end
+      _ => begin
+        ()
+      end
+    end
+  end
+  is_arg = isArg || isCall(exp)
+  outExp = mapShallow(exp, (@nospecialize(x::Expression),) -> removeEmptyFunctionArguments(x, is_arg))
+  return outExp
+end
+
+function simplifyIfEqBranches(
+  branches::Vector{<:EquationBranch},
+  src::SourceInfo,
+  elements::Vector{Equation},
+)::Vector{Equation}
+  local cond::Expression
+  local body::Vector{Equation}
+  local var::VariabilityType
+  local accum::Vector{EquationBranch} = EquationBranch[]
+  for branch in branches
+    accum = begin
+      @match branch begin
+        EQUATION_BRANCH(cond, var, body) => begin
+          cond = simplify(cond)
+          #=  A branch with condition true will always be selected when encountered. =#
+          if isTrue(cond)
+            if isempty(accum)
+              for eq in body
+                elements = simplifyEquation(eq, elements)
+              end
+              return elements
+            else
+              accum = push!(accum, makeBranch(cond, simplifyEquations(body)))
+              elements = push!(
+                elements,
+                makeIf(accum, src)
+              )
+              return elements
+            end
+          elseif !isFalse(cond)
+            @assign accum = push!(accum, makeBranch(cond, simplifyEquations(body)))
+          end
+          #= If it's the first branch, remove the if and keep only the branch body.
+             Otherwise just discard the rest of the branches.
+             Keep branches that are neither literal true or false. =#
+          accum
+        end
+        EQUATION_INVALID_BRANCH(
+          branch = EQUATION_BRANCH(
+            condition = cond,
+            conditionVar = var,
+          ),
+        ) => begin
+          if var <= Variability.STRUCTURAL_PARAMETER
+            @assign cond = evalExp(cond)
+          end
+          #= An invalid branch that can't be removed will trigger the errors
+             stored in it. =#
+          if !isFalse(cond)
+            triggerErrors(branch)
+          end
+          accum
+        end
+
+        _ => begin
+          push!(accum, branch)
+        end
+      end
+    end
+  end
+  if !isempty(accum)
+    push!(elements, makeIf(accum, src))
+  end
+  return elements
+end
+
+"""
+The branches of an if-statement with their conditions simplified: those with a literal false
+condition dropped, and the statement replaced by the body of the first one with a literal true
+condition (an `else` is one), or cut after it. `elements` is in forward order.
+"""
+function simplifyIfStmtBranches(
+  branches::Vector{Tuple{Expression, Vector{Statement}}},
+  src::SourceInfo,
+  makeFunc::MakeFunc,
+  simplifyFunc::SimplifyFunc,
+  elements::Vector{Statement},
+)
+  local cond::Expression
+  local body::Vector{Statement}
+  local accum = Tuple{Expression, Vector{Statement}}[]
+  for branch in branches
+    (cond, body) = branch
+    cond = simplify(cond)
+    #=  A branch with condition true will always be selected when encountered. =#
+    if isTrue(cond)
+      #=  If it's the first branch, remove the if and keep only the branch body. =#
+      if isempty(accum)
+        append!(elements, simplifyFunc(body))
+        return elements
+      else   #=  Keep branches that are neither literal true or false. =#
+        push!(accum, (cond, simplifyFunc(body)))
+        break
+      end
+    elseif !isFalse(cond)
+      push!(accum, (cond, simplifyFunc(body)))
+    end
+  end
+  #=  Otherwise just discard the rest of the branches. =#
+  if !isempty(accum)
+    push!(elements, makeFunc(accum, src))
+  end
+  return elements
+end
+
+function simplifyFunction(func::MODELICA_FUNCTION)
+  local cls::Class
+  local fn_body::ALGORITHM
+  local sections::Sections
+  if !isSimplified(func)
+    markSimplified(func)
+    func = mapExp(func, simplify, false)
+    cls = getClass(func.node)
+    @match cls begin
+      INSTANCED_CLASS(sections = sections) => begin
+        @match sections begin
+          SECTIONS(algorithms = [fn_body]) => begin
+            @assign fn_body.statements = simplifyStatements(fn_body.statements)
+            @assign sections.algorithms = [fn_body]
+            @assign cls.sections = sections
+            @assign func.node = updateClass(cls, func.node)
+            ()
+          end
+
+          _ => begin
+            ()
+          end
+        end
+        ()
+      end
+      _ => begin
+        ()
+      end
+    end
+    for fn_der in func.derivatives
+      for der_fn in getCachedFuncs(fn_der.derivativeFn)
+        simplifyFunction(der_fn)
+      end
+    end
+  end
+  return func
+end

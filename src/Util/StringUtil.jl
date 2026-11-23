@@ -128,7 +128,6 @@ function wordWrap(
   local next_char::Int
   local char::Int
   local gap_size::Int
-  local next_gap_size::Int
   local str::String
   local delim::String = ""
   local lines::List{String}

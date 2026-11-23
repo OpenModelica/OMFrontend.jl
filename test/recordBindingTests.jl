@@ -55,7 +55,9 @@ end
   for scalarize in (false, true)
     local s::String = OMFrontend.toFlatModelica(OMFrontend.flattenModel("RecordBindings.PartialRecord.M",
                                                                        _RECORD_BINDINGS_FILE; scalarize = scalarize))
-    local equation::String = only(filter(l -> occursin("/*Equality*/", l) && !occursin("der(", l), split(s, "\n")))
+    local lines::Vector{String} = String.(split(s, "\n"))
+    local eqs::Vector{String} = lines[(findfirst(l -> strip(l) == "equation", lines) + 1):end]
+    local equation::String = only(filter(l -> occursin(" = ", l) && !occursin("der(", l), eqs))
     @test occursin("PartialRecord.apply'(function", equation)
     @test !occursin("'f'(", equation)
   end

@@ -193,7 +193,6 @@ function balance(inTree::Tree)
     local lh::Int
     local rh::Int
     local diff::Int
-    local child::Tree
     local balanced_tree::Tree
     @match outTree begin
       LEAF(__) => begin
@@ -329,11 +328,6 @@ end
 """Helper function to printTreeStr."""
 function printTreeStr2(inTree::Tree, isLeft::Bool, inIndent::String)
   local outString::String
-  local val_node::Option{ValueNode}
-  local left::Option{Tree}
-  local right::Option{Tree}
-  local left_str::String
-  local right_str::String
   outString = begin
     @match inTree begin
       NODE(__) => begin
@@ -392,17 +386,17 @@ end
 
 
 """Conflict resolving function for add which fails on conflict."""
-function addConflictFail(newValue::Value, oldValue::Value, key::Key)::Value
+function addConflictFail(::Value, ::Value, ::Key)::Value
   fail()
 end
 
 """Conflict resolving function for add which replaces the old value with the new."""
-function addConflictReplace(newValue::Value, oldValue::Value, key::Key)::Value
+function addConflictReplace(newValue::Value, ::Value, ::Key)::Value
   return newValue
 end
 
 """Conflict resolving function for add which keeps the old value."""
-function addConflictKeep(newValue::Value, oldValue::Value, key::Key)::Value
+function addConflictKeep(::Value, oldValue::Value, ::Key)::Value
   return oldValue
 end
 
@@ -523,7 +517,7 @@ end
 """
 Get on an empty tree results in failure...
 """
-@noinline function get(tree::EMPTY, key::Key)
+@noinline function get(::EMPTY, ::Key)
   fail()
 end
 
@@ -619,8 +613,6 @@ function fromVector(
   conflictFunc::Function = addConflictDefault,
   )::Tree #= Used to resolve conflicts. =#
   local tree::Tree = EMPTY()
-  local key::Key
-  local value::Value
   for (key, val) in zip(inKeys, inValues)
      tree = add(tree, key, val, conflictFunc)
   end

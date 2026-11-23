@@ -33,7 +33,7 @@
 *
 */ =#
 
-#= The types of the flat model and of connection handling. Loaded after NFPrefixes.jl, whose
+#= The types of the flat model and of connection handling. Loaded after Prefixes.jl, whose
    VisibilityType and ConnectorType.TYPE they use. =#
 
 """Whether a connector is connected from inside or outside its component: `FACE_INSIDE` or `FACE_OUTSIDE`."""

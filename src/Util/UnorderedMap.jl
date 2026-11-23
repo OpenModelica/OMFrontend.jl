@@ -83,7 +83,7 @@ function get(key, m::UnorderedMap)
   return nothing
 end
 
-function getSafe(key, m::UnorderedMap, info)
+function getSafe(key, m::UnorderedMap, _)
   if haskey(m.data, key)
     return m.data[key]
   end
@@ -173,7 +173,7 @@ function fromLists(keysList, valsList, hashFn, eqFn)
   return m
 end
 
-function merge(m1::UnorderedMap, m2::UnorderedMap, info)
+function merge(m1::UnorderedMap, m2::UnorderedMap, _)
   result = copy(m1)
   for (k, v) in m2.data
     result.data[k] = v
