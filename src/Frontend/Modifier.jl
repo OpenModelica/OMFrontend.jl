@@ -50,17 +50,11 @@ function toString(scope::ModifierScope)
   local string::String
   string = begin
     @match scope begin
-      COMPONENT(__) => begin
-        "component " + scope.name
-      end
+      COMPONENT(__) => "component " + scope.name
 
-      CLASS(__) => begin
-        "class " + scope.name
-      end
+      CLASS(__) => "class " + scope.name
 
-      EXTENDS(__) => begin
-        "extends " + AbsynUtil.pathString(scope.path)
-      end
+      EXTENDS(__) => "extends " + AbsynUtil.pathString(scope.path)
     end
   end
   return string
@@ -70,15 +64,9 @@ function name(scope::ModifierScope)
   local name::String
   name = begin
     @match scope begin
-      COMPONENT(__) => begin
-        scope.name
-      end
-      CLASS(__) => begin
-        scope.name
-      end
-      EXTENDS(__) => begin
-        AbsynUtil.pathString(scope.path)
-      end
+      COMPONENT(__) => scope.name
+      CLASS(__) => scope.name
+      EXTENDS(__) => AbsynUtil.pathString(scope.path)
     end
   end
   return name
@@ -88,15 +76,9 @@ function fromElement(element::SCode.Element)
   local scope::ModifierScope
   scope = begin
     @match element begin
-      SCode.COMPONENT(__) => begin
-        COMPONENT(element.name)
-      end
-      SCode.CLASS(__) => begin
-        CLASS(element.name)
-      end
-      SCode.EXTENDS(__) => begin
-        EXTENDS(element.baseClassPath)
-      end
+      SCode.COMPONENT(__) => COMPONENT(element.name)
+      SCode.CLASS(__) => CLASS(element.name)
+      SCode.EXTENDS(__) => EXTENDS(element.baseClassPath)
     end
   end
   return scope
@@ -132,9 +114,7 @@ function toFlatString(mod::Modifier, printName::Bool = true)
         end
       end
 
-      _ => begin
-        ""
-      end
+      _ => ""
     end
   end
   return string
@@ -170,13 +150,9 @@ function toString(mod::Modifier, printName::Bool = true)
         end
       end
 
-      MODIFIER_REDECLARE(__) => begin
-        toString(mod.element)
-      end
+      MODIFIER_REDECLARE(__) => toString(mod.element)
 
-      _ => begin
-        ""
-      end
+      _ => ""
     end
   end
   return string
@@ -204,13 +180,9 @@ function isFinal(mod::Modifier)
   local isFinal::Bool
   isFinal = begin
     @match mod begin
-      MODIFIER_MODIFIER(finalPrefix = SCode.FINAL(__)) => begin
-        true
-      end
+      MODIFIER_MODIFIER(finalPrefix = SCode.FINAL(__)) => true
 
-      _ => begin
-        false
-      end
+      _ => false
     end
   end
   return isFinal
@@ -220,12 +192,8 @@ function isEach(mod::Modifier)
   local isEach::Bool
   isEach = begin
     @match mod begin
-      MODIFIER_MODIFIER(eachPrefix = SCode.EACH(__)) => begin
-        true
-      end
-      _ => begin
-        false
-      end
+      MODIFIER_MODIFIER(eachPrefix = SCode.EACH(__)) => true
+      _ => false
     end
   end
   return isEach
@@ -238,9 +206,7 @@ function toList(mod::Modifier)
       MODIFIER_MODIFIER(__) => begin
         res = ModTable.listValues(mod.subModifiers)
       end
-      _ => begin
-        nil
-      end
+      _ => nil
     end
   end
   return modList
@@ -250,12 +216,8 @@ const TMP_MOD = Modifier[]
 function toVector!(mod::Modifier)
   local modV::Vector{Modifier}
   modV = @match mod begin
-    MODIFIER_MODIFIER(__) where mod.subModifiers !== nothing => begin
-      ModTable.vectorValues!(mod.subModifiers, Modifier[])
-    end
-    _ => begin
-      TMP_MOD
-    end
+    MODIFIER_MODIFIER(__) where mod.subModifiers !== nothing => ModTable.vectorValues!(mod.subModifiers, Modifier[])
+    _ => TMP_MOD
   end
   return modV
 end
@@ -264,12 +226,8 @@ function isRedeclare(mod::Modifier)
   local isRedeclare::Bool
   isRedeclare = begin
     @match mod begin
-      MODIFIER_REDECLARE(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
+      MODIFIER_REDECLARE(__) => true
+      _ => false
     end
   end
   return isRedeclare
@@ -279,12 +237,8 @@ function isEmpty(mod::Modifier)
   local isEmpty::Bool
   isEmpty = begin
     @match mod begin
-      MODIFIER_NOMOD(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
+      MODIFIER_NOMOD(__) => true
+      _ => false
     end
   end
   return isEmpty
@@ -343,13 +297,9 @@ function merge(outerMod::Modifier, innerMod::Modifier, ::String = "")
                            outerMod.propagatedParents)
       end
 
-      (MODIFIER_REDECLARE(__), _) => begin
-        outerMod
-      end
+      (MODIFIER_REDECLARE(__), _) => outerMod
 
-      (_, MODIFIER_REDECLARE(__)) => begin
-        innerMod
-      end
+      (_, MODIFIER_REDECLARE(__)) => innerMod
 
       _ => begin
         Error.addMessage(Error.INTERNAL_ERROR, list("Mod.mergeMod failed on unknown modifier."))
@@ -371,12 +321,8 @@ function binding(modifier::Modifier)
   local binding::Binding
   binding = begin
     @match modifier begin
-      MODIFIER_MODIFIER(__) => begin
-        modifier.binding
-      end
-      _ => begin
-        EMPTY_BINDING
-      end
+      MODIFIER_MODIFIER(__) => modifier.binding
+      _ => EMPTY_BINDING
     end
   end
   return binding
@@ -386,12 +332,8 @@ function hasBinding(modifier::Modifier)
   local b::Bool
   b = begin
     @match modifier begin
-      MODIFIER_MODIFIER(__) => begin
-        isBound(modifier.binding)
-      end
-      _ => begin
-        false
-      end
+      MODIFIER_MODIFIER(__) => isBound(modifier.binding)
+      _ => false
     end
   end
   return b
@@ -401,17 +343,11 @@ function Modifier_info(modifier::Modifier)
   local info::SourceInfo
   info = begin
     @match modifier begin
-      MODIFIER_MODIFIER(__) => begin
-        modifier.info
-      end
+      MODIFIER_MODIFIER(__) => modifier.info
 
-      MODIFIER_REDECLARE(__) => begin
-        SCodeUtil.elementInfo(modifier.element)
-      end
+      MODIFIER_REDECLARE(__) => SCodeUtil.elementInfo(modifier.element)
 
-      _ => begin
-        AbsynUtil.dummyInfo
-      end
+      _ => AbsynUtil.dummyInfo
     end
   end
   return info
@@ -421,12 +357,8 @@ function name(modifier::Modifier)
   local nameStr::String
   nameStr = begin
     @match modifier begin
-      MODIFIER_MODIFIER(__) => begin
-        modifier.name
-      end
-      MODIFIER_REDECLARE(__) => begin
-        name(modifier.element)
-      end
+      MODIFIER_MODIFIER(__) => modifier.name
+      MODIFIER_REDECLARE(__) => name(modifier.element)
     end
   end
   return nameStr
@@ -458,9 +390,7 @@ function addParent_work(name::String, parentNode::InstNode, mod::Modifier)
                            Cons{InstNode}(parentNode, mod.propagatedParents))
       end
 
-      _ => begin
-        mod
-      end
+      _ => mod
     end
   end
   return outMod
@@ -477,9 +407,7 @@ function addParent(parentNode::InstNode, mod::Modifier)
         lmod = mod
         map(lmod, @closure (x, y) -> addParent_work(x, parentNode, y))
       end
-      _ => begin
-        mod
-      end
+      _ => mod
     end
   end
   return outMod
@@ -507,9 +435,7 @@ function patchElementModFinal(
           local modFinalPrefix = SCode.FINAL()
           SCode.REDECL(modFinalPrefix, mod.eachPrefix, mod.element)
         end
-        _ => begin
-          DUMMY_MOD
-        end
+        _ => DUMMY_MOD
       end
     end
   end
@@ -560,9 +486,7 @@ function fromElement(
       )
     end
 
-    _ => begin
-      MODIFIER_NOMOD()
-    end
+    _ => MODIFIER_NOMOD()
   end
 end
 
@@ -683,9 +607,7 @@ function checkFinalOverride(
         )
         fail()
       end
-      _ => begin
-        ()
-      end
+      _ => ()
     end
   end
 end

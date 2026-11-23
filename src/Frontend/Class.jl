@@ -167,9 +167,7 @@ function toFlatStream(cls::Class, clsNode::InstNode, s)
         s
       end
 
-      _ => begin
-        IOStream_M.append(s, "UNKNOWN_CLASS(" + name + ")")
-      end
+      _ => IOStream_M.append(s, "UNKNOWN_CLASS(" + name + ")")
     end
   end
   return s
@@ -223,17 +221,11 @@ end
 function getDerivedComments(cls::Class, cmts::List{<:SCode.COMMENT})::List{SCode.COMMENT}
   cmts = begin
     @match cls begin
-      EXPANDED_DERIVED(__) => begin
-        getComments(cls.baseClass, cmts)
-      end
+      EXPANDED_DERIVED(__) => getComments(cls.baseClass, cmts)
 
-      TYPED_DERIVED(__) => begin
-        getComments(cls.baseClass, cmts)
-      end
+      TYPED_DERIVED(__) => getComments(cls.baseClass, cmts)
 
-      _ => begin
-        cmts
-      end
+      _ => cmts
     end
   end
   return cmts
@@ -243,17 +235,11 @@ function lastBaseClass(node::InstNode)::InstNode
   local cls::Class = getClass(node)
   node = begin
     @match cls begin
-      EXPANDED_DERIVED(__) => begin
-        lastBaseClass(cls.baseClass)
-      end
+      EXPANDED_DERIVED(__) => lastBaseClass(cls.baseClass)
 
-      TYPED_DERIVED(__) => begin
-        lastBaseClass(cls.baseClass)
-      end
+      TYPED_DERIVED(__) => lastBaseClass(cls.baseClass)
 
-      _ => begin
-        node
-      end
+      _ => node
     end
   end
   return node
@@ -261,18 +247,10 @@ end
 
 function isEncapsulated(cls::Class)::Bool
   @match cls begin
-    PARTIAL_CLASS(__) => begin
-      SCodeUtil.encapsulatedBool(cls.prefixes.encapsulatedPrefix)
-    end
-    EXPANDED_CLASS(__) => begin
-      SCodeUtil.encapsulatedBool(cls.prefixes.encapsulatedPrefix)
-    end
-    EXPANDED_DERIVED(__) => begin
-      SCodeUtil.encapsulatedBool(cls.prefixes.encapsulatedPrefix)
-    end
-    _ => begin
-      false
-    end
+    PARTIAL_CLASS(__) => SCodeUtil.encapsulatedBool(cls.prefixes.encapsulatedPrefix)
+    EXPANDED_CLASS(__) => SCodeUtil.encapsulatedBool(cls.prefixes.encapsulatedPrefix)
+    EXPANDED_DERIVED(__) => SCodeUtil.encapsulatedBool(cls.prefixes.encapsulatedPrefix)
+    _ => false
   end
 end
 
@@ -295,18 +273,10 @@ function getPrefixes(cls::Class)
   local prefs::PREFIXES
   prefs = begin
     @match cls begin
-      PARTIAL_CLASS(__) => begin
-        cls.prefixes
-      end
-      PARTIAL_BUILTIN(__) => begin
-        cls.prefixes
-      end
-      EXPANDED_CLASS(__) => begin
-        cls.prefixes
-      end
-      EXPANDED_DERIVED(__) => begin
-        cls.prefixes
-      end
+      PARTIAL_CLASS(__) => cls.prefixes
+      PARTIAL_BUILTIN(__) => cls.prefixes
+      EXPANDED_CLASS(__) => cls.prefixes
+      EXPANDED_DERIVED(__) => cls.prefixes
     end
   end
   return prefs
@@ -328,21 +298,13 @@ end
 function isExternalFunction(cls::Class)::Bool
   local lang::String
   @match cls begin
-    EXPANDED_DERIVED(__) => begin
-      isExternalFunction(getClass(cls.baseClass))
-    end
+    EXPANDED_DERIVED(__) => isExternalFunction(getClass(cls.baseClass))
 
-    INSTANCED_CLASS(sections = SECTIONS_EXTERNAL(language = lang)) => begin
-      lang != "builtin"
-    end
+    INSTANCED_CLASS(sections = SECTIONS_EXTERNAL(language = lang)) => lang != "builtin"
 
-    TYPED_DERIVED(__) => begin
-      isExternalFunction(getClass(cls.baseClass))
-    end
+    TYPED_DERIVED(__) => isExternalFunction(getClass(cls.baseClass))
 
-    _ => begin
-      false
-    end
+    _ => false
   end
 end
 
@@ -395,33 +357,19 @@ end
 function restriction(cls::Class)::Restriction
 
   @match cls begin
-    PARTIAL_BUILTIN(__) => begin
-      cls.restriction
-    end
+    PARTIAL_BUILTIN(__) => cls.restriction
 
-    EXPANDED_CLASS(__) => begin
-      cls.restriction
-    end
+    EXPANDED_CLASS(__) => cls.restriction
 
-    EXPANDED_DERIVED(__) => begin
-      cls.restriction
-    end
+    EXPANDED_DERIVED(__) => cls.restriction
 
-    INSTANCED_CLASS(__) => begin
-      cls.restriction
-    end
+    INSTANCED_CLASS(__) => cls.restriction
 
-    INSTANCED_BUILTIN(__) => begin
-      cls.restriction
-    end
+    INSTANCED_BUILTIN(__) => cls.restriction
 
-    TYPED_DERIVED(__) => begin
-      cls.restriction
-    end
+    TYPED_DERIVED(__) => cls.restriction
 
-    _ => begin
-      RESTRICTION_UNKNOWN()
-    end
+    _ => RESTRICTION_UNKNOWN()
   end
 end
 
@@ -452,45 +400,29 @@ function setType(ty::ModelicaType, @nospecialize(cls::Class))
        ()
      end
 
-     _ => begin
-       ()
-     end
+     _ => ()
    end
   return cls
 end
 
 function getType(cls::Class, clsNode::InstNode)::ModelicaType
   @match cls begin
-    PARTIAL_BUILTIN(__) => begin
-      cls.ty
-    end
-    EXPANDED_DERIVED(__) => begin
-      getType(getClass(cls.baseClass), cls.baseClass)
-    end
+    PARTIAL_BUILTIN(__) => cls.ty
+    EXPANDED_DERIVED(__) => getType(getClass(cls.baseClass), cls.baseClass)
 
-    INSTANCED_CLASS(__) => begin
-      cls.ty
-    end
+    INSTANCED_CLASS(__) => cls.ty
     INSTANCED_BUILTIN(__) => begin
       begin
         @match cls.ty begin
-          TYPE_POLYMORPHIC("") => begin
-            TYPE_POLYMORPHIC(name(clsNode))
-          end
-          _ => begin
-            cls.ty
-          end
+          TYPE_POLYMORPHIC("") => TYPE_POLYMORPHIC(name(clsNode))
+          _ => cls.ty
         end
       end
     end
 
-    TYPED_DERIVED(__) => begin
-      cls.ty
-    end
+    TYPED_DERIVED(__) => cls.ty
 
-    _ => begin
-      TYPE_UNKNOWN()
-    end
+    _ => TYPE_UNKNOWN()
   end
 end
 
@@ -512,12 +444,8 @@ function getAttributes(cls::Class)
   local attr::Attributes
   attr = begin
     @match cls begin
-      EXPANDED_DERIVED(__) => begin
-        cls.attributes
-      end
-      _ => begin
-        NFComponent.DEFAULT_ATTR
-      end
+      EXPANDED_DERIVED(__) => cls.attributes
+      _ => NFComponent.DEFAULT_ATTR
     end
   end
   return attr
@@ -526,17 +454,11 @@ end
 function hasDimensions(cls::Class)::Bool
 
   @match cls begin
-    EXPANDED_DERIVED(__) => begin
-      arrayLength(cls.dims) > 0 || hasDimensions(getClass(cls.baseClass))
-    end
+    EXPANDED_DERIVED(__) => arrayLength(cls.dims) > 0 || hasDimensions(getClass(cls.baseClass))
 
-    TYPED_DERIVED(__) => begin
-      isArray(cls.ty)
-    end
+    TYPED_DERIVED(__) => isArray(cls.ty)
 
-    _ => begin
-      false
-    end
+    _ => false
   end
 end
 
@@ -559,9 +481,7 @@ function isIdentical(cls1::Class, cls2::Class)::Bool
           end
           true
         end
-        _ => begin
-          true
-        end
+        _ => true
       end
     end
   end
@@ -690,60 +610,34 @@ end
 
 function classTree(cls::Class)::ClassTree
   @match cls begin
-    PARTIAL_CLASS(__) => begin
-      cls.elements
-    end
+    PARTIAL_CLASS(__) => cls.elements
 
-    PARTIAL_BUILTIN(__) => begin
-      cls.elements
-    end
+    PARTIAL_BUILTIN(__) => cls.elements
 
-    EXPANDED_CLASS(__) => begin
-      cls.elements
-    end
+    EXPANDED_CLASS(__) => cls.elements
 
-    EXPANDED_DERIVED(__) => begin
-      classTree(getClass(cls.baseClass))
-    end
+    EXPANDED_DERIVED(__) => classTree(getClass(cls.baseClass))
 
-    INSTANCED_CLASS(__) => begin
-      cls.elements
-    end
+    INSTANCED_CLASS(__) => cls.elements
 
-    INSTANCED_BUILTIN(__) => begin
-      cls.elements
-    end
+    INSTANCED_BUILTIN(__) => cls.elements
 
-    TYPED_DERIVED(__) => begin
-      classTree(getClass(cls.baseClass))
-    end
-    _ => begin
-      CLASS_TREE_EMPTY_TREE() #EMPTY_TREE()
-    end
+    TYPED_DERIVED(__) => classTree(getClass(cls.baseClass))
+    _ => CLASS_TREE_EMPTY_TREE() #EMPTY_TREE()
   end
 end
 
 function isBuiltin(cls::Class)::Bool
   @match cls begin
-    PARTIAL_BUILTIN(__) => begin
-      true
-    end
+    PARTIAL_BUILTIN(__) => true
 
-    INSTANCED_BUILTIN(__) => begin
-      true
-    end
+    INSTANCED_BUILTIN(__) => true
 
-    EXPANDED_DERIVED(__) => begin
-      isBuiltin(getClass(cls.baseClass))
-    end
+    EXPANDED_DERIVED(__) => isBuiltin(getClass(cls.baseClass))
 
-    TYPED_DERIVED(__) => begin
-      isBuiltin(getClass(cls.baseClass))
-    end
+    TYPED_DERIVED(__) => isBuiltin(getClass(cls.baseClass))
 
-    _ => begin
-      false
-    end
+    _ => false
   end
 end
 
@@ -782,9 +676,7 @@ lookupElementNode(name::String, cls::Class)::InstNode = lookupElementNode(name, 
 function setSections(sections::Sections, cls::Class)::Class
   cls = begin
     @match cls begin
-      INSTANCED_CLASS(__) => begin
-        INSTANCED_CLASS(cls.ty, cls.elements, sections, cls.restriction)
-      end
+      INSTANCED_CLASS(__) => INSTANCED_CLASS(cls.ty, cls.elements, sections, cls.restriction)
     end
   end
   return cls
@@ -792,15 +684,9 @@ end
 
 function getSections(cls::Class)::Sections
   @match cls begin
-    INSTANCED_CLASS(__) => begin
-      cls.sections
-    end
-    TYPED_DERIVED(__) => begin
-      getSections(getClass(cls.baseClass))
-    end
-    _ => begin
-      SECTIONS_EMPTY()
-    end
+    INSTANCED_CLASS(__) => cls.sections
+    TYPED_DERIVED(__) => getSections(getClass(cls.baseClass))
+    _ => SECTIONS_EMPTY()
   end
 end
 

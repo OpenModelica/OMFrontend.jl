@@ -4768,9 +4768,7 @@ end
 """
 function assertion(b::Bool, message::String, info::SourceInfo)
   @match (b, message, info) begin
-    (true, _, _) => begin
-      ()
-    end
+    (true, _, _) => ()
     _ => begin
       addSourceMessage(INTERNAL_ERROR, list(message), info)
       fail()
@@ -4790,9 +4788,7 @@ function assertionOrAddSourceMessage(
   inInfo::SourceInfo,
   )
   @match (inCond, inErrorMsg, inMessageTokens, inInfo) begin
-    (true, _, _, _) => begin
-      ()
-    end
+    (true, _, _, _) => ()
 
     _ => begin
       addSourceMessage(inErrorMsg, inMessageTokens, inInfo)
@@ -4805,13 +4801,9 @@ end
 function failOnErrorMsg(inMessage::ErrorTypes.Message)
   return _ = begin
     @match inMessage begin
-      ErrorTypes.MESSAGE(severity = ErrorTypes.ERROR(__)) => begin
-        fail()
-      end
+      ErrorTypes.MESSAGE(severity = ErrorTypes.ERROR(__)) => fail()
 
-      _ => begin
-        ()
-      end
+      _ => ()
     end
   end
 end

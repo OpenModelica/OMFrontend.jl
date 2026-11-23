@@ -165,9 +165,7 @@ function collect(flatModel::FLAT_MODEL)::Tuple{FLAT_MODEL, CONNECTIONS}
           eql
         end
 
-        _ => begin
-          push!(eql, eq)
-        end
+        _ => push!(eql, eq)
       end
     end
   end

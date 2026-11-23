@@ -74,9 +74,7 @@ function restoreMissingArrayVariables!(flatModel::FLAT_MODEL)
           (expArr, _) = expand(exp)
           expArr
         end
-        _ => begin
-          exp
-        end
+        _ => exp
       end
       return outExp
     end

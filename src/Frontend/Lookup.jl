@@ -115,15 +115,9 @@ function fixTypenameState(n::InstNode, state::LookupState)
     ty = getType(expand(n))
     state = begin
       @match ty begin
-        TYPE_ENUMERATION(__)  => begin
-          LOOKUP_STATE_COMP()
-        end
-        TYPE_BOOLEAN(__)  => begin
-          LOOKUP_STATE_COMP()
-        end
-        _  => begin
-          state
-        end
+        TYPE_ENUMERATION(__) => LOOKUP_STATE_COMP()
+        TYPE_BOOLEAN(__) => LOOKUP_STATE_COMP()
+        _ => state
       end
     end
   end
@@ -200,9 +194,7 @@ function fixExternalObjectCall(node::InstNode, cref::ComponentRef, state::Lookup
       state = LOOKUP_STATE_FUNC()
       ()
     end
-    _  => begin
-      ()
-    end
+    _ => ()
   end
   (cref, state)
 end
@@ -474,9 +466,7 @@ function lookupName(@nospecialize(name::Absyn.Path), scope::InstNode, lookupStat
   local node::InstNode
   node = begin
     @match name begin
-      Absyn.IDENT(__)  => begin
-        Base.first(lookupFirstIdent(name.name, scope, lookupStateRef))
-      end
+      Absyn.IDENT(__) => Base.first(lookupFirstIdent(name.name, scope, lookupStateRef))
       Absyn.QUALIFIED(__)  => begin
         local self_reference::Bool
         (node, self_reference) = lookupFirstIdent(name.name, scope, lookupStateRef)
@@ -628,10 +618,8 @@ function lookupLocalNames(name::Absyn.Path, scope::InstNode, nodes::List{InstNod
         lookupStateRef.x = state
         lookupLocalNames(name.path, node, Cons{InstNode}(node, nodes), state, lookupStateRef)
       end
-      _  => begin
-        #                           Error.assertion(false, getInstanceName() + " was called with an invalid path.", sourceInfo())
-        fail()
-      end
+      #                           Error.assertion(false, getInstanceName() + " was called with an invalid path.", sourceInfo())
+      _ => fail()
     end
    end
   lookupStateRef.x = state
@@ -878,9 +866,7 @@ function lookupCrefInNode(cref::Absyn.ComponentRef #=modification-040321=#,
       CLASS_NODE(__)  => begin
         instPackage(node; isRedeclared = false)
       end
-      _  => begin
-        node
-      end
+      _ => node
     end
   end
   #= Reject name lookup inside a still-partial class/package (OMC parity:
@@ -931,9 +917,7 @@ function lookupCrefInNode(cref::Absyn.ComponentRef #=modification-040321=#,
   state = next(n, state, !wasInnerOuter)
   (foundCref, foundScope, state) = begin
     @match cref begin
-      Absyn.CREF_IDENT(__)  => begin
-        (fromAbsyn(n, cref.subscripts, foundCref), foundScope, state)
-      end
+      Absyn.CREF_IDENT(__) => (fromAbsyn(n, cref.subscripts, foundCref), foundScope, state)
 
       Absyn.CREF_QUAL(__)  => begin
         foundCref = fromAbsyn(n, cref.subscripts, foundCref)

@@ -66,15 +66,9 @@ end
 
 function fromSCode(scodeCty::SCode.ConnectorType)::Int
   @match scodeCty begin
-    SCode.POTENTIAL(__) => begin
-      0
-    end
-    SCode.FLOW(__) => begin
-      ConnectorType.FLOW
-    end
-    SCode.STREAM(__) => begin
-      ConnectorType.STREAM
-    end
+    SCode.POTENTIAL(__) => 0
+    SCode.FLOW(__) => ConnectorType.FLOW
+    SCode.STREAM(__) => ConnectorType.STREAM
   end
 end
 
@@ -292,49 +286,31 @@ end
 
 function parallelismFromSCode(scodePar::SCode.Parallelism)::ParallelismType
   @match scodePar begin
-    SCode.PARGLOBAL(__) => begin
-      Parallelism.GLOBAL
-    end
-    SCode.PARLOCAL(__) => begin
-      Parallelism.LOCAL
-    end
-    SCode.NON_PARALLEL(__) => begin
-      Parallelism.NON_PARALLEL
-    end
+    SCode.PARGLOBAL(__) => Parallelism.GLOBAL
+    SCode.PARLOCAL(__) => Parallelism.LOCAL
+    SCode.NON_PARALLEL(__) => Parallelism.NON_PARALLEL
   end
 end
 
 function parallelismString(par)::String
 
   @match par begin
-    Parallelism.GLOBAL => begin
-      "parglobal"
-    end
+    Parallelism.GLOBAL => "parglobal"
 
-    Parallelism.LOCAL => begin
-      "parlocal"
-    end
+    Parallelism.LOCAL => "parlocal"
 
-    _ => begin
-      ""
-    end
+    _ => ""
   end
 end
 
 function unparseParallelism(par)::String
 
   @match par begin
-    Parallelism.GLOBAL => begin
-      "parglobal "
-    end
+    Parallelism.GLOBAL => "parglobal "
 
-    Parallelism.LOCAL => begin
-      "parlocal "
-    end
+    Parallelism.LOCAL => "parlocal "
 
-    _ => begin
-      ""
-    end
+    _ => ""
   end
 end
 
@@ -361,18 +337,10 @@ function variabilityFromSCode(scodeVar::SCode.Variability)
   local var
   var = begin
     @match scodeVar begin
-      SCode.CONST(__) => begin
-        Variability.CONSTANT
-      end
-      SCode.PARAM(__) => begin
-        Variability.PARAMETER
-      end
-      SCode.DISCRETE(__) => begin
-        Variability.DISCRETE
-      end
-      SCode.VAR(__) => begin
-        Variability.CONTINUOUS
-      end
+      SCode.CONST(__) => Variability.CONSTANT
+      SCode.PARAM(__) => Variability.PARAMETER
+      SCode.DISCRETE(__) => Variability.DISCRETE
+      SCode.VAR(__) => Variability.CONTINUOUS
     end
   end
   return var
@@ -381,53 +349,31 @@ end
 function variabilityString(var)::String
 
   @match var begin
-    Variability.CONSTANT => begin
-      "constant"
-    end
+    Variability.CONSTANT => "constant"
 
-    Variability.STRUCTURAL_PARAMETER => begin
-      "parameter"
-    end
+    Variability.STRUCTURAL_PARAMETER => "parameter"
 
-    Variability.PARAMETER => begin
-      "parameter"
-    end
+    Variability.PARAMETER => "parameter"
 
-    Variability.NON_STRUCTURAL_PARAMETER => begin
-      "parameter"
-    end
+    Variability.NON_STRUCTURAL_PARAMETER => "parameter"
 
-    Variability.DISCRETE => begin
-      "discrete"
-    end
+    Variability.DISCRETE => "discrete"
 
-    Variability.IMPLICITLY_DISCRETE => begin
-      "discrete"
-    end
+    Variability.IMPLICITLY_DISCRETE => "discrete"
 
-    Variability.CONTINUOUS => begin
-      "continuous"
-    end
+    Variability.CONTINUOUS => "continuous"
   end
 end
 
 function unparseVariability(var::VariabilityType, ty::ModelicaType)::String
   @match var begin
-    Variability.CONSTANT => begin
-      "constant "
-    end
+    Variability.CONSTANT => "constant "
 
-    Variability.STRUCTURAL_PARAMETER => begin
-      "parameter "
-    end
+    Variability.STRUCTURAL_PARAMETER => "parameter "
 
-    Variability.PARAMETER => begin
-      "parameter "
-    end
+    Variability.PARAMETER => "parameter "
 
-    Variability.NON_STRUCTURAL_PARAMETER => begin
-      "parameter "
-    end
+    Variability.NON_STRUCTURAL_PARAMETER => "parameter "
 
     Variability.DISCRETE => begin
       if isDiscrete(ty)
@@ -437,9 +383,7 @@ function unparseVariability(var::VariabilityType, ty::ModelicaType)::String
       end
     end
 
-    _ => begin
-      ""
-    end
+    _ => ""
   end
 end
 
@@ -466,21 +410,13 @@ function effectiveVariability(inVar)
 
   outVar = begin
     @match inVar begin
-      Variability.STRUCTURAL_PARAMETER => begin
-        Variability.PARAMETER
-      end
+      Variability.STRUCTURAL_PARAMETER => Variability.PARAMETER
 
-      Variability.NON_STRUCTURAL_PARAMETER => begin
-        Variability.PARAMETER
-      end
+      Variability.NON_STRUCTURAL_PARAMETER => Variability.PARAMETER
 
-      Variability.IMPLICITLY_DISCRETE => begin
-        Variability.DISCRETE
-      end
+      Variability.IMPLICITLY_DISCRETE => Variability.DISCRETE
 
-      _ => begin
-        inVar
-      end
+      _ => inVar
     end
   end
   return outVar
@@ -491,15 +427,9 @@ function directionFromSCode(scodeDir::Absyn.Direction)
 
   dir = begin
     @match scodeDir begin
-      Absyn.INPUT(__) => begin
-        Direction.INPUT
-      end
-      Absyn.OUTPUT(__) => begin
-        Direction.OUTPUT
-      end
-      _ => begin
-        Direction.NONE
-      end
+      Absyn.INPUT(__) => Direction.INPUT
+      Absyn.OUTPUT(__) => Direction.OUTPUT
+      _ => Direction.NONE
     end
   end
   return dir
@@ -508,34 +438,22 @@ end
 function directionString(dir)::String
 
   @match dir begin
-    Direction.INPUT => begin
-      "input"
-    end
+    Direction.INPUT => "input"
 
-    Direction.OUTPUT => begin
-      "output"
-    end
+    Direction.OUTPUT => "output"
 
-    _ => begin
-      ""
-    end
+    _ => ""
   end
 end
 
 function unparseDirection(dir)::String
 
   @match dir begin
-    Direction.INPUT => begin
-      "input "
-    end
+    Direction.INPUT => "input "
 
-    Direction.OUTPUT => begin
-      "output "
-    end
+    Direction.OUTPUT => "output "
 
-    _ => begin
-      ""
-    end
+    _ => ""
   end
 end
 
@@ -563,18 +481,10 @@ function innerOuterFromSCode(scodeIO::Absyn.InnerOuter)
   local io
   io = begin
     @match scodeIO begin
-      Absyn.NOT_INNER_OUTER(__) => begin
-        InnerOuter.NOT_INNER_OUTER
-      end
-      Absyn.INNER(__) => begin
-        InnerOuter.INNER
-      end
-      Absyn.OUTER(__) => begin
-        InnerOuter.OUTER
-      end
-      Absyn.INNER_OUTER(__) => begin
-        InnerOuter.INNER_OUTER
-      end
+      Absyn.NOT_INNER_OUTER(__) => InnerOuter.NOT_INNER_OUTER
+      Absyn.INNER(__) => InnerOuter.INNER
+      Absyn.OUTER(__) => InnerOuter.OUTER
+      Absyn.INNER_OUTER(__) => InnerOuter.INNER_OUTER
     end
   end
   return io
@@ -583,54 +493,34 @@ end
 function innerOuterString(io)::String
 
   @match io begin
-    InnerOuter.INNER => begin
-      "inner"
-    end
+    InnerOuter.INNER => "inner"
 
-    InnerOuter.OUTER => begin
-      "outer"
-    end
+    InnerOuter.OUTER => "outer"
 
-    InnerOuter.INNER_OUTER => begin
-      "inner outer"
-    end
+    InnerOuter.INNER_OUTER => "inner outer"
 
-    _ => begin
-      ""
-    end
+    _ => ""
   end
 end
 
 function unparseInnerOuter(io)::String
 
   @match io begin
-    InnerOuter.INNER => begin
-      "inner "
-    end
+    InnerOuter.INNER => "inner "
 
-    InnerOuter.OUTER => begin
-      "outer "
-    end
+    InnerOuter.OUTER => "outer "
 
-    InnerOuter.INNER_OUTER => begin
-      "inner outer "
-    end
+    InnerOuter.INNER_OUTER => "inner outer "
 
-    _ => begin
-      ""
-    end
+    _ => ""
   end
 end
 
 function visibilityFromSCode(scodeVis::SCode.Visibility)
   vis = begin
     @match scodeVis begin
-      SCode.PUBLIC(__) => begin
-        Visibility.PUBLIC
-      end
-      _ => begin
-        Visibility.PROTECTED
-      end
+      SCode.PUBLIC(__) => Visibility.PUBLIC
+      _ => Visibility.PROTECTED
     end
   end
   return vis
@@ -638,12 +528,8 @@ end
 
 function unparseReplaceable(repl::Replaceable)::String
   @match repl begin
-    REPLACEABLE(__) => begin
-      "replaceable "
-    end
-    _ => begin
-      ""
-    end
+    REPLACEABLE(__) => "replaceable "
+    _ => ""
   end
 end
 

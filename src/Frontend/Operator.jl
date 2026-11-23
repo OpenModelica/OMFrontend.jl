@@ -123,33 +123,19 @@ function negate(op::OPERATOR)::OPERATOR
   local neg_op::OpType
   neg_op = begin
     @match op.op begin
-      Op.ADD => begin
-        Op.SUB
-      end
+      Op.ADD => Op.SUB
 
-      Op.SUB => begin
-        Op.ADD
-      end
+      Op.SUB => Op.ADD
 
-      Op.ADD_EW => begin
-        Op.SUB_EW
-      end
+      Op.ADD_EW => Op.SUB_EW
 
-      Op.SUB_EW => begin
-        Op.ADD_EW
-      end
+      Op.SUB_EW => Op.ADD_EW
 
-      Op.ADD_SCALAR_ARRAY => begin
-        Op.SUB_SCALAR_ARRAY
-      end
+      Op.ADD_SCALAR_ARRAY => Op.SUB_SCALAR_ARRAY
 
-      Op.SUB_SCALAR_ARRAY => begin
-        Op.ADD_SCALAR_ARRAY
-      end
+      Op.SUB_SCALAR_ARRAY => Op.ADD_SCALAR_ARRAY
 
-      Op.ADD_ARRAY_SCALAR => begin
-        Op.SUB_ARRAY_SCALAR
-      end
+      Op.ADD_ARRAY_SCALAR => Op.SUB_ARRAY_SCALAR
     end
   end
   outOp = OPERATOR(op.ty, neg_op)
@@ -158,29 +144,17 @@ end
 
 function isElementWise(op::OPERATOR)::Bool
   @match op.op begin
-    Op.ADD_EW => begin
-      true
-    end
+    Op.ADD_EW => true
 
-    Op.SUB_EW => begin
-      true
-    end
+    Op.SUB_EW => true
 
-    Op.MUL_EW => begin
-      true
-    end
+    Op.MUL_EW => true
 
-    Op.DIV_EW => begin
-      true
-    end
+    Op.DIV_EW => true
 
-    Op.POW_EW => begin
-      true
-    end
+    Op.POW_EW => true
 
-    _ => begin
-      false
-    end
+    _ => false
   end
 end
 
@@ -200,25 +174,15 @@ end
 
 function stripEW(op::OPERATOR)::OPERATOR
   opOP = @match op.op begin
-    Op.ADD_EW => begin
-      Op.ADD
-    end
+    Op.ADD_EW => Op.ADD
 
-    Op.SUB_EW => begin
-      Op.SUB
-    end
+    Op.SUB_EW => Op.SUB
 
-    Op.MUL_EW => begin
-      Op.MUL
-    end
+    Op.MUL_EW => Op.MUL
 
-    Op.DIV_EW => begin
-      Op.DIV
-    end
+    Op.DIV_EW => Op.DIV
 
-    Op.POW_EW => begin
-      Op.POW
-    end
+    Op.POW_EW => Op.POW
     _ => begin
       return op
     end
@@ -231,25 +195,15 @@ function makeArrayScalar(ty::ModelicaType, op::OpType)::OPERATOR
   local o::OpType
   o = begin
     @match op begin
-      Op.ADD => begin
-        Op.ADD_ARRAY_SCALAR
-      end
+      Op.ADD => Op.ADD_ARRAY_SCALAR
 
-      Op.SUB => begin
-        Op.SUB_ARRAY_SCALAR
-      end
+      Op.SUB => Op.SUB_ARRAY_SCALAR
 
-      Op.MUL => begin
-        Op.MUL_ARRAY_SCALAR
-      end
+      Op.MUL => Op.MUL_ARRAY_SCALAR
 
-      Op.DIV => begin
-        Op.DIV_ARRAY_SCALAR
-      end
+      Op.DIV => Op.DIV_ARRAY_SCALAR
 
-      Op.POW => begin
-        Op.POW_ARRAY_SCALAR
-      end
+      Op.POW => Op.POW_ARRAY_SCALAR
     end
   end
   outOp = OPERATOR(ty, o)
@@ -261,25 +215,15 @@ function makeScalarArray(ty::ModelicaType, op::OpType)::OPERATOR
   local o::OpType
   o = begin
     @match op begin
-      Op.ADD => begin
-        Op.ADD_SCALAR_ARRAY
-      end
+      Op.ADD => Op.ADD_SCALAR_ARRAY
 
-      Op.SUB => begin
-        Op.SUB_SCALAR_ARRAY
-      end
+      Op.SUB => Op.SUB_SCALAR_ARRAY
 
-      Op.MUL => begin
-        Op.MUL_SCALAR_ARRAY
-      end
+      Op.MUL => Op.MUL_SCALAR_ARRAY
 
-      Op.DIV => begin
-        Op.DIV_SCALAR_ARRAY
-      end
+      Op.DIV => Op.DIV_SCALAR_ARRAY
 
-      Op.POW => begin
-        Op.POW_SCALAR_ARRAY
-      end
+      Op.POW => Op.POW_SCALAR_ARRAY
     end
   end
   outOp = OPERATOR(ty, o)
@@ -354,29 +298,17 @@ end
 function isNonAssociative(op::OPERATOR)::Bool
 
   @match op.op begin
-    Op.POW => begin
-      true
-    end
+    Op.POW => true
 
-    Op.POW_EW => begin
-      true
-    end
+    Op.POW_EW => true
 
-    Op.POW_SCALAR_ARRAY => begin
-      true
-    end
+    Op.POW_SCALAR_ARRAY => true
 
-    Op.POW_ARRAY_SCALAR => begin
-      true
-    end
+    Op.POW_ARRAY_SCALAR => true
 
-    Op.POW_MATRIX => begin
-      true
-    end
+    Op.POW_MATRIX => true
 
-    _ => begin
-      false
-    end
+    _ => false
   end
 end
 
@@ -385,21 +317,13 @@ function isAssociative(op::OPERATOR)::Bool
 
   isAssoc = begin
     @match op.op begin
-      Op.ADD => begin
-        true
-      end
+      Op.ADD => true
 
-      Op.ADD_EW => begin
-        true
-      end
+      Op.ADD_EW => true
 
-      Op.MUL_EW => begin
-        true
-      end
+      Op.MUL_EW => true
 
-      _ => begin
-        false
-      end
+      _ => false
     end
   end
   #= case ADD_ARRAY_SCALAR() then true;
@@ -418,21 +342,13 @@ function priority(op::OPERATOR, lhs::Bool)::Int
       end
     end
 
-    Op.SUB => begin
-      5
-    end
+    Op.SUB => 5
 
-    Op.MUL => begin
-      2
-    end
+    Op.MUL => 2
 
-    Op.DIV => begin
-      2
-    end
+    Op.DIV => 2
 
-    Op.POW => begin
-      1
-    end
+    Op.POW => 1
 
     Op.ADD_EW => begin
       if lhs
@@ -442,9 +358,7 @@ function priority(op::OPERATOR, lhs::Bool)::Int
       end
     end
 
-    Op.SUB_EW => begin
-      5
-    end
+    Op.SUB_EW => 5
 
     Op.MUL_EW => begin
       if lhs
@@ -454,13 +368,9 @@ function priority(op::OPERATOR, lhs::Bool)::Int
       end
     end
 
-    Op.DIV_EW => begin
-      2
-    end
+    Op.DIV_EW => 2
 
-    Op.POW_EW => begin
-      1
-    end
+    Op.POW_EW => 1
 
     #= The array kinds as their scalar operator (omc's Operator.priority): with 0 the right operand of each got
        parentheses (`{1.0, 2.0} .* (time)`). =#
@@ -472,9 +382,7 @@ function priority(op::OPERATOR, lhs::Bool)::Int
       end
     end
 
-    Op.SUB_SCALAR_ARRAY || Op.SUB_ARRAY_SCALAR => begin
-      5
-    end
+    Op.SUB_SCALAR_ARRAY || Op.SUB_ARRAY_SCALAR => 5
 
     Op.MUL_SCALAR_ARRAY || Op.MUL_ARRAY_SCALAR || Op.MUL_VECTOR_MATRIX || Op.MUL_MATRIX_VECTOR ||
     Op.SCALAR_PRODUCT || Op.MATRIX_PRODUCT => begin
@@ -485,25 +393,15 @@ function priority(op::OPERATOR, lhs::Bool)::Int
       end
     end
 
-    Op.DIV_SCALAR_ARRAY || Op.DIV_ARRAY_SCALAR => begin
-      2
-    end
+    Op.DIV_SCALAR_ARRAY || Op.DIV_ARRAY_SCALAR => 2
 
-    Op.POW_SCALAR_ARRAY || Op.POW_ARRAY_SCALAR || Op.POW_MATRIX => begin
-      1
-    end
+    Op.POW_SCALAR_ARRAY || Op.POW_ARRAY_SCALAR || Op.POW_MATRIX => 1
 
-    Op.AND => begin
-      8
-    end
+    Op.AND => 8
 
-    Op.OR => begin
-      9
-    end
+    Op.OR => 9
 
-    _ => begin
-      0
-    end
+    _ => 0
   end
 end
 
@@ -512,145 +410,75 @@ function symbol(op::OPERATOR, spacing::String = " ")::String
 
   symbol = begin
     @match op.op begin
-      Op.ADD => begin
-        "+"
-      end
+      Op.ADD => "+"
 
-      Op.SUB => begin
-        "-"
-      end
+      Op.SUB => "-"
 
-      Op.MUL => begin
-        "*"
-      end
+      Op.MUL => "*"
 
-      Op.DIV => begin
-        "/"
-      end
+      Op.DIV => "/"
 
-      Op.POW => begin
-        "^"
-      end
+      Op.POW => "^"
 
-      Op.ADD_EW => begin
-        ".+"
-      end
+      Op.ADD_EW => ".+"
 
-      Op.SUB_EW => begin
-        ".-"
-      end
+      Op.SUB_EW => ".-"
 
-      Op.MUL_EW => begin
-        ".*"
-      end
+      Op.MUL_EW => ".*"
 
-      Op.DIV_EW => begin
-        "./"
-      end
+      Op.DIV_EW => "./"
 
-      Op.POW_EW => begin
-        ".^"
-      end
+      Op.POW_EW => ".^"
 
-      Op.ADD_SCALAR_ARRAY => begin
-        ".+"
-      end
+      Op.ADD_SCALAR_ARRAY => ".+"
 
-      Op.ADD_ARRAY_SCALAR => begin
-        ".+"
-      end
+      Op.ADD_ARRAY_SCALAR => ".+"
 
-      Op.SUB_SCALAR_ARRAY => begin
-        ".-"
-      end
+      Op.SUB_SCALAR_ARRAY => ".-"
 
-      Op.SUB_ARRAY_SCALAR => begin
-        ".-"
-      end
+      Op.SUB_ARRAY_SCALAR => ".-"
 
-      Op.MUL_SCALAR_ARRAY => begin
-        "*"
-      end
+      Op.MUL_SCALAR_ARRAY => "*"
 
-      Op.MUL_ARRAY_SCALAR => begin
-        ".*"
-      end
+      Op.MUL_ARRAY_SCALAR => ".*"
 
-      Op.MUL_VECTOR_MATRIX => begin
-        "*"
-      end
+      Op.MUL_VECTOR_MATRIX => "*"
 
-      Op.MUL_MATRIX_VECTOR => begin
-        "*"
-      end
+      Op.MUL_MATRIX_VECTOR => "*"
 
-      Op.SCALAR_PRODUCT => begin
-        "*"
-      end
+      Op.SCALAR_PRODUCT => "*"
 
-      Op.MATRIX_PRODUCT => begin
-        "*"
-      end
+      Op.MATRIX_PRODUCT => "*"
 
-      Op.DIV_SCALAR_ARRAY => begin
-        "./"
-      end
+      Op.DIV_SCALAR_ARRAY => "./"
 
-      Op.DIV_ARRAY_SCALAR => begin
-        "/"
-      end
+      Op.DIV_ARRAY_SCALAR => "/"
 
-      Op.POW_SCALAR_ARRAY => begin
-        ".^"
-      end
+      Op.POW_SCALAR_ARRAY => ".^"
 
-      Op.POW_ARRAY_SCALAR => begin
-        ".^"
-      end
+      Op.POW_ARRAY_SCALAR => ".^"
 
-      Op.POW_MATRIX => begin
-        "^"
-      end
+      Op.POW_MATRIX => "^"
 
-      Op.UMINUS => begin
-        "-"
-      end
+      Op.UMINUS => "-"
 
-      Op.AND => begin
-        "and"
-      end
+      Op.AND => "and"
 
-      Op.OR => begin
-        "or"
-      end
+      Op.OR => "or"
 
-      Op.NOT => begin
-        "not"
-      end
+      Op.NOT => "not"
 
-      Op.LESS => begin
-        "<"
-      end
+      Op.LESS => "<"
 
-      Op.LESSEQ => begin
-        "<="
-      end
+      Op.LESSEQ => "<="
 
-      Op.GREATER => begin
-        ">"
-      end
+      Op.GREATER => ">"
 
-      Op.GREATEREQ => begin
-        ">="
-      end
+      Op.GREATEREQ => ">="
 
-      Op.EQUAL => begin
-        "=="
-      end
+      Op.EQUAL => "=="
 
-      Op.NEQUAL => begin
-        "<>"
-      end
+      Op.NEQUAL => "<>"
 
       _ => begin
         #= case Op.USERDEFINED      then \"Userdefined:\" + AbsynUtil.pathString(op.fqName); =#
@@ -687,97 +515,51 @@ function fromAbsyn(inOperator::Absyn.Operator)::OPERATOR
   local op::OpType
   op = begin
     @match inOperator begin
-      Absyn.ADD(__) => begin
-        Op.ADD
-      end
+      Absyn.ADD(__) => Op.ADD
 
-      Absyn.SUB(__) => begin
-        Op.SUB
-      end
+      Absyn.SUB(__) => Op.SUB
 
-      Absyn.MUL(__) => begin
-        Op.MUL
-      end
+      Absyn.MUL(__) => Op.MUL
 
-      Absyn.DIV(__) => begin
-        Op.DIV
-      end
+      Absyn.DIV(__) => Op.DIV
 
-      Absyn.POW(__) => begin
-        Op.POW
-      end
+      Absyn.POW(__) => Op.POW
 
-      Absyn.ADD_EW(__) => begin
-        Op.ADD_EW
-      end
+      Absyn.ADD_EW(__) => Op.ADD_EW
 
-      Absyn.SUB_EW(__) => begin
-        Op.SUB_EW
-      end
+      Absyn.SUB_EW(__) => Op.SUB_EW
 
-      Absyn.MUL_EW(__) => begin
-        Op.MUL_EW
-      end
+      Absyn.MUL_EW(__) => Op.MUL_EW
 
-      Absyn.DIV_EW(__) => begin
-        Op.DIV_EW
-      end
+      Absyn.DIV_EW(__) => Op.DIV_EW
 
-      Absyn.POW_EW(__) => begin
-        Op.POW_EW
-      end
+      Absyn.POW_EW(__) => Op.POW_EW
 
-      Absyn.UPLUS(__) => begin
-        Op.ADD
-      end
+      Absyn.UPLUS(__) => Op.ADD
 
-      Absyn.UPLUS_EW(__) => begin
-        Op.ADD
-      end
+      Absyn.UPLUS_EW(__) => Op.ADD
 
-      Absyn.UMINUS(__) => begin
-        Op.UMINUS
-      end
+      Absyn.UMINUS(__) => Op.UMINUS
 
-      Absyn.UMINUS_EW(__) => begin
-        Op.UMINUS
-      end
+      Absyn.UMINUS_EW(__) => Op.UMINUS
 
-      Absyn.AND(__) => begin
-        Op.AND
-      end
+      Absyn.AND(__) => Op.AND
 
-      Absyn.OR(__) => begin
-        Op.OR
-      end
+      Absyn.OR(__) => Op.OR
 
-      Absyn.NOT(__) => begin
-        Op.NOT
-      end
+      Absyn.NOT(__) => Op.NOT
 
-      Absyn.LESS(__) => begin
-        Op.LESS
-      end
+      Absyn.LESS(__) => Op.LESS
 
-      Absyn.LESSEQ(__) => begin
-        Op.LESSEQ
-      end
+      Absyn.LESSEQ(__) => Op.LESSEQ
 
-      Absyn.GREATER(__) => begin
-        Op.GREATER
-      end
+      Absyn.GREATER(__) => Op.GREATER
 
-      Absyn.GREATEREQ(__) => begin
-        Op.GREATEREQ
-      end
+      Absyn.GREATEREQ(__) => Op.GREATEREQ
 
-      Absyn.EQUAL(__) => begin
-        Op.EQUAL
-      end
+      Absyn.EQUAL(__) => Op.EQUAL
 
-      Absyn.NEQUAL(__) => begin
-        Op.NEQUAL
-      end
+      Absyn.NEQUAL(__) => Op.NEQUAL
     end
   end
   outOperator = OPERATOR(TYPE_UNKNOWN(), op)

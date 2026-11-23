@@ -471,9 +471,7 @@ function stringFlagData(inValues::List{<:String}, inExpectedType::Flags.FlagData
         Flags.BOOL_FLAG(b)
       end
 
-      ( nil(), Flags.BOOL_FLAG(__), _, _)  => begin
-        Flags.BOOL_FLAG(true)
-      end
+      ( nil(), Flags.BOOL_FLAG(__), _, _) => Flags.BOOL_FLAG(true)
 
       (s <|  nil(), Flags.INT_FLAG(__), _, _)  => begin
         i = stringInt(s)
@@ -486,9 +484,7 @@ function stringFlagData(inValues::List{<:String}, inExpectedType::Flags.FlagData
         Flags.INT_LIST_FLAG(ilst)
       end
 
-      (s <|  nil(), Flags.REAL_FLAG(__), _, _)  => begin
-        Flags.REAL_FLAG(System.stringReal(s))
-      end
+      (s <|  nil(), Flags.REAL_FLAG(__), _, _) => Flags.REAL_FLAG(System.stringReal(s))
 
       (s <|  nil(), Flags.STRING_FLAG(__), SOME(options), _)  => begin
         flags = getValidStringOptions(options)
@@ -496,13 +492,9 @@ function stringFlagData(inValues::List{<:String}, inExpectedType::Flags.FlagData
         Flags.STRING_FLAG(s)
       end
 
-      (s <|  nil(), Flags.STRING_FLAG(__), NONE(), _)  => begin
-        Flags.STRING_FLAG(s)
-      end
+      (s <|  nil(), Flags.STRING_FLAG(__), NONE(), _) => Flags.STRING_FLAG(s)
 
-      (_, Flags.STRING_LIST_FLAG(__), _, _)  => begin
-        Flags.STRING_LIST_FLAG(inValues)
-      end
+      (_, Flags.STRING_LIST_FLAG(__), _, _) => Flags.STRING_LIST_FLAG(inValues)
 
       (s <|  nil(), Flags.ENUM_FLAG(validValues = enums), _, _)  => begin
         i = Util.assoc(s, enums)
@@ -544,25 +536,15 @@ function printExpectedTypeStr(inType::Flags.FlagData) ::String
     local enums::List{Tuple{String, Integer}}
     local enum_strs::List{String}
     @match inType begin
-      Flags.BOOL_FLAG(__)  => begin
-        "a boolean value"
-      end
+      Flags.BOOL_FLAG(__) => "a boolean value"
 
-      Flags.INT_FLAG(__)  => begin
-        "an integer value"
-      end
+      Flags.INT_FLAG(__) => "an integer value"
 
-      Flags.REAL_FLAG(__)  => begin
-        "a floating-point value"
-      end
+      Flags.REAL_FLAG(__) => "a floating-point value"
 
-      Flags.STRING_FLAG(__)  => begin
-        "a string"
-      end
+      Flags.STRING_FLAG(__) => "a string"
 
-      Flags.STRING_LIST_FLAG(__)  => begin
-        "a comma-separated list of strings"
-      end
+      Flags.STRING_LIST_FLAG(__) => "a comma-separated list of strings"
 
       Flags.ENUM_FLAG(validValues = enums)  => begin
         enum_strs = ListUtil.map(enums, Util.tuple21, String)
@@ -581,9 +563,7 @@ function printActualTypeStr(inType::List{<:String}) ::String
     local s::String
     local i::Int
     @matchcontinue inType begin
-      nil()  => begin
-        "nothing"
-      end
+      nil() => "nothing"
 
       s <|  nil()  => begin
         Util.stringBool(s)
@@ -596,13 +576,9 @@ function printActualTypeStr(inType::List{<:String}) ::String
         "the number " + intString(i)
       end
 
-      s <|  nil()  => begin
-        "the string \"" + s + "\""
-      end
+      s <|  nil() => "the string \"" + s + "\""
 
-      _  => begin
-        "a list of values."
-      end
+      _ => "a list of values."
     end
   end
   #= intString returns 0 on failure, so this is to make sure that it
@@ -648,13 +624,9 @@ function getValidStringOptions(inOptions::Flags.ValidOptions) ::List{String}
   validOptions = begin
     local options::List{Tuple{String, Gettext.TranslatableContent}}
     @match inOptions begin
-      Flags.STRING_OPTION(validOptions)  => begin
-        validOptions
-      end
+      Flags.STRING_OPTION(validOptions) => validOptions
 
-      Flags.STRING_DESC_OPTION(options)  => begin
-        ListUtil.map(options, Util.tuple21, String)
-      end
+      Flags.STRING_DESC_OPTION(options) => ListUtil.map(options, Util.tuple21, String)
     end
   end
   validOptions

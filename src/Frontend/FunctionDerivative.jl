@@ -266,17 +266,11 @@ function getDerivativeAnnotations(definition::SCode.Element)::List{SCode.Mod}
       classDef = SCode.PARTS(
         externalDecl = SOME(SCode.EXTERNALDECL(annotation_ = SOME(ann))),
       ),
-    ) => begin
-      SCodeUtil.lookupNamedAnnotations(ann, "derivative")
-    end
+    ) => SCodeUtil.lookupNamedAnnotations(ann, "derivative")
 
-    SCode.CLASS(cmt = SCode.COMMENT(annotation_ = SOME(ann))) => begin
-      SCodeUtil.lookupNamedAnnotations(ann, "derivative")
-    end
+    SCode.CLASS(cmt = SCode.COMMENT(annotation_ = SOME(ann))) => SCodeUtil.lookupNamedAnnotations(ann, "derivative")
 
-    _ => begin
-      nil
-    end
+    _ => nil
   end
 end
 

@@ -226,9 +226,7 @@ function getExpandableConnectorsInConnector(c1::CONNECTOR)::List{CONNECTOR}
         ecl
       end
 
-      _ => begin
-        nil
-      end
+      _ => nil
     end
   end
   return ecl

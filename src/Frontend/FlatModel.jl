@@ -221,9 +221,7 @@ function collectExpFlatTypes_traverse(exp::Expression, types::TypeTree)::TypeTre
         types
       end
 
-      _ => begin
-        collectFlatType(typeOf(exp), types)
-      end
+      _ => collectFlatType(typeOf(exp), types)
     end
   end
   return types
@@ -294,9 +292,7 @@ function collectStatementFlatTypes(stmt::Statement, types::TypeTree)::TypeTree
        ()
      end
 
-     _ => begin
-       ()
-     end
+     _ => ()
    end
   return types
 end
@@ -317,9 +313,7 @@ function collectEqBranchFlatTypes(
       types = ArrayUtil.fold(branch.body, collectEquationFlatTypes, types, TypeTree)
       ()
     end
-    _ => begin
-      ()
-    end
+    _ => ()
   end
   return types
 end
@@ -378,9 +372,7 @@ function collectEquationFlatTypes(eq::Equation, types::TypeTree)::TypeTree
       ()
     end
 
-    _ => begin
-      ()
-    end
+    _ => ()
   end
   return types
 end
@@ -410,9 +402,7 @@ function collectFlatType(ty::ModelicaType, types::TypeTree)::TypeTree
     TYPE_COMPLEX(complexTy = COMPLEX_EXTERNAL_OBJECT(__)) =>  begin
       types = TypeTreeImpl.add(types, scopePath(ty.cls), ty)
     end
-    _ => begin
-      ()
-    end
+    _ => ()
   end
   return types
 end

@@ -131,9 +131,7 @@ function lookupOperatorFunctionsInType(operatorName::String, ty::ModelicaType)::
         end
         functions
       end
-      _ => begin
-        MODELICA_FUNCTION[]
-      end
+      _ => MODELICA_FUNCTION[]
     end
   end
   return functions
@@ -221,12 +219,8 @@ function patchOperatorRecordConstructorBinding_traverser(
   @match exp begin
     CALL_EXPRESSION(
       call = TYPED_CALL(fn = fn, ty = ty, arguments = args),
-    ) where {(referenceEq(constructorFn.node, fn.node))} => begin
-      makeRecord(name(constructorFn), ty, args)
-    end
+    ) where {(referenceEq(constructorFn.node, fn.node))} => makeRecord(name(constructorFn), ty, args)
 
-    _ => begin
-      exp
-    end
+    _ => exp
   end
 end

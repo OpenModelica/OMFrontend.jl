@@ -357,9 +357,7 @@ function partialInstClass(node::InstNode) ::InstNode
       end
       ()
     end
-    _  => begin
-      ()
-    end
+    _ => ()
   end
   node
 end
@@ -375,9 +373,7 @@ function partialInstClass2(definition::SCode.Element, scope::InstNode) ::Class
    prefs = instClassPrefixes(definition)
    cls = begin
     @match cdef begin
-      SCode.PARTS(__)  => begin
-        fromSCode(cdef.elementLst, false, scope, prefs)
-      end
+      SCode.PARTS(__) => fromSCode(cdef.elementLst, false, scope, prefs)
       SCode.CLASS_EXTENDS(composition = ce_cdef && SCode.PARTS(__))  => begin
         if ! SCodeUtil.isElementRedeclare(definition)
           Error.addSourceMessage(Error.CLASS_EXTENDS_MISSING_REDECLARE, list(SCodeUtil.elementName(definition)), SCodeUtil.elementInfo(definition))
@@ -389,9 +385,7 @@ function partialInstClass2(definition::SCode.Element, scope::InstNode) ::Class
          ty = makeEnumerationType(cdef.enumLst, scope)
         fromEnumeration(cdef.enumLst, ty, prefs, scope)
       end
-      _  => begin
-        PARTIAL_CLASS(CLASS_TREE_EMPTY_TREE(), MODIFIER_NOMOD(), prefs)
-      end
+      _ => PARTIAL_CLASS(CLASS_TREE_EMPTY_TREE(), MODIFIER_NOMOD(), prefs)
     end
   end
   cls
@@ -431,12 +425,8 @@ end
 function expandClass(node::InstNode) ::InstNode
   node = begin
     @match getClass(node) begin
-      PARTIAL_CLASS(__)  => begin
-        expandClass2(node)
-      end
-      _  => begin
-        node
-      end
+      PARTIAL_CLASS(__) => expandClass2(node)
+      _ => node
     end
   end
   node
@@ -451,17 +441,11 @@ function expandClass2(node::InstNode) ::InstNode
   @match SCode.CLASS(classDef = cdef, info = info) = def
    node = begin
     @match cdef begin
-      SCode.PARTS(__)  => begin
-        expandClassParts(def, node, info)
-      end
+      SCode.PARTS(__) => expandClassParts(def, node, info)
 
-      SCode.CLASS_EXTENDS(__)  => begin
-        expandClassParts(def, node, info)
-      end
+      SCode.CLASS_EXTENDS(__) => expandClassParts(def, node, info)
 
-      SCode.DERIVED(__)  => begin
-        expandClassDerived(def, cdef, node, info)
-      end
+      SCode.DERIVED(__) => expandClassDerived(def, cdef, node, info)
 
       #= A partial derivative of a function, function df = der(f, x): a short class definition
          of f here (omc expandClass2); the function knows its derived inputs (instFunction2). =#
@@ -539,9 +523,7 @@ function expandExtends(ext::InstNode, builtinExt::InstNode = EMPTY_NODE()) ::Tup
       ()
     end
 
-    _  => begin
-      ()
-    end
+    _ => ()
   end
   (ext, builtinExt)
 end
@@ -560,9 +542,7 @@ function checkExtendsLoop(node::InstNode, path::Absyn.Path, info::SourceInfo)
        fail()
      end
 
-     _  => begin
-       ()
-     end
+     _ => ()
    end
 end
 
@@ -1126,9 +1106,7 @@ function modifyExtends(extendsNode::InstNode, scope::InstNode)
         ()
       end
 
-      SCode.CLASS(__)  => begin
-        ()
-      end
+      SCode.CLASS(__) => ()
     end
   end
   applyModifier(ext_mod, cls_tree, extendsNode)
@@ -1324,9 +1302,7 @@ function redeclareClasses(tree::ClassTree, parent::InstNode) ::ClassTree
        end
        ()
      end
-     _  => begin
-       ()
-     end
+     _ => ()
    end
   tree
 end
@@ -1464,9 +1440,7 @@ function redeclareClass(redeclareNode::InstNode, originalNode::InstNode, outerMo
   else
     new_cls = begin
       @match (orig_cls, rdcl_cls) begin
-        (PARTIAL_BUILTIN(__), _)  => begin
-          redeclareEnum(rdcl_cls, orig_cls, prefs, outerMod, redeclareNode, originalNode)
-        end
+        (PARTIAL_BUILTIN(__), _) => redeclareEnum(rdcl_cls, orig_cls, prefs, outerMod, redeclareNode, originalNode)
 
         (_, PARTIAL_CLASS(__))  => begin
           @assign rdcl_cls.prefixes = prefs
@@ -1688,9 +1662,7 @@ function instConstrainingMod(element::SCode.Element, parent::InstNode) ::Modifie
     SCode.COMPONENT(prefixes = SCode.PREFIXES(replaceablePrefix = SCode.REPLACEABLE(cc = SOME(SCode.CONSTRAINCLASS(modifier = smod)))))  => begin
       create(smod, element.name, SCOPE_COMPONENT(element.name), nil, parent)
     end
-    _  => begin
-      MODIFIER_NOMOD()
-    end
+    _ => MODIFIER_NOMOD()
   end
 end
 
@@ -1909,9 +1881,7 @@ function checkDeclaredComponentAttributes(attr::Attributes, parentRestriction::R
        ()
      end
 
-     _  => begin
-       ()
-     end
+     _ => ()
    end
   attr
 end
@@ -2042,25 +2012,15 @@ function mergeRedeclaredClassPrefixes(origPrefs::PREFIXES, redeclPrefs::PREFIXES
     @match PREFIXES(enc, par, fin, rio, repl) = redeclPrefs
     io = begin
       @match (io, rio) begin
-        (Absyn.NOT_INNER_OUTER(__), _)  => begin
-          rio
-        end
+        (Absyn.NOT_INNER_OUTER(__), _) => rio
 
-        (_, Absyn.NOT_INNER_OUTER(__))  => begin
-          io
-        end
+        (_, Absyn.NOT_INNER_OUTER(__)) => io
 
-        (Absyn.INNER(__), Absyn.INNER(__))  => begin
-          io
-        end
+        (Absyn.INNER(__), Absyn.INNER(__)) => io
 
-        (Absyn.OUTER(__), Absyn.OUTER(__))  => begin
-          io
-        end
+        (Absyn.OUTER(__), Absyn.OUTER(__)) => io
 
-        (Absyn.INNER_OUTER(__), Absyn.INNER_OUTER(__))  => begin
-          io
-        end
+        (Absyn.INNER_OUTER(__), Absyn.INNER_OUTER(__)) => io
 
         _  => begin
           printRedeclarePrefixError(node, innerOuterString(innerOuterFromSCode(rio)), innerOuterString(innerOuterFromSCode(io)))
@@ -2122,9 +2082,7 @@ function isDiscreteClass(clsNode::InstNode) ::Bool
           false
         end
       end
-      _  => begin
-        isDiscrete(getType(cls, base_node))
-      end
+      _ => isDiscrete(getType(cls, base_node))
     end
   end
   discrete
@@ -2197,9 +2155,7 @@ function instDimension(dimension::Dimension, scope::InstNode, info::SourceInfo) 
       DIMENSION_RAW_DIM(dim = dim)  => begin
         begin
           @match dim begin
-            Absyn.NOSUB(__)  => begin
-              DIMENSION_UNKNOWN()
-            end
+            Absyn.NOSUB(__) => DIMENSION_UNKNOWN()
 
             Absyn.SUBSCRIPT(__)  => begin
               local dim_scope = dimension.scope
@@ -2210,9 +2166,7 @@ function instDimension(dimension::Dimension, scope::InstNode, info::SourceInfo) 
         end
       end
 
-      _  => begin
-        dimension
-      end
+      _ => dimension
     end
   end
   dimension
@@ -2576,13 +2530,9 @@ function instExpressions(node::InstNode,
       ()
     end
 
-    INSTANCED_BUILTIN(__)  => begin
-      ()
-    end
+    INSTANCED_BUILTIN(__) => ()
 
-    INSTANCED_CLASS(__)  => begin
-      ()
-    end
+    INSTANCED_CLASS(__) => ()
 
     _  => begin
       Error.assertion(false, getInstanceName() + " got invalid class", sourceInfo())
@@ -2599,12 +2549,8 @@ function makeComplexType(restriction::Restriction, node::InstNode, cls::Class)::
   local cty::ComplexType
   cty = begin
     @match restriction begin
-      RESTRICTION_RECORD(__)  => begin
-        makeRecordComplexType(classScope(getDerivedNode(node)), cls)
-      end
-      _  => begin
-        COMPLEX_CLASS()
-      end
+      RESTRICTION_RECORD(__) => makeRecordComplexType(classScope(getDerivedNode(node)), cls)
+      _ => COMPLEX_CLASS()
     end
   end
   TYPE_COMPLEX(node, cty)
@@ -2632,9 +2578,7 @@ function instComplexType(ty::ModelicaType)
        instRecordConstructor(node)
        ()
      end
-     _  => begin
-       ()
-     end
+     _ => ()
    end
 end
 
@@ -2642,9 +2586,7 @@ function instRecordConstructor(node::InstNode)
   local cache::CachedData
   cache = getFuncCache(node)
   @match cache begin
-    C_FUNCTION(__)  => begin
-      ()
-    end
+    C_FUNCTION(__) => ()
     _  => begin
       cacheInitFunc(node)
       if SCodeUtil.isOperatorRecord(definition(node))
@@ -2720,17 +2662,11 @@ function instComponentExpressions(componentArg::InstNode)::InstNode
       nothing
     end
 
-    UNTYPED_COMPONENT(__)  => begin
-      nothing
-    end
+    UNTYPED_COMPONENT(__) => nothing
 
-    ENUM_LITERAL_COMPONENT(__)  => begin
-      nothing
-    end
+    ENUM_LITERAL_COMPONENT(__) => nothing
 
-    TYPE_ATTRIBUTE(modifier = MODIFIER_NOMOD(__))  => begin
-      nothing
-    end
+    TYPE_ATTRIBUTE(modifier = MODIFIER_NOMOD(__)) => nothing
 
     TYPE_ATTRIBUTE(__)  => begin
       @assign c.modifier = instBuiltinAttribute(c.modifier, componentArg)
@@ -2750,18 +2686,14 @@ function instBinding(bindingVar::Binding)
     local bind_exp::Expression
     @match bindingVar begin
       #= Removed by a break (`x = break`, Modelica 3.6): unbound (omc instBinding). =#
-      RAW_BINDING(__) where {bindingVar.bindingExp isa Absyn.BREAK} => begin
-        EMPTY_BINDING
-      end
+      RAW_BINDING(__) where {bindingVar.bindingExp isa Absyn.BREAK} => EMPTY_BINDING
       RAW_BINDING(__)  => begin
         bind_exp = instExp(bindingVar.bindingExp, bindingVar.scope, bindingVar.info)
         #= TODO: Convert the array in binding exp to a vector =#
         bind_exp = BINDING_EXP(bind_exp, TYPE_UNKNOWN(), TYPE_UNKNOWN(), bindingVar.parents, bindingVar.isEach)
         UNTYPED_BINDING(bind_exp, false, bindingVar.scope, bindingVar.isEach, bindingVar.info)
       end
-      _  => begin
-        bindingVar
-      end
+      _ => bindingVar
     end
   end
   bindingVar
@@ -2770,12 +2702,8 @@ end
 function instExpOpt(absynExp::Option{<:Absyn.Exp}, scope::InstNode, info::SourceInfo) ::Option{Expression}
   local aexp::Absyn.Exp
   @match absynExp begin
-    NONE()  => begin
-      NONE()
-    end
-    SOME(aexp)  => begin
-      SOME(instExp(aexp, scope, info))
-    end
+    NONE() => NONE()
+    SOME(aexp) => SOME(instExp(aexp, scope, info))
   end
 end
 
@@ -2788,25 +2716,15 @@ end
   local expl::List{Expression}
   local expll::Vector{Vector{Expression}}
   @match absynExp begin
-    Absyn.INTEGER(__)  => begin
-      INTEGER_EXPRESSION(absynExp.value)
-    end
+    Absyn.INTEGER(__) => INTEGER_EXPRESSION(absynExp.value)
 
-    Absyn.REAL(__)  => begin
-      REAL_EXPRESSION(stringReal(absynExp.value))
-    end
+    Absyn.REAL(__) => REAL_EXPRESSION(stringReal(absynExp.value))
 
-    Absyn.STRING(__)  => begin
-      STRING_EXPRESSION(System.unescapedString(absynExp.value))
-    end
+    Absyn.STRING(__) => STRING_EXPRESSION(System.unescapedString(absynExp.value))
 
-    Absyn.BOOL(__)  => begin
-      BOOLEAN_EXPRESSION(absynExp.value)
-    end
+    Absyn.BOOL(__) => BOOLEAN_EXPRESSION(absynExp.value)
 
-    Absyn.CREF(__)  => begin
-      instCref(absynExp.componentRef, scope, info)
-    end
+    Absyn.CREF(__) => instCref(absynExp.componentRef, scope, info)
 
     Absyn.ARRAY(__)  => begin
       local expV = Expression[instExp(e, scope, info) for e in absynExp.arrayExp]
@@ -2879,17 +2797,11 @@ end
       IF_EXPRESSION(e1, e2, e3)
     end
 
-    Absyn.CALL(__)  => begin
-      instantiate(absynExp.function_, absynExp.functionArgs, scope, info)
-    end
+    Absyn.CALL(__) => instantiate(absynExp.function_, absynExp.functionArgs, scope, info)
 
-    Absyn.PARTEVALFUNCTION(__)  => begin
-      instPartEvalFunction(absynExp.function_, absynExp.functionArgs, scope, info)
-    end
+    Absyn.PARTEVALFUNCTION(__) => instPartEvalFunction(absynExp.function_, absynExp.functionArgs, scope, info)
 
-    Absyn.END(__)  => begin
-      END_EXPRESSION()
-    end
+    Absyn.END(__) => END_EXPRESSION()
 
     #= A subscripted parenthesized expression, `({1, 2, 3})[2]` (omc instExp). =#
     Absyn.SUBSCRIPTED_EXP(__)  => begin
@@ -2933,9 +2845,7 @@ function instCref(absynCref::Absyn.ComponentRef, scope::InstNode, info::SourceIn
       COMPONENT_REF_CREF(__)  => begin
         begin
           @match cref.node begin
-            COMPONENT_NODE(__)  => begin
-              instCrefComponent(cref, cref.node, found_scope, info)
-            end
+            COMPONENT_NODE(__) => instCrefComponent(cref, cref.node, found_scope, info)
             CLASS_NODE(__)  => begin
               if isFunction(getClass(cref.node))
                 instCrefFunction(cref, info)
@@ -2950,9 +2860,7 @@ function instCref(absynCref::Absyn.ComponentRef, scope::InstNode, info::SourceIn
           end
         end
       end
-      _  => begin
-        CREF_EXPRESSION(TYPE_UNKNOWN(), cref)
-      end
+      _ => CREF_EXPRESSION(TYPE_UNKNOWN(), cref)
     end
    end
   crefExp
@@ -3009,16 +2917,10 @@ function instCrefTypename(cref::ComponentRef, node::InstNode, info::SourceInfo):
    ty = getType(node)
    ty = begin
     @match ty begin
-      TYPE_BOOLEAN(__)  => begin
-        TYPE_ARRAY(ty, list(DIMENSION_BOOLEAN()))
-      end
-      TYPE_ENUMERATION(__)  => begin
-        TYPE_ARRAY(ty, list(DIMENSION_ENUM(ty)))
-      end
-      _  => begin
-        #Error.assertion(false, getInstanceName() + " got unknown class node " + name(node), sourceInfo())
-        fail()
-      end
+      TYPE_BOOLEAN(__) => TYPE_ARRAY(ty, list(DIMENSION_BOOLEAN()))
+      TYPE_ENUMERATION(__) => TYPE_ARRAY(ty, list(DIMENSION_ENUM(ty)))
+      #Error.assertion(false, getInstanceName() + " got unknown class node " + name(node), sourceInfo())
+      _ => fail()
     end
   end
    crefExp = TYPENAME_EXPRESSION(ty)
@@ -3059,9 +2961,7 @@ function instSubscript(subscript::Subscript, scope::InstNode, info::SourceInfo):
   @match SUBSCRIPT_RAW_SUBSCRIPT(subscript = absynSub) = subscript
   outSubscript = begin
     @match absynSub begin
-      Absyn.NOSUB(__)  => begin
-        SUBSCRIPT_WHOLE()
-      end
+      Absyn.NOSUB(__) => SUBSCRIPT_WHOLE()
       Absyn.SUBSCRIPT(__)  => begin
         exp = instExp(absynSub.subscript, scope, info)
         fromExp(exp)
@@ -3094,15 +2994,11 @@ function instSections(node::InstNode, scope::InstNode, sections::Sections, isFun
   local def::SCode.ClassDef
   sections = begin
     @match el begin
-      SCode.CLASS(classDef = SCode.PARTS(__))  => begin
-        instSections2(el.classDef, scope, sections, isFunction, connectBreaks)
-      end
+      SCode.CLASS(classDef = SCode.PARTS(__)) => instSections2(el.classDef, scope, sections, isFunction, connectBreaks)
       SCode.CLASS(classDef = SCode.CLASS_EXTENDS(composition = def && SCode.PARTS(__)))  => begin
         instSections2(def, scope, sections, isFunction, connectBreaks)
       end
-      _  => begin
-        sections
-      end
+      _ => sections
     end
   end
   sections
@@ -3179,21 +3075,13 @@ end
 """  Checks that the language declared for an external function is valid. """
 function checkExternalDeclLanguage(language::String, info::SourceInfo)
    @match language begin
-     "C"  => begin
-       ()
-     end
+     "C" => ()
 
-     "FORTRAN 77"  => begin
-       ()
-     end
+     "FORTRAN 77" => ()
 
-     "Fortran 77"  => begin
-       ()
-     end
+     "Fortran 77" => ()
 
-     "builtin"  => begin
-       ()
-     end
+     "builtin" => ()
 
      _  => begin
        #= The specification also allows for C89, C99, and C11, but our code
@@ -3407,9 +3295,7 @@ function checkIteratorShadowing(nameArg::String, scope::InstNode, infoArg::Sourc
       end
       ()
     end
-    _  => begin
-      ()
-    end
+    _ => ()
   end
 end
 
@@ -3713,9 +3599,7 @@ function isExpressionNotFixed(@nospecialize(exp::Expression); requireFinal::Bool
         isNotFixed
       end
 
-      _  => begin
-        containsShallow(exp, (@nospecialize(exp::Expression),) -> isExpressionNotFixed(exp))
-      end
+      _ => containsShallow(exp, (@nospecialize(exp::Expression),) -> isExpressionNotFixed(exp))
     end
   end
   return isNotFixed
@@ -3726,12 +3610,8 @@ end
 
 function markStructuralParamsDim(dimension::Dimension)::Nothing
   @match dimension begin
-    DIMENSION_UNTYPED(__)  => begin
-      markStructuralParamsExp(dimension.dimension)
-    end
-    DIMENSION_EXP(__)  => begin
-      markStructuralParamsExp(dimension.exp)
-    end
+    DIMENSION_UNTYPED(__) => markStructuralParamsExp(dimension.dimension)
+    DIMENSION_EXP(__) => markStructuralParamsExp(dimension.exp)
     _  => begin
     end
   end
@@ -3850,9 +3730,7 @@ function updateImplicitVariabilityEq(eq::Equation, inWhen::Bool = false)::Nothin
       end
       nothing
     end
-    _  => begin
-      nothing
-    end
+    _ => nothing
   end
 end
 
@@ -3870,9 +3748,7 @@ function markStructuralParamsSub(sub::Subscript, dummy::Int = 0) ::Int
        markStructuralParamsExp(sub.slice)
        ()
      end
-     _  => begin
-       ()
-     end
+     _ => ()
    end
   dummy
 end

@@ -75,9 +75,7 @@ function listKeys(inTree::Tree, lst::List{<:Key} = nil)
 
    lst = begin
     @match inTree begin
-      LEAF(__) => begin
-        Cons{Key}(inTree.key, lst)
-      end
+      LEAF(__) => Cons{Key}(inTree.key, lst)
 
       NODE(__) => begin
         lst = listKeys(inTree.right, lst)
@@ -86,9 +84,7 @@ function listKeys(inTree::Tree, lst::List{<:Key} = nil)
         lst
       end
 
-      _ => begin
-        lst
-      end
+      _ => lst
     end
   end
   return lst
@@ -99,9 +95,7 @@ function listKeysReverse(inTree::Tree, lst::List{<:Key} = nil)
 
    lst = begin
     @match inTree begin
-      LEAF(__) => begin
-        Cons{Key}(inTree.key, lst)
-      end
+      LEAF(__) => Cons{Key}(inTree.key, lst)
 
       NODE(__) => begin
         lst = listKeysReverse(inTree.left, lst)
@@ -110,9 +104,7 @@ function listKeysReverse(inTree::Tree, lst::List{<:Key} = nil)
         lst
       end
 
-      _ => begin
-        lst
-      end
+      _ => lst
     end
   end
   return lst
@@ -134,9 +126,7 @@ function balance(inTree::Tree)
     local diff::Int
     local balanced_tree::Tree
     @match outTree begin
-      LEAF(__) => begin
-        inTree
-      end
+      LEAF(__) => inTree
       NODE(__) => begin
         lh = height(outTree.left)
         rh = height(outTree.right)
@@ -175,32 +165,20 @@ end
 
 function height(inNode::Tree)::Int
    @match inNode begin
-     NODE(__) => begin
-       inNode.height
-     end
-     LEAF(__) => begin
-       1
-     end
-     _ => begin
-       0
-     end
+     NODE(__) => inNode.height
+     LEAF(__) => 1
+     _ => 0
    end
 end
 
 function calculateBalance(inNode::Tree)::Int
 
   @match inNode begin
-    NODE(__) => begin
-      height(inNode.left) - height(inNode.right)
-    end
+    NODE(__) => height(inNode.left) - height(inNode.right)
 
-    LEAF(__) => begin
-      0
-    end
+    LEAF(__) => 0
 
-    _ => begin
-      0
-    end
+    _ => 0
   end
 end
 
@@ -222,9 +200,7 @@ function rotateLeft(inNode::Tree)
         setTreeLeftRight(child, node, EMPTY())
       end
 
-      _ => begin
-        inNode
-      end
+      _ => inNode
     end
   end
   return outNode
@@ -246,9 +222,7 @@ function rotateRight(inNode::Tree)::Tree
         node = setTreeLeftRight(outNode, EMPTY(), outNode.right)
         setTreeLeftRight(child, EMPTY(), node)
       end
-      _ => begin
-        inNode
-      end
+      _ => inNode
     end
   end
   return outNode
@@ -390,12 +364,8 @@ function toList(
          lst = toList(inTree.left, lst)
         lst
       end
-      LEAF(key = key, value = value) => begin
-        Cons{Tuple{Key, Value}}((key, value), lst)
-      end
-      _ => begin
-        lst
-      end
+      LEAF(key = key, value = value) => Cons{Tuple{Key, Value}}((key, value), lst)
+      _ => lst
     end
   end
   return lst
@@ -412,12 +382,8 @@ function listValues(tree::Tree, lst::List{T} = nil) where {T <: Value}
         lst = listValues(tree.left, lst)
         lst
       end
-      LEAF(value = value) => begin
-        Cons{Value}(value, lst)
-      end
-      _ => begin
-        lst
-      end
+      LEAF(value = value) => Cons{Value}(value, lst)
+      _ => lst
     end
   end
   return lst
@@ -435,12 +401,8 @@ function vectorValues!(tree::Tree, vec::Vector{T} = Value[]) where {T <: Value}
       vectorValues!(tree.left, vec)
       vec
     end
-    LEAF(value = value) => begin
-      push!(vec, value)
-    end
-    _ => begin
-      vec
-    end
+    LEAF(value = value) => push!(vec, value)
+    _ => vec
   end
   return reverse!(vec)
 end
@@ -453,9 +415,7 @@ function join(
   )
    tree = begin
     @match treeToJoin begin
-      EMPTY(__) => begin
-        tree
-      end
+      EMPTY(__) => tree
       NODE(__) => begin
          tree = add(tree, treeToJoin.key, treeToJoin.value, conflictFunc)
          tree = join(tree, treeToJoin.left, conflictFunc)
@@ -463,9 +423,7 @@ function join(
         tree
       end
 
-      LEAF(__) => begin
-        add(tree, treeToJoin.key, treeToJoin.value, conflictFunc)
-      end
+      LEAF(__) => add(tree, treeToJoin.key, treeToJoin.value, conflictFunc)
     end
   end
   return tree
@@ -490,9 +448,7 @@ function forEach(tree::Tree, func::Function)
         ()
       end
 
-      EMPTY(__) => begin
-        ()
-      end
+      EMPTY(__) => ()
     end
   end
 end
@@ -530,9 +486,7 @@ function map(inTree::Tree, inFunc::Function)::Tree
           LEAF(key, new_value)
         end
       end
-      _ => begin
-        inTree
-      end
+      _ => inTree
     end
   end
   return outTree
@@ -558,9 +512,7 @@ function fold(inTree::Tree, inFunc::Function, inStartValue::FT) where {FT}
         outResult = inFunc(key, value, outResult)
         outResult
       end
-      _ => begin
-        outResult
-      end
+      _ => outResult
     end
   end
   return outResult
@@ -587,9 +539,7 @@ function fold_2(
        ()
      end
 
-     _ => begin
-       ()
-     end
+     _ => ()
    end
   return (foldArg1, foldArg2)
 end
@@ -617,9 +567,7 @@ function foldCond(tree::Tree, foldFunc::Function, value::FT) where {FT}
         value
       end
 
-      _ => begin
-        value
-      end
+      _ => value
     end
   end
   return value
@@ -659,9 +607,7 @@ function mapFold(inTree::Tree, inFunc::Function, inStartValue::FT) where {FT}
         end
       end
 
-      _ => begin
-        inTree
-      end
+      _ => inTree
     end
   end
   return (outTree, outResult)
@@ -671,13 +617,9 @@ function setTreeLeftRight(orig::Tree, left::Tree = EMPTY(), right::Tree = EMPTY(
   local res::Tree
   res = begin
     @match (orig, left, right) begin
-      (NODE(__), EMPTY(__), EMPTY(__)) => begin
-        LEAF(orig.key, orig.value)
-      end
+      (NODE(__), EMPTY(__), EMPTY(__)) => LEAF(orig.key, orig.value)
 
-      (LEAF(__), EMPTY(__), EMPTY(__)) => begin
-        orig
-      end
+      (LEAF(__), EMPTY(__), EMPTY(__)) => orig
 
       (NODE(__), _, _) => begin
         if referenceEqOrEmpty(orig.left, left) && referenceEqOrEmpty(orig.right, right)
@@ -687,9 +629,7 @@ function setTreeLeftRight(orig::Tree, left::Tree = EMPTY(), right::Tree = EMPTY(
         end
       end
 
-      (LEAF(__), _, _) => begin
-        NODE(orig.key, orig.value, max(height(left), height(right)) + 1, left, right)
-      end
+      (LEAF(__), _, _) => NODE(orig.key, orig.value, max(height(left), height(right)) + 1, left, right)
     end
   end
   return res

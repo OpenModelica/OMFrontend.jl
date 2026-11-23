@@ -109,57 +109,25 @@ function checkBinaryOperation(
   else
      (binaryExp, resultType) = begin
        @match operator.op begin
-         Op.ADD => begin
-           checkBinaryOperationAdd(exp1, type1, exp2, type2, info)
-         end
-         Op.SUB => begin
-           checkBinaryOperationSub(exp1, type1, exp2, type2, info)
-         end
-         Op.MUL => begin
-           checkBinaryOperationMul(exp1, type1, exp2, type2, info)
-         end
-         Op.DIV => begin
-           checkBinaryOperationDiv(exp1, type1, exp2, type2, info, false)
-         end
-         Op.POW => begin
-           checkBinaryOperationPow(exp1, type1, exp2, type2, info)
-         end
-         Op.ADD_EW => begin
-           checkBinaryOperationEW(exp1, type1, exp2, type2, Op.ADD, info)
-         end
-         Op.SUB_EW => begin
-           checkBinaryOperationEW(exp1, type1, exp2, type2, Op.SUB, info)
-         end
-         Op.MUL_EW => begin
-           checkBinaryOperationEW(exp1, type1, exp2, type2, Op.MUL, info)
-         end
-         Op.DIV_EW => begin
-           checkBinaryOperationDiv(exp1, type1, exp2, type2, info, true)
-         end
-         Op.POW_EW => begin
-           checkBinaryOperationPowEW(exp1, type1, exp2, type2, info)
-         end
+         Op.ADD => checkBinaryOperationAdd(exp1, type1, exp2, type2, info)
+         Op.SUB => checkBinaryOperationSub(exp1, type1, exp2, type2, info)
+         Op.MUL => checkBinaryOperationMul(exp1, type1, exp2, type2, info)
+         Op.DIV => checkBinaryOperationDiv(exp1, type1, exp2, type2, info, false)
+         Op.POW => checkBinaryOperationPow(exp1, type1, exp2, type2, info)
+         Op.ADD_EW => checkBinaryOperationEW(exp1, type1, exp2, type2, Op.ADD, info)
+         Op.SUB_EW => checkBinaryOperationEW(exp1, type1, exp2, type2, Op.SUB, info)
+         Op.MUL_EW => checkBinaryOperationEW(exp1, type1, exp2, type2, Op.MUL, info)
+         Op.DIV_EW => checkBinaryOperationDiv(exp1, type1, exp2, type2, info, true)
+         Op.POW_EW => checkBinaryOperationPowEW(exp1, type1, exp2, type2, info)
          #= Typed operators: an already typed expression is typed again after its operands
             changed (size() of a function argument during evaluation; omc checkBinaryOperation). =#
-         Op.ADD_SCALAR_ARRAY || Op.ADD_ARRAY_SCALAR => begin
-           checkBinaryOperationEW(exp1, type1, exp2, type2, Op.ADD, info)
-         end
-         Op.SUB_SCALAR_ARRAY || Op.SUB_ARRAY_SCALAR => begin
-           checkBinaryOperationEW(exp1, type1, exp2, type2, Op.SUB, info)
-         end
+         Op.ADD_SCALAR_ARRAY || Op.ADD_ARRAY_SCALAR => checkBinaryOperationEW(exp1, type1, exp2, type2, Op.ADD, info)
+         Op.SUB_SCALAR_ARRAY || Op.SUB_ARRAY_SCALAR => checkBinaryOperationEW(exp1, type1, exp2, type2, Op.SUB, info)
          Op.MUL_SCALAR_ARRAY || Op.MUL_ARRAY_SCALAR || Op.MUL_VECTOR_MATRIX || Op.MUL_MATRIX_VECTOR ||
-         Op.SCALAR_PRODUCT || Op.MATRIX_PRODUCT => begin
-           checkBinaryOperationMul(exp1, type1, exp2, type2, info)
-         end
-         Op.DIV_SCALAR_ARRAY || Op.DIV_ARRAY_SCALAR => begin
-           checkBinaryOperationDiv(exp1, type1, exp2, type2, info, true)
-         end
-         Op.POW_SCALAR_ARRAY || Op.POW_ARRAY_SCALAR => begin
-           checkBinaryOperationPowEW(exp1, type1, exp2, type2, info)
-         end
-         Op.POW_MATRIX => begin
-           checkBinaryOperationPow(exp1, type1, exp2, type2, info)
-         end
+         Op.SCALAR_PRODUCT || Op.MATRIX_PRODUCT => checkBinaryOperationMul(exp1, type1, exp2, type2, info)
+         Op.DIV_SCALAR_ARRAY || Op.DIV_ARRAY_SCALAR => checkBinaryOperationDiv(exp1, type1, exp2, type2, info, true)
+         Op.POW_SCALAR_ARRAY || Op.POW_ARRAY_SCALAR => checkBinaryOperationPowEW(exp1, type1, exp2, type2, info)
+         Op.POW_MATRIX => checkBinaryOperationPow(exp1, type1, exp2, type2, info)
          _ =>  begin
            Error.addInternalError("checkBinaryOperation got operator " + symbol(operator), info)
            fail()
@@ -614,9 +582,7 @@ function checkOverloadedBinaryArrayMul(
         (valid, outExp)
       end
 
-      _ => begin
-        (false, BINARY_EXPRESSION(exp1, op, exp2))
-      end
+      _ => (false, BINARY_EXPRESSION(exp1, op, exp2))
     end
   end
   #= scalar * scalar should never get here.
@@ -1213,21 +1179,13 @@ function checkBinaryOperationAdd(
   valid = isCompatibleMatch(mk)
   valid = begin
     @match arrayElementType(resultType) begin
-      TYPE_INTEGER(__) => begin
-        valid
-      end
+      TYPE_INTEGER(__) => valid
 
-      TYPE_REAL(__) => begin
-        valid
-      end
+      TYPE_REAL(__) => valid
 
-      TYPE_STRING(__) => begin
-        valid
-      end
+      TYPE_STRING(__) => valid
 
-      _ => begin
-        false
-      end
+      _ => false
     end
   end
   binaryExp =
@@ -1257,17 +1215,11 @@ function checkBinaryOperationSub(
   valid = isCompatibleMatch(mk)
   valid = begin
     @match arrayElementType(resultType) begin
-      TYPE_INTEGER(__) => begin
-        valid
-      end
+      TYPE_INTEGER(__) => valid
 
-      TYPE_REAL(__) => begin
-        valid
-      end
+      TYPE_REAL(__) => valid
 
-      _ => begin
-        false
-      end
+      _ => false
     end
   end
   binaryExp =
@@ -1308,34 +1260,22 @@ end
   valid = isCompatibleMatch(mk)
   valid = begin
     @match resultType begin
-      TYPE_INTEGER(__) => begin
-        valid
-      end
+      TYPE_INTEGER(__) => valid
 
-      TYPE_REAL(__) => begin
-        valid
-      end
+      TYPE_REAL(__) => valid
 
-      _ => begin
-        false
-      end
+      _ => false
     end
   end
   dims1 = arrayDims(type1)
   dims2 = arrayDims(type2)
   (resultType, op) = begin
     @match (dims1, dims2) begin
-      (nil(), nil()) => begin
-        (resultType, Op.MUL)
-      end
+      (nil(), nil()) => (resultType, Op.MUL)
 
-      (nil(), _) => begin
-        (TYPE_ARRAY(resultType, dims2), Op.MUL_SCALAR_ARRAY)
-      end
+      (nil(), _) => (TYPE_ARRAY(resultType, dims2), Op.MUL_SCALAR_ARRAY)
 
-      (_, nil()) => begin
-        (TYPE_ARRAY(resultType, dims1), Op.MUL_ARRAY_SCALAR)
-      end
+      (_, nil()) => (TYPE_ARRAY(resultType, dims1), Op.MUL_ARRAY_SCALAR)
 
       (dim11 <| nil(), dim21 <| nil()) => begin
         #= scalar * scalar = scalar
@@ -1405,17 +1345,11 @@ function checkBinaryOperationDiv(
      which operands they accept. =#
    (resultType, op) = begin
     @match (isArray(ty1), isArray(ty2), isElementWise) begin
-      (false, false, _) => begin
-        (ty1, makeDiv(ty1))
-      end
+      (false, false, _) => (ty1, makeDiv(ty1))
 
-      (_, false, _) => begin
-        (ty1, OPERATOR(ty1, Op.DIV_ARRAY_SCALAR))
-      end
+      (_, false, _) => (ty1, OPERATOR(ty1, Op.DIV_ARRAY_SCALAR))
 
-      (false, _, true) => begin
-        (ty2, OPERATOR(ty2, Op.DIV_SCALAR_ARRAY))
-      end
+      (false, _, true) => (ty2, OPERATOR(ty2, Op.DIV_SCALAR_ARRAY))
 
       (true, _, true) => begin
         #= array ./ array: both dimensions must be compatible. Op.DIV_EW, not Op.DIV with an array type (omc): a
@@ -1506,17 +1440,11 @@ function checkBinaryOperationPowEW(
   valid = valid && isCompatibleMatch(mk)
    (resultType, op) = begin
     @match (isArray(ty1), isArray(ty2)) begin
-      (false, false) => begin
-        (ty1, makePow(ty1))
-      end
+      (false, false) => (ty1, makePow(ty1))
 
-      (_, false) => begin
-        (ty1, OPERATOR(ty1, Op.POW_ARRAY_SCALAR))
-      end
+      (_, false) => (ty1, OPERATOR(ty1, Op.POW_ARRAY_SCALAR))
 
-      (false, _) => begin
-        (ty2, OPERATOR(ty2, Op.POW_SCALAR_ARRAY))
-      end
+      (false, _) => (ty2, OPERATOR(ty2, Op.POW_SCALAR_ARRAY))
 
       _ => begin
         #= array .^ array: both dimensions must be compatible. Op.POW_EW, not Op.POW with an array type (omc): a
@@ -1568,21 +1496,13 @@ function checkBinaryOperationEW(
   #= Check that the type is valid for the operation. =#
   valid = begin
     @match (arrayElementType(resultType), elemOp) begin
-      (TYPE_INTEGER(__), _) => begin
-        valid
-      end
+      (TYPE_INTEGER(__), _) => valid
 
-      (TYPE_REAL(__), _) => begin
-        valid
-      end
+      (TYPE_REAL(__), _) => valid
 
-      (TYPE_STRING(__), Op.ADD) => begin
-        valid
-      end
+      (TYPE_STRING(__), Op.ADD) => valid
 
-      _ => begin
-        false
-      end
+      _ => false
     end
   end
   (resultType, op) = begin
@@ -1601,15 +1521,11 @@ function checkBinaryOperationEW(
         (resultType, op)
       end
 
-      (true, true) => begin
-        #= array * array => Op.{elemOp}_EW (omc f3c163ba5b: the flat model keeps `.*`, not the matrix product `*`). =#
-        (resultType, makeEW(OPERATOR(resultType, elemOp)))
-      end
+      #= array * array => Op.{elemOp}_EW (omc f3c163ba5b: the flat model keeps `.*`, not the matrix product `*`). =#
+      (true, true) => (resultType, makeEW(OPERATOR(resultType, elemOp)))
 
-      _ => begin
-        #= scalar * scalar => Op.{elemOp}. =#
-        (resultType, OPERATOR(resultType, elemOp))
-      end
+      #= scalar * scalar => Op.{elemOp}. =#
+      _ => (resultType, OPERATOR(resultType, elemOp))
     end
   end
   binaryExp = BINARY_EXPRESSION(e1, op, e2)
@@ -1640,13 +1556,9 @@ function checkUnaryOperation(
   op = setType(unaryType, operator)
   unaryExp = begin
     @match operator.op begin
-      Op.ADD => begin
-        exp1
-      end
+      Op.ADD => exp1
 
-      _ => begin
-        UNARY_EXPRESSION(op, exp1)
-      end
+      _ => UNARY_EXPRESSION(op, exp1)
     end
   end
   #= + is a no-op for arithmetic unary operations. =#
@@ -1806,9 +1718,7 @@ function checkRelationOperation(
     RELATION_EXPRESSION(e1, setType(ty, operator), e2)
   valid = begin
     @match ty begin
-      TYPE_INTEGER(__) => begin
-        valid
-      end
+      TYPE_INTEGER(__) => valid
 
       TYPE_REAL(__) => begin
         #=  Print a warning for == or <> with Real operands in a model. =#
@@ -1827,21 +1737,13 @@ function checkRelationOperation(
         valid
       end
 
-      TYPE_STRING(__) => begin
-        valid
-      end
+      TYPE_STRING(__) => valid
 
-      TYPE_BOOLEAN(__) => begin
-        valid
-      end
+      TYPE_BOOLEAN(__) => valid
 
-      TYPE_ENUMERATION(__) => begin
-        valid
-      end
+      TYPE_ENUMERATION(__) => valid
 
-      _ => begin
-        false
-      end
+      _ => false
     end
   end
   if !valid
@@ -2040,34 +1942,22 @@ end
   matchKind = MatchKind.EXACT
   compatibleType = begin
     @match actualType begin
-      TYPE_INTEGER(__) => begin
-        actualType
-      end
+      TYPE_INTEGER(__) => actualType
 
-      TYPE_REAL(__) => begin
-        actualType
-      end
+      TYPE_REAL(__) => actualType
 
-      TYPE_STRING(__) => begin
-        actualType
-      end
+      TYPE_STRING(__) => actualType
 
-      TYPE_BOOLEAN(__) => begin
-        actualType
-      end
+      TYPE_BOOLEAN(__) => actualType
 
-      TYPE_CLOCK(__) => begin
-        actualType
-      end
+      TYPE_CLOCK(__) => actualType
 
       TYPE_ENUMERATION(__) => begin
         matchKind = matchEnumerationTypes(actualType, expectedType)
         actualType
       end
 
-      TYPE_ENUMERATION_ANY(__) => begin
-        actualType
-      end
+      TYPE_ENUMERATION_ANY(__) => actualType
 
       TYPE_ARRAY(__) => begin
          (expression, compatibleType, matchKind) =
@@ -2153,34 +2043,22 @@ function matchTypesRef(
   matchKind = MatchKind.EXACT
   compatibleType = begin
     @match actualType begin
-      TYPE_INTEGER(__) => begin
-        actualType
-      end
+      TYPE_INTEGER(__) => actualType
 
-      TYPE_REAL(__) => begin
-        actualType
-      end
+      TYPE_REAL(__) => actualType
 
-      TYPE_STRING(__) => begin
-        actualType
-      end
+      TYPE_STRING(__) => actualType
 
-      TYPE_BOOLEAN(__) => begin
-        actualType
-      end
+      TYPE_BOOLEAN(__) => actualType
 
-      TYPE_CLOCK(__) => begin
-        actualType
-      end
+      TYPE_CLOCK(__) => actualType
 
       TYPE_ENUMERATION(__) => begin
         matchKind = matchEnumerationTypes(actualType, expectedType)
         actualType
       end
 
-      TYPE_ENUMERATION_ANY(__) => begin
-        actualType
-      end
+      TYPE_ENUMERATION_ANY(__) => actualType
 
       TYPE_ARRAY(__) => begin
         expression = matchArrayTypesRef(actualType, expectedType, expression, refTyExp, refMatchKind, allowUnknown)
@@ -2277,9 +2155,7 @@ function matchTypes_castRef(
         if isCompatibleMatch(matchKind)
           expression = begin
             @match expression begin
-              TUPLE_EXPRESSION(__) => begin
-                listHead(expression.elements)
-              end
+              TUPLE_EXPRESSION(__) => listHead(expression.elements)
 
               _ => begin
                 TUPLE_ELEMENT_EXPRESSION(
@@ -2477,9 +2353,7 @@ function matchExpressions_cast(
         (box(type2), MatchKind.GENERIC)
       end
 
-      _ => begin
-        (TYPE_UNKNOWN(), MatchKind.NOT_COMPATIBLE)
-      end
+      _ => (TYPE_UNKNOWN(), MatchKind.NOT_COMPATIBLE)
     end
   end
   return (exp1, exp2, compatibleType, matchKind)
@@ -3077,9 +2951,7 @@ function matchTypes_cast(
         if isCompatibleMatch(matchKind)
           expression = begin
             @match expression begin
-              TUPLE_EXPRESSION(__) => begin
-                listHead(expression.elements)
-              end
+              TUPLE_EXPRESSION(__) => listHead(expression.elements)
 
               _ => begin
                 TUPLE_ELEMENT_EXPRESSION(
@@ -3150,13 +3022,9 @@ function matchTypes_cast(
         (expectedType, MatchKind.GENERIC)
       end
 
-      (_, TYPE_ANY(__)) => begin
-        (expectedType, MatchKind.EXACT)
-      end
+      (_, TYPE_ANY(__)) => (expectedType, MatchKind.EXACT)
 
-      _ => begin
-        (TYPE_UNKNOWN(), MatchKind.NOT_COMPATIBLE)
-      end
+      _ => (TYPE_UNKNOWN(), MatchKind.NOT_COMPATIBLE)
     end
   end
   #= Expected type is any, any actual type matches.
@@ -3177,13 +3045,9 @@ function getRangeType(
 
   dim = begin
     @match rangeElemType begin
-      TYPE_INTEGER(__) => begin
-        getRangeTypeInt(startExp, stepExp, stopExp, info)
-      end
+      TYPE_INTEGER(__) => getRangeTypeInt(startExp, stepExp, stopExp, info)
 
-      TYPE_REAL(__) => begin
-        getRangeTypeReal(startExp, stepExp, stopExp, info)
-      end
+      TYPE_REAL(__) => getRangeTypeReal(startExp, stepExp, stopExp, info)
 
       TYPE_BOOLEAN(__) => begin
         if isSome(stepExp)
@@ -3233,9 +3097,7 @@ function getRangeTypeInt(
   local dim_exp::Expression
   local var::VariabilityType
   @match (startExp, stepExp, stopExp) begin
-    (INTEGER_EXPRESSION(__), NONE(), INTEGER_EXPRESSION(__)) => begin
-      fromInteger(max(stopExp.value - startExp.value + 1, 0))
-    end
+    (INTEGER_EXPRESSION(__), NONE(), INTEGER_EXPRESSION(__)) => fromInteger(max(stopExp.value - startExp.value + 1, 0))
 
     (
       INTEGER_EXPRESSION(__),
@@ -3258,9 +3120,7 @@ function getRangeTypeInt(
       fromExp(dim_exp, variability(dim_exp))
     end
 
-    (_, NONE(), _) where {(isEqual(startExp, stopExp))} => begin
-      fromInteger(1)
-    end
+    (_, NONE(), _) where {(isEqual(startExp, stopExp))} => fromInteger(1)
 
     _ => begin
       #= Ranges like n:n have size 1.
@@ -3342,9 +3202,7 @@ function getRangeTypeReal(
       ))
     end
 
-    (_, NONE(), _) where {(isEqual(startExp, stopExp))} => begin
-      fromInteger(1)
-    end
+    (_, NONE(), _) where {(isEqual(startExp, stopExp))} => fromInteger(1)
 
     _ => begin
       dim_exp = BINARY_EXPRESSION(
@@ -3458,9 +3316,7 @@ end
         fromInteger(max(stopExp.index - startExp.index + 1, 0))
       end
 
-      (ENUM_LITERAL_EXPRESSION(index = 1), _) => begin
-        fromExp(stopExp, variability(stopExp))
-      end
+      (ENUM_LITERAL_EXPRESSION(index = 1), _) => fromExp(stopExp, variability(stopExp))
 
       _ => begin
         if isEqual(startExp, stopExp)
@@ -3546,9 +3402,7 @@ function matchBinding(
       ()
     end
 
-    UNBOUND(__) => begin
-      ()
-    end
+    UNBOUND(__) => ()
     _ => begin
       binding = BINDING_ERROR()
     end
@@ -3616,15 +3470,11 @@ end
 @nospecializeinfer function checkDimensionType(@nospecialize(exp::Expression), ty::ModelicaType, info::SourceInfo)
   return if !isInteger(ty)
      @match exp begin
-       TYPENAME_EXPRESSION(ty = TYPE_ARRAY(elementType = TYPE_BOOLEAN(__))) => begin
-         ()
-       end
+       TYPENAME_EXPRESSION(ty = TYPE_ARRAY(elementType = TYPE_BOOLEAN(__))) => ()
 
        TYPENAME_EXPRESSION(
          ty = TYPE_ARRAY(elementType = TYPE_ENUMERATION(__)),
-       ) => begin
-         ()
-       end
+       ) => ()
 
        _ => begin
          Error.addSourceMessage(
@@ -3645,21 +3495,13 @@ end
       Absyn.IDENT("sum") => begin
         begin
           @match arrayElementType(ty) begin
-            TYPE_INTEGER(__) => begin
-              ""
-            end
+            TYPE_INTEGER(__) => ""
 
-            TYPE_REAL(__) => begin
-              ""
-            end
+            TYPE_REAL(__) => ""
 
-            TYPE_COMPLEX(__) where {(checkSumComplexType(ty, exp, info))} => begin
-              ""
-            end
+            TYPE_COMPLEX(__) where {(checkSumComplexType(ty, exp, info))} => ""
 
-            _ => begin
-              "Integer or Real, or operator record"
-            end
+            _ => "Integer or Real, or operator record"
           end
         end
       end
@@ -3667,17 +3509,11 @@ end
       Absyn.IDENT("product") => begin
         begin
           @match ty begin
-            TYPE_INTEGER(__) => begin
-              ""
-            end
+            TYPE_INTEGER(__) => ""
 
-            TYPE_REAL(__) => begin
-              ""
-            end
+            TYPE_REAL(__) => ""
 
-            _ => begin
-              "scalar Integer or Real"
-            end
+            _ => "scalar Integer or Real"
           end
         end
       end
@@ -3685,25 +3521,15 @@ end
       Absyn.IDENT("min") => begin
         begin
           @match ty begin
-            TYPE_INTEGER(__) => begin
-              ""
-            end
+            TYPE_INTEGER(__) => ""
 
-            TYPE_REAL(__) => begin
-              ""
-            end
+            TYPE_REAL(__) => ""
 
-            TYPE_BOOLEAN(__) => begin
-              ""
-            end
+            TYPE_BOOLEAN(__) => ""
 
-            TYPE_ENUMERATION(__) => begin
-              ""
-            end
+            TYPE_ENUMERATION(__) => ""
 
-            _ => begin
-              "scalar enumeration, Boolean, Integer, or Real"
-            end
+            _ => "scalar enumeration, Boolean, Integer, or Real"
           end
         end
       end
@@ -3711,32 +3537,20 @@ end
       Absyn.IDENT("max") => begin
         begin
           @match ty begin
-            TYPE_INTEGER(__) => begin
-              ""
-            end
+            TYPE_INTEGER(__) => ""
 
-            TYPE_REAL(__) => begin
-              ""
-            end
+            TYPE_REAL(__) => ""
 
-            TYPE_BOOLEAN(__) => begin
-              ""
-            end
+            TYPE_BOOLEAN(__) => ""
 
-            TYPE_ENUMERATION(__) => begin
-              ""
-            end
+            TYPE_ENUMERATION(__) => ""
 
-            _ => begin
-              "scalar enumeration, Boolean, Integer, or Real"
-            end
+            _ => "scalar enumeration, Boolean, Integer, or Real"
           end
         end
       end
 
-      _ => begin
-        ""
-      end
+      _ => ""
     end
   end
   return if !stringEmpty(err)

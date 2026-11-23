@@ -228,9 +228,7 @@ function evaluateDimension(dim::Dimension)::Dimension
       end
     end
 
-    _ => begin
-      dim
-    end
+    _ => dim
   end
 end
 
@@ -298,9 +296,7 @@ function evaluateEquation(@nospecialize(eq::Equation), constVariability::Variabi
         local eqExp = evaluateExp(eq.exp, constVariability)
         EQUATION_NORETCALL(eqExp, eq.source)
       end
-      _ => begin
-        eq
-      end
+      _ => eq
     end
   end
   return eq
@@ -317,9 +313,7 @@ function evaluateEqBranch(branch::EquationBranch, constVariability::VariabilityT
         body = evaluateEquations(body, constVariability)
         EQUATION_BRANCH(condition, branch.conditionVar, body)
       end
-      _ => begin
-        branch
-      end
+      _ => branch
     end
   end
   return outBranch
@@ -408,9 +402,7 @@ function evaluateStatement(stmt::Statement, constVariability::VariabilityType)::
         @assign stmt.body = evaluateStatements(stmt.body, constVariability)
         stmt
       end
-      _ => begin
-        stmt
-      end
+      _ => stmt
     end
   end
   return stmt

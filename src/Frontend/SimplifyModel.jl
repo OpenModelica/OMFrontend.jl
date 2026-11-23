@@ -125,9 +125,7 @@ function simplifyDimension(dim::Dimension)::Dimension
         fromExp(e, dim.var)
       end
     end
-    _ => begin
-      dim
-    end
+    _ => dim
   end
 end
 
@@ -156,9 +154,7 @@ function simplifyEquation(@nospecialize(eq::Equation), equations::Vector{Equatio
     local rhs::Expression
     local ty::ModelicaType
     @match eq begin
-      EQUATION_EQUALITY(__) => begin
-        simplifyEqualityEquation(eq, equations)
-      end
+      EQUATION_EQUALITY(__) => simplifyEqualityEquation(eq, equations)
 
       EQUATION_ARRAY_EQUALITY(__) => begin
         ty = mapDims(eq.ty, simplifyDimension)
@@ -183,9 +179,7 @@ function simplifyEquation(@nospecialize(eq::Equation), equations::Vector{Equatio
         end
       end
 
-      EQUATION_IF(__) => begin
-        simplifyIfEqBranches(eq.branches, eq.source, equations)
-      end
+      EQUATION_IF(__) => simplifyIfEqBranches(eq.branches, eq.source, equations)
 
       EQUATION_WHEN(__) => begin
         @assign eq.branches = EquationBranch[simplifyBranch(b) for b in eq.branches]
@@ -215,9 +209,7 @@ function simplifyEquation(@nospecialize(eq::Equation), equations::Vector{Equatio
         equations
       end
 
-      _ => begin
-        push!(equations, eq)
-      end
+      _ => push!(equations, eq)
     end
   end
   return equations
@@ -256,9 +248,7 @@ function simplifyEqualityEquation(eq::Equation, equations::Vector{Equation})
         )
       end
 
-      _ => begin
-        push!(equations, EQUATION_EQUALITY(lhs, rhs, ty, src))
-      end
+      _ => push!(equations, EQUATION_EQUALITY(lhs, rhs, ty, src))
     end
   end
   return equations
@@ -295,9 +285,7 @@ function simplifyStatement(stmt::Statement, statements::Vector{Statement})
     local ty::ModelicaType
     local dim::Dimension
     @match stmt begin
-      ALG_ASSIGNMENT(__) => begin
-        simplifyAssignment(stmt, statements)
-      end
+      ALG_ASSIGNMENT(__) => simplifyAssignment(stmt, statements)
       ALG_FOR(range = SOME(e)) => begin
         ty = typeOf(e)
         dim = nthDimension(ty, 1)
@@ -334,9 +322,7 @@ function simplifyStatement(stmt::Statement, statements::Vector{Statement})
         end
         statements
       end
-      _ => begin
-        push!(statements, stmt)
-      end
+      _ => push!(statements, stmt)
     end
   end
   return statements
@@ -368,9 +354,7 @@ function simplifyAssignment(stmt::Statement, statements::Vector{Statement})
           statements,
         )
       end
-      _ => begin
-        push!(statements, ALG_ASSIGNMENT(lhs, rhs, ty, src))
-      end
+      _ => push!(statements, ALG_ASSIGNMENT(lhs, rhs, ty, src))
     end
   end
   return statements
@@ -425,9 +409,7 @@ function removeEmptyTupleElements(@nospecialize(exp::Expression))::Expression
       end
       TUPLE_EXPRESSION(tup.ty, arrayList(elems))
     end
-    _ => begin
-      exp
-    end
+    _ => exp
   end
   return rExp
 end
@@ -440,9 +422,7 @@ function removeEmptyFunctionArguments(@nospecialize(exp::Expression), isArg = fa
       CREF_EXPRESSION(__) where {isEmptyArray(exp.ty)} => begin
         outExp = fillType(exp.ty, INTEGER_EXPRESSION(0))
       end
-      _ => begin
-        ()
-      end
+      _ => ()
     end
   end
   is_arg = isArg || isCall(exp)
@@ -504,9 +484,7 @@ function simplifyIfEqBranches(
           accum
         end
 
-        _ => begin
-          push!(accum, branch)
-        end
+        _ => push!(accum, branch)
       end
     end
   end
@@ -574,15 +552,11 @@ function simplifyFunction(func::MODELICA_FUNCTION)
             ()
           end
 
-          _ => begin
-            ()
-          end
+          _ => ()
         end
         ()
       end
-      _ => begin
-        ()
-      end
+      _ => ()
     end
     for fn_der in func.derivatives
       for der_fn in getCachedFuncs(fn_der.derivativeFn)

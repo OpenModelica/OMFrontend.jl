@@ -36,12 +36,8 @@
 @UniontypeDecl Field
 function name(field::Field)::String
   @match field begin
-    FIELD_INPUT(__) => begin
-      field.name
-    end
-    FIELD_LOCAL(__) => begin
-      field.name
-    end
+    FIELD_INPUT(__) => field.name
+    FIELD_LOCAL(__) => field.name
   end
 end
 

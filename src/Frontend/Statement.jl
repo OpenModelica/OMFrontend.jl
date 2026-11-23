@@ -161,17 +161,11 @@ function toFlatStream(stmt::Statement, indent::String, s; inFunction = false)
         s
       end
 
-      ALG_RETURN(__) => begin
-        IOStream_M.append(s, "return")
-      end
+      ALG_RETURN(__) => IOStream_M.append(s, "return")
 
-      ALG_BREAK(__) => begin
-        IOStream_M.append(s, "break")
-      end
+      ALG_BREAK(__) => IOStream_M.append(s, "break")
 
-      _ => begin
-        IOStream_M.append(s, "#UNKNOWN STATEMENT#")
-      end
+      _ => IOStream_M.append(s, "#UNKNOWN STATEMENT#")
     end
   end
   return s
@@ -296,9 +290,7 @@ function toStream(stmt::Statement, indent::String, s)
         s
       end
 
-      ALG_NORETCALL(__) => begin
-        IOStream_M.append(s, toString(stmt.exp))
-      end
+      ALG_NORETCALL(__) => IOStream_M.append(s, toString(stmt.exp))
 
       ALG_WHILE(__) => begin
         s = IOStream_M.append(s, "while ")
@@ -310,17 +302,11 @@ function toStream(stmt::Statement, indent::String, s)
         s
       end
 
-      ALG_RETURN(__) => begin
-        IOStream_M.append(s, "return")
-      end
+      ALG_RETURN(__) => IOStream_M.append(s, "return")
 
-      ALG_BREAK(__) => begin
-        IOStream_M.append(s, "break")
-      end
+      ALG_BREAK(__) => IOStream_M.append(s, "break")
 
-      _ => begin
-        IOStream_M.append(s, "#UNKNOWN STATEMENT#")
-      end
+      _ => IOStream_M.append(s, "#UNKNOWN STATEMENT#")
     end
   end
   return s
@@ -408,9 +394,7 @@ function foldExp(stmt::Statement, func::FT, arg::ArgT, ::Type{ArgT})::ArgT where
       ()
     end
 
-    _ => begin
-      ()
-    end
+    _ => ()
   end
   return arg
 end
@@ -471,9 +455,7 @@ end
         end
       end
 
-      ALG_TERMINATE(__) => begin
-        reuseIfRefEqual(stmt, stmt.message, func(stmt.message), m -> ALG_TERMINATE(m, stmt.source))
-      end
+      ALG_TERMINATE(__) => reuseIfRefEqual(stmt, stmt.message, func(stmt.message), m -> ALG_TERMINATE(m, stmt.source))
 
       ALG_REINIT(__) => begin
         local c = func(stmt.cref)
@@ -485,13 +467,9 @@ end
         reuseIfRefEqual(stmt, stmt.exp, func(stmt.exp), (@nospecialize(e::Expression),) -> ALG_NORETCALL(e, stmt.source))
       end
 
-      ALG_WHILE(__) => begin
-        ALG_WHILE(func(stmt.condition), mapExpList(stmt.body, func), stmt.source)
-      end
+      ALG_WHILE(__) => ALG_WHILE(func(stmt.condition), mapExpList(stmt.body, func), stmt.source)
 
-      _ => begin
-        stmt
-      end
+      _ => stmt
     end
   end
   return stmt
@@ -528,9 +506,7 @@ end
        end
        ()
      end
-     _ => begin
-       ()
-     end
+     _ => ()
    end
   stmt = func(stmt)
   return stmt
@@ -577,9 +553,7 @@ function apply(stmt::Statement, func::ApplyFn)
       ()
     end
 
-    _ => begin
-      ()
-    end
+    _ => ()
   end
   return func(stmt)
 end
@@ -654,9 +628,7 @@ function updateImplicitVariabilityStmt(stmt::Statement, inWhen::Bool)
        end
        ()
      end
-     _  => begin
-       ()
-     end
+     _ => ()
    end
 end
 
@@ -672,9 +644,7 @@ function markStructuralParamsSubs(exp::Expression, dummy::Int) ::Int
       foldSubscripts(exp.cref, markStructuralParamsSub, 0)
       ()
     end
-    _  => begin
-      ()
-    end
+    _ => ()
   end
   dummy
 end

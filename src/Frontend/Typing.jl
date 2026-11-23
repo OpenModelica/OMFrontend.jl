@@ -388,9 +388,7 @@ end
         ty
       end
 
-      INSTANCED_CLASS(__) => begin
-        cls.ty
-      end
+      INSTANCED_CLASS(__) => cls.ty
 
       EXPANDED_DERIVED(__) => begin
         typeDimensions(cls.dims, clsNode, componentBinding, origin, InstNode_info(clsNode))
@@ -401,13 +399,9 @@ end
         ty
       end
 
-      INSTANCED_BUILTIN(__) => begin
-        cls.ty
-      end
+      INSTANCED_BUILTIN(__) => cls.ty
 
-      TYPED_DERIVED(__) => begin
-        cls.ty
-      end
+      TYPED_DERIVED(__) => cls.ty
 
       _ => begin
         Error.assertion(
@@ -932,9 +926,7 @@ function typeDimension2(
               info,
             )
           end
-          _ => begin
-            ()
-          end
+          _ => ()
         end
         #= Make sure the dimension is constant evaluted, and also mark it as structural. =#
          dim = begin
@@ -956,9 +948,7 @@ function typeDimension2(
               fail()
             end
 
-            _ => begin
-              dim
-            end
+            _ => dim
           end
         end
         finally
@@ -968,9 +958,7 @@ function typeDimension2(
         dim
       end
 
-      _ => begin
-        dimension
-      end
+      _ => dimension
     end
   end
   #=  Other kinds of dimensions are already typed. Negative dimensions are checked when
@@ -994,9 +982,7 @@ function verifyDimension(dimension::Dimension, component::InstNode, info::Source
         ()
       end
 
-      _ => begin
-        ()
-      end
+      _ => ()
     end
   end
 end
@@ -1031,18 +1017,10 @@ end
     INTEGER_EXPRESSION(__) => (dim, TYPE_INTEGER(), Variability.CONSTANT)
     REAL_EXPRESSION(__) => (dim, TYPE_REAL(), Variability.CONSTANT)
     BOOLEAN_EXPRESSION(__) => (dim, TYPE_BOOLEAN(), Variability.CONSTANT)
-    BINARY_EXPRESSION(__) => begin
-      typeBinaryExpression(dim, flag, info)
-    end
-    UNARY_EXPRESSION(__) => begin
-      typeUnaryExpression(dim, flag, info)
-    end
-    SIZE_EXPRESSION(__) => begin
-      typeSize(dim, flag, info)
-    end
-    _ => begin
-      typeExp(dim, flag, info)
-    end
+    BINARY_EXPRESSION(__) => typeBinaryExpression(dim, flag, info)
+    UNARY_EXPRESSION(__) => typeUnaryExpression(dim, flag, info)
+    SIZE_EXPRESSION(__) => typeSize(dim, flag, info)
+    _ => typeExp(dim, flag, info)
   end
   checkDimensionType(exp, ty, info)
   local uexp = exp
@@ -1399,9 +1377,7 @@ function typeExp2(
         variabilityTypeRef.x = Variability.CONSTANT
         exp
       end
-      CREF_EXPRESSION(__) => begin
-        typeCrefExp(exp.cref, origin, info, typeRef, variabilityTypeRef)
-      end
+      CREF_EXPRESSION(__) => typeCrefExp(exp.cref, origin, info, typeRef, variabilityTypeRef)
       TYPENAME_EXPRESSION(__) => begin
         if flagNotSet(origin, ORIGIN_VALID_TYPENAME_SCOPE)
           Error.addSourceMessage(
@@ -1435,9 +1411,7 @@ function typeExp2(
         Error.addSourceMessage(Error.END_ILLEGAL_USE_ERROR, nil, info)
         fail()
       end
-      BINARY_EXPRESSION(__) => begin
-        typeBinaryExpressionRef(exp, origin, info, typeRef, variabilityTypeRef)
-      end
+      BINARY_EXPRESSION(__) => typeBinaryExpressionRef(exp, origin, info, typeRef, variabilityTypeRef)
       UNARY_EXPRESSION(__) => begin
         exp, typeRef.x, variabilityTypeRef.x = typeUnaryExpression(exp, origin, info);exp
       end
@@ -1502,9 +1476,7 @@ function typeExp2(
         exp, typeRef.x, variabilityTypeRef.x = typePartialApplication(exp, origin, info);exp
       end
 
-      BINDING_EXP(__) => begin
-        typeBindingExpRef(exp, origin, info, typeRef, variabilityTypeRef)
-      end
+      BINDING_EXP(__) => typeBindingExpRef(exp, origin, info, typeRef, variabilityTypeRef)
       _ => begin
         @error "Unable to type" typeof(exp) toString(exp)
         fail()
@@ -1681,13 +1653,9 @@ function typeExpDim(
      e = getBindingExp(exp)
      (dim, error) = begin
       @match e begin
-        ARRAY_EXPRESSION(ty = TYPE_UNKNOWN(__)) => begin
-          typeArrayDim(e, dimIndex)
-        end
+        ARRAY_EXPRESSION(ty = TYPE_UNKNOWN(__)) => typeArrayDim(e, dimIndex)
 
-        CREF_EXPRESSION(__) => begin
-          typeCrefDim(e.cref, dimIndex, origin, info)
-        end
+        CREF_EXPRESSION(__) => typeCrefDim(e.cref, dimIndex, origin, info)
 
         _ => begin
           #= If the expression has already been typed, just get the dimension from the type.
@@ -1738,13 +1706,9 @@ function typeArrayDim2(
 
    (dim, error) = begin
     @match (arrayExp, dimIndex) begin
-      (ARRAY_EXPRESSION(__), 1) => begin
-        (fromExpList(arrayExp.elements), NO_ERROR())
-      end
+      (ARRAY_EXPRESSION(__), 1) => (fromExpList(arrayExp.elements), NO_ERROR())
 
-      (ARRAY_EXPRESSION(__), _) => begin
-        typeArrayDim2(arrayExp.elements[1], dimIndex - 1, dimCount + 1)
-      end
+      (ARRAY_EXPRESSION(__), _) => typeArrayDim2(arrayExp.elements[1], dimIndex - 1, dimCount + 1)
 
       _ => begin
         #= Modelica arrays are non-ragged and only the last dimension of an array
@@ -2159,9 +2123,7 @@ end
         (ty, variabilityVar)
       end
 
-      SUBSCRIPT_INDEX(index = e) => begin
-        (typeOf(e), variability(e))
-      end
+      SUBSCRIPT_INDEX(index = e) => (typeOf(e), variability(e))
 
       SUBSCRIPT_SLICE(slice = e) => begin
         (
@@ -2170,9 +2132,7 @@ end
         )
       end
 
-      SUBSCRIPT_WHOLE(__) => begin
-        (TYPE_UNKNOWN(), variability(dimension), END_EXPRESSION())
-      end
+      SUBSCRIPT_WHOLE(__) => (TYPE_UNKNOWN(), variability(dimension), END_EXPRESSION())
 
       _ => begin
         #=  Other subscripts have already been typed, but still need to be type checked. =#
@@ -2595,9 +2555,7 @@ function checkSizeTypingError(
 )::Bool
   return begin
     @match typingError begin
-      NO_ERROR(__) => begin
-        true
-      end
+      NO_ERROR(__) => true
 
       OUT_OF_BOUNDS(0) => begin
         #= The first argument wasn't an array. =#
@@ -2634,13 +2592,9 @@ function evaluateEnd(
 
    outExp = begin
     @match exp begin
-      END_EXPRESSION(__) => begin
-        endExp(dim, cref, index)
-      end
+      END_EXPRESSION(__) => endExp(dim, cref, index)
 
-      CREF_EXPRESSION(__) => begin
-        exp
-      end
+      CREF_EXPRESSION(__) => exp
 
       _ => begin
         mapShallow(
@@ -2783,9 +2737,7 @@ function evaluateCondition(
   end
    condBool = begin
     @match cond_exp begin
-      BOOLEAN_EXPRESSION(__) => begin
-        cond_exp.value
-      end
+      BOOLEAN_EXPRESSION(__) => cond_exp.value
 
       _ => begin
         Error.assertion(
@@ -2809,15 +2761,11 @@ function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)::InstNod
    cls = getClass(classNode)
    _ = begin
     @match cls begin
-      INSTANCED_CLASS(restriction = RESTRICTION_TYPE(__)) => begin
-        ()
-      end
+      INSTANCED_CLASS(restriction = RESTRICTION_TYPE(__)) => ()
 
       #= A class of a basic type (`type MyReal extends Real`, through `connector RealInput = input
          MyReal`): its components are the type's attributes (omc; omc ConnectExtendsBuiltin1). =#
-      INSTANCED_CLASS(__) where {isBasic(arrayElementType(cls.ty))} => begin
-        ()
-      end
+      INSTANCED_CLASS(__) where {isBasic(arrayElementType(cls.ty))} => ()
 
       INSTANCED_CLASS(elements = CLASS_TREE_FLAT_TREE(components = components)) => begin
         #= The class's own sections are typed under the class claim; the
@@ -2855,9 +2803,7 @@ function typeClassSections(classNode::InstNode, originArg::ORIGIN_Type)::InstNod
         ()
       end
 
-      INSTANCED_BUILTIN(__) => begin
-        ()
-      end
+      INSTANCED_BUILTIN(__) => ()
 
       TYPED_DERIVED(__) => begin
         local baseClass = typeClassSections(cls.baseClass, originArg)
@@ -2921,9 +2867,7 @@ function typeOwnSections!(classNode::InstNode, originArg::ORIGIN_Type)::InstNode
         fail()
       end
 
-      _ => begin
-        sections
-      end
+      _ => sections
     end
   end
   return updateClass(setSections(sections, cls), classNode)
@@ -2988,9 +2932,7 @@ function typeFunctionSections(classNode::InstNode, origin::ORIGIN_Type)::InstNod
               end
               r
             end
-            _ => begin
-              sections
-            end
+            _ => sections
           end
         end
          typed_cls = setSections(sections, cls)
@@ -3048,9 +2990,7 @@ end
          (outArg, ty, var) = typeExp(arg, ORIGIN_FUNCTION, info)
         begin
           @match arg begin
-            CREF_EXPRESSION(__) => begin
-              outArg
-            end
+            CREF_EXPRESSION(__) => outArg
 
             _ => begin
               #= All kinds of crefs are allowed.
@@ -3209,13 +3149,9 @@ end
     local next_origin::Int
     local info::SourceInfo
     @match eq begin
-      EQUATION_EQUALITY(__) => begin
-        typeEqualityEquation(eq.lhs, eq.rhs, origin, eq.source)
-      end
+      EQUATION_EQUALITY(__) => typeEqualityEquation(eq.lhs, eq.rhs, origin, eq.source)
 
-      EQUATION_CONNECT(__) => begin
-        typeConnect(eq.lhs, eq.rhs, origin, eq.source)
-      end
+      EQUATION_CONNECT(__) => typeConnect(eq.lhs, eq.rhs, origin, eq.source)
 
       EQUATION_FOR(__) => begin
         info = eq.source
@@ -3226,17 +3162,11 @@ end
         EQUATION_FOR(eq.iterator, SOME(e1), body, eq.source)
       end
 
-      EQUATION_IF(__) => begin
-        typeIfEquation(eq.branches, origin, eq.source)
-      end
+      EQUATION_IF(__) => typeIfEquation(eq.branches, origin, eq.source)
 
-      EQUATION_WHEN(__) => begin
-        typeWhenEquation(eq.branches, origin, eq.source)
-      end
+      EQUATION_WHEN(__) => typeWhenEquation(eq.branches, origin, eq.source)
 
-      EQUATION_ASSERT(__) => begin
-        typeEquationAssert(eq, origin)
-      end
+      EQUATION_ASSERT(__) => typeEquationAssert(eq, origin)
 
       EQUATION_TERMINATE(__) => begin
         info = eq.source
@@ -3294,9 +3224,7 @@ end
         EQUATION_RECONFIGURE(eq.variables, typedConds, typedCons, typedPrompt, eq.initialEquations, eq.source)
       end
 
-      _ => begin
-        eq
-      end
+      _ => eq
     end
   end
   return eq
@@ -3465,9 +3393,7 @@ function checkConnectorForm(cref::ComponentRef, isConnectorBool::Bool = true)::B
           false
         end
       end
-      _ => begin
-        true
-      end
+      _ => true
     end
   end
   #= The only part of the connector reference allowed to not be a
@@ -3478,9 +3404,7 @@ end
 @nospecializeinfer function checkLhsInWhen(@nospecialize(exp::Expression))::Bool
 
    @match exp begin
-     CREF_EXPRESSION(__) => begin
-       true
-     end
+     CREF_EXPRESSION(__) => true
 
      TUPLE_EXPRESSION(__) => begin
        for e in exp.elements
@@ -3489,9 +3413,7 @@ end
        true
      end
 
-     _ => begin
-       false
-     end
+     _ => false
    end
 end
 
@@ -3670,9 +3592,7 @@ end
         ALG_FAILURE(sts1, st.source)
       end
 
-      _ => begin
-        st
-      end
+      _ => st
     end
   end
   return st
@@ -3861,9 +3781,7 @@ end
             end
           end
 
-          _ => begin
-            push!(bl2, b)
-          end
+          _ => push!(bl2, b)
         end
       end
     end
@@ -3876,29 +3794,19 @@ end
 @nospecializeinfer function isNonConstantIfCondition(@nospecialize(exp::Expression))::Bool
   local fn::MODELICA_FUNCTION
   @match exp begin
-    CREF_EXPRESSION(__) => begin
-      isIterator(exp.cref)
-    end
+    CREF_EXPRESSION(__) => isIterator(exp.cref)
     CALL_EXPRESSION(call = TYPED_CALL(fn = fn)) => begin
       begin
         @match AbsynUtil.pathFirstIdent(fn.path) begin
-          "Connections" => begin
-            true
-          end
+          "Connections" => true
 
-          "cardinality" => begin
-            true
-          end
+          "cardinality" => true
 
-          _ => begin
-            isImpure(exp.call)
-          end
+          _ => isImpure(exp.call)
         end
       end
     end
-    _ => begin
-      false
-    end
+    _ => false
   end
 end
 
@@ -4022,9 +3930,7 @@ function typeReinit(
   #= The first argument must be a cref. =#
    cref = begin
     @match crefExp begin
-      CREF_EXPRESSION(__) => begin
-        crefExp.cref
-      end
+      CREF_EXPRESSION(__) => crefExp.cref
 
       _ => begin
         Error.addSourceMessage(Error.REINIT_MUST_BE_VAR_OR_ARRAY, nil, info)

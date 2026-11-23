@@ -149,9 +149,7 @@ function stringDelimitListPrintBuf(inStringLst::List{<:String}, inDelimiter::Str
     local f::String
     local r::List{String}
     @matchcontinue inStringLst begin
-      nil() => begin
-        ()
-      end
+      nil() => ()
 
       f <| nil() => begin
         Print.printBuf(f)
@@ -194,9 +192,7 @@ function stringDelimitListAndSeparate2(
     local iter_1::Int
     local iter::Int
     @matchcontinue (inStringLst1, inString2, inString3, inInteger4, inInteger5) begin
-      (nil(), _, _, _, _) => begin
-        ()
-      end
+      (nil(), _, _, _, _) => ()
 
       (s <| nil(), _, _, _, _) => begin
         Print.printBuf(s)
@@ -290,13 +286,9 @@ function applyOption(inOption::Option{TI}, inFunc::FuncType) where {TI}
    outOption = begin
     local ival::TI
     @match inOption begin
-      SOME(ival) => begin
-        SOME(inFunc(ival))
-      end
+      SOME(ival) => SOME(inFunc(ival))
 
-      _ => begin
-        NONE()
-      end
+      _ => NONE()
     end
   end
   return outOption
@@ -318,13 +310,9 @@ function applyOptionOrDefault(
     local value::TI
     local res::TO
     @match inValue begin
-      SOME(value) => begin
-        inFunc(value)
-      end
+      SOME(value) => inFunc(value)
 
-      _ => begin
-        inDefaultValue
-      end
+      _ => inDefaultValue
     end
   end
   return outValue
@@ -353,13 +341,9 @@ function getOptionOrDefault(inOption::Option, inDefault)
    outValue = begin
     local value
     @match inOption begin
-      SOME(value) => begin
-        value
-      end
+      SOME(value) => value
 
-      _ => begin
-        inDefault
-      end
+      _ => inDefault
     end
   end
   return outValue
@@ -434,17 +418,11 @@ function mulListIntegerOpt(inList::List{<:Option{<:Integer}}, inAccum::Int = 1):
     local i::Int
     local rest::List{Option{Integer}}
     @match inList begin
-      nil() => begin
-        inAccum
-      end
+      nil() => inAccum
 
-      SOME(i) <| rest => begin
-        mulListIntegerOpt(rest, i * inAccum)
-      end
+      SOME(i) <| rest => mulListIntegerOpt(rest, i * inAccum)
 
-      NONE() <| rest => begin
-        mulListIntegerOpt(rest, inAccum)
-      end
+      NONE() <| rest => mulListIntegerOpt(rest, inAccum)
     end
   end
   return outResult
@@ -489,9 +467,7 @@ function buildMapStr(
     local ed::String
     local str::String
     @match (inLst1, inLst2, inMiddleDelimiter, inEndDelimiter) begin
-      (nil(), nil(), _, _) => begin
-        ""
-      end
+      (nil(), nil(), _, _) => ""
 
       (fa <| nil(), fb <| nil(), md, _) => begin
          str = stringAppendList(list(fa, md, fb))
@@ -546,21 +522,13 @@ function stringBool2(inString::String)::Bool
 
    outBoolean = begin
     @match inString begin
-      "true" => begin
-        true
-      end
+      "true" => true
 
-      "false" => begin
-        false
-      end
+      "false" => false
 
-      "yes" => begin
-        true
-      end
+      "yes" => true
 
-      "no" => begin
-        false
-      end
+      "no" => false
     end
   end
   return outBoolean
@@ -666,13 +634,9 @@ function swap(cond::Bool, in1, in2)
 
    (out1, out2) = begin
     @match cond begin
-      true => begin
-        (in2, in1)
-      end
+      true => (in2, in1)
 
-      _ => begin
-        (in1, in2)
-      end
+      _ => (in1, in2)
     end
   end
   return (out1, out2)

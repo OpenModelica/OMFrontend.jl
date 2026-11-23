@@ -455,14 +455,10 @@ function buildBinding(node::InstNode, repl::ReplTree.Tree)::Expression
           EMPTY_EXPRESSION(arrayElementType(ty)),
         )
       end
-      TYPE_COMPLEX(__) => begin
-        #@info "It is a complex. Make a record"
-        buildRecordBinding(node, repl)
-      end
-      _ => begin
-        #@info "Is empty..."
-        EMPTY_EXPRESSION(ty)
-      end
+      #@info "It is a complex. Make a record"
+      TYPE_COMPLEX(__) => buildRecordBinding(node, repl)
+      #@info "Is empty..."
+      _ => EMPTY_EXPRESSION(ty)
     end
   end
   return result
@@ -480,9 +476,7 @@ function applyReplacementsDim(repl::ReplTree.Tree, dim::Dimension)::Dimension
         exp = evalExp(exp)
         fromExp(exp, Variability.CONSTANT)
       end
-      _ => begin
-        dim
-      end
+      _ => dim
     end
   end
   return dim
@@ -535,9 +529,7 @@ function buildRecordBinding(recordNode::InstNode, repl::ReplTree.Tree)::Expressi
           )
         end
 
-      TYPED_DERIVED(__) => begin
-        buildRecordBinding(cls.baseClass, repl)
-      end
+      TYPED_DERIVED(__) => buildRecordBinding(cls.baseClass, repl)
     end
   end
   return result
@@ -585,18 +577,10 @@ terms of each other.
 function applyReplacements2(repl::ReplTree.Tree, @nospecialize(exp::Expression), rescan::Bool)::Expression
   exp = begin
     @match exp begin
-      CREF_EXPRESSION(__) => begin
-        applyReplacementCref(repl, exp.cref, exp, rescan)
-      end
-      CALL_EXPRESSION(__) => begin
-        applyReplacementCall(repl, exp.call, exp)
-      end
-      UNBOX_EXPRESSION(__) => begin
-        exp.exp
-      end
-      _ => begin
-        exp
-      end
+      CREF_EXPRESSION(__) => applyReplacementCref(repl, exp.cref, exp, rescan)
+      CALL_EXPRESSION(__) => applyReplacementCall(repl, exp.call, exp)
+      UNBOX_EXPRESSION(__) => exp.exp
+      _ => exp
     end
   end
   return exp
@@ -751,9 +735,7 @@ function optimizeStatement(stmt::Statement)::Statement
       ()
     end
 
-    _ => begin
-      ()
-    end
+    _ => ()
   end
   return stmt
 end
@@ -814,37 +796,21 @@ function evaluateStatement(stmt::Statement)::FlowControlType
   #= adrpo: we really need some error handling here to detect which statement cannot be evaluated
      try =#
   @match stmt begin
-    ALG_ASSIGNMENT(__) => begin
-      evaluateAssignment(stmt.lhs, stmt.rhs, stmt.source)
-    end
+    ALG_ASSIGNMENT(__) => evaluateAssignment(stmt.lhs, stmt.rhs, stmt.source)
 
-    ALG_FOR(__) => begin
-      evaluateFor(stmt.iterator, stmt.range, stmt.body, stmt.source)
-    end
+    ALG_FOR(__) => evaluateFor(stmt.iterator, stmt.range, stmt.body, stmt.source)
 
-    ALG_IF(__) => begin
-      evaluateIf(stmt.branches, stmt.source)
-    end
+    ALG_IF(__) => evaluateIf(stmt.branches, stmt.source)
 
-    ALG_ASSERT(__) => begin
-      evaluateAssert(stmt.condition, stmt)
-    end
+    ALG_ASSERT(__) => evaluateAssert(stmt.condition, stmt)
 
-    ALG_NORETCALL(__) => begin
-      evaluateNoRetCall(stmt.exp, stmt.source)
-    end
+    ALG_NORETCALL(__) => evaluateNoRetCall(stmt.exp, stmt.source)
 
-    ALG_WHILE(__) => begin
-      evaluateWhile(stmt.condition, stmt.body, stmt.source)
-    end
+    ALG_WHILE(__) => evaluateWhile(stmt.condition, stmt.body, stmt.source)
 
-    ALG_RETURN(__) => begin
-      FlowControl.RETURN
-    end
+    ALG_RETURN(__) => FlowControl.RETURN
 
-    ALG_BREAK(__) => begin
-      FlowControl.BREAK
-    end
+    ALG_BREAK(__) => FlowControl.BREAK
 
     _ => begin
       _internalError("evaluateStatement failed on " * anyString(stmt))
@@ -1183,13 +1149,9 @@ function isKnownExternalFunc(name::String, ann::Option{<:SCode.ANNOTATION})::Boo
   else
     isKnown = begin
       @match name begin
-        "OpenModelica_regex" => begin
-          true
-        end
+        "OpenModelica_regex" => true
 
-        _ => begin
-          false
-        end
+        _ => false
       end
     end
   end
@@ -1216,21 +1178,13 @@ end
 function isKnownLibraryExp(exp::Absyn.Exp)::Bool
 
   @match exp begin
-    Absyn.STRING("ModelicaExternalC") => begin
-      true
-    end
+    Absyn.STRING("ModelicaExternalC") => true
 
-    Absyn.STRING("ModelicaIO") => begin
-      true
-    end
+    Absyn.STRING("ModelicaIO") => true
 
-    Absyn.ARRAY(__) => begin
-      ListUtil.exist(exp.arrayExp, isKnownLibraryExp)
-    end
+    Absyn.ARRAY(__) => ListUtil.exist(exp.arrayExp, isKnownLibraryExp)
 
-    _ => begin
-      false
-    end
+    _ => false
   end
 end
 
@@ -1325,9 +1279,7 @@ function evaluateKnownExternal(name::String, args::List{<:Expression})::Expressi
       listGet(COMPARE_LITERALS, i)
     end
 
-    ("ModelicaStrings_length", STRING_EXPRESSION(s1) <| nil()) => begin
-      INTEGER_EXPRESSION(stringLength(s1))
-    end
+    ("ModelicaStrings_length", STRING_EXPRESSION(s1) <| nil()) => INTEGER_EXPRESSION(stringLength(s1))
 
     (
       "ModelicaStrings_scanReal",
@@ -1378,25 +1330,19 @@ function evaluateKnownExternal(name::String, args::List{<:Expression})::Expressi
     (
       "ModelicaStrings_skipWhiteSpace",
       STRING_EXPRESSION(s1) <| INTEGER_EXPRESSION(i) <| nil(),
-    ) => begin
-      INTEGER_EXPRESSION(ModelicaExternalC.Strings_skipWhiteSpace(s1, i))
-    end
+    ) => INTEGER_EXPRESSION(ModelicaExternalC.Strings_skipWhiteSpace(s1, i))
 
     (
       "ModelicaStrings_substring",
       STRING_EXPRESSION(s1) <|
       INTEGER_EXPRESSION(i) <| INTEGER_EXPRESSION(i2) <| nil(),
-    ) => begin
-      STRING_EXPRESSION(System.substring(s1, i, i2))
-    end
+    ) => STRING_EXPRESSION(System.substring(s1, i, i2))
 
     ("ModelicaStrings_hashString", STRING_EXPRESSION(s1) <| nil()) => begin
       INTEGER_EXPRESSION(ModelicaExternalC.Strings_hashString(s1))
     end
 
-    ("OpenModelica_regex", _) => begin
-      evaluateOpenModelicaRegex(args)
-    end
+    ("OpenModelica_regex", _) => evaluateOpenModelicaRegex(args)
 
     (
       "ModelicaIO_readMatrixSizes",
@@ -1419,9 +1365,7 @@ function evaluateKnownExternal(name::String, args::List{<:Expression})::Expressi
       STRING_EXPRESSION(s2) <|
       INTEGER_EXPRESSION(i) <|
       INTEGER_EXPRESSION(i2) <| BOOLEAN_EXPRESSION(b) <| nil(),
-    ) => begin
-      evaluateModelicaIO_readRealMatrix(s1, s2, i, i2, b)
-    end
+    ) => evaluateModelicaIO_readRealMatrix(s1, s2, i, i2, b)
 
     _ => begin
       _internalError("evaluateKnownExternal: failed to evaluate " * name)

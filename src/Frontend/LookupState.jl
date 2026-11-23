@@ -80,13 +80,9 @@ end
 
 function toString(name::LookupStateName)::String
   @match name begin
-    LOOKUP_STATE_NAME_PATH(__) => begin
-      AbsynUtil.pathString(name.path)
-    end
+    LOOKUP_STATE_NAME_PATH(__) => AbsynUtil.pathString(name.path)
 
-    LOOKUP_STATE_NAME_CREF(__) => begin
-      AbsynUtil.printComponentRefStr(name.cref)
-    end
+    LOOKUP_STATE_NAME_CREF(__) => AbsynUtil.printComponentRefStr(name.cref)
   end
 end
 
@@ -195,16 +191,10 @@ end
 """Returns the lookup state of a given element."""
 function elementState(element::SCode.Element)::LookupState
   @match element begin
-    SCode.CLASS(restriction = SCode.R_PACKAGE(__)) => begin
-      LOOKUP_STATE_PACKAGE()
-    end
+    SCode.CLASS(restriction = SCode.R_PACKAGE(__)) => LOOKUP_STATE_PACKAGE()
 
-    SCode.CLASS(restriction = SCode.R_FUNCTION(__)) => begin
-      LOOKUP_STATE_FUNC()
-    end
-    SCode.CLASS(__) => begin
-      LOOKUP_STATE_CLASS()
-    end
+    SCode.CLASS(restriction = SCode.R_FUNCTION(__)) => LOOKUP_STATE_FUNC()
+    SCode.CLASS(__) => LOOKUP_STATE_CLASS()
     _ => begin
       Error.assertion(false, getInstanceName() + " got unknown element.", sourceInfo())
       fail()
@@ -236,9 +226,7 @@ end
 function checkProtection(node::InstNode, currentState::LookupState)
   return  () = begin
     @match currentState begin
-      LOOKUP_STATE_BEGIN(__) => begin
-        ()
-      end
+      LOOKUP_STATE_BEGIN(__) => ()
       _ => begin
         if isProtected(node)
           Error.addSourceMessage(
@@ -301,47 +289,25 @@ end
 """Returns the string representation of a LookupState."""
 function lookupStateString(state::LookupState)::String
   @match state begin
-    LOOKUP_STATE_BEGIN(__) => begin
-      "<begin>"
-    end
-    LOOKUP_STATE_COMP(__) => begin
-      "component"
-    end
+    LOOKUP_STATE_BEGIN(__) => "<begin>"
+    LOOKUP_STATE_COMP(__) => "component"
 
-    LOOKUP_STATE_COMP_COMP(__) => begin
-      "component"
-    end
+    LOOKUP_STATE_COMP_COMP(__) => "component"
 
-    LOOKUP_STATE_COMP_CLASS(__) => begin
-      "class"
-    end
+    LOOKUP_STATE_COMP_CLASS(__) => "class"
 
-    LOOKUP_STATE_COMP_FUNC(__) => begin
-      "function"
-    end
+    LOOKUP_STATE_COMP_FUNC(__) => "function"
 
-    LOOKUP_STATE_PACKAGE(__) => begin
-      "package"
-    end
+    LOOKUP_STATE_PACKAGE(__) => "package"
 
-    LOOKUP_STATE_CLASS(__) => begin
-      "class"
-    end
+    LOOKUP_STATE_CLASS(__) => "class"
 
-    LOOKUP_STATE_FUNC(__) => begin
-      "function"
-    end
+    LOOKUP_STATE_FUNC(__) => "function"
 
-    LOOKUP_STATE_PREDEF_COMP(__) => begin
-      "component"
-    end
+    LOOKUP_STATE_PREDEF_COMP(__) => "component"
 
-    LOOKUP_STATE_PREDEF_CLASS(__) => begin
-      "class"
-    end
-    _ => begin
-      "error"
-    end
+    LOOKUP_STATE_PREDEF_CLASS(__) => "class"
+    _ => "error"
   end
 end
 
@@ -359,61 +325,33 @@ isError(state::LookupState)::Bool = isvariant(state, LOOKUP_STATE_ERROR)
     local info2::SourceInfo
     #= Found the expected kind of element. =#
     @match (endState, expectedState) begin
-      (LOOKUP_STATE_COMP(__), LOOKUP_STATE_COMP(__)) => begin
-        ()
-      end
+      (LOOKUP_STATE_COMP(__), LOOKUP_STATE_COMP(__)) => ()
 
-      (LOOKUP_STATE_COMP_COMP(__), LOOKUP_STATE_COMP(__)) => begin
-        ()
-      end
+      (LOOKUP_STATE_COMP_COMP(__), LOOKUP_STATE_COMP(__)) => ()
 
-      (LOOKUP_STATE_PREDEF_COMP(__), LOOKUP_STATE_COMP(__)) => begin
-        ()
-      end
+      (LOOKUP_STATE_PREDEF_COMP(__), LOOKUP_STATE_COMP(__)) => ()
 
-      (LOOKUP_STATE_FUNC(__), LOOKUP_STATE_COMP(__)) => begin
-        ()
-      end
+      (LOOKUP_STATE_FUNC(__), LOOKUP_STATE_COMP(__)) => ()
 
-      (LOOKUP_STATE_COMP_FUNC(__), LOOKUP_STATE_COMP(__)) => begin
-        ()
-      end
+      (LOOKUP_STATE_COMP_FUNC(__), LOOKUP_STATE_COMP(__)) => ()
 
-      (LOOKUP_STATE_PACKAGE(__), LOOKUP_STATE_CLASS(__)) => begin
-        ()
-      end
+      (LOOKUP_STATE_PACKAGE(__), LOOKUP_STATE_CLASS(__)) => ()
 
-      (LOOKUP_STATE_CLASS(__), LOOKUP_STATE_CLASS(__)) => begin
-        ()
-      end
+      (LOOKUP_STATE_CLASS(__), LOOKUP_STATE_CLASS(__)) => ()
 
-      (LOOKUP_STATE_PREDEF_CLASS(__), LOOKUP_STATE_CLASS(__)) => begin
-        ()
-      end
+      (LOOKUP_STATE_PREDEF_CLASS(__), LOOKUP_STATE_CLASS(__)) => ()
 
-      (LOOKUP_STATE_FUNC(__), LOOKUP_STATE_CLASS(__)) => begin
-        ()
-      end
+      (LOOKUP_STATE_FUNC(__), LOOKUP_STATE_CLASS(__)) => ()
 
-      (LOOKUP_STATE_FUNC(__), LOOKUP_STATE_FUNC(__)) => begin
-        ()
-      end
+      (LOOKUP_STATE_FUNC(__), LOOKUP_STATE_FUNC(__)) => ()
 
-      (LOOKUP_STATE_COMP_FUNC(__), LOOKUP_STATE_FUNC(__)) => begin
-        ()
-      end
+      (LOOKUP_STATE_COMP_FUNC(__), LOOKUP_STATE_FUNC(__)) => ()
 
-      (LOOKUP_STATE_CLASS(__), LOOKUP_STATE_FUNC(__)) where {(isCallableType(node))} => begin
-        ()
-      end
+      (LOOKUP_STATE_CLASS(__), LOOKUP_STATE_FUNC(__)) where {(isCallableType(node))} => ()
 
-      (LOOKUP_STATE_COMP(__), LOOKUP_STATE_FUNC(__)) where {(isCallableComponent(node))} => begin
-        ()
-      end
+      (LOOKUP_STATE_COMP(__), LOOKUP_STATE_FUNC(__)) where {(isCallableComponent(node))} => ()
 
-      (LOOKUP_STATE_COMP_COMP(__), LOOKUP_STATE_FUNC(__)) where {(isCallableComponent(node))} => begin
-        ()
-      end
+      (LOOKUP_STATE_COMP_COMP(__), LOOKUP_STATE_FUNC(__)) where {(isCallableComponent(node))} => ()
 
       (LOOKUP_STATE_COMP_CLASS(__), LOOKUP_STATE_FUNC(__)) => begin
         #= Found a class via a component, but expected a function. =#
@@ -515,9 +453,7 @@ isError(state::LookupState)::Bool = isvariant(state, LOOKUP_STATE_ERROR)
         fail()
       end
 
-      (_, LOOKUP_STATE_IMPORT(__)) => begin
-        ()
-      end
+      (_, LOOKUP_STATE_IMPORT(__)) => ()
 
       _ => begin
         printFoundWrongTypeError(endState, expectedState, lookupName, info)
@@ -532,29 +468,17 @@ isClass(state::LookupState)::Bool = isvariant(state, LOOKUP_STATE_COMP_CLASS) ||
 function isFunction(state::LookupState, node::InstNode)::Bool
 
   @match state begin
-    LOOKUP_STATE_FUNC(__) => begin
-      true
-    end
+    LOOKUP_STATE_FUNC(__) => true
 
-    LOOKUP_STATE_COMP_FUNC(__) => begin
-      true
-    end
+    LOOKUP_STATE_COMP_FUNC(__) => true
 
-    LOOKUP_STATE_CLASS(__) => begin
-      isCallableType(node)
-    end
+    LOOKUP_STATE_CLASS(__) => isCallableType(node)
 
-    LOOKUP_STATE_COMP(__) => begin
-      isCallableComponent(node)
-    end
+    LOOKUP_STATE_COMP(__) => isCallableComponent(node)
 
-    LOOKUP_STATE_COMP_COMP(__) => begin
-      isCallableComponent(node)
-    end
+    LOOKUP_STATE_COMP_COMP(__) => isCallableComponent(node)
 
-    _ => begin
-      false
-    end
+    _ => false
   end
 end
 

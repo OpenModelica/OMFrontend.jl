@@ -77,9 +77,7 @@ end
 
 function toString(res::Restriction)::String
   @match res begin
-    RESTRICTION_CLASS(__) => begin
-      "class"
-    end
+    RESTRICTION_CLASS(__) => "class"
 
     RESTRICTION_CONNECTOR(__) => begin
       if res.isExpandable
@@ -89,41 +87,21 @@ function toString(res::Restriction)::String
       end
     end
 
-    RESTRICTION_ENUMERATION(__) => begin
-      "enumeration"
-    end
+    RESTRICTION_ENUMERATION(__) => "enumeration"
 
-    RESTRICTION_EXTERNAL_OBJECT(__) => begin
-      "ExternalObject"
-    end
+    RESTRICTION_EXTERNAL_OBJECT(__) => "ExternalObject"
 
-    RESTRICTION_FUNCTION(__) => begin
-      "function"
-    end
+    RESTRICTION_FUNCTION(__) => "function"
 
-    RESTRICTION_MODEL(__) => begin
-      "model"
-    end
+    RESTRICTION_MODEL(__) => "model"
 
-    RESTRICTION_OPERATOR(__) => begin
-      "operator"
-    end
-    RESTRICTION_RECORD(__) => begin
-      "record"
-    end
-    RESTRICTION_RECORD_CONSTRUCTOR(__) => begin
-      "record"
-    end
-    RESTRICTION_TYPE(__) => begin
-      "type"
-    end
-    RESTRICTION_CLOCK(__) => begin
-      "clock"
-    end
+    RESTRICTION_OPERATOR(__) => "operator"
+    RESTRICTION_RECORD(__) => "record"
+    RESTRICTION_RECORD_CONSTRUCTOR(__) => "record"
+    RESTRICTION_TYPE(__) => "type"
+    RESTRICTION_CLOCK(__) => "clock"
 
-    _ => begin
-      "unknown"
-    end
+    _ => "unknown"
   end
 end
 
@@ -137,12 +115,8 @@ isOperator(res::Restriction)::Bool = isvariant(res, RESTRICTION_OPERATOR)
 
 function isOperatorRecord(res::Restriction)::Bool
   @match res begin
-    RESTRICTION_RECORD(__) => begin
-      res.isOperator
-    end
-    _ => begin
-      false
-    end
+    RESTRICTION_RECORD(__) => res.isOperator
+    _ => false
   end
 end
 
@@ -154,13 +128,9 @@ isExternalObject(res::Restriction)::Bool = isvariant(res, RESTRICTION_EXTERNAL_O
 
 function isExpandableConnector(res::Restriction)::Bool
   @match res begin
-    RESTRICTION_CONNECTOR(__) => begin
-      res.isExpandable
-    end
+    RESTRICTION_CONNECTOR(__) => res.isExpandable
 
-    _ => begin
-      false
-    end
+    _ => false
   end
 end
 
@@ -168,36 +138,16 @@ isConnector(res::Restriction)::Bool = isvariant(res, RESTRICTION_CONNECTOR)
 
 function fromSCode(sres::SCode.Restriction)::Restriction
   @match sres begin
-    SCode.R_CLASS(__) => begin
-      RESTRICTION_CLASS()
-    end
-    SCode.R_CONNECTOR(__) => begin
-      RESTRICTION_CONNECTOR(sres.isExpandable)
-    end
-    SCode.R_ENUMERATION(__) => begin
-      RESTRICTION_ENUMERATION()
-    end
-    SCode.R_FUNCTION(__) => begin
-      RESTRICTION_FUNCTION()
-    end
-    SCode.R_MODEL(__) => begin
-      RESTRICTION_MODEL()
-    end
-    SCode.R_OPERATOR(__) => begin
-      RESTRICTION_OPERATOR()
-    end
-    SCode.R_RECORD(__) => begin
-      RESTRICTION_RECORD(sres.isOperator)
-    end
-    SCode.R_TYPE(__) => begin
-      RESTRICTION_TYPE()
-    end
-    SCode.R_PREDEFINED_CLOCK(__) => begin
-      RESTRICTION_CLOCK()
-    end
-    _ => begin
-      RESTRICTION_MODEL()
-    end
+    SCode.R_CLASS(__) => RESTRICTION_CLASS()
+    SCode.R_CONNECTOR(__) => RESTRICTION_CONNECTOR(sres.isExpandable)
+    SCode.R_ENUMERATION(__) => RESTRICTION_ENUMERATION()
+    SCode.R_FUNCTION(__) => RESTRICTION_FUNCTION()
+    SCode.R_MODEL(__) => RESTRICTION_MODEL()
+    SCode.R_OPERATOR(__) => RESTRICTION_OPERATOR()
+    SCode.R_RECORD(__) => RESTRICTION_RECORD(sres.isOperator)
+    SCode.R_TYPE(__) => RESTRICTION_TYPE()
+    SCode.R_PREDEFINED_CLOCK(__) => RESTRICTION_CLOCK()
+    _ => RESTRICTION_MODEL()
   end
 end
 

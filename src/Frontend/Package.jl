@@ -135,9 +135,7 @@ function collectExpConstants_traverser(@nospecialize(exp::Expression), @nospecia
          end
          ()
        end
-     _ => begin
-       ()
-     end
+     _ => ()
    end
   return constants
 end
@@ -177,16 +175,12 @@ function collectFuncConstants(
             ()
           end
 
-          _ => begin
-            ()
-          end
+          _ => ()
         end
        ()
      end
 
-     _ => begin
-       ()
-     end
+     _ => ()
    end
   return constants
 end

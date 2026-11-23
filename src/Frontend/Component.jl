@@ -187,12 +187,8 @@ function isTypeAttribute(component::Component)
   local isAttribute::Bool
    isAttribute = begin
     @match component begin
-      TYPE_ATTRIBUTE(__) => begin
-        true
-      end
-      _ => begin
-        false
-      end
+      TYPE_ATTRIBUTE(__) => true
+      _ => false
     end
   end
   return isAttribute
@@ -208,13 +204,9 @@ function isDeleted(component::Component)
         isFalse(getTypedExp(condition))
       end
 
-      DELETED_COMPONENT(__) => begin
-        true
-      end
+      DELETED_COMPONENT(__) => true
 
-      _ => begin
-        false
-      end
+      _ => false
     end
   end
   return isDeleted
@@ -244,12 +236,8 @@ function ann(component::Component)
   local ann::Option{Modifier}
   ann = begin
     @match component begin
-      TYPED_COMPONENT(__) => begin
-        component.ann
-      end
-      _ => begin
-        NONE()
-      end
+      TYPED_COMPONENT(__) => component.ann
+      _ => NONE()
     end
   end
   return ann
@@ -260,21 +248,13 @@ function comment(component::Component)
 
    comment = begin
     @match component begin
-      COMPONENT_DEF(__) => begin
-        SCodeUtil.getElementComment(component.definition)
-      end
+      COMPONENT_DEF(__) => SCodeUtil.getElementComment(component.definition)
 
-      UNTYPED_COMPONENT(__) => begin
-        component.comment
-      end
+      UNTYPED_COMPONENT(__) => component.comment
 
-      TYPED_COMPONENT(__) => begin
-        component.comment
-      end
+      TYPED_COMPONENT(__) => component.comment
 
-      _ => begin
-        NONE()
-      end
+      _ => NONE()
     end
   end
   return comment
@@ -284,15 +264,9 @@ function dimensionCount(@nospecialize(component::Component))
   local count::Int
    count = begin
     @match component begin
-      UNTYPED_COMPONENT(__) => begin
-        arrayLength(component.dimensions)
-      end
-      TYPED_COMPONENT(__) => begin
-        listLength(arrayDims(component.ty))
-      end
-      _ => begin
-        0
-      end
+      UNTYPED_COMPONENT(__) => arrayLength(component.dimensions)
+      TYPED_COMPONENT(__) => listLength(arrayDims(component.ty))
+      _ => 0
     end
   end
   return count
@@ -322,12 +296,8 @@ function toFlatString(name::String, component::Component; inFunction = false)
           toFlatString(component.binding, " = "; inFunction = inFunction)
       end
 
-      TYPE_ATTRIBUTE(__) => begin
-        name + toFlatString(component.modifier, false)
-      end
-      ITERATOR_COMPONENT(__) => begin
-        flatQuoteName(name)
-      end
+      TYPE_ATTRIBUTE(__) => name + toFlatString(component.modifier, false)
+      ITERATOR_COMPONENT(__) => flatQuoteName(name)
       UNTYPED_COMPONENT(__) => begin
         toFlatString(component.attributes, TYPE_UNKNOWN()) *
           "Untyped" *
@@ -344,10 +314,8 @@ function toString(nameStr::String, component::Component)
    str = begin
     local def::SCode.Element
     @match component begin
-      COMPONENT_DEF(definition = def && SCode.COMPONENT(__)) => begin
-        #TODO: SCodeDump.unparseElementStr(def)
-        string(def)
-      end
+      #TODO: SCodeDump.unparseElementStr(def)
+      COMPONENT_DEF(definition = def && SCode.COMPONENT(__)) => string(def)
 
       UNTYPED_COMPONENT(__) => begin
         toString(component.attributes, TYPE_UNKNOWN())::String +
@@ -374,12 +342,8 @@ function toString(nameStr::String, component::Component)
           toString(component.binding, " = ")::String
       end
 
-      TYPE_ATTRIBUTE(__) => begin
-        nameStr + toString(component.modifier, false)::String
-      end
-      _ => begin
-        "UNKNOWN COMPONENT"
-      end
+      TYPE_ATTRIBUTE(__) => nameStr + toString(component.modifier, false)::String
+      _ => "UNKNOWN COMPONENT"
     end
   end
   return str
@@ -405,9 +369,7 @@ function isIdentical(comp1::Component, comp2::Component)
           true
         end
 
-        _ => begin
-          true
-        end
+        _ => true
       end
     end
   end
@@ -418,15 +380,9 @@ function isExternalObject(component::Component)
   local isEO::Bool
    isEO = begin
     @match component begin
-      UNTYPED_COMPONENT(__) => begin
-        isExternalObject(getClass(component.classInst))
-      end
-      TYPED_COMPONENT(__) => begin
-          isExternalObject(component.ty)
-      end
-      _ => begin
-        false
-      end
+      UNTYPED_COMPONENT(__) => isExternalObject(getClass(component.classInst))
+      TYPED_COMPONENT(__) => isExternalObject(component.ty)
+      _ => false
     end
   end
   return isEO
@@ -458,9 +414,7 @@ function setConnectorType(cty::ConnectorType.TYPE, component::Component)
         @assign component.attributes = attr
        ()
      end
-     _ => begin
-       ()
-     end
+     _ => ()
    end
   return component
 end
@@ -472,15 +426,9 @@ function connectorType(component::Component)
       UNTYPED_COMPONENT(attributes = ATTRIBUTES(connectorType = cty)) => begin
           cty
         end
-      TYPED_COMPONENT(attributes = ATTRIBUTES(connectorType = cty)) => begin
-        cty
-      end
-      DELETED_COMPONENT(__) => begin
-        connectorType(component.component)
-      end
-      _ => begin
-        ConnectorType.NON_CONNECTOR
-      end
+      TYPED_COMPONENT(attributes = ATTRIBUTES(connectorType = cty)) => cty
+      DELETED_COMPONENT(__) => connectorType(component.component)
+      _ => ConnectorType.NON_CONNECTOR
     end
   end
   return cty
@@ -513,21 +461,15 @@ function innerOuter(component::Component)
   local io
    io = begin
     @match component begin
-      UNTYPED_COMPONENT(attributes = ATTRIBUTES(innerOuter = io)) => begin
-        io
-      end
+      UNTYPED_COMPONENT(attributes = ATTRIBUTES(innerOuter = io)) => io
 
-      TYPED_COMPONENT(attributes = ATTRIBUTES(innerOuter = io)) => begin
-        io
-      end
+      TYPED_COMPONENT(attributes = ATTRIBUTES(innerOuter = io)) => io
 
       COMPONENT_DEF(__) => begin
         innerOuterFromSCode(SCodeUtil.prefixesInnerOuter(SCodeUtil.elementPrefixes(component.definition)))
       end
 
-      _ => begin
-        InnerOuter.NOT_INNER_OUTER
-      end
+      _ => InnerOuter.NOT_INNER_OUTER
     end
   end
   return io
@@ -538,19 +480,11 @@ function isFinal(component::Component)
 
    isFinal = begin
     @match component begin
-      COMPONENT_DEF(__) => begin
-        SCodeUtil.finalBool(SCodeUtil.prefixesFinal(SCodeUtil.elementPrefixes(component.definition)))
-      end
-      UNTYPED_COMPONENT(attributes = ATTRIBUTES(isFinal = isFinal)) => begin
-        isFinal
-      end
-      TYPED_COMPONENT(attributes = ATTRIBUTES(isFinal = isFinal)) => begin
-        isFinal
-      end
+      COMPONENT_DEF(__) => SCodeUtil.finalBool(SCodeUtil.prefixesFinal(SCodeUtil.elementPrefixes(component.definition)))
+      UNTYPED_COMPONENT(attributes = ATTRIBUTES(isFinal = isFinal)) => isFinal
+      TYPED_COMPONENT(attributes = ATTRIBUTES(isFinal = isFinal)) => isFinal
 
-      _ => begin
-        false
-      end
+      _ => false
     end
   end
   return isFinal
@@ -560,12 +494,8 @@ function isRedeclare(component::Component)
   local isRedeclare::Bool
    isRedeclare = begin
     @match component begin
-      COMPONENT_DEF(__) => begin
-        SCodeUtil.isElementRedeclare(component.definition)
-      end
-      _ => begin
-        false
-      end
+      COMPONENT_DEF(__) => SCodeUtil.isElementRedeclare(component.definition)
+      _ => false
     end
   end
   return isRedeclare
@@ -635,21 +565,13 @@ function variability(component::Component)
           v
         end
 
-      UNTYPED_COMPONENT(attributes = ATTRIBUTES(variability = v)) => begin
-        v
-      end
+      UNTYPED_COMPONENT(attributes = ATTRIBUTES(variability = v)) => v
 
-      ITERATOR_COMPONENT(__) => begin
-        component.variability
-      end
+      ITERATOR_COMPONENT(__) => component.variability
 
-      ENUM_LITERAL_COMPONENT(__) => begin
-        Variability.CONSTANT
-      end
+      ENUM_LITERAL_COMPONENT(__) => Variability.CONSTANT
 
-      _ => begin
-        Variability.CONTINUOUS
-      end
+      _ => Variability.CONTINUOUS
     end
   end
   return v
@@ -660,17 +582,11 @@ function parallelism(component::Component)
 
    parallelism = begin
     @match component begin
-      TYPED_COMPONENT(attributes = ATTRIBUTES(parallelism = parallelism)) => begin
-        parallelism
-      end
+      TYPED_COMPONENT(attributes = ATTRIBUTES(parallelism = parallelism)) => parallelism
 
-      UNTYPED_COMPONENT(attributes = ATTRIBUTES(parallelism = parallelism)) => begin
-        parallelism
-      end
+      UNTYPED_COMPONENT(attributes = ATTRIBUTES(parallelism = parallelism)) => parallelism
 
-      _ => begin
-        NON_PARALLEL
-      end
+      _ => NON_PARALLEL
     end
   end
   return parallelism
@@ -698,9 +614,7 @@ function direction(component::Component)
         begin
           direction
         end
-      _ => begin
-        Direction.NONE
-      end
+      _ => Direction.NONE
     end
   end
   return direction
@@ -717,17 +631,11 @@ function getCondition(component::Component)
 
    cond = begin
     @match component begin
-      UNTYPED_COMPONENT(__) => begin
-        component.condition
-      end
+      UNTYPED_COMPONENT(__) => component.condition
 
-      TYPED_COMPONENT(__) => begin
-        component.condition
-      end
+      TYPED_COMPONENT(__) => component.condition
 
-      _ => begin
-        EMPTY_BINDING
-      end
+      _ => EMPTY_BINDING
     end
   end
   return cond
@@ -817,18 +725,10 @@ function getBinding(component::Component)
   local b::Binding
    b = begin
     @match component begin
-      UNTYPED_COMPONENT(__) => begin
-        component.binding
-      end
-      TYPED_COMPONENT(__) => begin
-        component.binding
-      end
-      TYPE_ATTRIBUTE(__) => begin
-        binding(component.modifier)
-      end
-      _ => begin
-        EMPTY_BINDING
-      end
+      UNTYPED_COMPONENT(__) => component.binding
+      TYPED_COMPONENT(__) => component.binding
+      TYPE_ATTRIBUTE(__) => binding(component.modifier)
+      _ => EMPTY_BINDING
     end
   end
   return b
@@ -854,12 +754,8 @@ function getAttributes(component::Component)
   local attr
    attr = begin
     @match component begin
-      UNTYPED_COMPONENT(__) => begin
-        component.attributes
-      end
-      TYPED_COMPONENT(__) => begin
-        component.attributes
-      end
+      UNTYPED_COMPONENT(__) => component.attributes
+      TYPED_COMPONENT(__) => component.attributes
     end
   end
   return attr
@@ -868,25 +764,15 @@ end
 function isTyped(component::Component)
   local isTyped::Bool
    isTyped = begin    @match component begin
-      TYPED_COMPONENT(__) => begin
-        true
-      end
+      TYPED_COMPONENT(__) => true
 
-      ITERATOR_COMPONENT(ty = TYPE_UNKNOWN(__)) => begin
-        false
-      end
+      ITERATOR_COMPONENT(ty = TYPE_UNKNOWN(__)) => false
 
-      ITERATOR_COMPONENT(__) => begin
-        true
-      end
+      ITERATOR_COMPONENT(__) => true
 
-      TYPE_ATTRIBUTE(__) => begin
-        true
-      end
+      TYPE_ATTRIBUTE(__) => true
 
-      _ => begin
-        false
-      end
+      _ => false
     end
   end
   return isTyped
@@ -928,29 +814,17 @@ function getType(component::Component)
 
    ty = begin
     @match component begin
-      TYPED_COMPONENT(__) => begin
-        component.ty
-      end
+      TYPED_COMPONENT(__) => component.ty
 
-      UNTYPED_COMPONENT(__) => begin
-        getType(component.classInst)
-      end
+      UNTYPED_COMPONENT(__) => getType(component.classInst)
 
-      ITERATOR_COMPONENT(__) => begin
-        component.ty
-      end
+      ITERATOR_COMPONENT(__) => component.ty
 
-      TYPE_ATTRIBUTE(__) => begin
-        component.ty
-      end
+      TYPE_ATTRIBUTE(__) => component.ty
 
-      DELETED_COMPONENT(__) => begin
-        getType(component.component)
-      end
+      DELETED_COMPONENT(__) => getType(component.component)
 
-      _ => begin
-        TYPE_UNKNOWN()
-      end
+      _ => TYPE_UNKNOWN()
     end
   end
   return ty
@@ -981,15 +855,9 @@ function getModifier(component::Component)
   local modifier::Modifier
   modifier = begin
     @match component begin
-      COMPONENT_DEF(__) => begin
-        component.modifier
-      end
-      TYPE_ATTRIBUTE(__) => begin
-        component.modifier
-      end
-      _ => begin
-        MODIFIER_NOMOD()
-      end
+      COMPONENT_DEF(__) => component.modifier
+      TYPE_ATTRIBUTE(__) => component.modifier
+      _ => MODIFIER_NOMOD()
     end
   end
   return modifier
@@ -1027,29 +895,17 @@ function Component_info(component::Component)
 
    info = begin
     @match component begin
-      COMPONENT_DEF(__) => begin
-        SCodeUtil.elementInfo(component.definition)
-      end
+      COMPONENT_DEF(__) => SCodeUtil.elementInfo(component.definition)
 
-      UNTYPED_COMPONENT(__) => begin
-        component.info
-      end
+      UNTYPED_COMPONENT(__) => component.info
 
-      TYPED_COMPONENT(__) => begin
-        component.info
-      end
+      TYPED_COMPONENT(__) => component.info
 
-      ITERATOR_COMPONENT(__) => begin
-        component.info
-      end
+      ITERATOR_COMPONENT(__) => component.info
 
-      TYPE_ATTRIBUTE(__) => begin
-        Modifier_info(component.modifier)
-      end
+      TYPE_ATTRIBUTE(__) => Modifier_info(component.modifier)
 
-      DELETED_COMPONENT(__) => begin
-        Component_info(component.component)
-      end
+      DELETED_COMPONENT(__) => Component_info(component.component)
     end
   end
   #= Fail for enumeration literals, InstNode.info handles that case instead. =#

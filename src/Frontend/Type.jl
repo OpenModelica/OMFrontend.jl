@@ -160,26 +160,18 @@ isBoxed(ty::ModelicaType)::Bool = isvariant(ty, TYPE_METABOXED)
 function unbox(ty::ModelicaType)::ModelicaType
 
   @match ty begin
-    TYPE_METABOXED(__) => begin
-      ty.ty
-    end
+    TYPE_METABOXED(__) => ty.ty
 
-    _ => begin
-      ty
-    end
+    _ => ty
   end
 end
 
 function box(ty::ModelicaType)::ModelicaType
 
   @match ty begin
-    TYPE_METABOXED(__) => begin
-      ty
-    end
+    TYPE_METABOXED(__) => ty
 
-    _ => begin
-      TYPE_METABOXED(ty)
-    end
+    _ => TYPE_METABOXED(ty)
   end
 end
 
@@ -202,13 +194,9 @@ function recordFields(recordType::ModelicaType)::List{Field}
 
   fields = begin
     @match recordType begin
-      TYPE_COMPLEX(complexTy = COMPLEX_RECORD(fields = fields)) => begin
-        fields
-      end
+      TYPE_COMPLEX(complexTy = COMPLEX_RECORD(fields = fields)) => fields
 
-      _ => begin
-        nil
-      end
+      _ => nil
     end
   end
   return fields
@@ -217,9 +205,7 @@ end
 @nospecializeinfer function lookupRecordFieldType(name::String, recordType::ModelicaType)::ModelicaType
 
   @match recordType begin
-    TYPE_COMPLEX(__) => begin
-      getType(lookupElementNode(name, getClass(recordType.cls)))
-    end
+    TYPE_COMPLEX(__) => getType(lookupElementNode(name, getClass(recordType.cls)))
 
     TYPE_ARRAY(__) => begin
       liftArrayLeftList(
@@ -232,32 +218,18 @@ end
 
 @nospecializeinfer function isDiscrete(ty::ModelicaType)::Bool
   @match ty begin
-    TYPE_INTEGER(__) => begin
-      true
-    end
+    TYPE_INTEGER(__) => true
 
-    TYPE_STRING(__) => begin
-      true
-    end
+    TYPE_STRING(__) => true
 
-    TYPE_BOOLEAN(__) => begin
-      true
-    end
+    TYPE_BOOLEAN(__) => true
 
-    TYPE_ENUMERATION(__) => begin
-      true
-    end
+    TYPE_ENUMERATION(__) => true
 
-    TYPE_ARRAY(__) => begin
-      isDiscrete(ty.elementType)
-    end
+    TYPE_ARRAY(__) => isDiscrete(ty.elementType)
 
-    TYPE_FUNCTION(__) => begin
-      isDiscrete(returnType(functionOf(ty)))
-    end
-    _ => begin
-      false
-    end
+    TYPE_FUNCTION(__) => isDiscrete(returnType(functionOf(ty)))
+    _ => false
   end
 end
 
@@ -276,9 +248,7 @@ end
     local names1::List{String}
     local names2::List{String}
     @match (ty1, ty2) begin
-      (TYPE_ENUMERATION(__), TYPE_ENUMERATION(__)) => begin
-        ListUtil.isEqualOnTrue(ty1.literals, ty2.literals, stringEq)
-      end
+      (TYPE_ENUMERATION(__), TYPE_ENUMERATION(__)) => ListUtil.isEqualOnTrue(ty1.literals, ty2.literals, stringEq)
 
       (TYPE_ARRAY(__), TYPE_ARRAY(__)) => begin
         isEqual(ty1.elementType, ty2.elementType) && ListUtil.isEqualOnTrue(
@@ -293,21 +263,13 @@ end
         ListUtil.isEqualOnTrue(ty1.types, ty2.types, isEqual)
       end
 
-      (TYPE_TUPLE(names = NONE()), TYPE_TUPLE(names = NONE())) => begin
-        ListUtil.isEqualOnTrue(ty1.types, ty2.types, isEqual)
-      end
+      (TYPE_TUPLE(names = NONE()), TYPE_TUPLE(names = NONE())) => ListUtil.isEqualOnTrue(ty1.types, ty2.types, isEqual)
 
-      (TYPE_TUPLE(__), TYPE_TUPLE(__)) => begin
-        false
-      end
+      (TYPE_TUPLE(__), TYPE_TUPLE(__)) => false
 
-      (TYPE_COMPLEX(__), TYPE_COMPLEX(__)) => begin
-        isSame(ty1.cls, ty2.cls)
-      end
+      (TYPE_COMPLEX(__), TYPE_COMPLEX(__)) => isSame(ty1.cls, ty2.cls)
 
-      _ => begin
-        true
-      end
+      _ => true
     end
   end
   return equal
@@ -328,17 +290,11 @@ function subscript(ty::ModelicaType, subs::List{<:Subscript})::ModelicaType
     @match Cons{Dimension}(dim, dims) = dims
     subbed_dims = begin
       @match sub begin
-        SUBSCRIPT_INDEX(__) => begin
-          subbed_dims
-        end
+        SUBSCRIPT_INDEX(__) => subbed_dims
 
-        SUBSCRIPT_SLICE(__) => begin
-          Cons{Dimension}(toDimension(sub), subbed_dims)
-        end
+        SUBSCRIPT_SLICE(__) => Cons{Dimension}(toDimension(sub), subbed_dims)
 
-        SUBSCRIPT_WHOLE(__) => begin
-          Cons{Dimension}(dim, subbed_dims)
-        end
+        SUBSCRIPT_WHOLE(__) => Cons{Dimension}(dim, subbed_dims)
       end
     end
   end
@@ -352,46 +308,28 @@ end
 function typenameString(ty::ModelicaType)::String
 
   @match ty begin
-    TYPE_ENUMERATION(__) => begin
-      AbsynUtil.pathString(ty.typePath)
-    end
+    TYPE_ENUMERATION(__) => AbsynUtil.pathString(ty.typePath)
 
-    _ => begin
-      toString(ty)
-    end
+    _ => toString(ty)
   end
 end
 
 @nospecializeinfer function toFlatString(ty::ModelicaType)::String
 
   @match ty begin
-    TYPE_INTEGER(__) => begin
-      "Integer"
-    end
+    TYPE_INTEGER(__) => "Integer"
 
-    TYPE_REAL(__) => begin
-      "Real"
-    end
+    TYPE_REAL(__) => "Real"
 
-    TYPE_STRING(__) => begin
-      "String"
-    end
+    TYPE_STRING(__) => "String"
 
-    TYPE_BOOLEAN(__) => begin
-      "Boolean"
-    end
+    TYPE_BOOLEAN(__) => "Boolean"
 
-    TYPE_CLOCK(__) => begin
-      "Clock"
-    end
+    TYPE_CLOCK(__) => "Clock"
 
-    TYPE_ENUMERATION(__) => begin
-      "'" * AbsynUtil.pathString(ty.typePath) * "'"
-    end
+    TYPE_ENUMERATION(__) => "'" * AbsynUtil.pathString(ty.typePath) * "'"
 
-    TYPE_ENUMERATION_ANY(__) => begin
-      "enumeration(:)"
-    end
+    TYPE_ENUMERATION_ANY(__) => "enumeration(:)"
 
     TYPE_ARRAY(__) => begin
       toString(ty.elementType) +
@@ -403,37 +341,21 @@ end
       "]"
     end
 
-    TYPE_TUPLE(__) => begin
-      "(" + stringDelimitList(ListUtil.map(ty.types, toString, String), ", ") + ")"
-    end
+    TYPE_TUPLE(__) => "(" + stringDelimitList(ListUtil.map(ty.types, toString, String), ", ") + ")"
 
-    TYPE_NORETCALL(__) => begin
-      "()"
-    end
+    TYPE_NORETCALL(__) => "()"
 
-    TYPE_UNKNOWN(__) => begin
-      "unknown()"
-    end
+    TYPE_UNKNOWN(__) => "unknown()"
 
-    TYPE_COMPLEX(__) => begin
-      "'" * AbsynUtil.pathString(scopePath(ty.cls)) * "'"
-    end
+    TYPE_COMPLEX(__) => "'" * AbsynUtil.pathString(scopePath(ty.cls)) * "'"
 
-    TYPE_FUNCTION(__) => begin
-      typeString(functionOf(ty))
-    end
+    TYPE_FUNCTION(__) => typeString(functionOf(ty))
 
-    TYPE_METABOXED(__) => begin
-      "#" + toFlatString(ty.ty)
-    end
+    TYPE_METABOXED(__) => "#" + toFlatString(ty.ty)
 
-    TYPE_POLYMORPHIC(__) => begin
-      "<" + ty.name + ">"
-    end
+    TYPE_POLYMORPHIC(__) => "<" + ty.name + ">"
 
-    TYPE_ANY(__) => begin
-      "ANY"
-    end
+    TYPE_ANY(__) => "ANY"
 
     _ => begin
       Error.assertion(
@@ -463,9 +385,7 @@ function toFlatDeclarationStream(ty::ModelicaType, s::IOStream_M.IOSTREAM)
       end
       s = IOStream_M.append(s, ")")
     end
-    TYPE_COMPLEX(_, COMPLEX_RECORD(__)) =>  begin
-      toFlatStream(ty.cls, s)
-    end
+    TYPE_COMPLEX(_, COMPLEX_RECORD(__)) => toFlatStream(ty.cls, s)
     TYPE_COMPLEX(complexTy = COMPLEX_EXTERNAL_OBJECT(__)) =>  begin
       path = scopePath(ty.cls);
       name = Util.makeQuotedIdentifier(AbsynUtil.pathString(path))
@@ -513,33 +433,21 @@ end
 
 @nospecializeinfer function toString(ty::ModelicaType)::String
   @match ty begin
-    TYPE_INTEGER(__) => begin
-      "Integer"
-    end
+    TYPE_INTEGER(__) => "Integer"
 
-    TYPE_REAL(__) => begin
-      "Real"
-    end
+    TYPE_REAL(__) => "Real"
 
-    TYPE_STRING(__) => begin
-      "String"
-    end
+    TYPE_STRING(__) => "String"
 
-    TYPE_BOOLEAN(__) => begin
-      "Boolean"
-    end
+    TYPE_BOOLEAN(__) => "Boolean"
 
-    TYPE_CLOCK(__) => begin
-      "Clock"
-    end
+    TYPE_CLOCK(__) => "Clock"
 
     TYPE_ENUMERATION(__) => begin
       "enumeration " + AbsynUtil.pathString(ty.typePath) + "(" + stringDelimitList(ty.literals, ", ") + ")"
     end
 
-    TYPE_ENUMERATION_ANY(__) => begin
-      "enumeration(:)"
-    end
+    TYPE_ENUMERATION_ANY(__) => "enumeration(:)"
 
     TYPE_ARRAY(__) => begin
       toString(ty.elementType) +
@@ -551,37 +459,21 @@ end
       "]"
     end
 
-    TYPE_TUPLE(__) => begin
-      "(" + stringDelimitList(ListUtil.map(ty.types, toString, String), ", ") + ")"
-    end
+    TYPE_TUPLE(__) => "(" + stringDelimitList(ListUtil.map(ty.types, toString, String), ", ") + ")"
 
-    TYPE_NORETCALL(__) => begin
-      "()"
-    end
+    TYPE_NORETCALL(__) => "()"
 
-    TYPE_UNKNOWN(__) => begin
-      "unknown()"
-    end
+    TYPE_UNKNOWN(__) => "unknown()"
 
-    TYPE_COMPLEX(__) => begin
-      "'" * AbsynUtil.pathString(scopePath(ty.cls)) * "'"
-    end
+    TYPE_COMPLEX(__) => "'" * AbsynUtil.pathString(scopePath(ty.cls)) * "'"
 
-    TYPE_FUNCTION(__) => begin
-      typeString(functionOf(ty))
-    end
+    TYPE_FUNCTION(__) => typeString(functionOf(ty))
 
-    TYPE_METABOXED(__) => begin
-      "#" + toString(ty.ty)
-    end
+    TYPE_METABOXED(__) => "#" + toString(ty.ty)
 
-    TYPE_POLYMORPHIC(__) => begin
-      "<" + ty.name + ">"
-    end
+    TYPE_POLYMORPHIC(__) => "<" + ty.name + ">"
 
-    TYPE_ANY(__) => begin
-      "ANY"
-    end
+    TYPE_ANY(__) => "ANY"
 
     _ => begin
       Error.assertion(
@@ -612,17 +504,11 @@ function foldDims(ty::ModelicaType, func::FT, arg::ArgT, ::Type{ArgT})::ArgT whe
         arg
       end
 
-      TYPE_FUNCTION(__) => begin
-        foldDims(returnType(functionOf(ty)), func, arg, ArgT)
-      end
+      TYPE_FUNCTION(__) => foldDims(returnType(functionOf(ty)), func, arg, ArgT)
 
-      TYPE_METABOXED(__) => begin
-        foldDims(ty.ty, func, arg, ArgT)
-      end
+      TYPE_METABOXED(__) => foldDims(ty.ty, func, arg, ArgT)
 
-      _ => begin
-        arg
-      end
+      _ => arg
     end
   end
   return arg
@@ -681,21 +567,15 @@ end
         TYPE_METABOXED(tyTy)
       end
     end
-    _ => begin
-      ty
-    end
+    _ => ty
   end
   return retTy
 end
 
 function hasZeroDimension(ty::ModelicaType)::Bool
   @match ty begin
-    TYPE_ARRAY(__) => begin
-      ListUtil.exist(ty.dimensions, isZero)
-    end
-    _ => begin
-      false
-    end
+    TYPE_ARRAY(__) => ListUtil.exist(ty.dimensions, isZero)
+    _ => false
   end
 end
 
@@ -709,46 +589,28 @@ end
         (x) -> isKnown(x, allowExp),
       )
     end
-    TYPE_FUNCTION(__) => begin
-      hasKnownSize(returnType(functionOf(ty)))
-    end
-    _ => begin
-      true
-    end
+    TYPE_FUNCTION(__) => hasKnownSize(returnType(functionOf(ty)))
+    _ => true
   end
 end
 
 @nospecializeinfer function dimensionCount(ty::ModelicaType)::Int
   @match ty begin
-    TYPE_ARRAY(__) => begin
-      listLength(ty.dimensions)
-    end
-    TYPE_FUNCTION(__) => begin
-      dimensionCount(returnType(functionOf(ty)))
-    end
-    TYPE_METABOXED(__) => begin
-      dimensionCount(ty.ty)
-    end
-    _ => begin
-      0
-    end
+    TYPE_ARRAY(__) => listLength(ty.dimensions)
+    TYPE_FUNCTION(__) => dimensionCount(returnType(functionOf(ty)))
+    TYPE_METABOXED(__) => dimensionCount(ty.ty)
+    _ => 0
   end
 end
 
 @nospecializeinfer function nthDimension(ty::ModelicaType, index::Int)::Dimension
 
   @match ty begin
-    TYPE_ARRAY(__) => begin
-      listGet(ty.dimensions, index)
-    end
+    TYPE_ARRAY(__) => listGet(ty.dimensions, index)
 
-    TYPE_FUNCTION(__) => begin
-      nthDimension(returnType(functionOf(ty)), index)
-    end
+    TYPE_FUNCTION(__) => nthDimension(returnType(functionOf(ty)), index)
 
-    TYPE_METABOXED(__) => begin
-      nthDimension(ty.ty, index)
-    end
+    TYPE_METABOXED(__) => nthDimension(ty.ty, index)
   end
 end
 
@@ -763,12 +625,8 @@ function copyDims(srcType::ModelicaType, dstType::ModelicaType)::ModelicaType
   else
     ty = begin
       @match dstType begin
-        TYPE_ARRAY(__) => begin
-          TYPE_ARRAY(dstType.elementType, arrayDims(srcType))
-        end
-        _ => begin
-          TYPE_ARRAY(dstType, arrayDims(srcType))
-        end
+        TYPE_ARRAY(__) => TYPE_ARRAY(dstType.elementType, arrayDims(srcType))
+        _ => TYPE_ARRAY(dstType, arrayDims(srcType))
       end
     end
   end
@@ -777,32 +635,18 @@ end
 
 @nospecializeinfer function arrayDims(ty::ModelicaType)::List{Dimension}
   @match ty begin
-    TYPE_ARRAY(__) => begin
-      ty.dimensions
-    end
-    TYPE_FUNCTION(__) => begin
-      arrayDims(returnType(functionOf(ty)))
-    end
-    TYPE_METABOXED(__) => begin
-      arrayDims(ty.ty)
-    end
-    _ => begin
-      nil
-    end
+    TYPE_ARRAY(__) => ty.dimensions
+    TYPE_FUNCTION(__) => arrayDims(returnType(functionOf(ty)))
+    TYPE_METABOXED(__) => arrayDims(ty.ty)
+    _ => nil
   end
 end
 
 @nospecializeinfer function elementType(ty::ModelicaType)::ModelicaType
   @match ty begin
-    TYPE_ARRAY(__) => begin
-      ty.elementType
-    end
-    TYPE_FUNCTION(__) => begin
-      elementType(returnType(functionOf(ty)))
-    end
-    _ => begin
-      ty
-    end
+    TYPE_ARRAY(__) => ty.elementType
+    TYPE_FUNCTION(__) => elementType(returnType(functionOf(ty)))
+    _ => ty
   end
 end
 
@@ -812,12 +656,8 @@ type. Otherwise it just returns the given element type.
 """
 function setArrayElementType(arrayTy::ModelicaType, elementTy::ModelicaType)::ModelicaType
  @match arrayTy begin
-   TYPE_ARRAY(__) => begin
-     liftArrayLeftList(elementTy, arrayTy.dimensions)
-   end
-   _ => begin
-     elementTy
-   end
+   TYPE_ARRAY(__) => liftArrayLeftList(elementTy, arrayTy.dimensions)
+   _ => elementTy
  end
 end
 
@@ -828,41 +668,25 @@ end
 function arrayElementType(ty::ModelicaType)::ModelicaType
 
   @match ty begin
-    TYPE_ARRAY(__) => begin
-      ty.elementType
-    end
+    TYPE_ARRAY(__) => ty.elementType
 
-    _ => begin
-      ty
-    end
+    _ => ty
   end
 end
 
 @nospecializeinfer function nthTupleType(ty::ModelicaType, n::Int)::ModelicaType
   @match ty begin
-    TYPE_TUPLE(__) => begin
-      listGet(ty.types, n)
-    end
-    TYPE_ARRAY(__) => begin
-      TYPE_ARRAY(nthTupleType(ty.elementType, n), ty.dimensions)
-    end
-    _ => begin
-      ty
-    end
+    TYPE_TUPLE(__) => listGet(ty.types, n)
+    TYPE_ARRAY(__) => TYPE_ARRAY(nthTupleType(ty.elementType, n), ty.dimensions)
+    _ => ty
   end
 end
 
 @nospecializeinfer function firstTupleType(ty::ModelicaType)::ModelicaType
   @match ty begin
-    TYPE_TUPLE(__) => begin
-      listHead(ty.types)
-    end
-    TYPE_ARRAY(__) => begin
-      TYPE_ARRAY(firstTupleType(ty.elementType), ty.dimensions)
-    end
-    _ => begin
-      ty
-    end
+    TYPE_TUPLE(__) => listHead(ty.types)
+    TYPE_ARRAY(__) => TYPE_ARRAY(firstTupleType(ty.elementType), ty.dimensions)
+    _ => ty
   end
 end
 
@@ -878,54 +702,32 @@ isTuple(ty::ModelicaType)::Bool = isvariant(ty, TYPE_TUPLE)
 @nospecializeinfer function isScalarBuiltin(ty::ModelicaType)::Bool
 
   @match ty begin
-    TYPE_INTEGER(__) => begin
-      true
-    end
+    TYPE_INTEGER(__) => true
 
-    TYPE_REAL(__) => begin
-      true
-    end
+    TYPE_REAL(__) => true
 
-    TYPE_STRING(__) => begin
-      true
-    end
+    TYPE_STRING(__) => true
 
-    TYPE_BOOLEAN(__) => begin
-      true
-    end
+    TYPE_BOOLEAN(__) => true
 
-    TYPE_CLOCK(__) => begin
-      true
-    end
+    TYPE_CLOCK(__) => true
 
-    TYPE_ENUMERATION(__) => begin
-      true
-    end
+    TYPE_ENUMERATION(__) => true
 
-    TYPE_ENUMERATION_ANY(__) => begin
-      true
-    end
+    TYPE_ENUMERATION_ANY(__) => true
 
-    TYPE_FUNCTION(__) => begin
-      isScalarBuiltin(returnType(functionOf(ty)))
-    end
+    TYPE_FUNCTION(__) => isScalarBuiltin(returnType(functionOf(ty)))
 
-    _ => begin
-      false
-    end
+    _ => false
   end
 end
 
 function isNumeric(ty::ModelicaType)::Bool
 
   @match ty begin
-    TYPE_ARRAY(__) => begin
-      isBasicNumeric(ty.elementType)
-    end
+    TYPE_ARRAY(__) => isBasicNumeric(ty.elementType)
 
-    _ => begin
-      isBasicNumeric(ty)
-    end
+    _ => isBasicNumeric(ty)
   end
 end
 
@@ -933,86 +735,54 @@ isBasicNumeric(ty::ModelicaType)::Bool = isvariant(ty, TYPE_REAL) || isvariant(t
 
 @nospecializeinfer function isBasic(ty::ModelicaType)::Bool
   @match ty begin
-    TYPE_REAL(__) => begin
-      true
-    end
-    TYPE_INTEGER(__) => begin
-      true
-    end
+    TYPE_REAL(__) => true
+    TYPE_INTEGER(__) => true
 
-    TYPE_BOOLEAN(__) => begin
-      true
-    end
+    TYPE_BOOLEAN(__) => true
 
-    TYPE_STRING(__) => begin
-      true
-    end
+    TYPE_STRING(__) => true
 
-    TYPE_ENUMERATION(__) => begin
-      true
-    end
+    TYPE_ENUMERATION(__) => true
 
-    TYPE_CLOCK(__) => begin
-      true
-    end
+    TYPE_CLOCK(__) => true
 
-    TYPE_FUNCTION(__) => begin
-      isBasic(returnType(functionOf(ty)))
-    end
+    TYPE_FUNCTION(__) => isBasic(returnType(functionOf(ty)))
 
-    _ => begin
-      false
-    end
+    _ => false
   end
 end
 
 function isRecord(ty::ModelicaType)::Bool
 
   @match ty begin
-    TYPE_COMPLEX(complexTy = COMPLEX_RECORD(__)) => begin
-      true
-    end
+    TYPE_COMPLEX(complexTy = COMPLEX_RECORD(__)) => true
 
-    _ => begin
-      false
-    end
+    _ => false
   end
 end
 
 function isExternalObject(ty::ModelicaType)::Bool
 
   @match ty begin
-    TYPE_COMPLEX(complexTy = COMPLEX_EXTERNAL_OBJECT(__)) => begin
-      true
-    end
+    TYPE_COMPLEX(complexTy = COMPLEX_EXTERNAL_OBJECT(__)) => true
 
-    _ => begin
-      false
-    end
+    _ => false
   end
 end
 
 function isExpandableConnector(ty::ModelicaType)::Bool
 
   @match ty begin
-    TYPE_COMPLEX(complexTy = COMPLEX_EXPANDABLE_CONNECTOR(__)) => begin
-      true
-    end
-    _ => begin
-      false
-    end
+    TYPE_COMPLEX(complexTy = COMPLEX_EXPANDABLE_CONNECTOR(__)) => true
+    _ => false
   end
 end
 
 function isConnector(ty::ModelicaType)::Bool
 
   @match ty begin
-    TYPE_COMPLEX(complexTy = COMPLEX_CONNECTOR(__)) => begin
-      true
-    end
-    _ => begin
-      false
-    end
+    TYPE_COMPLEX(complexTy = COMPLEX_CONNECTOR(__)) => true
+    _ => false
   end
 end
 
@@ -1033,23 +803,15 @@ isEnumeration(ty::ModelicaType)::Bool = isvariant(ty, TYPE_ENUMERATION) || isvar
 function isSingleElementArray(ty::ModelicaType)::Bool
   local d::Dimension
   @match ty begin
-    TYPE_ARRAY(dimensions = d <| nil()) => begin
-      isKnown(d) && size(d) == 1
-    end
-    _ => begin
-      false
-    end
+    TYPE_ARRAY(dimensions = d <| nil()) => isKnown(d) && size(d) == 1
+    _ => false
   end
 end
 
 function isEmptyArray(ty::ModelicaType)::Bool
   @match ty begin
-    TYPE_ARRAY(__) => begin
-      ListUtil.exist(ty.dimensions, isZero)
-    end
-    _ => begin
-      false
-    end
+    TYPE_ARRAY(__) => ListUtil.exist(ty.dimensions, isZero)
+    _ => false
   end
 end
 
@@ -1058,26 +820,18 @@ function isSquareMatrix(ty::ModelicaType)::Bool
   local d1::Dimension
   local d2::Dimension
   @match ty begin
-    TYPE_ARRAY(dimensions = d1 <| d2 <| nil()) => begin
-      isEqualKnown(d1, d2)
-    end
+    TYPE_ARRAY(dimensions = d1 <| d2 <| nil()) => isEqualKnown(d1, d2)
 
-    _ => begin
-      false
-    end
+    _ => false
   end
 end
 
 function isMatrix(ty::ModelicaType)::Bool
 
   @match ty begin
-    TYPE_ARRAY(dimensions = _ <| _ <| nil()) => begin
-      true
-    end
+    TYPE_ARRAY(dimensions = _ <| _ <| nil()) => true
 
-    _ => begin
-      false
-    end
+    _ => false
   end
 end
 
@@ -1085,13 +839,9 @@ end
 function isVector(ty::ModelicaType)::Bool
 
   @match ty begin
-    TYPE_ARRAY(dimensions = _ <| nil()) => begin
-      true
-    end
+    TYPE_ARRAY(dimensions = _ <| nil()) => true
 
-    _ => begin
-      false
-    end
+    _ => false
   end
 end
 
@@ -1158,12 +908,8 @@ function liftArrayLeftList(ty::ModelicaType, dims::List{<:Dimension})::ModelicaT
   end
   ty = begin
     @match ty begin
-      TYPE_ARRAY(__) => begin
-        TYPE_ARRAY(ty.elementType, listAppend(dims, ty.dimensions))
-      end
-      _ => begin
-        TYPE_ARRAY(ty, dims)
-      end
+      TYPE_ARRAY(__) => TYPE_ARRAY(ty.elementType, listAppend(dims, ty.dimensions))
+      _ => TYPE_ARRAY(ty, dims)
     end
   end
   return ty

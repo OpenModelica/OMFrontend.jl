@@ -113,9 +113,7 @@ function evaluateOperators(
                     )
                   end
 
-                  Absyn.IDENT("cardinality") => begin
-                    CardinalityTable.evaluateCardinality(Base.first(call.arguments), ctable)
-                  end
+                  Absyn.IDENT("cardinality") => CardinalityTable.evaluateCardinality(Base.first(call.arguments), ctable)
 
                   _ => begin
                     mapShallow(
@@ -475,14 +473,10 @@ function generateStreamEquations(
   local f2::Face
   #= Unconnected stream connector, do nothing. =#
   @match elements begin
-    CONNECTOR(face = f1) <| nil() where {(f1 == FACE_INSIDE)} => begin
-      nil
-    end
+    CONNECTOR(face = f1) <| nil() where {(f1 == FACE_INSIDE)} => nil
 
     CONNECTOR(face = f1) <|
-    CONNECTOR(face = f2) <| nil() where {(f1 == FACE_INSIDE && f2 == FACE_INSIDE)} => begin
-      nil
-    end
+    CONNECTOR(face = f2) <| nil() where {(f1 == FACE_INSIDE && f2 == FACE_INSIDE)} => nil
 
     CONNECTOR(name = cr1, face = f1, source = src1) <|
     CONNECTOR(name = cr2, face = f2, source = src2) <|
@@ -783,21 +777,13 @@ function isStreamCall(@nospecialize(exp::Expression))::Bool
     CALL_EXPRESSION(__) => begin
       begin
         @match name(typedFunction(exp.call)) begin
-          Absyn.IDENT("inStream") => begin
-            true
-          end
-          Absyn.IDENT("actualStream") => begin
-            true
-          end
-          _ => begin
-            false
-          end
+          Absyn.IDENT("inStream") => true
+          Absyn.IDENT("actualStream") => true
+          _ => false
         end
       end
     end
-    _ => begin
-      false
-    end
+    _ => false
   end
 end
 
@@ -933,9 +919,7 @@ function generateInStreamExp(
   reducedStreams = list(s for s in streams if !isZeroFlowMinMax(s, streamCref))
   exp = begin
     @match reducedStreams begin
-      CONNECTOR(face = f1) <| nil() where {(f1 == FACE_INSIDE)} => begin
-        fromCref(streamCref)
-      end
+      CONNECTOR(face = f1) <| nil() where {(f1 == FACE_INSIDE)} => fromCref(streamCref)
 
       CONNECTOR(face = f1) <|
       CONNECTOR(face = f2) <| nil() where {(f1 == FACE_INSIDE && f2 == FACE_INSIDE)} => begin
@@ -1096,13 +1080,9 @@ function evaluateActualStreamMul(
   #= Wrap the expression in smooth if the result would be flow_cr * (if flow_cr > 0 then ...) =#
   outExp = begin
     @match e2 begin
-      IF_EXPRESSION(__) => begin
-        makeSmoothCall(outExp, 0)
-      end
+      IF_EXPRESSION(__) => makeSmoothCall(outExp, 0)
 
-      _ => begin
-        outExp
-      end
+      _ => outExp
     end
   end
   return outExp
@@ -1126,9 +1106,7 @@ function evaluateFlowDirection(flowCref::ComponentRef)::Int
     simplifyOpt(Util.applyOption(omax, getBindingExp))
   direction = begin
     @match (omin, omax) begin
-      (NONE(), NONE()) => begin
-        0
-      end
+      (NONE(), NONE()) => 0
 
       (SOME(REAL_EXPRESSION(min_val)), NONE()) => begin
         if min_val >= 0
@@ -1159,9 +1137,7 @@ function evaluateFlowDirection(flowCref::ComponentRef)::Int
         end
       end
 
-      _ => begin
-        0
-      end
+      _ => 0
     end
   end
   #= No attributes, flow direction can't be decided.
@@ -1229,9 +1205,7 @@ function associatedFlowCref(streamCref::ComponentRef)::ComponentRef
         )
       end
 
-      _ => begin
-        associatedFlowCref(rest_cr)
-      end
+      _ => associatedFlowCref(rest_cr)
     end
   end
   #= A connector with a single flow, append the flow node to the cref and return it.
