@@ -1539,12 +1539,13 @@ function classScope(node::InstNode)
 end
 
 """
-  Returns the parent scope of a node. In the case of a class this is simply
-  the enclosing class. In the case of a component it is the enclosing class of
-  the component's type.
+Returns the parent scope of a node. In the case of a class this is simply
+the enclosing class. In the case of a component it is the enclosing class of
+the component's type.
+
+The parent scope, a redeclared class's being the one of the class it replaces (omc
+parentScope(node, ignoreRedeclare = true)).
 """
-#= The parent scope, a redeclared class's being the one of the class it replaces (omc
-   parentScope(node, ignoreRedeclare = true)). =#
 function parentScope(@nospecialize(node::InstNode), ignoreRedeclare::Bool)
   ignoreRedeclare || return parentScope(node)
   return @match node begin

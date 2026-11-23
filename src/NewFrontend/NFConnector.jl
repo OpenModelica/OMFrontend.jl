@@ -45,10 +45,13 @@ const SCALARIZE_ALL::ScalarizeSetting = 0x03
 #= Wrapper to avoid shadowing by the `scalarize` parameter of ScalarizeSetting =#
 scalarizeCref(cref::ComponentRef)::List{ComponentRef} = scalarize(cref)
 
-"""Splits a connector into its primitive components."""
-#= Connection sets hold scalars also when not scalarizing (FRONTEND_SCALARIZE off): connects in
-   for-loops are unrolled per element, so flows added as whole arrays (NONE) never met the
-   connected elements and unconnected-flow equations  covered connected elements. =#
+"""
+Splits a connector into its primitive components.
+
+Connection sets hold scalars also when not scalarizing (FRONTEND_SCALARIZE off): connects in
+for-loops are unrolled per element, so flows added as whole arrays (NONE) never met the
+connected elements and unconnected-flow equations  covered connected elements.
+"""
 function split(
   conn::CONNECTOR,
   scalarize::ScalarizeSetting = SCALARIZE_ALL,

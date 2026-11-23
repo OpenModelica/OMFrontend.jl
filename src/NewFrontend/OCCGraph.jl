@@ -792,7 +792,7 @@ function generateEqualityConstraintEquation(clhs::ComponentRef,
               (fc2, fn2)
             end
             expRHS = CALL_EXPRESSION(UNTYPED_CALL(fcref_rhs, Expression[CREF_EXPRESSION(ty1, lhsArr), CREF_EXPRESSION(ty2, rhsArr)], Expression[], fn_node_rhs))
-            (expRHS, ty, var) = typeExp(expRHS, origin, source)
+            (expRHS, ty, _) = typeExp(expRHS, origin, source)
             local fillScope = topScope(node(clhs))
             (fcref_lhs, fn_node_lhs) = get!(_FILL_FN_CACHE, _refId(fillScope)) do
               local fc = lookupFunctionSimple("fill", fillScope)

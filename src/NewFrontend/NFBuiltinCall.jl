@@ -355,7 +355,6 @@ function makeCatExpRef(n::Int,
     maxn = max(maxn, listLength(d))
   end
   local minN = 99999999999999 #Some huge number. Note Could cause a bug (In theory..).
-  mLst = nil
   for d in dimsLst
     minN = min(minN, listLength(d))
   end
@@ -1173,7 +1172,7 @@ function typeCatCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{
   end
   @match [arg, args...] = args
   (arg, ty, variability) = typeExp(arg, origin, info)
-  (arg, _, mk) = matchTypes(ty, TYPE_INTEGER(), arg)
+  (arg, _, _) = matchTypes(ty, TYPE_INTEGER(), arg)
   if variability > Variability.PARAMETER
     Error.addSourceMessageAndFail(Error.NF_CAT_FIRST_ARG_EVAL, list(toString(arg), variabilityString(variability)), info)
   end
@@ -1994,7 +1993,7 @@ function typeDynamicSelectCall(name::String, call::Call, origin::ORIGIN_Type, in
   #= if we cannot typecheck the dynamic part, ignore it!
      https:trac.openmodelica.org/OpenModelica/ticket/5631 =#
   try
-     (arg2, ty2, var2) = typeExp(expDynamic, origin, info)
+     (arg2, _, var2) = typeExp(expDynamic, origin, info)
   catch
     @assign variability = var1
     @assign callExp = arg1

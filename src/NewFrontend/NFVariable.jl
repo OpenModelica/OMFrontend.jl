@@ -231,7 +231,6 @@ function Variable_fromCrefNoBinding(cref::ComponentRef)::VARIABLE
   nodeVar = node(cref)
   comp = component(nodeVar)
   ty = getSubscriptedType(cref)
-  binding = getBinding(comp)
   vis = visibility(nodeVar)
   attr = getAttributes(comp)
   cmt = comment(comp)

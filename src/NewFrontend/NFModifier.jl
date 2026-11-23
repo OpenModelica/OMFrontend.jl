@@ -631,11 +631,12 @@ function create(mod::SCode.MOD,
 end
 
 """
-  Merges two modifiers in the same scope, i.e. like a(x(y = 1), x(z = 2)).
-  This is allowed as long as the two modifiers doesn't modify the same
-  element, otherwise it's an error.
+Merges two modifiers in the same scope, i.e. like a(x(y = 1), x(z = 2)).
+This is allowed as long as the two modifiers doesn't modify the same
+element, otherwise it's an error.
+
+The prefix is the path of the enclosing modifiers, innermost first (omc).
 """
-#= The prefix is the path of the enclosing modifiers, innermost first (omc). =#
 function mergeLocal(mod1::Modifier, mod2::Modifier, ::String, scope::ModifierScope,
                     prefix::List{String} = nil)::Modifier
   @match (mod1, mod2) begin

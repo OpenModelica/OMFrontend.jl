@@ -4155,7 +4155,7 @@ end
 The array expression with the dimensions `inDims` whose elements, in row-major order, are `inExps`.
 """
 function arrayFromVector(inExps::Vector{Expression}, elemTy::ModelicaType, inDims::List{Dimension})::Expression
-  outExp = arrayFromVectorImpl(inExps, elemTy, listReverse(inDims))
+  return arrayFromVectorImpl(inExps, elemTy, listReverse(inDims))
 end
 
 function arrayFromVectorImpl(inExps::Vector{Expression},

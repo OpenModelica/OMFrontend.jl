@@ -395,7 +395,6 @@ function initLoadMSL(;MSL_Version = "MSL:3.2.3", forceReload::Bool = false)
     delete!(LIBRARY_CACHE, MSL_Version)
   end
   @time return loadMSL(MSL_Version = MSL_Version)
-  @info "MSL successfully Loaded"
 end
 
 """

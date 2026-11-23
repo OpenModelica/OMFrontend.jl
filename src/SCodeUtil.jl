@@ -856,13 +856,14 @@ function hasBooleanNamedAnnotation2(inSubMod::SCode.NAMEMOD, inName::String)::Bo
 end
 
 """
-  @author: adrpo
-  returns true if annotation(Evaluate = true) is present,
-  otherwise false
+@author: adrpo
+returns true if annotation(Evaluate = true) is present,
+otherwise false
+
+Pinned-OMC API: bare Comment in, Option{Bool} out (SOME(v) only for a
+boolean-valued Evaluate annotation). The Option{Comment} -> Bool method below
+serves the old frontend; the translated NF calls this one.
 """
-# Pinned-OMC API: bare Comment in, Option{Bool} out (SOME(v) only for a
-# boolean-valued Evaluate annotation). The Option{Comment} -> Bool method below
-# serves the old frontend; the translated NF calls this one.
 function getEvaluateAnnotation(cmt::SCode.COMMENT)::Option{Bool}
   if cmt isa SCode.COMMENT && isSome(cmt.annotation_)
     local ann = Util.getOption(cmt.annotation_)
@@ -1648,9 +1649,12 @@ function lookupElementAnnotationBinding(elem::SCode.Element, name::String)::Opti
   return binding
 end
 
-"""Check if a class definition has equation or algorithm sections."""
-#= Whether the class definition directly contains any sections (with checkExternal, also an
-   external declaration); omc SCodeUtil.classDefHasSections. =#
+"""
+Check if a class definition has equation or algorithm sections.
+
+Whether the class definition directly contains any sections (with checkExternal, also an
+external declaration); omc SCodeUtil.classDefHasSections.
+"""
 function classDefHasSections(classDef::SCode.ClassDef, checkExternal::Bool = false)::Bool
   local hasSections::Bool
   hasSections = @match classDef begin

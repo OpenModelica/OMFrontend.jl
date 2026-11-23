@@ -349,10 +349,11 @@ function _lookupInnerInScope(nameVar::String, scope::InstNode)::Union{Nothing, I
 end
 
 """
-  Attempts to lookup a simple name in some module.
+Attempts to lookup a simple name in some module.
+
+The node, and whether it is an enclosing class found by its own name (a self reference:
+`extends P.A.B` inside P.A; omc lookupSimpleName), which lookup must not instantiate again.
 """
-#= The node, and whether it is an enclosing class found by its own name (a self reference:
-   `extends P.A.B` inside P.A; omc lookupSimpleName), which lookup must not instantiate again. =#
 function lookupSimpleName(nameStr::String, scope::InstNode)::Tuple{InstNode, Bool}
   local node::InstNode
   local cur_scope::InstNode = scope

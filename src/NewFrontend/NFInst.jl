@@ -203,9 +203,12 @@ function resolveAndEvaluate(flat_model::FLAT_MODEL, program::SCode.Program, name
   return flat_model
 end
 
-"""Inlines simple calls, simplifies the model, and collects functions and package constants."""
-#= `top`: the top scope, where inlining finds noEvent for the relations of
-   inlined function bodies (nothing: no wrapping). =#
+"""
+Inlines simple calls, simplifies the model, and collects functions and package constants.
+
+`top`: the top scope, where inlining finds noEvent for the relations of
+inlined function bodies (nothing: no wrapping).
+"""
 function simplifyAndCollect(flat_model::FLAT_MODEL, name::String, top = nothing)::Tuple{FLAT_MODEL, FunctionTree}
   local funcs::FunctionTree
   #= Do unit checking =#
@@ -1000,14 +1003,15 @@ function instExternalObjectStructors(ty::ModelicaType, parentNode::InstNode)
 end
 
 """
-  This function instantiates a package given a package node. If the package has
-  already been instantiated, then the cached instance from the node is
-  returned. Otherwise the node is fully instantiated, the instance is added to
-  the node's cache, and the instantiated node is returned.
+This function instantiates a package given a package node. If the package has
+already been instantiated, then the cached instance from the node is
+returned. Otherwise the node is fully instantiated, the instance is added to
+the node's cache, and the instantiated node is returned.
+
+Serialized: the package cache is a state machine mutated in place on the
+(shared) package node; concurrent transitions would tear it. Fully
+instantiated is terminal, so that hit is served without the lock.
 """
-#= Serialized: the package cache is a state machine mutated in place on the
-   (shared) package node; concurrent transitions would tear it. Fully
-   instantiated is terminal, so that hit is served without the lock. =#
 function instPackage(node::InstNode; isRedeclared::Bool = false)::InstNode
   if !isRedeclared
     local cache = getPackageCache(node)

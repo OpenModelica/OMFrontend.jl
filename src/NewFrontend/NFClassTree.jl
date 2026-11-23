@@ -1463,11 +1463,9 @@ function initImports(tree::ClassTree, ::InstNode)::ClassTree
 end
 
 """
-  Checks that a class used as outer is valid, i.e. is a short class
-  definition with no modifier.
+The component break modifiers of a base class node (`extends A(break x)`), none for any other
+node (omc ClassTree.getBreakModsInExtend).
 """
-#= The component break modifiers of a base class node (`extends A(break x)`), none for any other
-   node (omc ClassTree.getBreakModsInExtend). =#
 function getBreakModsInExtend(extendsNode::InstNode)::Vector{SCode.NAMEMOD}
   local breaks = SCode.NAMEMOD[]
   isvariant(extendsNode, CLASS_NODE) || return breaks
@@ -1616,7 +1614,6 @@ function replaceDuplicates2(
   tree::ClassTree,
 )::DuplicateTree.Entry
   local kept
-  node_ptr = resolveEntryPtr(entry.entry, tree)
     if entry.ty == DuplicateTree.EntryType.REDECLARE
         kept = P_Pointer.access(resolveEntryPtr(entry.entry, tree))
         entry = replaceDuplicates4(entry, kept)

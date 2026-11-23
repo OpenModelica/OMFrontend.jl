@@ -357,12 +357,18 @@ function unescapedString(escapedString::String) ::String
   unescapedString
 end
 
-"""Returns the maximum integer that can be represent using this version of the compiler"""
-#= As omc's runtime (meta_modelica_builtin.c): LONG_MAX / 2. =#
+"""
+Returns the maximum integer that can be represent using this version of the compiler
+
+As omc's runtime (meta_modelica_builtin.c): LONG_MAX / 2.
+"""
 intMaxLit()::Int = typemax(Int) ÷ 2
 
-"""Returns the maximum real that can be represent using this version of the compiler"""
-#= As omc's runtime: DBL_MAX / 2048, in case a solver adds eps to it. =#
+"""
+Returns the maximum real that can be represent using this version of the compiler
+
+As omc's runtime: DBL_MAX / 2048, in case a solver adds eps to it.
+"""
 realMaxLit()::Float64 = floatmax(Float64) / 2048
 
 """

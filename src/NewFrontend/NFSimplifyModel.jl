@@ -377,12 +377,13 @@ function simplifyAssignment(stmt::Statement, statements::Vector{Statement})
 end
 
 """
-   Helper function to simplifyEqualityEquation/simplifyAssignment.
-   Handles Expression.TUPLE() := Expression.TUPLE() assignments by splitting
-   them into a separate assignment statement for each pair of tuple elements.
+Helper function to simplifyEqualityEquation/simplifyAssignment.
+Handles Expression.TUPLE() := Expression.TUPLE() assignments by splitting
+them into a separate assignment statement for each pair of tuple elements.
+
+Statements (makeAssignment) or equations (makeEquality): typed for
+statements only, every tuple equation failed with a MethodError.
 """
-#= Statements (makeAssignment) or equations (makeEquality): typed for
-   statements only, every tuple equation failed with a MethodError. =#
 function simplifyTupleElement(
   lhsTuple::List{Expression},
   rhsTuple::List{Expression},

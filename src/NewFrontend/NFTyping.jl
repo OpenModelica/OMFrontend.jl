@@ -1305,14 +1305,6 @@ function typeTypeAttribute(
 end
 
 """
-   Types an untyped expression, returning the typed expression itself along with
-   its type and variability.
-"""
-#= The typing spine is deliberately fully specialized: @nospecialize boxes the
-   argument on every call and @nospecializeinfer leaves the body abstractly
-   inferred; together they cost ~16 allocations and ~0.8 us per expression
-   node, which dominated binding typing. =#
-"""
 omc NFTyping.checkAssignment: no assignment to a constant, nor to a parameter outside an
 initial algorithm; in a function, no assignment to an input.
 """
@@ -1347,6 +1339,15 @@ function checkAssignment(@nospecialize(lhsExp::Expression), @nospecialize(rhsExp
   return nothing
 end
 
+"""
+Types an untyped expression, returning the typed expression itself along with
+its type and variability.
+
+The typing spine is deliberately fully specialized: @nospecialize boxes the
+argument on every call and @nospecializeinfer leaves the body abstractly
+inferred; together they cost ~16 allocations and ~0.8 us per expression
+node, which dominated binding typing.
+"""
 function typeExp(
   @nospecialize(exp::Expression),
   origin::ORIGIN_Type,

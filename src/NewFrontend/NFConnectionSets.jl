@@ -120,9 +120,10 @@ function fromConnections(connections)
   return sets
 end
 
-    "Adds a connection to the sets, which means merging the two sets that the
-     connectors belong to, unless they already belong to the same set."
-
+"""
+Adds a connection to the sets, which means merging the two sets that the
+connectors belong to, unless they already belong to the same set.
+"""
 function addConnection(connection, broken, sets)
   local conns
   conns = split(connection);
