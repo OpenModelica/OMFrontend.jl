@@ -3736,7 +3736,7 @@ end
   @nospecialize(condition::Expression),
   origin::ORIGIN_Type,
   source::SourceInfo,
-  errorMsg;
+  errorMsg::ErrorTypes.Message;
   allowVector::Bool = false,
   allowClock::Bool = false,
 )::Tuple{Expression, ModelicaType, VariabilityType}
@@ -3755,12 +3755,7 @@ end
     ty
   end
   if !(isBoolean(ety) || allowClock && isClock(ety))
-    # Error.addSourceMessage(
-    #   errorMsg,
-    #   list(toString(condition), toString(ty)),
-    #   info,
-    # )
-    @error "Error in  condition with the type $(ty)"
+    Error.addSourceMessage(errorMsg, list(toString(condition), toString(ty)), info)
     fail()
   end
   return (condition, ty, variability)

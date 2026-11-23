@@ -98,11 +98,9 @@ function regex(str::String, re::String, maxMatches::Int #= The maximum number of
   (numMatches #= 0 means no match, else returns a number 1..maxMatches (1 if maxMatches<0) =#, strs #= This list has length = maxMatches. Substrings that did not match are filled with the empty string =#)
 end
 
-function strncmp(::String, ::String, ::Int) ::Int
-  local outInteger::Int
-
-  @error "TODO: Defined in the runtime"
-  outInteger
+"""C's strncmp: the order of the first `n` bytes of `s1` and `s2`, negative, 0 or positive."""
+function strncmp(s1::String, s2::String, n::Int)::Int
+  return cmp(view(codeunits(s1), 1:min(n, ncodeunits(s1))), view(codeunits(s2), 1:min(n, ncodeunits(s2))))
 end
 
 function stringReplace(str::String, source::String, target::String) ::String

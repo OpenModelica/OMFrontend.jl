@@ -1261,8 +1261,7 @@ function applyModifier(modifier::Modifier, cls::ClassTree, parent::InstNode) ::C
       for mod in mods
         try
           node_ptrs = lookupElementsPtr(name(mod), cls)
-        catch e
-          @error "Missing modified element! "
+        catch
           Error.addSourceMessage(Error.MISSING_MODIFIED_ELEMENT, list(name(mod), clsName), Modifier_info(mod))
           fail()
         end

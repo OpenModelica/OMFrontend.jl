@@ -308,7 +308,7 @@ const STRUCT_SINGULAR_SYSTEM =
     34,
     ErrorTypes.SYMBOLIC(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Model is structurally singular, error found sorting equations\\n%s\\nfor variables\\n%s"),
+    Gettext.gettext("Model is structurally singular, error found sorting equations\n%s\nfor variables\n%s"),
   )::ErrorTypes.Message
 
 const UNSUPPORTED_LANGUAGE_FEATURE =
@@ -468,7 +468,7 @@ const MODIFY_PROTECTED =
     54,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.WARNING(),
-    Gettext.gettext("Modification or redeclaration of protected elements is not allowed.\\n\\tElement: %s, modification: %s."),
+    Gettext.gettext("Modification or redeclaration of protected elements is not allowed.\n\tElement: %s, modification: %s."),
   )::ErrorTypes.Message
 
 const INVALID_TUPLE_CONTENT =
@@ -644,7 +644,7 @@ const NO_MATCHING_FUNCTION_FOUND =
     76,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("No matching function found for %s in component %s\\ncandidates are %s"),
+    Gettext.gettext("No matching function found for %s in component %s\ncandidates are %s"),
   )::ErrorTypes.Message
 
 const NO_MATCHING_FUNCTION_FOUND_NO_CANDIDATE =
@@ -756,7 +756,7 @@ const DUPLICATE_ELEMENTS_NOT_IDENTICAL =
     90,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Duplicate elements (due to inherited elements) not identical:\\n  first element is:  %s\\n  second element is: %s"),
+    Gettext.gettext("Duplicate elements (due to inherited elements) not identical:\n  first element is:  %s\n  second element is: %s"),
   )::ErrorTypes.Message
 
 const PACKAGE_VARIABLE_NOT_CONSTANT =
@@ -908,7 +908,7 @@ const MISSING_INNER_PREFIX =
     108,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.WARNING(),
-    Gettext.gettext("No corresponding 'inner' declaration found for component %s declared as '%s'.\\n  The existing 'inner' components are:\\n    %s\\n  Check if you have not misspelled the 'outer' component name.\\n  Please declare an 'inner' component with the same name in the top scope.\\n  Continuing flattening by only considering the 'outer' component declaration."),
+    Gettext.gettext("No corresponding 'inner' declaration found for component %s declared as '%s'.\n  The existing 'inner' components are:\n    %s\n  Check if you have not misspelled the 'outer' component name.\n  Please declare an 'inner' component with the same name in the top scope.\n  Continuing flattening by only considering the 'outer' component declaration."),
   )::ErrorTypes.Message
 
 const NON_PARAMETER_ITERATOR_RANGE =
@@ -988,7 +988,7 @@ const CONNECT_INCOMPATIBLE_TYPES =
     118,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Incompatible components in connect statement: connect(%s, %s)\\n- %s has components %s\\n- %s has components %s"),
+    Gettext.gettext("Incompatible components in connect statement: connect(%s, %s)\n- %s has components %s\n- %s has components %s"),
   )::ErrorTypes.Message
 
 const CONNECT_OUTER_OUTER =
@@ -1100,7 +1100,7 @@ const IF_EQUATION_UNBALANCED_2 =
     132,
     ErrorTypes.SYMBOLIC(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("If-equation with conditions that are not parameter expressions must have the same number of equations in each branch, equation count is %s for each respective branch:\\n%s"),
+    Gettext.gettext("If-equation with conditions that are not parameter expressions must have the same number of equations in each branch, equation count is %s for each respective branch:\n%s"),
   )::ErrorTypes.Message
 
 const EQUATION_GENERIC_FAILURE =
@@ -1132,7 +1132,7 @@ const COMPONENT_NAME_SAME_AS_TYPE_NAME =
     136,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.WARNING(),
-    Gettext.gettext("Component %s has the same name as its type %s.\\n\\tThis is forbidden by Modelica specification and may lead to lookup errors."),
+    Gettext.gettext("Component %s has the same name as its type %s.\n\tThis is forbidden by Modelica specification and may lead to lookup errors."),
   )::ErrorTypes.Message
 
 const CONDITIONAL_EXP_WITHOUT_VALUE =
@@ -1164,7 +1164,7 @@ const MODIFICATION_INDEX_NOT_FOUND =
     140,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Instantiation of array component: %s failed because index modification: %s is invalid.\\n\\tArray component: %s has more dimensions than binding %s."),
+    Gettext.gettext("Instantiation of array component: %s failed because index modification: %s is invalid.\n\tArray component: %s has more dimensions than binding %s."),
   )::ErrorTypes.Message
 
 const DUPLICATE_MODIFICATIONS_WARNING =
@@ -1172,7 +1172,7 @@ const DUPLICATE_MODIFICATIONS_WARNING =
     141,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.WARNING(),
-    Gettext.gettext("Duplicate modifications for attribute: %s in modifier: %s.\\n\\tConsidering only the first modification: %s and ignoring the rest %s."),
+    Gettext.gettext("Duplicate modifications for attribute: %s in modifier: %s.\n\tConsidering only the first modification: %s and ignoring the rest %s."),
   )::ErrorTypes.Message
 
 const GENERATECODE_INVARS_HAS_FUNCTION_PTR =
@@ -1196,7 +1196,7 @@ const DUPLICATE_ELEMENTS_NOT_SYNTACTICALLY_IDENTICAL =
     144,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.WARNING(),
-    Gettext.gettext("Duplicate elements (due to inherited elements) not syntactically identical but semantically identical:\\n\\tfirst element is:  %s\\tsecond element is: %s\\tModelica specification requires that elements are exactly identical."),
+    Gettext.gettext("Duplicate elements (due to inherited elements) not syntactically identical but semantically identical:\n\tfirst element is:  %s\tsecond element is: %s\tModelica specification requires that elements are exactly identical."),
   )::ErrorTypes.Message
 
 const GENERIC_INST_FUNCTION =
@@ -1492,7 +1492,7 @@ const LINEAR_SYSTEM_SINGULAR =
     181,
     ErrorTypes.SYMBOLIC(),
     ErrorTypes.WARNING(),
-    Gettext.gettext("The linear system: %1\\n might be structurally or numerically singular for variable %3 since U(%2,%2) = 0.0. It might be hard to solve. Compilation continues anyway."),
+    Gettext.gettext("The linear system: %1\n might be structurally or numerically singular for variable %3 since U(%2,%2) = 0.0. It might be hard to solve. Compilation continues anyway."),
   )::ErrorTypes.Message
 
 const EMPTY_ARRAY =
@@ -1564,7 +1564,7 @@ const STATEMENT_GENERIC_FAILURE =
     190,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Failed to instantiate statement:\\n%s"),
+    Gettext.gettext("Failed to instantiate statement:\n%s"),
   )::ErrorTypes.Message
 
 const EXTERNAL_NOT_SINGLE_RESULT =
@@ -1636,7 +1636,7 @@ const IMBALANCED_EQUATIONS =
     199,
     ErrorTypes.SYMBOLIC(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("An independent subset of the model has imbalanced number of equations (%s) and variables (%s).\\nvariables:\\n%s\\nequations:\\n%s"),
+    Gettext.gettext("An independent subset of the model has imbalanced number of equations (%s) and variables (%s).\nvariables:\n%s\nequations:\n%s"),
   )::ErrorTypes.Message
 
 const EQUATIONS_VAR_NOT_DEFINED =
@@ -2053,7 +2053,7 @@ const ERRONEOUS_TYPE_ERROR =
     248,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Got type mismatch error, but matching types %s.\\nThis is a ***COMPILER BUG***, please report it to https://trac.openmodelica.org/OpenModelica."),
+    Gettext.gettext("Got type mismatch error, but matching types %s.\nThis is a ***COMPILER BUG***, please report it to https://trac.openmodelica.org/OpenModelica."),
   )::ErrorTypes.Message
 
 const REINIT_MUST_BE_VAR_OR_ARRAY =
@@ -2101,7 +2101,7 @@ const STRUCTURAL_SINGULAR_INITIAL_SYSTEM =
     254,
     ErrorTypes.SYMBOLIC(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Initialization problem is structurally singular, error found sorting equations \\n %s for variables \\n %s"),
+    Gettext.gettext("Initialization problem is structurally singular, error found sorting equations \n %s for variables \n %s"),
   )::ErrorTypes.Message
 
 const UNFIXED_PARAMETER_WITH_BINDING =
@@ -2109,7 +2109,7 @@ const UNFIXED_PARAMETER_WITH_BINDING =
     255,
     ErrorTypes.SYMBOLIC(),
     ErrorTypes.WARNING(),
-    Gettext.gettext("The parameter %s has fixed = false and a binding equation %s = %s, which is probably redundant.\\nSetting fixed = false usually means there is an additional initial equation to determine the parameter value. The binding was ignored by old Modelica tools, but this is not according to the Modelica specification. Please remove the parameter binding, or bind the parameter to another parameter with fixed = false and no binding."),
+    Gettext.gettext("The parameter %s has fixed = false and a binding equation %s = %s, which is probably redundant.\nSetting fixed = false usually means there is an additional initial equation to determine the parameter value. The binding was ignored by old Modelica tools, but this is not according to the Modelica specification. Please remove the parameter binding, or bind the parameter to another parameter with fixed = false and no binding."),
   )::ErrorTypes.Message
 
 const UNFIXED_PARAMETER_WITH_BINDING_31 =
@@ -2133,7 +2133,7 @@ const BACKENDDAEINFO_LOWER =
     258,
     ErrorTypes.SYMBOLIC(),
     ErrorTypes.NOTIFICATION(),
-    Gettext.gettext("Model statistics after passing the front-end and creating the data structures used by the back-end:\\n * Number of equations: %s\\n * Number of variables: %s"),
+    Gettext.gettext("Model statistics after passing the front-end and creating the data structures used by the back-end:\n * Number of equations: %s\n * Number of variables: %s"),
   )::ErrorTypes.Message
 
 const BACKENDDAEINFO_STATISTICS =
@@ -2141,7 +2141,7 @@ const BACKENDDAEINFO_STATISTICS =
     259,
     ErrorTypes.SYMBOLIC(),
     ErrorTypes.NOTIFICATION(),
-    Gettext.gettext("Model statistics after passing the back-end for %s:\\n * Number of independent subsystems: %s\\n * Number of states: %s\\n * Number of discrete variables: %s\\n * Number of discrete states: %s\\n * Top-level inputs: %s"),
+    Gettext.gettext("Model statistics after passing the back-end for %s:\n * Number of independent subsystems: %s\n * Number of states: %s\n * Number of discrete variables: %s\n * Number of discrete states: %s\n * Top-level inputs: %s"),
   )::ErrorTypes.Message
 
 const BACKENDDAEINFO_MIXED =
@@ -2149,7 +2149,7 @@ const BACKENDDAEINFO_MIXED =
     260,
     ErrorTypes.SYMBOLIC(),
     ErrorTypes.NOTIFICATION(),
-    Gettext.gettext("Mixed equation statistics:\\n * Mixed systems with single equation: %s\\n * Mixed systems with array equation: %s\\n * Mixed systems with algorithm: %s\\n * Mixed systems with complex equation: %s\\n * Mixed systems with constant Jacobian: %s\\n * Mixed systems with linear Jacobian: %s\\n * Mixed systems with non-linear Jacobian: %s\\n * Mixed systems with analytic Jacobian: %s\\n * Mixed systems with linear tearing system: %s\\n * Mixed systems with nonlinear tearing system: %s"),
+    Gettext.gettext("Mixed equation statistics:\n * Mixed systems with single equation: %s\n * Mixed systems with array equation: %s\n * Mixed systems with algorithm: %s\n * Mixed systems with complex equation: %s\n * Mixed systems with constant Jacobian: %s\n * Mixed systems with linear Jacobian: %s\n * Mixed systems with non-linear Jacobian: %s\n * Mixed systems with analytic Jacobian: %s\n * Mixed systems with linear tearing system: %s\n * Mixed systems with nonlinear tearing system: %s"),
   )::ErrorTypes.Message
 
 const BACKENDDAEINFO_STRONGCOMPONENT_STATISTICS =
@@ -2157,7 +2157,7 @@ const BACKENDDAEINFO_STRONGCOMPONENT_STATISTICS =
     261,
     ErrorTypes.SYMBOLIC(),
     ErrorTypes.NOTIFICATION(),
-    Gettext.gettext("Strong component statistics for %s (%s):\\n * Single equations (assignments): %s\\n * Array equations: %s\\n * Algorithm blocks: %s\\n * Record equations: %s\\n * When equations: %s\\n * If-equations: %s\\n * Equation systems (linear and non-linear blocks): %s\\n * Torn equation systems: %s\\n * Mixed (continuous/discrete) equation systems: %s"),
+    Gettext.gettext("Strong component statistics for %s (%s):\n * Single equations (assignments): %s\n * Array equations: %s\n * Algorithm blocks: %s\n * Record equations: %s\n * When equations: %s\n * If-equations: %s\n * Equation systems (linear and non-linear blocks): %s\n * Torn equation systems: %s\n * Mixed (continuous/discrete) equation systems: %s"),
   )::ErrorTypes.Message
 
 const BACKENDDAEINFO_SYSTEMS =
@@ -2165,7 +2165,7 @@ const BACKENDDAEINFO_SYSTEMS =
     262,
     ErrorTypes.SYMBOLIC(),
     ErrorTypes.NOTIFICATION(),
-    Gettext.gettext("Equation system details:\\n * Constant Jacobian: %s\\n * Linear Jacobian (size,density): %s\\n * Non-linear Jacobian: %s\\n * Without analytic Jacobian: %s"),
+    Gettext.gettext("Equation system details:\n * Constant Jacobian: %s\n * Linear Jacobian (size,density): %s\n * Non-linear Jacobian: %s\n * Without analytic Jacobian: %s"),
   )::ErrorTypes.Message
 
 const BACKENDDAEINFO_TORN =
@@ -2173,7 +2173,7 @@ const BACKENDDAEINFO_TORN =
     263,
     ErrorTypes.SYMBOLIC(),
     ErrorTypes.NOTIFICATION(),
-    Gettext.gettext("Torn system details for %s tearing set:\\n * Linear torn systems: %s\\n * Non-linear torn systems: %s"),
+    Gettext.gettext("Torn system details for %s tearing set:\n * Linear torn systems: %s\n * Non-linear torn systems: %s"),
   )::ErrorTypes.Message
 
 const BACKEND_DAE_TO_MODELICA =
@@ -2181,7 +2181,7 @@ const BACKEND_DAE_TO_MODELICA =
     264,
     ErrorTypes.SYMBOLIC(),
     ErrorTypes.NOTIFICATION(),
-    Gettext.gettext("The following Modelica-like model represents the back-end DAE for the '%s' stage:\\n%s"),
+    Gettext.gettext("The following Modelica-like model represents the back-end DAE for the '%s' stage:\n%s"),
   )::ErrorTypes.Message
 
 const NEGATIVE_DIMENSION_INDEX =
@@ -2213,7 +2213,7 @@ const NAMED_ARG_TYPE_MISMATCH =
     268,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Type mismatch for named argument in %s(%s=%s). The argument has type:\\n  %s\\nexpected type:\\n  %s"),
+    Gettext.gettext("Type mismatch for named argument in %s(%s=%s). The argument has type:\n  %s\nexpected type:\n  %s"),
   )::ErrorTypes.Message
 
 const ARG_TYPE_MISMATCH =
@@ -2221,7 +2221,7 @@ const ARG_TYPE_MISMATCH =
     269,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Type mismatch for positional argument %s in %s(%s=%s). The argument has type:\\n  %s\\nexpected type:\\n  %s"),
+    Gettext.gettext("Type mismatch for positional argument %s in %s(%s=%s). The argument has type:\n  %s\nexpected type:\n  %s"),
   )::ErrorTypes.Message
 
 const EXPERIMENTAL_REQUIRED =
@@ -2261,7 +2261,7 @@ const NOTIFY_FRONTEND_STRUCTURAL_PARAMETERS =
     272,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.NOTIFICATION(),
-    Gettext.gettext("The following structural parameters were evaluated in the front-end: %s\\nStructural parameters are parameters used to calculate array dimensions or branch selection in certain if-equations or if-expressions among other things."),
+    Gettext.gettext("The following structural parameters were evaluated in the front-end: %s\nStructural parameters are parameters used to calculate array dimensions or branch selection in certain if-equations or if-expressions among other things."),
   )::ErrorTypes.Message
 
 const SIMPLIFICATION_TYPE =
@@ -2317,7 +2317,7 @@ const NOTIFY_PKG_FOUND =
     279,
     ErrorTypes.SCRIPTING(),
     ErrorTypes.NOTIFICATION(),
-    Gettext.gettext("You can install the requested package using one of the commands:\\n%s."),
+    Gettext.gettext("You can install the requested package using one of the commands:\n%s."),
   )::ErrorTypes.Message
 
 const DERIVATIVE_FUNCTION_CONTEXT =
@@ -2365,7 +2365,7 @@ const USE_OF_PARTIAL_CLASS =
     285,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("component %s contains the definition of a partial class %s.\\nPlease redeclare it to any package compatible with %s."),
+    Gettext.gettext("component %s contains the definition of a partial class %s.\nPlease redeclare it to any package compatible with %s."),
   )::ErrorTypes.Message
 
 const SCANNER_ERROR =
@@ -2445,7 +2445,7 @@ const RANGE_TYPE_MISMATCH =
     295,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Type mismatch in range: '%s' of type\\n  %s\\nis not type compatible with '%s' of type\\n  %s"),
+    Gettext.gettext("Type mismatch in range: '%s' of type\n  %s\nis not type compatible with '%s' of type\n  %s"),
   )::ErrorTypes.Message
 
 const RANGE_TOO_SMALL_STEP =
@@ -2629,7 +2629,7 @@ const NO_MATCHING_FUNCTION_FOUND_NFINST =
     319,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("No matching function found for %s.\\nCandidates are:\\n  %s"),
+    Gettext.gettext("No matching function found for %s.\nCandidates are:\n  %s"),
   )::ErrorTypes.Message
 
 const ARGUMENT_OUT_OF_RANGE =
@@ -2661,7 +2661,7 @@ const AMBIGUOUS_MATCHING_FUNCTIONS_NFINST =
     323,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Ambiguous matching functions found for %s.\\nCandidates are:\\n  %s"),
+    Gettext.gettext("Ambiguous matching functions found for %s.\nCandidates are:\n  %s"),
   )::ErrorTypes.Message
 
 const AMBIGUOUS_MATCHING_OPERATOR_FUNCTIONS_NFINST =
@@ -2669,7 +2669,7 @@ const AMBIGUOUS_MATCHING_OPERATOR_FUNCTIONS_NFINST =
     324,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Ambiguous matching overloaded operator functions found for %s.\\nCandidates are:\\n  %s"),
+    Gettext.gettext("Ambiguous matching overloaded operator functions found for %s.\nCandidates are:\n  %s"),
   )::ErrorTypes.Message
 
 const REDECLARE_CONDITION =
@@ -3317,7 +3317,7 @@ const DERIVATIVE_INPUT =
     528,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("The model requires derivatives of some inputs as listed below:\\n%s"),
+    Gettext.gettext("The model requires derivatives of some inputs as listed below:\n%s"),
   )::ErrorTypes.Message
 
 const UTF8_COMMAND_LINE_ARGS =
@@ -3333,7 +3333,7 @@ const PACKAGE_ORDER_FILE_NOT_COMPLETE =
     530,
     ErrorTypes.GRAMMAR(),
     ErrorTypes.WARNING(),
-    Gettext.gettext("The package.order file does not list all .mo files and directories (containing package.mo) present in its directory.\\nMissing names are:\\n\\t%s"),
+    Gettext.gettext("The package.order file does not list all .mo files and directories (containing package.mo) present in its directory.\nMissing names are:\n\t%s"),
   )::ErrorTypes.Message
 
 const REINIT_IN_WHEN_INITIAL =
@@ -3349,7 +3349,7 @@ const MISSING_INNER_CLASS =
     532,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.WARNING(),
-    Gettext.gettext("No corresponding 'inner' declaration found for class %s declared as '%s'.\\n Continuing flattening by only considering the 'outer' class declaration."),
+    Gettext.gettext("No corresponding 'inner' declaration found for class %s declared as '%s'.\n Continuing flattening by only considering the 'outer' class declaration."),
   )::ErrorTypes.Message
 
 const RECURSION_DEPTH_WARNING =
@@ -3485,7 +3485,7 @@ const ILLEGAL_RECORD_COMPONENT =
     549,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Ignoring record component:\\n%swhen building the record constructor. Records are allowed to contain only components of basic types, arrays of basic types or other records."),
+    Gettext.gettext("Ignoring record component:\n%swhen building the record constructor. Records are allowed to contain only components of basic types, arrays of basic types or other records."),
   )::ErrorTypes.Message
 
 const EQ_WITHOUT_TIME_DEP_VARS =
@@ -3549,7 +3549,7 @@ const ROOT_USER_INTERACTIVE =
     557,
     ErrorTypes.SCRIPTING(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("You are trying to run OpenModelica as a server using the root user.\\nThis is a very bad idea:\\n* The socket interface does not authenticate the user.\\n* OpenModelica allows execution of arbitrary commands."),
+    Gettext.gettext("You are trying to run OpenModelica as a server using the root user.\nThis is a very bad idea:\n* The socket interface does not authenticate the user.\n* OpenModelica allows execution of arbitrary commands."),
   )::ErrorTypes.Message
 
 const USES_MISSING_VERSION =
@@ -3717,7 +3717,7 @@ const MAX_TEARING_SIZE =
     574,
     ErrorTypes.SYMBOLIC(),
     ErrorTypes.NOTIFICATION(),
-    Gettext.gettext("Tearing is skipped for strong component %s because system size of %s exceeds maximum system size for tearing of %s systems (%s).\\nTo adjust the maximum system size for tearing use --maxSizeLinearTearing=<size> and --maxSizeNonlinearTearing=<size>.\\n"),
+    Gettext.gettext("Tearing is skipped for strong component %s because system size of %s exceeds maximum system size for tearing of %s systems (%s).\nTo adjust the maximum system size for tearing use --maxSizeLinearTearing=<size> and --maxSizeNonlinearTearing=<size>.\n"),
   )::ErrorTypes.Message
 
 const NO_TEARING_FOR_COMPONENT =
@@ -3725,7 +3725,7 @@ const NO_TEARING_FOR_COMPONENT =
     575,
     ErrorTypes.SYMBOLIC(),
     ErrorTypes.NOTIFICATION(),
-    Gettext.gettext("Tearing is skipped for strong component %s because of activated compiler flag 'noTearingForComponent=%1'.\\n"),
+    Gettext.gettext("Tearing is skipped for strong component %s because of activated compiler flag 'noTearingForComponent=%1'.\n"),
   )::ErrorTypes.Message
 
 const WRONG_VALUE_OF_ARG =
@@ -3749,7 +3749,7 @@ const USER_TEARING_VARS =
     578,
     ErrorTypes.SYMBOLIC(),
     ErrorTypes.NOTIFICATION(),
-    Gettext.gettext("Following iteration variables are selected by the user for strong component %s (DAE kind: %s):\\n%s"),
+    Gettext.gettext("Following iteration variables are selected by the user for strong component %s (DAE kind: %s):\n%s"),
   )::ErrorTypes.Message
 
 const CLASS_EXTENDS_TARGET_NOT_FOUND =
@@ -3773,7 +3773,7 @@ const EQN_NO_SPACE_TO_SOLVE =
     581,
     ErrorTypes.SYMBOLIC(),
     ErrorTypes.WARNING(),
-    Gettext.gettext("Equation %s (size: %s) %s is not big enough to solve for enough variables.\\n  Remaining unsolved variables are: %s\\n  Already solved: %s\\n  Equations used to solve those variables:%s"),
+    Gettext.gettext("Equation %s (size: %s) %s is not big enough to solve for enough variables.\n  Remaining unsolved variables are: %s\n  Already solved: %s\n  Equations used to solve those variables:%s"),
   )::ErrorTypes.Message
 
 const VAR_NO_REMAINING_EQN =
@@ -3781,7 +3781,7 @@ const VAR_NO_REMAINING_EQN =
     582,
     ErrorTypes.SYMBOLIC(),
     ErrorTypes.WARNING(),
-    Gettext.gettext("Variable %s does not have any remaining equation to be solved in.\\n  The original equations were:%s"),
+    Gettext.gettext("Variable %s does not have any remaining equation to be solved in.\n  The original equations were:%s"),
   )::ErrorTypes.Message
 
 const MOVING_PARAMETER_BINDING_TO_INITIAL_EQ_SECTION =
@@ -3797,7 +3797,7 @@ const MIXED_DETERMINED =
     584,
     ErrorTypes.SYMBOLIC(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("The initialization problem of given system is mixed-determined. It is under- as well as overdetermined and the mixed-determination-index is too high. [index > %s]\\nPlease checkout the option \\--maxMixedDeterminedIndex\\ to simulate with a higher threshold or consider changing some initial equations, fixed variables and start values."),
+    Gettext.gettext("The initialization problem of given system is mixed-determined. It is under- as well as overdetermined and the mixed-determination-index is too high. [index > %s]\nPlease checkout the option \\--maxMixedDeterminedIndex\\ to simulate with a higher threshold or consider changing some initial equations, fixed variables and start values."),
   )::ErrorTypes.Message
 
 const STACK_OVERFLOW_DETAILED =
@@ -3805,7 +3805,7 @@ const STACK_OVERFLOW_DETAILED =
     585,
     ErrorTypes.SCRIPTING(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Stack overflow occurred while evaluating %s:\\n%s"),
+    Gettext.gettext("Stack overflow occurred while evaluating %s:\n%s"),
   )::ErrorTypes.Message
 
 const NF_VECTOR_INVALID_DIMENSIONS =
@@ -4093,7 +4093,7 @@ const META_UNSOLVED_POLYMORPHIC_BINDINGS =
     5010,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Could not solve the polymorphism in the function call to %s\\n  Input bindings:\\n%s\\n  Solved bindings:\\n%s\\n  Unsolved bindings:\\n%s"),
+    Gettext.gettext("Could not solve the polymorphism in the function call to %s\n  Input bindings:\n%s\n  Solved bindings:\n%s\n  Unsolved bindings:\n%s"),
   )::ErrorTypes.Message
 
 const META_RECORD_FOUND_FAILURE =
@@ -4173,7 +4173,7 @@ const META_TYPE_MISMATCH_PATTERN =
     5022,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Type mismatch in pattern %s\\nexpression type:\\n  %s\\npattern type:\\n  %s"),
+    Gettext.gettext("Type mismatch in pattern %s\nexpression type:\n  %s\npattern type:\n  %s"),
   )::ErrorTypes.Message
 
 const META_CONSTRUCTOR_NOT_RECORD =
@@ -4309,7 +4309,7 @@ const LIST_REVERSE_WRONG_ORDER =
     5039,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.NOTIFICATION(),
-    Gettext.gettext("%1:=listAppend(%1, _) has the first argument in the \\wrong\\ order.\\n  It is very slow to keep appending a linked list (scales like O(N²)).\\n  Consider building the list in the reverse order in order to improve performance (scales like O(N) even if you need to reverse a lot of lists). Use annotation __OpenModelica_DisableListAppendWarning=true to disable this message for a certain assignment."),
+    Gettext.gettext("%1:=listAppend(%1, _) has the first argument in the \\wrong\\ order.\n  It is very slow to keep appending a linked list (scales like O(N²)).\n  Consider building the list in the reverse order in order to improve performance (scales like O(N) even if you need to reverse a lot of lists). Use annotation __OpenModelica_DisableListAppendWarning=true to disable this message for a certain assignment."),
   )::ErrorTypes.Message
 
 const IS_PRESENT_WRONG_SCOPE =
@@ -4614,7 +4614,7 @@ const DUPLICATE_VARIABLE_ERROR =
     7025,
     ErrorTypes.TRANSLATION(),
     ErrorTypes.ERROR(),
-    Gettext.gettext("Duplicate elements:\\n %s."),
+    Gettext.gettext("Duplicate elements:\n %s."),
   )::ErrorTypes.Message
 
 
