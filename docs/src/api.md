@@ -6,7 +6,25 @@ CurrentModule = OMFrontend
 
 The reference below lists the documented API intended for users and tooling.
 
-## Top-level entry points
+## Public API
+
+Translate Modelica to flat Modelica with named arguments. These functions print only warnings while they work;
+a model that cannot be translated raises a short `ModelicaError` with the model's messages. `debug!` is the
+developer mode with full stack traces.
+
+```@docs
+OMFrontend.instantiate
+OMFrontend.flatModelica
+OMFrontend.classNames
+OMFrontend.variables
+OMFrontend.FlatModelica
+OMFrontend.ModelicaError
+OMFrontend.debug!
+```
+
+## Pipeline API (developers)
+
+The steps `instantiate` runs, the library cache, and the older entry points.
 
 ```@docs
 OMFrontend.parseFile

@@ -221,6 +221,28 @@ function printMessagesStr(;warningsAsErrors::Bool = false,
   return String(take!(buffer))
 end
 
+"""
+The queued messages, one line each: `file:line:column: Severity: text` (no location for a message without a file).
+`warningsOnly` keeps the warnings.
+"""
+function messageLines(; warningsOnly::Bool = false)::Vector{String}
+  local lines::Vector{String} = String[]
+  for e in _messages()
+    (e isa AbstractVector && length(e) >= 3) || continue
+    local m::ErrorTypes.Message = e[1]
+    (warningsOnly && !(m.severity isa ErrorTypes.WARNING)) && continue
+    local msg::String = Gettext.translateContent(m.message)
+    for token in e[2]
+      msg = replace(msg, "%s" => token, count = 1)
+    end
+    local info::SourceInfo = e[3]
+    local loc::String = isempty(info.fileName) ? "" :
+      string(info.fileName, ":", info.lineNumberStart, ":", info.columnNumberStart, ": ")
+    push!(lines, string(loc, severityStr(m.severity), ": ", msg))
+  end
+  return lines
+end
+
 function getNumMessages()
   return length(_messages())
 end

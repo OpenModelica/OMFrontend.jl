@@ -34,9 +34,8 @@ Pkg.add("OMFrontend")
 ```julia
 using OMFrontend
 
-p = OMFrontend.parseFile("MyModel.mo")
-scode = OMFrontend.translateToSCode(p)
-(flat, funcs) = OMFrontend.instantiateSCodeToFM("MyModel", scode)
+fm = OMFrontend.instantiate("MyModel"; file = "MyModel.mo")
+print(fm)        # flat Modelica
 ```
 
 See [Getting started](@ref) for a longer walk-through and the

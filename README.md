@@ -44,24 +44,30 @@ equation
 end HelloWorld;
 ```
 
-The shortest path from source to a flat model is `flattenModel`:
+The shortest path from source to a flat model is `instantiate`:
 
 ```julia
 using OMFrontend
-(FM, functions) = OMFrontend.flattenModel("HelloWorld", "HelloWorld.mo")
-println(OMFrontend.toString(FM))
+fm = OMFrontend.instantiate(file = "HelloWorld.mo")
 ```
 
-The output is the flat representation of the model:
+The result shows as flat Modelica:
 
 ```
-class HelloWorld
-  Real x(fixed = true, start = 1.0);
-  parameter Real a = 1.0;
+model 'HelloWorld'
+  public Real x(fixed = true, start = 1.0);
+  public parameter Real a = 1.0;
 equation
-  der(x) = -a * x;
-end HelloWorld;
+  der(x) = (-a * x);
+end 'HelloWorld';
 ```
+
+The model can also be a string, `OMFrontend.instantiate(string = "model M ... end M;")`, or a class of a
+library: `OMFrontend.instantiate("Modelica.Blocks.Examples.PID_Controller")` (the Modelica Standard Library 4.1.0
+comes without naming it; other libraries with `libraries = ["MyLib/package.mo"]`). `flatModelica` returns the
+text, `classNames` lists classes. A model that cannot be translated raises a short `ModelicaError` with its
+messages (`<string>:5:3: Error: Variable y not found in scope HelloWorld.`); `OMFrontend.debug!(true)` gives
+developers the full stack trace.
 
 If finer control is needed, the same result can be produced step by step:
 
