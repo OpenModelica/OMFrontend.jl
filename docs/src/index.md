@@ -9,13 +9,27 @@ source, lowers it through SCode, and produces the flat model
 (`FLAT_MODEL`, printable as flat Modelica) consumed by [OMBackend.jl](https://github.com/OpenModelica/OMBackend.jl)
 and the wider [OM.jl](https://github.com/OpenModelica/OM.jl) toolchain.
 
-## What this package does
+## How OMFrontend works
 
-* Parses Modelica via [OpenModelicaParser.jl](https://github.com/OpenModelica/OpenModelicaParser.jl)
-  and produces an Absyn tree (`OpenModelicaParser.Absyn`).
-* Translates the abstract syntax tree to SCode (`OMFrontend.SCode`).
-* Instantiates SCode into a flat model (`FLAT_MODEL`) for backend lowering.
-* Optionally prints the flat model as flat Modelica for inspection.
+![From Modelica text to a flat model: parse, SCode, instantiate, type and flatten](assets/pipeline.svg)
+
+OMFrontend translates a Modelica class into a flat model: one list of variables and one of equations, with the
+component hierarchy, inheritance, modifiers and connections resolved. It does this in five steps.
+
+1. **Parse.** [OpenModelicaParser.jl](https://github.com/OpenModelica/OpenModelicaParser.jl) reads the Modelica text
+   (a file, a string, a library) into a syntax tree (`OpenModelicaParser.Absyn`).
+2. **SCode.** The syntax tree becomes SCode (`OMFrontend.SCode`): classes, their elements and modifiers, in a
+   simpler form. Libraries are kept in this form in a cache, so the Modelica Standard Library is parsed once.
+3. **Instantiate.** The class is expanded into a tree of instances: names are looked up, `extends` clauses are
+   merged, and modifiers are applied to the components they change.
+4. **Type and flatten.** Every expression gets its type and dimensions, structural parameters are evaluated,
+   `connect` equations become equality and sum-to-zero equations, and arrays are expanded into scalars.
+5. **Flat model.** The result is a `FLAT_MODEL` with the functions it calls. It prints as flat Modelica,
+   [OMBackend.jl](https://github.com/OpenModelica/OMBackend.jl) turns it into a simulation, and `check` counts its
+   equations and variables.
+
+`instantiate` runs all five steps. `classNames`, `source`, `description` and `documentation` read the classes after
+step 2 without translating them.
 
 ## Installation
 
@@ -47,12 +61,11 @@ See [Getting started](@ref) for a longer walk-through and the
 |----------------------|------------------------------------------------|
 | `src/OMFrontend.jl`  | Top-level module: re-exports, precompilation.  |
 | `src/NewFrontend/`   | Modern instantiation pipeline (NF*).           |
-| `src/FrontendUtil/`  | Shared utilities used by the frontend passes.  |
 | `src/Util/`          | Hash maps, AVL trees, flag handling, etc.      |
 | `src/AbsynToSCode.jl`| Absyn -> SCode lowering.                       |
 | `src/AbsynUtil.jl`   | Absyn helpers and traversals.                  |
 | `src/SCodeUtil.jl`   | SCode helpers and traversals.                  |
-| `src/main.jl`        | Convenience entry points (`parseFile`, ...).   |
+| `src/main.jl`        | The `Frontend` module: includes the NF files.  |
 
 ## Index
 

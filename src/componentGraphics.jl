@@ -77,6 +77,14 @@ function componentGraphics(fm::Frontend.FLAT_MODEL, component::String)::NamedTup
 end
 
 """
+    componentGraphics(fm::FlatModelica, component) -> (; coordinateSystem, items, placements)
+
+The icon of the class of `component` in a model translated by `instantiate`, as Modelica text (see
+[`componentGraphics(::Frontend.FLAT_MODEL, ::String)`](@ref)).
+"""
+componentGraphics(fm::FlatModelica, component::String)::NamedTuple = componentGraphics(fm.model, component)
+
+"""
     classGraphics(cls, connectors) -> (; coordinateSystem, items, placements)
 
 The icon of the class node `cls` as Modelica text ([`componentGraphics`](@ref)): its coordinate system, its graphic

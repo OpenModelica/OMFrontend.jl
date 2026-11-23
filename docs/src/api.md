@@ -4,20 +4,32 @@ CurrentModule = OMFrontend
 
 # API reference
 
-The reference below lists the documented API intended for users and tooling.
+The functions for users come first, the developer functions after them. Both are `public` (Julia's REPL help marks
+other names as internal). `OMFrontend.USER_API` and `OMFrontend.DEVELOPER_API` list them; the tests check that each
+name is in its section below. The API for graphical editors has its own page, [GUI API (experimental)](@ref).
 
 ## Public API
 
-Translate Modelica to flat Modelica with named arguments. These functions print only warnings while they work;
-a model that cannot be translated raises a short `ModelicaError` with the model's messages. `debug!` is the
-developer mode with full stack traces.
+Translate Modelica to flat Modelica with named arguments, check a model, read a class. These functions print only
+warnings while they work; a model that cannot be translated raises a short `ModelicaError` with the model's
+messages. `debug!` is the developer mode with full stack traces.
 
 ```@docs
 OMFrontend.instantiate
 OMFrontend.flatModelica
+OMFrontend.check
 OMFrontend.classNames
+OMFrontend.source
+OMFrontend.description
+OMFrontend.documentation
 OMFrontend.variables
+OMFrontend.parameters
+OMFrontend.exportJSON
+OMFrontend.componentGraphics
+OMFrontend.installLibrary
+OMFrontend.libraries
 OMFrontend.FlatModelica
+OMFrontend.CheckResult
 OMFrontend.ModelicaError
 OMFrontend.debug!
 ```
@@ -34,8 +46,11 @@ OMFrontend.flattenModel
 OMFrontend.flattenModelWithMSL
 OMFrontend.flattenModelWithLibraries
 OMFrontend.loadMSL
+OMFrontend.loadBundledMSL
 OMFrontend.loadLibrary
 OMFrontend.loadPackageDirectory
+OMFrontend.loadInstalledLibrary
+OMFrontend.setDebugFlags
 OMFrontend.toFlatModelica
 OMFrontend.toString
 OMFrontend.exportSCodeRepresentationToFile
@@ -45,31 +60,22 @@ OMFrontend.removeQuotesFromFlatModelica
 OMFrontend.julia_main
 ```
 
-## GUI API
+### Debug flags
 
-```@docs
-OMFrontend.GUI_API.SourceSpan
-OMFrontend.GUI_API.TextPatch
-OMFrontend.GUI_API.ValidationResult
-OMFrontend.GUI_API.OperationResult
-OMFrontend.GUI_API.SaveResult
-OMFrontend.GUI_API.DiagramNode
-OMFrontend.GUI_API.DiagramConnection
-OMFrontend.GUI_API.DiagramModel
-OMFrontend.GUI_API.ModelSession
-OMFrontend.GUI_API.setExecutionDelegates!
-OMFrontend.GUI_API.loadModel
-OMFrontend.GUI_API.validateModel
-OMFrontend.GUI_API.getDiagram
-OMFrontend.GUI_API.updateComponentPlacement
-OMFrontend.GUI_API.createConnection
-OMFrontend.GUI_API.updateConnectionAnnotation
-OMFrontend.GUI_API.deleteConnection
-OMFrontend.GUI_API.saveModel
-OMFrontend.GUI_API.compileModel
-OMFrontend.GUI_API.simulateModel
-OMFrontend.GUI_API.exportFlatModelica
-```
+`setDebugFlags` sets omc's debug flags (`-d=`). The frontend reads these:
+
+| Flag | Default | Effect |
+|---|---|---|
+| `execstat` | off | Prints `Execstat <phase> -> time: <s>, alloc'd: <bytes>` after each instantiation phase. |
+| `failtrace` | off | Prints where internal failures happen. |
+| `cgraph` | off | Prints the connection graph of overconstrained connectors. |
+| `nfDumpFlat` | off | Writes the flat model between phases to files (`enableDumpDebug`). |
+| `evaluateAllParameters` | off | Evaluates all parameters, not only structural ones. |
+| `nfEvalConstArgFuncs` | on | Evaluates functions called with constant arguments. |
+| `nfExpandOperations` | on | Expands array operations to scalar expressions. |
+| `nfExpandFuncArgs` | off | Expands array function arguments. |
+| `inlineFunctions` | on | Inlines functions marked for inlining. |
+| `disableSingleFlowEq` | off | Generates no equation for an unconnected flow variable. |
 
 ## Index
 

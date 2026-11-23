@@ -26,6 +26,7 @@ makedocs(
         "Home" => "index.md",
         "Getting started" => "getting-started.md",
         "API reference" => "api.md",
+        "GUI API (experimental)" => "gui-api.md",
         "Utilities" => "utilities.md",
     ],
     warnonly = [:missing_docs, :cross_references],
