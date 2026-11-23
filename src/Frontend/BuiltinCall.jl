@@ -49,210 +49,67 @@ function needSpecialHandling(call::Call) ::Bool
   special
 end
 
-@nospecializeinfer function typeSpecial(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
-  local variability::VariabilityType
-  local ty::ModelicaType
-  local callExp::Expression
-
+"""
+Type a call to a builtin function with its own typing rules (`isSpecialBuiltinCall`): its typed call expression, type
+and variability. Arguments are typed as subexpressions of `origin`.
+"""
+@nospecializeinfer function typeSpecial(call::Call, origin::ORIGIN_Type,
+                                        info::SourceInfo)::Tuple{Expression, ModelicaType, VariabilityType}
   local cref::ComponentRef
-  local next_origin::ORIGIN_Type
-
   @match UNTYPED_CALL(ref = cref) = call
-  @assign next_origin = setFlag(origin, ORIGIN_SUBEXPRESSION)
-   (callExp, ty, variability) = begin
-    @match firstName(cref) begin
-      "String"  => begin
-        typeStringCall(call, next_origin, info)
-      end
-
-      "actualStream"  => begin
-        typeActualInStreamCall("actualStream", call, next_origin, info)
-      end
-
-      "branch"  => begin
-        typeBranchCall(call, next_origin, info)
-      end
-
-      "cardinality"  => begin
-        typeCardinalityCall(call, next_origin, info)
-      end
-
-      "cat"  => begin
-        typeCatCall(call, next_origin, info)
-      end
-
-      "change"  => begin
-        typeChangeCall(call, next_origin, info)
-      end
-
-      "der"  => begin
-        typeDerCall(call, next_origin, info)
-      end
-
-      "diagonal"  => begin
-        typeDiagonalCall(call, next_origin, info)
-      end
-
-      "edge"  => begin
-        typeEdgeCall(call, next_origin, info)
-      end
-
-      "fill"  => begin
-        typeFillCall(call, next_origin, info)
-      end
-
-      "getInstanceName"  => begin
-        typeGetInstanceName(call)
-      end
-
-      "initial"  => begin
-        typeDiscreteCall(call, next_origin, info)
-      end
-
-      "inStream"  => begin
-        typeActualInStreamCall("inStream", call, next_origin, info)
-      end
-
-      "isRoot"  => begin
-        typeIsRootCall(call, next_origin, info)
-      end
-
-      "matrix"  => begin
-        typeMatrixCall(call, next_origin, info)
-      end
-
-      "max"  => begin
-        typeMinMaxCall("max", call, next_origin, info)
-      end
-
-      "min"  => begin
-        typeMinMaxCall("min", call, next_origin, info)
-      end
-
-      "ndims"  => begin
-        typeNdimsCall(call, next_origin, info)
-      end
-
-      "noEvent"  => begin
-        typeNoEventCall(call, next_origin, info)
-      end
-
-      "ones"  => begin
-        typeZerosOnesCall("ones", call, next_origin, info)
-      end
-
-      "potentialRoot"  => begin
-        typePotentialRootCall(call, next_origin, info)
-      end
-
-      "pre"  => begin
-        typePreCall(call, next_origin, info)
-      end
-
-      "product"  => begin
-        typeProductCall(call, next_origin, info)
-      end
-
-      "promote"  => begin
-        typePromoteCall(call, next_origin, info)
-      end
-
-      "pure"  => begin
-        typePureCall(call, next_origin, info)
-      end
-
-      "root"  => begin
-        typeRootCall(call, next_origin, info)
-      end
-
-      "rooted"  => begin
-        typeRootedCall(call, next_origin, info)
-      end
-
-      "uniqueRoot"  => begin
-        typeUniqueRootCall(call, next_origin, info)
-      end
-
-      "uniqueRootIndices"  => begin
-        typeUniqueRootIndicesCall(call, next_origin, info)
-      end
-
-      "scalar"  => begin
-        typeScalarCall(call, next_origin, info)
-      end
-
-      "smooth"  => begin
-        typeSmoothCall(call, next_origin, info)
-      end
-
-      "sum"  => begin
-        typeSumCall(call, next_origin, info)
-      end
-
-      "symmetric"  => begin
-        typeSymmetricCall(call, next_origin, info)
-      end
-
-      "terminal"  => begin
-        typeDiscreteCall(call, next_origin, info)
-      end
-
-      "transpose"  => begin
-        typeTransposeCall(call, next_origin, info)
-      end
-
-      "vector"  => begin
-        typeVectorCall(call, next_origin, info)
-      end
-
-      "zeros"  => begin
-        typeZerosOnesCall("zeros", call, next_origin, info)
-      end
-
-      "Clock" where (Config.synchronousFeaturesAllowed())  => begin
-        typeClockCall(call, next_origin, info)
-      end
-
-      "sample"  => begin
-        typeSampleCall(call, next_origin, info)
-      end
-
-      "DynamicSelect"  => begin
-        typeDynamicSelectCall("DynamicSelect", call, next_origin, info)
-      end
-      "initialStructuralState" => begin
-        typeInitialStructuralStateCall(call, next_origin, info)
-      end
-
-      "structuralTransition" => begin
-        typeStructuralTransition(call, next_origin, info)
-      end
-
-      "recompilation" => begin
-        typeRecompilationCall(call, next_origin, info)
-      end
-
-      "agentic_recompilation" => begin
-        typeAgenticRecompilationCall(call, next_origin, info)
-      end
-
-      _  => begin
-        #= /*
-        case \"hold\" guard Config.synchronousFeaturesAllowed() then typeHoldCall(call, next_origin, info);
-        case \"shiftSample\" guard Config.synchronousFeaturesAllowed() then typeShiftSampleCall(call, next_origin, info);
-        case \"backSample\" guard Config.synchronousFeaturesAllowed() then typeBackSampleCall(call, next_origin, info);
-        case \"noClock\" guard Config.synchronousFeaturesAllowed() then typeNoClockCall(call, next_origin, info);
-        case \"transition\" guard Config.synchronousFeaturesAllowed() then typeTransitionCall(call, next_origin, info);
-        case \"initialState\" guard Config.synchronousFeaturesAllowed() then typeInitialStateCall(call, next_origin, info);
-        case \"activeState\" guard Config.synchronousFeaturesAllowed() then typeActiveStateCall(call, next_origin, info);
-        case \"ticksInState\" guard Config.synchronousFeaturesAllowed() then typeTicksInStateCall(call, next_origin, info);
-        case \"timeInState\" guard Config.synchronousFeaturesAllowed() then typeTimeInStateCall(call, next_origin, info);
-        */ =#
-        Error.assertion(false, getInstanceName() + " got unhandled builtin function: " + toString(call), sourceInfo())
-      end
+  local o::ORIGIN_Type = setFlag(origin, ORIGIN_SUBEXPRESSION)
+  return @match firstName(cref) begin
+    "String"                 => typeStringCall(call, o, info)
+    "actualStream"           => typeActualInStreamCall("actualStream", call, o, info)
+    "branch"                 => typeBranchCall(call, o, info)
+    "cardinality"            => typeCardinalityCall(call, o, info)
+    "cat"                    => typeCatCall(call, o, info)
+    "change"                 => typeChangeCall(call, o, info)
+    "der"                    => typeDerCall(call, o, info)
+    "diagonal"               => typeDiagonalCall(call, o, info)
+    "edge"                   => typeEdgeCall(call, o, info)
+    "fill"                   => typeFillCall(call, o, info)
+    "getInstanceName"        => typeGetInstanceName(call)
+    "initial"                => typeDiscreteCall(call, o, info)
+    "inStream"               => typeActualInStreamCall("inStream", call, o, info)
+    "isRoot"                 => typeIsRootCall(call, o, info)
+    "matrix"                 => typeMatrixCall(call, o, info)
+    "max"                    => typeMinMaxCall("max", call, o, info)
+    "min"                    => typeMinMaxCall("min", call, o, info)
+    "ndims"                  => typeNdimsCall(call, o, info)
+    "noEvent"                => typeNoEventCall(call, o, info)
+    "ones"                   => typeZerosOnesCall("ones", call, o, info)
+    "potentialRoot"          => typePotentialRootCall(call, o, info)
+    "pre"                    => typePreCall(call, o, info)
+    "product"                => typeProductCall(call, o, info)
+    "promote"                => typePromoteCall(call, o, info)
+    "pure"                   => typePureCall(call, o, info)
+    "root"                   => typeRootCall(call, o, info)
+    "rooted"                 => typeRootedCall(call, o, info)
+    "uniqueRoot"             => typeUniqueRootCall(call, o, info)
+    "uniqueRootIndices"      => typeUniqueRootIndicesCall(call, o, info)
+    "scalar"                 => typeScalarCall(call, o, info)
+    "smooth"                 => typeSmoothCall(call, o, info)
+    "sum"                    => typeSumCall(call, o, info)
+    "symmetric"              => typeSymmetricCall(call, o, info)
+    "terminal"               => typeDiscreteCall(call, o, info)
+    "transpose"              => typeTransposeCall(call, o, info)
+    "vector"                 => typeVectorCall(call, o, info)
+    "zeros"                  => typeZerosOnesCall("zeros", call, o, info)
+    "Clock" where (Config.synchronousFeaturesAllowed()) => typeClockCall(call, o, info)
+    "sample"                 => typeSampleCall(call, o, info)
+    "DynamicSelect"          => typeDynamicSelectCall("DynamicSelect", call, o, info)
+    "initialStructuralState" => typeInitialStructuralStateCall(call, o, info)
+    "structuralTransition"   => typeStructuralTransition(call, o, info)
+    "recompilation"          => typeRecompilationCall(call, o, info)
+    "agentic_recompilation"  => typeAgenticRecompilationCall(call, o, info)
+    #= Not yet: hold, shiftSample, backSample, noClock, transition, initialState, activeState, ticksInState,
+       timeInState (omc types them when synchronous features are allowed). =#
+    _ => begin
+      Error.assertion(false, getInstanceName() + " got unhandled builtin function: " + toString(call), sourceInfo())
+      fail()
     end
   end
-(callExp, ty, variability)
 end
 
 function makeSizeExp(posArgs::Vector{Expression}, namedArgs::Vector{NamedArg}, info::SourceInfo) ::Expression
