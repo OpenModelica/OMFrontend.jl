@@ -218,6 +218,9 @@ function _showMessages(io::IO, messages::Vector{String}, text::String)::Nothing
   return nothing
 end
 
+"""The lines of `text`, split at LF or CRLF (a file checked out on Windows), without the line endings."""
+_splitLines(text::String)::Vector{String} = String.(split(text, r"\r?\n"))
+
 """The source line a message `file:line:column: ...` points at, indented, with a `^` under the column; `""` if the
 line cannot be read."""
 function _sourceSnippet(message::String, text::String)::String
@@ -226,7 +229,7 @@ function _sourceSnippet(message::String, text::String)::String
   local (file, line, column) = (String(m.captures[1]), parse(Int, m.captures[2]), parse(Int, m.captures[3]))
   local lines::Vector{String} = String[]
   if file == "<string>"
-    lines = String.(split(text, '\n'))
+    lines = _splitLines(text)
   elseif isfile(file)
     lines = readlines(file)
   end
@@ -658,9 +661,9 @@ function _source(cls::SCode.Element, text::String)::String
   local info::SourceInfo = cls.info
   local lines::Vector{String} = String[]
   if info.fileName == "<string>"
-    lines = String.(split(text, '\n'))
+    lines = _splitLines(text)
   elseif isfile(info.fileName)
-    lines = String.(split(read(info.fileName, String), '\n'))
+    lines = _splitLines(read(info.fileName, String))
   end
   if info.lineNumberStart < 1 || info.lineNumberEnd > length(lines)
     return Frontend.SCodeDump.unparseElementStr(cls)

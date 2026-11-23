@@ -98,6 +98,13 @@ end
     end
     @test unknown isa OMFrontend.ModelicaError
     @test unknown.messages == ["<string>:5:3: Error: Variable y not found in scope Decay."]
+    #= CRLF line endings (a file checked out on Windows): the source line under the message has no '\r'. =#
+    local crlfShown::String = sprint(showerror, try
+      OMFrontend.instantiate(string = replace(DECAY_MODEL, "-k * x" => "-k * y", "\n" => "\r\n"))
+    catch e
+      e
+    end)
+    @test occursin("\n    der(x) = -k * y;\n", crlfShown) && !occursin('\r', crlfShown)
     @test_throws OMFrontend.ModelicaError OMFrontend.instantiate("N"; string = "model M end M;")
     @test_throws ArgumentError OMFrontend.instantiate(string = "model A end A; model B end B;")
     @test_throws ArgumentError OMFrontend.instantiate(file = "no/such/file.mo")
@@ -124,6 +131,12 @@ end
     local wrong::Any = try OMFrontend.instantiate(string = DECAY_MODEL, modifiers = ["kk = 3"]) catch e; e end
     @test wrong isa OMFrontend.ModelicaError && occursin("Modified element kk not found in class Decay", only(wrong.messages))
     @test OMFrontend.source("Decay"; string = documented) == strip(documented)
+    #= CRLF line endings (MSL checked out on Windows): the source has LF only, from a string and from a file. =#
+    local crlf::String = replace(documented, "\n" => "\r\n")
+    @test OMFrontend.source("Decay"; string = crlf) == strip(documented)
+    local crlfFile::String = joinpath(mktempdir(), "Decay.mo")
+    write(crlfFile, crlf)
+    @test OMFrontend.source("Decay"; file = crlfFile) == strip(documented)
     @test OMFrontend.description("Decay"; string = documented) == "Exponential decay"
     @test OMFrontend.documentation("Decay"; string = documented) == "<html>A \"decay\".</html>"
     @test OMFrontend.description("Decay"; string = DECAY_MODEL) == "" == OMFrontend.documentation("Decay"; string = DECAY_MODEL)
