@@ -548,7 +548,7 @@ Returns true if the given predicate function returns true for all elements in
 the given Vector.
 """
 function all(inList::Vector{T}, inFunc::F) where {T, F<:Function}
-  local outResult::Bool = false
+  local outResult::Bool
   for e in inList
     if ! inFunc(e)
       outResult = false
@@ -764,8 +764,8 @@ julia> split([1, 2, 5, 7], 2) => ([1, 2], [5, 7])
 ```
 """
 function split(inArr::Vector{T},  inPosition::Int) where {T}
-  local outArr1 = T[]
-  local outArr2 = T[]
+  local outArr1
+  local outArr2
   local pos::Int
   local a1 = T[]
   local a2 = Base.copy(inArr)

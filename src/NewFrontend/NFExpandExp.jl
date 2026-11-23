@@ -754,7 +754,7 @@ function expandBuiltinCat(args::Vector{Expression}, call::Call)::Tuple{Expressio
      as they're expanded. =#
   local expanded::Bool
   local exp::Expression
-  local expV = Expression[]
+  local expV
   (expV, expanded) = expandVector(args[2:end]) #TODO: See if view can be used here
   if expanded
     exp = evalBuiltinCat(Base.first(args), expV, EVALTARGET_IGNORE_ERRORS())
@@ -894,7 +894,7 @@ function expandCref4(
 )::Expression
   local arrayExp::Expression
 
-  local expl::Vector{Expression} = Expression[]
+  local expl::Vector{Expression}
   local arr_ty::ModelicaType
   local slice::List{Subscript}
   local rest::List{Subscript}
@@ -970,7 +970,7 @@ function expandCref2(
   cref::ComponentRef,
   subs::List = nil, #
   )::List{List{Subscript}}
-  local cr_subs::List{Subscript} = nil
+  local cr_subs::List{Subscript}
   local dims::List{Dimension}
   subs = begin
     @match cref begin

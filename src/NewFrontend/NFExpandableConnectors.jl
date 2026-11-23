@@ -446,8 +446,8 @@ function augmentExpandableConnector(
   ty = TYPE_COMPLEX(cls_node, complex_ty)
   ty = liftArrayLeftList(ty, arrayDims(getType(exp_node))) #Change from pstream
   cls = setType(ty, cls)
-  cls_node = updateClass(cls, cls_node)
-  exp_node = componentApply(exp_node, setType, ty)
+  updateClass(cls, cls_node)
+  componentApply(exp_node, setType, ty)
   return vars
 end
 

@@ -387,7 +387,7 @@ function toString(nameStr::String, component::Component)
 end
 
 function isIdentical(comp1::Component, comp2::Component)
-  local identical::Bool = false
+  local identical::Bool
   if referenceEq(comp1, comp2)
      identical = true
   else

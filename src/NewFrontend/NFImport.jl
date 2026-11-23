@@ -130,7 +130,7 @@ function resolve(imp::Import, isChangedImportRef::Ref{Bool}, importTyRef::Ref{Im
   local outImport::Import
   local node::InstNode
 
-  outImport  = begin
+  begin
     @match imp begin
       UNRESOLVED_IMPORT(__) => begin
         (outImport, node) = instQualified(imp.imp, imp.scope, imp.info)

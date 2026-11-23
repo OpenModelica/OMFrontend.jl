@@ -285,7 +285,7 @@ function pathStringWork(
   dlen::Int,
   reverse::Bool,
 )::String
-  local s::String = ""
+  local s::String
   local p::Path = inPath
   local b::Bool = true
   local count::Int = 0

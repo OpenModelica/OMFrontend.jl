@@ -355,7 +355,7 @@ end
 function makeQuotedIdentifier(str::String)
   local qi = Base.replace(str, "\\"=> "\\\\")
   qi = Base.replace(qi, "'" => "\\'")
-  qi = string("'", qi, "'")
+  return string("'", qi, "'")
 end
 
 """ Returns an option value if SOME, otherwise fails """
@@ -823,7 +823,7 @@ function referenceCompare(ref1::T1, ref2::T2) where {T1, T2}
   else
     t1 = UInt64(unsafe_pointer_from_objref(ref1))
     t2 = UInt64(unsafe_pointer_from_objref(ref2))
-    result = Int((t1 < t2) ? -1 : (t1 > t2))
+    Int((t1 < t2) ? -1 : (t1 > t2))
   end
   return result
 end

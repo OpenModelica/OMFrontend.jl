@@ -447,7 +447,7 @@ end
 end
 
 function toFlatDeclarationStream(ty::ModelicaType, s::IOStream_M.IOSTREAM)
-  local index = 0
+  local index
   @match ty begin
     TYPE_ENUMERATION(__) => begin
       s = IOStream_M.append(s, "type '")

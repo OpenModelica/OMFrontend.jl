@@ -779,7 +779,6 @@ function createResult(repl::ReplTree.Tree, outputs::List{<:InstNode})::Expressio
     (exp isa EVAL_FAILURE || !assertAssignedOutput(listHead(outputs), exp)) && return EVAL_FAILED
   else
     expl = nil
-    types = nil
     for o in outputs
       e = _evalStmtExp(ReplTree.get(repl, o), target)
       e isa EVAL_FAILURE && return e

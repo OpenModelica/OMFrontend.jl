@@ -49,7 +49,7 @@ function workload()
     GC.enable(false)
     p = parseFile(pathToLib, 2 #= MetaModelica =#)
     @info "Translating builtin library to SCode.."
-    s = translateToSCode(Absyn.PROGRAM(nil, Absyn.TOP()))
+    translateToSCode(Absyn.PROGRAM(nil, Absyn.TOP()))
     s = translateToSCode(p)
     @info "SCode translation done. Saving the library in the cache."
     NFModelicaBuiltinCache["NFModelicaBuiltin"] = s

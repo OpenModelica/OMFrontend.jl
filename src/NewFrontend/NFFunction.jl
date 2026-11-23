@@ -1061,9 +1061,6 @@ function matchArgs(
       #   ),
       #   info,
       # )
-      local msg = AbsynUtil.pathString(func.path)
-      local expectedType = toString(input_ty)
-      local actualType = toString(arg_ty)
       #@error msgPart1 * msgPart2 it should not be an error yet. These should be printed in the end.
       # Fix the error reporting module.
       funcMatchKind = NO_MATCH
@@ -1457,7 +1454,7 @@ function toFlatStreamHelper(fn::MODELICA_FUNCTION, s, fn_name)
     @match SOME(SCode.ANNOTATION(annMod)) = cmt.annotation_
     annMod
   else
-    annMod = SCode.NOMOD()
+    SCode.NOMOD()
   end
   #Generate derivative/inverse annotations from the instantiated model. Paths have changed.
   annMod = SCodeUtil.filterSubMods(annMod, (mod) -> SCodeUtil.removeGivenSubModNames(mod; namesToRemove=list("derivative", "inverse")))
@@ -2193,16 +2190,9 @@ function makeSlot(@nospecialize(componentArg::InstNode), index::Int)::SLOT
   local slot::SLOT
   local comp::Component
   local default::Option{Expression}
-  local nameVar::String
   try
     comp = component(componentArg)
     default = typedExp(getImplicitBinding(comp))
-    nameVar = name(componentArg)
-    if stringGet(nameVar, 1) == 36
-      if stringLength(nameVar) > 4 && substring(nameVar, 1, 4) == "in_"
-        nameVar = substring(nameVar, 5, stringLength(nameVar))
-      end
-    end
     slot = SLOT(
       name(componentArg),
       SLOT_TYPE_GENERIC,
@@ -2216,8 +2206,6 @@ function makeSlot(@nospecialize(componentArg::InstNode), index::Int)::SLOT
     @error "Error. Our error was $e"
     fail()
   end
-  #= Remove $in_ for OM input output arguments.
-     /*$*/ =#
   return slot
 end
 

@@ -319,7 +319,7 @@ function makeCatExpRef(n::Int,
   local ty::ModelicaType
   local callExp::Expression
   local arg2::Expression
-  local args2::Vector{Expression} = Expression[]
+  local args2::Vector{Expression}
   local res::Vector{Expression}
   local tys2::Vector{ModelicaType} = tys
   local tys3::Vector{ModelicaType}
@@ -960,7 +960,7 @@ function typeFillCall2(fnRef::ComponentRef,
   local variability::VariabilityType = Variability.CONSTANT
   local ty::ModelicaType
   local callExp::Expression
-  local ty_args::Vector{Expression} = Vector{Expression}(undef, length(dimensionArgs))
+  local ty_args::Vector{Expression}
   local arg_var::VariabilityType
   local arg_ty::ModelicaType
   local fn::MODELICA_FUNCTION
@@ -1178,7 +1178,7 @@ function typeCatCall(call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{
   end
   @match [arg, args...] = args
   (arg, ty, variability) = typeExp(arg, origin, info)
-  (arg, ty, mk) = matchTypes(ty, TYPE_INTEGER(), arg)
+  (arg, _, mk) = matchTypes(ty, TYPE_INTEGER(), arg)
   if variability > Variability.PARAMETER
     Error.addSourceMessageAndFail(Error.NF_CAT_FIRST_ARG_EVAL, list(toString(arg), variabilityString(variability)), info)
   end
@@ -1671,7 +1671,7 @@ end
                   checkConnectionsArgument(arg2, ty2, fn_ref, 1, info)
                   if args_len == 3
                     @assign arg3 = args[1]
-                     (arg3, ty3) = typeExp(arg3, origin, info)
+                     (_, ty3) = typeExp(arg3, origin, info)
                     if ! isString(ty3)
                       Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH, list("3", toString(fn_ref), "", toString(arg2), toString(ty3), "String"), info)
                     end
@@ -1973,7 +1973,7 @@ function typeActualInStreamCall2(name::String, fn::MODELICA_FUNCTION, @nospecial
 end
 
 function typeDynamicSelectCall(name::String, call::Call, origin::ORIGIN_Type, info::SourceInfo) ::Tuple{Expression, ModelicaType, VariabilityType}
-  local variability::VariabilityType = Variability.CONTINUOUS
+  local variability::VariabilityType
   local ty::ModelicaType
   local callExp::Expression
 

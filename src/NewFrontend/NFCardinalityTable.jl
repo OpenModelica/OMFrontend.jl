@@ -84,7 +84,7 @@ function evaluateCardinality(@nospecialize(arg), table::Table)
   count = if argStr in keys(table)
     table[argStr]
   else
-    count = 0
+    0
   end
   return INTEGER_EXPRESSION(count)
 end

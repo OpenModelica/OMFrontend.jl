@@ -789,7 +789,7 @@ function appendComponentsToInstTree(
     return tree
   end
   local comp_idx::Int
-  local local_comps::Vector{Int} = Int[]
+  local local_comps::Vector{Int}
   @match tree begin
     CLASS_TREE_INSTANTIATED_TREE(__) => begin
       comp_idx = arrayLength(tree.components)

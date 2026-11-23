@@ -1042,8 +1042,6 @@ function instPackage2(node::InstNode; isRedeclared::Bool = false)::InstNode
     end
     return inst
   else
-    inst = node
-    state = CACHE_STATE_NOT_INSTANTIATED
     local alias::InstNode = packageAlias(node)
     if !isEmpty(alias)
       setPackageCache(node, C_PACKAGE(alias, CACHE_STATE_INSTANTIATED))
@@ -1565,7 +1563,7 @@ function instComponent(node::InstNode,
     local rdcl_parents = outer_mod.propagatedParents
     @match MODIFIER_REDECLARE(element = rdcl_node, innerMod = inner_mod, outerMod = outer_mod,
                               constrainingMod = cc_mod) = outer_mod
-    comp_node = instComponentDef(def::SCode.COMPONENT, MODIFIER_NOMOD(), inner_mod,
+    instComponentDef(def::SCode.COMPONENT, MODIFIER_NOMOD(), inner_mod,
                      DEFAULT_ATTR, useBinding, comp_node, parentNode,
                      instLevel, attributeRef, originalAttr, #=isRedeclared =# true)::InstNode
     cc_mod = merge(elementConstrainingMod(def, parentNode, cc_mod), innerMod)
@@ -3496,7 +3494,7 @@ function insertGeneratedInners(node::InstNode, topScope::InstNode)
     base_node = lastBaseClass(node)
     cls = getClass(base_node)
     cls_tree = appendComponentsToInstTree(inner_comps, classTree(cls))
-    base_node = updateClass(setClassTree(cls_tree, cls), base_node)
+    updateClass(setClassTree(cls_tree, cls), base_node)
   end
 end
 

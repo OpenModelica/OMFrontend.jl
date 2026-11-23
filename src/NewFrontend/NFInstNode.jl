@@ -507,7 +507,7 @@ function isProtectedBaseClass(node::InstNode)
 end
 
 function isRedeclare(node::InstNode)
-  local isRedcl::Bool = false
+  local isRedcl::Bool
    isRedcl = begin
     @match node begin
       CLASS_NODE(__)  => begin

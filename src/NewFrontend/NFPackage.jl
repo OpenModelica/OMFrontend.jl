@@ -63,7 +63,7 @@ were variables of the model: with the arrays kept, `Modelica.Constants.pi = 2 * 
 unevaluated and its backend found no `Modelica.Math.asin`).
 """
 function collectConstants(flatModel::FLAT_MODEL, functions::FunctionTree)::Tuple{FLAT_MODEL, FunctionTree}
-  local vars::Vector{VARIABLE} = VARIABLE[]
+  local vars::Vector{VARIABLE}
   local constants::Constants
   constants = ConstantsSetImpl.new()
   constants =

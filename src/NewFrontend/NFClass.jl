@@ -541,7 +541,7 @@ function hasDimensions(cls::Class)::Bool
 end
 
 function isIdentical(cls1::Class, cls2::Class)::Bool
-  local identical::Bool = false
+  local identical::Bool
 
   if referenceEq(cls1, cls2)
     @assign identical = true

@@ -530,7 +530,7 @@ function streamEquationGeneral(
 )::List{Equation}
   local equations::List{Equation} = nil
 
-  local outside::List{CONNECTOR} = outsideElements
+  local outside::List{CONNECTOR}
   local cref_exp::Expression
   local res::Expression
   local src::SourceInfo
@@ -1113,7 +1113,7 @@ function evaluateActualStreamMul(
 end
 
 function evaluateFlowDirection(flowCref::ComponentRef)::Int
-  local direction::Int = 0
+  local direction::Int
 
   local flow_cls::Class
   local omin::Option{Expression}

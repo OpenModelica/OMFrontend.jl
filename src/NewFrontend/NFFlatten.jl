@@ -712,7 +712,7 @@ function isTypeAttributeNamed(name::String, attr::Tuple{<:String, Binding})::Boo
 end
 
 function getRecordBindings(binding::Binding, comps::Vector{<:InstNode})::List{Binding}
-  local recordBindings::List{Binding} = nil
+  local recordBindings::List{Binding}
   local binding_exp::Expression
   local var::VariabilityType
   binding_exp = getTypedExp(binding)
@@ -1565,7 +1565,7 @@ function flattenIfEquation(
   local branches::Vector{EquationBranch}
   local bl::Vector{EquationBranch} = EquationBranch[]
   local cond::Expression
-  local eql::Vector{Equation} = Equation[]
+  local eql::Vector{Equation}
   local var::VariabilityType
   local has_connect::Bool
   local src::SourceInfo

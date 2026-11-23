@@ -1105,7 +1105,7 @@ function implicitConstructAndMatch(
     if matched
       continue
     end
-     (matchedfuncs, matched) = implicitConstructAndMatch2(
+     (matchedfuncs, _) = implicitConstructAndMatch2(
       inExp2,
       inType2,
       inExp1,

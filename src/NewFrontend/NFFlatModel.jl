@@ -726,7 +726,7 @@ function toFlatString(
   local str::String
   local s::IOStream_M.IOSTREAM
   s = IOStream_M.create(getInstanceName(), IOStream_M.LIST())
-  (s, str) = toFlatStream(flatModel, functions, printBindingTypes, s)
+  (s, _) = toFlatStream(flatModel, functions, printBindingTypes, s)
   str = IOStream_M.string(s)
   #= Fix non-literal subscripts from inner CREF nodes that ended up inside quotes.
      toFlatString_impl embeds all subscripts in node names, but iterator variables

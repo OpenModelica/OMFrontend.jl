@@ -851,7 +851,7 @@ function instAlgorithmSection(algorithmSection::SCode.ALGORITHM, scope::InstNode
 end
 
 function instStatements(scodeStmtl::List{<:SCode.Statement}, scope::InstNode, origin::ORIGIN_Type)
-  local statements::Vector{Statement} = Statement[]
+  local statements::Vector{Statement}
   statements = Statement[instStatement(stmt, scope, origin) for stmt in scodeStmtl]
   return statements
 end

@@ -830,7 +830,7 @@ end
 
 """True if a part of `cref` is an overconstrained (equalityConstraint) type."""
 function isOverconstrainedCref(cref::ComponentRef) ::Bool
-  local b::Bool = false
+  local b::Bool
   local node::InstNode
   local rest::ComponentRef
   b = begin

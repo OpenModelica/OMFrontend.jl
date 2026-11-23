@@ -1111,7 +1111,7 @@ function getRecordElementBinding(componentVar::InstNode)::Tuple{Binding, Int}
           children (omc getRecordElementBinding, typeCref2). =#
        binding = typeBinding(parent_binding, setFlag(ORIGIN_CLASS, ORIGIN_DIMENSION))
       if !referenceEq(parent_binding, binding)
-        parent = componentApply(parent, setBinding, binding)
+        componentApply(parent, setBinding, binding)
       end
     end
      parentDims = parentDims + dimensionCount(comp)
@@ -2216,7 +2216,7 @@ function typeArrayRef(
   variabilityTypeRef::Ref{VariabilityType}
   )::ARRAY_EXPRESSION where {T <: Expression}
   local variability::VariabilityType = Variability.CONSTANT
-  local arrayType::ModelicaType = TYPE_UNKNOWN()
+  local arrayType::ModelicaType
   local arrayExp::Expression
   local numberOfElements = length(elements)::Int
   #= The typed elements go to a new vector: the untyped expression's elements are shared (a
@@ -2295,13 +2295,13 @@ function typeMatrixRef(
   variabilityTypeRef::Ref{VariabilityType}
   )::Expression
   local variability::VariabilityType = Variability.CONSTANT
-  local arrayType::ModelicaType = TYPE_UNKNOWN()
+  local arrayType::ModelicaType
   local arrayExp::Expression
   local exp::Expression
   local expl::Vector{Expression} = Vector{Expression}(undef, length(elements))
   local res::Vector{Expression} = Vector{Expression}(undef, length(elements))
   local var::VariabilityType
-  local ty::ModelicaType = TYPE_UNKNOWN()
+  local ty::ModelicaType
   local tys::Vector{ModelicaType} = Vector{ModelicaType}(undef, length(elements))
   local n::Int = 2
   local next_origin::ORIGIN_Type = setFlag(origin, ORIGIN_SUBEXPRESSION)

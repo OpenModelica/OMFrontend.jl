@@ -643,7 +643,7 @@ function isLess(cref1::ComponentRef, cref2::ComponentRef)::Bool
 end
 
 function isEqual(cref1::ComponentRef, cref2::ComponentRef)::Bool
-  local isEqualB::Bool = false
+  local isEqualB::Bool
   if referenceEq(cref1, cref2)
     return true
   end

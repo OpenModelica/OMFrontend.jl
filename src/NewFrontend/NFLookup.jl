@@ -435,7 +435,7 @@ end
   enclosing scopes if the name isn't found.
 """
 function lookupLocalSimpleName(n::String, scope::InstNode)
-  local isImport::Bool = false
+  local isImport::Bool
   local node::InstNode
   if isvariant(scope, EMPTY_NODE)
     throw("Lookup Error: Attempted to lookup '$n'. However, it was not found in the given scope.")
@@ -478,7 +478,6 @@ function lookupName(@nospecialize(name::Absyn.Path), scope::InstNode, lookupStat
       end
     end
   end
-  state = lookupStateRef.x
   node
 end
 

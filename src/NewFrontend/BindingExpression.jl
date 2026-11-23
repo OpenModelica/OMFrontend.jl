@@ -1128,7 +1128,7 @@ end
 
 function fillArgsDimVec(@nospecialize(fillExp::Expression), dims::Vector{Expression})
   local dimSize
-  local arr::Vector{Expression} = Expression[]
+  local arr::Vector{Expression}
   local result = fillExp
   local arrTy = typeOf(result)
   local literal::Bool = isLiteral(fillExp)

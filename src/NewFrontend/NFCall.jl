@@ -1383,7 +1383,7 @@ function typeReduction(
   local fold_id::String
   local res_id::String
   local fold_tuple::Tuple{Option{Expression}, String, String}
-  return (call, ty, variability) = begin
+  return begin
     @match call begin
       UNTYPED_REDUCTION(__) => begin
          variability = Variability.CONSTANT
