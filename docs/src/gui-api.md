@@ -6,8 +6,7 @@ CurrentModule = OMFrontend.GUI_API
 
 `OMFrontend.GUI_API` is an API for graphical model editors: load a model, read its diagram (components, placements,
 connections), edit placements and connections as text patches of the source, save, and compile or simulate through
-delegates. It is experimental: its names may change in a minor release, and its tests run only on request
-(`OMFRONTEND_TEST_GUI_API=1`).
+delegates. It is experimental: its names may change in a minor release.
 
 ## Types
 
