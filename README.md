@@ -27,9 +27,7 @@ installed via `installLibrary` and loaded via `loadInstalledLibrary`.
 ## Release Status
 
 This package is the primary frontend used by OM.jl for Modelica flattening.
-The core flattening pipeline is stable. Extensions such as VSS (Variable
-Structured Systems) and the GUI editing API are active areas where
-interfaces may still evolve.
+The core flattening pipeline is stable.
 
 ## Example Use
 
