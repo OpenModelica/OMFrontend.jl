@@ -1,10 +1,10 @@
 # Tests of the Julia port of the MSL external C functions the frontend evaluates
-# (src/Util/ModelicaExternalC): strings, files, MAT files and zlib inflate. The expected values are
+# (src/Util/ExternalModelicaUtil): strings, files, MAT files and zlib inflate. The expected values are
 # those of the MSL 4.1.0 C code (OMRuntimeExternalC). The MAT files in test/Data are the test files of
 # MSL 4.1.0 (Modelica/Resources/Data/Utilities, BSD 3-Clause); the other MAT files are written here.
 # Author: John Tinnerholm
 
-const MEC = OMFrontend.Frontend.ModelicaExternalC
+const EMU = OMFrontend.Frontend.ExternalModelicaUtil
 const DATA_DIR = joinpath(@__DIR__, "Data")
 
 """
@@ -95,67 +95,67 @@ end
 """The message of the error `f` throws, `""` if none."""
 errorMessage(f::Function)::String = try f(); "" catch e; sprint(showerror, e) end
 
-@testset "ModelicaExternalC in Julia" begin
+@testset "ExternalModelicaUtil: MSL external functions in Julia" begin
   @testset "strings" begin
-    @test MEC.Strings_scanReal("  2.5e1 rest", 1, false) == (8, 25.0)
-    @test MEC.Strings_scanReal("-1.5", 1, true) == (1, 0.0)
-    @test MEC.Strings_scanReal("1e", 1, false) == (1, 0.0)
-    @test MEC.Strings_scanReal("1.", 1, false) == (3, 1.0)
-    @test MEC.Strings_scanReal(".5x", 1, false) == (3, 0.5)
+    @test EMU.Strings_scanReal("  2.5e1 rest", 1, false) == (8, 25.0)
+    @test EMU.Strings_scanReal("-1.5", 1, true) == (1, 0.0)
+    @test EMU.Strings_scanReal("1e", 1, false) == (1, 0.0)
+    @test EMU.Strings_scanReal("1.", 1, false) == (3, 1.0)
+    @test EMU.Strings_scanReal(".5x", 1, false) == (3, 0.5)
     #= out of range: strtod gives ±Inf and 0 =#
-    @test MEC.Strings_scanReal("7e323", 1, false) == (6, Inf)
-    @test MEC.Strings_scanReal("-1E6985", 1, false) == (8, -Inf)
-    @test MEC.Strings_scanReal("8e-9190", 1, false) == (8, 0.0)
-    @test MEC.Strings_scanReal(repeat("9", 120), 1, false) == (1, 0.0)
-    @test MEC.Strings_scanInteger(" -42 x", 1, false) == (5, -42)
-    @test MEC.Strings_scanInteger("-42", 1, true) == (1, 0)
-    @test MEC.Strings_scanInteger("4.2", 1, false) == (1, 0)
-    @test MEC.Strings_scanInteger("99999999999999999999", 1, false) == (21, -1)
-    @test MEC.Strings_scanString("  \"quoted\" rest", 1) == (11, "quoted")
-    @test MEC.Strings_scanString("\"a\\\"b\"", 1) == (7, "a\\\"b")
-    @test MEC.Strings_scanString("\"\"", 1) == (1, "")
-    @test MEC.Strings_scanString("\"open", 1) == (1, "")
-    @test MEC.Strings_scanIdentifier(" abc_1 x", 1) == (7, "abc_1")
-    @test MEC.Strings_scanIdentifier("_a", 1) == (1, "")
-    @test MEC.Strings_skipWhiteSpace(" \t\nx", 1) == 4
-    @test MEC.Strings_skipWhiteSpace("ab", 3) == 3
-    @test MEC.Strings_compare("abc", "ABC", false) == 2
-    @test MEC.Strings_compare("abc", "ABC", true) == 3
-    @test MEC.Strings_compare("ab", "abc", false) == 1
-    @test MEC.Strings_hashString("Modelica") == 2118346737
-    @test MEC.Strings_hashString("") == -1431655766
+    @test EMU.Strings_scanReal("7e323", 1, false) == (6, Inf)
+    @test EMU.Strings_scanReal("-1E6985", 1, false) == (8, -Inf)
+    @test EMU.Strings_scanReal("8e-9190", 1, false) == (8, 0.0)
+    @test EMU.Strings_scanReal(repeat("9", 120), 1, false) == (1, 0.0)
+    @test EMU.Strings_scanInteger(" -42 x", 1, false) == (5, -42)
+    @test EMU.Strings_scanInteger("-42", 1, true) == (1, 0)
+    @test EMU.Strings_scanInteger("4.2", 1, false) == (1, 0)
+    @test EMU.Strings_scanInteger("99999999999999999999", 1, false) == (21, -1)
+    @test EMU.Strings_scanString("  \"quoted\" rest", 1) == (11, "quoted")
+    @test EMU.Strings_scanString("\"a\\\"b\"", 1) == (7, "a\\\"b")
+    @test EMU.Strings_scanString("\"\"", 1) == (1, "")
+    @test EMU.Strings_scanString("\"open", 1) == (1, "")
+    @test EMU.Strings_scanIdentifier(" abc_1 x", 1) == (7, "abc_1")
+    @test EMU.Strings_scanIdentifier("_a", 1) == (1, "")
+    @test EMU.Strings_skipWhiteSpace(" \t\nx", 1) == 4
+    @test EMU.Strings_skipWhiteSpace("ab", 3) == 3
+    @test EMU.Strings_compare("abc", "ABC", false) == 2
+    @test EMU.Strings_compare("abc", "ABC", true) == 3
+    @test EMU.Strings_compare("ab", "abc", false) == 1
+    @test EMU.Strings_hashString("Modelica") == 2118346737
+    @test EMU.Strings_hashString("") == -1431655766
   end
 
   @testset "files" begin
     local dir::String = mktempdir()
     local file::String = joinpath(dir, "lines.txt")
     write(file, "a\r\nb\n\nlast")
-    @test MEC.Streams_countLines(file) == 4
-    @test MEC.Streams_readLine(file, 1) == ("a\r", false)
-    @test MEC.Streams_readLine(file, 3) == ("", false)
-    @test MEC.Streams_readLine(file, 4) == ("last", false)
-    @test MEC.Streams_readLine(file, 5) == ("", true)
+    @test EMU.Streams_countLines(file) == 4
+    @test EMU.Streams_readLine(file, 1) == ("a\r", false)
+    @test EMU.Streams_readLine(file, 3) == ("", false)
+    @test EMU.Streams_readLine(file, 4) == ("last", false)
+    @test EMU.Streams_readLine(file, 5) == ("", true)
     #= the file changes: the cached lines are not used =#
-    MEC.Streams_print("more", file)
-    @test MEC.Streams_countLines(file) == 4
-    @test MEC.Streams_readLine(file, 4) == ("lastmore", false)
-    MEC.Streams_close(file)
+    EMU.Streams_print("more", file)
+    @test EMU.Streams_countLines(file) == 4
+    @test EMU.Streams_readLine(file, 4) == ("lastmore", false)
+    EMU.Streams_close(file)
     write(file, "x\n")
-    @test MEC.Streams_countLines(file) == 1
+    @test EMU.Streams_countLines(file) == 1
     local empty::String = joinpath(dir, "empty.txt")
     touch(empty)
-    @test MEC.Streams_countLines(empty) == 0
-    @test occursin("Not possible to open file", errorMessage(() -> MEC.Streams_countLines(joinpath(dir, "none"))))
-    @test MEC.File_stat(file) == 2
-    @test MEC.File_stat(dir) == 3
-    @test MEC.File_stat(joinpath(dir, "none")) == 1
-    Sys.isunix() && @test MEC.File_stat("/dev/null") == 4
-    @test MEC.File_fullPathName(file) == realpath(file)
+    @test EMU.Streams_countLines(empty) == 0
+    @test occursin("Not possible to open file", errorMessage(() -> EMU.Streams_countLines(joinpath(dir, "none"))))
+    @test EMU.File_stat(file) == 2
+    @test EMU.File_stat(dir) == 3
+    @test EMU.File_stat(joinpath(dir, "none")) == 1
+    Sys.isunix() && @test EMU.File_stat("/dev/null") == 4
+    @test EMU.File_fullPathName(file) == realpath(file)
     if !Sys.iswindows()
-      @test MEC.File_fullPathName(dir * "/") == realpath(dir) * "/"
-      @test MEC.File_fullPathName("/none/x") == "/none/x"
+      @test EMU.File_fullPathName(dir * "/") == realpath(dir) * "/"
+      @test EMU.File_fullPathName("/none/x") == "/none/x"
       cd(dir) do
-        @test MEC.File_fullPathName("none/x") == pwd() * "/none/x"
+        @test EMU.File_fullPathName("none/x") == pwd() * "/none/x"
       end
     end
   end
@@ -164,32 +164,32 @@ errorMessage(f::Function)::String = try f(); "" catch e; sprint(showerror, e) en
     local expected::Matrix{Float64} = [11.0 12.0; 21.0 22.0; 31.0 32.0]
     for version::String in ("v4", "v6", "v7")
       local file::String = joinpath(DATA_DIR, "Test_RealMatrix_$version.mat")
-      @test MEC.ModelicaIO_readMatrixSizes(file, "Matrix_A") == [3, 2]
-      @test MEC.ModelicaIO_readRealMatrix(file, "Matrix_A", 3, 2, false) == expected
+      @test EMU.ModelicaIO_readMatrixSizes(file, "Matrix_A") == [3, 2]
+      @test EMU.ModelicaIO_readRealMatrix(file, "Matrix_A", 3, 2, false) == expected
     end
     local v4::String = joinpath(DATA_DIR, "Test_RealMatrix_v4.mat")
-    @test MEC.ModelicaIO_readRealMatrix(v4, "Matrix_B", 3, 2, false) == expected
+    @test EMU.ModelicaIO_readRealMatrix(v4, "Matrix_B", 3, 2, false) == expected
     local v7::String = joinpath(DATA_DIR, "Test_RealMatrix_v7.mat")
-    @test errorMessage(() -> MEC.ModelicaIO_readMatrixSizes(v7, "nope")) ==
+    @test errorMessage(() -> EMU.ModelicaIO_readMatrixSizes(v7, "nope")) ==
           "ModelicaIO_readMatrixSizes failed: Variable \"nope\" not found in file \"$v7\"."
-    @test errorMessage(() -> MEC.ModelicaIO_readMatrixSizes(v7, "Matrix_A.x")) ==
+    @test errorMessage(() -> EMU.ModelicaIO_readMatrixSizes(v7, "Matrix_A.x")) ==
           "ModelicaIO_readMatrixSizes failed: Variable \"Matrix_A\" of \"Matrix_A.x\" is not a struct array."
-    @test errorMessage(() -> MEC.ModelicaIO_readRealMatrix(v7, "Matrix_A", 2, 2, false)) ==
+    @test errorMessage(() -> EMU.ModelicaIO_readRealMatrix(v7, "Matrix_A", 2, 2, false)) ==
           "ModelicaIO_readRealMatrix failed: Cannot read 2 rows of array \"Matrix_A(3,2)\" from file \"$v7\""
-    @test errorMessage(() -> MEC.ModelicaIO_readRealMatrix(v7, "Matrix_A", 3, 3, false)) ==
+    @test errorMessage(() -> EMU.ModelicaIO_readRealMatrix(v7, "Matrix_A", 3, 3, false)) ==
           "ModelicaIO_readRealMatrix failed: Cannot read 3 columns of array \"Matrix_A(3,2)\" from file \"$v7\""
     local v73::String = joinpath(DATA_DIR, "Test_RealMatrix_v7.3.mat")
-    @test errorMessage(() -> MEC.ModelicaIO_readMatrixSizes(v73, "Matrix_A")) ==
+    @test errorMessage(() -> EMU.ModelicaIO_readMatrixSizes(v73, "Matrix_A")) ==
           "ModelicaIO_readMatrixSizes failed: No HDF5 support which is required to read the v7.3 MAT file \"$v73\""
-    @test errorMessage(() -> MEC.ModelicaIO_readMatrixSizes("/none.mat", "A")) ==
+    @test errorMessage(() -> EMU.ModelicaIO_readMatrixSizes("/none.mat", "A")) ==
           "ModelicaIO_readMatrixSizes failed: Not possible to open file \"/none.mat\": No such file or directory"
     local notMat::String = joinpath(mktempdir(), "text.mat")
     write(notMat, "not a MAT file at all")
-    @test occursin("Not possible to open file", errorMessage(() -> MEC.ModelicaIO_readMatrixSizes(notMat, "A")))
+    @test occursin("Not possible to open file", errorMessage(() -> EMU.ModelicaIO_readMatrixSizes(notMat, "A")))
     #= the verbose message =#
     local shown::String = mktemp() do path::String, io::IOStream
       redirect_stdout(io) do
-        MEC.ModelicaIO_readRealMatrix(v7, "Matrix_A", 3, 2, true)
+        EMU.ModelicaIO_readRealMatrix(v7, "Matrix_A", 3, 2, true)
       end
       flush(io)
       read(path, String)
@@ -214,36 +214,36 @@ errorMessage(f::Function)::String = try f(); "" catch e; sprint(showerror, e) en
                        W.structure("s", [1, 1], ["A", "t"], [field, inner], big),
                        W.structure("s2", [1, 2], ["A"], [field, field], big),
                        W.compressed(W.numeric("Z", 6, [2, 2], 9, W.bytesOf([1.0, 2.0, 3.0, 4.0], big), big), big)))
-      @test MEC.ModelicaIO_readRealMatrix(file, "I", 2, 3, false) == [1.0 3.0 5.0; -2.0 -4.0 -6.0]
-      @test MEC.ModelicaIO_readRealMatrix(file, "S", 1, 2, false) == [0.5 -0.25]
-      @test MEC.ModelicaIO_readRealMatrix(file, "U8", 1, 3, false) == [1.0 2.0 255.0]
-      @test MEC.ModelicaIO_readRealMatrix(file, "Z", 2, 2, false) == [1.0 3.0; 2.0 4.0]
-      @test MEC.ModelicaIO_readMatrixSizes(file, "s.A") == [2, 1]
-      @test MEC.ModelicaIO_readRealMatrix(file, "s.t.B", 2, 1, false) == reshape([1.5, 2.5], 2, 1)
-      @test errorMessage(() -> MEC.ModelicaIO_readMatrixSizes(file, "C")) ==
+      @test EMU.ModelicaIO_readRealMatrix(file, "I", 2, 3, false) == [1.0 3.0 5.0; -2.0 -4.0 -6.0]
+      @test EMU.ModelicaIO_readRealMatrix(file, "S", 1, 2, false) == [0.5 -0.25]
+      @test EMU.ModelicaIO_readRealMatrix(file, "U8", 1, 3, false) == [1.0 2.0 255.0]
+      @test EMU.ModelicaIO_readRealMatrix(file, "Z", 2, 2, false) == [1.0 3.0; 2.0 4.0]
+      @test EMU.ModelicaIO_readMatrixSizes(file, "s.A") == [2, 1]
+      @test EMU.ModelicaIO_readRealMatrix(file, "s.t.B", 2, 1, false) == reshape([1.5, 2.5], 2, 1)
+      @test errorMessage(() -> EMU.ModelicaIO_readMatrixSizes(file, "C")) ==
             "ModelicaIO_readMatrixSizes failed: Matrix \"C\" must not be complex."
-      @test errorMessage(() -> MEC.ModelicaIO_readMatrixSizes(file, "T")) ==
+      @test errorMessage(() -> EMU.ModelicaIO_readMatrixSizes(file, "T")) ==
             "ModelicaIO_readMatrixSizes failed: Matrix \"T\" is not a numeric array."
-      @test errorMessage(() -> MEC.ModelicaIO_readMatrixSizes(file, "s")) ==
+      @test errorMessage(() -> EMU.ModelicaIO_readMatrixSizes(file, "s")) ==
             "ModelicaIO_readMatrixSizes failed: Matrix \"s\" is not a numeric array."
-      @test errorMessage(() -> MEC.ModelicaIO_readMatrixSizes(file, "s2.A")) ==
+      @test errorMessage(() -> EMU.ModelicaIO_readMatrixSizes(file, "s2.A")) ==
             "ModelicaIO_readMatrixSizes failed: Variable \"s2\" of \"s2.A\" is not a 1x1 struct array."
-      @test errorMessage(() -> MEC.ModelicaIO_readMatrixSizes(file, "s.x")) ==
+      @test errorMessage(() -> EMU.ModelicaIO_readMatrixSizes(file, "s.x")) ==
             "ModelicaIO_readMatrixSizes failed: Variable \"s.x\" not found in file \"$file\"."
       #= a missing field before the last name: the C code gives no error and no matrix =#
-      @test MEC.ModelicaIO_readMatrixSizes(file, "s.x.y") == [0, 0]
+      @test EMU.ModelicaIO_readMatrixSizes(file, "s.x.y") == [0, 0]
     end
   end
 
   @testset "inflate" begin
     local data::Vector{UInt8} = Vector{UInt8}(codeunits("inflate " ^ 40))
-    @test MEC.zlibDecompress(MatWriter.storedZlib(data)) == data
+    @test EMU.zlibDecompress(MatWriter.storedZlib(data)) == data
     local corrupt::Vector{UInt8} = MatWriter.storedZlib(data)
     corrupt[end] ⊻= 0x01
-    @test errorMessage(() -> MEC.zlibDecompress(corrupt)) == "Invalid compressed data: Adler-32 checksum"
-    @test errorMessage(() -> MEC.zlibDecompress(UInt8[0x78, 0x9c, 0x05])) == "Invalid compressed data: too short for a zlib stream"
-    @test MEC.adler32(UInt8[]) == 0x00000001
-    @test MEC.adler32(Vector{UInt8}(codeunits("Wikipedia"))) == 0x11e60398
+    @test errorMessage(() -> EMU.zlibDecompress(corrupt)) == "Invalid compressed data: Adler-32 checksum"
+    @test errorMessage(() -> EMU.zlibDecompress(UInt8[0x78, 0x9c, 0x05])) == "Invalid compressed data: too short for a zlib stream"
+    @test EMU.adler32(UInt8[]) == 0x00000001
+    @test EMU.adler32(Vector{UInt8}(codeunits("Wikipedia"))) == 0x11e60398
   end
 
   @testset "evaluated when a model is flattened" begin

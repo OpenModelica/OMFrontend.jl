@@ -79,7 +79,7 @@ end
   include("modifierMergeTests.jl")
   include("flatModelicaFunctionTests.jl")
   include("lapackEvalTests.jl")
-  include("modelicaExternalCTests.jl")
+  include("externalModelicaUtilTests.jl")
 
   # GUI_API tests are gated behind the OMFRONTEND_TEST_GUI_API env var while
   # an outstanding compileModel/isfile mismatch is being investigated. Set

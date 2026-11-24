@@ -1233,19 +1233,19 @@ function evaluateKnownExternal(name::String, args::List{<:Expression})::Expressi
   @match (name, args) begin
     ("ModelicaInternal_countLines", STRING_EXPRESSION(s1) <| nil()) =>
       begin
-        INTEGER_EXPRESSION(ModelicaExternalC.Streams_countLines(s1))
+        INTEGER_EXPRESSION(ExternalModelicaUtil.Streams_countLines(s1))
       end
 
     ("ModelicaInternal_fullPathName", STRING_EXPRESSION(s1) <| nil()) =>
       begin
-        STRING_EXPRESSION(ModelicaExternalC.File_fullPathName(s1))
+        STRING_EXPRESSION(ExternalModelicaUtil.File_fullPathName(s1))
       end
 
     (
       "ModelicaInternal_print",
       STRING_EXPRESSION(s1) <| STRING_EXPRESSION(s2) <| nil(),
     ) => begin
-      ModelicaExternalC.Streams_print(s1, s2)
+      ExternalModelicaUtil.Streams_print(s1, s2)
       INTEGER_EXPRESSION(0)
     end
 
@@ -1253,7 +1253,7 @@ function evaluateKnownExternal(name::String, args::List{<:Expression})::Expressi
       "ModelicaInternal_readLine",
       STRING_EXPRESSION(s1) <| INTEGER_EXPRESSION(i) <| nil(),
     ) => begin
-       (s1, b) = ModelicaExternalC.Streams_readLine(s1, i)
+       (s1, b) = ExternalModelicaUtil.Streams_readLine(s1, i)
       TUPLE_EXPRESSION(
         TYPE_TUPLE(list(TYPE_STRING(), TYPE_BOOLEAN()), NONE()),
         list(STRING_EXPRESSION(s1), BOOLEAN_EXPRESSION(b)),
@@ -1261,12 +1261,12 @@ function evaluateKnownExternal(name::String, args::List{<:Expression})::Expressi
     end
 
     ("ModelicaInternal_stat", STRING_EXPRESSION(s1) <| nil()) => begin
-      i = ModelicaExternalC.File_stat(s1)
+      i = ExternalModelicaUtil.File_stat(s1)
       listGet(FILE_TYPE_LITERALS, i)
     end
 
     ("ModelicaStreams_closeFile", STRING_EXPRESSION(s1) <| nil()) => begin
-      ModelicaExternalC.Streams_close(s1)
+      ExternalModelicaUtil.Streams_close(s1)
       INTEGER_EXPRESSION(0)
     end
 
@@ -1275,7 +1275,7 @@ function evaluateKnownExternal(name::String, args::List{<:Expression})::Expressi
       STRING_EXPRESSION(s1) <|
       STRING_EXPRESSION(s2) <| BOOLEAN_EXPRESSION(b) <| nil(),
     ) => begin
-      i = ModelicaExternalC.Strings_compare(s1, s2, b)
+      i = ExternalModelicaUtil.Strings_compare(s1, s2, b)
       listGet(COMPARE_LITERALS, i)
     end
 
@@ -1286,7 +1286,7 @@ function evaluateKnownExternal(name::String, args::List{<:Expression})::Expressi
       STRING_EXPRESSION(s1) <|
       INTEGER_EXPRESSION(i) <| BOOLEAN_EXPRESSION(b) <| nil(),
     ) => begin
-       (i, r) = ModelicaExternalC.Strings_scanReal(s1, i, b)
+       (i, r) = ExternalModelicaUtil.Strings_scanReal(s1, i, b)
       TUPLE_EXPRESSION(
         TYPE_TUPLE(list(TYPE_INTEGER(), TYPE_REAL()), NONE()),
         list(INTEGER_EXPRESSION(i), REAL_EXPRESSION(r)),
@@ -1298,7 +1298,7 @@ function evaluateKnownExternal(name::String, args::List{<:Expression})::Expressi
       STRING_EXPRESSION(s1) <|
       INTEGER_EXPRESSION(i) <| BOOLEAN_EXPRESSION(b) <| nil(),
     ) => begin
-       (i, i2) = ModelicaExternalC.Strings_scanInteger(s1, i, b)
+       (i, i2) = ExternalModelicaUtil.Strings_scanInteger(s1, i, b)
       TUPLE_EXPRESSION(
         TYPE_TUPLE(list(TYPE_INTEGER(), TYPE_INTEGER()), NONE()),
         list(INTEGER_EXPRESSION(i), INTEGER_EXPRESSION(i2)),
@@ -1309,7 +1309,7 @@ function evaluateKnownExternal(name::String, args::List{<:Expression})::Expressi
       "ModelicaStrings_scanString",
       STRING_EXPRESSION(s1) <| INTEGER_EXPRESSION(i) <| nil(),
     ) => begin
-       (i, s2) = ModelicaExternalC.Strings_scanString(s1, i)
+       (i, s2) = ExternalModelicaUtil.Strings_scanString(s1, i)
       TUPLE_EXPRESSION(
         TYPE_TUPLE(list(TYPE_INTEGER(), TYPE_STRING()), NONE()),
         list(INTEGER_EXPRESSION(i), STRING_EXPRESSION(s2)),
@@ -1320,7 +1320,7 @@ function evaluateKnownExternal(name::String, args::List{<:Expression})::Expressi
       "ModelicaStrings_scanIdentifier",
       STRING_EXPRESSION(s1) <| INTEGER_EXPRESSION(i) <| nil(),
     ) => begin
-       (i, s2) = ModelicaExternalC.Strings_scanIdentifier(s1, i)
+       (i, s2) = ExternalModelicaUtil.Strings_scanIdentifier(s1, i)
       TUPLE_EXPRESSION(
         TYPE_TUPLE(list(TYPE_INTEGER(), TYPE_STRING()), NONE()),
         list(INTEGER_EXPRESSION(i), STRING_EXPRESSION(s2)),
@@ -1330,7 +1330,7 @@ function evaluateKnownExternal(name::String, args::List{<:Expression})::Expressi
     (
       "ModelicaStrings_skipWhiteSpace",
       STRING_EXPRESSION(s1) <| INTEGER_EXPRESSION(i) <| nil(),
-    ) => INTEGER_EXPRESSION(ModelicaExternalC.Strings_skipWhiteSpace(s1, i))
+    ) => INTEGER_EXPRESSION(ExternalModelicaUtil.Strings_skipWhiteSpace(s1, i))
 
     (
       "ModelicaStrings_substring",
@@ -1339,7 +1339,7 @@ function evaluateKnownExternal(name::String, args::List{<:Expression})::Expressi
     ) => STRING_EXPRESSION(System.substring(s1, i, i2))
 
     ("ModelicaStrings_hashString", STRING_EXPRESSION(s1) <| nil()) => begin
-      INTEGER_EXPRESSION(ModelicaExternalC.Strings_hashString(s1))
+      INTEGER_EXPRESSION(ExternalModelicaUtil.Strings_hashString(s1))
     end
 
     ("OpenModelica_regex", _) => evaluateOpenModelicaRegex(args)
@@ -1348,7 +1348,7 @@ function evaluateKnownExternal(name::String, args::List{<:Expression})::Expressi
       "ModelicaIO_readMatrixSizes",
       STRING_EXPRESSION(s1) <| STRING_EXPRESSION(s2) <| nil(),
     ) => begin
-      dims = ModelicaExternalC.ModelicaIO_readMatrixSizes(s1, s2)
+      dims = ExternalModelicaUtil.ModelicaIO_readMatrixSizes(s1, s2)
       ARRAY_EXPRESSION(
         TYPE_ARRAY(TYPE_INTEGER(), list(fromInteger(2))),
         Expression[
@@ -1424,7 +1424,7 @@ function evaluateModelicaIO_readRealMatrix(
   local matrix::Matrix{Float64}
   local ty::ModelicaType
 
-  matrix = ModelicaExternalC.ModelicaIO_readRealMatrix(
+  matrix = ExternalModelicaUtil.ModelicaIO_readRealMatrix(
     fileName,
     matrixName,
     nrow,

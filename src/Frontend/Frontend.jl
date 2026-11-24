@@ -195,7 +195,7 @@ include("Builtin.jl")
 #import ..Builtin
 include("BindingExpression.jl")
 
-include("../Util/ModelicaExternalC.jl")
+include("../Util/ExternalModelicaUtil.jl")
 include("EvalFunction.jl")
 include("EvalFunctionExt.jl")
 

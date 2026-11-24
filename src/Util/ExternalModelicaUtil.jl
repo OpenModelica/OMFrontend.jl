@@ -36,14 +36,14 @@
 #= The external C functions of the Modelica Standard Library that the frontend evaluates when it
    flattens a model (ModelicaStrings.c, ModelicaInternal.c and ModelicaIO.c of MSL 4.1.0), in
    Julia: strings, files and MAT files, with their own zlib inflate. No C library is needed. =#
-module ModelicaExternalC
+module ExternalModelicaUtil
 
 using ExportAll
 
-include("ModelicaExternalC/strings.jl")
-include("ModelicaExternalC/files.jl")
-include("ModelicaExternalC/inflate.jl")
-include("ModelicaExternalC/matFile.jl")
+include("ExternalModelicaUtil/strings.jl")
+include("ExternalModelicaUtil/files.jl")
+include("ExternalModelicaUtil/inflate.jl")
+include("ExternalModelicaUtil/matFile.jl")
 
 @exportAll()
 end
