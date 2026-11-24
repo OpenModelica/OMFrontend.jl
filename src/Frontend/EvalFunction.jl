@@ -1432,13 +1432,13 @@ function evaluateModelicaIO_readRealMatrix(
     verboseRead,
   )
   ty = TYPE_ARRAY(TYPE_REAL(), list(fromInteger(ncol)))
-  local rowsV = Expression[]
-  for r = 1:nrow
-    local rowV = Expression[REAL_EXPRESSION(matrix[r, c]) for c in 1:ncol]
-    push!(rowsV, ARRAY_EXPRESSION(ty, rowV, literal = true))
+  local rowsV::Vector{Expression} = Expression[]
+  for r::Int in 1:nrow
+    local rowV::Vector{Expression} = Expression[REAL_EXPRESSION(matrix[r, c]) for c in 1:ncol]
+    push!(rowsV, ARRAY_EXPRESSION(ty, rowV, true))
   end
   ty = liftArrayLeft(ty, fromInteger(nrow))
-  result = ARRAY_EXPRESSION(ty, rowsV, literal = true)
+  result = ARRAY_EXPRESSION(ty, rowsV, true)
   return result
 end
 
