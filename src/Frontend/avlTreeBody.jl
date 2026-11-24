@@ -394,17 +394,17 @@ end
   This function modifies the vector inplace, it then returns the result.
 """
 function vectorValues!(tree::Tree, vec::Vector{T} = Value[]) where {T <: Value}
-  vec = @match tree begin
+  #= in order: the values ascending by key, as listValues =#
+  @match tree begin
     NODE(value = value) => begin
-      vectorValues!(tree.right, vec)
-      push!(vec, value)
       vectorValues!(tree.left, vec)
-      vec
+      push!(vec, value)
+      vectorValues!(tree.right, vec)
     end
     LEAF(value = value) => push!(vec, value)
     _ => vec
   end
-  return reverse!(vec)
+  return vec
 end
 
 """Joins two trees by adding the second one to the first."""
