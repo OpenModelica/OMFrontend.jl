@@ -24,6 +24,24 @@ correctly and produce verified flat Modelica output.
 Third-party libraries (such as the Modelica Buildings Library) can be
 installed via `installLibrary` and loaded via `loadInstalledLibrary`.
 
+## Installation
+
+```julia
+using Pkg
+Pkg.add("OMFrontend")
+```
+
+Versions from 4.0.0 on are registered in the General registry. The versions before 4.0.0 are only in the
+[OpenModelicaRegistry](https://github.com/OpenModelica/OpenModelicaRegistry). If `Pkg.add` does not find the
+package, or you need a version before 4.0.0, add that registry once and install again:
+
+```julia
+using Pkg
+Pkg.Registry.add("General")
+Pkg.Registry.add(Pkg.RegistrySpec(url = "https://github.com/OpenModelica/OpenModelicaRegistry.git"))
+Pkg.add("OMFrontend")
+```
+
 ## Release Status
 
 This package is the primary frontend used by OM.jl for Modelica flattening.
