@@ -70,7 +70,7 @@ jobs:
       - name: Checkout sibling OM*.jl packages
         uses: JKRT/OM.jl/.github/actions/checkout-siblings@master
         with:
-          packages: ImmutableList MetaModelica OpenModelicaParser OMRuntimeExternalC
+          packages: ImmutableList MetaModelica OpenModelicaParser
 
       - name: Setup Julia ${{ inputs.julia-version }}-${{ matrix.arch }}
         uses: julia-actions/setup-julia@v2
@@ -94,7 +94,6 @@ jobs:
               "../ImmutableList.jl",
               "../MetaModelica.jl",
               "../OpenModelicaParser.jl",
-              "../OMRuntimeExternalC.jl",
             ]
             Pkg.develop([Pkg.PackageSpec(path = p) for p in siblings])
             Pkg.build(; verbose = true)
