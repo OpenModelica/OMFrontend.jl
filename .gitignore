@@ -10,3 +10,4 @@ deps/build.log
 #*#
 *.gz
 Manifest.toml
+.jjmcp/
