@@ -44,7 +44,7 @@
    No external argument-parsing dependency is used. The hand-rolled scanner
    in `_parseOpts` keeps the closure of OMFrontend's deps unchanged.
 
-   All terminal output goes through ccall(:write, fd, ...) helpers rather
+   All terminal output goes through ccall(:write, fd, ...) (Windows: :_write) helpers rather
    than print/println(stderr, ...). Julia's Base.stderr / Base.stdout are
    typed as the abstract IO supertype, which juliac --trim=safe cannot
    resolve to a concrete dispatch. The fd writes are type-stable, work
@@ -58,8 +58,12 @@ const _STDOUT_FD = Cint(1)
 const _STDERR_FD = Cint(2)
 
 @inline function _writeFD(fd::Cint, msg::String)::Nothing
-    ccall(:write, Cssize_t, (Cint, Ptr{UInt8}, Csize_t),
-          fd, msg, sizeof(msg))
+    #= the C runtime of Windows has _write, not write =#
+    @static if Sys.iswindows()
+        ccall(:_write, Cint, (Cint, Ptr{UInt8}, Cuint), fd, msg, sizeof(msg))
+    else
+        ccall(:write, Cssize_t, (Cint, Ptr{UInt8}, Csize_t), fd, msg, sizeof(msg))
+    end
     return nothing
 end
 

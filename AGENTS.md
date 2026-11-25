@@ -4,7 +4,7 @@ Entry point for AI agents working in this repository. Read this fully before edi
 
 ## What This Package Is
 
-OMFrontend.jl is an experimental Julia port of the OpenModelica New Frontend (NF). It parses Modelica source, lowers it to SCode, then instantiates the SCode into a flat model (`FLAT_MODEL`, printable as FlatModelica). It is the parsing/typing/flattening stage of the OM.jl compiler stack and is consumed by OMBackend.jl downstream.
+OMFrontend.jl is a Julia port of the OpenModelica New Frontend (NF). It parses Modelica source, lowers it to SCode, then instantiates the SCode into a flat model (`FLAT_MODEL`, printable as FlatModelica). It is the parsing/typing/flattening stage of the OM.jl compiler stack and is consumed by OMBackend.jl downstream.
 
 The package is intentionally low-level. End users typically invoke it through OM.jl. Within OM.jl, OMFrontend output is the input to BDAE and SimCode lowering, so changes here have direct effects on backend behaviour even though backend code is not part of this repository.
 
@@ -145,7 +145,7 @@ Test entry: `test/runtests.jl`. The file `cd`s into `test/` so relative paths to
 Test groups (top-level `@testset`s in `runtests.jl`):
 - `scodeSanityTest.jl` — Absyn to SCode.
 - `flattenSanityTests.jl` — SCode to FlatModel.
-- `gui_api_tests.jl` — gated behind `OMFRONTEND_TEST_GUI_API=1` because of an outstanding `compileModel`/`isfile` mismatch.
+- `gui_api_tests.jl` — GUI_API editing: diagram, placement and connection patches, save, execution delegates.
 - `frontendResultTest.jl` — flat model string match against expected output.
 - `mslTests.jl` — exercise components from the Modelica Standard Library.
 - `useOfMSLTests.jl` — user models that import MSL components.

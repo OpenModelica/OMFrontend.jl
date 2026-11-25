@@ -57,14 +57,15 @@ const GUI_API = OMFrontend.GUI_API
     @test reloadedDiagram.nodes[1].rotation == 90.0
     @test length(reloadedDiagram.connections) == 1
 
-    compileCalls = Tuple{String, String}[]
+    #= the delegates get a temporary copy of the source, removed when they return: check it while they run =#
+    compileCalls = Tuple{String, Bool}[]
     GUI_API.setExecutionDelegates!(
       compileModel = (classPath, modelFile; kwargs...) -> begin
-        push!(compileCalls, (classPath, modelFile))
+        push!(compileCalls, (classPath, isfile(modelFile) && read(modelFile, String) == session.sourceText))
         return :compiled
       end,
       exportFlatModelica = (classPath, modelFile; kwargs...) -> begin
-        push!(compileCalls, (classPath, modelFile))
+        push!(compileCalls, (classPath, isfile(modelFile) && read(modelFile, String) == session.sourceText))
         return "flat-modelica"
       end,
     )
@@ -73,6 +74,6 @@ const GUI_API = OMFrontend.GUI_API
     @test GUI_API.exportFlatModelica(session, "GUIAPIEditing.Example") == "flat-modelica"
     @test length(compileCalls) == 2
     @test all(call -> call[1] == "GUIAPIEditing.Example", compileCalls)
-    @test all(call -> isfile(call[2]), compileCalls)
+    @test all(call -> call[2], compileCalls)
   end
 end

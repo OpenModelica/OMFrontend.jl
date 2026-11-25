@@ -33,8 +33,14 @@ step 2 without translating them.
 
 ## Installation
 
-OMFrontend lives in the `OpenModelicaRegistry`. Add the registry once, then
-install the package:
+```julia
+using Pkg
+Pkg.add("OMFrontend")
+```
+
+Versions from 4.0.0 on are registered in the General registry. The versions before 4.0.0 are only in the
+`OpenModelicaRegistry`. If `Pkg.add` does not find the package, or you need a version before 4.0.0, add that registry
+once and install again:
 
 ```julia
 using Pkg

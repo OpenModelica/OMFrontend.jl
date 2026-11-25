@@ -143,24 +143,12 @@ end
   Prints the tree to a string using UTF-8 box-drawing characters to construct a
   graphical view of the tree.
 """
-function printTreeStr(inTree::Tree)
-  local outString::String
-  local left::Tree
-  local right::Tree
-  outString = begin
-    @match inTree begin
-      EMPTY(__) => "EMPTY()"
-      LEAF(__) => printNodeStr(inTree)
-      NODE(left = left, right = right) => begin
-        printTreeStr2(left, true, "") +
-        printNodeStr(inTree) +
-        "
-        " +
-        printTreeStr2(right, false, "")
-      end
-    end
+function printTreeStr(inTree::Tree)::String
+  return @match inTree begin
+    EMPTY(__) => "EMPTY()"
+    LEAF(__) => printNodeStr(inTree)
+    NODE(__) => printTreeStr2(inTree.left, true, "") * printNodeStr(inTree) * "\n" * printTreeStr2(inTree.right, false, "")
   end
-  return outString
 end
 
 function referenceEqOrEmpty(t1::Tree, t2::Tree)
@@ -292,43 +280,12 @@ function rotateRight(inNode::Tree)::Tree
 end
 
 """Helper function to printTreeStr."""
-function printTreeStr2(inTree::Tree, isLeft::Bool, inIndent::String)
-  local outString::String
-  outString = begin
-    @match inTree begin
-      NODE(__) => begin
-        printTreeStr2(inTree.left, true, inIndent * (
-          if isLeft
-            "     "
-          else
-            " │   "
-          end
-        )) *
-        inIndent *
-        (
-          if isLeft
-            " ┌"
-          else
-            " └"
-          end
-        ) *
-        "────" *
-        printNodeStr(inTree) *
-        "
-        " *
-        printTreeStr2(inTree.right, false, inIndent * (
-          if isLeft
-            " │   "
-          else
-            "     "
-          end
-        ))
-      end
-
-      _ => ""
-    end
-  end
-  return outString
+function printTreeStr2(inTree::Tree, isLeft::Bool, inIndent::String)::String
+  inTree isa EMPTY && return ""
+  local line::String = inIndent * (isLeft ? " ┌" : " └") * "────" * printNodeStr(inTree) * "\n"
+  inTree isa LEAF && return line
+  return printTreeStr2(inTree.left, true, inIndent * (isLeft ? "     " : " │   ")) * line *
+         printTreeStr2(inTree.right, false, inIndent * (isLeft ? " │   " : "     "))
 end
 
 
@@ -608,19 +565,15 @@ function toVector!(
   inTree::Tree,
   vec::Vector{Tuple{Key, Value}} = Tuple{Key, Value}[],
   )#::List{Tuple{Key, Value}}
-  vec = begin
-    local key::Key
-    local value::Value
-    @match inTree begin
-      NODE(key = key, value = value) => begin
-        toVector(inTree.right, vec)
-        vec = push!(vec, (key, value))
-        toVector(inTree.left, vec)
-        vec
-      end
-      LEAF(key = key, value = value) => push!((vec, (key, value)))
-      _ => vec
+  #= in order: the pairs ascending by key, as toList =#
+  @match inTree begin
+    NODE(__) => begin
+      toVector!(inTree.left, vec)
+      push!(vec, (inTree.key, inTree.value))
+      toVector!(inTree.right, vec)
     end
+    LEAF(__) => push!(vec, (inTree.key, inTree.value))
+    _ => vec
   end
   return vec
 end
@@ -648,17 +601,17 @@ end
   This function modifies the vector inplace, it then returns the result.
 """
 function vectorValues!(tree::Tree, vec::Vector{T} = Value[]) where {T <: Value}
-  vec = @match tree begin
+  #= in order: the values ascending by key, as listValues =#
+  @match tree begin
     NODE(value = value) => begin
-      vectorValues!(tree.right, vec)
-      push!(vec, value)
       vectorValues!(tree.left, vec)
-      vec
+      push!(vec, value)
+      vectorValues!(tree.right, vec)
     end
     LEAF(value = value) => push!(vec, value)
     _ => vec
   end
-  return reverse!(vec)
+  return vec
 end
 
 

@@ -1,13 +1,14 @@
 name: Release
 
-# A version bump of Project.toml merged to master: tag it vX.Y.Z with a GitHub
-# release, and start the OpenModelica registry's auto-update so it registers the
-# version now (its daily run at 23:00 UTC registers it otherwise). Runs only when
-# Project.toml changes, and does nothing unless its version changed.
+# A version bump of Project.toml merged to master: start the OpenModelica registry's
+# auto-update so it registers the version now (its daily run at 23:00 UTC registers it
+# otherwise). Runs only when Project.toml changes, and does nothing unless its version
+# changed. It does not tag: TagBot (TagBot.yml) tags vX.Y.Z and makes the GitHub release
+# after the General registration is merged, as General asks, and dispatches the docs.
 #
 # Starting the registry's workflow needs the REGISTRY_DISPATCH_TOKEN secret: a
 # fine-grained token with Actions: write on OpenModelica/OpenModelicaRegistry.
-# Without it the job tags and releases, and leaves the registration to the daily run.
+# Without it the daily run registers the version.
 
 on:
   push:
@@ -17,8 +18,7 @@ on:
       - Project.toml
 
 permissions:
-  contents: write
-  actions: write  # dispatch Documenter.yml for the new tag
+  contents: read
 
 concurrency:
   group: release
@@ -39,33 +39,13 @@ jobs:
           new=$(sed -n 's/^version = "\(.*\)"/\1/p' Project.toml | head -1)
           old=$(git show HEAD^:Project.toml 2>/dev/null | sed -n 's/^version = "\(.*\)"/\1/p' | head -1)
           echo "new=$new" >> "$GITHUB_OUTPUT"
-          if [ -n "$new" ] && [ "$new" != "$old" ] && ! git ls-remote --exit-code --tags origin "refs/tags/v$new" > /dev/null; then
+          if [ -n "$new" ] && [ "$new" != "$old" ]; then
             echo "release=true" >> "$GITHUB_OUTPUT"
             echo "Version $old -> $new"
           else
             echo "release=false" >> "$GITHUB_OUTPUT"
-            echo "No new version (Project.toml $new, before $old, or v$new is tagged already)"
+            echo "No new version (Project.toml $new, before $old)"
           fi
-
-      - name: Tag and GitHub release
-        if: steps.version.outputs.release == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.new }}
-        run: |
-          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" \
-            --notes "$(git log -1 --format=%s "$GITHUB_SHA")"
-
-      # Versioned docs. A tag created with the workflow's token starts no other workflow
-      # (GitHub's rule against recursive runs), so Documenter.yml's tag trigger never fires for these
-      # releases. A workflow_dispatch is exempt from that rule: build the docs at the new tag, and
-      # Documenter deploys vX.Y.Z and `stable`.
-      - name: Versioned docs
-        if: steps.version.outputs.release == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.new }}
-        run: gh workflow run Documenter.yml --repo "$GITHUB_REPOSITORY" --ref "v$VERSION"
 
       - name: Registry auto-update
         if: steps.version.outputs.release == 'true'

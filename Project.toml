@@ -1,7 +1,7 @@
 name = "OMFrontend"
 uuid = "b10394b5-f439-4073-a0c5-e09cb00cf46c"
 authors = ["John Tinnerholm <johti17@liu.se>", "Martin Sjölund <martin.sjolund@liu.se>", "Adrian Pop <adrian.pop@liu.se>"]
-version = "3.1.1"
+version = "4.0.0"
 
 [deps]
 ConstructionBase = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
@@ -14,7 +14,6 @@ OpenModelicaParser = "93103b3a-abeb-4d26-8089-9ec101bd0c3c"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
-OMRuntimeExternalC="ada38df0-e20e-11ed-02f3-2b4b19c1ec8a"
 
 [compat]
 julia = "1.13"
@@ -25,7 +24,6 @@ ImmutableList = "0.6"
 ExportAll = "0.1"
 JSON = "1"
 PrecompileTools = "1"
-OMRuntimeExternalC = "1"
 
 [extras]
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
