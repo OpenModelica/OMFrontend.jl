@@ -150,7 +150,8 @@ errorMessage(f::Function)::String = try f(); "" catch e; sprint(showerror, e) en
     @test EMU.File_stat(dir) == 3
     @test EMU.File_stat(joinpath(dir, "none")) == 1
     Sys.isunix() && @test EMU.File_stat("/dev/null") == 4
-    @test EMU.File_fullPathName(file) == realpath(file)
+    #= Windows: as MSL's _fullpath, the absolute name (short names kept) with / as separator =#
+    @test EMU.File_fullPathName(file) == (Sys.iswindows() ? replace(abspath(file), '\\' => '/') : realpath(file))
     if !Sys.iswindows()
       @test EMU.File_fullPathName(dir * "/") == realpath(dir) * "/"
       @test EMU.File_fullPathName("/none/x") == "/none/x"
